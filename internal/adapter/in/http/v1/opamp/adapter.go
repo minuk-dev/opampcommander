@@ -26,6 +26,9 @@ func (e *UnexpectedMessageTypeError) Error() string {
 }
 
 type connectionAdapter struct {
+	// state
+	readyConn chan struct{}
+
 	// domain
 	conn *model.Connection
 
@@ -35,8 +38,9 @@ type connectionAdapter struct {
 
 func newConnectionAdapter(logger *slog.Logger) *connectionAdapter {
 	adapter := &connectionAdapter{
-		conn:   nil,
-		logger: logger,
+		readyConn: make(chan struct{}),
+		conn:      nil,
+		logger:    logger,
 	}
 
 	return adapter
@@ -64,7 +68,43 @@ func (w *connectionAdapter) Run(ctx context.Context, wsConn *websocket.Conn) err
 			}
 		}
 	}
-	// unreachable
+}
+
+func (w *connectionAdapter) init(ctx context.Context, wsConn *websocket.Conn) (<-chan *protobufs.AgentToServer, error) {
+	request, err := receive(ctx, wsConn)
+	if err != nil {
+		return nil, fmt.Errorf("cannot receive a message: %w", err)
+	}
+
+	instanceUID, err := uuid.ParseBytes(request.GetInstanceUid())
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse instance UUID: %w", err)
+	}
+
+	w.conn = model.NewConnection(instanceUID)
+
+	err = w.conn.HandleAgentToServer(ctx, request)
+	if err != nil {
+		w.logger.Warn("cannot handle agentToServer message", "error", err.Error())
+	}
+
+	agentToServerChan := make(chan *protobufs.AgentToServer)
+
+	go func(ctx context.Context) {
+		defer close(agentToServerChan)
+
+		for {
+			agentToServer, err := receive(ctx, wsConn)
+			if err != nil {
+				w.logger.Warn("cannot receive a message", "error", err.Error())
+
+				return
+			}
+			agentToServerChan <- agentToServer
+		}
+	}(ctx)
+
+	return agentToServerChan, nil
 }
 
 func receive(_ context.Context, wsConn *websocket.Conn) (*protobufs.AgentToServer, error) {
@@ -99,42 +139,6 @@ func send(_ context.Context, wsConn *websocket.Conn, message *protobufs.ServerTo
 	}
 
 	return nil
-}
-
-func (w *connectionAdapter) init(ctx context.Context, wsConn *websocket.Conn) (<-chan *protobufs.AgentToServer, error) {
-	request, err := receive(ctx, wsConn)
-	if err != nil {
-		return nil, fmt.Errorf("cannot receive a message: %w", err)
-	}
-
-	instanceUID, err := uuid.ParseBytes(request.GetInstanceUid())
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse instance UUID: %w", err)
-	}
-
-	w.conn = model.NewConnection(instanceUID)
-	err = w.conn.HandleAgentToServer(ctx, request)
-	if err != nil {
-		w.logger.Warn("cannot handle agentToServer message", "error", err.Error())
-	}
-
-	agentToServerChan := make(chan *protobufs.AgentToServer)
-
-	go func(ctx context.Context) {
-		defer close(agentToServerChan)
-
-		for {
-			agentToServer, err := receive(ctx, wsConn)
-			if err != nil {
-				w.logger.Warn("cannot receive a message", "error", err.Error())
-
-				return
-			}
-			agentToServerChan <- agentToServer
-		}
-	}(ctx)
-
-	return agentToServerChan, nil
 }
 
 // Message header is currently uint64 zero value.

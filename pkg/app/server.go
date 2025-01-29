@@ -8,16 +8,31 @@ import (
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
 
+	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/ping"
+	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
+	"github.com/minuk-dev/minuk-apiserver/internal/domain/service"
 )
 
-var ErrAdapterInitFailed = errors.New("adapter init failed")
+var (
+	ErrAdapterInitFailed = errors.New("adapter init failed")
+	ErrDomainInitFailed  = errors.New("domain init failed")
+)
 
 type ServerSettings struct{}
 
 type Server struct {
 	logger *slog.Logger
 	Engine *gin.Engine
+
+	// domains
+	connectionUsecase port.ConnectionUsecase
+
+	// applications
+
+	// adapters
+	pingController  *ping.Controller
+	opampController *opamp.Controller
 }
 
 func NewServer(_ ServerSettings) *Server {
@@ -30,6 +45,10 @@ func NewServer(_ ServerSettings) *Server {
 	server := &Server{
 		logger: logger,
 		Engine: engine,
+
+		connectionUsecase: nil,
+		pingController:    nil,
+		opampController:   nil,
 	}
 
 	err := server.initDomains()
@@ -66,6 +85,11 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) initDomains() error {
+	s.connectionUsecase = service.NewConnectionManager()
+	if s.connectionUsecase == nil {
+		return ErrDomainInitFailed
+	}
+
 	return nil
 }
 
@@ -74,12 +98,20 @@ func (s *Server) initApplications() error {
 }
 
 func (s *Server) initAdapters() error {
-	pingController := ping.NewController()
-	if pingController == nil {
+	s.pingController = ping.NewController()
+	if s.pingController == nil {
 		return ErrAdapterInitFailed
 	}
 
-	s.Engine.GET(pingController.Path(), pingController.Handle)
+	s.opampController = opamp.NewController(
+		opamp.WithConnectionUsecase(s.connectionUsecase),
+	)
+	if s.opampController == nil {
+		return ErrAdapterInitFailed
+	}
+
+	s.Engine.GET(s.pingController.Path(), s.pingController.Handle)
+	s.Engine.GET(s.opampController.Path(), s.opampController.Handle)
 
 	return nil
 }
