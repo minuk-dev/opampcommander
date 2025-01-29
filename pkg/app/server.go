@@ -1,20 +1,30 @@
 package app
 
 import (
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
+	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/ping"
+	sloggin "github.com/samber/slog-gin"
 )
 
 type ServerSettings struct {
 }
 
 type Server struct {
-	// logger *slog.Logger
+	logger *slog.Logger
 	Engine *gin.Engine
 }
 
 func NewServer(settings ServerSettings) *Server {
-	engine := gin.Default()
+	logger := slog.Default()
+	engine := gin.New()
+
+	engine.Use(sloggin.New(logger))
+	engine.Use(gin.Recovery())
+
 	server := &Server{
+		logger: logger,
 		Engine: engine,
 	}
 
@@ -52,5 +62,7 @@ func (s *Server) initApplications() error {
 }
 
 func (s *Server) initAdapters() error {
+	pingController := ping.NewController()
+	s.Engine.GET(pingController.Path(), pingController.Handle)
 	return nil
 }

@@ -2,7 +2,7 @@ lint:
 	golangci-lint run
 
 dev:
-	goreleaser build --snapshot --clean
+	GOOS="darwin" GOARCH="arm64" goreleaser build --snapshot --clean --single-target
 
 build:
 	goreleaser build
