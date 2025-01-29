@@ -109,10 +109,11 @@ func (c *Controller) handleWSRequest(ctx *gin.Context) {
 }
 
 func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Conn) {
-	wsConn := newWSConnection(conn, c.logger)
-	defer wsConn.Close()
+	defer conn.Close()
 
-	err := wsConn.Run(ctx)
+	wsConn := newConnectionAdapter(c.logger)
+
+	err := wsConn.Run(ctx, conn)
 	if err != nil {
 		c.logger.Warn("Cannot run WebSocket connection", "error", err.Error())
 	}

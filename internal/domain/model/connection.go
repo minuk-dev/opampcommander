@@ -21,8 +21,8 @@ func NewConnection(id uuid.UUID) *Connection {
 	}
 }
 
-func (conn *Connection) Watch() *protobufs.ServerToAgent {
-	return <-conn.serverToAgentChan
+func (conn *Connection) Watch() <-chan *protobufs.ServerToAgent {
+	return conn.serverToAgentChan
 }
 
 func (conn *Connection) SendServerToAgent(ctx context.Context, serverToAgent *protobufs.ServerToAgent) error {
@@ -32,6 +32,10 @@ func (conn *Connection) SendServerToAgent(ctx context.Context, serverToAgent *pr
 	case <-ctx.Done():
 		return fmt.Errorf("cannot send a message to the channel: %w", ctx.Err())
 	}
+}
+
+func (conn *Connection) HandleAgentToServer(_ context.Context, _ *protobufs.AgentToServer) error {
+	return nil
 }
 
 func (conn *Connection) Close() {
