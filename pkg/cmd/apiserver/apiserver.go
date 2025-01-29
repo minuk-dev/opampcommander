@@ -1,18 +1,19 @@
 package apiserver
 
 import (
-	"github.com/minuk-dev/minuk-apiserver/pkg/app"
 	"github.com/spf13/cobra"
+
+	"github.com/minuk-dev/minuk-apiserver/pkg/app"
 )
 
-type APIServerCommandOption struct {
+type CommandOption struct {
 	// flags
 
 	// internal
 	app *app.Server
 }
 
-func NewAPIServerCommand(o APIServerCommandOption) *cobra.Command {
+func NewCommand(o CommandOption) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apiserver",
 		Short: "apiserver",
@@ -32,11 +33,12 @@ func NewAPIServerCommand(o APIServerCommandOption) *cobra.Command {
 	}
 }
 
-func (o *APIServerCommandOption) Prepare(cmd *cobra.Command, args []string) error {
+func (o *CommandOption) Prepare(_ *cobra.Command, args []string) error {
 	o.app = app.NewServer(app.ServerSettings{})
+
 	return nil
 }
 
-func (o *APIServerCommandOption) Run(cmd *cobra.Command, args []string) error {
+func (o *CommandOption) Run(_ *cobra.Command, args []string) error {
 	return o.app.Run()
 }

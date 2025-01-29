@@ -8,8 +8,9 @@ import (
 )
 
 func main() {
-	options := apiserver.APIServerCommandOption{}
-	cmd := apiserver.NewAPIServerCommand(options)
+	options := apiserver.CommandOption{}
+	cmd := apiserver.NewCommand(options)
+
 	err := cmd.Execute()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "apiserver not executed. err=%+v", err)

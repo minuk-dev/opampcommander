@@ -1,0 +1,24 @@
+linters:
+  enable-all: true
+  disable:
+    # The linter 'exportloopref' is deprecated (since v1.60.2) due to: Since Go1.22 (loopvar) this linter is no longer relevant. Replaced by copyloopvar.
+    - exportloopref
+
+linters-settings:
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/minuk-dev/minuk-apiserver)
+
+  depguard:
+    rules:
+      main:
+        allow:
+          - $gostd
+          - github.com/minuk-dev/minuk-apiserver
+          - github.com/gin-gonic/gin
+          - github.com/samber/slog-gin
+          - github.com/spf13/cobra
+          - github.com/gorilla/websocket
+          - github.com/open-telemetry/opamp-go/protobufs

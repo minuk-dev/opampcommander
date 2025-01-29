@@ -42,6 +42,7 @@ func (w *opampWSConnection) Run(ctx context.Context) error {
 		}
 
 		var request protobufs.AgentToServer
+
 		err = decodeMessage(msgBytes, &request)
 		if err != nil {
 			// todo:
@@ -79,7 +80,7 @@ func (w *opampWSConnection) Close() error {
 	return w.conn.Close()
 }
 
-func (w *opampWSConnection) Send(ctx context.Context, message *protobufs.ServerToAgent) error {
+func (w *opampWSConnection) Send(_ context.Context, message *protobufs.ServerToAgent) error {
 	w.connMutex.Lock()
 	defer w.connMutex.Unlock()
 
@@ -87,10 +88,12 @@ func (w *opampWSConnection) Send(ctx context.Context, message *protobufs.ServerT
 	if err != nil {
 		return err
 	}
+
 	err = w.conn.WriteMessage(websocket.BinaryMessage, bytes)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -118,5 +121,6 @@ func decodeMessage(bytes []byte, msg proto.Message) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

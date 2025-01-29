@@ -6,8 +6,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 )
 
-type opampHandler struct {
-}
+type opampHandler struct{}
 
 func newOpampHandler() *opampHandler {
 	return &opampHandler{}

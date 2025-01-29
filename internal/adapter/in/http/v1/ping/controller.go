@@ -14,14 +14,15 @@ type Controller struct {
 type Option func(*Controller)
 
 func NewController(options ...Option) *Controller {
-	c := &Controller{
+	controller := &Controller{
 		logger: slog.Default(),
 	}
 
 	for _, option := range options {
-		option(c)
+		option(controller)
 	}
-	return c
+
+	return controller
 }
 
 func (c *Controller) Path() string {

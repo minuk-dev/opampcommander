@@ -2,8 +2,8 @@ package opamp
 
 import (
 	"context"
-	"net/http"
 	"log/slog"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	headerContentType = "Content-Type"
+	headerContentType   = "Content-Type"
 	contentTypeProtobuf = "application/x-protobuf"
 )
 
@@ -23,7 +23,7 @@ type Controller struct {
 type Option func(*Controller)
 
 func NewController(options ...Option) *Controller {
-	c := &Controller{
+	controller := &Controller{
 		logger: slog.Default(),
 		wsUpgrader: websocket.Upgrader{
 			EnableCompression: false,
@@ -31,9 +31,10 @@ func NewController(options ...Option) *Controller {
 	}
 
 	for _, option := range options {
-		option(c)
+		option(controller)
 	}
-	return c
+
+	return controller
 }
 
 func (c *Controller) Path() string {
@@ -56,9 +57,11 @@ func (c *Controller) handleHTTPRequest(ctx *gin.Context) {
 
 func (c *Controller) handleWSRequest(ctx *gin.Context) {
 	w, req := ctx.Writer, ctx.Request
+
 	conn, err := c.wsUpgrader.Upgrade(w, req, nil)
 	if err != nil {
 		c.logger.Warn("Cannot upgrade HTTP connection to WebSocket", "error", err.Error())
+
 		return
 	}
 
@@ -78,7 +81,7 @@ func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Con
 func isHTTPRequest(req *http.Request) bool {
 	contentType := req.Header.Get(headerContentType)
 	contentType = strings.ToLower(contentType)
-	
+
 	return contentType == strings.ToLower(contentTypeProtobuf)
 }
 
