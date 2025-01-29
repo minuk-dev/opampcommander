@@ -1,6 +1,10 @@
 package opamp
 
-import "github.com/gorilla/websocket"
+import (
+	"github.com/gorilla/websocket"
+
+	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
+)
 
 func WithCompression(enable bool) Option {
 	return func(c *Controller) {
@@ -14,5 +18,11 @@ func WithCompression(enable bool) Option {
 			CheckOrigin:       nil,
 			EnableCompression: enable,
 		}
+	}
+}
+
+func WithConnectionUsecase(connectionUsecase port.ConnectionUsecase) Option {
+	return func(c *Controller) {
+		c.connectionUsecase = connectionUsecase
 	}
 }

@@ -2,11 +2,17 @@ package port
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/minuk-apiserver/internal/domain/model"
+)
+
+var (
+	ErrConnectionAlreadyExists = errors.New("connection already exists")
+	ErrConnectionNotFound      = errors.New("connection not found")
 )
 
 type OpAMPUsecase interface {
@@ -18,6 +24,8 @@ type OpAMPUsecase interface {
 }
 
 type ConnectionUsecase interface {
-	GetConnection(ctx context.Context, instanceUID uuid.UUID) (model.Connection, error)
-	StoreConnection(ctx context.Context, connection model.Connection) error
+	GetConnection(instanceUID uuid.UUID) (*model.Connection, error)
+	SetConnection(connection *model.Connection) error
+	DeleteConnection(instanceUID uuid.UUID) error
+	ListConnectionIDs() []uuid.UUID
 }

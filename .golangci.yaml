@@ -23,3 +23,4 @@ linters-settings:
           - github.com/gorilla/websocket
           - github.com/open-telemetry/opamp-go/protobufs
           - github.com/google/uuid
+          - github.com/puzpuzpuz/xsync/v3

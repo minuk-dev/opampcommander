@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+
+	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
 )
 
 const (
@@ -18,6 +20,17 @@ const (
 type Controller struct {
 	logger     *slog.Logger
 	wsUpgrader websocket.Upgrader
+
+	// usecases
+	connectionUsecase port.ConnectionUsecase
+}
+
+type UsecaseNotProvidedError struct {
+	Usecase string
+}
+
+func (e *UsecaseNotProvidedError) Error() string {
+	return "usecase not provided: " + e.Usecase
 }
 
 type Option func(*Controller)
@@ -35,10 +48,19 @@ func NewController(options ...Option) *Controller {
 			CheckOrigin:       nil,
 			EnableCompression: false,
 		},
+
+		connectionUsecase: nil,
 	}
 
 	for _, option := range options {
 		option(controller)
+	}
+
+	err := controller.Validate()
+	if err != nil {
+		controller.logger.Error("controller validation failed", "error", err.Error())
+
+		return nil
 	}
 
 	return controller
@@ -46,6 +68,16 @@ func NewController(options ...Option) *Controller {
 
 func (c *Controller) Path() string {
 	return "/v1/opamp"
+}
+
+func (c *Controller) Validate() error {
+	if c.connectionUsecase == nil {
+		return &UsecaseNotProvidedError{
+			Usecase: "connection",
+		}
+	}
+
+	return nil
 }
 
 func (c *Controller) Handle(ctx *gin.Context) {
