@@ -1,6 +1,8 @@
 package apiserver
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/minuk-dev/minuk-apiserver/pkg/app"
@@ -13,17 +15,18 @@ type CommandOption struct {
 	app *app.Server
 }
 
-func NewCommand(o CommandOption) *cobra.Command {
+func NewCommand(opt CommandOption) *cobra.Command {
+	//exhaustruct:ignore
 	return &cobra.Command{
 		Use:   "apiserver",
 		Short: "apiserver",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := o.Prepare(cmd, args)
+			err := opt.Prepare(cmd, args)
 			if err != nil {
 				return err
 			}
 
-			err = o.Run(cmd, args)
+			err = opt.Run(cmd, args)
 			if err != nil {
 				return err
 			}
@@ -33,12 +36,17 @@ func NewCommand(o CommandOption) *cobra.Command {
 	}
 }
 
-func (o *CommandOption) Prepare(_ *cobra.Command, args []string) error {
-	o.app = app.NewServer(app.ServerSettings{})
+func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
+	opt.app = app.NewServer(app.ServerSettings{})
 
 	return nil
 }
 
-func (o *CommandOption) Run(_ *cobra.Command, args []string) error {
-	return o.app.Run()
+func (opt *CommandOption) Run(_ *cobra.Command, _ []string) error {
+	err := opt.app.Run()
+	if err != nil {
+		return fmt.Errorf("apiserver run failed: %w", err)
+	}
+
+	return nil
 }

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/gin-gonic/gin"
@@ -8,6 +10,8 @@ import (
 
 	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/ping"
 )
+
+var ErrAdapterInitFailed = errors.New("adapter init failed")
 
 type ServerSettings struct{}
 
@@ -30,19 +34,22 @@ func NewServer(_ ServerSettings) *Server {
 
 	err := server.initDomains()
 	if err != nil {
-		// todo: log error
+		logger.Error("server init failed", "error", err.Error())
+
 		return nil
 	}
 
 	err = server.initApplications()
 	if err != nil {
-		// todo: log error
+		logger.Error("server init failed", "error", err.Error())
+
 		return nil
 	}
 
 	err = server.initAdapters()
 	if err != nil {
-		// todo: log error
+		logger.Error("server init failed", "error", err.Error())
+
 		return nil
 	}
 
@@ -50,7 +57,12 @@ func NewServer(_ ServerSettings) *Server {
 }
 
 func (s *Server) Run() error {
-	return s.Engine.Run()
+	err := s.Engine.Run()
+	if err != nil {
+		return fmt.Errorf("server run failed: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Server) initDomains() error {
@@ -63,6 +75,10 @@ func (s *Server) initApplications() error {
 
 func (s *Server) initAdapters() error {
 	pingController := ping.NewController()
+	if pingController == nil {
+		return ErrAdapterInitFailed
+	}
+
 	s.Engine.GET(pingController.Path(), pingController.Handle)
 
 	return nil

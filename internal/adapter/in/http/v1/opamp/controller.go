@@ -26,6 +26,13 @@ func NewController(options ...Option) *Controller {
 	controller := &Controller{
 		logger: slog.Default(),
 		wsUpgrader: websocket.Upgrader{
+			HandshakeTimeout:  0,
+			ReadBufferSize:    0,
+			WriteBufferSize:   0,
+			WriteBufferPool:   nil,
+			Subprotocols:      nil,
+			Error:             nil,
+			CheckOrigin:       nil,
 			EnableCompression: false,
 		},
 	}
@@ -42,17 +49,18 @@ func (c *Controller) Path() string {
 }
 
 func (c *Controller) Handle(ctx *gin.Context) {
-	if isHTTPRequest(ctx.Request) {
+	switch {
+	case isHTTPRequest(ctx.Request):
 		c.handleHTTPRequest(ctx)
-	} else if isWSRequest(ctx.Request) {
+	case isWSRequest(ctx.Request):
 		c.handleWSRequest(ctx)
-	} else {
+	default:
 		c.logger.Warn("cannot handle type")
 		ctx.Writer.WriteHeader(http.StatusBadRequest)
 	}
 }
 
-func (c *Controller) handleHTTPRequest(ctx *gin.Context) {
+func (c *Controller) handleHTTPRequest(_ *gin.Context) {
 }
 
 func (c *Controller) handleWSRequest(ctx *gin.Context) {
@@ -69,7 +77,7 @@ func (c *Controller) handleWSRequest(ctx *gin.Context) {
 }
 
 func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Conn) {
-	wsConn := newWSConnection(conn)
+	wsConn := newWSConnection(conn, c.logger)
 	defer wsConn.Close()
 
 	err := wsConn.Run(ctx)
