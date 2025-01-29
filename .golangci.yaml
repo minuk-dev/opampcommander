@@ -22,3 +22,4 @@ linters-settings:
           - github.com/spf13/cobra
           - github.com/gorilla/websocket
           - github.com/open-telemetry/opamp-go/protobufs
+          - github.com/google/uuid
