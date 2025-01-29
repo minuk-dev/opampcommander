@@ -4,35 +4,53 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type ServerSettings struct {
+}
+
 type Server struct {
+	// logger *slog.Logger
 	Engine *gin.Engine
 }
 
-func NewServer() *Server {
+func NewServer(settings ServerSettings) *Server {
 	engine := gin.Default()
 	server := &Server{
 		Engine: engine,
 	}
 
-	server.initDomains()
-	server.initApplications()
-	server.initAdapters()
+	err := server.initDomains()
+	if err != nil {
+		// todo: log error
+		return nil
+	}
+
+	err = server.initApplications()
+	if err != nil {
+		// todo: log error
+		return nil
+	}
+
+	err = server.initAdapters()
+	if err != nil {
+		// todo: log error
+		return nil
+	}
 
 	return server
 }
 
-func (a *Server) Run() error {
-	return a.Engine.Run()
+func (s *Server) Run() error {
+	return s.Engine.Run()
 }
 
-func (a *Server) initDomains() error {
+func (s *Server) initDomains() error {
 	return nil
 }
 
-func (a *Server) initApplications() error {
+func (s *Server) initApplications() error {
 	return nil
 }
 
-func (a *Server) initAdapters() error {
+func (s *Server) initAdapters() error {
 	return nil
 }

@@ -33,7 +33,7 @@ func NewAPIServerCommand(o APIServerCommandOption) *cobra.Command {
 }
 
 func (o *APIServerCommandOption) Prepare(cmd *cobra.Command, args []string) error {
-	o.app = app.NewServer()
+	o.app = app.NewServer(app.ServerSettings{})
 	return nil
 }
 

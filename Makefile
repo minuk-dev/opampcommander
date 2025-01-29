@@ -1,3 +1,5 @@
+lint:
+	golangci-lint run
 
 dev:
 	goreleaser build --snapshot --clean
