@@ -1,12 +1,16 @@
 package service
 
 import (
+	"errors"
+
 	"github.com/google/uuid"
 	"github.com/puzpuzpuz/xsync/v3"
 
 	"github.com/minuk-dev/minuk-apiserver/internal/domain/model"
 	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
 )
+
+var ErrNilArgument = errors.New("argument is nil")
 
 var _ port.ConnectionUsecase = (*ConnectionManager)(nil)
 
@@ -21,6 +25,10 @@ func NewConnectionManager() *ConnectionManager {
 }
 
 func (cm *ConnectionManager) SetConnection(connection *model.Connection) error {
+	if connection == nil {
+		return ErrNilArgument
+	}
+
 	connID := connection.ID.String()
 
 	_, ok := cm.connectionMap.Load(connID)

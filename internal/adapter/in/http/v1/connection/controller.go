@@ -2,8 +2,10 @@ package connection
 
 import (
 	"log/slog"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
 )
@@ -66,8 +68,26 @@ func (c *Controller) Validate() error {
 	return nil
 }
 
-func (c *Controller) List(*gin.Context) {
+func (c *Controller) List(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, c.connectionUsecase.ListConnectionIDs())
 }
 
-func (c *Controller) Get(*gin.Context) {
+func (c *Controller) Get(ctx *gin.Context) {
+	connectionID := ctx.GetString("id")
+
+	connectionUUID, err := uuid.Parse(connectionID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+
+		return
+	}
+
+	connection, err := c.connectionUsecase.GetConnection(connectionUUID)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, connection)
 }

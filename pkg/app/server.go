@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
 
+	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/ping"
 	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
@@ -31,8 +32,9 @@ type Server struct {
 	// applications
 
 	// adapters
-	pingController  *ping.Controller
-	opampController *opamp.Controller
+	pingController       *ping.Controller
+	opampController      *opamp.Controller
+	connectionController *connection.Controller
 }
 
 func NewServer(_ ServerSettings) *Server {
@@ -46,9 +48,10 @@ func NewServer(_ ServerSettings) *Server {
 		logger: logger,
 		Engine: engine,
 
-		connectionUsecase: nil,
-		pingController:    nil,
-		opampController:   nil,
+		connectionUsecase:    nil,
+		pingController:       nil,
+		opampController:      nil,
+		connectionController: nil,
 	}
 
 	err := server.initDomains()
@@ -114,9 +117,17 @@ func (s *Server) initAdapters() error {
 		return ErrAdapterInitFailed
 	}
 
+	s.connectionController = connection.NewController(
+		connection.WithConnectionUsecase(s.connectionUsecase),
+	)
+	if s.connectionController == nil {
+		return ErrAdapterInitFailed
+	}
+
 	controllers := []controller{
 		s.pingController,
 		s.opampController,
+		s.connectionController,
 	}
 
 	for _, controller := range controllers {
@@ -124,6 +135,10 @@ func (s *Server) initAdapters() error {
 		for _, routeInfo := range routesInfo {
 			s.Engine.Handle(routeInfo.Method, routeInfo.Path, routeInfo.HandlerFunc)
 		}
+	}
+
+	for _, routeInfo := range s.Engine.Routes() {
+		s.logger.Info("engine routes - ", "routeInfo", routeInfo)
 	}
 
 	return nil

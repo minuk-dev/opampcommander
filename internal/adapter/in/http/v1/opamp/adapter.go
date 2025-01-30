@@ -26,9 +26,6 @@ func (e *UnexpectedMessageTypeError) Error() string {
 }
 
 type connectionAdapter struct {
-	// state
-	readyConn chan struct{}
-
 	// domain
 	conn *model.Connection
 
@@ -38,19 +35,20 @@ type connectionAdapter struct {
 
 func newConnectionAdapter(logger *slog.Logger) *connectionAdapter {
 	adapter := &connectionAdapter{
-		readyConn: make(chan struct{}),
-		conn:      nil,
-		logger:    logger,
+		conn:   nil,
+		logger: logger,
 	}
 
 	return adapter
 }
 
-func (w *connectionAdapter) Run(ctx context.Context, wsConn *websocket.Conn) error {
+func (w *connectionAdapter) Run(ctx context.Context, wsConn *websocket.Conn, onReady func()) error {
 	agentToServerChan, err := w.init(ctx, wsConn)
 	if err != nil {
 		return fmt.Errorf("cannot initialize connection: %w", err)
 	}
+
+	onReady()
 
 	for {
 		select {

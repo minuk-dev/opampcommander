@@ -120,7 +120,23 @@ func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Con
 
 	wsConn := newConnectionAdapter(c.logger)
 
-	err := wsConn.Run(ctx, conn)
+	onReady := func() {
+		err := c.connectionUsecase.SetConnection(wsConn.conn)
+		if err != nil {
+			c.logger.Warn("set connection is failed", "connection", wsConn.conn)
+
+			return
+		}
+	}
+
+	defer func() {
+		err := c.connectionUsecase.DeleteConnection(wsConn.conn.ID)
+		if err != nil {
+			c.logger.Warn("handleWSConnection delete Connection", slog.String("error", err.Error()))
+		}
+	}()
+
+	err := wsConn.Run(ctx, conn, onReady)
 	if err != nil {
 		c.logger.Warn("Cannot run WebSocket connection", "error", err.Error())
 	}
