@@ -66,8 +66,15 @@ func NewController(options ...Option) *Controller {
 	return controller
 }
 
-func (c *Controller) Path() string {
-	return "/v1/opamp"
+func (c *Controller) RoutesInfo() gin.RoutesInfo {
+	return gin.RoutesInfo{
+		{
+			Method:      "GET",
+			Path:        "/v1/opamp",
+			Handler:     "opamp.v1.opamp.Handle",
+			HandlerFunc: c.Handle,
+		},
+	}
 }
 
 func (c *Controller) Validate() error {
@@ -105,7 +112,7 @@ func (c *Controller) handleWSRequest(ctx *gin.Context) {
 		return
 	}
 
-	go c.handleWSConnection(req.Context(), conn)
+	c.handleWSConnection(req.Context(), conn)
 }
 
 func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Conn) {

@@ -76,11 +76,7 @@ func (w *connectionAdapter) init(ctx context.Context, wsConn *websocket.Conn) (<
 		return nil, fmt.Errorf("cannot receive a message: %w", err)
 	}
 
-	instanceUID, err := uuid.ParseBytes(request.GetInstanceUid())
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse instance UUID: %w", err)
-	}
-
+	instanceUID := uuid.UUID(request.GetInstanceUid())
 	w.conn = model.NewConnection(instanceUID)
 
 	err = w.conn.HandleAgentToServer(ctx, request)

@@ -97,6 +97,10 @@ func (s *Server) initApplications() error {
 	return nil
 }
 
+type controller interface {
+	RoutesInfo() gin.RoutesInfo
+}
+
 func (s *Server) initAdapters() error {
 	s.pingController = ping.NewController()
 	if s.pingController == nil {
@@ -110,8 +114,17 @@ func (s *Server) initAdapters() error {
 		return ErrAdapterInitFailed
 	}
 
-	s.Engine.GET(s.pingController.Path(), s.pingController.Handle)
-	s.Engine.GET(s.opampController.Path(), s.opampController.Handle)
+	controllers := []controller{
+		s.pingController,
+		s.opampController,
+	}
+
+	for _, controller := range controllers {
+		routesInfo := controller.RoutesInfo()
+		for _, routeInfo := range routesInfo {
+			s.Engine.Handle(routeInfo.Method, routeInfo.Path, routeInfo.HandlerFunc)
+		}
+	}
 
 	return nil
 }

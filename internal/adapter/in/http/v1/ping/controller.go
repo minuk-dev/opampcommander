@@ -25,8 +25,15 @@ func NewController(options ...Option) *Controller {
 	return controller
 }
 
-func (c *Controller) Path() string {
-	return "/v1/ping"
+func (c *Controller) RoutesInfo() gin.RoutesInfo {
+	return gin.RoutesInfo{
+		{
+			Method:      "GET",
+			Path:        "/v1/ping",
+			Handler:     "http.v1.ping.Handle",
+			HandlerFunc: c.Handle,
+		},
+	}
 }
 
 func (c *Controller) Handle(ctx *gin.Context) {
