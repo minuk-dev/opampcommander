@@ -1,11 +1,12 @@
 package port
 
 import (
+	"context"
 	"errors"
 
 	"github.com/google/uuid"
 
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 var (
@@ -30,8 +31,27 @@ type SetConnectionUsecase interface {
 
 type DeleteConnectionUsecase interface {
 	DeleteConnection(instanceUID uuid.UUID) error
+	FetchAndDeleteConnection(instanceUID uuid.UUID) (*model.Connection, error)
 }
 
 type ListConnectionIDsUsecase interface {
 	ListConnectionIDs() []uuid.UUID
+}
+
+type AgentUsecase interface {
+	GetAgentUsecase
+	SaveAgentUsecase
+	ListAgentUsecase
+}
+
+type GetAgentUsecase interface {
+	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
+}
+
+type SaveAgentUsecase interface {
+	SaveAgent(ctx context.Context, agent *model.Agent) error
+}
+
+type ListAgentUsecase interface {
+	ListAgents(ctx context.Context) []*model.Agent
 }

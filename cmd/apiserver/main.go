@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/minuk-dev/minuk-apiserver/pkg/cmd/apiserver"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/apiserver"
 )
 
 func main() {

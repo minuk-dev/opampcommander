@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/puzpuzpuz/xsync/v3"
 
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/model"
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var ErrNilArgument = errors.New("argument is nil")
@@ -42,19 +42,21 @@ func (cm *ConnectionManager) SetConnection(connection *model.Connection) error {
 }
 
 func (cm *ConnectionManager) DeleteConnection(id uuid.UUID) error {
-	var exists bool
+	_, err := cm.FetchAndDeleteConnection(id)
 
-	_, _ = cm.connectionMap.Compute(id.String(), func(_ *model.Connection, loaded bool) (*model.Connection, bool) {
-		exists = loaded
+	return err
+}
 
+func (cm *ConnectionManager) FetchAndDeleteConnection(id uuid.UUID) (*model.Connection, error) {
+	conn, exists := cm.connectionMap.Compute(id.String(), func(_ *model.Connection, _ bool) (*model.Connection, bool) {
 		return nil, false
 	})
 
 	if !exists {
-		return port.ErrConnectionNotFound
+		return nil, port.ErrConnectionNotFound
 	}
 
-	return nil
+	return conn, nil
 }
 
 // GetConnection returns the connection by the given ID.

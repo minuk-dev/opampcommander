@@ -1,4 +1,4 @@
-module github.com/minuk-dev/minuk-apiserver
+module github.com/minuk-dev/opampcommander
 
 go 1.23.4
 

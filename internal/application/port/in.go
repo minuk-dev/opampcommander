@@ -1,6 +1,8 @@
 package port
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 )
@@ -14,10 +16,10 @@ type OpAMPUsecase interface {
 
 // HandleAgentToServerUsecase is a use case that handles a message from the connection.
 type HandleAgentToServerUsecase interface {
-	HandleAgentToServer(agentToServer *protobufs.AgentToServer)
+	HandleAgentToServer(ctx context.Context, agentToServer *protobufs.AgentToServer) error
 }
 
 // FetchServerToAgentUsecase is a use case that fetches a message from the connection.
 type FetchServerToAgentUsecase interface {
-	FetchServerToAgent(instanceUID uuid.UUID) (*protobufs.ServerToAgent, error)
+	FetchServerToAgent(ctx context.Context, instanceUID uuid.UUID) (*protobufs.ServerToAgent, error)
 }

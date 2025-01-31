@@ -5,18 +5,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 type AgentPersistencePort interface {
-	GetAgentUsecase
-	StoreAgentUsecase
+	GetAgentPort
+	StoreAgentPort
 }
 
-type GetAgentUsecase interface {
+type GetAgentPort interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (model.Agent, error)
 }
 
-type StoreAgentUsecase interface {
+type StoreAgentPort interface {
 	StoreAgent(ctx context.Context, agent model.Agent) error
 }

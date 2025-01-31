@@ -8,16 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
 
-	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/connection"
-	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/opamp"
-	"github.com/minuk-dev/minuk-apiserver/internal/adapter/in/http/v1/ping"
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/service"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	applicationservice "github.com/minuk-dev/opampcommander/internal/application/service"
+	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
 )
 
 var (
-	ErrAdapterInitFailed = errors.New("adapter init failed")
-	ErrDomainInitFailed  = errors.New("domain init failed")
+	ErrAdapterInitFailed     = errors.New("adapter init failed")
+	ErrDomainInitFailed      = errors.New("domain init failed")
+	ErrApplicationInitFailed = errors.New("application init failed")
 )
 
 type ServerSettings struct{}
@@ -27,9 +30,11 @@ type Server struct {
 	Engine *gin.Engine
 
 	// domains
-	connectionUsecase port.ConnectionUsecase
+	connectionUsecase domainport.ConnectionUsecase
+	agentUsecase      domainport.AgentUsecase
 
 	// applications
+	opampUsecase applicationport.OpAMPUsecase
 
 	// adapters
 	pingController       *ping.Controller
@@ -49,6 +54,8 @@ func NewServer(_ ServerSettings) *Server {
 		Engine: engine,
 
 		connectionUsecase:    nil,
+		agentUsecase:         nil,
+		opampUsecase:         nil,
 		pingController:       nil,
 		opampController:      nil,
 		connectionController: nil,
@@ -88,7 +95,7 @@ func (s *Server) Run() error {
 }
 
 func (s *Server) initDomains() error {
-	s.connectionUsecase = service.NewConnectionManager()
+	s.connectionUsecase = domainservice.NewConnectionManager()
 	if s.connectionUsecase == nil {
 		return ErrDomainInitFailed
 	}
@@ -97,6 +104,14 @@ func (s *Server) initDomains() error {
 }
 
 func (s *Server) initApplications() error {
+	s.opampUsecase = applicationservice.NewOpAMPService(
+		s.connectionUsecase,
+		s.agentUsecase,
+	)
+	if s.opampUsecase == nil {
+		return ErrDomainInitFailed
+	}
+
 	return nil
 }
 
@@ -111,7 +126,7 @@ func (s *Server) initAdapters() error {
 	}
 
 	s.opampController = opamp.NewController(
-		opamp.WithConnectionUsecase(s.connectionUsecase),
+		s.opampUsecase,
 	)
 	if s.opampController == nil {
 		return ErrAdapterInitFailed

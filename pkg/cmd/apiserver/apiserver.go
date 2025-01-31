@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/minuk-dev/minuk-apiserver/pkg/app"
+	"github.com/minuk-dev/opampcommander/pkg/app"
 )
 
 type CommandOption struct {
@@ -15,6 +15,7 @@ type CommandOption struct {
 	app *app.Server
 }
 
+// NewCommand creates a new apiserver command.
 func NewCommand(opt CommandOption) *cobra.Command {
 	//exhaustruct:ignore
 	return &cobra.Command{

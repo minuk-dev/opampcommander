@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/wsprotobufutil"
 )
 
 const (
@@ -22,20 +24,12 @@ type Controller struct {
 	wsUpgrader websocket.Upgrader
 
 	// usecases
-	connectionUsecase port.ConnectionUsecase
-}
-
-type UsecaseNotProvidedError struct {
-	Usecase string
-}
-
-func (e *UsecaseNotProvidedError) Error() string {
-	return "usecase not provided: " + e.Usecase
+	opampUsecase port.OpAMPUsecase
 }
 
 type Option func(*Controller)
 
-func NewController(options ...Option) *Controller {
+func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controller {
 	controller := &Controller{
 		logger: slog.Default(),
 		wsUpgrader: websocket.Upgrader{
@@ -49,7 +43,7 @@ func NewController(options ...Option) *Controller {
 			EnableCompression: false,
 		},
 
-		connectionUsecase: nil,
+		opampUsecase: opampUsecase,
 	}
 
 	for _, option := range options {
@@ -78,9 +72,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 }
 
 func (c *Controller) Validate() error {
-	if c.connectionUsecase == nil {
+	if c.opampUsecase == nil {
 		return &UsecaseNotProvidedError{
-			Usecase: "connection",
+			Usecase: "opamp",
 		}
 	}
 
@@ -118,28 +112,59 @@ func (c *Controller) handleWSRequest(ctx *gin.Context) {
 func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Conn) {
 	defer conn.Close()
 
-	wsConn := newConnectionAdapter(c.logger)
+	agentToServer, err := wsprotobufutil.Receive(ctx, conn)
+	if err != nil {
+		c.logger.Error("handleWSConnection", slog.Any("error", err))
 
-	onReady := func() {
-		err := c.connectionUsecase.SetConnection(wsConn.conn)
-		if err != nil {
-			c.logger.Warn("set connection is failed", "connection", wsConn.conn)
-
-			return
-		}
+		return
 	}
 
-	defer func() {
-		err := c.connectionUsecase.DeleteConnection(wsConn.conn.ID)
-		if err != nil {
-			c.logger.Warn("handleWSConnection delete Connection", slog.String("error", err.Error()))
+	instanceUID := uuid.UUID(agentToServer.GetInstanceUid())
+
+	err = c.opampUsecase.HandleAgentToServer(ctx, agentToServer)
+	if err != nil {
+		c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+		return // first HandleAgentToServer should be success
+	}
+
+	// reader loop
+	go func() {
+		for {
+			agentToServer, err := wsprotobufutil.Receive(ctx, conn)
+			if err != nil {
+				c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+				return
+			}
+
+			err = c.opampUsecase.HandleAgentToServer(ctx, agentToServer)
+			if err != nil {
+				c.logger.Error("handleWSConnection", slog.Any("error", err))
+				// even if opampUsecase is failed, we should continue to read from the connection
+				continue
+			}
 		}
 	}()
 
-	err := wsConn.Run(ctx, conn, onReady)
-	if err != nil {
-		c.logger.Warn("Cannot run WebSocket connection", "error", err.Error())
-	}
+	// writer loop
+	go func() {
+		for {
+			serverToAgent, err := c.opampUsecase.FetchServerToAgent(ctx, instanceUID)
+			if err != nil {
+				c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+				continue
+			}
+
+			err = wsprotobufutil.Send(ctx, conn, serverToAgent)
+			if err != nil {
+				c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+				continue
+			}
+		}
+	}()
 }
 
 func isHTTPRequest(req *http.Request) bool {

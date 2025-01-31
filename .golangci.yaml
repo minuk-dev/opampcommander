@@ -9,14 +9,14 @@ linters-settings:
     sections:
       - standard
       - default
-      - prefix(github.com/minuk-dev/minuk-apiserver)
+      - prefix(github.com/minuk-dev/opampcommander)
 
   depguard:
     rules:
       main:
         allow:
           - $gostd
-          - github.com/minuk-dev/minuk-apiserver
+          - github.com/minuk-dev/opampcommander
           - github.com/gin-gonic/gin
           - github.com/samber/slog-gin
           - github.com/spf13/cobra

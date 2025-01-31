@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/minuk-dev/minuk-apiserver/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 type Controller struct {
