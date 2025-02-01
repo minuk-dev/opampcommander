@@ -19,6 +19,7 @@ linters-settings:
           - github.com/minuk-dev/opampcommander
           - github.com/gin-gonic/gin
           - github.com/samber/slog-gin
+          - github.com/samber/lo
           - github.com/spf13/cobra
           - github.com/gorilla/websocket
           - github.com/open-telemetry/opamp-go/protobufs

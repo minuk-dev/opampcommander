@@ -10,6 +10,7 @@ import (
 
 type CommandOption struct {
 	// flags
+	dbHost string
 
 	// internal
 	app *app.Server
@@ -18,7 +19,7 @@ type CommandOption struct {
 // NewCommand creates a new apiserver command.
 func NewCommand(opt CommandOption) *cobra.Command {
 	//exhaustruct:ignore
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "apiserver",
 		Short: "apiserver",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -35,10 +36,16 @@ func NewCommand(opt CommandOption) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&opt.dbHost, "db-host", "localhost:2379", "etcd host")
+
+	return cmd
 }
 
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
-	opt.app = app.NewServer(app.ServerSettings{})
+	opt.app = app.NewServer(app.ServerSettings{
+		EtcdHosts: []string{opt.dbHost},
+	})
 
 	return nil
 }

@@ -7,10 +7,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	applicationservice "github.com/minuk-dev/opampcommander/internal/application/service"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -18,16 +20,21 @@ import (
 )
 
 var (
-	ErrAdapterInitFailed     = errors.New("adapter init failed")
-	ErrDomainInitFailed      = errors.New("domain init failed")
-	ErrApplicationInitFailed = errors.New("application init failed")
+	ErrInfrastructureInitFailed = errors.New("infrastructure init failed")
+	ErrInAdapterInitFailed      = errors.New("in adapter init failed")
+	ErrOutAdapterInitFailed     = errors.New("out adapter init failed")
+	ErrDomainInitFailed         = errors.New("domain init failed")
+	ErrApplicationInitFailed    = errors.New("application init failed")
 )
 
-type ServerSettings struct{}
+type ServerSettings struct {
+	EtcdHosts []string
+}
 
 type Server struct {
-	logger *slog.Logger
-	Engine *gin.Engine
+	settings ServerSettings
+	logger   *slog.Logger
+	Engine   *gin.Engine
 
 	// domains
 	connectionUsecase domainport.ConnectionUsecase
@@ -36,13 +43,16 @@ type Server struct {
 	// applications
 	opampUsecase applicationport.OpAMPUsecase
 
-	// adapters
+	// in adapters
 	pingController       *ping.Controller
 	opampController      *opamp.Controller
 	connectionController *connection.Controller
+
+	// out adapters
+	agentPersistencePort domainport.AgentPersistencePort
 }
 
-func NewServer(_ ServerSettings) *Server {
+func NewServer(settings ServerSettings) *Server {
 	logger := slog.Default()
 	engine := gin.New()
 
@@ -50,9 +60,11 @@ func NewServer(_ ServerSettings) *Server {
 	engine.Use(gin.Recovery())
 
 	server := &Server{
-		logger: logger,
-		Engine: engine,
+		settings: settings,
+		logger:   logger,
+		Engine:   engine,
 
+		agentPersistencePort: nil,
 		connectionUsecase:    nil,
 		agentUsecase:         nil,
 		opampUsecase:         nil,
@@ -61,7 +73,14 @@ func NewServer(_ ServerSettings) *Server {
 		connectionController: nil,
 	}
 
-	err := server.initDomains()
+	err := server.initOutAdapters()
+	if err != nil {
+		logger.Error("server init failed", "error", err.Error())
+
+		return nil
+	}
+
+	err = server.initDomains()
 	if err != nil {
 		logger.Error("server init failed", "error", err.Error())
 
@@ -75,7 +94,7 @@ func NewServer(_ ServerSettings) *Server {
 		return nil
 	}
 
-	err = server.initAdapters()
+	err = server.initInAdapters()
 	if err != nil {
 		logger.Error("server init failed", "error", err.Error())
 
@@ -100,7 +119,9 @@ func (s *Server) initDomains() error {
 		return ErrDomainInitFailed
 	}
 
-	s.agentUsecase = domainservice.NewAgentService()
+	s.agentUsecase = domainservice.NewAgentService(
+		s.agentPersistencePort,
+	)
 	if s.agentUsecase == nil {
 		return ErrDomainInitFailed
 	}
@@ -124,24 +145,40 @@ type controller interface {
 	RoutesInfo() gin.RoutesInfo
 }
 
-func (s *Server) initAdapters() error {
+func (s *Server) initOutAdapters() error {
+	//exhaustruct:ignore
+	etcdConfig := clientv3.Config{
+		Endpoints: s.settings.EtcdHosts,
+	}
+
+	etcdClient, err := clientv3.New(etcdConfig)
+	if err != nil {
+		return fmt.Errorf("etcd client init failed: %w", err)
+	}
+
+	s.agentPersistencePort = etcd.NewAgentEtcdAdapter(etcdClient)
+
+	return nil
+}
+
+func (s *Server) initInAdapters() error {
 	s.pingController = ping.NewController()
 	if s.pingController == nil {
-		return ErrAdapterInitFailed
+		return ErrInAdapterInitFailed
 	}
 
 	s.opampController = opamp.NewController(
 		s.opampUsecase,
 	)
 	if s.opampController == nil {
-		return ErrAdapterInitFailed
+		return ErrInAdapterInitFailed
 	}
 
 	s.connectionController = connection.NewController(
 		connection.WithConnectionUsecase(s.connectionUsecase),
 	)
 	if s.connectionController == nil {
-		return ErrAdapterInitFailed
+		return ErrInAdapterInitFailed
 	}
 
 	controllers := []controller{

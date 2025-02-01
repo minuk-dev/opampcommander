@@ -40,9 +40,9 @@ func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *p
 		return fmt.Errorf("failed to register a connection: %w", err)
 	}
 
-	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, instanceUID)
 	if err != nil {
-		return fmt.Errorf("failed to get agent: %w", err)
+		return fmt.Errorf("failed to get or create agent: %w", err)
 	}
 
 	desc := &model.AgentDescription{

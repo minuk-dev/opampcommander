@@ -2,15 +2,17 @@ package model
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Agent is a domain model to control opamp agent by opampcommander.
 type Agent struct {
-	InstanceUUID        string
+	InstanceUID         uuid.UUID
 	Capabilities        *AgentCapabilities
 	Description         *AgentDescription
 	EffectiveConfig     *AgentEffectiveConfig
-	PacakgeStatuses     *AgentPackageStatuses
+	PackageStatuses     *AgentPackageStatuses
 	ComponentHealth     *AgentComponentHealth
 	RemoteConfigStatus  *AgentRemoteConfigStatus
 	CustomCapabilities  *AgentCustomCapabilities
@@ -162,7 +164,7 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 }
 
 func (a *Agent) ReportPackageStatuses(status *AgentPackageStatuses) error {
-	a.PacakgeStatuses = status
+	a.PackageStatuses = status
 
 	return nil
 }

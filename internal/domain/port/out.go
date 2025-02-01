@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 
@@ -9,14 +10,12 @@ import (
 )
 
 type AgentPersistencePort interface {
-	GetAgentPort
-	StoreAgentPort
+	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
+	PutAgent(ctx context.Context, agent *model.Agent) error
+	ListAgents(ctx context.Context) ([]*model.Agent, error)
 }
 
-type GetAgentPort interface {
-	GetAgent(ctx context.Context, instanceUID uuid.UUID) (model.Agent, error)
-}
-
-type StoreAgentPort interface {
-	StoreAgent(ctx context.Context, agent model.Agent) error
-}
+var (
+	ErrAgentNotExist      = errors.New("agent does not exist")
+	ErrMultipleAgentExist = errors.New("multiple agent exists")
+)

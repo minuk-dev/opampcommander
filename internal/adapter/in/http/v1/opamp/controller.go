@@ -2,9 +2,11 @@ package opamp
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -128,43 +130,63 @@ func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Con
 		return // first HandleAgentToServer should be success
 	}
 
+	var wgConn sync.WaitGroup
 	// reader loop
+	wgConn.Add(1)
+
 	go func() {
-		for {
-			agentToServer, err := wsprotobufutil.Receive(ctx, conn)
-			if err != nil {
-				c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-				return
-			}
-
-			err = c.opampUsecase.HandleAgentToServer(ctx, agentToServer)
-			if err != nil {
-				c.logger.Error("handleWSConnection", slog.Any("error", err))
-				// even if opampUsecase is failed, we should continue to read from the connection
-				continue
-			}
-		}
+		defer wgConn.Done()
+		c.readerLoop(ctx, conn)
 	}()
 
 	// writer loop
+	wgConn.Add(1)
+
 	go func() {
-		for {
-			serverToAgent, err := c.opampUsecase.FetchServerToAgent(ctx, instanceUID)
-			if err != nil {
-				c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-				continue
-			}
-
-			err = wsprotobufutil.Send(ctx, conn, serverToAgent)
-			if err != nil {
-				c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-				continue
-			}
-		}
+		defer wgConn.Done()
+		c.writeLoop(ctx, conn, instanceUID)
 	}()
+	wgConn.Wait()
+}
+
+func (c *Controller) readerLoop(ctx context.Context, conn *websocket.Conn) {
+	for {
+		agentToServer, err := wsprotobufutil.Receive(ctx, conn)
+		if err != nil {
+			c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+			return
+		}
+
+		err = c.opampUsecase.HandleAgentToServer(ctx, agentToServer)
+		if err != nil {
+			c.logger.Error("handleWSConnection", slog.Any("error", err))
+			// even if opampUsecase is failed, we should continue to read from the connection
+			continue
+		}
+	}
+}
+
+func (c *Controller) writeLoop(ctx context.Context, conn *websocket.Conn, instanceUID uuid.UUID) {
+	for {
+		serverToAgent, err := c.opampUsecase.FetchServerToAgent(ctx, instanceUID)
+		if err != nil {
+			c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+			continue
+		}
+
+		err = wsprotobufutil.Send(ctx, conn, serverToAgent)
+		if err != nil && errors.Is(err, websocket.ErrCloseSent) {
+			c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+			return
+		} else if err != nil {
+			c.logger.Error("handleWSConnection", slog.Any("error", err))
+
+			continue
+		}
+	}
 }
 
 func isHTTPRequest(req *http.Request) bool {

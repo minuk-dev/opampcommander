@@ -46,6 +46,7 @@ type AgentUsecase interface {
 
 type GetAgentUsecase interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
+	GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
 }
 
 type SaveAgentUsecase interface {

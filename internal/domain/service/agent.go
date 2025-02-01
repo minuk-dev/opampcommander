@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -14,17 +15,56 @@ var ErrNotImplemented = errors.New("not implemented")
 
 var _ port.AgentUsecase = (*AgentService)(nil)
 
-type AgentService struct{}
-
-func NewAgentService() *AgentService {
-	return &AgentService{}
+type AgentService struct {
+	agentPersistencePort port.AgentPersistencePort
 }
 
-func (*AgentService) GetAgent(context.Context, uuid.UUID) (*model.Agent, error) {
-	return nil, ErrNotImplemented
+func NewAgentService(
+	agentPersistencePort port.AgentPersistencePort,
+) *AgentService {
+	return &AgentService{
+		agentPersistencePort: agentPersistencePort,
+	}
 }
 
-func (*AgentService) SaveAgent(context.Context, *model.Agent) error {
+func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
+	}
+
+	return agent, nil
+}
+
+func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+	agent, err := s.GetAgent(ctx, instanceUID)
+	if err != nil {
+		if errors.Is(err, port.ErrAgentNotExist) {
+			agent = &model.Agent{
+				InstanceUID:         instanceUID,
+				Capabilities:        nil,
+				Description:         nil,
+				EffectiveConfig:     nil,
+				PackageStatuses:     nil,
+				ComponentHealth:     nil,
+				RemoteConfigStatus:  nil,
+				CustomCapabilities:  nil,
+				AvailableComponents: nil,
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get agent: %w", err)
+		}
+	}
+
+	return agent, nil
+}
+
+func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error {
+	err := s.agentPersistencePort.PutAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("failed to save agent to persistence: %w", err)
+	}
+
 	return nil
 }
 
