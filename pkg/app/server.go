@@ -100,6 +100,11 @@ func (s *Server) initDomains() error {
 		return ErrDomainInitFailed
 	}
 
+	s.agentUsecase = domainservice.NewAgentService()
+	if s.agentUsecase == nil {
+		return ErrDomainInitFailed
+	}
+
 	return nil
 }
 

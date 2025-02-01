@@ -16,6 +16,10 @@ var _ port.AgentUsecase = (*AgentService)(nil)
 
 type AgentService struct{}
 
+func NewAgentService() *AgentService {
+	return &AgentService{}
+}
+
 func (*AgentService) GetAgent(context.Context, uuid.UUID) (*model.Agent, error) {
 	return nil, ErrNotImplemented
 }
