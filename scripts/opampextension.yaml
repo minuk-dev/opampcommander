@@ -1,0 +1,27 @@
+extensions:
+  health_check:
+  opamp:
+    server:
+      ws:
+        endpoint: "ws://host.docker.internal:8080/v1/opamp"
+        tls:
+          insecure: true
+receivers:
+  nop:
+processors:
+  batch:
+exporters:
+  nop:
+service:
+  extensions: [opamp]
+  telemetry:
+    metrics:
+      level: detailed
+    logs:
+      level: DEBUG
+  pipelines:
+    metrics:
+      receivers: [nop]
+      processors: [batch]
+      exporters: [nop]
+    
