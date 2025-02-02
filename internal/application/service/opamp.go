@@ -43,11 +43,6 @@ func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *p
 		slog.String("message", "start"),
 	)
 
-	err := s.registerConnectionIfNotExists(instanceUID)
-	if err != nil {
-		return fmt.Errorf("failed to register a connection: %w", err)
-	}
-
 	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to get or create agent: %w", err)
@@ -67,6 +62,22 @@ func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *p
 		slog.String("instanceUID", instanceUID.String()),
 		slog.String("message", "success"),
 	)
+
+	conn, err := s.connectionUsecase.GetOrCreateConnection(instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get or create connection: %w", err)
+	}
+
+	// iss#2: Make more proper serverToAgent from agent.
+	//exhaustruct:ignore
+	serverToAgent := &protobufs.ServerToAgent{
+		InstanceUid: agentToServer.GetInstanceUid(),
+	}
+
+	err = conn.SendServerToAgent(ctx, serverToAgent)
+	if err != nil {
+		return fmt.Errorf("failed to send a message to the channel: %w", err)
+	}
 
 	return nil
 }
@@ -154,22 +165,6 @@ func (s *OpAMPService) report(agent *model.Agent, agentToServer *protobufs.Agent
 	err = agent.ReportAvailableComponents(availableComponentsToDomain(agentToServer.GetAvailableComponents()))
 	if err != nil {
 		return fmt.Errorf("failed to report available components: %w", err)
-	}
-
-	return nil
-}
-
-func (s *OpAMPService) registerConnectionIfNotExists(instanceUID uuid.UUID) error {
-	_, err := s.connectionUsecase.GetConnection(instanceUID)
-	if err != nil && errors.Is(err, domainport.ErrConnectionNotFound) {
-		conn := model.NewConnection(instanceUID)
-
-		err = s.connectionUsecase.SetConnection(conn)
-		if err != nil {
-			return fmt.Errorf("failed to set connection: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to get connection: %w", err)
 	}
 
 	return nil

@@ -41,6 +41,23 @@ func (cm *ConnectionManager) SetConnection(connection *model.Connection) error {
 	return nil
 }
 
+func (cm *ConnectionManager) GetOrCreateConnection(instanceUID uuid.UUID) (*model.Connection, error) {
+	conn, err := cm.GetConnection(instanceUID)
+	if err == nil {
+		return conn, nil
+	}
+
+	conn = &model.Connection{
+		ID: instanceUID,
+	}
+
+	if err := cm.SetConnection(conn); err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
 func (cm *ConnectionManager) DeleteConnection(id uuid.UUID) error {
 	_, err := cm.FetchAndDeleteConnection(id)
 

@@ -23,6 +23,7 @@ type ConnectionUsecase interface {
 
 type GetConnectionUsecase interface {
 	GetConnection(instanceUID uuid.UUID) (*model.Connection, error)
+	GetOrCreateConnection(instanceUID uuid.UUID) (*model.Connection, error)
 }
 
 type SetConnectionUsecase interface {
