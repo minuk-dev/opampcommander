@@ -46,7 +46,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = app.NewServer(app.ServerSettings{
 		EtcdHosts: []string{opt.dbHost},
 	})
-
+	// test
 	return nil
 }
 
