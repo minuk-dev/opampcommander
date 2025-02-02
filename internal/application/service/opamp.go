@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,7 @@ import (
 var _ applicationport.OpAMPUsecase = (*OpAMPService)(nil)
 
 type OpAMPService struct {
+	logger            *slog.Logger
 	connectionUsecase domainport.ConnectionUsecase
 	agentUsecase      domainport.AgentUsecase
 }
@@ -24,8 +26,10 @@ type OpAMPService struct {
 func NewOpAMPService(
 	connectionUsecase domainport.ConnectionUsecase,
 	agentUsecase domainport.AgentUsecase,
+	logger *slog.Logger,
 ) *OpAMPService {
 	return &OpAMPService{
+		logger:            logger,
 		connectionUsecase: connectionUsecase,
 		agentUsecase:      agentUsecase,
 	}
@@ -34,6 +38,10 @@ func NewOpAMPService(
 // HandleAgentToServer handle a message from agent.
 func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *protobufs.AgentToServer) error {
 	instanceUID := uuid.UUID(agentToServer.GetInstanceUid())
+	s.logger.Info("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "start"),
+	)
 
 	err := s.registerConnectionIfNotExists(instanceUID)
 	if err != nil {
@@ -45,12 +53,69 @@ func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *p
 		return fmt.Errorf("failed to get or create agent: %w", err)
 	}
 
+	err = s.report(agent, agentToServer)
+	if err != nil {
+		return fmt.Errorf("failed to report: %w", err)
+	}
+
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("failed to save agent: %w", err)
+	}
+
+	s.logger.Info("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "success"),
+	)
+
+	return nil
+}
+
+// FetchServerToAgent fetch a message.
+func (s *OpAMPService) FetchServerToAgent(
+	ctx context.Context,
+	instanceUID uuid.UUID,
+) (*protobufs.ServerToAgent, error) {
+	conn, err := s.connectionUsecase.GetConnection(instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connection: %w", err)
+	}
+
+	serverToAgent, err := conn.FetchServerToAgent(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch a message from the channel: %w", err)
+	}
+
+	return serverToAgent, nil
+}
+
+func (s *OpAMPService) DisconnectAgent(instanceUID uuid.UUID) error {
+	conn, err := s.connectionUsecase.FetchAndDeleteConnection(instanceUID)
+	if err != nil && errors.Is(err, domainport.ErrConnectionNotFound) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to delete connection: %w", err)
+	}
+
+	if conn != nil {
+		return fmt.Errorf("connection is nil: %w", err)
+	}
+
+	err = conn.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close connection: %w", err)
+	}
+
+	return nil
+}
+
+func (s *OpAMPService) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
 	desc := &model.AgentDescription{
 		IdentifyingAttributes:    toMap(agentToServer.GetAgentDescription().GetIdentifyingAttributes()),
 		NonIdentifyingAttributes: toMap(agentToServer.GetAgentDescription().GetNonIdentifyingAttributes()),
 	}
 
-	err = agent.ReportDescription(desc)
+	err := agent.ReportDescription(desc)
 	if err != nil {
 		return fmt.Errorf("failed to report description: %w", err)
 	}
@@ -89,44 +154,6 @@ func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *p
 	err = agent.ReportAvailableComponents(availableComponentsToDomain(agentToServer.GetAvailableComponents()))
 	if err != nil {
 		return fmt.Errorf("failed to report available components: %w", err)
-	}
-
-	return nil
-}
-
-// FetchServerToAgent fetch a message.
-func (s *OpAMPService) FetchServerToAgent(
-	ctx context.Context,
-	instanceUID uuid.UUID,
-) (*protobufs.ServerToAgent, error) {
-	conn, err := s.connectionUsecase.GetConnection(instanceUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection: %w", err)
-	}
-
-	serverToAgent, err := conn.FetchServerToAgent(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch a message from the channel: %w", err)
-	}
-
-	return serverToAgent, nil
-}
-
-func (s *OpAMPService) DisconnectAgent(instanceUID uuid.UUID) error {
-	conn, err := s.connectionUsecase.FetchAndDeleteConnection(instanceUID)
-	if err != nil && errors.Is(err, domainport.ErrConnectionNotFound) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to delete connection: %w", err)
-	}
-
-	if conn != nil {
-		return fmt.Errorf("connection is nil: %w", err)
-	}
-
-	err = conn.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close connection: %w", err)
 	}
 
 	return nil

@@ -68,6 +68,11 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 	return nil
 }
 
-func (*AgentService) ListAgents(context.Context) []*model.Agent {
-	return nil
+func (s *AgentService) ListAgents(ctx context.Context) ([]*model.Agent, error) {
+	agents, err := s.agentPersistencePort.ListAgents(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	return agents, nil
 }

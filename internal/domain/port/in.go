@@ -54,5 +54,5 @@ type SaveAgentUsecase interface {
 }
 
 type ListAgentUsecase interface {
-	ListAgents(ctx context.Context) []*model.Agent
+	ListAgents(ctx context.Context) ([]*model.Agent, error)
 }

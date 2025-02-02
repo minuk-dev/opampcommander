@@ -9,6 +9,7 @@ import (
 	sloggin "github.com/samber/slog-gin"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
@@ -47,6 +48,7 @@ type Server struct {
 	pingController       *ping.Controller
 	opampController      *opamp.Controller
 	connectionController *connection.Controller
+	agentController      *agent.Controller
 
 	// out adapters
 	agentPersistencePort domainport.AgentPersistencePort
@@ -69,6 +71,7 @@ func NewServer(settings ServerSettings) *Server {
 		agentUsecase:         nil,
 		opampUsecase:         nil,
 		pingController:       nil,
+		agentController:      nil,
 		opampController:      nil,
 		connectionController: nil,
 	}
@@ -133,6 +136,7 @@ func (s *Server) initApplications() error {
 	s.opampUsecase = applicationservice.NewOpAMPService(
 		s.connectionUsecase,
 		s.agentUsecase,
+		s.logger,
 	)
 	if s.opampUsecase == nil {
 		return ErrDomainInitFailed
@@ -181,10 +185,16 @@ func (s *Server) initInAdapters() error {
 		return ErrInAdapterInitFailed
 	}
 
+	s.agentController = agent.NewController(s.agentUsecase)
+	if s.agentController == nil {
+		return ErrInAdapterInitFailed
+	}
+
 	controllers := []controller{
 		s.pingController,
 		s.opampController,
 		s.connectionController,
+		s.agentController,
 	}
 
 	for _, controller := range controllers {
