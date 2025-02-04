@@ -12,6 +12,7 @@ import (
 
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	modelagent "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
@@ -122,7 +123,7 @@ func (s *OpAMPService) DisconnectAgent(instanceUID uuid.UUID) error {
 }
 
 func (s *OpAMPService) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
-	desc := &model.AgentDescription{
+	desc := &modelagent.Description{
 		IdentifyingAttributes:    toMap(agentToServer.GetAgentDescription().GetIdentifyingAttributes()),
 		NonIdentifyingAttributes: toMap(agentToServer.GetAgentDescription().GetNonIdentifyingAttributes()),
 	}

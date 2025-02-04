@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
@@ -123,8 +124,8 @@ func (ac *AgentCapabilities) ToDomain() *domainmodel.AgentCapabilities {
 	return (*domainmodel.AgentCapabilities)(ac)
 }
 
-func (ad *AgentDescription) ToDomain() *domainmodel.AgentDescription {
-	return &domainmodel.AgentDescription{
+func (ad *AgentDescription) ToDomain() *agent.Description {
+	return &agent.Description{
 		IdentifyingAttributes:    ad.IdentifyingAttributes,
 		NonIdentifyingAttributes: ad.NonIdentifyingAttributes,
 	}
@@ -227,7 +228,7 @@ func AgentCapabilitiesFromDomain(ac *domainmodel.AgentCapabilities) *AgentCapabi
 	return (*AgentCapabilities)(ac)
 }
 
-func AgentDescriptionFromDomain(ad *domainmodel.AgentDescription) *AgentDescription {
+func AgentDescriptionFromDomain(ad *agent.Description) *AgentDescription {
 	return &AgentDescription{
 		IdentifyingAttributes:    ad.IdentifyingAttributes,
 		NonIdentifyingAttributes: ad.NonIdentifyingAttributes,
