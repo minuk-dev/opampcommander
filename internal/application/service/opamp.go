@@ -12,6 +12,7 @@ import (
 
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -143,7 +144,7 @@ func (s *OpAMPService) report(agent *model.Agent, agentToServer *protobufs.Agent
 
 	err = agent.ReportRemoteConfigStatus(&model.AgentRemoteConfigStatus{
 		LastRemoteConfigHash: agentToServer.GetRemoteConfigStatus().GetLastRemoteConfigHash(),
-		Status:               model.AgentRemoteConfigStatusEnum(agentToServer.GetRemoteConfigStatus().GetStatus()),
+		Status:               remoteconfig.Status(agentToServer.GetRemoteConfigStatus().GetStatus()),
 		ErrorMessage:         agentToServer.GetRemoteConfigStatus().GetErrorMessage(),
 	})
 	if err != nil {

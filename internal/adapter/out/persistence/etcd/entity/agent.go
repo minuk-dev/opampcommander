@@ -7,6 +7,8 @@ import (
 	"github.com/samber/lo"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 const (
@@ -97,16 +99,23 @@ type ComponentDetails struct {
 }
 
 func (a *Agent) ToDomain() *domainmodel.Agent {
+	remoteConfig := remoteconfig.New()
+	rcs := a.RemoteConfigStatus.ToDomain()
+	remoteConfig.SetStatus(
+		rcs.Status.
+			WithKey(vo.Hash(a.RemoteConfigStatus.LastRemoteConfigHash)),
+	)
+
 	return &domainmodel.Agent{
-		InstanceUID:          a.InstanceUID,
-		Capabilities:         a.Capabilities.ToDomain(),
-		Description:          a.Description.ToDomain(),
-		EffectiveConfig:      a.EffectiveConfig.ToDomain(),
-		PackageStatuses:      a.PackageStatuses.ToDomain(),
-		ComponentHealth:      a.ComponentHealth.ToDomain(),
-		RemoteConfigStatuses: a.RemoteConfigStatus.ToDomain(),
-		CustomCapabilities:   a.CustomCapabilities.ToDomain(),
-		AvailableComponents:  a.AvailableComponents.ToDomain(),
+		InstanceUID:         a.InstanceUID,
+		Capabilities:        a.Capabilities.ToDomain(),
+		Description:         a.Description.ToDomain(),
+		EffectiveConfig:     a.EffectiveConfig.ToDomain(),
+		PackageStatuses:     a.PackageStatuses.ToDomain(),
+		ComponentHealth:     a.ComponentHealth.ToDomain(),
+		RemoteConfig:        remoteConfig,
+		CustomCapabilities:  a.CustomCapabilities.ToDomain(),
+		AvailableComponents: a.AvailableComponents.ToDomain(),
 	}
 }
 
@@ -165,13 +174,11 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 	}
 }
 
-func (arc *AgentRemoteConfigStatus) ToDomain() []*domainmodel.AgentRemoteConfigStatus {
-	return []*domainmodel.AgentRemoteConfigStatus{
-		{
-			LastRemoteConfigHash: arc.LastRemoteConfigHash,
-			Status:               domainmodel.AgentRemoteConfigStatusEnum(arc.Status),
-			ErrorMessage:         arc.ErrorMessage,
-		},
+func (arc *AgentRemoteConfigStatus) ToDomain() *domainmodel.AgentRemoteConfigStatus {
+	return &domainmodel.AgentRemoteConfigStatus{
+		LastRemoteConfigHash: arc.LastRemoteConfigHash,
+		Status:               remoteconfig.Status(int32(arc.Status)),
+		ErrorMessage:         arc.ErrorMessage,
 	}
 }
 
@@ -210,7 +217,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		EffectiveConfig:     AgentEffectiveConfigFromDomain(agent.EffectiveConfig),
 		PackageStatuses:     AgentPackageStatusesFromDomain(agent.PackageStatuses),
 		ComponentHealth:     AgentComponentHealthFromDomain(agent.ComponentHealth),
-		RemoteConfigStatus:  AgentRemoteConfigStatusFromDomain(agent.RemoteConfigStatuses),
+		RemoteConfigStatus:  AgentRemoteConfigStatusFromDomain(agent.RemoteConfig),
 		CustomCapabilities:  AgentCustomCapabilitiesFromDomain(agent.CustomCapabilities),
 		AvailableComponents: AgentAvailableComponentsFromDomain(agent.AvailableComponents),
 	}
@@ -273,15 +280,16 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 	}
 }
 
-func AgentRemoteConfigStatusFromDomain(arc []*domainmodel.AgentRemoteConfigStatus) *AgentRemoteConfigStatus {
-	if len(arc) == 0 {
+func AgentRemoteConfigStatusFromDomain(arc remoteconfig.RemoteConfig) *AgentRemoteConfigStatus {
+	statuses := arc.ListStatuses()
+	if len(statuses) == 0 {
 		return nil
 	}
 
 	return &AgentRemoteConfigStatus{
-		LastRemoteConfigHash: arc[0].LastRemoteConfigHash,
-		Status:               AgentRemoteConfigStatusEnum(arc[0].Status),
-		ErrorMessage:         arc[0].ErrorMessage,
+		LastRemoteConfigHash: statuses[0].Key.Bytes(),
+		Status:               AgentRemoteConfigStatusEnum(statuses[0].Value),
+		ErrorMessage:         arc.LastErrorMessage,
 	}
 }
 

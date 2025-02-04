@@ -4,19 +4,22 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 // Agent is a domain model to control opamp agent by opampcommander.
 type Agent struct {
-	InstanceUID          uuid.UUID
-	Capabilities         *AgentCapabilities
-	Description          *AgentDescription
-	EffectiveConfig      *AgentEffectiveConfig
-	PackageStatuses      *AgentPackageStatuses
-	ComponentHealth      *AgentComponentHealth
-	RemoteConfigStatuses []*AgentRemoteConfigStatus
-	CustomCapabilities   *AgentCustomCapabilities
-	AvailableComponents  *AgentAvailableComponents
+	InstanceUID         uuid.UUID
+	Capabilities        *AgentCapabilities
+	Description         *AgentDescription
+	EffectiveConfig     *AgentEffectiveConfig
+	PackageStatuses     *AgentPackageStatuses
+	ComponentHealth     *AgentComponentHealth
+	RemoteConfig        remoteconfig.RemoteConfig
+	CustomCapabilities  *AgentCustomCapabilities
+	AvailableComponents *AgentAvailableComponents
 }
 
 type AgentDescription struct {
@@ -71,18 +74,9 @@ type AgentConfigFile struct {
 
 type AgentRemoteConfigStatus struct {
 	LastRemoteConfigHash []byte
-	Status               AgentRemoteConfigStatusEnum
+	Status               remoteconfig.Status
 	ErrorMessage         string
 }
-
-type AgentRemoteConfigStatusEnum int32
-
-const (
-	AgentRemoteConfigStatusEnumUnset    = 0
-	AgentRemoteConfigStatusEnumApplied  = 1
-	AgentRemoteConfigStatusEnumApplying = 2
-	AgentRemoteConfigStatusEnumFailed   = 3
-)
 
 type AgentPackageStatuses struct {
 	Packages                     map[string]AgentPackageStatus
@@ -158,7 +152,14 @@ func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
 }
 
 func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error {
-	a.RemoteConfigStatuses = append(a.RemoteConfigStatuses, status)
+	if status.ErrorMessage != "" {
+		a.RemoteConfig.SetLastErrorMessage(status.ErrorMessage)
+	}
+
+	a.RemoteConfig.SetStatus(
+		status.Status.
+			WithKey(vo.Hash(status.LastRemoteConfigHash)),
+	)
 
 	return nil
 }
