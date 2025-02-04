@@ -8,15 +8,15 @@ import (
 
 // Agent is a domain model to control opamp agent by opampcommander.
 type Agent struct {
-	InstanceUID         uuid.UUID
-	Capabilities        *AgentCapabilities
-	Description         *AgentDescription
-	EffectiveConfig     *AgentEffectiveConfig
-	PackageStatuses     *AgentPackageStatuses
-	ComponentHealth     *AgentComponentHealth
-	RemoteConfigStatus  *AgentRemoteConfigStatus
-	CustomCapabilities  *AgentCustomCapabilities
-	AvailableComponents *AgentAvailableComponents
+	InstanceUID          uuid.UUID
+	Capabilities         *AgentCapabilities
+	Description          *AgentDescription
+	EffectiveConfig      *AgentEffectiveConfig
+	PackageStatuses      *AgentPackageStatuses
+	ComponentHealth      *AgentComponentHealth
+	RemoteConfigStatuses []*AgentRemoteConfigStatus
+	CustomCapabilities   *AgentCustomCapabilities
+	AvailableComponents  *AgentAvailableComponents
 }
 
 type AgentDescription struct {
@@ -158,7 +158,7 @@ func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
 }
 
 func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error {
-	a.RemoteConfigStatus = status
+	a.RemoteConfigStatuses = append(a.RemoteConfigStatuses, status)
 
 	return nil
 }
