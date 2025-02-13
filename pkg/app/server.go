@@ -1,9 +1,12 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
@@ -107,10 +110,40 @@ func NewServer(settings ServerSettings) *Server {
 	return server
 }
 
-func (s *Server) Run() error {
-	err := s.Engine.Run()
-	if err != nil {
-		return fmt.Errorf("server run failed: %w", err)
+func (s *Server) Run(ctx context.Context) error {
+	server := http.Server{
+		Addr:    ":8080",
+		Handler: s.Engine,
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			s.logger.Error("server run failed", "error", err.Error())
+		}
+
+		wg.Done()
+	}()
+
+	var shutdownErr error
+
+	wg.Add(1)
+
+	go func() {
+		<-ctx.Done()
+		shutdownErr = server.Shutdown(ctx)
+
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	if shutdownErr != nil {
+		return fmt.Errorf("server shutdown failed: %w", shutdownErr)
 	}
 
 	return nil
