@@ -22,7 +22,7 @@ type Client struct {
 func NewClient(endpoint string) *Client {
 	return &Client{
 		Endpoint: endpoint,
-		Client:   resty.New(),
+		Client:   resty.New().SetBaseURL(endpoint),
 	}
 }
 

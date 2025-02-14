@@ -1,40 +1,31 @@
 package opampctl
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/spf13/cobra"
+)
 
 type CommandOption struct {
-	Endpoint string
+	// flags
+	*config.GlobalConfig
 }
 
 func NewCommand(options CommandOption) *cobra.Command {
+	if options.GlobalConfig == nil {
+		options.GlobalConfig = &config.GlobalConfig{}
+	}
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
 		Use:   "opampctl",
 		Short: "opampctl",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			err := options.Prepare(cmd, args)
-			if err != nil {
-				return err
-			}
-
-			err = options.Run(cmd, args)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
 	}
 
-	cmd.Flags().StringVar(&options.Endpoint, "endpoint", "localhost:8080", "opampcommander endpoint")
+	cmd.PersistentFlags().StringVar(&options.Endpoint, "endpoint", "http://localhost:8080", "opampcommander endpoint")
+
+	cmd.AddCommand(get.NewCommand(get.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
 
 	return cmd
-}
-
-func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
-	return nil
-}
-
-func (opt *CommandOption) Run(_ *cobra.Command, _ []string) error {
-	return nil
 }
