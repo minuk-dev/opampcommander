@@ -2,18 +2,16 @@ package opamp
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/http"
-	"strings"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
+	"github.com/open-telemetry/opamp-go/protobufs"
+	opampServer "github.com/open-telemetry/opamp-go/server"
+	"github.com/open-telemetry/opamp-go/server/types"
 
 	"github.com/minuk-dev/opampcommander/internal/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/wsprotobufutil"
 )
 
 const (
@@ -22,29 +20,36 @@ const (
 )
 
 type Controller struct {
-	logger     *slog.Logger
-	wsUpgrader websocket.Upgrader
+	logger *slog.Logger
 
+	handler     opampServer.HTTPHandlerFunc
+	ConnContext opampServer.ConnContext
+
+	connections map[types.Connection]struct{}
+
+	opampServer opampServer.OpAMPServer
 	// usecases
 	opampUsecase port.OpAMPUsecase
 }
 
 type Option func(*Controller)
 
+type Logger struct {
+	logger *slog.Logger
+}
+
+func (l *Logger) Debugf(ctx context.Context, format string, v ...interface{}) {
+	l.logger.Debug(format, v...)
+}
+
+func (l *Logger) Errorf(ctx context.Context, format string, v ...interface{}) {
+	l.logger.Error(format, v...)
+}
+
 func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controller {
 	controller := &Controller{
-		logger: slog.Default(),
-		wsUpgrader: websocket.Upgrader{
-			HandshakeTimeout:  0,
-			ReadBufferSize:    0,
-			WriteBufferSize:   0,
-			WriteBufferPool:   nil,
-			Subprotocols:      nil,
-			Error:             nil,
-			CheckOrigin:       nil,
-			EnableCompression: false,
-		},
-
+		logger:       slog.Default(),
+		connections:  make(map[types.Connection]struct{}),
 		opampUsecase: opampUsecase,
 	}
 
@@ -52,7 +57,20 @@ func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controlle
 		option(controller)
 	}
 
-	err := controller.Validate()
+	controller.opampServer = opampServer.New(&Logger{
+		logger: controller.logger,
+	})
+	var err error
+	controller.handler, controller.ConnContext, err = controller.opampServer.Attach(opampServer.Settings{
+		Callbacks: types.Callbacks{
+			OnConnecting: controller.OnConnecting,
+		},
+	})
+	if err != nil {
+		controller.logger.Error("failed to attach opamp server", "error", err.Error())
+	}
+
+	err = controller.Validate()
 	if err != nil {
 		controller.logger.Error("controller validation failed", "error", err.Error())
 
@@ -60,6 +78,41 @@ func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controlle
 	}
 
 	return controller
+}
+
+func (c *Controller) OnConnecting(request *http.Request) types.ConnectionResponse {
+	return types.ConnectionResponse{
+		Accept:             true,
+		HTTPStatusCode:     http.StatusOK,
+		HTTPResponseHeader: map[string]string{},
+		ConnectionCallbacks: types.ConnectionCallbacks{
+			OnConnected:       c.OnConnected,
+			OnMessage:         c.OnMessage,
+			OnConnectionClose: c.OnConnectionClose,
+		},
+	}
+}
+
+func (c *Controller) OnConnected(ctx context.Context, conn types.Connection) {
+	c.connections[conn] = struct{}{}
+}
+
+func (c *Controller) OnMessage(ctx context.Context, conn types.Connection, message *protobufs.AgentToServer) *protobufs.ServerToAgent {
+	instanceUID := message.GetInstanceUid()
+	err := c.opampUsecase.HandleAgentToServer(ctx, message)
+	if err != nil {
+		c.logger.Error("failed to handle agent to server message", "error", err.Error())
+	}
+
+	serverToAgent, err := c.opampUsecase.FetchServerToAgent(ctx, uuid.UUID(instanceUID))
+	if err != nil {
+		c.logger.Error("failed to fetch server to agent message", "error", err.Error())
+	}
+	return serverToAgent
+}
+
+func (c *Controller) OnConnectionClose(conn types.Connection) {
+	delete(c.connections, conn)
 }
 
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
@@ -84,118 +137,5 @@ func (c *Controller) Validate() error {
 }
 
 func (c *Controller) Handle(ctx *gin.Context) {
-	switch {
-	case isHTTPRequest(ctx.Request):
-		c.handleHTTPRequest(ctx)
-	case isWSRequest(ctx.Request):
-		c.handleWSRequest(ctx)
-	default:
-		c.logger.Warn("cannot handle type")
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
-	}
-}
-
-func (c *Controller) handleHTTPRequest(_ *gin.Context) {
-}
-
-func (c *Controller) handleWSRequest(ctx *gin.Context) {
-	w, req := ctx.Writer, ctx.Request
-
-	conn, err := c.wsUpgrader.Upgrade(w, req, nil)
-	if err != nil {
-		c.logger.Warn("Cannot upgrade HTTP connection to WebSocket", "error", err.Error())
-
-		return
-	}
-
-	c.handleWSConnection(req.Context(), conn)
-}
-
-func (c *Controller) handleWSConnection(ctx context.Context, conn *websocket.Conn) {
-	defer conn.Close()
-
-	agentToServer, err := wsprotobufutil.Receive(ctx, conn)
-	if err != nil {
-		c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-		return
-	}
-
-	instanceUID := uuid.UUID(agentToServer.GetInstanceUid())
-
-	err = c.opampUsecase.HandleAgentToServer(ctx, agentToServer)
-	if err != nil {
-		c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-		return // first HandleAgentToServer should be success
-	}
-
-	var wgConn sync.WaitGroup
-	// reader loop
-	wgConn.Add(1)
-
-	go func() {
-		defer wgConn.Done()
-		c.readerLoop(ctx, conn)
-	}()
-
-	// writer loop
-	wgConn.Add(1)
-
-	go func() {
-		defer wgConn.Done()
-		c.writeLoop(ctx, conn, instanceUID)
-	}()
-	wgConn.Wait()
-}
-
-func (c *Controller) readerLoop(ctx context.Context, conn *websocket.Conn) {
-	for {
-		agentToServer, err := wsprotobufutil.Receive(ctx, conn)
-		if err != nil {
-			c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-			return
-		}
-
-		err = c.opampUsecase.HandleAgentToServer(ctx, agentToServer)
-		if err != nil {
-			c.logger.Error("handleWSConnection", slog.Any("error", err))
-			// even if opampUsecase is failed, we should continue to read from the connection
-			continue
-		}
-	}
-}
-
-func (c *Controller) writeLoop(ctx context.Context, conn *websocket.Conn, instanceUID uuid.UUID) {
-	for {
-		serverToAgent, err := c.opampUsecase.FetchServerToAgent(ctx, instanceUID)
-		if err != nil {
-			c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-			continue
-		}
-
-		err = wsprotobufutil.Send(ctx, conn, serverToAgent)
-		if err != nil && errors.Is(err, websocket.ErrCloseSent) {
-			c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-			return
-		} else if err != nil {
-			c.logger.Error("handleWSConnection", slog.Any("error", err))
-
-			continue
-		}
-	}
-}
-
-func isHTTPRequest(req *http.Request) bool {
-	contentType := req.Header.Get(headerContentType)
-	contentType = strings.ToLower(contentType)
-
-	return contentType == strings.ToLower(contentTypeProtobuf)
-}
-
-func isWSRequest(_ *http.Request) bool {
-	return true
+	c.handler(ctx.Writer, ctx.Request)
 }

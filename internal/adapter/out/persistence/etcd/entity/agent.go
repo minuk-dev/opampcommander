@@ -174,6 +174,9 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 
 func (arc *AgentRemoteConfig) ToDomain() remoteconfig.RemoteConfig {
 	remoteConfig := remoteconfig.New()
+	if arc == nil {
+		return remoteConfig
+	}
 	for _, sub := range arc.RemoteConfigStatuses {
 		remoteConfig.SetStatus(remoteconfig.StatusWithKey{
 			Key:   sub.Key,

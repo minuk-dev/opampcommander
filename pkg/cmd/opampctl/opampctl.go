@@ -20,9 +20,7 @@ func NewCommand(options CommandOption) *cobra.Command {
 		Use:   "opampctl",
 		Short: "opampctl",
 	}
-
 	cmd.PersistentFlags().StringVar(&options.Endpoint, "endpoint", "http://localhost:8080", "opampcommander endpoint")
-
 	cmd.AddCommand(get.NewCommand(get.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))

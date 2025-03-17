@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
@@ -33,9 +34,10 @@ type ServerSettings struct {
 }
 
 type Server struct {
-	settings ServerSettings
-	logger   *slog.Logger
-	Engine   *gin.Engine
+	settings   ServerSettings
+	logger     *slog.Logger
+	Engine     *gin.Engine
+	httpServer *http.Server
 
 	// domains
 	connectionUsecase domainport.ConnectionUsecase
@@ -108,6 +110,7 @@ func NewServer(settings ServerSettings) *Server {
 }
 
 func (s *Server) Run() error {
+	s.httpServer.ListenAndServe()
 	err := s.Engine.Run()
 	if err != nil {
 		return fmt.Errorf("server run failed: %w", err)
@@ -203,6 +206,12 @@ func (s *Server) initInAdapters() error {
 			s.Engine.Handle(routeInfo.Method, routeInfo.Path, routeInfo.HandlerFunc)
 		}
 	}
+
+	s.httpServer = &http.Server{
+		Addr:    ":8080",
+		Handler: s.Engine,
+	}
+	s.httpServer.ConnContext = s.opampController.ConnContext
 
 	for _, routeInfo := range s.Engine.Routes() {
 		s.logger.Info("engine routes - ", "routeInfo", routeInfo)
