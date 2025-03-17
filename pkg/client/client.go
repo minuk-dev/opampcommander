@@ -61,23 +61,23 @@ func (c *Client) ListAgents() ([]*agentv1.Agent, error) {
 		SetResult([]*agentv1.Agent{}).
 		Get(ListAgentURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
+		return nil, fmt.Errorf("failed to list agents(restyError): %w", err)
 	}
 
 	if res.IsError() {
-		return nil, fmt.Errorf("failed to list agents: %w", &ResponseError{
+		return nil, fmt.Errorf("failed to list agents(responseError): %w", &ResponseError{
 			StatusCode: res.StatusCode(),
 		})
 	}
 
 	if res.Result() == nil {
-		return nil, fmt.Errorf("failed to list agents: %w", ErrEmptyResponse)
+		return nil, fmt.Errorf("failed to list agents(restyResultError): %w", ErrEmptyResponse)
 	}
 
-	result, ok := res.Result().([]*agentv1.Agent)
+	result, ok := res.Result().(*[]*agentv1.Agent)
 	if !ok {
-		return nil, fmt.Errorf("failed to list agents: %w", ErrUnexpectedBehavior)
+		return nil, fmt.Errorf("failed to list agents(type cast): %w", ErrUnexpectedBehavior)
 	}
 
-	return result, nil
+	return *result, nil
 }

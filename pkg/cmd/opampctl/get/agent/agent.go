@@ -67,6 +67,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
+	cmd.Println("Listed agents")
 	cmd.Println(agents)
 
 	return nil
