@@ -12,8 +12,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var ErrNotImplemented = errors.New("not implemented")
-
 var _ port.AgentUsecase = (*AgentService)(nil)
 
 type AgentService struct {
