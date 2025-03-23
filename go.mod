@@ -13,6 +13,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	go.etcd.io/etcd/client/v3 v3.5.18
 	gopkg.in/yaml.v3 v3.0.1
+	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 )
 
 require (

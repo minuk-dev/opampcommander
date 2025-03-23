@@ -6,7 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
+	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -69,7 +72,16 @@ func (c *Controller) Validate() error {
 }
 
 func (c *Controller) List(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, c.connectionUsecase.ListConnectionIDs())
+	connections := c.connectionUsecase.ListConnections()
+	connectionResponse := lo.Map(connections, func(connection *model.Connection, _ int) *connectionv1.Connection {
+		return &connectionv1.Connection{
+			ID:                 connection.ID,
+			InstanceUID:        connection.ID,
+			LastCommunicatedAt: connection.LastCommunicatedAt(),
+		}
+	})
+
+	ctx.JSON(http.StatusOK, connectionResponse)
 }
 
 func (c *Controller) Get(ctx *gin.Context) {
