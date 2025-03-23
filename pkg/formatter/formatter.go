@@ -18,61 +18,92 @@ const (
 	SHORT FormatType = "short"
 )
 
-func Format(w io.Writer, target any, t FormatType) {
+func Format(writer io.Writer, target any, t FormatType) error {
+	var err error
+
 	switch t {
 	case YAML:
-		FormatYAML(w, target)
+		err = FormatYAML(writer, target)
 	case JSON:
-		FormatJSON(w, target)
+		err = FormatJSON(writer, target)
 	case TEXT:
-		FormatTEXT(w, target)
+		err = FormatTEXT(writer, target)
 	case SHORT:
-		FormatSHORT(w, target)
+		err = FormatShort(writer, target)
 	default:
-		FormatTEXT(w, target)
+		err = FormatTEXT(writer, target)
 	}
+
+	if err != nil {
+		return fmt.Errorf("failed to format: %w", err)
+	}
+
+	return nil
 }
 
-func FormatYAML(w io.Writer, target any) {
+func FormatYAML(writer io.Writer, target any) error {
 	b, err := yaml.Marshal(target)
 	if err != nil {
-		fmt.Fprintf(w, "Error: %v", err)
-		return
+		return fmt.Errorf("failed to marshal yaml: %w", err)
 	}
-	w.Write(b)
+
+	_, err = writer.Write(b)
+	if err != nil {
+		return fmt.Errorf("failed to write yaml: %w", err)
+	}
+
+	return nil
 }
 
-func FormatJSON(w io.Writer, target any) {
+func FormatJSON(writer io.Writer, target any) error {
 	b, err := json.MarshalIndent(target, "", "  ")
 	if err != nil {
-		fmt.Fprintf(w, "Error: %v", err)
-		return
+		return fmt.Errorf("failed to marshal json: %w", err)
 	}
-	w.Write(b)
+
+	_, err = writer.Write(b)
+	if err != nil {
+		return fmt.Errorf("failed to write json: %w", err)
+	}
+
+	return nil
 }
 
-func FormatTEXT(w io.Writer, target any) {
-	formatStruct(w, target, false)
+func FormatTEXT(writer io.Writer, target any) error {
+	err := formatStruct(writer, target, false)
+	if err != nil {
+		return fmt.Errorf("failed to format text: %w", err)
+	}
+
+	return nil
 }
 
-func FormatSHORT(w io.Writer, target any) {
-	formatStruct(w, target, true)
+func FormatShort(writer io.Writer, target any) error {
+	err := formatStruct(writer, target, true)
+	if err != nil {
+		return fmt.Errorf("failed to format short: %w", err)
+	}
+
+	return nil
 }
 
-func formatStruct(w io.Writer, target any, short bool) {
+func formatStruct(writer io.Writer, target any, short bool) error {
 	val := reflect.ValueOf(target)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
+
 	typ := val.Type()
 	if typ.Kind() != reflect.Struct {
-		fmt.Fprintf(w, "%v\n", target)
-		return
+		fmt.Fprintf(writer, "%v\n", target)
+
+		return nil
 	}
 
 	n := typ.NumField()
-	for i := 0; i < n; i++ {
+	for i := range n {
 		field := typ.Field(i)
+
 		value := val.Field(i)
 		if !value.CanInterface() {
 			continue
@@ -83,13 +114,21 @@ func formatStruct(w io.Writer, target any, short bool) {
 			fieldName = shortTag
 		}
 
-		fmt.Fprintf(w, "%s: ", fieldName)
+		fmt.Fprintf(writer, "%s: ", fieldName)
+
 		if value.Kind() == reflect.Struct {
-			fmt.Fprint(w, "{ ")
-			formatStruct(w, value.Interface(), short)
-			fmt.Fprint(w, "} ")
+			fmt.Fprint(writer, "{ ")
+
+			err := formatStruct(writer, value.Interface(), short)
+			if err != nil {
+				return fmt.Errorf("failed to format struct: %w", err)
+			}
+
+			fmt.Fprint(writer, "} ")
 		} else {
-			fmt.Fprintf(w, "%v\n", value.Interface())
+			fmt.Fprintf(writer, "%v\n", value.Interface())
 		}
 	}
+
+	return nil
 }

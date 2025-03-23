@@ -4,12 +4,13 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/spf13/cobra"
+
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
-	"github.com/samber/lo"
-	"github.com/spf13/cobra"
 )
 
 type CommandOptions struct {
@@ -20,6 +21,7 @@ type CommandOptions struct {
 }
 
 func NewCommand(options CommandOptions) *cobra.Command {
+	//exhaustruct:ignore
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "agent",
@@ -43,6 +45,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
 	opt.client = client.NewClient(opt.Endpoint)
+
 	return nil
 }
 
@@ -55,10 +58,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	agentUIDs := args
+
 	err := opt.Get(cmd, agentUIDs)
 	if err != nil {
 		return fmt.Errorf("get failed: %w", err)
 	}
+
 	return nil
 }
 
@@ -68,15 +73,19 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	formatter.FormatYAML(cmd.OutOrStdout(), agents)
+	err = formatter.FormatYAML(cmd.OutOrStdout(), agents)
+	if err != nil {
+		return fmt.Errorf("failed to format yaml: %w", err)
+	}
+
 	return nil
 }
 
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	var agents []*v1agent.Agent
-
+	agents := make([]*v1agent.Agent, 0, len(ids))
 	instanceUIDs := lo.Map(ids, func(id string, _ int) uuid.UUID {
 		instanceUID, _ := uuid.Parse(id)
+
 		return instanceUID
 	})
 

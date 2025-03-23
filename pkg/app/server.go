@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
@@ -19,6 +20,10 @@ import (
 	applicationservice "github.com/minuk-dev/opampcommander/internal/application/service"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
+)
+
+const (
+	DefaultHTTPReadTimeout = 30 * time.Second
 )
 
 var (
@@ -63,10 +68,18 @@ func NewServer(settings ServerSettings) *Server {
 	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
 
+	//exhaustruct:ignore
+	httpServer := &http.Server{
+		Addr:        ":8080",
+		Handler:     engine,
+		ReadTimeout: DefaultHTTPReadTimeout,
+	}
+
 	server := &Server{
-		settings: settings,
-		logger:   logger,
-		Engine:   engine,
+		settings:   settings,
+		logger:     logger,
+		Engine:     engine,
+		httpServer: httpServer,
 
 		agentPersistencePort: nil,
 		connectionUsecase:    nil,
@@ -110,8 +123,7 @@ func NewServer(settings ServerSettings) *Server {
 }
 
 func (s *Server) Run() error {
-	s.httpServer.ListenAndServe()
-	err := s.Engine.Run()
+	err := s.httpServer.ListenAndServe()
 	if err != nil {
 		return fmt.Errorf("server run failed: %w", err)
 	}
@@ -207,10 +219,6 @@ func (s *Server) initInAdapters() error {
 		}
 	}
 
-	s.httpServer = &http.Server{
-		Addr:    ":8080",
-		Handler: s.Engine,
-	}
 	s.httpServer.ConnContext = s.opampController.ConnContext
 
 	for _, routeInfo := range s.Engine.Routes() {

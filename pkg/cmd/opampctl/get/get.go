@@ -1,9 +1,10 @@
 package get
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/agent"
-	"github.com/spf13/cobra"
 )
 
 type CommandOptions struct {
@@ -11,6 +12,7 @@ type CommandOptions struct {
 }
 
 func NewCommand(options CommandOptions) *cobra.Command {
+	//exhaustruct:ignore
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "get",

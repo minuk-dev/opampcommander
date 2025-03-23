@@ -1,9 +1,10 @@
 package opampctl
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
-	"github.com/spf13/cobra"
 )
 
 type CommandOption struct {
@@ -13,7 +14,9 @@ type CommandOption struct {
 
 func NewCommand(options CommandOption) *cobra.Command {
 	if options.GlobalConfig == nil {
-		options.GlobalConfig = &config.GlobalConfig{}
+		options.GlobalConfig = &config.GlobalConfig{
+			Endpoint: "http://localhost:8080",
+		}
 	}
 	//exhaustruct:ignore
 	cmd := &cobra.Command{

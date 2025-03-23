@@ -14,20 +14,16 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 )
 
-const (
-	headerContentType   = "Content-Type"
-	contentTypeProtobuf = "application/x-protobuf"
-)
-
 type Controller struct {
 	logger *slog.Logger
 
 	handler     opampServer.HTTPHandlerFunc
 	ConnContext opampServer.ConnContext
 
-	connections map[types.Connection]struct{}
+	connections       map[types.Connection]struct{}
+	opampServer       opampServer.OpAMPServer
+	enableCompression bool
 
-	opampServer opampServer.OpAMPServer
 	// usecases
 	opampUsecase port.OpAMPUsecase
 }
@@ -38,11 +34,11 @@ type Logger struct {
 	logger *slog.Logger
 }
 
-func (l *Logger) Debugf(ctx context.Context, format string, v ...interface{}) {
+func (l *Logger) Debugf(_ context.Context, format string, v ...any) {
 	l.logger.Debug(format, v...)
 }
 
-func (l *Logger) Errorf(ctx context.Context, format string, v ...interface{}) {
+func (l *Logger) Errorf(_ context.Context, format string, v ...any) {
 	l.logger.Error(format, v...)
 }
 
@@ -51,6 +47,12 @@ func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controlle
 		logger:       slog.Default(),
 		connections:  make(map[types.Connection]struct{}),
 		opampUsecase: opampUsecase,
+
+		enableCompression: false,
+
+		handler:     nil, // fill below
+		ConnContext: nil, // fill below
+		opampServer: nil, // fill below
 	}
 
 	for _, option := range options {
@@ -60,11 +62,15 @@ func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controlle
 	controller.opampServer = opampServer.New(&Logger{
 		logger: controller.logger,
 	})
+
 	var err error
+
 	controller.handler, controller.ConnContext, err = controller.opampServer.Attach(opampServer.Settings{
+		EnableCompression: controller.enableCompression,
 		Callbacks: types.Callbacks{
 			OnConnecting: controller.OnConnecting,
 		},
+		CustomCapabilities: nil,
 	})
 	if err != nil {
 		controller.logger.Error("failed to attach opamp server", "error", err.Error())
@@ -80,7 +86,7 @@ func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controlle
 	return controller
 }
 
-func (c *Controller) OnConnecting(request *http.Request) types.ConnectionResponse {
+func (c *Controller) OnConnecting(*http.Request) types.ConnectionResponse {
 	return types.ConnectionResponse{
 		Accept:             true,
 		HTTPStatusCode:     http.StatusOK,
@@ -93,12 +99,17 @@ func (c *Controller) OnConnecting(request *http.Request) types.ConnectionRespons
 	}
 }
 
-func (c *Controller) OnConnected(ctx context.Context, conn types.Connection) {
+func (c *Controller) OnConnected(_ context.Context, conn types.Connection) {
 	c.connections[conn] = struct{}{}
 }
 
-func (c *Controller) OnMessage(ctx context.Context, conn types.Connection, message *protobufs.AgentToServer) *protobufs.ServerToAgent {
+func (c *Controller) OnMessage(
+	ctx context.Context,
+	_ types.Connection,
+	message *protobufs.AgentToServer,
+) *protobufs.ServerToAgent {
 	instanceUID := message.GetInstanceUid()
+
 	err := c.opampUsecase.HandleAgentToServer(ctx, message)
 	if err != nil {
 		c.logger.Error("failed to handle agent to server message", "error", err.Error())
@@ -108,6 +119,7 @@ func (c *Controller) OnMessage(ctx context.Context, conn types.Connection, messa
 	if err != nil {
 		c.logger.Error("failed to fetch server to agent message", "error", err.Error())
 	}
+
 	return serverToAgent
 }
 
