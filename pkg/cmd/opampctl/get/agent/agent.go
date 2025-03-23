@@ -7,6 +7,7 @@ import (
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/client"
+	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
@@ -67,9 +68,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	cmd.Println("Listed agents")
-	cmd.Println(agents)
-
+	formatter.FormatYAML(cmd.OutOrStdout(), agents)
 	return nil
 }
 
