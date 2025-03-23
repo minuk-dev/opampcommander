@@ -74,6 +74,8 @@ func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controlle
 	})
 	if err != nil {
 		controller.logger.Error("failed to attach opamp server", "error", err.Error())
+
+		return nil
 	}
 
 	err = controller.Validate()
