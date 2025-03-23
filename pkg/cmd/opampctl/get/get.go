@@ -5,6 +5,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/agent"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/connection"
 )
 
 type CommandOptions struct {
@@ -19,6 +20,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.AddCommand(agent.NewCommand(agent.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(connection.NewCommand(connection.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 
