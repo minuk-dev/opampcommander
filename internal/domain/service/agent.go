@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -47,7 +48,7 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 				EffectiveConfig:     nil,
 				PackageStatuses:     nil,
 				ComponentHealth:     nil,
-				RemoteConfigStatus:  nil,
+				RemoteConfig:        remoteconfig.New(),
 				CustomCapabilities:  nil,
 				AvailableComponents: nil,
 			}

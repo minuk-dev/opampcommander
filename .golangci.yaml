@@ -25,3 +25,6 @@ linters-settings:
           - github.com/open-telemetry/opamp-go/protobufs
           - github.com/google/uuid
           - github.com/puzpuzpuz/xsync/v3
+          - github.com/go-resty/resty/v2
+          - github.com/open-telemetry/opamp-go/types
+          - github.com/open-telemetry/opamp-go/server

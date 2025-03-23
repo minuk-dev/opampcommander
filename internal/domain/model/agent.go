@@ -4,24 +4,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 // Agent is a domain model to control opamp agent by opampcommander.
 type Agent struct {
 	InstanceUID         uuid.UUID
 	Capabilities        *AgentCapabilities
-	Description         *AgentDescription
+	Description         *agent.Description
 	EffectiveConfig     *AgentEffectiveConfig
 	PackageStatuses     *AgentPackageStatuses
 	ComponentHealth     *AgentComponentHealth
-	RemoteConfigStatus  *AgentRemoteConfigStatus
+	RemoteConfig        remoteconfig.RemoteConfig
 	CustomCapabilities  *AgentCustomCapabilities
 	AvailableComponents *AgentAvailableComponents
-}
-
-type AgentDescription struct {
-	IdentifyingAttributes    map[string]string
-	NonIdentifyingAttributes map[string]string
 }
 
 type AgentComponentHealth struct {
@@ -71,18 +70,9 @@ type AgentConfigFile struct {
 
 type AgentRemoteConfigStatus struct {
 	LastRemoteConfigHash []byte
-	Status               AgentRemoteConfigStatusEnum
+	Status               remoteconfig.Status
 	ErrorMessage         string
 }
-
-type AgentRemoteConfigStatusEnum int32
-
-const (
-	AgentRemoteConfigStatusEnumUnset    = 0
-	AgentRemoteConfigStatusEnumApplied  = 1
-	AgentRemoteConfigStatusEnumApplying = 2
-	AgentRemoteConfigStatusEnumFailed   = 3
-)
 
 type AgentPackageStatuses struct {
 	Packages                     map[string]AgentPackageStatus
@@ -123,23 +113,7 @@ type ComponentDetails struct {
 	SubComponentMap map[string]ComponentDetails
 }
 
-type OS struct {
-	Type    string
-	Version string
-}
-
-type Service struct {
-	Name       string
-	Namespace  string
-	Version    string
-	InstanceID string
-}
-
-type AgentHost struct {
-	Name string
-}
-
-func (a *Agent) ReportDescription(desc *AgentDescription) error {
+func (a *Agent) ReportDescription(desc *agent.Description) error {
 	a.Description = desc
 
 	return nil
@@ -158,7 +132,14 @@ func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
 }
 
 func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error {
-	a.RemoteConfigStatus = status
+	if status.ErrorMessage != "" {
+		a.RemoteConfig.SetLastErrorMessage(status.ErrorMessage)
+	}
+
+	a.RemoteConfig.SetStatus(
+		status.Status.
+			WithKey(vo.Hash(status.LastRemoteConfigHash)),
+	)
 
 	return nil
 }
@@ -179,28 +160,4 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 	a.AvailableComponents = availableComponents
 
 	return nil
-}
-
-// OS is a required field of AgentDescription
-// https://github.com/open-telemetry/opamp-spec/blob/main/specification.md#agentdescriptionnon_identifying_attributes
-func (ad *AgentDescription) OS() OS {
-	return OS{
-		Type:    ad.NonIdentifyingAttributes["os.type"],
-		Version: ad.NonIdentifyingAttributes["os.version"],
-	}
-}
-
-func (ad *AgentDescription) Service() Service {
-	return Service{
-		Name:       ad.IdentifyingAttributes["service.name"],
-		Namespace:  ad.IdentifyingAttributes["service.namespace"],
-		Version:    ad.IdentifyingAttributes["service.version"],
-		InstanceID: ad.IdentifyingAttributes["service.instance.id"],
-	}
-}
-
-func (ad *AgentDescription) Host() AgentHost {
-	return AgentHost{
-		Name: ad.NonIdentifyingAttributes["host.name"],
-	}
 }

@@ -16,13 +16,24 @@ before:
     - go generate ./...
 
 builds:
-  - env:
+  - id: apiserver
+    binary: apiserver
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
       - windows
       - darwin
     main: ./cmd/apiserver
+  - id: opampctl
+    binary: opampctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    main: ./cmd/opampctl
 
 archives:
   - format: tar.gz
