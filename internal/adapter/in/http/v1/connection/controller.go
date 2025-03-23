@@ -7,14 +7,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	k8sclock "k8s.io/utils/clock"
 
 	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 type Controller struct {
 	logger *slog.Logger
+	clock  clock.Clock
 
 	// usecases
 	connectionUsecase Usecase
@@ -28,6 +31,7 @@ type Usecase interface {
 func NewController(options ...Option) *Controller {
 	controller := &Controller{
 		logger: slog.Default(),
+		clock:  k8sclock.RealClock{},
 
 		connectionUsecase: nil,
 	}
@@ -72,11 +76,13 @@ func (c *Controller) Validate() error {
 }
 
 func (c *Controller) List(ctx *gin.Context) {
+	now := c.clock.Now()
 	connections := c.connectionUsecase.ListConnections()
 	connectionResponse := lo.Map(connections, func(connection *model.Connection, _ int) *connectionv1.Connection {
 		return &connectionv1.Connection{
 			ID:                 connection.ID,
 			InstanceUID:        connection.ID,
+			Alive:              connection.IsAlive(now),
 			LastCommunicatedAt: connection.LastCommunicatedAt(),
 		}
 	})
