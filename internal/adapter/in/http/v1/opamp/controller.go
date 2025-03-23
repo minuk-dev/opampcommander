@@ -25,7 +25,11 @@ type Controller struct {
 	enableCompression bool
 
 	// usecases
-	opampUsecase port.OpAMPUsecase
+	opampUsecase Usecase
+}
+
+type Usecase interface {
+	port.OpAMPUsecase
 }
 
 type Option func(*Controller)
@@ -42,7 +46,7 @@ func (l *Logger) Errorf(_ context.Context, format string, v ...any) {
 	l.logger.Error(format, v...)
 }
 
-func NewController(opampUsecase port.OpAMPUsecase, options ...Option) *Controller {
+func NewController(opampUsecase Usecase, options ...Option) *Controller {
 	controller := &Controller{
 		logger:       slog.Default(),
 		connections:  make(map[types.Connection]struct{}),
@@ -137,6 +141,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "opamp.v1.opamp.Handle",
 			HandlerFunc: c.Handle,
 		},
+		{
+			Method:      "POST",
+			Path:        "/v1/opamp",
+			Handler:     "opamp.v1.opamp.Handle",
+			HandlerFunc: c.Handle,
+		},
 	}
 }
 
@@ -151,5 +161,6 @@ func (c *Controller) Validate() error {
 }
 
 func (c *Controller) Handle(ctx *gin.Context) {
+	c.logger.Info("Handle", "message", "start")
 	c.handler(ctx.Writer, ctx.Request)
 }

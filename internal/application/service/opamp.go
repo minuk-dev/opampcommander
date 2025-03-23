@@ -94,10 +94,20 @@ func (s *OpAMPService) FetchServerToAgent(
 		return nil, fmt.Errorf("failed to get connection: %w", err)
 	}
 
+	s.logger.Info("FetchServerToAgent",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "start"),
+	)
+
 	serverToAgent, err := conn.FetchServerToAgent(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch a message from the channel: %w", err)
 	}
+
+	s.logger.Info("FetchServerToAgent",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "success"),
+	)
 
 	return serverToAgent, nil
 }

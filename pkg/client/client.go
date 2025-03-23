@@ -5,13 +5,6 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	uuid "github.com/google/uuid"
-
-	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
-)
-
-const (
-	ListAgentURL = "/v1/agents"
-	GetAgentURL  = "/v1/agents/:id"
 )
 
 type Client struct {
@@ -26,58 +19,50 @@ func NewClient(endpoint string) *Client {
 	}
 }
 
-func (c *Client) GetAgent(id uuid.UUID) (*agentv1.Agent, error) {
+// Generic function for GET requests.
+func getResource[T any](c *Client, url string, id uuid.UUID) (*T, error) {
+	var result T
+
 	res, err := c.Client.R().
 		SetPathParam("id", id.String()).
-		SetResult(
-			//exhaustruct:ignore
-			&agentv1.Agent{},
-		).
-		Get(GetAgentURL)
+		SetResult(&result).
+		Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent: %w", err)
+		return nil, fmt.Errorf("failed to get resource: %w", err)
 	}
 
 	if res.IsError() {
-		return nil, fmt.Errorf("failed to get agent: %w", &ResponseError{
+		return nil, fmt.Errorf("failed to get resource: %w", &ResponseError{
 			StatusCode: res.StatusCode(),
 		})
 	}
 
 	if res.Result() == nil {
-		return nil, fmt.Errorf("failed to get agent: %w", ErrEmptyResponse)
+		return nil, fmt.Errorf("failed to get resource: %w", ErrEmptyResponse)
 	}
 
-	result, ok := res.Result().(*agentv1.Agent)
-	if !ok {
-		return nil, fmt.Errorf("failed to get agent: %w", ErrUnexpectedBehavior)
+	return &result, nil
+}
+
+func listResources[T any](c *Client, url string) ([]T, error) {
+	var result []T
+
+	res, err := c.Client.R().
+		SetResult(&result).
+		Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resources(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to list resources(responseError): %w", &ResponseError{
+			StatusCode: res.StatusCode(),
+		})
+	}
+
+	if res.Result() == nil {
+		return nil, fmt.Errorf("failed to list resources: %w", ErrEmptyResponse)
 	}
 
 	return result, nil
-}
-
-func (c *Client) ListAgents() ([]*agentv1.Agent, error) {
-	res, err := c.Client.R().
-		SetResult([]*agentv1.Agent{}).
-		Get(ListAgentURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents(restyError): %w", err)
-	}
-
-	if res.IsError() {
-		return nil, fmt.Errorf("failed to list agents(responseError): %w", &ResponseError{
-			StatusCode: res.StatusCode(),
-		})
-	}
-
-	if res.Result() == nil {
-		return nil, fmt.Errorf("failed to list agents(restyResultError): %w", ErrEmptyResponse)
-	}
-
-	result, ok := res.Result().(*[]*agentv1.Agent)
-	if !ok {
-		return nil, fmt.Errorf("failed to list agents(type cast): %w", ErrUnexpectedBehavior)
-	}
-
-	return *result, nil
 }

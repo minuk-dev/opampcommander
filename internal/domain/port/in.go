@@ -27,7 +27,7 @@ type GetConnectionUsecase interface {
 }
 
 type SetConnectionUsecase interface {
-	SetConnection(connection *model.Connection) error
+	SaveConnection(connection *model.Connection) error
 }
 
 type DeleteConnectionUsecase interface {
@@ -36,7 +36,7 @@ type DeleteConnectionUsecase interface {
 }
 
 type ListConnectionIDsUsecase interface {
-	ListConnectionIDs() []uuid.UUID
+	ListConnections() []*model.Connection
 }
 
 type AgentUsecase interface {
