@@ -28,3 +28,4 @@ linters-settings:
           - github.com/go-resty/resty/v2
           - github.com/open-telemetry/opamp-go/types
           - github.com/open-telemetry/opamp-go/server
+          - k8s.io/utils/clock
