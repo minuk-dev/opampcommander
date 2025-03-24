@@ -18,9 +18,9 @@ type Command struct {
 	Data              map[string]any
 }
 
-func NewUpdateAgentConfigCommand(id uuid.UUID, targetInstanceUID uuid.UUID, remoteConfig any) *Command {
+func NewUpdateAgentConfigCommand(targetInstanceUID uuid.UUID, remoteConfig any) *Command {
 	return &Command{
-		ID:                id,
+		ID:                uuid.New(),
 		TargetInstanceUID: targetInstanceUID,
 		Kind:              UpdateAgentConfigCommandKind,
 		Data: map[string]any{

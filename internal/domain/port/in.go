@@ -57,3 +57,17 @@ type SaveAgentUsecase interface {
 type ListAgentUsecase interface {
 	ListAgents(ctx context.Context) ([]*model.Agent, error)
 }
+
+type CommandUsecase interface {
+	GetCommandUsecase
+	SaveCommandUsecase
+}
+
+type GetCommandUsecase interface {
+	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
+	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error)
+}
+
+type SaveCommandUsecase interface {
+	SaveCommand(ctx context.Context, command *model.Command) error
+}

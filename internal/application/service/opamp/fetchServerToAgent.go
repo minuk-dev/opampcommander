@@ -24,9 +24,9 @@ func (s *Service) FetchServerToAgent(
 		slog.String("message", "start"),
 	)
 
-	serverToAgent, err := conn.FetchServerToAgent(ctx)
+	serverToAgent, err := s.createServerToAgent(ctx, instanceUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch a message from the channel: %w", err)
+		return nil, fmt.Errorf("failed to create server to agent message: %w", err)
 	}
 
 	s.logger.Info("FetchServerToAgent",
@@ -35,4 +35,10 @@ func (s *Service) FetchServerToAgent(
 	)
 
 	return serverToAgent, nil
+}
+
+func (s *Service) createServerToAgent(ctx context.Context, instanceUID uuid.UUID) (*protobufs.ServerToAgent, error) {
+	return &protobufs.ServerToAgent{
+		InstanceUid: []byte(instanceUID),
+	}, nil
 }
