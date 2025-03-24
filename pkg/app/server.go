@@ -17,7 +17,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
-	applicationservice "github.com/minuk-dev/opampcommander/internal/application/service"
+	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
 )
@@ -148,7 +148,7 @@ func (s *Server) initDomains() error {
 }
 
 func (s *Server) initApplications() error {
-	s.opampUsecase = applicationservice.NewOpAMPService(
+	s.opampUsecase = opampApplicationService.New(
 		s.connectionUsecase,
 		s.agentUsecase,
 		s.logger,

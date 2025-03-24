@@ -1,8 +1,7 @@
-package service
+package opamp
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,35 +9,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 
-	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	modelagent "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ applicationport.OpAMPUsecase = (*OpAMPService)(nil)
-
-type OpAMPService struct {
-	logger            *slog.Logger
-	connectionUsecase domainport.ConnectionUsecase
-	agentUsecase      domainport.AgentUsecase
-}
-
-func NewOpAMPService(
-	connectionUsecase domainport.ConnectionUsecase,
-	agentUsecase domainport.AgentUsecase,
-	logger *slog.Logger,
-) *OpAMPService {
-	return &OpAMPService{
-		logger:            logger,
-		connectionUsecase: connectionUsecase,
-		agentUsecase:      agentUsecase,
-	}
-}
-
 // HandleAgentToServer handle a message from agent.
-func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *protobufs.AgentToServer) error {
+func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protobufs.AgentToServer) error {
 	instanceUID := uuid.UUID(agentToServer.GetInstanceUid())
 	s.logger.Info("HandleAgentToServer",
 		slog.String("instanceUID", instanceUID.String()),
@@ -84,55 +61,7 @@ func (s *OpAMPService) HandleAgentToServer(ctx context.Context, agentToServer *p
 	return nil
 }
 
-// FetchServerToAgent fetch a message.
-func (s *OpAMPService) FetchServerToAgent(
-	ctx context.Context,
-	instanceUID uuid.UUID,
-) (*protobufs.ServerToAgent, error) {
-	conn, err := s.connectionUsecase.GetConnection(instanceUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get connection: %w", err)
-	}
-
-	s.logger.Info("FetchServerToAgent",
-		slog.String("instanceUID", instanceUID.String()),
-		slog.String("message", "start"),
-	)
-
-	serverToAgent, err := conn.FetchServerToAgent(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch a message from the channel: %w", err)
-	}
-
-	s.logger.Info("FetchServerToAgent",
-		slog.String("instanceUID", instanceUID.String()),
-		slog.String("message", "success"),
-	)
-
-	return serverToAgent, nil
-}
-
-func (s *OpAMPService) DisconnectAgent(instanceUID uuid.UUID) error {
-	conn, err := s.connectionUsecase.FetchAndDeleteConnection(instanceUID)
-	if err != nil && errors.Is(err, domainport.ErrConnectionNotFound) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to delete connection: %w", err)
-	}
-
-	if conn != nil {
-		return fmt.Errorf("connection is nil: %w", err)
-	}
-
-	err = conn.Close()
-	if err != nil {
-		return fmt.Errorf("failed to close connection: %w", err)
-	}
-
-	return nil
-}
-
-func (s *OpAMPService) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
+func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
 	desc := &modelagent.Description{
 		IdentifyingAttributes:    toMap(agentToServer.GetAgentDescription().GetIdentifyingAttributes()),
 		NonIdentifyingAttributes: toMap(agentToServer.GetAgentDescription().GetNonIdentifyingAttributes()),
