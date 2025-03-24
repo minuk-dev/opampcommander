@@ -42,20 +42,9 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 		slog.String("message", "success"),
 	)
 
-	conn, err := s.connectionUsecase.GetOrCreateConnection(instanceUID)
+	_, err = s.connectionUsecase.GetOrCreateConnection(instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to get or create connection: %w", err)
-	}
-
-	// iss#2: Make more proper serverToAgent from agent.
-	//exhaustruct:ignore
-	serverToAgent := &protobufs.ServerToAgent{
-		InstanceUid: agentToServer.GetInstanceUid(),
-	}
-
-	err = conn.SendServerToAgent(ctx, serverToAgent)
-	if err != nil {
-		return fmt.Errorf("failed to send a message to the channel: %w", err)
 	}
 
 	return nil

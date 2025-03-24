@@ -2,7 +2,7 @@ linters:
   enable-all: true
   disable:
     # The linter 'exportloopref' is deprecated (since v1.60.2) due to: Since Go1.22 (loopvar) this linter is no longer relevant. Replaced by copyloopvar.
-    - exportloopref
+    - tenv
 
 linters-settings:
   gci:
@@ -29,3 +29,5 @@ linters-settings:
           - github.com/open-telemetry/opamp-go/types
           - github.com/open-telemetry/opamp-go/server
           - k8s.io/utils/clock
+          - go.etcd.io/etcd/client/v3
+          - gopkg.in/yaml.v3

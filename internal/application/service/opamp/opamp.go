@@ -17,17 +17,20 @@ type Service struct {
 	logger            *slog.Logger
 	connectionUsecase domainport.ConnectionUsecase
 	agentUsecase      domainport.AgentUsecase
+	commandUsecase    domainport.CommandUsecase
 }
 
 func New(
 	connectionUsecase domainport.ConnectionUsecase,
 	agentUsecase domainport.AgentUsecase,
+	commandUsecase domainport.CommandUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		logger:            logger,
 		connectionUsecase: connectionUsecase,
 		agentUsecase:      agentUsecase,
+		commandUsecase:    commandUsecase,
 	}
 }
 

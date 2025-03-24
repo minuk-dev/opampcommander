@@ -47,6 +47,7 @@ type Server struct {
 	// domains
 	connectionUsecase domainport.ConnectionUsecase
 	agentUsecase      domainport.AgentUsecase
+	commandUsecase    domainport.CommandUsecase
 
 	// applications
 	opampUsecase applicationport.OpAMPUsecase
@@ -85,6 +86,7 @@ func NewServer(settings ServerSettings) *Server {
 		connectionUsecase:    nil,
 		agentUsecase:         nil,
 		opampUsecase:         nil,
+		commandUsecase:       nil,
 		pingController:       nil,
 		agentController:      nil,
 		opampController:      nil,
@@ -151,6 +153,7 @@ func (s *Server) initApplications() error {
 	s.opampUsecase = opampApplicationService.New(
 		s.connectionUsecase,
 		s.agentUsecase,
+		s.commandUsecase,
 		s.logger,
 	)
 	if s.opampUsecase == nil {
