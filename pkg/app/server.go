@@ -59,7 +59,8 @@ type Server struct {
 	agentController      *agent.Controller
 
 	// out adapters
-	agentPersistencePort domainport.AgentPersistencePort
+	agentPersistencePort   domainport.AgentPersistencePort
+	commandPersistencePort domainport.CommandPersistencePort
 }
 
 func NewServer(settings ServerSettings) *Server {
@@ -146,6 +147,13 @@ func (s *Server) initDomains() error {
 		return ErrDomainInitFailed
 	}
 
+	s.commandUsecase = domainservice.NewCommandService(
+		s.commandPersistencePort,
+	)
+	if s.commandUsecase == nil {
+		return ErrDomainInitFailed
+	}
+
 	return nil
 }
 
@@ -179,6 +187,9 @@ func (s *Server) initOutAdapters() error {
 	}
 
 	s.agentPersistencePort = etcd.NewAgentEtcdAdapter(etcdClient)
+
+	// todo
+	s.commandPersistencePort = nil
 
 	return nil
 }

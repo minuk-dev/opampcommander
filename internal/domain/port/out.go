@@ -15,6 +15,12 @@ type AgentPersistencePort interface {
 	ListAgents(ctx context.Context) ([]*model.Agent, error)
 }
 
+type CommandPersistencePort interface {
+	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
+	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Command, error)
+	SaveCommand(ctx context.Context, command *model.Command) error
+}
+
 var (
 	ErrAgentNotExist      = errors.New("agent does not exist")
 	ErrMultipleAgentExist = errors.New("multiple agent exists")

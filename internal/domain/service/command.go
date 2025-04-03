@@ -7,19 +7,15 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 type CommandService struct {
-	commandPersistencePort CommandPersistencePort
-}
-
-type CommandPersistencePort interface {
-	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
-	SaveCommand(ctx context.Context, command *model.Command) error
+	commandPersistencePort port.CommandPersistencePort
 }
 
 func NewCommandService(
-	commandPersistencePort CommandPersistencePort,
+	commandPersistencePort port.CommandPersistencePort,
 ) *CommandService {
 	return &CommandService{
 		commandPersistencePort: commandPersistencePort,
@@ -30,6 +26,15 @@ func (s *CommandService) GetCommand(ctx context.Context, commandID uuid.UUID) (*
 	command, err := s.commandPersistencePort.GetCommand(ctx, commandID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get command from persistence: %w", err)
+	}
+
+	return command, nil
+}
+
+func (s *CommandService) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error) {
+	command, err := s.commandPersistencePort.GetCommandByInstanceUID(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get command by instance UID from persistence: %w", err)
 	}
 
 	return command, nil
