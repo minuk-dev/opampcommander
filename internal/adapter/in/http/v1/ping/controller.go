@@ -13,13 +13,9 @@ type Controller struct {
 
 type Option func(*Controller)
 
-func NewController(options ...Option) *Controller {
+func NewController(logger *slog.Logger) *Controller {
 	controller := &Controller{
-		logger: slog.Default(),
-	}
-
-	for _, option := range options {
-		option(controller)
+		logger: logger,
 	}
 
 	return controller

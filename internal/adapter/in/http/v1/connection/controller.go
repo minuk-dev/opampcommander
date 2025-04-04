@@ -28,16 +28,12 @@ type Usecase interface {
 	port.ListConnectionIDsUsecase
 }
 
-func NewController(options ...Option) *Controller {
+func NewController(connectionUsecase port.ConnectionUsecase) *Controller {
 	controller := &Controller{
 		logger: slog.Default(),
 		clock:  k8sclock.RealClock{},
 
-		connectionUsecase: nil,
-	}
-
-	for _, option := range options {
-		option(controller)
+		connectionUsecase: connectionUsecase,
 	}
 
 	err := controller.Validate()

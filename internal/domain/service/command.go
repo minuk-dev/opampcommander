@@ -37,7 +37,7 @@ func (s *CommandService) GetCommandByInstanceUID(ctx context.Context, instanceUI
 		return nil, fmt.Errorf("failed to get command by instance UID from persistence: %w", err)
 	}
 
-	return command, nil
+	return []*model.Command{command}, nil
 }
 
 func (s *CommandService) SaveCommand(ctx context.Context, command *model.Command) error {

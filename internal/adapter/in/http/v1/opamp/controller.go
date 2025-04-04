@@ -25,11 +25,7 @@ type Controller struct {
 	enableCompression bool
 
 	// usecases
-	opampUsecase Usecase
-}
-
-type Usecase interface {
-	port.OpAMPUsecase
+	opampUsecase port.OpAMPUsecase
 }
 
 type Option func(*Controller)
@@ -46,9 +42,12 @@ func (l *Logger) Errorf(_ context.Context, format string, v ...any) {
 	l.logger.Error(format, v...)
 }
 
-func NewController(opampUsecase Usecase, options ...Option) *Controller {
+func NewController(
+	opampUsecase port.OpAMPUsecase,
+	logger *slog.Logger,
+) *Controller {
 	controller := &Controller{
-		logger:       slog.Default(),
+		logger:       logger,
 		connections:  make(map[types.Connection]struct{}),
 		opampUsecase: opampUsecase,
 
@@ -57,10 +56,6 @@ func NewController(opampUsecase Usecase, options ...Option) *Controller {
 		handler:     nil, // fill below
 		ConnContext: nil, // fill below
 		opampServer: nil, // fill below
-	}
-
-	for _, option := range options {
-		option(controller)
 	}
 
 	controller.opampServer = opampServer.New(&Logger{

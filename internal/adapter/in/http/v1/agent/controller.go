@@ -25,9 +25,12 @@ type Usecase interface {
 	port.ListAgentUsecase
 }
 
-func NewController(usecase Usecase) *Controller {
+func NewController(
+	usecase port.AgentUsecase,
+	logger *slog.Logger,
+) *Controller {
 	controller := &Controller{
-		logger: slog.Default(),
+		logger: logger,
 
 		agentUsecase: usecase,
 	}

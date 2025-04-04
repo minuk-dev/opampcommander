@@ -1,22 +1,24 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	sloggin "github.com/samber/slog-gin"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
-	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	"github.com/minuk-dev/opampcommander/internal/application/port"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
@@ -40,86 +42,110 @@ type ServerSettings struct {
 
 type Server struct {
 	settings   ServerSettings
-	logger     *slog.Logger
 	Engine     *gin.Engine
 	httpServer *http.Server
+}
 
-	// domains
-	connectionUsecase domainport.ConnectionUsecase
-	agentUsecase      domainport.AgentUsecase
-	commandUsecase    domainport.CommandUsecase
+func NewHTTPServer(lc fx.Lifecycle, engine *gin.Engine) *http.Server {
+	srv := &http.Server{
+		ReadTimeout: DefaultHTTPReadTimeout,
+		Addr:        ":8080",
+		Handler:     engine,
+	}
 
-	// applications
-	opampUsecase applicationport.OpAMPUsecase
+	//srv.ConnContext = opampController.ConnContext
+	lc.Append(fx.Hook{
+		OnStart: func(ctx context.Context) error {
+			ln, err := net.Listen("tcp", srv.Addr)
+			if err != nil {
+				return err
+			}
+			fmt.Println("Starting HTTP server at", srv.Addr)
+			go srv.Serve(ln)
+			return nil
+		},
+		OnStop: func(ctx context.Context) error {
+			return srv.Shutdown(ctx)
+		},
+	})
+	return srv
+}
 
-	// in adapters
-	pingController       *ping.Controller
-	opampController      *opamp.Controller
-	connectionController *connection.Controller
-	agentController      *agent.Controller
+func NewEngine(controllers []Controller) *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	//engine.Use(sloggin.New(logger))
 
-	// out adapters
-	agentPersistencePort   domainport.AgentPersistencePort
-	commandPersistencePort domainport.CommandPersistencePort
+	for _, controller := range controllers {
+		routeInfo := controller.RoutesInfo()
+		for _, route := range routeInfo {
+			engine.Handle(route.Method, route.Path, route.HandlerFunc)
+		}
+	}
+
+	return engine
+}
+
+func NewLogger() *slog.Logger {
+	logger := slog.Default()
+	return logger
+}
+
+func NewEtcdClient(settings *ServerSettings) (*clientv3.Client, error) {
+	etcdConfig := clientv3.Config{
+		Endpoints: settings.EtcdHosts,
+	}
+
+	etcdClient, err := clientv3.New(etcdConfig)
+	if err != nil {
+		return nil, fmt.Errorf("etcd client init failed: %w", err)
+	}
+
+	return etcdClient, nil
+}
+
+func AsController(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(Controller)),
+		fx.ResultTags(`group:"controllers"`),
+	)
 }
 
 func NewServer(settings ServerSettings) *Server {
-	logger := slog.Default()
-	engine := gin.New()
+	app := fx.New(
+		fx.Provide(
+			NewHTTPServer,
+			fx.Annotate(
+				NewEngine,
+				fx.ParamTags(`group:"controllers"`),
+			),
+		),
+		fx.Provide(NewLogger),
+		fx.Provide(NewEtcdClient),
 
-	engine.Use(sloggin.New(logger))
-	engine.Use(gin.Recovery())
+		// controllers
+		fx.Provide(
+			AsController(ping.NewController),
+			AsController(opamp.NewController),
+			AsController(connection.NewController),
+			AsController(agent.NewController),
+		),
+		fx.Provide(fx.Annotate(etcd.NewAgentEtcdAdapter, fx.As(new(domainport.AgentPersistencePort)))),
+		fx.Provide(fx.Annotate(etcd.NewCommandEtcdAdapter, fx.As(new(domainport.CommandPersistencePort)))),
+		fx.Provide(fx.Annotate(opampApplicationService.New, fx.As(new(port.OpAMPUsecase)))),
+		fx.Provide(fx.Annotate(domainservice.NewCommandService, fx.As(new(domainport.CommandUsecase)))),
+		fx.Provide(fx.Annotate(domainservice.NewConnectionManager, fx.As(new(domainport.ConnectionUsecase)))),
+		fx.Provide(fx.Annotate(domainservice.NewAgentService, fx.As(new(domainport.AgentUsecase)))),
+		fx.Provide(func() *ServerSettings {
+			return &settings
+		}),
+		fx.Invoke(func(*http.Server) {}),
+	)
 
-	//exhaustruct:ignore
-	httpServer := &http.Server{
-		Addr:        ":8080",
-		Handler:     engine,
-		ReadTimeout: DefaultHTTPReadTimeout,
-	}
-
+	app.Run()
 	server := &Server{
-		settings:   settings,
-		logger:     logger,
-		Engine:     engine,
-		httpServer: httpServer,
-
-		agentPersistencePort: nil,
-		connectionUsecase:    nil,
-		agentUsecase:         nil,
-		opampUsecase:         nil,
-		commandUsecase:       nil,
-		pingController:       nil,
-		agentController:      nil,
-		opampController:      nil,
-		connectionController: nil,
-	}
-
-	err := server.initOutAdapters()
-	if err != nil {
-		logger.Error("server init failed", "error", err.Error())
-
-		return nil
-	}
-
-	err = server.initDomains()
-	if err != nil {
-		logger.Error("server init failed", "error", err.Error())
-
-		return nil
-	}
-
-	err = server.initApplications()
-	if err != nil {
-		logger.Error("server init failed", "error", err.Error())
-
-		return nil
-	}
-
-	err = server.initInAdapters()
-	if err != nil {
-		logger.Error("server init failed", "error", err.Error())
-
-		return nil
+		settings: settings,
 	}
 
 	return server
@@ -134,110 +160,6 @@ func (s *Server) Run() error {
 	return nil
 }
 
-func (s *Server) initDomains() error {
-	s.connectionUsecase = domainservice.NewConnectionManager()
-	if s.connectionUsecase == nil {
-		return ErrDomainInitFailed
-	}
-
-	s.agentUsecase = domainservice.NewAgentService(
-		s.agentPersistencePort,
-	)
-	if s.agentUsecase == nil {
-		return ErrDomainInitFailed
-	}
-
-	s.commandUsecase = domainservice.NewCommandService(
-		s.commandPersistencePort,
-	)
-	if s.commandUsecase == nil {
-		return ErrDomainInitFailed
-	}
-
-	return nil
-}
-
-func (s *Server) initApplications() error {
-	s.opampUsecase = opampApplicationService.New(
-		s.connectionUsecase,
-		s.agentUsecase,
-		s.commandUsecase,
-		s.logger,
-	)
-	if s.opampUsecase == nil {
-		return ErrDomainInitFailed
-	}
-
-	return nil
-}
-
-type controller interface {
+type Controller interface {
 	RoutesInfo() gin.RoutesInfo
-}
-
-func (s *Server) initOutAdapters() error {
-	//exhaustruct:ignore
-	etcdConfig := clientv3.Config{
-		Endpoints: s.settings.EtcdHosts,
-	}
-
-	etcdClient, err := clientv3.New(etcdConfig)
-	if err != nil {
-		return fmt.Errorf("etcd client init failed: %w", err)
-	}
-
-	s.agentPersistencePort = etcd.NewAgentEtcdAdapter(etcdClient)
-
-	// todo
-	s.commandPersistencePort = nil
-
-	return nil
-}
-
-func (s *Server) initInAdapters() error {
-	s.pingController = ping.NewController()
-	if s.pingController == nil {
-		return ErrInAdapterInitFailed
-	}
-
-	s.opampController = opamp.NewController(
-		s.opampUsecase,
-	)
-	if s.opampController == nil {
-		return ErrInAdapterInitFailed
-	}
-
-	s.connectionController = connection.NewController(
-		connection.WithConnectionUsecase(s.connectionUsecase),
-	)
-	if s.connectionController == nil {
-		return ErrInAdapterInitFailed
-	}
-
-	s.agentController = agent.NewController(s.agentUsecase)
-	if s.agentController == nil {
-		return ErrInAdapterInitFailed
-	}
-
-	controllers := []controller{
-		s.pingController,
-		s.opampController,
-		s.connectionController,
-		s.agentController,
-	}
-
-	for _, controller := range controllers {
-		routesInfo := controller.RoutesInfo()
-		for _, routeInfo := range routesInfo {
-			s.Engine.Handle(routeInfo.Method, routeInfo.Path, routeInfo.HandlerFunc)
-		}
-	}
-
-	s.httpServer.ConnContext = s.opampController.ConnContext
-
-	for _, routeInfo := range s.Engine.Routes() {
-		s.logger.Info("engine routes - ", "routeInfo", routeInfo)
-	}
-
-	return nil
 }
