@@ -2,11 +2,12 @@ package etcd
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/google/uuid"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 type CommandEtcdAdapter struct {
@@ -22,13 +23,13 @@ func NewCommandEtcdAdapter(
 }
 
 func (adapter *CommandEtcdAdapter) GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (adapter *CommandEtcdAdapter) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Command, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 func (adapter *CommandEtcdAdapter) SaveCommand(ctx context.Context, command *model.Command) error {
-	return fmt.Errorf("not implemented")
+	return errors.New("not implemented")
 }

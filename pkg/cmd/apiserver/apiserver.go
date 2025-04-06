@@ -1,8 +1,6 @@
 package apiserver
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/minuk-dev/opampcommander/pkg/app"
@@ -51,10 +49,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 }
 
 func (opt *CommandOption) Run(_ *cobra.Command, _ []string) error {
-	err := opt.app.Run()
-	if err != nil {
-		return fmt.Errorf("apiserver run failed: %w", err)
-	}
+	opt.app.Run()
 
 	return nil
 }
