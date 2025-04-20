@@ -45,9 +45,14 @@ dockers:
       - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-{{ .Minor }}-{{ .Patch }}"
     dockerfile: build/docker/apiserver/Dockerfile
 
-dockerhub:
-  username: "{{ .Env.DOCKER_USERNAME }}"
-  secret_name: "{{ .Env.DOCKER_PASSWORD }}"
+release:
+  github:
+    owner: minuk-dev
+    name: opampcommander
+  ids:
+    - apiserver
+    - opampctl
+  draft: true
 
 archives:
   - format: tar.gz
@@ -70,10 +75,3 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
-
-release:
-  footer: >-
-
-    ---
-
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
