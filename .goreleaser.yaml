@@ -35,6 +35,23 @@ builds:
       - darwin
     main: ./cmd/opampctl
 
+dockers:
+  - id: apiserver
+    image_templates:
+      - "harbor.minuk.dev/opampcommander/apiserver:latest"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}"
+    dockerfile: build/docker/apiserver/Dockerfile
+
+release:
+  github:
+    owner: minuk-dev
+    name: opampcommander
+  ids:
+    - apiserver
+    - opampctl
+  draft: true
+
 archives:
   - format: tar.gz
     # this name template makes the OS and Arch compatible with the results of `uname`.
@@ -56,10 +73,3 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
-
-release:
-  footer: >-
-
-    ---
-
-    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).
