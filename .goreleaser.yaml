@@ -41,9 +41,6 @@ dockers:
       - "harbor.minuk.dev/opampcommander/apiserver:latest"
       - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
       - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-{{ .Minor }}"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-{{ .Minor }}-{{ .Patch }}"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .FullCommit }}"
     dockerfile: build/docker/apiserver/Dockerfile
 
 release:
