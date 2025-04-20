@@ -2,3 +2,5 @@
 dist/
 # Prevent mistake
 scripts/etcd**
+**.code-workspace
+.vscode/**

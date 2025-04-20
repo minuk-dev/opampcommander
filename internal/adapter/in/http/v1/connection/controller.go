@@ -1,3 +1,4 @@
+// Package connection provides the HTTP controller for managing connections.
 package connection
 
 import (
@@ -15,41 +16,28 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
+// Controller is a struct that handles HTTP requests related to connections.
 type Controller struct {
 	logger *slog.Logger
 	clock  clock.Clock
 
 	// usecases
-	connectionUsecase Usecase
+	connectionUsecase port.ConnectionUsecase
 }
 
-type Usecase interface {
-	port.GetConnectionUsecase
-	port.ListConnectionIDsUsecase
-}
-
-func NewController(options ...Option) *Controller {
+// NewController creates a new instance of the Controller struct.
+func NewController(connectionUsecase port.ConnectionUsecase) *Controller {
 	controller := &Controller{
 		logger: slog.Default(),
 		clock:  k8sclock.RealClock{},
 
-		connectionUsecase: nil,
-	}
-
-	for _, option := range options {
-		option(controller)
-	}
-
-	err := controller.Validate()
-	if err != nil {
-		controller.logger.Error("controller validation failed", "error", err.Error())
-
-		return nil
+		connectionUsecase: connectionUsecase,
 	}
 
 	return controller
 }
 
+// RoutesInfo returns the routes information for the controller.
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
@@ -67,14 +55,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	}
 }
 
-func (c *Controller) Validate() error {
-	if c.connectionUsecase == nil {
-		return &UsecaseNotProvidedError{Usecase: "connectionUsecase"}
-	}
-
-	return nil
-}
-
+// List handles the request to list all connections.
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()
 	connections := c.connectionUsecase.ListConnections()
@@ -90,6 +71,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, connectionResponse)
 }
 
+// Get handles the request to get a connection by ID.
 func (c *Controller) Get(ctx *gin.Context) {
 	connectionID := ctx.GetString("id")
 

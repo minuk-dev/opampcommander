@@ -1,3 +1,4 @@
+// Package port is a package that defines the ports for the application layer.
 package port
 
 import (
@@ -22,4 +23,9 @@ type HandleAgentToServerUsecase interface {
 // FetchServerToAgentUsecase is a use case that fetches a message from the connection.
 type FetchServerToAgentUsecase interface {
 	FetchServerToAgent(ctx context.Context, instanceUID uuid.UUID) (*protobufs.ServerToAgent, error)
+}
+
+// AdminUsecase is a use case that handles admin operations.
+type AdminUsecase interface {
+	ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error
 }

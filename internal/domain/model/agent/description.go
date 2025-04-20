@@ -2,6 +2,8 @@ package agent
 
 import "github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 
+// Description represents the description of an agent.
+// It contains identifying and non-identifying attributes.
 type Description struct {
 	IdentifyingAttributes    map[string]string
 	NonIdentifyingAttributes map[string]string
@@ -16,6 +18,7 @@ func (ad *Description) OS() vo.OS {
 	}
 }
 
+// Service returns service information.
 func (ad *Description) Service() vo.Service {
 	return vo.Service{
 		Name:       ad.IdentifyingAttributes["service.name"],
@@ -25,6 +28,7 @@ func (ad *Description) Service() vo.Service {
 	}
 }
 
+// Host returns host information.
 func (ad *Description) Host() Host {
 	return Host{
 		Name: ad.NonIdentifyingAttributes["host.name"],

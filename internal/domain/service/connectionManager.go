@@ -12,16 +12,20 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
+// ErrNilArgument is an error that indicates that the argument passed to a function is nil.
 var ErrNilArgument = errors.New("argument is nil")
 
 var _ port.ConnectionUsecase = (*ConnectionManager)(nil)
 
+// ConnectionManager is a struct that manages connections.
+// It uses a map to store connections and provides methods to save, get, update, and delete connections.
 type ConnectionManager struct {
 	connectionMap *xsync.MapOf[string, *model.Connection]
 
 	clock clock.Clock
 }
 
+// NewConnectionManager creates a new instance of ConnectionManager.
 func NewConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
 		connectionMap: xsync.NewMapOf[string, *model.Connection](),
@@ -30,6 +34,8 @@ func NewConnectionManager() *ConnectionManager {
 	}
 }
 
+// SaveConnection saves the connection to the map.
+// It returns an error if the connection is nil or if the connection already exists.
 func (cm *ConnectionManager) SaveConnection(connection *model.Connection) error {
 	if connection == nil {
 		return ErrNilArgument
@@ -47,6 +53,8 @@ func (cm *ConnectionManager) SaveConnection(connection *model.Connection) error 
 	return nil
 }
 
+// GetOrCreateConnection returns the connection by the given ID.
+// If the connection does not exist, it creates a new one and saves it to the map.
 func (cm *ConnectionManager) GetOrCreateConnection(instanceUID uuid.UUID) (*model.Connection, error) {
 	conn, err := cm.GetConnection(instanceUID)
 	if err == nil {
@@ -63,12 +71,16 @@ func (cm *ConnectionManager) GetOrCreateConnection(instanceUID uuid.UUID) (*mode
 	return conn, nil
 }
 
+// DeleteConnection deletes the connection by the given ID.
+// It returns an error if the connection does not exist.
 func (cm *ConnectionManager) DeleteConnection(id uuid.UUID) error {
 	_, err := cm.FetchAndDeleteConnection(id)
 
 	return err
 }
 
+// FetchAndDeleteConnection fetches the connection by the given ID and deletes it from the map.
+// It returns the connection if it exists, otherwise it returns an error.
 func (cm *ConnectionManager) FetchAndDeleteConnection(id uuid.UUID) (*model.Connection, error) {
 	conn, exists := cm.connectionMap.Compute(id.String(), func(_ *model.Connection, _ bool) (*model.Connection, bool) {
 		return nil, false

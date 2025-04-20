@@ -1,3 +1,4 @@
+// Package client provides a client for the opampcommander API server.
 package client
 
 import (
@@ -7,11 +8,13 @@ import (
 	uuid "github.com/google/uuid"
 )
 
+// Client is a struct that contains the endpoint and the resty client.
 type Client struct {
 	Endpoint string
 	Client   *resty.Client
 }
 
+// NewClient creates a new client for opampcommander's apiserver.
 func NewClient(endpoint string) *Client {
 	return &Client{
 		Endpoint: endpoint,

@@ -1,3 +1,4 @@
+// Package agent provides domain models for the agent
 package agent
 
 import (
@@ -13,21 +14,21 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
+// Controller is a struct that implements the agent controller.
 type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	agentUsecase Usecase
+	agentUsecase port.AgentUsecase
 }
 
-type Usecase interface {
-	port.GetAgentUsecase
-	port.ListAgentUsecase
-}
-
-func NewController(usecase Usecase) *Controller {
+// NewController creates a new instance of Controller.
+func NewController(
+	usecase port.AgentUsecase,
+	logger *slog.Logger,
+) *Controller {
 	controller := &Controller{
-		logger: slog.Default(),
+		logger: logger,
 
 		agentUsecase: usecase,
 	}
@@ -35,6 +36,7 @@ func NewController(usecase Usecase) *Controller {
 	return controller
 }
 
+// RoutesInfo returns the routes information for the agent controller.
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
@@ -52,6 +54,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	}
 }
 
+// List retrieves a list of agents.
 func (c *Controller) List(ctx *gin.Context) {
 	agents, err := c.agentUsecase.ListAgents(ctx)
 	if err != nil {
@@ -71,6 +74,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, agentResponse)
 }
 
+// Get retrieves an agent by its instance UID.
 func (c *Controller) Get(ctx *gin.Context) {
 	id := ctx.Param("id")
 

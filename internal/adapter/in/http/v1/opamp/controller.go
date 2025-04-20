@@ -1,3 +1,4 @@
+// Package opamp provides the implementation of the OPAMP protocol.
 package opamp
 
 import (
@@ -14,6 +15,8 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 )
 
+// Controller is a struct that implements OPAMP protocol.
+// It handles the connection and message processing for the OPAMP protocol.
 type Controller struct {
 	logger *slog.Logger
 
@@ -25,30 +28,34 @@ type Controller struct {
 	enableCompression bool
 
 	// usecases
-	opampUsecase Usecase
+	opampUsecase port.OpAMPUsecase
 }
 
-type Usecase interface {
-	port.OpAMPUsecase
-}
-
+// Option is a function that takes a Controller and modifies it.
 type Option func(*Controller)
 
+// Logger is a struct which wraps the slog.Logger for supporting OpAMP logger interface.
 type Logger struct {
 	logger *slog.Logger
 }
 
+// Debugf is a method that logs a debug message.
 func (l *Logger) Debugf(_ context.Context, format string, v ...any) {
 	l.logger.Debug(format, v...)
 }
 
+// Errorf is a method that logs an error message.
 func (l *Logger) Errorf(_ context.Context, format string, v ...any) {
 	l.logger.Error(format, v...)
 }
 
-func NewController(opampUsecase Usecase, options ...Option) *Controller {
+// NewController creates a new instance of Controller.
+func NewController(
+	opampUsecase port.OpAMPUsecase,
+	logger *slog.Logger,
+) *Controller {
 	controller := &Controller{
-		logger:       slog.Default(),
+		logger:       logger,
 		connections:  make(map[types.Connection]struct{}),
 		opampUsecase: opampUsecase,
 
@@ -57,10 +64,6 @@ func NewController(opampUsecase Usecase, options ...Option) *Controller {
 		handler:     nil, // fill below
 		ConnContext: nil, // fill below
 		opampServer: nil, // fill below
-	}
-
-	for _, option := range options {
-		option(controller)
 	}
 
 	controller.opampServer = opampServer.New(&Logger{
@@ -82,7 +85,6 @@ func NewController(opampUsecase Usecase, options ...Option) *Controller {
 		return nil
 	}
 
-	err = controller.Validate()
 	if err != nil {
 		controller.logger.Error("controller validation failed", "error", err.Error())
 
@@ -92,6 +94,8 @@ func NewController(opampUsecase Usecase, options ...Option) *Controller {
 	return controller
 }
 
+// OnConnecting is a method that handles the connection request.
+// It is an adapter for the opampServer's OnConnecting callback.
 func (c *Controller) OnConnecting(*http.Request) types.ConnectionResponse {
 	return types.ConnectionResponse{
 		Accept:             true,
@@ -105,10 +109,14 @@ func (c *Controller) OnConnecting(*http.Request) types.ConnectionResponse {
 	}
 }
 
+// OnConnected is a method that handles the connection established event.
+// It is an adapter for the opampServer's OnConnected callback.
 func (c *Controller) OnConnected(_ context.Context, conn types.Connection) {
 	c.connections[conn] = struct{}{}
 }
 
+// OnMessage is a method that handles the incoming message.
+// It is an adapter for the opampServer's OnMessage callback.
 func (c *Controller) OnMessage(
 	ctx context.Context,
 	_ types.Connection,
@@ -129,10 +137,13 @@ func (c *Controller) OnMessage(
 	return serverToAgent
 }
 
+// OnConnectionClose is a method that handles the connection close event.
+// It is an adapter for the opampServer's OnConnectionClose callback.
 func (c *Controller) OnConnectionClose(conn types.Connection) {
 	delete(c.connections, conn)
 }
 
+// RoutesInfo returns the routes information for the controller.
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
@@ -150,16 +161,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	}
 }
 
-func (c *Controller) Validate() error {
-	if c.opampUsecase == nil {
-		return &UsecaseNotProvidedError{
-			Usecase: "opamp",
-		}
-	}
-
-	return nil
-}
-
+// Handle is a method that handles the HTTP request.
 func (c *Controller) Handle(ctx *gin.Context) {
 	c.logger.Info("Handle", "message", "start")
 	c.handler(ctx.Writer, ctx.Request)

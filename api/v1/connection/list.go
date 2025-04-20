@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Connection represents a connection to an agent.
 type Connection struct {
 	ID                 uuid.UUID `json:"id"`
 	InstanceUID        uuid.UUID `json:"instanceUid"`

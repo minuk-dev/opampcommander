@@ -9,9 +9,9 @@ require (
 	github.com/open-telemetry/opamp-go v0.19.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.0
 	github.com/samber/lo v1.49.1
-	github.com/samber/slog-gin v1.14.1
 	github.com/spf13/cobra v1.8.1
 	go.etcd.io/etcd/client/v3 v3.5.18
+	go.uber.org/fx v1.23.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 )
@@ -45,11 +45,9 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.18 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.18 // indirect
-	go.opentelemetry.io/otel v1.29.0 // indirect
-	go.opentelemetry.io/otel/trace v1.29.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.17.0 // indirect
+	go.uber.org/dig v1.18.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/zap v1.26.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/net v0.34.0 // indirect

@@ -1,3 +1,4 @@
+// Package opamp provides the implementation of the OpAMP use case for managing connections and agents.
 package opamp
 
 import (
@@ -13,24 +14,30 @@ import (
 
 var _ applicationport.OpAMPUsecase = (*Service)(nil)
 
+// Service is a struct that implements the OpAMPUsecase interface.
 type Service struct {
 	logger            *slog.Logger
 	connectionUsecase domainport.ConnectionUsecase
 	agentUsecase      domainport.AgentUsecase
+	commandUsecase    domainport.CommandUsecase
 }
 
+// New creates a new instance of the OpAMP service.
 func New(
 	connectionUsecase domainport.ConnectionUsecase,
 	agentUsecase domainport.AgentUsecase,
+	commandUsecase domainport.CommandUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		logger:            logger,
 		connectionUsecase: connectionUsecase,
 		agentUsecase:      agentUsecase,
+		commandUsecase:    commandUsecase,
 	}
 }
 
+// DisconnectAgent disconnects the agent by its instance UID.
 func (s *Service) DisconnectAgent(instanceUID uuid.UUID) error {
 	conn, err := s.connectionUsecase.FetchAndDeleteConnection(instanceUID)
 	if err != nil && errors.Is(err, domainport.ErrConnectionNotFound) {

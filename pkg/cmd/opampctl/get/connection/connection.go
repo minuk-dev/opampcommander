@@ -1,3 +1,4 @@
+// Package connection provides the command to get connection information.
 package connection
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 )
 
+// CommandOptions contains the options for the connection command.
 type CommandOptions struct {
 	*config.GlobalConfig
 
@@ -20,6 +22,7 @@ type CommandOptions struct {
 	client *client.Client
 }
 
+// NewCommand creates a new connection command.
 func NewCommand(options CommandOptions) *cobra.Command {
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
@@ -43,12 +46,14 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	return cmd
 }
 
+// Prepare prepares the command.
 func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
 	opt.client = client.NewClient(opt.Endpoint)
 
 	return nil
 }
 
+// Run runs the command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		err := opt.List(cmd)
@@ -67,6 +72,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// List retrieves the connection information for all connections.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	connections, err := opt.client.ListConnections()
 	if err != nil {
@@ -81,6 +87,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	return nil
 }
 
+// Get retrieves the connection information for the given IDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	connections := make([]*v1connection.Connection, 0, len(ids))
 	connectionIDs := lo.Map(ids, func(id string, _ int) uuid.UUID {

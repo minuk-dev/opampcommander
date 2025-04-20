@@ -14,10 +14,12 @@ import (
 
 var _ port.AgentUsecase = (*AgentService)(nil)
 
+// AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
 }
 
+// NewAgentService creates a new instance of AgentService.
 func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
 ) *AgentService {
@@ -26,6 +28,7 @@ func NewAgentService(
 	}
 }
 
+// GetAgent retrieves an agent by its instance UID.
 func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
 	if err != nil {
@@ -35,6 +38,7 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*mo
 	return agent, nil
 }
 
+// GetOrCreateAgent retrieves an agent by its instance UID.
 func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	agent, err := s.GetAgent(ctx, instanceUID)
 	if err != nil {
@@ -58,6 +62,7 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 	return agent, nil
 }
 
+// SaveAgent saves the agent to the persistence layer.
 func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error {
 	err := s.agentPersistencePort.PutAgent(ctx, agent)
 	if err != nil {
@@ -67,6 +72,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 	return nil
 }
 
+// ListAgents retrieves all agents from the persistence layer.
 func (s *AgentService) ListAgents(ctx context.Context) ([]*model.Agent, error) {
 	agents, err := s.agentPersistencePort.ListAgents(ctx)
 	if err != nil {

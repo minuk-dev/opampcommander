@@ -15,10 +15,12 @@ import (
 
 var _ domainport.AgentPersistencePort = (*AgentEtcdAdapter)(nil)
 
+// AgentEtcdAdapter is a struct that implements the AgentPersistencePort interface.
 type AgentEtcdAdapter struct {
 	client *clientv3.Client
 }
 
+// NewAgentEtcdAdapter creates a new instance of AgentEtcdAdapter.
 func NewAgentEtcdAdapter(
 	client *clientv3.Client,
 ) *AgentEtcdAdapter {
@@ -27,6 +29,7 @@ func NewAgentEtcdAdapter(
 	}
 }
 
+// GetAgent retrieves an agent by its instance UID.
 func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*domainmodel.Agent, error) {
 	getResponse, err := a.client.Get(ctx, getAgentKey(instanceUID))
 	if err != nil {
@@ -51,6 +54,7 @@ func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) 
 	return agent.ToDomain(), nil
 }
 
+// ListAgents retrieves all agents from the persistence layer.
 func (a *AgentEtcdAdapter) ListAgents(ctx context.Context) ([]*domainmodel.Agent, error) {
 	getResponse, err := a.client.Get(ctx, "agents/", clientv3.WithPrefix())
 	if err != nil {
@@ -73,6 +77,7 @@ func (a *AgentEtcdAdapter) ListAgents(ctx context.Context) ([]*domainmodel.Agent
 	return agents, nil
 }
 
+// PutAgent saves the agent to the persistence layer.
 func (a *AgentEtcdAdapter) PutAgent(ctx context.Context, agent *domainmodel.Agent) error {
 	agentEntity := entity.AgentFromDomain(agent)
 
