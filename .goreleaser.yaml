@@ -35,6 +35,20 @@ builds:
       - darwin
     main: ./cmd/opampctl
 
+dockers:
+  - id: apiserver
+    image_templates:
+      - "harbor.minuk.dev/opampcommander/apiserver:latest"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-{{ .Minor }}"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-{{ .Minor }}-{{ .Patch }}"
+    dockerfile: build/docker/apiserver/Dockerfile
+
+dockerhub:
+  username: "{{ .Env.DOCKER_USERNAME }}"
+  secret_name: "{{ .Env.DOCKER_PASSWORD }}"
+
 archives:
   - format: tar.gz
     # this name template makes the OS and Arch compatible with the results of `uname`.
