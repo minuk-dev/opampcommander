@@ -1,3 +1,4 @@
+// Package admin provides the implementation of the AdminUsecase interface.
 package admin
 
 import (
@@ -14,12 +15,14 @@ import (
 
 var _ applicationport.AdminUsecase = (*Service)(nil)
 
+// Service is a struct that implements the AdminUsecase interface.
 type Service struct {
 	logger         *slog.Logger
 	agentUsecase   domainport.AgentUsecase
 	commandUsecase domainport.CommandUsecase
 }
 
+// New creates a new instance of the Service struct.
 func New(
 	agentUsecase domainport.AgentUsecase,
 	commandUsecase domainport.CommandUsecase,
@@ -32,6 +35,7 @@ func New(
 	}
 }
 
+// ApplyRawConfig applies the raw configuration to the target instance.
 func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error {
 	command := model.NewUpdateAgentConfigCommand(targetInstanceUID, config)
 

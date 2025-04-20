@@ -6,7 +6,9 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
+// NewEtcdClient creates a new etcd client with the given settings.
 func NewEtcdClient(settings *ServerSettings) (*clientv3.Client, error) {
+	//exhaustruct:ignore
 	etcdConfig := clientv3.Config{
 		Endpoints: settings.EtcdHosts,
 	}

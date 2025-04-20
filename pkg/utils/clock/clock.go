@@ -1,3 +1,5 @@
+// Package clock provides a clock interface.
+// clock package is a adapter class for k8s.io/utils/clock.
 package clock
 
 import (
@@ -7,7 +9,6 @@ import (
 )
 
 // Clock is from k8s.io/utils/clock.
-// utils/clock package is a adapter class for k8s.io/utils/clock.
 type Clock interface {
 	PassiveClock
 	// After returns the channel of a new Timer.
@@ -25,6 +26,7 @@ type Clock interface {
 	Tick(d time.Duration) <-chan time.Time
 }
 
+// PassiveClock is a passive clock interface.
 type PassiveClock interface {
 	Now() time.Time
 	Since(at time.Time) time.Duration

@@ -1,3 +1,4 @@
+// Package get provides the get command for opampctl.
 package get
 
 import (
@@ -8,10 +9,13 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/connection"
 )
 
+// CommandOptions contains the options for the get command.
 type CommandOptions struct {
 	*config.GlobalConfig
 }
 
+// NewCommand creates a new get command.
+// It contains subcommands for getting resources.
 func NewCommand(options CommandOptions) *cobra.Command {
 	//exhaustruct:ignore
 	cmd := &cobra.Command{

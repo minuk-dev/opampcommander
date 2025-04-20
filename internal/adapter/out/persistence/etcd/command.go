@@ -10,10 +10,12 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
+// CommandEtcdAdapter is a struct that implements the CommandPersistencePort interface.
 type CommandEtcdAdapter struct {
 	client *clientv3.Client
 }
 
+// NewCommandEtcdAdapter creates a new instance of CommandEtcdAdapter.
 func NewCommandEtcdAdapter(
 	client *clientv3.Client,
 ) *CommandEtcdAdapter {
@@ -22,14 +24,20 @@ func NewCommandEtcdAdapter(
 	}
 }
 
-func (adapter *CommandEtcdAdapter) GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error) {
-	return nil, errors.New("not implemented")
+// ErrNotImplemented is an error that indicates that the method is not implemented.
+var ErrNotImplemented = errors.New("not implemented")
+
+// GetCommand retrieves a command by its ID.
+func (adapter *CommandEtcdAdapter) GetCommand(context.Context, uuid.UUID) (*model.Command, error) {
+	return nil, ErrNotImplemented
 }
 
-func (adapter *CommandEtcdAdapter) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Command, error) {
-	return nil, errors.New("not implemented")
+// GetCommandByInstanceUID retrieves a command by its instance UID.
+func (adapter *CommandEtcdAdapter) GetCommandByInstanceUID(context.Context, uuid.UUID) (*model.Command, error) {
+	return nil, ErrNotImplemented
 }
 
-func (adapter *CommandEtcdAdapter) SaveCommand(ctx context.Context, command *model.Command) error {
-	return errors.New("not implemented")
+// SaveCommand saves the command to the persistence layer.
+func (adapter *CommandEtcdAdapter) SaveCommand(context.Context, *model.Command) error {
+	return ErrNotImplemented
 }

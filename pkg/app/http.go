@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -12,25 +14,43 @@ import (
 )
 
 const (
+	// DefaultHTTPReadTimeout is the default timeout for reading HTTP requests.
+	// It should be set to a reasonable value to avoid security issues.
 	DefaultHTTPReadTimeout = 30 * time.Second
 )
 
-func NewHTTPServer(lc fx.Lifecycle, engine *gin.Engine) *http.Server {
+// NewHTTPServer creates a new HTTP server instance.
+func NewHTTPServer(
+	lifecycle fx.Lifecycle,
+	engine *gin.Engine,
+	settings *ServerSettings,
+	logger *slog.Logger,
+) *http.Server {
+	//exhaustruct:ignore
 	srv := &http.Server{
 		ReadTimeout: DefaultHTTPReadTimeout,
-		Addr:        ":8080",
+		Addr:        settings.Addr,
 		Handler:     engine,
 	}
 
 	// srv.ConnContext = opampController.ConnContext
-	lc.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			ln, err := net.Listen("tcp", srv.Addr)
+	lifecycle.Append(fx.Hook{
+		OnStart: func(context.Context) error {
+			listener, err := net.Listen("tcp", srv.Addr)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to listen: %w", err)
 			}
-			fmt.Println("Starting HTTP server at", srv.Addr)
-			go srv.Serve(ln)
+			logger.Info("HTTP server listening",
+				slog.String("addr", settings.Addr),
+			)
+			go func() {
+				err := srv.Serve(listener)
+				if err != nil && !errors.Is(err, http.ErrServerClosed) {
+					logger.Error("HTTP server error",
+						slog.String("error", err.Error()),
+					)
+				}
+			}()
 
 			return nil
 		},

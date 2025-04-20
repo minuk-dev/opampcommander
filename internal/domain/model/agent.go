@@ -23,6 +23,7 @@ type Agent struct {
 	AvailableComponents *AgentAvailableComponents
 }
 
+// AgentComponentHealth is a domain model to control opamp agent component health.
 type AgentComponentHealth struct {
 	// Set to true if the Agent is up and healthy.
 	Healthy bool
@@ -45,17 +46,22 @@ type AgentComponentHealth struct {
 	ComponentHealthMap map[string]AgentComponentHealth
 }
 
+// AgentCapabilities is a bitmask of capabilities that the Agent supports.
+// The AgentCapabilities enum is defined in the opamp protocol.
 type AgentCapabilities uint64
 
+// AgentEffectiveConfig is the effective configuration of the agent.
 type AgentEffectiveConfig struct {
 	ConfigMap AgentConfigMap
 }
 
+// AgentConfigMap is a map of configuration files.
 type AgentConfigMap struct {
 	// The config_map field of the AgentConfigSet message is a map of configuration files, where keys are file names.
 	ConfigMap map[string]AgentConfigFile
 }
 
+// AgentConfigFile is a configuration file.
 type AgentConfigFile struct {
 	// The body field contains the raw bytes of the configuration file.
 	// The content, format and encoding of the raw bytes is Agent type-specific and is outside the concerns of OpAMP
@@ -68,18 +74,21 @@ type AgentConfigFile struct {
 	ContentType string
 }
 
+// AgentRemoteConfigStatus is the status of the remote configuration.
 type AgentRemoteConfigStatus struct {
 	LastRemoteConfigHash []byte
 	Status               remoteconfig.Status
 	ErrorMessage         string
 }
 
+// AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
 	Packages                     map[string]AgentPackageStatus
 	ServerProvidedAllPackgesHash []byte
 	ErrorMessage                 string
 }
 
+// AgentPackageStatus is the status of a package.
 type AgentPackageStatus struct {
 	Name                 string
 	AgentHasVersion      string
@@ -89,8 +98,11 @@ type AgentPackageStatus struct {
 	ErrorMessage         string
 }
 
+// AgentPackageStatusEnum is an enum that represents the status of a package.
 type AgentPackageStatusEnum int32
 
+// AgentPackageStatusEnum values
+// The AgentPackageStatusEnum enum is defined in the opamp protocol.
 const (
 	AgentPackageStatusEnumInstalled      = 0
 	AgentPackageStatusEnumInstallPending = 1
@@ -99,38 +111,45 @@ const (
 	AgentPackageStatusEnumDownloading    = 4
 )
 
+// AgentCustomCapabilities is a list of custom capabilities that the Agent supports.
 type AgentCustomCapabilities struct {
 	Capabilities []string
 }
 
+// AgentAvailableComponents is a map of available components.
 type AgentAvailableComponents struct {
 	Components map[string]ComponentDetails
 	Hash       []byte
 }
 
+// ComponentDetails is a details of a component.
 type ComponentDetails struct {
 	Metadata        map[string]string
 	SubComponentMap map[string]ComponentDetails
 }
 
+// ReportDescription is a method to report the description of the agent.
 func (a *Agent) ReportDescription(desc *agent.Description) error {
 	a.Description = desc
 
 	return nil
 }
 
+// ReportComponentHealth is a method to report the component health of the agent.
 func (a *Agent) ReportComponentHealth(health *AgentComponentHealth) error {
 	a.ComponentHealth = health
 
 	return nil
 }
 
+// ReportEffectiveConfig is a method to report the effective configuration of the agent.
 func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
 	a.EffectiveConfig = config
 
 	return nil
 }
 
+// ReportRemoteConfigStatus is a method to report the remote configuration status of the agent.
 func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error {
 	if status.ErrorMessage != "" {
 		a.RemoteConfig.SetLastErrorMessage(status.ErrorMessage)
@@ -144,18 +163,21 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 	return nil
 }
 
+// ReportPackageStatuses is a method to report the package statuses of the agent.
 func (a *Agent) ReportPackageStatuses(status *AgentPackageStatuses) error {
 	a.PackageStatuses = status
 
 	return nil
 }
 
+// ReportCustomCapabilities is a method to report the custom capabilities of the agent.
 func (a *Agent) ReportCustomCapabilities(capabilities *AgentCustomCapabilities) error {
 	a.CustomCapabilities = capabilities
 
 	return nil
 }
 
+// ReportAvailableComponents is a method to report the available components of the agent.
 func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableComponents) error {
 	a.AvailableComponents = availableComponents
 

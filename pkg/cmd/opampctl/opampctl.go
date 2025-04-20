@@ -1,3 +1,5 @@
+// Package opampctl implements the opampctl command line tool.
+// It provides a command line interface for interacting with the opampcommander server.
 package opampctl
 
 import (
@@ -7,11 +9,13 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
 )
 
+// CommandOption contains the options for the opampctl command.
 type CommandOption struct {
 	// flags
 	*config.GlobalConfig
 }
 
+// NewCommand creates a new opampctl command.
 func NewCommand(options CommandOption) *cobra.Command {
 	if options.GlobalConfig == nil {
 		options.GlobalConfig = &config.GlobalConfig{

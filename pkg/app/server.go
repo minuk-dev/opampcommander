@@ -17,16 +17,21 @@ import (
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
 )
 
+// ServerSettings is a struct that holds the server settings.
 type ServerSettings struct {
+	Addr      string
 	EtcdHosts []string
 }
 
+// Server is a struct that represents the server application.
+// It embeds the fx.App struct from the Uber Fx framework.
 type Server struct {
 	*fx.App
 
 	settings ServerSettings
 }
 
+// NewServer creates a new instance of the Server struct.
 func NewServer(settings ServerSettings) *Server {
 	app := fx.New(
 		// base
@@ -75,6 +80,7 @@ func NewServer(settings ServerSettings) *Server {
 	return server
 }
 
+// AsController is a helper function to annotate a function as a controller.
 func AsController(f any) any {
 	return fx.Annotate(
 		f,
@@ -83,6 +89,7 @@ func AsController(f any) any {
 	)
 }
 
+// Controller is an interface that defines the methods for handling HTTP requests.
 type Controller interface {
 	RoutesInfo() gin.RoutesInfo
 }

@@ -13,6 +13,7 @@ const (
 	OpAMPPollingInterval = 30 * time.Second
 )
 
+// Connection represents a connection to an agent.
 type Connection struct {
 	ID uuid.UUID
 

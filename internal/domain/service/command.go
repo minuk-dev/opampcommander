@@ -10,10 +10,12 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
+// CommandService is a struct that implements the CommandUsecase interface.
 type CommandService struct {
 	commandPersistencePort port.CommandPersistencePort
 }
 
+// NewCommandService creates a new instance of CommandService.
 func NewCommandService(
 	commandPersistencePort port.CommandPersistencePort,
 ) *CommandService {
@@ -22,6 +24,7 @@ func NewCommandService(
 	}
 }
 
+// GetCommand retrieves a command by its ID.
 func (s *CommandService) GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error) {
 	command, err := s.commandPersistencePort.GetCommand(ctx, commandID)
 	if err != nil {
@@ -31,6 +34,7 @@ func (s *CommandService) GetCommand(ctx context.Context, commandID uuid.UUID) (*
 	return command, nil
 }
 
+// GetCommandByInstanceUID retrieves a command by its instance UID.
 func (s *CommandService) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error) {
 	command, err := s.commandPersistencePort.GetCommandByInstanceUID(ctx, instanceUID)
 	if err != nil {
@@ -40,6 +44,7 @@ func (s *CommandService) GetCommandByInstanceUID(ctx context.Context, instanceUI
 	return []*model.Command{command}, nil
 }
 
+// SaveCommand saves the command to the persistence layer.
 func (s *CommandService) SaveCommand(ctx context.Context, command *model.Command) error {
 	err := s.commandPersistencePort.SaveCommand(ctx, command)
 	if err != nil {

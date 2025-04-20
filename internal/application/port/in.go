@@ -1,3 +1,4 @@
+// Package port is a package that defines the ports for the application layer.
 package port
 
 import (

@@ -1,3 +1,4 @@
+// Package remoteconfig provides the remote config for opampcommander.
 package remoteconfig
 
 import (
@@ -33,6 +34,7 @@ const (
 	StatusFailed   Status = Status(int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
 )
 
+// New creates a new RemoteConfig instance.
 func New() RemoteConfig {
 	return RemoteConfig{
 		RemoteConfigStatuses: make([]StatusWithKey, 0),
@@ -41,6 +43,7 @@ func New() RemoteConfig {
 	}
 }
 
+// FromOpAMPStatus converts OpAMP status to domain model.
 func FromOpAMPStatus(status protobufs.RemoteConfigStatuses) Status {
 	return Status(status)
 }
@@ -80,13 +83,14 @@ func (r *RemoteConfig) SetLastErrorMessage(errorMessage string) {
 	r.LastErrorMessage = errorMessage
 }
 
-func (r *RemoteConfig) updateLastModifiedAt() {
-	r.LastModifiedAt = time.Now()
-}
-
+// WithKey returns StatusWithKey with key.
 func (r Status) WithKey(key vo.Hash) StatusWithKey {
 	return StatusWithKey{
 		Key:   key,
 		Value: r,
 	}
+}
+
+func (r *RemoteConfig) updateLastModifiedAt() {
+	r.LastModifiedAt = time.Now()
 }
