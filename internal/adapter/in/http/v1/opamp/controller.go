@@ -85,12 +85,6 @@ func NewController(
 		return nil
 	}
 
-	if err != nil {
-		controller.logger.Error("controller validation failed", "error", err.Error())
-
-		return nil
-	}
-
 	return controller
 }
 
