@@ -44,5 +44,10 @@ func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUI
 		return fmt.Errorf("failed to save command: %w", err)
 	}
 
+	err = s.agentUsecase.UpdateAgentConfig(ctx, targetInstanceUID, config)
+	if err != nil {
+		return fmt.Errorf("failed to update agent config: %w", err)
+	}
+
 	return nil
 }

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -156,9 +157,24 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 	}
 
 	a.RemoteConfig.SetStatus(
-		status.Status.
-			WithKey(vo.Hash(status.LastRemoteConfigHash)),
+		vo.Hash(status.LastRemoteConfigHash),
+		status.Status,
 	)
+
+	return nil
+}
+
+// ApplyRemoteConfig is a method to apply the remote configuration to the agent.
+func (a *Agent) ApplyRemoteConfig(config any) error {
+	subconfig, err := remoteconfig.NewCommand(config)
+	if err != nil {
+		return fmt.Errorf("failed to create remote config command: %w", err)
+	}
+
+	err = a.RemoteConfig.ApplyRemoteConfig(subconfig)
+	if err != nil {
+		return fmt.Errorf("failed to apply remote config: %w", err)
+	}
 
 	return nil
 }

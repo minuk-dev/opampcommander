@@ -7,6 +7,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
@@ -47,6 +48,7 @@ func NewServer(settings ServerSettings) *Server {
 			AsController(opamp.NewController),
 			AsController(connection.NewController),
 			AsController(agent.NewController),
+			AsController(command.NewController),
 		),
 		// application
 		fx.Provide(

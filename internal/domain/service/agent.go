@@ -81,3 +81,23 @@ func (s *AgentService) ListAgents(ctx context.Context) ([]*model.Agent, error) {
 
 	return agents, nil
 }
+
+// UpdateAgentConfig updates the agent configuration.
+func (s *AgentService) UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error {
+	agent, err := s.GetOrCreateAgent(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get or create agent: %w", err)
+	}
+
+	err = agent.ApplyRemoteConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to apply remote config: %w", err)
+	}
+
+	err = s.SaveAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("failed to save agent: %w", err)
+	}
+
+	return nil
+}
