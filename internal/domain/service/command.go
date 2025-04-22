@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -9,6 +10,13 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
+
+var (
+	// ErrNotImplemented is returned when a method is not implemented.
+	ErrNotImplemented = errors.New("not implemented")
+)
+
+var _ port.CommandUsecase = (*CommandService)(nil)
 
 // CommandService is a struct that implements the CommandUsecase interface.
 type CommandService struct {
@@ -52,4 +60,9 @@ func (s *CommandService) SaveCommand(ctx context.Context, command *model.Command
 	}
 
 	return nil
+}
+
+// ListCommands implements port.CommandUsecase.
+func (s *CommandService) ListCommands(context.Context) ([]*model.Command, error) {
+	return nil, ErrNotImplemented
 }

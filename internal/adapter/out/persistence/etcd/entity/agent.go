@@ -204,10 +204,7 @@ func (arc *AgentRemoteConfig) ToDomain() remoteconfig.RemoteConfig {
 	}
 
 	for _, sub := range arc.RemoteConfigStatuses {
-		remoteConfig.SetStatus(remoteconfig.StatusWithKey{
-			Key:   sub.Key,
-			Value: remoteconfig.Status(sub.Value),
-		})
+		remoteConfig.SetStatus(sub.Key, remoteconfig.Status(sub.Value))
 	}
 
 	remoteConfig.SetLastErrorMessage(arc.LastErrorMessage)
@@ -334,7 +331,7 @@ func AgentRemoteConfigFromDomain(arc remoteconfig.RemoteConfig) *AgentRemoteConf
 	for _, status := range statuses {
 		remoteConfigStatuses = append(remoteConfigStatuses, AgentRemoteConfigSub{
 			Key:   status.Key,
-			Value: AgentRemoteConfigStatusEnum(status.Value),
+			Value: AgentRemoteConfigStatusEnum(status.Status),
 		})
 	}
 

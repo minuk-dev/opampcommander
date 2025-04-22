@@ -2,24 +2,28 @@
 package remoteconfig
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"gopkg.in/yaml.v3"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 // RemoteConfig is a struct to manage remote config.
 type RemoteConfig struct {
-	RemoteConfigStatuses []StatusWithKey
+	RemoteConfigCommands []Command
 	LastErrorMessage     string
 	LastModifiedAt       time.Time
 }
 
-// StatusWithKey is a struct to manage status with key.
-type StatusWithKey struct {
-	Key   vo.Hash
-	Value Status
+// Command is a struct to manage status with key.
+type Command struct {
+	Key           vo.Hash
+	Status        Status
+	Config        []byte
+	LastUpdatedAt time.Time
 }
 
 // Status is generated from agentToServer of OpAMP.
@@ -37,10 +41,30 @@ const (
 // New creates a new RemoteConfig instance.
 func New() RemoteConfig {
 	return RemoteConfig{
-		RemoteConfigStatuses: make([]StatusWithKey, 0),
+		RemoteConfigCommands: make([]Command, 0),
 		LastErrorMessage:     "",
 		LastModifiedAt:       time.Now(),
 	}
+}
+
+// NewCommand creates a new Command instance.
+func NewCommand(config any) (Command, error) {
+	configBytes, err := yaml.Marshal(config)
+	if err != nil {
+		return Command{}, fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	hash, err := vo.NewHash(configBytes)
+	if err != nil {
+		return Command{}, fmt.Errorf("failed to create hash: %w", err)
+	}
+
+	return Command{
+		Key:           hash,
+		Status:        StatusUnset,
+		Config:        configBytes,
+		LastUpdatedAt: time.Now(),
+	}, nil
 }
 
 // FromOpAMPStatus converts OpAMP status to domain model.
@@ -49,12 +73,12 @@ func FromOpAMPStatus(status protobufs.RemoteConfigStatuses) Status {
 }
 
 // SetStatus sets status with key.
-func (r *RemoteConfig) SetStatus(newSK StatusWithKey) {
+func (r *RemoteConfig) SetStatus(key vo.Hash, status Status) {
 	r.updateLastModifiedAt()
 
-	for i, statusWithKey := range r.RemoteConfigStatuses {
-		if statusWithKey.Key.Equal(newSK.Key) {
-			r.RemoteConfigStatuses[i] = newSK
+	for i, statusWithKey := range r.RemoteConfigCommands {
+		if statusWithKey.Key.Equal(key) {
+			r.RemoteConfigCommands[i].Status = status
 
 			return
 		}
@@ -63,9 +87,9 @@ func (r *RemoteConfig) SetStatus(newSK StatusWithKey) {
 
 // GetStatus gets status with key.
 func (r *RemoteConfig) GetStatus(key vo.Hash) Status {
-	for _, statusWithKey := range r.RemoteConfigStatuses {
+	for _, statusWithKey := range r.RemoteConfigCommands {
 		if statusWithKey.Key.Equal(key) {
-			return statusWithKey.Value
+			return statusWithKey.Status
 		}
 	}
 
@@ -73,8 +97,8 @@ func (r *RemoteConfig) GetStatus(key vo.Hash) Status {
 }
 
 // ListStatuses lists status with key.
-func (r *RemoteConfig) ListStatuses() []StatusWithKey {
-	return r.RemoteConfigStatuses
+func (r *RemoteConfig) ListStatuses() []Command {
+	return r.RemoteConfigCommands
 }
 
 // SetLastErrorMessage sets last error message.
@@ -83,12 +107,11 @@ func (r *RemoteConfig) SetLastErrorMessage(errorMessage string) {
 	r.LastErrorMessage = errorMessage
 }
 
-// WithKey returns StatusWithKey with key.
-func (r Status) WithKey(key vo.Hash) StatusWithKey {
-	return StatusWithKey{
-		Key:   key,
-		Value: r,
-	}
+// ApplyRemoteConfig applies remote config with key.
+func (r *RemoteConfig) ApplyRemoteConfig(command Command) error {
+	r.RemoteConfigCommands = append(r.RemoteConfigCommands, command)
+
+	return nil
 }
 
 func (r *RemoteConfig) updateLastModifiedAt() {
