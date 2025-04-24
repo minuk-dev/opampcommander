@@ -1,0 +1,41 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apiserver
+  labels:
+    app: apiserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apiserver
+  template:
+    metadata:
+      labels:
+        app: apiserver
+    spec:
+      containers:
+      - name: apiserver
+        image: harbor.minuk.dev/opampcommander/apiserver:0.0.0
+        command:
+        - /apiserver
+        - --db-host=etcd.opampcommander.svc.cluster.local.:2379
+        ports:
+        - containerPort: 8080
+          name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apiserver
+  labels:
+    app: apiserver
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: apiserver
+  type: ClusterIP
