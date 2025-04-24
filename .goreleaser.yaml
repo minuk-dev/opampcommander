@@ -22,7 +22,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
+      # - windows
       - darwin
     main: ./cmd/apiserver
   - id: opampctl
@@ -31,7 +31,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
+      # - windows
       - darwin
     main: ./cmd/opampctl
 
@@ -78,9 +78,9 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
+    # format_overrides:
+    #  - goos: windows
+    #    format: zip
 
 changelog:
   sort: asc
