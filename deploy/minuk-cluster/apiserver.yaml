@@ -24,6 +24,8 @@ spec:
         ports:
         - containerPort: 8080
           name: http
+      imagePullSecrets:
+      - name: opampcommander-harbor-registry
 ---
 apiVersion: v1
 kind: Service
@@ -39,3 +41,13 @@ spec:
   selector:
     app: apiserver
   type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opampcommander-harbor-registry
+  namespace: opampcommander
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: 
+    eyJhdXRocyI6eyJoYXJib3IubWludWsuZGV2Ijp7InVzZXJuYW1lIjoicm9ib3Qkb3BhbXBjb21tYW5kZXIrazhzIiwicGFzc3dvcmQiOiJ2Q1hNYmhiQkpyZmx1d28wbGFjblFUSGthYmlmRGxFYiIsImF1dGgiOiJjbTlpYjNRa2IzQmhiWEJqYjIxdFlXNWtaWElyYXpoek9uWkRXRTFpYUdKQ1NuSm1iSFYzYnpCc1lXTnVVVlJJYTJGaWFXWkViRVZpIn19fQ==
