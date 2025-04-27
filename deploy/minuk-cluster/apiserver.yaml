@@ -1,0 +1,53 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apiserver
+  labels:
+    app: apiserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apiserver
+  template:
+    metadata:
+      labels:
+        app: apiserver
+    spec:
+      containers:
+      - name: apiserver
+        image: harbor.minuk.dev/opampcommander/apiserver:v0.0.12
+        command:
+        - /apiserver
+        - --db-host=etcd.opampcommander.svc.cluster.local.:2379
+        ports:
+        - containerPort: 8080
+          name: http
+      imagePullSecrets:
+      - name: opampcommander-harbor-registry
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apiserver
+  labels:
+    app: apiserver
+spec:
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: apiserver
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: opampcommander-harbor-registry
+  namespace: opampcommander
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: 
+    eyJhdXRocyI6eyJoYXJib3IubWludWsuZGV2Ijp7InVzZXJuYW1lIjoicm9ib3Qkb3BhbXBjb21tYW5kZXIrazhzIiwicGFzc3dvcmQiOiJ2Q1hNYmhiQkpyZmx1d28wbGFjblFUSGthYmlmRGxFYiIsImF1dGgiOiJjbTlpYjNRa2IzQmhiWEJqYjIxdFlXNWtaWElyYXpoek9uWkRXRTFpYUdKQ1NuSm1iSFYzYnpCc1lXTnVVVlJJYTJGaWFXWkViRVZpIn19fQ==
