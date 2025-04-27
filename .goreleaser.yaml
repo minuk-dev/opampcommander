@@ -65,6 +65,7 @@ release:
   ids:
     - apiserver
     - opampctl
+  prerelease: auto
   draft: true
 
 archives:
