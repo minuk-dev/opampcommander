@@ -69,6 +69,13 @@ release:
   replace_existing_draft: true
   skip_upload: false
 
+artifactories:
+  - name: github
+    ids:
+      - apiserver
+      - opampctl
+    checksum: true
+
 archives:
   - formats:
     - tar.gz
