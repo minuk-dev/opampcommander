@@ -142,13 +142,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      "GET",
-			Path:        "/v1/opamp",
+			Path:        "/api/v1/opamp",
 			Handler:     "opamp.v1.opamp.Handle",
 			HandlerFunc: c.Handle,
 		},
 		{
 			Method:      "POST",
-			Path:        "/v1/opamp",
+			Path:        "/api/v1/opamp",
 			Handler:     "opamp.v1.opamp.Handle",
 			HandlerFunc: c.Handle,
 		},

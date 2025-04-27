@@ -29,7 +29,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      "GET",
-			Path:        "/v1/ping",
+			Path:        "/api/v1/ping",
 			Handler:     "http.v1.ping.Handle",
 			HandlerFunc: c.Handle,
 		},

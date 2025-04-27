@@ -42,13 +42,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      "GET",
-			Path:        "/v1/connections",
+			Path:        "/api/v1/connections",
 			Handler:     "http.v1.connection.List",
 			HandlerFunc: c.List,
 		},
 		{
 			Method:      "GET",
-			Path:        "/v1/connections/:id",
+			Path:        "/api/v1/connections/:id",
 			Handler:     "http.v1.connection.Get",
 			HandlerFunc: c.Get,
 		},
