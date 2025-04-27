@@ -51,6 +51,7 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"
+    goarch: arm64
     dockerfile: build/docker/apiserver/Dockerfile
 docker_manifests:
   - name_template: "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
