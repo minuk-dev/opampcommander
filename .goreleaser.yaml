@@ -62,11 +62,6 @@ release:
   github:
     owner: minuk-dev
     name: opampcommander
-  ids:
-    - apiserver
-    - opampctl
-  mode: append
-  disable: false
   draft: true
   replace_existing_draft: true
   skip_upload: false
