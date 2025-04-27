@@ -75,7 +75,7 @@ artifactories:
       - apiserver
       - opampctl
     checksum: true
-
+    target: github
 archives:
   - formats:
     - tar.gz
