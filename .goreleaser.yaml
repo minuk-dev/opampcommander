@@ -22,7 +22,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
+      # - windows
       - darwin
     main: ./cmd/apiserver
   - id: opampctl
@@ -31,29 +31,45 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
+      # - windows
       - darwin
     main: ./cmd/opampctl
 
 dockers:
-  - id: apiserver
-    image_templates:
-      - "harbor.minuk.dev/opampcommander/apiserver:latest"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}"
+  - image_templates:
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-amd64"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-amd64"
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
     dockerfile: build/docker/apiserver/Dockerfile
+  - image_templates:
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-arm64"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-arm64"
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+    goarch: arm64
+    dockerfile: build/docker/apiserver/Dockerfile
+docker_manifests:
+  - name_template: "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
+    image_templates:
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-amd64"
+      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-arm64"
 
 release:
   github:
     owner: minuk-dev
     name: opampcommander
-  ids:
-    - apiserver
-    - opampctl
   draft: true
+  replace_existing_draft: true
+  skip_upload: false
 
 archives:
-  - format: tar.gz
+  - formats:
+    - tar.gz
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
@@ -63,9 +79,9 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
+    # format_overrides:
+    #  - goos: windows
+    #    format: zip
 
 changelog:
   sort: asc
