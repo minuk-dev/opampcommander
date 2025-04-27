@@ -33,6 +33,12 @@ jobs:
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean --auto-snapshot
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Release Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-assets
+          path: |
+            dist/*
