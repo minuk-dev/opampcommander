@@ -19,10 +19,8 @@ spec:
       - name: apiserver
         image: harbor.minuk.dev/opampcommander/apiserver:v0.0.12
         command:
-        - sleep
-        - "3600"
-        # - /apiserver
-        # - --db-host=etcd.opampcommander.svc.cluster.local.:2379
+        - /apiserver
+        - --db-host=etcd.opampcommander.svc.cluster.local.:2379
         ports:
         - containerPort: 8080
           name: http
