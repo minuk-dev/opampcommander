@@ -38,19 +38,19 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      "GET",
-			Path:        "/v1/commands/:id",
+			Path:        "/api/v1/commands/:id",
 			Handler:     "http.v1.command.Get",
 			HandlerFunc: c.Get,
 		},
 		{
 			Method:      "GET",
-			Path:        "/v1/commands",
+			Path:        "/api/v1/commands",
 			Handler:     "http.v1.command.List",
 			HandlerFunc: c.List,
 		},
 		{
 			Method:      "POST",
-			Path:        "/v1/commands/update-agent-config",
+			Path:        "/api/v1/commands/update-agent-config",
 			Handler:     "http.v1.command.UpdateAgentConfig",
 			HandlerFunc: c.UpdateAgentConfig,
 		},

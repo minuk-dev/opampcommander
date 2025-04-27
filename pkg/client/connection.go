@@ -9,9 +9,9 @@ import (
 // API paths for connection resources.
 const (
 	// ListConnectionsPath is the path to list all connections.
-	ListConnectionsPath = "/v1/connections"
+	ListConnectionsPath = "/api/v1/connections"
 	// GetConnectionPath is the path to get a connection by ID.
-	GetConnectionPath = "/v1/connections/:id"
+	GetConnectionPath = "/api/v1/connections/:id"
 )
 
 // GetConnection retrieves a connection by its ID.
