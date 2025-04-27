@@ -6,6 +6,8 @@ on:
       - 'v*'
 
 permissions:
+  deployments: write
+  packages: write
   contents: write
 
 jobs:
