@@ -1,3 +1,4 @@
 resources:
   - etcd.yaml
   - apiserver.yaml
+  - otel-collector.yaml

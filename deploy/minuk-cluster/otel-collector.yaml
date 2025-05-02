@@ -1,0 +1,97 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  labels:
+    app: otel-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.122.0
+        imagePullPolicy: IfNotPresent
+        args:
+          - "--config"
+          - "/etc/config/config.yaml"
+        env:
+          - name: GOLIMIT
+            value: 250MiB
+          - name: K8S_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+          - name: HOST_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: K8S_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: OTEL_RESOURCE_ATTRIBUTES
+            value: host.name=$(HOST_NAME)
+        volumeMounts:
+          - name: config
+            mountPath: /etc/config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+            items:
+              - key: otel-collector-config.yaml
+                path: config.yaml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: opampcommander
+data:
+  otel-collector-config.yaml: |
+    extensions:
+      health_check:
+      opamp:
+        server:
+          http:
+            endpoint: "http://apiserver.opampcommander.svc.cluster.local.:8080/v1/opamp"
+            tls:
+              insecure: true
+    receivers:
+      nop:
+    processors:
+      batch:
+    exporters:
+      nop:
+    service:
+      extensions: [opamp]
+      telemetry:
+        metrics:
+          level: detailed
+        logs:
+          level: DEBUG
+      pipelines:
+        metrics:
+          receivers: [nop]
+          processors: [batch]
+          exporters: [nop]
+        
