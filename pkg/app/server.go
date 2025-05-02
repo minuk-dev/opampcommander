@@ -1,6 +1,8 @@
 package app
 
 import (
+	"context"
+	"net"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,14 +43,19 @@ func NewServer(settings ServerSettings) *Server {
 			fx.Annotate(NewEngine, fx.ParamTags(`group:"controllers"`)),
 			NewLogger,
 		),
-
 		// controllers
 		fx.Provide(
-			AsController(ping.NewController),
-			AsController(opamp.NewController),
-			AsController(connection.NewController),
-			AsController(agent.NewController),
-			AsController(command.NewController),
+			ping.NewController, AsController(Identity[*ping.Controller]),
+			opamp.NewController, AsController(Identity[*opamp.Controller]),
+			connection.NewController, AsController(Identity[*connection.Controller]),
+			agent.NewController, AsController(Identity[*agent.Controller]),
+			command.NewController, AsController(Identity[*command.Controller]),
+		),
+		// opamp spec
+		fx.Provide(
+			func(opampController *opamp.Controller) func(context.Context, net.Conn) context.Context {
+				return opampController.ConnContext
+			},
 		),
 		// application
 		fx.Provide(
@@ -94,4 +101,13 @@ func AsController(f any) any {
 // Controller is an interface that defines the methods for handling HTTP requests.
 type Controller interface {
 	RoutesInfo() gin.RoutesInfo
+}
+
+// Identity is a generic function that returns the input value.
+// It is a helper function to generate a function that returns the input value.
+// It is used to provide a function as a interface.
+//
+//nolint:ireturn
+func Identity[T any](a T) T {
+	return a
 }
