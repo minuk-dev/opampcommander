@@ -115,7 +115,7 @@ func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToSer
 			Capabilities: customCapabilities.GetCapabilities(),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to custom capabilities: %w", err)
+			return fmt.Errorf("failed to report custom capabilities: %w", err)
 		}
 	}
 
