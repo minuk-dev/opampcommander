@@ -35,7 +35,6 @@ func NewHTTPServer(
 		ConnContext: connContext,
 	}
 
-	// srv.ConnContext = opampController.ConnContext
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			listener, err := net.Listen("tcp", srv.Addr)

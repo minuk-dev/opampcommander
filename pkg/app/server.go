@@ -45,11 +45,11 @@ func NewServer(settings ServerSettings) *Server {
 		),
 		// controllers
 		fx.Provide(
-			ping.NewController, AsController(I[*ping.Controller]),
-			opamp.NewController, AsController(I[*opamp.Controller]),
-			connection.NewController, AsController(I[*connection.Controller]),
-			agent.NewController, AsController(I[*agent.Controller]),
-			command.NewController, AsController(I[*command.Controller]),
+			ping.NewController, AsController(Identity[*ping.Controller]),
+			opamp.NewController, AsController(Identity[*opamp.Controller]),
+			connection.NewController, AsController(Identity[*connection.Controller]),
+			agent.NewController, AsController(Identity[*agent.Controller]),
+			command.NewController, AsController(Identity[*command.Controller]),
 		),
 		// opamp spec
 		fx.Provide(
@@ -103,11 +103,11 @@ type Controller interface {
 	RoutesInfo() gin.RoutesInfo
 }
 
-// I is a generic function that returns the input value.
+// Identity is a generic function that returns the input value.
 // It is a helper function to generate a function that returns the input value.
 // It is used to provide a function as a interface.
 //
 //nolint:ireturn
-func I[T any](a T) T {
+func Identity[T any](a T) T {
 	return a
 }
