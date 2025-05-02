@@ -73,7 +73,7 @@ data:
       opamp:
         server:
           http:
-            endpoint: "http://apiserver.opampcommander.svc.cluster.local.:8080/v1/opamp"
+            endpoint: "http://apiserver.opampcommander.svc.cluster.local.:8080/api/v1/opamp"
             tls:
               insecure: true
     receivers:
