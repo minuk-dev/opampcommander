@@ -26,11 +26,21 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 	if err != nil {
 		return fmt.Errorf("failed to get or create agent: %w", err)
 	}
+	s.logger.Debug("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "get or create agent"),
+		slog.Any("agent", agent),
+	)
 
 	err = s.report(agent, agentToServer)
 	if err != nil {
 		return fmt.Errorf("failed to report: %w", err)
 	}
+	s.logger.Debug("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "report"),
+		slog.Any("agent", agent),
+	)
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {
