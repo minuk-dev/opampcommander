@@ -61,50 +61,70 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 }
 
 func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
-	desc := &modelagent.Description{
-		IdentifyingAttributes:    toMap(agentToServer.GetAgentDescription().GetIdentifyingAttributes()),
-		NonIdentifyingAttributes: toMap(agentToServer.GetAgentDescription().GetNonIdentifyingAttributes()),
+	agentDesc := agentToServer.GetAgentDescription()
+	if agentDesc != nil {
+		desc := &modelagent.Description{
+			IdentifyingAttributes:    toMap(agentDesc.GetIdentifyingAttributes()),
+			NonIdentifyingAttributes: toMap(agentDesc.GetNonIdentifyingAttributes()),
+		}
+		err := agent.ReportDescription(desc)
+		if err != nil {
+			return fmt.Errorf("failed to report description: %w", err)
+		}
 	}
 
-	err := agent.ReportDescription(desc)
-	if err != nil {
-		return fmt.Errorf("failed to report description: %w", err)
+	health := agentToServer.GetHealth()
+	if health != nil {
+		err := agent.ReportComponentHealth(toDomain(agentToServer.GetHealth()))
+		if err != nil {
+			return fmt.Errorf("failed to report component health: %w", err)
+		}
 	}
 
-	err = agent.ReportComponentHealth(toDomain(agentToServer.GetHealth()))
-	if err != nil {
-		return fmt.Errorf("failed to report component health: %w", err)
+	effectiveConfig := agentToServer.GetEffectiveConfig()
+	if effectiveConfig != nil {
+		err := agent.ReportEffectiveConfig(effectiveConfigToDomain(effectiveConfig))
+		if err != nil {
+			return fmt.Errorf("failed to report effective config: %w", err)
+		}
 	}
 
-	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(agentToServer.GetEffectiveConfig()))
-	if err != nil {
-		return fmt.Errorf("failed to report effective config: %w", err)
+	remoteConfigStatus := agentToServer.GetRemoteConfigStatus()
+	if remoteConfigStatus != nil {
+		err := agent.ReportRemoteConfigStatus(&model.AgentRemoteConfigStatus{
+			LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
+			Status:               remoteconfig.Status(remoteConfigStatus.GetStatus()),
+			ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to report remote config status: %w", err)
+		}
 	}
 
-	err = agent.ReportRemoteConfigStatus(&model.AgentRemoteConfigStatus{
-		LastRemoteConfigHash: agentToServer.GetRemoteConfigStatus().GetLastRemoteConfigHash(),
-		Status:               remoteconfig.Status(agentToServer.GetRemoteConfigStatus().GetStatus()),
-		ErrorMessage:         agentToServer.GetRemoteConfigStatus().GetErrorMessage(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to report remote config status: %w", err)
+	packageStatuses := agentToServer.GetPackageStatuses()
+	if packageStatuses != nil {
+		err := agent.ReportPackageStatuses(packageStatusToDomain(agentToServer.GetPackageStatuses()))
+		if err != nil {
+			return fmt.Errorf("failed to report package statuses: %w", err)
+		}
 	}
 
-	err = agent.ReportPackageStatuses(packageStatusToDomain(agentToServer.GetPackageStatuses()))
-	if err != nil {
-		return fmt.Errorf("failed to report package statuses: %w", err)
+	customCapabilities := agentToServer.GetCustomCapabilities()
+	if customCapabilities != nil {
+		err := agent.ReportCustomCapabilities(&model.AgentCustomCapabilities{
+			Capabilities: customCapabilities.GetCapabilities(),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to custom capabilities: %w", err)
+		}
 	}
 
-	err = agent.ReportCustomCapabilities(&model.AgentCustomCapabilities{
-		Capabilities: agentToServer.GetCustomCapabilities().GetCapabilities(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to custom capabilities: %w", err)
-	}
-
-	err = agent.ReportAvailableComponents(availableComponentsToDomain(agentToServer.GetAvailableComponents()))
-	if err != nil {
-		return fmt.Errorf("failed to report available components: %w", err)
+	availableComponents := agentToServer.GetAvailableComponents()
+	if availableComponents != nil {
+		err := agent.ReportAvailableComponents(availableComponentsToDomain(availableComponents))
+		if err != nil {
+			return fmt.Errorf("failed to report available components: %w", err)
+		}
 	}
 
 	return nil
