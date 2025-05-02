@@ -2,6 +2,8 @@
 package apiserver
 
 import (
+	"log/slog"
+
 	"github.com/spf13/cobra"
 
 	"github.com/minuk-dev/opampcommander/pkg/app"
@@ -10,8 +12,10 @@ import (
 // CommandOption contains the options for the apiserver command.
 type CommandOption struct {
 	// flags
-	dbHost string
-	addr   string
+	dbHost    string
+	addr      string
+	logLevel  string
+	logFormat string
 
 	// internal
 	app *app.Server
@@ -40,15 +44,20 @@ func NewCommand(opt CommandOption) *cobra.Command {
 
 	cmd.Flags().StringVar(&opt.addr, "addr", ":8080", "server address")
 	cmd.Flags().StringVar(&opt.dbHost, "db-host", "localhost:2379", "etcd host")
+	cmd.Flags().StringVar(&opt.logLevel, "log-level", "info", "log level (debug, info, warn, error)")
+	cmd.Flags().StringVar(&opt.logFormat, "log-format", "json", "log format (json, text)")
 
 	return cmd
 }
 
 // Prepare prepares the command.
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
+	logLevel := toSlogLevel(opt.logLevel)
 	opt.app = app.NewServer(app.ServerSettings{
 		Addr:      opt.addr,
 		EtcdHosts: []string{opt.dbHost},
+		LogLevel:  logLevel,
+		LogFormat: app.LogFormat(opt.logFormat),
 	})
 
 	return nil
@@ -59,4 +68,19 @@ func (opt *CommandOption) Run(_ *cobra.Command, _ []string) error {
 	opt.app.Run()
 
 	return nil
+}
+
+func toSlogLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }

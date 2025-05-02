@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
 
@@ -24,6 +25,8 @@ import (
 type ServerSettings struct {
 	Addr      string
 	EtcdHosts []string
+	LogLevel  slog.Level
+	LogFormat LogFormat
 }
 
 // Server is a struct that represents the server application.
