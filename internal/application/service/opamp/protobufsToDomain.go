@@ -1,11 +1,12 @@
 package opamp
 
 import (
+	"github.com/open-telemetry/opamp-go/protobufs"
+
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	modelagent "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/pkg/timeutil"
-	"github.com/open-telemetry/opamp-go/protobufs"
 )
 
 func descToDomain(desc *protobufs.AgentDescription) *modelagent.Description {
