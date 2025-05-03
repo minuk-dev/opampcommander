@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -18,14 +19,17 @@ var _ domainport.AgentPersistencePort = (*AgentEtcdAdapter)(nil)
 // AgentEtcdAdapter is a struct that implements the AgentPersistencePort interface.
 type AgentEtcdAdapter struct {
 	client *clientv3.Client
+	logger *slog.Logger
 }
 
 // NewAgentEtcdAdapter creates a new instance of AgentEtcdAdapter.
 func NewAgentEtcdAdapter(
 	client *clientv3.Client,
+	logger *slog.Logger,
 ) *AgentEtcdAdapter {
 	return &AgentEtcdAdapter{
 		client: client,
+		logger: logger,
 	}
 }
 
@@ -46,10 +50,22 @@ func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) 
 
 	var agent entity.Agent
 
+	a.logger.Debug("GetAgent",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("key", getAgentKey(instanceUID)),
+		slog.String("value", string(getResponse.Kvs[0].Value)),
+	)
+
 	err = json.Unmarshal(getResponse.Kvs[0].Value, &agent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode agent from received data: %w", err)
 	}
+
+	a.logger.Debug("GetAgent",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "success"),
+		slog.Any("agent", agent),
+	)
 
 	return agent.ToDomain(), nil
 }
@@ -62,6 +78,11 @@ func (a *AgentEtcdAdapter) ListAgents(ctx context.Context) ([]*domainmodel.Agent
 	}
 
 	agents := make([]*domainmodel.Agent, 0, getResponse.Count)
+
+	a.logger.Debug("ListAgents",
+		slog.String("key", "agents/"),
+		slog.Any("value", getResponse.Kvs),
+	)
 
 	for _, kv := range getResponse.Kvs {
 		var agent entity.Agent
@@ -85,6 +106,11 @@ func (a *AgentEtcdAdapter) PutAgent(ctx context.Context, agent *domainmodel.Agen
 	if err != nil {
 		return fmt.Errorf("failed to encode agent: %w", err)
 	}
+
+	a.logger.Debug("PutAgent",
+		slog.String("key", getAgentKey(agent.InstanceUID)),
+		slog.String("value", string(encoded)),
+	)
 
 	_, err = a.client.Put(ctx, getAgentKey(agent.InstanceUID), string(encoded))
 	if err != nil {

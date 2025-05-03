@@ -27,10 +27,22 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 		return fmt.Errorf("failed to get or create agent: %w", err)
 	}
 
+	s.logger.Debug("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "get or create agent"),
+		slog.Any("agent", agent),
+	)
+
 	err = s.report(agent, agentToServer)
 	if err != nil {
 		return fmt.Errorf("failed to report: %w", err)
 	}
+
+	s.logger.Debug("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "report"),
+		slog.Any("agent", agent),
+	)
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {
@@ -51,9 +63,10 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 }
 
 func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
+	agentDesc := agentToServer.GetAgentDescription()
 	desc := &modelagent.Description{
-		IdentifyingAttributes:    toMap(agentToServer.GetAgentDescription().GetIdentifyingAttributes()),
-		NonIdentifyingAttributes: toMap(agentToServer.GetAgentDescription().GetNonIdentifyingAttributes()),
+		IdentifyingAttributes:    toMap(agentDesc.GetIdentifyingAttributes()),
+		NonIdentifyingAttributes: toMap(agentDesc.GetNonIdentifyingAttributes()),
 	}
 
 	err := agent.ReportDescription(desc)
@@ -61,38 +74,50 @@ func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToSer
 		return fmt.Errorf("failed to report description: %w", err)
 	}
 
-	err = agent.ReportComponentHealth(toDomain(agentToServer.GetHealth()))
+	health := agentToServer.GetHealth()
+
+	err = agent.ReportComponentHealth(toDomain(health))
 	if err != nil {
 		return fmt.Errorf("failed to report component health: %w", err)
 	}
 
-	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(agentToServer.GetEffectiveConfig()))
+	effectiveConfig := agentToServer.GetEffectiveConfig()
+
+	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(effectiveConfig))
 	if err != nil {
 		return fmt.Errorf("failed to report effective config: %w", err)
 	}
 
+	remoteConfigStatus := agentToServer.GetRemoteConfigStatus()
+
 	err = agent.ReportRemoteConfigStatus(&model.AgentRemoteConfigStatus{
-		LastRemoteConfigHash: agentToServer.GetRemoteConfigStatus().GetLastRemoteConfigHash(),
-		Status:               remoteconfig.Status(agentToServer.GetRemoteConfigStatus().GetStatus()),
-		ErrorMessage:         agentToServer.GetRemoteConfigStatus().GetErrorMessage(),
+		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
+		Status:               remoteconfig.Status(remoteConfigStatus.GetStatus()),
+		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to report remote config status: %w", err)
 	}
 
-	err = agent.ReportPackageStatuses(packageStatusToDomain(agentToServer.GetPackageStatuses()))
+	packageStatuses := agentToServer.GetPackageStatuses()
+
+	err = agent.ReportPackageStatuses(packageStatusToDomain(packageStatuses))
 	if err != nil {
 		return fmt.Errorf("failed to report package statuses: %w", err)
 	}
 
+	customCapabilities := agentToServer.GetCustomCapabilities()
+
 	err = agent.ReportCustomCapabilities(&model.AgentCustomCapabilities{
-		Capabilities: agentToServer.GetCustomCapabilities().GetCapabilities(),
+		Capabilities: customCapabilities.GetCapabilities(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to custom capabilities: %w", err)
+		return fmt.Errorf("failed to report custom capabilities: %w", err)
 	}
 
-	err = agent.ReportAvailableComponents(availableComponentsToDomain(agentToServer.GetAvailableComponents()))
+	availableComponents := agentToServer.GetAvailableComponents()
+
+	err = agent.ReportAvailableComponents(availableComponentsToDomain(availableComponents))
 	if err != nil {
 		return fmt.Errorf("failed to report available components: %w", err)
 	}

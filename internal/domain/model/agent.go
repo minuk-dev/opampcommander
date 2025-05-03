@@ -131,6 +131,10 @@ type ComponentDetails struct {
 
 // ReportDescription is a method to report the description of the agent.
 func (a *Agent) ReportDescription(desc *agent.Description) error {
+	if desc == nil {
+		return nil // No description to report
+	}
+
 	a.Description = desc
 
 	return nil
@@ -138,6 +142,10 @@ func (a *Agent) ReportDescription(desc *agent.Description) error {
 
 // ReportComponentHealth is a method to report the component health of the agent.
 func (a *Agent) ReportComponentHealth(health *AgentComponentHealth) error {
+	if health == nil {
+		return nil // No health to report
+	}
+
 	a.ComponentHealth = health
 
 	return nil
@@ -145,6 +153,10 @@ func (a *Agent) ReportComponentHealth(health *AgentComponentHealth) error {
 
 // ReportEffectiveConfig is a method to report the effective configuration of the agent.
 func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
+	if config == nil {
+		return nil // No effective config to report
+	}
+
 	a.EffectiveConfig = config
 
 	return nil
@@ -152,6 +164,10 @@ func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
 
 // ReportRemoteConfigStatus is a method to report the remote configuration status of the agent.
 func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error {
+	if status == nil {
+		return nil // No remote config status to report
+	}
+
 	if status.ErrorMessage != "" {
 		a.RemoteConfig.SetLastErrorMessage(status.ErrorMessage)
 	}
@@ -181,6 +197,10 @@ func (a *Agent) ApplyRemoteConfig(config any) error {
 
 // ReportPackageStatuses is a method to report the package statuses of the agent.
 func (a *Agent) ReportPackageStatuses(status *AgentPackageStatuses) error {
+	if status == nil {
+		return nil // No package statuses to report
+	}
+
 	a.PackageStatuses = status
 
 	return nil
@@ -188,6 +208,10 @@ func (a *Agent) ReportPackageStatuses(status *AgentPackageStatuses) error {
 
 // ReportCustomCapabilities is a method to report the custom capabilities of the agent.
 func (a *Agent) ReportCustomCapabilities(capabilities *AgentCustomCapabilities) error {
+	if capabilities == nil {
+		return nil // No custom capabilities to report
+	}
+
 	a.CustomCapabilities = capabilities
 
 	return nil
@@ -195,6 +219,10 @@ func (a *Agent) ReportCustomCapabilities(capabilities *AgentCustomCapabilities) 
 
 // ReportAvailableComponents is a method to report the available components of the agent.
 func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableComponents) error {
+	if availableComponents == nil {
+		return nil // No available components to report
+	}
+
 	a.AvailableComponents = availableComponents
 
 	return nil
