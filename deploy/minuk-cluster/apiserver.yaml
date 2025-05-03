@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: apiserver
-        image: harbor.minuk.dev/opampcommander/apiserver:v0.0.13
+        image: harbor.minuk.dev/opampcommander/apiserver:v0.0.14
         command:
         - /apiserver
         - --db-host=etcd.opampcommander.svc.cluster.local.:2379
