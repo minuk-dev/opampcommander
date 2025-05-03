@@ -34,26 +34,15 @@ type Controller struct {
 // Option is a function that takes a Controller and modifies it.
 type Option func(*Controller)
 
-// Logger is a struct which wraps the slog.Logger for supporting OpAMP logger interface.
-type Logger struct {
-	logger *slog.Logger
-}
-
-// Debugf is a method that logs a debug message.
-func (l *Logger) Debugf(_ context.Context, format string, v ...any) {
-	l.logger.Debug(format, v...)
-}
-
-// Errorf is a method that logs an error message.
-func (l *Logger) Errorf(_ context.Context, format string, v ...any) {
-	l.logger.Error(format, v...)
-}
-
 // NewController creates a new instance of Controller.
 func NewController(
 	opampUsecase port.OpAMPUsecase,
 	logger *slog.Logger,
 ) *Controller {
+	ops := opampServer.New(&Logger{
+		logger: logger,
+	})
+
 	controller := &Controller{
 		logger:       logger,
 		connections:  make(map[types.Connection]struct{}),
@@ -63,16 +52,12 @@ func NewController(
 
 		handler:     nil, // fill below
 		ConnContext: nil, // fill below
-		opampServer: nil, // fill below
+		opampServer: ops,
 	}
-
-	controller.opampServer = opampServer.New(&Logger{
-		logger: controller.logger,
-	})
 
 	var err error
 
-	controller.handler, controller.ConnContext, err = controller.opampServer.Attach(opampServer.Settings{
+	controller.handler, controller.ConnContext, err = ops.Attach(opampServer.Settings{
 		EnableCompression: controller.enableCompression,
 		Callbacks: types.Callbacks{
 			OnConnecting: controller.OnConnecting,
@@ -90,7 +75,9 @@ func NewController(
 
 // OnConnecting is a method that handles the connection request.
 // It is an adapter for the opampServer's OnConnecting callback.
-func (c *Controller) OnConnecting(*http.Request) types.ConnectionResponse {
+func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
+	c.logger.Debug("OnConnecting", slog.Any("req", req))
+
 	return types.ConnectionResponse{
 		Accept:             true,
 		HTTPStatusCode:     http.StatusOK,
@@ -105,7 +92,8 @@ func (c *Controller) OnConnecting(*http.Request) types.ConnectionResponse {
 
 // OnConnected is a method that handles the connection established event.
 // It is an adapter for the opampServer's OnConnected callback.
-func (c *Controller) OnConnected(_ context.Context, conn types.Connection) {
+func (c *Controller) OnConnected(ctx context.Context, conn types.Connection) {
+	c.logger.Debug("OnConnected", slog.Any("ctx", ctx), slog.Any("conn", conn))
 	c.connections[conn] = struct{}{}
 }
 
@@ -113,9 +101,11 @@ func (c *Controller) OnConnected(_ context.Context, conn types.Connection) {
 // It is an adapter for the opampServer's OnMessage callback.
 func (c *Controller) OnMessage(
 	ctx context.Context,
-	_ types.Connection,
+	conn types.Connection,
 	message *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
+	c.logger.Debug("OnMessage", slog.Any("ctx", ctx), slog.Any("conn", conn), slog.Any("message", message))
+
 	instanceUID := message.GetInstanceUid()
 
 	err := c.opampUsecase.HandleAgentToServer(ctx, message)
@@ -134,6 +124,8 @@ func (c *Controller) OnMessage(
 // OnConnectionClose is a method that handles the connection close event.
 // It is an adapter for the opampServer's OnConnectionClose callback.
 func (c *Controller) OnConnectionClose(conn types.Connection) {
+	c.logger.Debug("OnConnectionClose", slog.Any("conn", conn))
+
 	delete(c.connections, conn)
 }
 

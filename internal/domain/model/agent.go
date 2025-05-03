@@ -13,8 +13,10 @@ import (
 
 // Agent is a domain model to control opamp agent by opampcommander.
 type Agent struct {
-	InstanceUID         uuid.UUID
-	Capabilities        *AgentCapabilities
+	InstanceUID uuid.UUID
+
+	// Agent To Server message
+	Capabilities        *agent.Capabilities
 	Description         *agent.Description
 	EffectiveConfig     *AgentEffectiveConfig
 	PackageStatuses     *AgentPackageStatuses
@@ -22,6 +24,13 @@ type Agent struct {
 	RemoteConfig        remoteconfig.RemoteConfig
 	CustomCapabilities  *AgentCustomCapabilities
 	AvailableComponents *AgentAvailableComponents
+
+	// Server To Agent message
+
+	// ReportFullState is a flag to indicate whether the agent should report full state.
+	// If true, the agent should report all state information.
+	// More details, see https://github.com/open-telemetry/opamp-spec/blob/main/specification.md#servertoagentflags
+	ReportFullState bool
 }
 
 // AgentComponentHealth is a domain model to control opamp agent component health.
@@ -46,10 +55,6 @@ type AgentComponentHealth struct {
 	// It can nest as deeply as needed to describe the underlying system.
 	ComponentHealthMap map[string]AgentComponentHealth
 }
-
-// AgentCapabilities is a bitmask of capabilities that the Agent supports.
-// The AgentCapabilities enum is defined in the opamp protocol.
-type AgentCapabilities uint64
 
 // AgentEffectiveConfig is the effective configuration of the agent.
 type AgentEffectiveConfig struct {
@@ -151,6 +156,17 @@ func (a *Agent) ReportComponentHealth(health *AgentComponentHealth) error {
 	return nil
 }
 
+// ReportCapabilities is a method to report the capabilities of the agent.
+func (a *Agent) ReportCapabilities(capabilities *agent.Capabilities) error {
+	if capabilities == nil {
+		return nil // No capabilities to report
+	}
+
+	a.Capabilities = capabilities
+
+	return nil
+}
+
 // ReportEffectiveConfig is a method to report the effective configuration of the agent.
 func (a *Agent) ReportEffectiveConfig(config *AgentEffectiveConfig) error {
 	if config == nil {
@@ -224,6 +240,28 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 	}
 
 	a.AvailableComponents = availableComponents
+
+	return nil
+}
+
+// IsManaged is a method to check if the agent is unmanaged.
+// If an agent is unmanaged, it means that it should be reported to the server with all its state information.
+func (a *Agent) IsManaged() bool {
+	// Description, Capabilities, EffectiveConfig are minimum required fields.
+	return a.Description != nil &&
+		a.Capabilities != nil &&
+		a.EffectiveConfig != nil
+}
+
+// SetReportFullState is a method to set the report full state of the agent.
+func (a *Agent) SetReportFullState(reportFullState bool) {
+	a.ReportFullState = reportFullState
+}
+
+// ResetByServerToAgent is a method to reset all fields that used to generate ServerToAgent message.
+// It is called after the ServerToAgent message is sent to the agent.
+func (a *Agent) ResetByServerToAgent() error {
+	a.ReportFullState = false
 
 	return nil
 }
