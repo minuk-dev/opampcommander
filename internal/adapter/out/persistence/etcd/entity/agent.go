@@ -141,6 +141,7 @@ func (ac *AgentCapabilities) ToDomain() *domainmodel.AgentCapabilities {
 	if ac == nil {
 		return nil
 	}
+
 	return (*domainmodel.AgentCapabilities)(ac)
 }
 
@@ -149,6 +150,7 @@ func (ad *AgentDescription) ToDomain() *agent.Description {
 	if ad == nil {
 		return nil
 	}
+
 	return &agent.Description{
 		IdentifyingAttributes:    ad.IdentifyingAttributes,
 		NonIdentifyingAttributes: ad.NonIdentifyingAttributes,
@@ -160,6 +162,7 @@ func (ae *AgentEffectiveConfig) ToDomain() *domainmodel.AgentEffectiveConfig {
 	if ae == nil {
 		return nil
 	}
+
 	return &domainmodel.AgentEffectiveConfig{
 		ConfigMap: domainmodel.AgentConfigMap{
 			ConfigMap: lo.MapValues(ae.ConfigMap.ConfigMap, func(acf AgentConfigFile, _ string) domainmodel.AgentConfigFile {
@@ -177,6 +180,7 @@ func (ap *AgentPackageStatuses) ToDomain() *domainmodel.AgentPackageStatuses {
 	if ap == nil {
 		return nil
 	}
+
 	return &domainmodel.AgentPackageStatuses{
 		Packages: lo.MapValues(ap.Packages, func(aps AgentPackageStatus, _ string) domainmodel.AgentPackageStatus {
 			return domainmodel.AgentPackageStatus{
@@ -198,6 +202,7 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 	if ach == nil {
 		return nil
 	}
+
 	return &domainmodel.AgentComponentHealth{
 		Healthy:    ach.Healthy,
 		StartTime:  time.UnixMilli(ach.StartTimeUnixMilli),
@@ -216,6 +221,7 @@ func (arc *AgentRemoteConfig) ToDomain() remoteconfig.RemoteConfig {
 	if arc == nil {
 		return remoteconfig.New()
 	}
+
 	remoteConfig := remoteconfig.New()
 	if arc == nil {
 		return remoteConfig
@@ -236,6 +242,7 @@ func (acc *AgentCustomCapabilities) ToDomain() *domainmodel.AgentCustomCapabilit
 	if acc == nil {
 		return nil
 	}
+
 	return &domainmodel.AgentCustomCapabilities{
 		Capabilities: acc.Capabilities,
 	}
@@ -246,6 +253,7 @@ func (avv *AgentAvailableComponents) ToDomain() *domainmodel.AgentAvailableCompo
 	if avv == nil {
 		return nil
 	}
+
 	return &domainmodel.AgentAvailableComponents{
 		Components: lo.MapValues(avv.Components,
 			func(component ComponentDetails, _ string) domainmodel.ComponentDetails {
@@ -260,6 +268,7 @@ func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
 	if cd == nil {
 		return nil
 	}
+
 	return &domainmodel.ComponentDetails{
 		Metadata: cd.Metadata,
 		SubComponentMap: lo.MapValues(cd.SubComponentMap,
@@ -290,17 +299,19 @@ func AgentCapabilitiesFromDomain(ac *domainmodel.AgentCapabilities) *AgentCapabi
 	if ac == nil {
 		return nil
 	}
+
 	return (*AgentCapabilities)(ac)
 }
 
 // AgentDescriptionFromDomain converts domain model to persistence model.
-func AgentDescriptionFromDomain(ad *agent.Description) *AgentDescription {
-	if ad == nil {
+func AgentDescriptionFromDomain(ads *agent.Description) *AgentDescription {
+	if ads == nil {
 		return nil
 	}
+
 	return &AgentDescription{
-		IdentifyingAttributes:    ad.IdentifyingAttributes,
-		NonIdentifyingAttributes: ad.NonIdentifyingAttributes,
+		IdentifyingAttributes:    ads.IdentifyingAttributes,
+		NonIdentifyingAttributes: ads.NonIdentifyingAttributes,
 	}
 }
 
@@ -309,6 +320,7 @@ func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *Agen
 	if aec == nil {
 		return nil
 	}
+
 	return &AgentEffectiveConfig{
 		ConfigMap: AgentConfigMap{
 			ConfigMap: lo.MapValues(aec.ConfigMap.ConfigMap,
@@ -327,6 +339,7 @@ func AgentPackageStatusesFromDomain(aps *domainmodel.AgentPackageStatuses) *Agen
 	if aps == nil {
 		return nil
 	}
+
 	return &AgentPackageStatuses{
 		Packages: lo.MapValues(aps.Packages,
 			func(pss domainmodel.AgentPackageStatus, _ string) AgentPackageStatus {
@@ -349,6 +362,7 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 	if ach == nil {
 		return nil
 	}
+
 	return &AgentComponentHealth{
 		Healthy:             ach.Healthy,
 		StartTimeUnixMilli:  ach.StartTime.UnixMilli(),
@@ -389,6 +403,7 @@ func AgentCustomCapabilitiesFromDomain(acc *domainmodel.AgentCustomCapabilities)
 	if acc == nil {
 		return nil
 	}
+
 	return &AgentCustomCapabilities{
 		Capabilities: acc.Capabilities,
 	}
@@ -410,6 +425,7 @@ func AgentAvailableComponentsFromDomain(acc *domainmodel.AgentAvailableComponent
 	if acc == nil {
 		return nil
 	}
+
 	return &AgentAvailableComponents{
 		Components: lo.MapValues(acc.Components,
 			func(cd domainmodel.ComponentDetails, _ string) ComponentDetails {
