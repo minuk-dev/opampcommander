@@ -31,6 +31,8 @@ type Agent struct {
 	RemoteConfig        *AgentRemoteConfig        `json:"remoteConfig"`
 	CustomCapabilities  *AgentCustomCapabilities  `json:"customCapabilities"`
 	AvailableComponents *AgentAvailableComponents `json:"availableComponents"`
+
+	ReportFullState bool `json:"reportFullState"`
 }
 
 // AgentDescription is a struct to manage agent description.
@@ -133,16 +135,18 @@ func (a *Agent) ToDomain() *domainmodel.Agent {
 		RemoteConfig:        a.RemoteConfig.ToDomain(),
 		CustomCapabilities:  a.CustomCapabilities.ToDomain(),
 		AvailableComponents: a.AvailableComponents.ToDomain(),
+
+		ReportFullState: a.ReportFullState,
 	}
 }
 
 // ToDomain converts the AgentCapabilities to domain model.
-func (ac *AgentCapabilities) ToDomain() *domainmodel.AgentCapabilities {
+func (ac *AgentCapabilities) ToDomain() *agent.Capabilities {
 	if ac == nil {
 		return nil
 	}
 
-	return (*domainmodel.AgentCapabilities)(ac)
+	return (*agent.Capabilities)(ac)
 }
 
 // ToDomain converts the AgentDescription to domain model.
@@ -218,10 +222,6 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 
 // ToDomain converts the AgentRemoteConfig to domain model.
 func (arc *AgentRemoteConfig) ToDomain() remoteconfig.RemoteConfig {
-	if arc == nil {
-		return remoteconfig.New()
-	}
-
 	remoteConfig := remoteconfig.New()
 	if arc == nil {
 		return remoteConfig
@@ -291,11 +291,13 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		RemoteConfig:        AgentRemoteConfigFromDomain(agent.RemoteConfig),
 		CustomCapabilities:  AgentCustomCapabilitiesFromDomain(agent.CustomCapabilities),
 		AvailableComponents: AgentAvailableComponentsFromDomain(agent.AvailableComponents),
+
+		ReportFullState: agent.ReportFullState,
 	}
 }
 
 // AgentCapabilitiesFromDomain converts domain model to persistence model.
-func AgentCapabilitiesFromDomain(ac *domainmodel.AgentCapabilities) *AgentCapabilities {
+func AgentCapabilitiesFromDomain(ac *agent.Capabilities) *AgentCapabilities {
 	if ac == nil {
 		return nil
 	}

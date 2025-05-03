@@ -53,6 +53,8 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 				RemoteConfig:        remoteconfig.New(),
 				CustomCapabilities:  nil,
 				AvailableComponents: nil,
+
+				ReportFullState: false,
 			}
 		} else {
 			return nil, fmt.Errorf("failed to get agent: %w", err)

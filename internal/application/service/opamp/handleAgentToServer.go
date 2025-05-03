@@ -9,6 +9,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 )
 
 // HandleAgentToServer handle a message from agent.
@@ -17,6 +18,11 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 	s.logger.Info("HandleAgentToServer",
 		slog.String("instanceUID", instanceUID.String()),
 		slog.String("message", "start"),
+	)
+	s.logger.Debug("HandleAgentToServer",
+		slog.String("instanceUID", instanceUID.String()),
+		slog.String("message", "agentToServer"),
+		slog.Any("agentToServer", agentToServer),
 	)
 
 	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, instanceUID)
@@ -40,6 +46,10 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 		slog.String("message", "report"),
 		slog.Any("agent", agent),
 	)
+
+	if !agent.IsManaged() {
+		agent.SetReportFullState(true)
+	}
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {
@@ -68,6 +78,13 @@ func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToSer
 	err = agent.ReportComponentHealth(healthToDomain(agentToServer.GetHealth()))
 	if err != nil {
 		return fmt.Errorf("failed to report component health: %w", err)
+	}
+
+	capabilities := agentToServer.GetCapabilities()
+
+	err = agent.ReportCapabilities((*agentmodel.Capabilities)(&capabilities))
+	if err != nil {
+		return fmt.Errorf("failed to report capabilities: %w", err)
 	}
 
 	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(agentToServer.GetEffectiveConfig()))
