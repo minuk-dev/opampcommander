@@ -4,14 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	modelagent "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 )
 
 // HandleAgentToServer handle a message from agent.
@@ -63,161 +60,40 @@ func (s *Service) HandleAgentToServer(ctx context.Context, agentToServer *protob
 }
 
 func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
-	agentDesc := agentToServer.GetAgentDescription()
-	desc := &modelagent.Description{
-		IdentifyingAttributes:    toMap(agentDesc.GetIdentifyingAttributes()),
-		NonIdentifyingAttributes: toMap(agentDesc.GetNonIdentifyingAttributes()),
-	}
-
-	err := agent.ReportDescription(desc)
+	err := agent.ReportDescription(descToDomain(agentToServer.GetAgentDescription()))
 	if err != nil {
 		return fmt.Errorf("failed to report description: %w", err)
 	}
 
-	health := agentToServer.GetHealth()
-
-	err = agent.ReportComponentHealth(toDomain(health))
+	err = agent.ReportComponentHealth(healthToDomain(agentToServer.GetHealth()))
 	if err != nil {
 		return fmt.Errorf("failed to report component health: %w", err)
 	}
 
-	effectiveConfig := agentToServer.GetEffectiveConfig()
-
-	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(effectiveConfig))
+	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(agentToServer.GetEffectiveConfig()))
 	if err != nil {
 		return fmt.Errorf("failed to report effective config: %w", err)
 	}
 
-	remoteConfigStatus := agentToServer.GetRemoteConfigStatus()
-
-	err = agent.ReportRemoteConfigStatus(&model.AgentRemoteConfigStatus{
-		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
-		Status:               remoteconfig.Status(remoteConfigStatus.GetStatus()),
-		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
-	})
+	err = agent.ReportRemoteConfigStatus(remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus()))
 	if err != nil {
 		return fmt.Errorf("failed to report remote config status: %w", err)
 	}
 
-	packageStatuses := agentToServer.GetPackageStatuses()
-
-	err = agent.ReportPackageStatuses(packageStatusToDomain(packageStatuses))
+	err = agent.ReportPackageStatuses(packageStatusToDomain(agentToServer.GetPackageStatuses()))
 	if err != nil {
 		return fmt.Errorf("failed to report package statuses: %w", err)
 	}
 
-	customCapabilities := agentToServer.GetCustomCapabilities()
-
-	err = agent.ReportCustomCapabilities(&model.AgentCustomCapabilities{
-		Capabilities: customCapabilities.GetCapabilities(),
-	})
+	err = agent.ReportCustomCapabilities(customCapabilitiesToDomain(agentToServer.GetCustomCapabilities()))
 	if err != nil {
 		return fmt.Errorf("failed to report custom capabilities: %w", err)
 	}
 
-	availableComponents := agentToServer.GetAvailableComponents()
-
-	err = agent.ReportAvailableComponents(availableComponentsToDomain(availableComponents))
+	err = agent.ReportAvailableComponents(availableComponentsToDomain(agentToServer.GetAvailableComponents()))
 	if err != nil {
 		return fmt.Errorf("failed to report available components: %w", err)
 	}
 
 	return nil
-}
-
-func toMap(proto []*protobufs.KeyValue) map[string]string {
-	retval := make(map[string]string, len(proto))
-	for _, kv := range proto {
-		// iss#1: Handle other types.
-		retval[kv.GetKey()] = kv.GetValue().GetStringValue()
-	}
-
-	return retval
-}
-
-func toDomain(health *protobufs.ComponentHealth) *model.AgentComponentHealth {
-	componentHealthMap := make(map[string]model.AgentComponentHealth, len(health.GetComponentHealthMap()))
-
-	for subComponentName, subComponentHealth := range health.GetComponentHealthMap() {
-		componentHealthMap[subComponentName] = *toDomain(subComponentHealth)
-	}
-
-	return &model.AgentComponentHealth{
-		Healthy:            health.GetHealthy(),
-		StartTime:          unixNanoToTime(health.GetStartTimeUnixNano()),
-		LastError:          health.GetLastError(),
-		Status:             health.GetStatus(),
-		StatusTime:         unixNanoToTime(health.GetStatusTimeUnixNano()),
-		ComponentHealthMap: componentHealthMap,
-	}
-}
-
-//nolint:mnd,gosec
-func unixNanoToTime(nsec uint64) time.Time {
-	sec := nsec / 1e9
-	nsec %= 1e9
-
-	return time.Unix(int64(sec), int64(nsec))
-}
-
-func effectiveConfigToDomain(effectiveConfig *protobufs.EffectiveConfig) *model.AgentEffectiveConfig {
-	configMap := make(map[string]model.AgentConfigFile, len(effectiveConfig.GetConfigMap().GetConfigMap()))
-	for key, value := range effectiveConfig.GetConfigMap().GetConfigMap() {
-		configMap[key] = model.AgentConfigFile{
-			Body:        value.GetBody(),
-			ContentType: value.GetContentType(),
-		}
-	}
-
-	return &model.AgentEffectiveConfig{
-		ConfigMap: model.AgentConfigMap{
-			ConfigMap: configMap,
-		},
-	}
-}
-
-func packageStatusToDomain(packageStatuses *protobufs.PackageStatuses) *model.AgentPackageStatuses {
-	packages := make(map[string]model.AgentPackageStatus, len(packageStatuses.GetPackages()))
-	for key, value := range packageStatuses.GetPackages() {
-		packages[key] = model.AgentPackageStatus{
-			Name:                 value.GetName(),
-			AgentHasVersion:      value.GetAgentHasVersion(),
-			AgentHasHash:         value.GetAgentHasHash(),
-			ServerOfferedVersion: value.GetServerOfferedVersion(),
-			Status:               model.AgentPackageStatusEnum(value.GetStatus()),
-			ErrorMessage:         value.GetErrorMessage(),
-		}
-	}
-
-	return &model.AgentPackageStatuses{
-		Packages:                     packages,
-		ServerProvidedAllPackgesHash: packageStatuses.GetServerProvidedAllPackagesHash(),
-		ErrorMessage:                 packageStatuses.GetErrorMessage(),
-	}
-}
-
-func availableComponentsToDomain(availableComponents *protobufs.AvailableComponents) *model.AgentAvailableComponents {
-	components := make(map[string]model.ComponentDetails, len(availableComponents.GetComponents()))
-	for key, value := range availableComponents.GetComponents() {
-		components[key] = componentDetailsToDomain(value)
-	}
-
-	return &model.AgentAvailableComponents{
-		Components: components,
-		Hash:       availableComponents.GetHash(),
-	}
-}
-
-func componentDetailsToDomain(componentDetails *protobufs.ComponentDetails) model.ComponentDetails {
-	metadata := toMap(componentDetails.GetMetadata())
-
-	subComponentMap := make(map[string]model.ComponentDetails, len(componentDetails.GetSubComponentMap()))
-	for key, value := range componentDetails.GetSubComponentMap() {
-		subComponentMap[key] = componentDetailsToDomain(value)
-	}
-
-	return model.ComponentDetails{
-		Metadata:        metadata,
-		SubComponentMap: subComponentMap,
-	}
 }
