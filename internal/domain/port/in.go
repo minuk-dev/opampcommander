@@ -27,29 +27,32 @@ type ConnectionUsecase interface {
 // GetConnectionUsecase is an interface that defines the methods for getting connections.
 type GetConnectionUsecase interface {
 	// GetConnection retrieves a connection by its instance UID.
-	GetConnection(instanceUID uuid.UUID) (*model.Connection, error)
+	GetConnection(ctx context.Context, instanceUID uuid.UUID) (*model.Connection, error)
 	// GetOrCreateConnection retrieves a connection by its instance UID.
-	GetOrCreateConnection(instanceUID uuid.UUID) (*model.Connection, error)
+	GetOrCreateConnection(ctx context.Context, instanceUID uuid.UUID) (*model.Connection, error)
+	// FindConnectionsByData finds connections by the given data.
+	// It is useful for searching connections with specific attributes, especially AnonymousConnection
+	FindConnectionsByData(ctx context.Context, data map[string]string) ([]*model.Connection, error)
 }
 
 // SetConnectionUsecase is an interface that defines the methods for setting connections.
 type SetConnectionUsecase interface {
 	// SaveConnection saves the connection to the persistence layer.
-	SaveConnection(connection *model.Connection) error
+	SaveConnection(ctx context.Context, connection *model.Connection) error
 }
 
 // DeleteConnectionUsecase is an interface that defines the methods for deleting connections.
 type DeleteConnectionUsecase interface {
-	// DeleteConnection deletes a connection by its instance UID.
-	DeleteConnection(instanceUID uuid.UUID) error
+	// DeleteConnection deletes a connection.
+	DeleteConnection(ctx context.Context, connection *model.Connection) error
 	// FetchAndDeleteConnection fetches a connection by its instance UID and deletes it.
-	FetchAndDeleteConnection(instanceUID uuid.UUID) (*model.Connection, error)
+	FetchAndDeleteConnection(ctx context.Context, instanceUID uuid.UUID) (*model.Connection, error)
 }
 
 // ListConnectionIDsUsecase is an interface that defines the methods for listing connection IDs.
 type ListConnectionIDsUsecase interface {
 	// ListConnectionIDs lists all connection IDs.
-	ListConnections() []*model.Connection
+	ListConnections(ctx context.Context) []*model.Connection
 }
 
 // AgentUsecase is an interface that defines the methods for agent use cases.

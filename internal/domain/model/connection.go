@@ -17,6 +17,12 @@ const (
 type Connection struct {
 	ID uuid.UUID
 
+	// Data is a map of string to string.
+	// It is a kind of raw data to manage connection.
+	// It's useful especially when you get/update Unknown Connection.
+	// Please see [NewAnonymousConnection]
+	Data map[string]string
+
 	state connectionState
 }
 
@@ -34,6 +40,24 @@ func NewConnection(id uuid.UUID) *Connection {
 		ID:    id,
 		state: newConnectionState(),
 	}
+}
+
+// NewAnonymousConnection returns a new Connection instance with an unknown ID.
+func NewAnonymousConnection(data map[string]string) *Connection {
+	return &Connection{
+		ID:   uuid.Nil,
+		Data: data,
+	}
+}
+
+// IsAnonymous returns true if the connection is anonymous.
+func (conn *Connection) IsAnonymous() bool {
+	return conn.ID == uuid.Nil
+}
+
+// IsIdentified returns true if the connection is not anonymous.
+func (conn *Connection) IsIdentified() bool {
+	return !conn.IsAnonymous()
 }
 
 // RefreshLastCommunicatedAt refreshes the last communicated time.

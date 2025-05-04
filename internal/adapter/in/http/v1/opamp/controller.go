@@ -2,13 +2,10 @@
 package opamp
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/open-telemetry/opamp-go/protobufs"
 	opampServer "github.com/open-telemetry/opamp-go/server"
 	"github.com/open-telemetry/opamp-go/server/types"
 
@@ -23,7 +20,6 @@ type Controller struct {
 	handler     opampServer.HTTPHandlerFunc
 	ConnContext opampServer.ConnContext
 
-	connections       map[types.Connection]struct{}
 	opampServer       opampServer.OpAMPServer
 	enableCompression bool
 
@@ -45,7 +41,6 @@ func NewController(
 
 	controller := &Controller{
 		logger:       logger,
-		connections:  make(map[types.Connection]struct{}),
 		opampUsecase: opampUsecase,
 
 		enableCompression: false,
@@ -83,50 +78,11 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 		HTTPStatusCode:     http.StatusOK,
 		HTTPResponseHeader: map[string]string{},
 		ConnectionCallbacks: types.ConnectionCallbacks{
-			OnConnected:       c.OnConnected,
-			OnMessage:         c.OnMessage,
-			OnConnectionClose: c.OnConnectionClose,
+			OnConnected:       c.opampUsecase.OnConnected,
+			OnMessage:         c.opampUsecase.OnMessage,
+			OnConnectionClose: c.opampUsecase.OnConnectionClose,
 		},
 	}
-}
-
-// OnConnected is a method that handles the connection established event.
-// It is an adapter for the opampServer's OnConnected callback.
-func (c *Controller) OnConnected(ctx context.Context, conn types.Connection) {
-	c.logger.Debug("OnConnected", slog.Any("ctx", ctx), slog.Any("conn", conn))
-	c.connections[conn] = struct{}{}
-}
-
-// OnMessage is a method that handles the incoming message.
-// It is an adapter for the opampServer's OnMessage callback.
-func (c *Controller) OnMessage(
-	ctx context.Context,
-	conn types.Connection,
-	message *protobufs.AgentToServer,
-) *protobufs.ServerToAgent {
-	c.logger.Debug("OnMessage", slog.Any("ctx", ctx), slog.Any("conn", conn), slog.Any("message", message))
-
-	instanceUID := message.GetInstanceUid()
-
-	err := c.opampUsecase.HandleAgentToServer(ctx, message)
-	if err != nil {
-		c.logger.Error("failed to handle agent to server message", "error", err.Error())
-	}
-
-	serverToAgent, err := c.opampUsecase.FetchServerToAgent(ctx, uuid.UUID(instanceUID))
-	if err != nil {
-		c.logger.Error("failed to fetch server to agent message", "error", err.Error())
-	}
-
-	return serverToAgent
-}
-
-// OnConnectionClose is a method that handles the connection close event.
-// It is an adapter for the opampServer's OnConnectionClose callback.
-func (c *Controller) OnConnectionClose(conn types.Connection) {
-	c.logger.Debug("OnConnectionClose", slog.Any("conn", conn))
-
-	delete(c.connections, conn)
 }
 
 // RoutesInfo returns the routes information for the controller.

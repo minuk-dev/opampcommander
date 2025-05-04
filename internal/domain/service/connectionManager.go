@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"github.com/google/uuid"
@@ -25,6 +26,11 @@ type ConnectionManager struct {
 	clock clock.Clock
 }
 
+// FindConnectionsByData implements port.ConnectionUsecase.
+func (cm *ConnectionManager) FindConnectionsByData(ctx context.Context, data map[string]string) ([]*model.Connection, error) {
+	panic("unimplemented")
+}
+
 // NewConnectionManager creates a new instance of ConnectionManager.
 func NewConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
@@ -36,11 +42,13 @@ func NewConnectionManager() *ConnectionManager {
 
 // SaveConnection saves the connection to the map.
 // It returns an error if the connection is nil or if the connection already exists.
-func (cm *ConnectionManager) SaveConnection(connection *model.Connection) error {
+func (cm *ConnectionManager) SaveConnection(ctx context.Context, connection *model.Connection) error {
 	if connection == nil {
 		return ErrNilArgument
 	}
 
+	// TODO: change connID as key
+	// Data + connID is a unique key because anonymous connection
 	connID := connection.ID.String()
 
 	_, ok := cm.connectionMap.Load(connID)
@@ -55,8 +63,8 @@ func (cm *ConnectionManager) SaveConnection(connection *model.Connection) error 
 
 // GetOrCreateConnection returns the connection by the given ID.
 // If the connection does not exist, it creates a new one and saves it to the map.
-func (cm *ConnectionManager) GetOrCreateConnection(instanceUID uuid.UUID) (*model.Connection, error) {
-	conn, err := cm.GetConnection(instanceUID)
+func (cm *ConnectionManager) GetOrCreateConnection(ctx context.Context, instanceUID uuid.UUID) (*model.Connection, error) {
+	conn, err := cm.GetConnection(ctx, instanceUID)
 	if err == nil {
 		return conn, nil
 	}
@@ -64,7 +72,7 @@ func (cm *ConnectionManager) GetOrCreateConnection(instanceUID uuid.UUID) (*mode
 	conn = model.NewConnection(instanceUID)
 	conn.RefreshLastCommunicatedAt(cm.clock.Now())
 
-	if err := cm.SaveConnection(conn); err != nil {
+	if err := cm.SaveConnection(ctx, conn); err != nil {
 		return nil, err
 	}
 
@@ -73,15 +81,14 @@ func (cm *ConnectionManager) GetOrCreateConnection(instanceUID uuid.UUID) (*mode
 
 // DeleteConnection deletes the connection by the given ID.
 // It returns an error if the connection does not exist.
-func (cm *ConnectionManager) DeleteConnection(id uuid.UUID) error {
-	_, err := cm.FetchAndDeleteConnection(id)
-
-	return err
+func (cm *ConnectionManager) DeleteConnection(ctx context.Context, connection *model.Connection) error {
+	// TODO: Implement
+	return errors.New("not implemented")
 }
 
 // FetchAndDeleteConnection fetches the connection by the given ID and deletes it from the map.
 // It returns the connection if it exists, otherwise it returns an error.
-func (cm *ConnectionManager) FetchAndDeleteConnection(id uuid.UUID) (*model.Connection, error) {
+func (cm *ConnectionManager) FetchAndDeleteConnection(ctx context.Context, id uuid.UUID) (*model.Connection, error) {
 	conn, exists := cm.connectionMap.Compute(id.String(), func(_ *model.Connection, _ bool) (*model.Connection, bool) {
 		return nil, false
 	})
@@ -94,7 +101,7 @@ func (cm *ConnectionManager) FetchAndDeleteConnection(id uuid.UUID) (*model.Conn
 }
 
 // GetConnection returns the connection by the given ID.
-func (cm *ConnectionManager) GetConnection(id uuid.UUID) (*model.Connection, error) {
+func (cm *ConnectionManager) GetConnection(ctx context.Context, id uuid.UUID) (*model.Connection, error) {
 	connection, ok := cm.connectionMap.Load(id.String())
 	if !ok {
 		return nil, port.ErrConnectionNotFound
@@ -104,7 +111,7 @@ func (cm *ConnectionManager) GetConnection(id uuid.UUID) (*model.Connection, err
 }
 
 // ListConnections returns the list of connections.
-func (cm *ConnectionManager) ListConnections() []*model.Connection {
+func (cm *ConnectionManager) ListConnections(ctx context.Context) []*model.Connection {
 	connections := make([]*model.Connection, 0, cm.connectionMap.Size())
 	cm.connectionMap.Range(func(_ string, conn *model.Connection) bool {
 		connections = append(connections, conn)
