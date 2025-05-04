@@ -14,7 +14,10 @@ build:
 	goreleaser build
 
 unittest:
-	go test ./...
+	go test -short ./... 
+
+test:
+	go test ./... 
 
 release:
 	goreleaser release --rm-dist

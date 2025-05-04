@@ -7,6 +7,8 @@ linters:
     depguard:
       rules:
         main:
+          files:
+            - "!**/*_test.go" # Exclude test files
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
@@ -23,6 +25,17 @@ linters:
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3
             - github.com/puzpuzpuz/xsync/v3
+          deny:
+            - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
+              desc: Do not use testutil in production code
+        test:
+          files:
+            - "**/*_test.go"
+          allow:
+            - $gostd
+            - github.com/minuk-dev/opampcommander
+            - github.com/gin-gonic/gin
+            - github.com/stretchr/testify/assert
 
 formatters:
   enable:
