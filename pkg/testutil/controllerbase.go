@@ -34,8 +34,6 @@ type Controller interface {
 func setupRouter(controller Controller) *gin.Engine {
 	router := gin.Default()
 
-	controller.RoutesInfo()
-
 	for _, route := range controller.RoutesInfo() {
 		router.Handle(route.Method, route.Path, route.HandlerFunc)
 	}
