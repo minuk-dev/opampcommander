@@ -58,7 +58,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // List handles the request to list all connections.
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()
-	connections := c.connectionUsecase.ListConnections()
+	connections := c.connectionUsecase.ListConnections(ctx.Request.Context())
 	connectionResponse := lo.Map(connections, func(connection *model.Connection, _ int) *connectionv1.Connection {
 		return &connectionv1.Connection{
 			ID:                 connection.ID,
@@ -82,7 +82,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	connection, err := c.connectionUsecase.GetConnection(connectionUUID)
+	connection, err := c.connectionUsecase.GetConnection(ctx.Request.Context(), connectionUUID)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, err)
 

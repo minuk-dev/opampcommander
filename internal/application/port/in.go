@@ -6,23 +6,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/open-telemetry/opamp-go/server/types"
 )
 
-// OpAMPUsecase covers OpAMP protocol
-// This usecase should be called by the adapter.
+// OpAMPUsecase is a use case that handles OpAMP protocol operations.
+// Please see [github.com/open-telemetry/opamp-go/server/types/ConnectionCallbacks].
 type OpAMPUsecase interface {
-	HandleAgentToServerUsecase
-	FetchServerToAgentUsecase
-}
-
-// HandleAgentToServerUsecase is a use case that handles a message from the connection.
-type HandleAgentToServerUsecase interface {
-	HandleAgentToServer(ctx context.Context, agentToServer *protobufs.AgentToServer) error
-}
-
-// FetchServerToAgentUsecase is a use case that fetches a message from the connection.
-type FetchServerToAgentUsecase interface {
-	FetchServerToAgent(ctx context.Context, instanceUID uuid.UUID) (*protobufs.ServerToAgent, error)
+	OnConnected(ctx context.Context, conn types.Connection)
+	OnMessage(ctx context.Context, conn types.Connection, message *protobufs.AgentToServer) *protobufs.ServerToAgent
+	OnConnectionClose(conn types.Connection)
 }
 
 // AdminUsecase is a use case that handles admin operations.

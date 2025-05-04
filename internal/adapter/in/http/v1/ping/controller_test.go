@@ -20,7 +20,9 @@ func TestPingController_Handle(t *testing.T) {
 	defer cancel()
 
 	base := testutil.NewControllerBase()
-	base.SetupRouter(ping.NewController(base.Logger))
+
+	controller := ping.NewController(base.Logger)
+	base.SetupRouter(controller)
 	router := base.Router
 
 	w := httptest.NewRecorder()
