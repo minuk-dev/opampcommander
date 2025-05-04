@@ -1,9 +1,10 @@
 version: "2"
 linters:
   default: all
-
   settings:
-
+    varnamelen:
+      ignore-type-assert-ok: true # default: false
+      ignore-map-index-ok: true # default: false
     depguard:
       rules:
         main:
