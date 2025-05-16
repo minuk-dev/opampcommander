@@ -133,6 +133,7 @@ func (s *Service) OnMessage(
 	// Even if the connection is not found, we should still process the message
 	if err != nil {
 		logger.Error("failed to get connection", slog.String("error", err.Error()))
+
 		connection = model.NewConnection(conn, model.TypeUnknown)
 	}
 
@@ -173,7 +174,6 @@ func (s *Service) OnMessage(
 		return s.createFallbackServerToAgent(instanceUID)
 	}
 
-	logger.Debug("serverToAgent", slog.Any("serverToAgent", response))
 	logger.Info("end successfully")
 
 	return response
