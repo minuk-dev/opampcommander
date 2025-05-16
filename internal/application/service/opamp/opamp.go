@@ -130,9 +130,9 @@ func (s *Service) OnMessage(
 	)
 	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 
+	// Even if the connection is not found, we should still process the message
 	if err != nil {
 		logger.Error("failed to get connection", slog.String("error", err.Error()))
-		// Even if the connection is not found, we should still process the message
 	}
 
 	connection.InstanceUID = instanceUID
