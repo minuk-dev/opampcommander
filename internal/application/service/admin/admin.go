@@ -17,21 +17,24 @@ var _ applicationport.AdminUsecase = (*Service)(nil)
 
 // Service is a struct that implements the AdminUsecase interface.
 type Service struct {
-	logger         *slog.Logger
-	agentUsecase   domainport.AgentUsecase
-	commandUsecase domainport.CommandUsecase
+	logger            *slog.Logger
+	agentUsecase      domainport.AgentUsecase
+	commandUsecase    domainport.CommandUsecase
+	connectionUsecase domainport.ConnectionUsecase
 }
 
 // New creates a new instance of the Service struct.
 func New(
 	agentUsecase domainport.AgentUsecase,
 	commandUsecase domainport.CommandUsecase,
+	connectionUsecase domainport.ConnectionUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		logger:         logger,
-		agentUsecase:   agentUsecase,
-		commandUsecase: commandUsecase,
+		logger:            logger,
+		agentUsecase:      agentUsecase,
+		commandUsecase:    commandUsecase,
+		connectionUsecase: connectionUsecase,
 	}
 }
 
@@ -50,4 +53,14 @@ func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUI
 	}
 
 	return nil
+}
+
+// ListConnections lists all connections.
+func (s *Service) ListConnections(ctx context.Context) ([]*model.Connection, error) {
+	connections, err := s.connectionUsecase.ListConnections(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list connections: %w", err)
+	}
+
+	return connections, nil
 }

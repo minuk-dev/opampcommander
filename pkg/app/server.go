@@ -19,6 +19,7 @@ import (
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
+	"github.com/minuk-dev/opampcommander/internal/helper"
 )
 
 // ServerSettings is a struct that holds the server settings.
@@ -62,12 +63,14 @@ func NewServer(settings ServerSettings) *Server {
 		),
 		// application
 		fx.Provide(
-			fx.Annotate(opampApplicationService.New, fx.As(new(port.OpAMPUsecase))),
+			opampApplicationService.New,
+			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(port.OpAMPUsecase))),
+			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(helper.Runner))), // for background processing
 		),
 		// domain
 		fx.Provide(
 			fx.Annotate(domainservice.NewCommandService, fx.As(new(domainport.CommandUsecase))),
-			fx.Annotate(domainservice.NewConnectionManager, fx.As(new(domainport.ConnectionUsecase))),
+			fx.Annotate(domainservice.NewConnectionService, fx.As(new(domainport.ConnectionUsecase))),
 			fx.Annotate(domainservice.NewAgentService, fx.As(new(domainport.AgentUsecase))),
 		),
 		// database
@@ -109,8 +112,6 @@ type Controller interface {
 // Identity is a generic function that returns the input value.
 // It is a helper function to generate a function that returns the input value.
 // It is used to provide a function as a interface.
-//
-//nolint:ireturn
 func Identity[T any](a T) T {
 	return a
 }

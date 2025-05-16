@@ -16,42 +16,6 @@ var (
 	ErrConnectionNotFound = errors.New("connection not found")
 )
 
-// ConnectionUsecase is an interface that defines the methods for connection use cases.
-type ConnectionUsecase interface {
-	GetConnectionUsecase
-	SetConnectionUsecase
-	DeleteConnectionUsecase
-	ListConnectionIDsUsecase
-}
-
-// GetConnectionUsecase is an interface that defines the methods for getting connections.
-type GetConnectionUsecase interface {
-	// GetConnection retrieves a connection by its instance UID.
-	GetConnection(instanceUID uuid.UUID) (*model.Connection, error)
-	// GetOrCreateConnection retrieves a connection by its instance UID.
-	GetOrCreateConnection(instanceUID uuid.UUID) (*model.Connection, error)
-}
-
-// SetConnectionUsecase is an interface that defines the methods for setting connections.
-type SetConnectionUsecase interface {
-	// SaveConnection saves the connection to the persistence layer.
-	SaveConnection(connection *model.Connection) error
-}
-
-// DeleteConnectionUsecase is an interface that defines the methods for deleting connections.
-type DeleteConnectionUsecase interface {
-	// DeleteConnection deletes a connection by its instance UID.
-	DeleteConnection(instanceUID uuid.UUID) error
-	// FetchAndDeleteConnection fetches a connection by its instance UID and deletes it.
-	FetchAndDeleteConnection(instanceUID uuid.UUID) (*model.Connection, error)
-}
-
-// ListConnectionIDsUsecase is an interface that defines the methods for listing connection IDs.
-type ListConnectionIDsUsecase interface {
-	// ListConnectionIDs lists all connection IDs.
-	ListConnections() []*model.Connection
-}
-
 // AgentUsecase is an interface that defines the methods for agent use cases.
 type AgentUsecase interface {
 	GetAgentUsecase
@@ -84,6 +48,20 @@ type ListAgentUsecase interface {
 type UpdateAgentConfigUsecase interface {
 	// UpdateAgentConfig updates the agent configuration.
 	UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error
+}
+
+// ConnectionUsecase is an interface that defines the methods for connection use cases.
+type ConnectionUsecase interface {
+	// GetConnectionByInstanceUID returns the connection for the given instance UID.
+	GetConnectionByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Connection, error)
+	// GetConnectionByID returns the connection for the given ID.
+	GetConnectionByID(ctx context.Context, id any) (*model.Connection, error)
+	// ListConnections returns the list of connections.
+	ListConnections(ctx context.Context) ([]*model.Connection, error)
+	// SaveConnection saves the connection.
+	SaveConnection(ctx context.Context, connection *model.Connection) error
+	// DeleteConnection deletes the connection.
+	DeleteConnection(ctx context.Context, connection *model.Connection) error
 }
 
 // CommandUsecase is an interface that defines the methods for command use cases.
