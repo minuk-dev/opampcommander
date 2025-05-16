@@ -57,6 +57,11 @@ func New(
 	}
 }
 
+// Name returns the name of the service.
+func (s *Service) Name() string {
+	return "opamp"
+}
+
 // Run starts a loop to handle asynchronous operations for the service.
 func (s *Service) Run(ctx context.Context) error {
 	for {

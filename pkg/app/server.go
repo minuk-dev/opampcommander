@@ -16,6 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
+	adminApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/admin"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
@@ -65,7 +66,13 @@ func NewServer(settings ServerSettings) *Server {
 		fx.Provide(
 			opampApplicationService.New,
 			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(port.OpAMPUsecase))),
-			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(helper.Runner))), // for background processing
+			AsRunner(Identity[*opampApplicationService.Service]), // for background processing
+
+			adminApplicationService.New,
+			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(port.AdminUsecase))),
+		),
+		fx.Provide(
+			fx.Annotate(NewExecutor, fx.ParamTags("", `group:"runners"`)),
 		),
 		// domain
 		fx.Provide(
@@ -85,6 +92,7 @@ func NewServer(settings ServerSettings) *Server {
 		}),
 		// init
 		fx.Invoke(func(*http.Server) {}),
+		fx.Invoke(func(*Executor) {}),
 	)
 
 	server := &Server{
@@ -101,6 +109,15 @@ func AsController(f any) any {
 		f,
 		fx.As(new(Controller)),
 		fx.ResultTags(`group:"controllers"`),
+	)
+}
+
+// AsRunner is a helper function to annotate a function as a runner.
+func AsRunner(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(helper.Runner)),
+		fx.ResultTags(`group:"runners"`),
 	)
 }
 
