@@ -1,7 +1,8 @@
 package model
 
 import (
-	"sync"
+	"crypto/sha256"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,91 +14,76 @@ const (
 	OpAMPPollingInterval = 30 * time.Second
 )
 
+// Type represents the type of the connection.
+type Type int
+
+const (
+	// TypeUnknown is the unknown type.
+	TypeUnknown Type = iota
+	// TypeHTTP is the HTTP type.
+	TypeHTTP
+	// TypeWebSocket is the WebSocket type.
+	TypeWebSocket
+)
+
 // Connection represents a connection to an agent.
 type Connection struct {
-	ID uuid.UUID
+	// Key is the unique identifier for the connection.
+	// It should be unique across all connections to use as a key in a map.
+	// Normally, it is [types.Connection] by OpAMP.
+	ID any
 
-	// Data is a map of string to string.
-	// It is a kind of raw data to manage connection.
-	// It's useful especially when you get/update Unknown Connection.
-	// Please see [NewAnonymousConnection]
-	Data map[string]string
+	// Type is the type of the connection.
+	Type Type
 
-	state connectionState
+	// UID is the unique identifier for the connection.
+	// It is used to identify the connection in the database.
+	UID uuid.UUID
+
+	// InstanceUID is id of the agent.
+	InstanceUID uuid.UUID
+
+	// LastCommunicatedAt is the last time the connection was communicated with.
+	LastCommunicatedAt time.Time
 }
 
-// connectionState is a state of the connection.
-type connectionState struct {
-	mu sync.RWMutex
-
-	// lastCommunicatedAt is the last communicated time.
-	lastCommunicatedAt time.Time
-}
-
-// NewConnection returns a new Connection instance.
-func NewConnection(id uuid.UUID) *Connection {
+// NewConnection creates a new Connection instance with the given ID and type.
+func NewConnection(id any, typ Type) *Connection {
 	return &Connection{
-		ID:    id,
-		state: newConnectionState(),
+		ID:                 id,
+		Type:               typ,
+		UID:                uuid.New(),
+		InstanceUID:        uuid.Nil,
+		LastCommunicatedAt: time.Time{},
 	}
-}
-
-// NewAnonymousConnection returns a new Connection instance with an unknown ID.
-func NewAnonymousConnection(data map[string]string) *Connection {
-	return &Connection{
-		ID:   uuid.Nil,
-		Data: data,
-	}
-}
-
-// IsAnonymous returns true if the connection is anonymous.
-func (conn *Connection) IsAnonymous() bool {
-	return conn.ID == uuid.Nil
-}
-
-// IsIdentified returns true if the connection is not anonymous.
-func (conn *Connection) IsIdentified() bool {
-	return !conn.IsAnonymous()
-}
-
-// RefreshLastCommunicatedAt refreshes the last communicated time.
-func (conn *Connection) RefreshLastCommunicatedAt(at time.Time) {
-	conn.state.SetLastCommunicatedAt(at)
-}
-
-// LastCommunicatedAt returns the last communicated time.
-func (conn *Connection) LastCommunicatedAt() time.Time {
-	return conn.state.LastCommunicatedAt()
 }
 
 // IsAlive returns true if the connection is alive.
 func (conn *Connection) IsAlive(now time.Time) bool {
-	return now.Sub(conn.LastCommunicatedAt()) < 2*OpAMPPollingInterval
+	return conn.Type == TypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval
 }
 
-// Close closes the connection.
-// Even if already closed, do nothing.
-func (conn *Connection) Close() error {
-	return nil
+// IDString returns a string value
+// In some cases, a unique string id instead of any type.
+func (conn *Connection) IDString() string {
+	return ConvertConnIDToString(conn.ID)
 }
 
-func newConnectionState() connectionState {
-	return connectionState{
-		mu:                 sync.RWMutex{},
-		lastCommunicatedAt: time.Time{},
-	}
+// ConvertConnIDToString converts the connection ID to a string.
+func ConvertConnIDToString(id any) string {
+	raw := fmt.Sprintf("%+v", id)
+	hash := sha256.New()
+	result := hash.Sum([]byte(raw))
+
+	return string(result)
 }
 
-func (s *connectionState) SetLastCommunicatedAt(at time.Time) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.lastCommunicatedAt = at
+// IsAnonymous returns true if the connection is anonymous.
+func (conn *Connection) IsAnonymous() bool {
+	return conn.InstanceUID == uuid.Nil
 }
 
-func (s *connectionState) LastCommunicatedAt() time.Time {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.lastCommunicatedAt
+// IsManaged returns true if the connection is managed.
+func (conn *Connection) IsManaged() bool {
+	return !conn.IsAnonymous()
 }

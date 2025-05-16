@@ -1,6 +1,9 @@
 package xsync
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 // MultiMap is a map that allows multiple keys to point to the same value.
 // It is thread-safe and can be used in concurrent environments.
@@ -23,6 +26,56 @@ func NewMultiMap[T any]() *MultiMap[T] {
 	}
 }
 
+// Len returns the number of items in the map.
+func (m *MultiMap[T]) Len() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.byID)
+}
+
+// Values returns all values in the map.
+func (m *MultiMap[T]) Values() []T {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	values := make([]T, 0, len(m.byID))
+	for _, value := range m.byID {
+		values = append(values, value)
+	}
+
+	return values
+}
+
+// Keys returns all keys in the map.
+func (m *MultiMap[T]) Keys() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	keys := make([]string, 0, len(m.byID))
+	for key := range m.byID {
+		keys = append(keys, key)
+	}
+
+	return keys
+}
+
+// Indexes returns all indexes in the map.
+func (m *MultiMap[T]) Indexes(indexName string) []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	indexes := make([]string, 0)
+
+	for indexKey := range m.byIndex {
+		if strings.HasPrefix(indexKey, indexName) {
+			indexes = append(indexes, indexKey)
+		}
+	}
+
+	return indexes
+}
+
 // Store stores the value in the map with the given key.
 // It overwrites the existing value if the key already exists.
 func (m *MultiMap[T]) Store(key string, value T, opts ...StoreOption) {
@@ -33,7 +86,7 @@ func (m *MultiMap[T]) Store(key string, value T, opts ...StoreOption) {
 
 	for _, opt := range opts {
 		switch opt := opt.(type) {
-		case *withIndex:
+		case *WithIndexImpl:
 			m.byIndex[opt.indexKey] = key
 			m.indexesByID[key] = append(m.indexesByID[key], opt.indexKey)
 		default:
@@ -69,8 +122,6 @@ func (m *MultiMap[T]) AddIndexByAnotherIndex(
 
 // Load retrieves the value from the map with the given key.
 // It returns the value and a boolean indicating whether the value was found.
-//
-//nolint:ireturn
 func (m *MultiMap[T]) Load(key string) (T, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -80,10 +131,22 @@ func (m *MultiMap[T]) Load(key string) (T, bool) {
 	return value, ok
 }
 
+// KeyByIndex retrieves the key from the map with the given index key.
+func (m *MultiMap[T]) KeyByIndex(indexName string, indexValue string) (string, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.keyByIndex(createIndexKey(indexName, indexValue))
+}
+
+func (m *MultiMap[T]) keyByIndex(indexKey string) (string, bool) {
+	key, ok := m.byIndex[indexKey]
+
+	return key, ok
+}
+
 // LoadByIndex retrieves the value from the map with the given index key.
 // It returns the value and a boolean indicating whether the value was found.
-//
-//nolint:ireturn
 func (m *MultiMap[T]) LoadByIndex(indexName string, indexValue string) (T, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -136,17 +199,18 @@ type StoreOption interface {
 	markOption()
 }
 
-type withIndex struct {
+// WithIndexImpl is an implementation of StoreOption for index options.
+type WithIndexImpl struct {
 	indexKey string
 }
 
-func (w *withIndex) markOption() {}
+func (w *WithIndexImpl) markOption() {}
 
 // WithIndex creates a index option for the Store method.
-//
-//nolint:ireturn
-func WithIndex(indexName, indexValue string) StoreOption {
-	return &withIndex{indexKey: createIndexKey(indexName, indexValue)}
+func WithIndex(indexName, indexValue string) *WithIndexImpl {
+	return &WithIndexImpl{
+		indexKey: createIndexKey(indexName, indexValue),
+	}
 }
 
 func createIndexKey(indexName string, indexValue string) string {

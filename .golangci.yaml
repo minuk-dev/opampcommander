@@ -5,6 +5,13 @@ linters:
     varnamelen:
       ignore-type-assert-ok: true # default: false
       ignore-map-index-ok: true # default: false
+    ireturn:
+      allow:
+        - generic
+        - error
+        - stdlib
+        - empty
+        - anon
     depguard:
       rules:
         main:
