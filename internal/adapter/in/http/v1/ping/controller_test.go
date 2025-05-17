@@ -19,11 +19,12 @@ func TestPingController_Handle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	base := testutil.NewControllerBase()
+	base := testutil.NewBase(t)
+	ctrlBase := base.ForController()
 
 	controller := ping.NewController(base.Logger)
-	base.SetupRouter(controller)
-	router := base.Router
+	ctrlBase.SetupRouter(controller)
+	router := ctrlBase.Router
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/ping", nil)

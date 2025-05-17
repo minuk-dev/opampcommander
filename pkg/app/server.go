@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
@@ -37,6 +39,23 @@ type Server struct {
 	*fx.App
 
 	settings ServerSettings
+}
+
+func (s *Server) Run(ctx context.Context) error {
+	startCtx, startCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer startCancel()
+
+	err := s.App.Start(startCtx)
+	if err != nil {
+		return fmt.Errorf("failed to start the server: %w", err)
+	}
+
+	<-ctx.Done()
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer stopCancel()
+	s.App.Stop(stopCtx)
+
+	return nil
 }
 
 // NewServer creates a new instance of the Server struct.

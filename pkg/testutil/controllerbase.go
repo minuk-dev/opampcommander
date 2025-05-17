@@ -1,23 +1,20 @@
-// Package testutil provides utility functions and types for testing.
 package testutil
 
 import (
-	"log/slog"
-
 	"github.com/gin-gonic/gin"
 )
 
 // ControllerBase is a struct that provides a base for controllers.
 type ControllerBase struct {
 	Router *gin.Engine
-	Logger *slog.Logger
+
+	*Base
 }
 
-// NewControllerBase creates a new instance of ControllerBase.
-func NewControllerBase() *ControllerBase {
+// ForController creates a new instance of ControllerBase with a Base.
+func (b *Base) ForController() *ControllerBase {
 	return &ControllerBase{
 		Router: nil,
-		Logger: slog.Default(),
 	}
 }
 
