@@ -17,6 +17,7 @@ linters:
         main:
           files:
             - "!**/*_test.go" # Exclude test files
+            - "!**/testutil/*" # Exclude testutil package
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
@@ -39,12 +40,15 @@ linters:
         test:
           files:
             - "**/*_test.go"
+            - "**/testutil/*"
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
             - github.com/gin-gonic/gin
             - github.com/stretchr/testify/assert
-
+            - github.com/stretchr/testify/require
+            - gotest.tools/icmd
+            - go.uber.org/goleak
 formatters:
   enable:
     - gci

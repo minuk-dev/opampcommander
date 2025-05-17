@@ -10,7 +10,9 @@ import (
 	"go.uber.org/goleak"
 )
 
-// Base is a base
+// Base is a base.
+//
+//nolint:containedctx
 type Base struct {
 	t   testing.TB
 	ctx context.Context
@@ -21,6 +23,7 @@ type Base struct {
 	CacheDir string
 }
 
+// Dependency is an interface that represents a dependency in the test environment.
 type Dependency interface {
 	Name() string
 	Configure(config any)
@@ -30,21 +33,23 @@ type Dependency interface {
 }
 
 // NewBase creates a new instance of Base.
-func NewBase(t testing.TB) *Base {
+func NewBase(tb testing.TB) *Base {
+	tb.Helper()
+
 	ctx, cancel := context.WithCancel(context.Background())
 
-	t.Cleanup(func() {
-		goleak.VerifyNone(t)
+	tb.Cleanup(func() {
+		goleak.VerifyNone(tb)
 		cancel()
 	})
 
 	cacheDir, ok := os.LookupEnv("OPAMP_COMMANDER_TESTING_DIR")
 	if !ok {
-		cacheDir = t.TempDir()
+		cacheDir = tb.TempDir()
 	}
 
 	return &Base{
-		t:            t,
+		t:            tb,
 		ctx:          ctx,
 		Logger:       slog.Default(),
 		Dependencies: make(map[string]Dependency),

@@ -41,19 +41,25 @@ type Server struct {
 	settings ServerSettings
 }
 
+// Run starts the server and blocks until the context is done.
 func (s *Server) Run(ctx context.Context) error {
 	startCtx, startCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer startCancel()
 
-	err := s.App.Start(startCtx)
+	err := s.Start(startCtx)
 	if err != nil {
 		return fmt.Errorf("failed to start the server: %w", err)
 	}
 
 	<-ctx.Done()
+
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer stopCancel()
-	s.App.Stop(stopCtx)
+
+	err = s.Stop(stopCtx)
+	if err != nil {
+		return fmt.Errorf("failed to stop the server: %w", err)
+	}
 
 	return nil
 }

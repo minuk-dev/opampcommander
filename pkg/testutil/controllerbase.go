@@ -14,6 +14,7 @@ type ControllerBase struct {
 // ForController creates a new instance of ControllerBase with a Base.
 func (b *Base) ForController() *ControllerBase {
 	return &ControllerBase{
+		Base:   b,
 		Router: nil,
 	}
 }

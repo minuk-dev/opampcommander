@@ -23,9 +23,22 @@ import (
 )
 
 const (
+	// DefaultEtcdVersion is the default version of etcd to use if not specified.
 	DefaultEtcdVersion = "v3.6.0"
 )
 
+// UnsupportedPlatformError is an error type that indicates the platform is not supported for etcd installation.
+type UnsupportedPlatformError struct {
+	OS   string
+	Arch string
+}
+
+// UnsupportedPlatformError implements the error interface for UnsupportedPlatformError.
+func (e *UnsupportedPlatformError) Error() string {
+	return fmt.Sprintf("unsupported platform: %s/%s", e.OS, e.Arch)
+}
+
+// UseEtcd is a method that initializes and starts an etcd instance for testing purposes.
 func (b *Base) UseEtcd(config any) *Etcd {
 	b.t.Helper()
 
@@ -42,26 +55,33 @@ func (b *Base) UseEtcd(config any) *Etcd {
 	b.t.Cleanup(func() {
 		etcd.Stop()
 	})
+
 	return etcd
 }
 
-func NewEtcd(b *Base) *Etcd {
-	b.t.Helper()
+// NewEtcd creates a new instance of Etcd.
+func NewEtcd(base *Base) *Etcd {
+	base.t.Helper()
 
 	target := "etcd"
+
 	binary, err := exec.LookPath("etcd")
 	if err != nil {
-		b.t.Logf("downloading etcd binary from cache directory: %s", b.CacheDir)
-		binary, err = installEtcd(b.CacheDir, DefaultEtcdVersion)
+		base.t.Logf("downloading etcd binary from cache directory: %s", base.CacheDir)
+
+		binary, err = installEtcd(base.CacheDir, DefaultEtcdVersion)
 		if err != nil {
-			b.t.Logf("etcd binary not found in PATH & cannot install: %v", err)
+			base.t.Logf("etcd binary not found in PATH & cannot install: %v", err)
 		}
 	}
 
 	etcd := &Etcd{
-		Base:   b,
+		Base:   base,
 		Target: target,
 		Binary: binary,
+
+		Endpoint: nil,
+		result:   nil,
 	}
 
 	return etcd
@@ -72,22 +92,34 @@ func getEtcdDownloadURL(version string) (string, error) {
 	case "linux":
 		switch runtime.GOARCH {
 		case "amd64", "arm64":
-			return fmt.Sprintf("https://github.com/etcd-io/etcd/releases/download/%s/etcd-%s-linux-%s.tar.gz", version, version, runtime.GOARCH), nil
+			return fmt.Sprintf("https://github.com/etcd-io/etcd/releases/download/%s/etcd-%s-linux-%s.tar.gz",
+				version, version, runtime.GOARCH), nil
 		default:
-			return "", fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
+			return "", &UnsupportedPlatformError{
+				OS:   runtime.GOOS,
+				Arch: runtime.GOARCH,
+			}
 		}
 	case "darwin":
 		switch runtime.GOARCH {
 		case "amd64", "arm64":
-			return fmt.Sprintf("https://github.com/etcd-io/etcd/releases/download/%s/etcd-%s-darwin-%s.zip", version, version, runtime.GOARCH), nil
+			return fmt.Sprintf("https://github.com/etcd-io/etcd/releases/download/%s/etcd-%s-darwin-%s.zip",
+				version, version, runtime.GOARCH), nil
 		default:
-			return "", fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
+			return "", &UnsupportedPlatformError{
+				OS:   runtime.GOOS,
+				Arch: runtime.GOARCH,
+			}
 		}
 	default:
-		return "", fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+		return "", &UnsupportedPlatformError{
+			OS:   runtime.GOOS,
+			Arch: runtime.GOARCH,
+		}
 	}
 }
 
+//nolint:err113
 func installEtcd(cacheDir, version string) (string, error) {
 	versionDir := filepath.Join(cacheDir, version)
 	binaryFile := filepath.Join(versionDir, "etcd")
@@ -98,11 +130,12 @@ func installEtcd(cacheDir, version string) (string, error) {
 
 	fileInfo, err := os.Stat(versionDir) // Ensure versionDir
 	if errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(versionDir, 0o700)
+		err := os.Mkdir(versionDir, 0700)
 		if err != nil {
 			return "", fmt.Errorf("failed to create version: %v, err: %w", version, err)
 		}
 	}
+
 	if !fileInfo.IsDir() {
 		return "", fmt.Errorf("cacheDir %s is not a directory", cacheDir)
 	}
@@ -115,6 +148,7 @@ func installEtcd(cacheDir, version string) (string, error) {
 	_, filename := path.Split(downloadURL)
 
 	downloadFilename := filepath.Join(versionDir, filename)
+
 	err = downloadFile(downloadFilename, downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
@@ -143,12 +177,17 @@ func installEtcd(cacheDir, version string) (string, error) {
 	return binaryFile, nil
 }
 
+func closeSiliencely(closer io.Closer) {
+	_ = closer.Close() // Ignore error
+}
+
+//nolint:wrapcheck,varnamelen,err113
 func unzipWithoutWrap(src string, dest string) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer closeSiliencely(r)
 
 	var rootDir string
 	// Guess the root directory from the first file
@@ -156,6 +195,7 @@ func unzipWithoutWrap(src string, dest string) error {
 		parts := strings.Split(f.Name, "/")
 		if len(parts) > 1 {
 			rootDir = parts[0]
+
 			break
 		}
 	}
@@ -174,11 +214,15 @@ func unzipWithoutWrap(src string, dest string) error {
 		}
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			err := os.MkdirAll(fpath, 0750)
+			if err != nil {
+				return err
+			}
+
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fpath), 0700); err != nil {
 			return err
 		}
 
@@ -194,28 +238,30 @@ func unzipWithoutWrap(src string, dest string) error {
 
 		_, err = io.Copy(outFile, rc)
 
-		outFile.Close()
-		rc.Close()
+		closeSiliencely(outFile)
+		closeSiliencely(rc)
 
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
+//nolint:wrapcheck,varnamelen
 func decompressTarGz(filename, destDir string) error {
 	file, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer closeSiliencely(file)
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer closeSiliencely(gzr)
 
 	tr := tar.NewReader(gzr)
 
@@ -232,6 +278,7 @@ func decompressTarGz(filename, destDir string) error {
 		}
 
 		target := filepath.Join(destDir, header.Name)
+
 		switch header.Typeflag {
 		case tar.TypeDir:
 			err := os.MkdirAll(target, os.FileMode(header.Mode))
@@ -239,20 +286,24 @@ func decompressTarGz(filename, destDir string) error {
 				return err
 			}
 		case tar.TypeReg:
-			err := os.MkdirAll(filepath.Dir(target), 0o755)
+			err := os.MkdirAll(filepath.Dir(target), 0700)
 			if err != nil {
 				return err
 			}
+
 			outFile, err := os.Create(target)
 			if err != nil {
 				return err
 			}
+
 			_, err = io.Copy(outFile, tr)
 			if err != nil {
-				outFile.Close()
+				closeSiliencely(outFile)
+
 				return err
 			}
-			outFile.Close()
+
+			closeSiliencely(outFile)
 		}
 	}
 }
@@ -262,26 +313,30 @@ func downloadFile(filename, url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer out.Close()
+	defer closeSiliencely(out)
 
 	resp, err := http.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer closeSiliencely(resp.Body)
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}
+
 	return nil
 }
 
 func alreadyInstalled(binaryFile string) bool {
 	_, err := exec.LookPath(binaryFile)
+
 	return err == nil
 }
 
+// Etcd represents an etcd instance for testing purposes.
+// It provides methods to start, stop, and check the status of the etcd instance.
 type Etcd struct {
 	Base *Base
 
@@ -293,10 +348,12 @@ type Etcd struct {
 	result *icmd.Result
 }
 
+// Name returns the name of the etcd instance.
 func (e *Etcd) Name() string {
 	return "etcd"
 }
 
+// Info returns information about the etcd instance.
 func (e *Etcd) Info() map[string]string {
 	e.Base.t.Helper()
 
@@ -310,10 +367,13 @@ func (e *Etcd) Info() map[string]string {
 	return info
 }
 
+// Configure configures the etcd instance with the provided configuration.
 func (e *Etcd) Configure(config any) {
 	e.Base.t.Helper()
+
 	if config == nil {
 		e.Base.t.Log("use default etcd configuration")
+
 		config = map[string]string{
 			"endpoint": "http://localhost:2379",
 		}
@@ -334,6 +394,7 @@ func (e *Etcd) Configure(config any) {
 	}
 }
 
+// Start starts the etcd instance.
 func (e *Etcd) Start() {
 	e.Base.t.Helper()
 
@@ -344,29 +405,34 @@ func (e *Etcd) Start() {
 	icmdCmd := icmd.Command(e.Binary)
 	e.result = icmd.StartCmd(icmdCmd)
 
-	e.WaitUntilReady(e.Base.ctx)
+	err := e.WaitUntilReady(e.Base.ctx)
+	if err != nil {
+		e.Base.Logger.Warn("etcd is not ready", "error", err)
+	}
 }
 
+// IsAlive checks if etcd is alive.
+// livez is a liveness endpoint of etcd sinc v3.4.29
+// ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
 func (e *Etcd) IsAlive() bool {
-	// livez is a liveness endpoint of etcd sinc v3.4.29
-	// ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
 	resp, err := http.Get(must(url.JoinPath(*e.Endpoint, "/livez")))
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer closeSiliencely(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
 }
 
+// IsReady checks if etcd is ready to serve requests.
+// readyz is a readiness endpoint of etcd since v3.4.29
+// ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
 func (e *Etcd) IsReady() bool {
-	// readyz is a readiness endpoint of etcd since v3.4.29
-	// ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
 	resp, err := http.Get(must(url.JoinPath(*e.Endpoint, "/readyz")))
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer closeSiliencely(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
 }
@@ -375,14 +441,18 @@ func must[T any](v T, err error) T {
 	if err != nil {
 		panic(fmt.Sprintf("must: %v", err))
 	}
+
 	return v
 }
 
+// WaitUntilReady waits until etcd is ready.
+//
+//nolint:err113
 func (e *Etcd) WaitUntilReady(ctx context.Context) error {
 	e.Base.t.Helper()
 
 	if e.Endpoint == nil {
-		return fmt.Errorf("etcd endpoint is not set")
+		return errors.New("etcd endpoint is not set")
 	}
 
 	e.Base.Logger.Info("Waiting for etcd to be ready", "endpoint", *e.Endpoint)
@@ -390,17 +460,20 @@ func (e *Etcd) WaitUntilReady(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled while waiting for etcd to be ready: %w", ctx.Err())
 		default:
 			if e.IsReady() {
 				e.Base.Logger.Info("etcd is ready")
+
 				return nil
 			}
+
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
 }
 
+// Stop stops the etcd instance.
 func (e *Etcd) Stop() {
 	e.Base.t.Helper()
 
@@ -423,6 +496,7 @@ func (e *Etcd) Stop() {
 		select {
 		case <-ctx.Done():
 			e.Base.Logger.Warn("etcd stop timed out, force killing process")
+
 			if err := e.result.Cmd.Process.Kill(); err != nil {
 				e.Base.Logger.Error("failed to kill etcd process", "error", err)
 			}

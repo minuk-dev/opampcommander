@@ -3,22 +3,31 @@ package apiserver_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/minuk-dev/opampcommander/pkg/cmd/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCommand(t *testing.T) {
-	os.Setenv("OPAMP_COMMANDER_TESTING_DIR", "/Users/min-uklee/workspace/repos/opampcommander/tmp")
+	t.Parallel()
+
+	err := os.Setenv("OPAMP_COMMANDER_TESTING_DIR", "/Users/min-uklee/workspace/repos/opampcommander/tmp")
+	require.NoError(t, err)
+
 	base := testutil.NewBase(t)
 
 	etcd := base.UseEtcd(nil)
+	//exhaustruct:ignore
 	client := &http.Client{}
 
 	// given
@@ -37,26 +46,33 @@ func TestCommand(t *testing.T) {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 
 		// when
-		cmd.ExecuteContext(ctx)
+		err := cmd.ExecuteContext(ctx)
+		assert.NoError(t, err)
 	}()
 
 	// then
 	assert.Eventually(t, func() bool {
-		pingURL := fmt.Sprintf("http://%s:%d/api/v1/ping", "localhost", port)
+		base := net.JoinHostPort("localhost", strconv.Itoa(port))
+		pingURL := fmt.Sprintf("http://%s/api/v1/ping", base)
+
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, pingURL, nil)
 		if err != nil {
 			return false
 		}
+
 		resp, err := client.Do(req)
 
 		if err != nil {
 			return false
 		}
+
 		defer resp.Body.Close()
+
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 100*time.Millisecond, "API server should be ready")
 
