@@ -11,16 +11,18 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
+
 func TestCommand(t *testing.T) {
 	t.Parallel()
-
-	t.Setenv("OPAMP_COMMANDER_TESTING_DIR", "/Users/min-uklee/workspace/repos/opampcommander/tmp")
-
 	base := testutil.NewBase(t)
 
 	etcd := base.UseEtcd(nil)

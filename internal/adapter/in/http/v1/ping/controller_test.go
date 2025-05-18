@@ -8,10 +8,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func TestPingController_Handle(t *testing.T) {
 	t.Parallel()
@@ -26,10 +32,11 @@ func TestPingController_Handle(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	w := httptest.NewRecorder()
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/ping", nil)
-	router.ServeHTTP(w, req)
+	recorder := httptest.NewRecorder()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/ping", nil)
+	require.NoError(t, err)
+	router.ServeHTTP(recorder, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.JSONEq(t, "{\"message\":\"pong\"}", w.Body.String())
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.JSONEq(t, "{\"message\":\"pong\"}", recorder.Body.String())
 }

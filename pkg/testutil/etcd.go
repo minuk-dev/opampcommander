@@ -146,9 +146,7 @@ func installEtcd(ctx context.Context, cacheDir, version string) (string, error) 
 		if err != nil {
 			return "", fmt.Errorf("failed to create version: %v, err: %w", version, err)
 		}
-	}
-
-	if !fileInfo.IsDir() {
+	} else if !fileInfo.IsDir() {
 		return "", fmt.Errorf("cacheDir %s is not a directory", cacheDir)
 	}
 
@@ -189,7 +187,7 @@ func installEtcd(ctx context.Context, cacheDir, version string) (string, error) 
 	return binaryFile, nil
 }
 
-func closeSiliencely(closer io.Closer) {
+func closeSilently(closer io.Closer) {
 	_ = closer.Close() // Ignore error
 }
 
@@ -199,7 +197,7 @@ func unzipWithoutWrap(src string, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer closeSiliencely(r)
+	defer closeSilently(r)
 
 	var rootDir string
 	// Guess the root directory from the first file
@@ -250,8 +248,8 @@ func unzipWithoutWrap(src string, dest string) error {
 
 		_, err = io.Copy(outFile, rc)
 
-		closeSiliencely(outFile)
-		closeSiliencely(rc)
+		closeSilently(outFile)
+		closeSilently(rc)
 
 		if err != nil {
 			return err
@@ -267,13 +265,13 @@ func decompressTarGz(filename, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer closeSiliencely(file)
+	defer closeSilently(file)
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer closeSiliencely(gzr)
+	defer closeSilently(gzr)
 
 	tr := tar.NewReader(gzr)
 
@@ -310,12 +308,12 @@ func decompressTarGz(filename, destDir string) error {
 
 			_, err = io.Copy(outFile, tr)
 			if err != nil {
-				closeSiliencely(outFile)
+				closeSilently(outFile)
 
 				return err
 			}
 
-			closeSiliencely(outFile)
+			closeSilently(outFile)
 		}
 	}
 }
@@ -328,12 +326,16 @@ func downloadFile(ctx context.Context, filename, url string) error {
 		Jar:           nil,
 		Timeout:       DefaultEtcdDownloadTimeout,
 	}
+	// Ensure idle connections are closed after use.
+	// target download URL can use http2, so connection can be left.
+	// This causes goleak to fail with "leaked goroutine" error.
+	defer client.CloseIdleConnections()
 
 	out, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	defer closeSiliencely(out)
+	defer closeSilently(out)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -344,7 +346,7 @@ func downloadFile(ctx context.Context, filename, url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to request: %w", err)
 	}
-	defer closeSiliencely(resp.Body)
+	defer closeSilently(resp.Body)
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
@@ -453,7 +455,7 @@ func (e *Etcd) IsAlive(ctx context.Context) bool {
 		return false
 	}
 
-	defer closeSiliencely(resp.Body)
+	defer closeSilently(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
 }
@@ -475,7 +477,7 @@ func (e *Etcd) IsReady() bool {
 		return false
 	}
 
-	defer closeSiliencely(resp.Body)
+	defer closeSilently(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
 }

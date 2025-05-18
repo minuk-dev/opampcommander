@@ -6,11 +6,9 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-
-	"go.uber.org/goleak"
 )
 
-// Base is a base.
+// Base is a utility struct that provides common resources and utilities for testing.
 //
 //nolint:containedctx
 type Base struct {
@@ -39,7 +37,6 @@ func NewBase(tb testing.TB) *Base {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	tb.Cleanup(func() {
-		goleak.VerifyNone(tb)
 		cancel()
 	})
 
