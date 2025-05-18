@@ -2,6 +2,7 @@
 package agent
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -88,11 +89,19 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 	agent, err := c.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
+		if errors.Is(err, port.ErrAgentNotExist) {
+			c.logger.Error("agent not found", "instanceUID", instanceUID.String())
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+
+			return
+		}
 		c.logger.Error("failed to get agent", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-
 		return
 	}
 
-	ctx.JSON(http.StatusOK, agent)
+	ctx.JSON(http.StatusOK, &agentv1.Agent{
+		InstanceUID: agent.InstanceUID,
+		Raw:         agent,
+	})
 }
