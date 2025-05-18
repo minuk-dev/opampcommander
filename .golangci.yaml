@@ -2,6 +2,8 @@ version: "2"
 linters:
   default: all
   settings:
+    cyclop:
+      max-complexity: 15 # default: 10
     varnamelen:
       ignore-type-assert-ok: true # default: false
       ignore-map-index-ok: true # default: false
@@ -17,6 +19,7 @@ linters:
         main:
           files:
             - "!**/*_test.go" # Exclude test files
+            - "!**/testutil/*" # Exclude testutil package
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
@@ -39,12 +42,15 @@ linters:
         test:
           files:
             - "**/*_test.go"
+            - "**/testutil/*"
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
             - github.com/gin-gonic/gin
             - github.com/stretchr/testify/assert
-
+            - github.com/stretchr/testify/require
+            - gotest.tools/icmd
+            - go.uber.org/goleak
 formatters:
   enable:
     - gci

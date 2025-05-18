@@ -2,6 +2,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/spf13/cobra"
@@ -64,8 +65,13 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 }
 
 // Run runs the command.
-func (opt *CommandOption) Run(_ *cobra.Command, _ []string) error {
-	opt.app.Run()
+func (opt *CommandOption) Run(cmd *cobra.Command, _ []string) error {
+	ctx := cmd.Context()
+
+	err := opt.app.Run(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to run the server: %w", err)
+	}
 
 	return nil
 }
