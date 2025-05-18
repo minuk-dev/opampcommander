@@ -19,12 +19,24 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gotest.tools/icmd"
 )
 
 const (
 	// DefaultEtcdVersion is the default version of etcd to use if not specified.
 	DefaultEtcdVersion = "v3.6.0"
+)
+
+const (
+	// DefaultEtcdStartWaitTime is the default wait time for etcd to start.
+	DefaultEtcdStartWaitTime = 10 * time.Second
+
+	// DefaultEtcdReadyCheckInterval is the default interval for checking if etcd is ready.
+	DefaultEtcdReadyCheckInterval = 500 * time.Millisecond
+
+	// DefaultEtcdDownloadTimeout is the default timeout for downloading etcd.
+	DefaultEtcdDownloadTimeout = 3 * time.Minute
 )
 
 // UnsupportedPlatformError is an error type that indicates the platform is not supported for etcd installation.
@@ -69,7 +81,7 @@ func NewEtcd(base *Base) *Etcd {
 	if err != nil {
 		base.t.Logf("downloading etcd binary from cache directory: %s", base.CacheDir)
 
-		binary, err = installEtcd(base.CacheDir, DefaultEtcdVersion)
+		binary, err = installEtcd(base.ctx, base.CacheDir, DefaultEtcdVersion)
 		if err != nil {
 			base.t.Logf("etcd binary not found in PATH & cannot install: %v", err)
 		}
@@ -119,8 +131,8 @@ func getEtcdDownloadURL(version string) (string, error) {
 	}
 }
 
-//nolint:err113
-func installEtcd(cacheDir, version string) (string, error) {
+//nolint:err113,mnd
+func installEtcd(ctx context.Context, cacheDir, version string) (string, error) {
 	versionDir := filepath.Join(cacheDir, version)
 	binaryFile := filepath.Join(versionDir, "etcd")
 
@@ -149,7 +161,7 @@ func installEtcd(cacheDir, version string) (string, error) {
 
 	downloadFilename := filepath.Join(versionDir, filename)
 
-	err = downloadFile(downloadFilename, downloadURL)
+	err = downloadFile(ctx, downloadFilename, downloadURL)
 	if err != nil {
 		return "", fmt.Errorf("failed to download: %w", err)
 	}
@@ -181,7 +193,7 @@ func closeSiliencely(closer io.Closer) {
 	_ = closer.Close() // Ignore error
 }
 
-//nolint:wrapcheck,varnamelen,err113
+//nolint:wrapcheck,varnamelen,err113,mnd,gosec,funlen
 func unzipWithoutWrap(src string, dest string) error {
 	r, err := zip.OpenReader(src)
 	if err != nil {
@@ -249,7 +261,7 @@ func unzipWithoutWrap(src string, dest string) error {
 	return nil
 }
 
-//nolint:wrapcheck,varnamelen
+//nolint:wrapcheck,varnamelen,mnd,gosec
 func decompressTarGz(filename, destDir string) error {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -308,14 +320,27 @@ func decompressTarGz(filename, destDir string) error {
 	}
 }
 
-func downloadFile(filename, url string) error {
+//nolint:gosec
+func downloadFile(ctx context.Context, filename, url string) error {
+	client := &http.Client{
+		Transport:     nil,
+		CheckRedirect: nil,
+		Jar:           nil,
+		Timeout:       DefaultEtcdDownloadTimeout,
+	}
+
 	out, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer closeSiliencely(out)
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to request: %w", err)
 	}
@@ -414,11 +439,20 @@ func (e *Etcd) Start() {
 // IsAlive checks if etcd is alive.
 // livez is a liveness endpoint of etcd sinc v3.4.29
 // ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
-func (e *Etcd) IsAlive() bool {
-	resp, err := http.Get(must(url.JoinPath(*e.Endpoint, "/livez")))
+func (e *Etcd) IsAlive(ctx context.Context) bool {
+	liveEndpoint := must(url.JoinPath(*e.Endpoint, "/livez"))
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, liveEndpoint, nil)
+	if err != nil {
+		e.Base.Logger.Error("failed to create request for livez endpoint", "error", err)
+		e.Base.t.Fail()
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false
 	}
+
 	defer closeSiliencely(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
@@ -428,10 +462,19 @@ func (e *Etcd) IsAlive() bool {
 // readyz is a readiness endpoint of etcd since v3.4.29
 // ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
 func (e *Etcd) IsReady() bool {
-	resp, err := http.Get(must(url.JoinPath(*e.Endpoint, "/readyz")))
+	readyEndpoint := must(url.JoinPath(*e.Endpoint, "/readyz"))
+
+	req, err := http.NewRequestWithContext(e.Base.ctx, http.MethodGet, readyEndpoint, nil)
+	if err != nil {
+		e.Base.Logger.Error("failed to create request for readyz endpoint", "error", err)
+		e.Base.t.Fail()
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return false
 	}
+
 	defer closeSiliencely(resp.Body)
 
 	return resp.StatusCode == http.StatusOK
@@ -468,7 +511,7 @@ func (e *Etcd) WaitUntilReady(ctx context.Context) error {
 				return nil
 			}
 
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(DefaultEtcdReadyCheckInterval)
 		}
 	}
 }
@@ -482,15 +525,22 @@ func (e *Etcd) Stop() {
 	e.Base.Logger.Info("Stopping etcd")
 
 	if e.result != nil && e.result.Cmd != nil && e.result.Cmd.Process != nil {
-		e.result.Cmd.Process.Signal(syscall.SIGTERM)
+		err := e.result.Cmd.Process.Signal(syscall.SIGTERM)
+		require.NoError(e.Base.t, err)
 
-		ctx, cancel := context.WithTimeout(e.Base.ctx, 10*time.Second)
+		ctx, cancel := context.WithTimeout(e.Base.ctx, DefaultEtcdStartWaitTime)
 		defer cancel()
 
 		stopCh := make(chan struct{})
 		go func() {
 			defer close(stopCh)
-			e.result.Cmd.Process.Wait()
+
+			_, err := e.result.Cmd.Process.Wait()
+			if err != nil {
+				e.Base.Logger.Error("etcd process wait failed", "error", err)
+			} else {
+				e.Base.Logger.Info("etcd process exited successfully")
+			}
 		}()
 
 		select {

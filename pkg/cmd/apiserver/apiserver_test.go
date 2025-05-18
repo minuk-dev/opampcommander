@@ -5,14 +5,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -21,8 +19,7 @@ import (
 func TestCommand(t *testing.T) {
 	t.Parallel()
 
-	err := os.Setenv("OPAMP_COMMANDER_TESTING_DIR", "/Users/min-uklee/workspace/repos/opampcommander/tmp")
-	require.NoError(t, err)
+	t.Setenv("OPAMP_COMMANDER_TESTING_DIR", "/Users/min-uklee/workspace/repos/opampcommander/tmp")
 
 	base := testutil.NewBase(t)
 
@@ -43,12 +40,12 @@ func TestCommand(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var wg sync.WaitGroup
+	var waitGroup sync.WaitGroup
 
-	wg.Add(1)
+	waitGroup.Add(1)
 
 	go func() {
-		defer wg.Done()
+		defer waitGroup.Done()
 
 		// when
 		err := cmd.ExecuteContext(ctx)
@@ -66,17 +63,20 @@ func TestCommand(t *testing.T) {
 		}
 
 		resp, err := client.Do(req)
-
 		if err != nil {
 			return false
 		}
 
-		defer resp.Body.Close()
+		defer func() {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				t.Logf("failed to close response body: %v", closeErr)
+			}
+		}()
 
 		return resp.StatusCode == http.StatusOK
 	}, 5*time.Second, 100*time.Millisecond, "API server should be ready")
 
 	// Stop the server
 	cancel()
-	wg.Wait()
+	waitGroup.Wait()
 }
