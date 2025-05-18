@@ -131,7 +131,7 @@ func getEtcdDownloadURL(version string) (string, error) {
 	}
 }
 
-//nolint:err113,mnd
+//nolint:err113,mnd,gosec
 func installEtcd(ctx context.Context, cacheDir, version string) (string, error) {
 	versionDir := filepath.Join(cacheDir, version)
 	binaryFile := filepath.Join(versionDir, "etcd")
@@ -170,13 +170,18 @@ func installEtcd(ctx context.Context, cacheDir, version string) (string, error) 
 		if err != nil {
 			return "", fmt.Errorf("failed to unzip file: %w", err)
 		}
-	case ".tar.gz", ".tgz":
+	case ".gz", ".tgz":
 		err = decompressTarGz(downloadFilename, versionDir)
 		if err != nil {
 			return "", fmt.Errorf("failed to decompress file: %w", err)
 		}
 	default:
 		return "", fmt.Errorf("unsupported file extension: %s", filepath.Ext(downloadFilename))
+	}
+
+	err = os.Chmod(binaryFile, 0700) // Ensure the binary is executable
+	if err != nil {
+		return "", fmt.Errorf("failed to set permissions for binary file: %w", err)
 	}
 
 	_, err = exec.LookPath(binaryFile)
@@ -259,7 +264,7 @@ func unzipWithoutWrap(src string, dest string) error {
 	return nil
 }
 
-//nolint:wrapcheck,varnamelen,mnd,gosec
+//nolint:wrapcheck,varnamelen,mnd,gosec,cyclop,funlen
 func decompressTarGz(filename, destDir string) error {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -275,6 +280,10 @@ func decompressTarGz(filename, destDir string) error {
 
 	tr := tar.NewReader(gzr)
 
+	var rootDir string
+
+	foundRoot := false
+
 	for {
 		header, err := tr.Next()
 
@@ -287,7 +296,22 @@ func decompressTarGz(filename, destDir string) error {
 			continue
 		}
 
-		target := filepath.Join(destDir, header.Name)
+		if header.Typeflag == tar.TypeDir && !foundRoot {
+			parts := strings.Split(header.Name, "/")
+			if len(parts) > 1 {
+				rootDir = parts[0]
+				foundRoot = true
+			}
+
+			continue
+		}
+
+		relativePath := strings.TrimPrefix(header.Name, rootDir+"/")
+		if relativePath == "" || strings.HasPrefix(relativePath, "../") {
+			continue
+		}
+
+		target := filepath.Join(destDir, relativePath)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
@@ -431,6 +455,7 @@ func (e *Etcd) Start() {
 
 	icmdCmd := icmd.Command(e.Binary)
 	e.result = icmd.StartCmd(icmdCmd)
+	e.Base.Logger.Info("etcd pid: ", "pid", e.result.Cmd.Process.Pid)
 
 	err := e.WaitUntilReady(e.Base.ctx)
 	if err != nil {
