@@ -25,6 +25,7 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
+//nolint:funlen
 func TestCommandController(t *testing.T) {
 	t.Parallel()
 
@@ -42,6 +43,7 @@ func TestCommandController(t *testing.T) {
 
 		// given
 		commandID := uuid.New()
+		//exhaustruct:ignore
 		commandData := &model.Command{
 			ID: commandID,
 		}
@@ -104,6 +106,7 @@ func TestCommandController(t *testing.T) {
 
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
+
 		commandUsecase.On("SaveCommand", mock.Anything, mock.Anything).Return(nil)
 
 		// when
@@ -126,25 +129,38 @@ type mockCommandUsecase struct {
 
 func newMockCommandUsecase(t *testing.T) *mockCommandUsecase {
 	t.Helper()
+
+	//exhaustruct:ignore
 	return &mockCommandUsecase{}
 }
 
+//nolint:forcetypeassert,wrapcheck
 func (m *mockCommandUsecase) GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error) {
 	args := m.Called(ctx, commandID)
+
 	return args.Get(0).(*model.Command), args.Error(1)
 }
 
+//nolint:wrapcheck,forcetypeassert
 func (m *mockCommandUsecase) ListCommands(ctx context.Context) ([]*model.Command, error) {
 	args := m.Called(ctx)
+
 	return args.Get(0).([]*model.Command), args.Error(1)
 }
 
+//nolint:wrapcheck
 func (m *mockCommandUsecase) SaveCommand(ctx context.Context, command *model.Command) error {
 	args := m.Called(ctx, command)
+
 	return args.Error(0)
 }
 
-func (m *mockCommandUsecase) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error) {
+//nolint:forcetypeassert,wrapcheck
+func (m *mockCommandUsecase) GetCommandByInstanceUID(
+	ctx context.Context,
+	instanceUID uuid.UUID,
+) ([]*model.Command, error) {
 	args := m.Called(ctx, instanceUID)
+
 	return args.Get(0).([]*model.Command), args.Error(1)
 }
