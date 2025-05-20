@@ -61,11 +61,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // Get retrieves a command by its ID.
 func (c *Controller) Get(ctx *gin.Context) {
 	commandID := ctx.Param("id")
-	if commandID == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "command ID is required"})
-
-		return
-	}
 
 	commandIDUUID, err := uuid.Parse(commandID)
 	if err != nil {

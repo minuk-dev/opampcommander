@@ -103,7 +103,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		defer cancel()
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything).Return(nil, assert.AnError)
+		agentUsecase.On("ListAgents", mock.Anything).Return(([]*model.Agent)(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents", nil)
@@ -206,7 +206,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return(nil, assert.AnError)
+		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return((*model.Agent)(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)

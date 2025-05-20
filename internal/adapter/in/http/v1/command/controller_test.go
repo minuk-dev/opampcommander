@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 }
 
 //nolint:funlen
-func TestCommandController(t *testing.T) {
+func TestCommandController_Get(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Get Command - happycase", func(t *testing.T) {
@@ -61,6 +61,58 @@ func TestCommandController(t *testing.T) {
 		assert.Equal(t, commandID.String(), gjson.Get(recorder.Body.String(), "id").String())
 	})
 
+	t.Run("Get Command - 400 Bad Request when invalid ID", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands/invalid-id", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	})
+
+	t.Run("Get Command - 500 Internal Server Error when usecase fails", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		commandID := uuid.New()
+		commandUsecase.On("GetCommand", mock.Anything, commandID).Return((*model.Command)(nil), assert.AnError)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands/"+commandID.String(), nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
+
+func TestCommandController_List(t *testing.T) {
+	t.Parallel()
+
 	t.Run("List Commands - happycase", func(t *testing.T) {
 		t.Parallel()
 
@@ -92,6 +144,36 @@ func TestCommandController(t *testing.T) {
 		assert.Equal(t, len(commands), int(gjson.Get(recorder.Body.String(), "#").Int()))
 	})
 
+	t.Run("List Commands - 500 Internal Server Error when usecase fails", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		commandUsecase.On("ListCommands", mock.Anything).Return(([]*model.Command)(nil), assert.AnError)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
+
+//nolint:funlen
+func TestCommandController_UpdateAgentConfig(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Update Agent Config - happycase", func(t *testing.T) {
 		t.Parallel()
 
@@ -118,6 +200,57 @@ func TestCommandController(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusCreated, recorder.Code)
+	})
+
+	t.Run("Update Agent Config - 400 Bad Request when invalid request body", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/commands/update-agent-config",
+			strings.NewReader("invalid request body"))
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	})
+
+	t.Run("Update Agent Config - 500 Internal Server Error when usecase fails", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
+
+		commandUsecase.On("SaveCommand", mock.Anything, mock.Anything).Return(assert.AnError)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/commands/update-agent-config",
+			strings.NewReader(requestBody))
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
 }
 
