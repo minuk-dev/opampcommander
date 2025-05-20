@@ -8,38 +8,35 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/goleak"
+
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-func TestAgentController(t *testing.T) {
+//nolint:funlen
+func TestAgentControllerListAgent(t *testing.T) {
 	t.Parallel()
 
-	base := testutil.NewBase(t)
-	ctrlBase := base.ForController()
-
-	agentUsecase := &mockAgentUsecase{}
-	resetMock := func() { agentUsecase.Mock = mock.Mock{} }
-	controller := agent.NewController(
-		agentUsecase,
-		base.Logger,
-	)
-	ctrlBase.SetupRouter(controller)
-	router := ctrlBase.Router
-
 	t.Run("List Agents - happycase", func(t *testing.T) {
-		defer resetMock()
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		// given
@@ -69,7 +66,14 @@ func TestAgentController(t *testing.T) {
 	})
 
 	t.Run("List Agents - empty returns 200, empty", func(t *testing.T) {
-		defer resetMock()
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		// given
@@ -87,7 +91,14 @@ func TestAgentController(t *testing.T) {
 	})
 
 	t.Run("List Agents - any error returns 500", func(t *testing.T) {
-		defer resetMock()
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -101,14 +112,26 @@ func TestAgentController(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
+}
 
+//nolint:funlen
+func TestAgentControllerGetAgent(t *testing.T) {
+	t.Parallel()
 	t.Run("Get Agent - happycase", func(t *testing.T) {
-		defer resetMock()
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		// given
 		instanceUID := uuid.New()
+		//exhaustruct:ignore
 		agentData := &model.Agent{
 			InstanceUID: instanceUID,
 		}
@@ -126,12 +149,20 @@ func TestAgentController(t *testing.T) {
 	})
 
 	t.Run("Get Agent - not found error returns 404", func(t *testing.T) {
-		defer resetMock()
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		// given
 		instanceUID := uuid.New()
+
 		agentUsecase.On("GetAgent", mock.Anything, mock.Anything).Return((*model.Agent)(nil), port.ErrAgentNotExist)
 		// when
 		recorder := httptest.NewRecorder()
@@ -144,6 +175,14 @@ func TestAgentController(t *testing.T) {
 	})
 
 	t.Run("Get Agent - instanceUID is not uuid returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/agents/not-a-uuid", nil)
@@ -154,7 +193,14 @@ func TestAgentController(t *testing.T) {
 	})
 
 	t.Run("Get Agent - other error returns 500", func(t *testing.T) {
-		defer resetMock()
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -173,31 +219,48 @@ func TestAgentController(t *testing.T) {
 
 var _ port.AgentUsecase = (*mockAgentUsecase)(nil)
 
+func newMockAgentUsecase(t *testing.T) *mockAgentUsecase {
+	t.Helper()
+
+	//exhaustruct:ignore
+	return &mockAgentUsecase{}
+}
+
 type mockAgentUsecase struct {
 	mock.Mock
 }
 
+//nolint:wrapcheck,forcetypeassert
 func (m *mockAgentUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	args := m.Called(ctx, instanceUID)
+
 	return args.Get(0).(*model.Agent), args.Error(1)
 }
 
+//nolint:wrapcheck,forcetypeassert
 func (m *mockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	args := m.Called(ctx, instanceUID)
+
 	return args.Get(0).(*model.Agent), args.Error(1)
 }
 
+//nolint:wrapcheck
 func (m *mockAgentUsecase) SaveAgent(ctx context.Context, agent *model.Agent) error {
 	args := m.Called(ctx, agent)
+
 	return args.Error(0)
 }
 
+//nolint:wrapcheck,forcetypeassert
 func (m *mockAgentUsecase) ListAgents(ctx context.Context) ([]*model.Agent, error) {
 	args := m.Called(ctx)
+
 	return args.Get(0).([]*model.Agent), args.Error(1)
 }
 
+//nolint:wrapcheck
 func (m *mockAgentUsecase) UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error {
 	args := m.Called(ctx, instanceUID, config)
+
 	return args.Error(0)
 }

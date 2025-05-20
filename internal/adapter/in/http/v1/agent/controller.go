@@ -95,8 +95,10 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 			return
 		}
+
 		c.logger.Error("failed to get agent", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
 		return
 	}
 
