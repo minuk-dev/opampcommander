@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	commandv1 "github.com/minuk-dev/opampcommander/api/v1/command"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -80,7 +81,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, command)
+	ctx.JSON(http.StatusOK, convertToAPIModel(command))
 }
 
 // List retrieves a list of commands.
@@ -92,7 +93,12 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, commands)
+	ctx.JSON(
+		http.StatusOK,
+		lo.Map(commands, func(command *model.Command, _ int) *commandv1.Command {
+			return convertToAPIModel(command)
+		}),
+	)
 }
 
 // UpdateAgentConfig creates a new command to update the agent configuration.
@@ -111,5 +117,14 @@ func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, command)
+	ctx.JSON(http.StatusCreated, convertToAPIModel(command))
+}
+
+func convertToAPIModel(command *model.Command) *commandv1.Command {
+	return &commandv1.Command{
+		Kind:              string(command.Kind),
+		ID:                command.ID.String(),
+		TargetInstanceUID: command.TargetInstanceUID.String(),
+		Data:              command.Data,
+	}
 }
