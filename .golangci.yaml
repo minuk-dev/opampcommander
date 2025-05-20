@@ -49,6 +49,9 @@ linters:
             - github.com/gin-gonic/gin
             - github.com/stretchr/testify/assert
             - github.com/stretchr/testify/require
+            - github.com/stretchr/testify/mock
+            - github.com/google/uuid
+            - github.com/tidwall/gjson
             - gotest.tools/icmd
             - go.uber.org/goleak
 formatters:
