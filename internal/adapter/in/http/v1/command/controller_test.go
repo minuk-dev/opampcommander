@@ -1,0 +1,150 @@
+package command_test
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+	"go.uber.org/goleak"
+
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
+)
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
+
+func TestCommandController(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Get Command - happycase", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		commandID := uuid.New()
+		commandData := &model.Command{
+			ID: commandID,
+		}
+		commandUsecase.On("GetCommand", mock.Anything, commandID).Return(commandData, nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands/"+commandID.String(), nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, commandID.String(), gjson.Get(recorder.Body.String(), "id").String())
+	})
+
+	t.Run("List Commands - happycase", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		commands := []*model.Command{
+			{ID: uuid.New()},
+			{ID: uuid.New()},
+		}
+		commandUsecase.On("ListCommands", mock.Anything).Return(commands, nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, len(commands), int(gjson.Get(recorder.Body.String(), "#").Int()))
+	})
+
+	t.Run("Update Agent Config - happycase", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
+		commandUsecase.On("SaveCommand", mock.Anything, mock.Anything).Return(nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/commands/update-agent-config",
+			strings.NewReader(requestBody))
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusCreated, recorder.Code)
+	})
+}
+
+var _ port.CommandUsecase = (*mockCommandUsecase)(nil)
+
+type mockCommandUsecase struct {
+	mock.Mock
+}
+
+func newMockCommandUsecase(t *testing.T) *mockCommandUsecase {
+	t.Helper()
+	return &mockCommandUsecase{}
+}
+
+func (m *mockCommandUsecase) GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error) {
+	args := m.Called(ctx, commandID)
+	return args.Get(0).(*model.Command), args.Error(1)
+}
+
+func (m *mockCommandUsecase) ListCommands(ctx context.Context) ([]*model.Command, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]*model.Command), args.Error(1)
+}
+
+func (m *mockCommandUsecase) SaveCommand(ctx context.Context, command *model.Command) error {
+	args := m.Called(ctx, command)
+	return args.Error(0)
+}
+
+func (m *mockCommandUsecase) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error) {
+	args := m.Called(ctx, instanceUID)
+	return args.Get(0).([]*model.Command), args.Error(1)
+}
