@@ -2,8 +2,10 @@ package agent_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -32,7 +35,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -69,7 +72,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -94,7 +97,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -121,7 +124,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -152,7 +155,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -178,7 +181,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -196,7 +199,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentUsecase(t)
+		agentUsecase := newMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -217,50 +220,137 @@ func TestAgentControllerGetAgent(t *testing.T) {
 	})
 }
 
-var _ port.AgentUsecase = (*mockAgentUsecase)(nil)
+//nolint:funlen
+func TestAgentController_UpdateAgentConfig(t *testing.T) {
+	t.Parallel()
 
-func newMockAgentUsecase(t *testing.T) *mockAgentUsecase {
+	t.Run("Update Agent Config - happycase", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentManageUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
+
+		agentManageUsecase.On("SendCommand", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
+			strings.NewReader(requestBody))
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusCreated, recorder.Code)
+	})
+
+	t.Run("Update Agent Config - 400 Bad Request when invalid request body", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentManageUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
+			strings.NewReader("invalid request body"))
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	})
+
+	t.Run("Update Agent Config - 500 Internal Server Error when usecase fails", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentManageUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// given
+		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
+
+		agentManageUsecase.On("SendCommand", mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
+			strings.NewReader(requestBody))
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
+
+var _ applicationport.AgentManageUsecase = (*mockAgentManageUsecase)(nil)
+
+func newMockAgentManageUsecase(t *testing.T) *mockAgentManageUsecase {
 	t.Helper()
 
 	//exhaustruct:ignore
-	return &mockAgentUsecase{}
+	return &mockAgentManageUsecase{}
 }
 
-type mockAgentUsecase struct {
+type mockAgentManageUsecase struct {
 	mock.Mock
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockAgentUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+func (m *mockAgentManageUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	args := m.Called(ctx, instanceUID)
 
 	return args.Get(0).(*model.Agent), args.Error(1)
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+func (m *mockAgentManageUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	args := m.Called(ctx, instanceUID)
 
 	return args.Get(0).(*model.Agent), args.Error(1)
 }
 
 //nolint:wrapcheck
-func (m *mockAgentUsecase) SaveAgent(ctx context.Context, agent *model.Agent) error {
+func (m *mockAgentManageUsecase) SaveAgent(ctx context.Context, agent *model.Agent) error {
 	args := m.Called(ctx, agent)
 
 	return args.Error(0)
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockAgentUsecase) ListAgents(ctx context.Context) ([]*model.Agent, error) {
+func (m *mockAgentManageUsecase) ListAgents(ctx context.Context) ([]*model.Agent, error) {
 	args := m.Called(ctx)
 
 	return args.Get(0).([]*model.Agent), args.Error(1)
 }
 
 //nolint:wrapcheck
-func (m *mockAgentUsecase) UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error {
-	args := m.Called(ctx, instanceUID, config)
+func (m *mockAgentManageUsecase) SendCommand(ctx context.Context, instanceUID uuid.UUID, command *model.Command) error {
+	args := m.Called(ctx, instanceUID, command)
 
 	return args.Error(0)
 }

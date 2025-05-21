@@ -1,5 +1,4 @@
-// Package command provides the command api model for opampcommander.
-package command
+package agent
 
 // Command is a common struct that represents a command to be sent to an agent.
 type Command struct {

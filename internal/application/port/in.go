@@ -24,3 +24,20 @@ type AdminUsecase interface {
 	ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error
 	ListConnections(ctx context.Context) ([]*model.Connection, error)
 }
+
+// AgentManageUsecase is a use case that handles agent management operations.
+type AgentManageUsecase interface {
+	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
+	ListAgents(ctx context.Context) ([]*model.Agent, error)
+	SendCommand(ctx context.Context, targetInstanceUID uuid.UUID, command *model.Command) error
+}
+
+// CommandLookUpUsecase is a use case that handles command operations.
+type CommandLookUpUsecase interface {
+	// GetCommand retrieves a command by its ID.
+	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
+	// GetCommandByInstanceUID retrieves a command by its instance UID.
+	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error)
+	// ListCommands lists all commands.
+	ListCommands(ctx context.Context) ([]*model.Command, error)
+}

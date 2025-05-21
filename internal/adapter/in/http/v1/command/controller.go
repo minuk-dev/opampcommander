@@ -10,20 +10,20 @@ import (
 	"github.com/samber/lo"
 
 	commandv1 "github.com/minuk-dev/opampcommander/api/v1/command"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 // Controller is a struct that implements the command controller.
 type Controller struct {
 	logger *slog.Logger
 	// usecases
-	commandUsecase port.CommandUsecase
+	commandUsecase applicationport.CommandLookUpUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
-	commandUsecase port.CommandUsecase,
+	commandUsecase applicationport.CommandLookUpUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	controller := &Controller{
@@ -48,12 +48,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/commands",
 			Handler:     "http.v1.command.List",
 			HandlerFunc: c.List,
-		},
-		{
-			Method:      "POST",
-			Path:        "/api/v1/commands/update-agent-config",
-			Handler:     "http.v1.command.UpdateAgentConfig",
-			HandlerFunc: c.UpdateAgentConfig,
 		},
 	}
 }
@@ -94,25 +88,6 @@ func (c *Controller) List(ctx *gin.Context) {
 			return convertToAPIModel(command)
 		}),
 	)
-}
-
-// UpdateAgentConfig creates a new command to update the agent configuration.
-func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
-	var request commandv1.UpdateAgentConfigRequest
-	if err := ctx.ShouldBindJSON(&request); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-
-		return
-	}
-
-	command := model.NewUpdateAgentConfigCommand(request.TargetInstanceUID, request.RemoteConfig)
-	if err := c.commandUsecase.SaveCommand(ctx, command); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save command"})
-
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, convertToAPIModel(command))
 }
 
 func convertToAPIModel(command *model.Command) *commandv1.Command {

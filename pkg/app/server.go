@@ -19,6 +19,8 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	adminApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/admin"
+	agentApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agent"
+	commandApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/command"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
@@ -111,6 +113,12 @@ func NewServer(settings ServerSettings) *Server {
 
 			adminApplicationService.New,
 			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(port.AdminUsecase))),
+
+			commandApplicationService.New,
+			fx.Annotate(Identity[*commandApplicationService.Service], fx.As(new(port.CommandLookUpUsecase))),
+
+			agentApplicationService.New,
+			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
 		),
 		fx.Provide(
 			fx.Annotate(NewExecutor, fx.ParamTags("", `group:"runners"`)),

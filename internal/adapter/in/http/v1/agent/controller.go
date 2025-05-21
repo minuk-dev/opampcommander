@@ -11,8 +11,9 @@ import (
 	"github.com/samber/lo"
 
 	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 // Controller is a struct that implements the agent controller.
@@ -20,12 +21,12 @@ type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	agentUsecase port.AgentUsecase
+	agentUsecase applicationport.AgentManageUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
-	usecase port.AgentUsecase,
+	usecase applicationport.AgentManageUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	controller := &Controller{
@@ -51,6 +52,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/agents/:id",
 			Handler:     "http.v1.agent.Get",
 			HandlerFunc: c.Get,
+		},
+		{
+			Method:      "POST",
+			Path:        "/api/v1/agents/:id/update-agent-config",
+			Handler:     "http.v1.agent.UpdateAgentConfig",
+			HandlerFunc: c.UpdateAgentConfig,
 		},
 	}
 }
@@ -89,7 +96,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 	agent, err := c.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
-		if errors.Is(err, port.ErrAgentNotExist) {
+		if errors.Is(err, domainport.ErrAgentNotExist) {
 			c.logger.Error("agent not found", "instanceUID", instanceUID.String())
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
 
@@ -106,4 +113,36 @@ func (c *Controller) Get(ctx *gin.Context) {
 		InstanceUID: agent.InstanceUID,
 		Raw:         agent,
 	})
+}
+
+// UpdateAgentConfig creates a new command to update the agent configuration.
+func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
+	var request agentv1.UpdateAgentConfigRequest
+
+	err := ctx.ShouldBindJSON(&request)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+
+		return
+	}
+
+	command := model.NewUpdateAgentConfigCommand(request.TargetInstanceUID, request.RemoteConfig)
+
+	err = c.agentUsecase.SendCommand(ctx, request.TargetInstanceUID, command)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save command"})
+
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, convertToAPIModel(command))
+}
+
+func convertToAPIModel(command *model.Command) *agentv1.Command {
+	return &agentv1.Command{
+		Kind:              string(command.Kind),
+		ID:                command.ID.String(),
+		TargetInstanceUID: command.TargetInstanceUID.String(),
+		Data:              command.Data,
+	}
 }
