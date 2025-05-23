@@ -117,18 +117,28 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 // UpdateAgentConfig creates a new command to update the agent configuration.
 func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	instanceUID, err := uuid.Parse(id)
+	if err != nil {
+		c.logger.Error("failed to parse id", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+
+		return
+	}
+
 	var request agentv1.UpdateAgentConfigRequest
 
-	err := ctx.ShouldBindJSON(&request)
+	err = ctx.ShouldBindJSON(&request)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 
 		return
 	}
 
-	command := model.NewUpdateAgentConfigCommand(request.TargetInstanceUID, request.RemoteConfig)
+	command := model.NewUpdateAgentConfigCommand(instanceUID, request.RemoteConfig)
 
-	err = c.agentUsecase.SendCommand(ctx, request.TargetInstanceUID, command)
+	err = c.agentUsecase.SendCommand(ctx, instanceUID, command)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save command"})
 
