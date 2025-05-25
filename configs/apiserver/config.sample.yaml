@@ -1,0 +1,20 @@
+address: "http://localhost:8080"
+database:
+  type: "etcd"
+  endpoints:
+  - "localhost:2379"
+log:
+  level: "info"
+  format: "json"
+auth:
+  enabled: true
+  type: "oauth2"
+  oauth2:
+    provider: github
+    clientId: "your_client_id"
+    clientSecret: "your_client_secret"
+    redirectUri: "http://localhost:8080/auth/callback"
+    state:
+      mode: jwt
+      jwt:
+        secret: "your_jwt_secret"
