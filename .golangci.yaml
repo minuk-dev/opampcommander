@@ -36,6 +36,8 @@ linters:
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3
             - github.com/puzpuzpuz/xsync/v3
+            - golang.org/x/oauth2
+            - golang.org/x/oauth2/github
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code

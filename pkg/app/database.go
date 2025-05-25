@@ -4,9 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gin-gonic/gin"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/fx"
 )
+
+// Controller is an interface that defines the methods for handling HTTP requests.
+type Controller interface {
+	RoutesInfo() gin.RoutesInfo
+}
 
 // NewEtcdClient creates a new etcd client with the given settings.
 func NewEtcdClient(settings *ServerSettings, lifecycle fx.Lifecycle) (*clientv3.Client, error) {

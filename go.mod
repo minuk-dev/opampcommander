@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/google/uuid v1.6.0
+	github.com/markbates/goth v1.81.0
 	github.com/open-telemetry/opamp-go v0.19.0
 	github.com/samber/lo v1.49.1
 	github.com/samber/slog-gin v1.15.1
@@ -20,10 +21,16 @@ require (
 )
 
 require (
+	github.com/go-chi/chi/v5 v5.1.0 // indirect
+	github.com/gorilla/context v1.1.1 // indirect
+	github.com/gorilla/mux v1.6.2 // indirect
+	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/gorilla/sessions v1.1.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
+	golang.org/x/oauth2 v0.26.0 // indirect
 )
 
 require (
