@@ -1,12 +1,20 @@
 package app
 
-import "github.com/gin-gonic/gin"
+import (
+	"log/slog"
+
+	"github.com/gin-gonic/gin"
+	sloggin "github.com/samber/slog-gin"
+)
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.
-func NewEngine(controllers []Controller) *gin.Engine {
+func NewEngine(
+	controllers []Controller,
+	logger *slog.Logger,
+) *gin.Engine {
 	engine := gin.New()
+	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
-	// engine.Use(sloggin.New(logger))
 
 	for _, controller := range controllers {
 		routeInfo := controller.RoutesInfo()
