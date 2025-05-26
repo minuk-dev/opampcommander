@@ -4,9 +4,9 @@ package get
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/agent"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/connection"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
 // CommandOptions contains the options for the get command.

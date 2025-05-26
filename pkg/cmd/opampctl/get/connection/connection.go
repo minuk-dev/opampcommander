@@ -9,9 +9,9 @@ import (
 	"github.com/spf13/cobra"
 
 	v1connection "github.com/minuk-dev/opampcommander/api/v1/connection"
-	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
 // CommandOptions contains the options for the connection command.
