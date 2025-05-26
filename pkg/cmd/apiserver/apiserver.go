@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
 	"github.com/minuk-dev/opampcommander/pkg/app"
+	appconfig "github.com/minuk-dev/opampcommander/pkg/app/config"
 )
 
 // CommandOption contains the options for the apiserver command.
@@ -143,12 +143,12 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 // Prepare prepares the command.
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	logLevel := toSlogLevel(opt.Log.Level)
-	opt.app = app.NewServer(app.ServerSettings{
+	opt.app = app.NewServer(appconfig.ServerSettings{
 		Addr:      opt.Address,
 		EtcdHosts: opt.Database.Endpoints,
 		LogLevel:  logLevel,
-		LogFormat: app.LogFormat(opt.Log.Format),
-		GithubOAuthSettings: &github.OAuthSettings{
+		LogFormat: appconfig.LogFormat(opt.Log.Format),
+		GithubOAuthSettings: &appconfig.OAuthSettings{
 			ClientID:    opt.Auth.OAuth2.ClientID,
 			Secret:      opt.Auth.OAuth2.ClientSecret,
 			CallbackURL: opt.Auth.OAuth2.RedirectURI,

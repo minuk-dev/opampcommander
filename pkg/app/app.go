@@ -4,13 +4,11 @@ package app
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	"go.uber.org/fx"
-
-	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
 )
 
 const (
@@ -21,25 +19,16 @@ const (
 	DefaultServerStopTimeout = 30 * time.Second
 )
 
-// ServerSettings is a struct that holds the server settings.
-type ServerSettings struct {
-	Addr                string
-	EtcdHosts           []string
-	LogLevel            slog.Level
-	LogFormat           LogFormat
-	GithubOAuthSettings *github.OAuthSettings
-}
-
 // Server is a struct that represents the server application.
 // It embeds the fx.App struct from the Uber Fx framework.
 type Server struct {
 	*fx.App
 
-	settings ServerSettings
+	settings config.ServerSettings
 }
 
 // NewServer creates a new instance of the Server struct.
-func NewServer(settings ServerSettings) *Server {
+func NewServer(settings config.ServerSettings) *Server {
 	app := fx.New(
 		// hexagonal architecture
 		NewInPortModule(),

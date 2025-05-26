@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 )
@@ -17,13 +18,6 @@ const (
 	// StateLength defines the length of the state string to be generated for OAuth2 authentication.
 	StateLength = 16 // Length of the state string to be generated for OAuth2 authentication.
 )
-
-// OAuthSettings holds the configuration settings for GitHub OAuth2 authentication.
-type OAuthSettings struct {
-	ClientID    string
-	Secret      string
-	CallbackURL string
-}
 
 // OAuthStateGeneratorSettings holds the settings for generating OAuth2 state.
 type OAuthStateGeneratorSettings struct{}
@@ -38,7 +32,7 @@ type Controller struct {
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
 	logger *slog.Logger,
-	settings *OAuthSettings,
+	settings *config.OAuthSettings,
 ) *Controller {
 	oauth2Config := &oauth2.Config{
 		ClientID:     settings.ClientID,

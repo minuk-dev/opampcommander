@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/fx"
 )
@@ -15,7 +16,7 @@ type Controller interface {
 }
 
 // NewEtcdClient creates a new etcd client with the given settings.
-func NewEtcdClient(settings *ServerSettings, lifecycle fx.Lifecycle) (*clientv3.Client, error) {
+func NewEtcdClient(settings *config.ServerSettings, lifecycle fx.Lifecycle) (*clientv3.Client, error) {
 	//exhaustruct:ignore
 	etcdConfig := clientv3.Config{
 		Endpoints: settings.EtcdHosts,

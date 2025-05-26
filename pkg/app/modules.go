@@ -21,20 +21,21 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
 	"github.com/minuk-dev/opampcommander/internal/helper"
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 )
 
 // NewConfigModule creates a new module for configuration.
 //
 //nolint:ireturn
-func NewConfigModule(settings *ServerSettings) fx.Option {
+func NewConfigModule(settings *config.ServerSettings) fx.Option {
 	return fx.Module(
 		"config",
 		// config
-		fx.Provide(func() *ServerSettings {
+		fx.Provide(func() *config.ServerSettings {
 			return settings
 		}),
 		fx.Provide(
-			func() *github.OAuthSettings {
+			func() *config.OAuthSettings {
 				return settings.GithubOAuthSettings
 			},
 		),

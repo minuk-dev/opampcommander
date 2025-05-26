@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	"go.uber.org/fx"
 )
 
@@ -23,7 +24,7 @@ const (
 func NewHTTPServer(
 	lifecycle fx.Lifecycle,
 	engine *gin.Engine,
-	settings *ServerSettings,
+	settings *config.ServerSettings,
 	logger *slog.Logger,
 	connContext func(context.Context, net.Conn) context.Context,
 ) *http.Server {
