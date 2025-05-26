@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
 )
 
 const (
@@ -21,10 +23,11 @@ const (
 
 // ServerSettings is a struct that holds the server settings.
 type ServerSettings struct {
-	Addr      string
-	EtcdHosts []string
-	LogLevel  slog.Level
-	LogFormat LogFormat
+	Addr                string
+	EtcdHosts           []string
+	LogLevel            slog.Level
+	LogFormat           LogFormat
+	GithubOAuthSettings *github.OAuthSettings
 }
 
 // Server is a struct that represents the server application.

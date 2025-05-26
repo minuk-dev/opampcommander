@@ -1,4 +1,4 @@
-address: "http://localhost:8080"
+address: localhost:8080
 database:
   type: "etcd"
   endpoints:

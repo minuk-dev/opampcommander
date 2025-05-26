@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	//exhaustruct:ignore
 	options := apiserver.CommandOption{}
 	cmd := apiserver.NewCommand(options)
 

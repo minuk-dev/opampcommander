@@ -27,6 +27,7 @@ linters:
             - github.com/samber/slog-gin
             - github.com/samber/lo
             - github.com/spf13/cobra
+            - github.com/spf13/viper
             - go.uber.org/fx
             - github.com/google/uuid
             - github.com/open-telemetry/opamp-go/protobufs

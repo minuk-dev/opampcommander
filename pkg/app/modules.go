@@ -35,7 +35,7 @@ func NewConfigModule(settings *ServerSettings) fx.Option {
 		}),
 		fx.Provide(
 			func() *github.OAuthSettings {
-				return &github.OAuthSettings{}
+				return settings.GithubOAuthSettings
 			},
 		),
 	)

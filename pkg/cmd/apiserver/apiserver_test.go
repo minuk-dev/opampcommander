@@ -30,7 +30,10 @@ func TestCommand(t *testing.T) {
 	client := &http.Client{}
 
 	// given
-	cmd := apiserver.NewCommand(apiserver.CommandOption{})
+	cmd := apiserver.NewCommand(
+		//exhaustruct:ignore
+		apiserver.CommandOption{},
+	)
 
 	port := base.GetFreeTCPPort()
 
