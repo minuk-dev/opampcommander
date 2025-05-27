@@ -5,4 +5,5 @@ type OAuthSettings struct {
 	ClientID    string
 	Secret      string
 	CallbackURL string
+	SigningKey  string
 }
