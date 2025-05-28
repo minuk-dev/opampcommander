@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/auth"
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
@@ -80,8 +81,8 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"token": token,
+	ctx.JSON(http.StatusOK, auth.AuthnTokenResponse{
+		Token: token,
 	})
 }
 
@@ -113,8 +114,8 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 	}
 
 	c.logger.Info("Generated auth code URL", slog.String("auth_url", authcodeURL))
-	ctx.JSON(http.StatusOK, gin.H{
-		"auth_url": authcodeURL,
+	ctx.JSON(http.StatusOK, auth.OAuth2AuthCodeURLResponse{
+		URL: authcodeURL,
 	})
 }
 
@@ -133,5 +134,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, token)
+	ctx.JSON(http.StatusOK, auth.AuthnTokenResponse{
+		Token: token,
+	})
 }
