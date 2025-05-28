@@ -49,7 +49,38 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.github.APIAuth",
 			HandlerFunc: c.APIAuth,
 		},
+		{
+			Method:      "GET",
+			Path:        "/api/v1/auth/basic",
+			Handler:     "http.github.BasicAuth",
+			HandlerFunc: c.BasicAuth,
+		},
 	}
+}
+
+func (c *Controller) BasicAuth(ctx *gin.Context) {
+	username, password, ok := ctx.Request.BasicAuth()
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "missing basic auth credentials",
+		})
+
+		return
+	}
+
+	token, err := c.service.BasicAuth(username, password)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to authenticate",
+			"details": fmt.Sprintf("error: %v", err),
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"token": token,
+	})
 }
 
 // HTTPAuth handles the HTTP request for GitHub OAuth2 authentication.

@@ -31,9 +31,20 @@ type CommandOption struct {
 		Format string `mapstructure:"format"`
 	} `mapstructure:"log"`
 	Auth struct {
-		Enabled bool   `mapstructure:"enabled"`
-		Type    string `mapstructure:"type"`
-		OAuth2  struct {
+		Enabled bool `mapstructure:"enabled"`
+		Admin   struct {
+			Username string `mapstructure:"username"`
+			Password string `mapstructure:"password"`
+			Email    string `mapstructure:"email"`
+		} `mapstructure:"admin"`
+		JWT struct {
+			Issuer   string        `mapstructure:"issuer"`
+			Expire   time.Duration `mapstructure:"expire"`
+			Secret   string        `mapstructure:"secret"`
+			Audience []string      `mapstructure:"audience"`
+		}
+		Type   string `mapstructure:"type"`
+		OAuth2 struct {
 			Provider     string `mapstructure:"provider"`
 			ClientID     string `mapstructure:"clientId"`
 			ClientSecret string `mapstructure:"clientSecret"`
@@ -152,15 +163,28 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 		DatabaesEndpoints: opt.Database.Endpoints,
 		LogLevel:          logLevel,
 		LogFormat:         appconfig.LogFormat(opt.Log.Format),
-		GithubOAuthSettings: &appconfig.OAuthSettings{
-			ClientID:    opt.Auth.OAuth2.ClientID,
-			Secret:      opt.Auth.OAuth2.ClientSecret,
-			CallbackURL: opt.Auth.OAuth2.RedirectURI,
+		AuthSettings: &appconfig.AuthSettings{
+			AdminSettings: appconfig.AdminSettings{
+				Username: opt.Auth.Admin.Username,
+				Password: opt.Auth.Admin.Password,
+				Email:    opt.Auth.Admin.Email,
+			},
 			JWTSettings: appconfig.JWTSettings{
-				Issuer:     opt.Auth.OAuth2.State.JWT.Issuer,
-				Expiration: opt.Auth.OAuth2.State.JWT.Expire,
-				SigningKey: opt.Auth.OAuth2.State.JWT.Secret,
-				Audience:   opt.Auth.OAuth2.State.JWT.Audience,
+				Issuer:     opt.Auth.JWT.Issuer,
+				Expiration: opt.Auth.JWT.Expire,
+				SigningKey: opt.Auth.JWT.Secret,
+				Audience:   opt.Auth.JWT.Audience,
+			},
+			OAuthSettings: &appconfig.OAuthSettings{
+				ClientID:    opt.Auth.OAuth2.ClientID,
+				Secret:      opt.Auth.OAuth2.ClientSecret,
+				CallbackURL: opt.Auth.OAuth2.RedirectURI,
+				JWTSettings: appconfig.JWTSettings{
+					Issuer:     opt.Auth.OAuth2.State.JWT.Issuer,
+					Expiration: opt.Auth.OAuth2.State.JWT.Expire,
+					SigningKey: opt.Auth.OAuth2.State.JWT.Secret,
+					Audience:   opt.Auth.OAuth2.State.JWT.Audience,
+				},
 			},
 		},
 	})

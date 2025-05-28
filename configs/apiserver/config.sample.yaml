@@ -9,12 +9,21 @@ log:
 auth:
   enabled: true
   type: "oauth2"
+  admin:
+    username: "admin"
+    password: "admin_password"
+  jwt:
+    issuer: "opampcommander"
+    expire: 5m
+    secret: "your_jwt_secret"
+    audience:
+    - "opampcommander"
   oauth2:
     provider: github
     clientId: "your_client_id"
     clientSecret: "your_client_secret"
     redirectUri: "http://localhost:8080/auth/callback"
-    state:
+    state: # to prevent CSRF attacks
       mode: jwt
       jwt:
         issuer: "opampcommander"
