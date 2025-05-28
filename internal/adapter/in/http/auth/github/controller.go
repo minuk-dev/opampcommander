@@ -58,6 +58,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	}
 }
 
+// BasicAuth handles the HTTP request for basic authentication.
+// It expects the request to contain basic auth credentials in the format "username:password".
 func (c *Controller) BasicAuth(ctx *gin.Context) {
 	username, password, ok := ctx.Request.BasicAuth()
 	if !ok {

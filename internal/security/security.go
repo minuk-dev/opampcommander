@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"time"
@@ -30,7 +31,30 @@ var (
 	ErrInvalidState = errors.New("invalid state parameter")
 	// ErrStateExpired is returned when the state parameter has expired.
 	ErrStateExpired = errors.New("state parameter has expired")
+	// ErrInvalidToken is returned when the provided token is invalid.
+	ErrInvalidToken = errors.New("invalid token")
+	// ErrInvalidEmail is returned when the email in the token claims is invalid.
+	ErrInvalidEmail = errors.New("invalid email in token claims")
+	// ErrInvalidTokenClaims is returned when the token claims are invalid.
+	ErrInvalidTokenClaims = errors.New("invalid token claims")
+	// ErrTokenExpired is returned when the token has expired.
+	ErrTokenExpired = errors.New("token has expired")
+	// ErrInvalidUsernameOrPassword is returned when the provided username or password is invalid.
+	ErrInvalidUsernameOrPassword = errors.New("invalid username or password")
+	// ErrNoPrimaryEmailFound is returned when no primary email is found in the user's emails.
+	ErrNoPrimaryEmailFound = errors.New("no primary verified email found")
+	// ErrOAuth2ClientCreationFailed is returned when the OAuth2 client creation fails.
+	ErrOAuth2ClientCreationFailed = errors.New("failed to create OAuth2 client")
 )
+
+// UnsupportedTokenTypeError is returned when the token type is not supported.
+type UnsupportedTokenTypeError struct {
+	TokenType string
+}
+
+func (e *UnsupportedTokenTypeError) Error() string {
+	return "unsupported token type: " + e.TokenType
+}
 
 // Service provides security-related functionality for the opampcommander application.
 type Service struct {
@@ -61,8 +85,11 @@ func New(
 	}
 }
 
+// ValidateToken validates the provided JWT token string and returns the claims if valid.
+// It checks the token's validity, expiration, and the email in the claims.
 func (s *Service) ValidateToken(tokenString string) (*OPAMPClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString,
+		//exhaustruct:ignore
 		&OPAMPClaims{},
 		func(_ *jwt.Token) (interface{}, error) {
 			return []byte(s.tokenSettings.SigningKey), nil
@@ -72,17 +99,17 @@ func (s *Service) ValidateToken(tokenString string) (*OPAMPClaims, error) {
 	}
 
 	if !token.Valid {
-		return nil, errors.New("invalid token")
+		return nil, ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(*OPAMPClaims)
 	if !ok {
-		return nil, errors.New("invalid token claims")
+		return nil, ErrInvalidTokenClaims
 	}
 
 	exp, err := claims.GetExpirationTime()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get expiration time from token claims: %w", err)
+		return nil, ErrTokenExpired
 	}
 
 	if exp == nil || exp.Before(time.Now()) {
@@ -110,7 +137,7 @@ func (s *Service) AuthCodeURL() (string, error) {
 // BasicAuth authenticates the user using basic authentication with username and password.
 func (s *Service) BasicAuth(username, password string) (string, error) {
 	if username != s.adminSettings.Username || password != s.adminSettings.Password {
-		return "", errors.New("invalid username or password")
+		return "", ErrInvalidUsernameOrPassword
 	}
 
 	s.logger.Debug("Authenticated user with basic auth", slog.String("username", username))
@@ -143,12 +170,12 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 
 	tokenType := strings.ToLower(token.TokenType)
 	if tokenType != "bearer" {
-		return "", fmt.Errorf("unsupported token type: %s", tokenType)
+		return "", &UnsupportedTokenTypeError{TokenType: tokenType}
 	}
 
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
-		return "", errors.New("failed to create OAuth2 client")
+		return "", ErrOAuth2ClientCreationFailed
 	}
 
 	client := github.NewClient(authClient)
@@ -158,13 +185,13 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 		return "", fmt.Errorf("failed to list user emails: %w", err)
 	}
 
-	defer resp.Body.Close()
+	defer closeSilently(resp.Body)
 
 	email, found := lo.Find(emails, func(email *github.UserEmail) bool {
 		return email != nil && email.GetPrimary() && email.GetVerified() && email.GetEmail() != ""
 	})
 	if !found {
-		return "", errors.New("no primary verified email found")
+		return "", ErrNoPrimaryEmailFound
 	}
 
 	claims := s.newOPAMPClaims(email.GetEmail())
@@ -179,6 +206,8 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 	return tokenString, nil
 }
 
+// OPAMPClaims defines the custom claims for the JWT token used for opampcommander's authentication.
+// It includes the user's email and standard JWT registered claims.
 type OPAMPClaims struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims
@@ -204,14 +233,14 @@ func (s *Service) newOPAMPClaims(email string) *OPAMPClaims {
 func (s *Service) createToken(claims *OPAMPClaims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	ss, err := token.SignedString([]byte(s.tokenSettings.SigningKey))
+	tokenString, err := token.SignedString([]byte(s.tokenSettings.SigningKey))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign JWT token: %w", err)
 	}
 
-	s.logger.Debug("Created JWT token", slog.String("token", ss))
+	s.logger.Debug("Created JWT token", slog.String("token", tokenString))
 
-	return ss, nil
+	return tokenString, nil
 }
 
 // OAuthStateClaims defines the custom claims for the JWT token used for the state parameter in OAuth2 authentication.
@@ -277,4 +306,8 @@ func (s *Service) validateState(state string) error {
 	s.logger.Debug("Validated state token", slog.String("state", state))
 
 	return nil
+}
+
+func closeSilently(closer io.Closer) {
+	_ = closer.Close() // Ignore error
 }

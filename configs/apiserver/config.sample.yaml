@@ -8,7 +8,6 @@ log:
   format: "json"
 auth:
   enabled: true
-  type: "oauth2"
   admin:
     username: "admin"
     password: "admin_password"
@@ -18,6 +17,7 @@ auth:
     secret: "your_jwt_secret"
     audience:
     - "opampcommander"
+  type: "oauth2"
   oauth2:
     provider: github
     clientId: "your_client_id"
