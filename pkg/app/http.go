@@ -10,8 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 )
 
 const (
@@ -31,7 +32,7 @@ func NewHTTPServer(
 	//exhaustruct:ignore
 	srv := &http.Server{
 		ReadTimeout: DefaultHTTPReadTimeout,
-		Addr:        settings.Addr,
+		Addr:        settings.Address,
 		Handler:     engine,
 		ConnContext: connContext,
 	}
@@ -43,7 +44,7 @@ func NewHTTPServer(
 				return fmt.Errorf("failed to listen: %w", err)
 			}
 			logger.Info("HTTP server listening",
-				slog.String("addr", settings.Addr),
+				slog.String("addr", settings.Address),
 			)
 			go func() {
 				err := srv.Serve(listener)

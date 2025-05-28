@@ -17,4 +17,8 @@ auth:
     state:
       mode: jwt
       jwt:
+        issuer: "opampcommander"
+        expire: 5m
         secret: "your_jwt_secret"
+        audience:
+        - "opampcommander"

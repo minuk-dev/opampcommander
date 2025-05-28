@@ -5,14 +5,16 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
+
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 )
 
 const (
@@ -20,11 +22,18 @@ const (
 	StateLength = 16 // Length of the state string to be generated for OAuth2 authentication.
 )
 
+var (
+	// ErrInvalidState is returned when the state parameter is invalid.
+	ErrInvalidState = errors.New("invalid state parameter")
+	// ErrStateExpired is returned when the state parameter has expired.
+	ErrStateExpired = errors.New("state parameter has expired")
+)
+
 // Service provides security-related functionality for the opampcommander application.
 type Service struct {
-	logger          *slog.Logger
-	oauth2Config    *oauth2.Config
-	stateSigningKey string
+	logger       *slog.Logger
+	oauth2Config *oauth2.Config
+	jwtSettings  config.JWTSettings
 }
 
 // New creates a new instance of the Service struct with the provided logger and OAuth settings.
@@ -41,7 +50,7 @@ func New(
 			Scopes:       []string{"user:email"},
 			Endpoint:     github.Endpoint,
 		},
-		stateSigningKey: settings.SigningKey,
+		jwtSettings: settings.JWTSettings,
 	}
 }
 
@@ -76,13 +85,12 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (*oauth2.Tok
 	return token, nil
 }
 
+// CustomClaims defines the custom claims for the JWT token used for the state parameter in OAuth2 authentication.
 type CustomClaims struct {
-	foo string `json:"foo"`
 	jwt.RegisteredClaims
 }
 
-// TODO: Implement a proper state management system.
-func (c *Service) createState() (string, error) {
+func (s *Service) createState() (string, error) {
 	randBytes := make([]byte, StateLength)
 
 	_, err := rand.Read(randBytes)
@@ -90,21 +98,22 @@ func (c *Service) createState() (string, error) {
 		return "", fmt.Errorf("failed to generate random bytes for state: %w", err)
 	}
 
+	now := time.Now()
 	claims := CustomClaims{
-		foo: "bar", // Example custom claim, can be removed or modified as needed
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "opampcommander",
+			Issuer:    s.jwtSettings.Issuer,
 			Subject:   "oauth2_state",
-			Audience:  jwt.ClaimStrings{"opampcommander"},
-			NotBefore: jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * 60 * 1000)), // 5 minutes expiration
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Audience:  s.jwtSettings.Audience,
+			NotBefore: jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.jwtSettings.Expiration)), // 5 minutes expiration
+			IssuedAt:  jwt.NewNumericDate(now),
 			ID:        base64.URLEncoding.EncodeToString(randBytes),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString([]byte(c.stateSigningKey))
+
+	ss, err := token.SignedString([]byte(s.jwtSettings.SigningKey))
 	if err != nil {
 		return "", fmt.Errorf("failed to sign JWT token for state: %w", err)
 	}
@@ -112,11 +121,13 @@ func (c *Service) createState() (string, error) {
 	return ss, nil
 }
 
-// TODO: Implement a proper state validation system.
-func (c *Service) validateState(state string) error {
-	token, err := jwt.ParseWithClaims(state, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(c.stateSigningKey), nil
-	})
+func (s *Service) validateState(state string) error {
+	token, err := jwt.ParseWithClaims(state,
+		//exhaustruct:ignore
+		&CustomClaims{}, // only to convey the type of claims we expect
+		func(_ *jwt.Token) (interface{}, error) {
+			return []byte(s.jwtSettings.SigningKey), nil
+		})
 	if err != nil {
 		return fmt.Errorf("failed to parse JWT token for state: %w", err)
 	}
@@ -126,13 +137,15 @@ func (c *Service) validateState(state string) error {
 		return fmt.Errorf("failed to get expiration time from token claims: %w", err)
 	}
 
-	if exp == nil || exp.Time.Before(time.Now()) {
-		return fmt.Errorf("state token has expired")
-	}
-	if !token.Valid {
-		return fmt.Errorf("state token is invalid")
+	if exp == nil || exp.Before(time.Now()) {
+		return ErrStateExpired
 	}
 
-	c.logger.Debug("Validated state token", slog.String("state", state))
+	if !token.Valid {
+		return ErrInvalidState
+	}
+
+	s.logger.Debug("Validated state token", slog.String("state", state))
+
 	return nil
 }

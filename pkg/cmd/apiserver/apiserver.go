@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -40,7 +41,10 @@ type CommandOption struct {
 			State        struct {
 				Mode string `mapstructure:"mode"`
 				JWT  struct {
-					Secret string `mapstructure:"secret"`
+					Issuer   string        `mapstructure:"issuer"`
+					Expire   time.Duration `mapstructure:"expire"`
+					Secret   string        `mapstructure:"secret"`
+					Audience []string      `mapstructure:"audience"`
 				} `mapstructure:"jwt"`
 			} `mapstructure:"state"`
 		} `mapstructure:"oauth2"`
@@ -144,14 +148,20 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	logLevel := toSlogLevel(opt.Log.Level)
 	opt.app = app.NewServer(appconfig.ServerSettings{
-		Addr:      opt.Address,
-		EtcdHosts: opt.Database.Endpoints,
-		LogLevel:  logLevel,
-		LogFormat: appconfig.LogFormat(opt.Log.Format),
+		Address:           opt.Address,
+		DatabaesEndpoints: opt.Database.Endpoints,
+		LogLevel:          logLevel,
+		LogFormat:         appconfig.LogFormat(opt.Log.Format),
 		GithubOAuthSettings: &appconfig.OAuthSettings{
 			ClientID:    opt.Auth.OAuth2.ClientID,
 			Secret:      opt.Auth.OAuth2.ClientSecret,
 			CallbackURL: opt.Auth.OAuth2.RedirectURI,
+			JWTSettings: appconfig.JWTSettings{
+				Issuer:     opt.Auth.OAuth2.State.JWT.Issuer,
+				Expiration: opt.Auth.OAuth2.State.JWT.Expire,
+				SigningKey: opt.Auth.OAuth2.State.JWT.Secret,
+				Audience:   opt.Auth.OAuth2.State.JWT.Audience,
+			},
 		},
 	})
 

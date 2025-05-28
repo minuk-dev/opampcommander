@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
 	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/internal/security"
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 )
 
 const (
@@ -43,6 +45,8 @@ func NewServer(settings config.ServerSettings) *Server {
 			fx.Annotate(NewExecutor, fx.ParamTags("", `group:"runners"`)),
 			// logger
 			NewLogger,
+			// security,
+			security.New,
 		),
 		// init
 		fx.Invoke(func(*http.Server) {}),

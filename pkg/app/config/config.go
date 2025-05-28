@@ -5,8 +5,8 @@ import "log/slog"
 
 // ServerSettings is a struct that holds the server settings.
 type ServerSettings struct {
-	Addr                string
-	EtcdHosts           []string
+	Address             string
+	DatabaesEndpoints   []string
 	LogLevel            slog.Level
 	LogFormat           LogFormat
 	GithubOAuthSettings *OAuthSettings

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
@@ -77,6 +78,7 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 
 		return
 	}
+
 	c.logger.Info("Generated auth code URL", slog.String("auth_url", authcodeURL))
 	ctx.JSON(http.StatusOK, gin.H{
 		"auth_url": authcodeURL,

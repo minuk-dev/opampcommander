@@ -39,6 +39,7 @@ linters:
             - github.com/puzpuzpuz/xsync/v3
             - golang.org/x/oauth2
             - golang.org/x/oauth2/github
+            - github.com/golang-jwt/jwt/v5
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code
