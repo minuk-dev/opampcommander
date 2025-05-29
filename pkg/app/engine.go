@@ -1,12 +1,24 @@
 package app
 
-import "github.com/gin-gonic/gin"
+import (
+	"log/slog"
+
+	"github.com/gin-gonic/gin"
+	sloggin "github.com/samber/slog-gin"
+
+	"github.com/minuk-dev/opampcommander/internal/security"
+)
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.
-func NewEngine(controllers []Controller) *gin.Engine {
+func NewEngine(
+	controllers []Controller,
+	securityService *security.Service,
+	logger *slog.Logger,
+) *gin.Engine {
 	engine := gin.New()
+	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
-	// engine.Use(sloggin.New(logger))
+	engine.Use(security.NewAuthJWTMiddleware(securityService))
 
 	for _, controller := range controllers {
 		routeInfo := controller.RoutesInfo()

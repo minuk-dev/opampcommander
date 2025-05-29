@@ -27,6 +27,7 @@ linters:
             - github.com/samber/slog-gin
             - github.com/samber/lo
             - github.com/spf13/cobra
+            - github.com/spf13/viper
             - go.uber.org/fx
             - github.com/google/uuid
             - github.com/open-telemetry/opamp-go/protobufs
@@ -36,6 +37,10 @@ linters:
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3
             - github.com/puzpuzpuz/xsync/v3
+            - golang.org/x/oauth2
+            - golang.org/x/oauth2/github
+            - github.com/golang-jwt/jwt/v5
+            - github.com/google/go-github/v72/github
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code

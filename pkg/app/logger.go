@@ -3,26 +3,18 @@ package app
 import (
 	"log/slog"
 	"os"
-)
 
-// LogFormat is a string type that represents the log format.
-type LogFormat string
-
-const (
-	// LogFormatText represents the text log format.
-	LogFormatText LogFormat = "text"
-	// LogFormatJSON represents the JSON log format.
-	LogFormatJSON LogFormat = "json"
+	"github.com/minuk-dev/opampcommander/pkg/app/config"
 )
 
 // UnsupportedLogFormatError is an error type that indicates an unsupported log format.
 // It contains the unsupported log format.
 type UnsupportedLogFormatError struct {
-	LogFormat LogFormat
+	LogFormat config.LogFormat
 }
 
 // NewLogger creates a new logger instance with default settings.
-func NewLogger(settings *ServerSettings) (*slog.Logger, error) {
+func NewLogger(settings *config.ServerSettings) (*slog.Logger, error) {
 	logWriter := os.Stdout
 
 	options := &slog.HandlerOptions{
@@ -34,9 +26,9 @@ func NewLogger(settings *ServerSettings) (*slog.Logger, error) {
 	var handler slog.Handler
 
 	switch settings.LogFormat {
-	case LogFormatJSON:
+	case config.LogFormatJSON:
 		handler = slog.NewJSONHandler(logWriter, options)
-	case LogFormatText:
+	case config.LogFormatText:
 		handler = slog.NewTextHandler(logWriter, options)
 	default:
 		return nil, &UnsupportedLogFormatError{

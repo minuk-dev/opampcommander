@@ -1,0 +1,33 @@
+address: localhost:8080
+database:
+  type: "etcd"
+  endpoints:
+  - "localhost:2379"
+log:
+  level: "info"
+  format: "json"
+auth:
+  enabled: true
+  admin:
+    username: "admin"
+    password: "admin_password"
+  jwt:
+    issuer: "opampcommander"
+    expire: 5m
+    secret: "your_jwt_secret"
+    audience:
+    - "opampcommander"
+  type: "oauth2"
+  oauth2:
+    provider: github
+    clientId: "your_client_id"
+    clientSecret: "your_client_secret"
+    redirectUri: "http://localhost:8080/auth/callback"
+    state: # to prevent CSRF attacks
+      mode: jwt
+      jwt:
+        issuer: "opampcommander"
+        expire: 5m
+        secret: "your_jwt_secret"
+        audience:
+        - "opampcommander"

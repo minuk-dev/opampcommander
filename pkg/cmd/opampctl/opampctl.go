@@ -5,8 +5,8 @@ package opampctl
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/minuk-dev/opampcommander/internal/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
 // CommandOption contains the options for the opampctl command.
