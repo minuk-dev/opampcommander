@@ -38,8 +38,8 @@ func TestCommand(t *testing.T) {
 	port := base.GetFreeTCPPort()
 
 	cmd.SetArgs([]string{
-		"--addr", fmt.Sprintf("%s:%d", "localhost", port),
-		"--db-host", *etcd.Endpoint,
+		"--address", fmt.Sprintf("%s:%d", "localhost", port),
+		"--database.endpoints", *etcd.Endpoint,
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())

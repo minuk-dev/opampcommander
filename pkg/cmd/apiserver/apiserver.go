@@ -2,7 +2,6 @@
 package apiserver
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -149,11 +148,7 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 
 	opt.viper.AutomaticEnv() // read in environment variables that match
 
-	if err := opt.viper.ReadInConfig(); err != nil {
-		if errors.As(err, &viper.ConfigFileNotFoundError{}) {
-			return fmt.Errorf("failed to read config file: %w", err)
-		}
-	}
+	_ = opt.viper.ReadInConfig()
 
 	err = opt.viper.Unmarshal(opt)
 	if err != nil {
