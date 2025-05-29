@@ -47,6 +47,7 @@ func NewServer(settings config.ServerSettings) *Server {
 			NewLogger,
 			// security,
 			security.New,
+			security.NewAuthJWTMiddleware,
 		),
 		// init
 		fx.Invoke(func(*http.Server) {}),
