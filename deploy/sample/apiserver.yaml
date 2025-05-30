@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: apiserver
-        image: harbor.minuk.dev/opampcommander/apiserver:v0.0.14
+        image: minukdev/opampcommander:0.1.0
         command:
         - /apiserver
         - --db-host=etcd.opampcommander.svc.cluster.local.:2379
@@ -50,13 +50,3 @@ spec:
   selector:
     app: apiserver
   type: ClusterIP
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: opampcommander-harbor-registry
-  namespace: opampcommander
-type: kubernetes.io/dockerconfigjson
-data:
-  .dockerconfigjson: 
-    eyJhdXRocyI6eyJoYXJib3IubWludWsuZGV2Ijp7InVzZXJuYW1lIjoicm9ib3Qkb3BhbXBjb21tYW5kZXIrazhzIiwicGFzc3dvcmQiOiJ2Q1hNYmhiQkpyZmx1d28wbGFjblFUSGthYmlmRGxFYiIsImF1dGgiOiJjbTlpYjNRa2IzQmhiWEJqYjIxdFlXNWtaWElyYXpoek9uWkRXRTFpYUdKQ1NuSm1iSFYzYnpCc1lXTnVVVlJJYTJGaWFXWkViRVZpIn19fQ==
