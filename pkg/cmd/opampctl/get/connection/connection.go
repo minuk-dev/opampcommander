@@ -12,6 +12,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
 )
 
 // CommandOptions contains the options for the connection command.
@@ -48,7 +49,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare prepares the command.
 func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
-	opt.client = client.NewClient(opt.Endpoint)
+	opt.client = client.NewClient(configutil.GetCurrentOpAMPCommanderEndpoint(opt.GlobalConfig))
 
 	return nil
 }

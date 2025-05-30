@@ -32,8 +32,6 @@ spec:
         ports:
         - containerPort: 8080
           name: http
-      imagePullSecrets:
-      - name: opampcommander-harbor-registry
 ---
 apiVersion: v1
 kind: Service
