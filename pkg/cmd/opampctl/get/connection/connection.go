@@ -75,7 +75,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the connection information for all connections.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	connections, err := opt.client.ListConnections()
+	connections, err := opt.client.ConnectionService.ListConnections()
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -98,7 +98,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 
 	for _, connectionID := range connectionIDs {
-		connection, err := opt.client.GetConnection(connectionID)
+		connection, err := opt.client.ConnectionService.GetConnection(connectionID)
 		if err != nil {
 			return fmt.Errorf("failed to get agent: %w", err)
 		}
