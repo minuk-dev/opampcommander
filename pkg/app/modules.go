@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/basic"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
@@ -60,6 +61,7 @@ func NewInPortModule() fx.Option {
 			agent.NewController, AsController(Identity[*agent.Controller]),
 			command.NewController, AsController(Identity[*command.Controller]),
 			github.NewController, AsController(Identity[*github.Controller]),
+			basic.NewController, AsController(Identity[*basic.Controller]),
 		),
 		// opamp specific spec for connection context
 		fx.Provide(

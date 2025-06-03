@@ -63,40 +63,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.github.ExchangeDeviceAuth",
 			HandlerFunc: c.ExchangeDeviceAuth,
 		},
-		{
-			Method:      "GET",
-			Path:        "/api/v1/auth/basic",
-			Handler:     "http.github.BasicAuth",
-			HandlerFunc: c.BasicAuth,
-		},
 	}
-}
-
-// BasicAuth handles the HTTP request for basic authentication.
-// It expects the request to contain basic auth credentials in the format "username:password".
-func (c *Controller) BasicAuth(ctx *gin.Context) {
-	username, password, ok := ctx.Request.BasicAuth()
-	if !ok {
-		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "missing basic auth credentials",
-		})
-
-		return
-	}
-
-	token, err := c.service.BasicAuth(username, password)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to authenticate",
-			"details": fmt.Sprintf("error: %v", err),
-		})
-
-		return
-	}
-
-	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
-		Token: token,
-	})
 }
 
 // HTTPAuth handles the HTTP request for GitHub OAuth2 authentication.
