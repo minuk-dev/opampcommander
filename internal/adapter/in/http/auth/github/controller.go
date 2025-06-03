@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/auth"
+	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
@@ -52,6 +53,18 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      "GET",
+			Path:        "/api/v1/auth/github/device",
+			Handler:     "http.github.GetDeviceAuth",
+			HandlerFunc: c.GetDeviceAuth,
+		},
+		{
+			Method:      "GET",
+			Path:        "/api/v1/auth/github/device/exchange",
+			Handler:     "http.github.ExchangeDeviceAuth",
+			HandlerFunc: c.ExchangeDeviceAuth,
+		},
+		{
+			Method:      "GET",
 			Path:        "/api/v1/auth/basic",
 			Handler:     "http.github.BasicAuth",
 			HandlerFunc: c.BasicAuth,
@@ -81,7 +94,7 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, auth.AuthnTokenResponse{
+	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: token,
 	})
 }
@@ -114,7 +127,7 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 	}
 
 	c.logger.Info("Generated auth code URL", slog.String("auth_url", authcodeURL))
-	ctx.JSON(http.StatusOK, auth.OAuth2AuthCodeURLResponse{
+	ctx.JSON(http.StatusOK, v1auth.OAuth2AuthCodeURLResponse{
 		URL: authcodeURL,
 	})
 }
@@ -134,7 +147,69 @@ func (c *Controller) Callback(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, auth.AuthnTokenResponse{
+	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
+		Token: token,
+	})
+}
+
+// GetDeviceAuth handles the request to get device authentication information.
+func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
+	dar, err := c.service.DeviceAuth(ctx.Request.Context())
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to initiate device authorization",
+			"details": fmt.Sprintf("error: %v", err),
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, v1auth.DeviceAuthnTokenResponse{
+		DeviceCode:              dar.DeviceCode,
+		UserCode:                dar.UserCode,
+		VerificationURI:         dar.VerificationURI,
+		VerificationURIComplete: dar.VerificationURIComplete,
+		Expiry:                  dar.Expiry,
+		Interval:                dar.Interval,
+	})
+}
+
+// ExchangeDeviceAuth handles the request to exchange a device code for an authentication token.
+// It expects the request to contain a device code and an optional expiry time.
+func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
+	deviceCode := ctx.Query("device_code")
+	expiry := ctx.Query("expiry")
+
+	var expiryTime time.Time
+
+	var err error
+	if expiry != "" {
+		expiryTime, err = time.Parse(time.RFC3339, expiry)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{
+				"error":   "invalid expiry format",
+				"details": fmt.Sprintf("error: %v", err),
+			})
+
+			return
+		}
+	}
+
+	token, err := c.service.ExchangeDeviceAuth(
+		ctx.Request.Context(),
+		deviceCode,
+		expiryTime,
+	)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to exchange device code for token",
+			"details": fmt.Sprintf("error: %v", err),
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: token,
 	})
 }
