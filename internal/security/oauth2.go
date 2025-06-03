@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-github/v72/github"
 	"github.com/samber/lo"
+	"golang.org/x/oauth2"
 )
 
 const (
@@ -30,6 +31,75 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 	token, err := s.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		return "", fmt.Errorf("failed to exchange OAuth2 code for token: %w", err)
+	}
+
+	s.logger.Debug("Exchanged OAuth2 code for token", slog.String("token", token.AccessToken))
+
+	tokenType := strings.ToLower(token.TokenType)
+	if tokenType != "bearer" {
+		return "", &UnsupportedTokenTypeError{TokenType: tokenType}
+	}
+
+	authClient := s.oauth2Config.Client(ctx, token)
+	if authClient == nil {
+		return "", ErrOAuth2ClientCreationFailed
+	}
+
+	client := github.NewClient(authClient)
+
+	emails, resp, err := client.Users.ListEmails(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list user emails: %w", err)
+	}
+
+	defer closeSilently(resp.Body)
+
+	email, found := lo.Find(emails, func(email *github.UserEmail) bool {
+		return email != nil && email.GetPrimary() && email.GetVerified() && email.GetEmail() != ""
+	})
+	if !found {
+		return "", ErrNoPrimaryEmailFound
+	}
+
+	claims := s.newOPAMPClaims(email.GetEmail())
+
+	tokenString, err := s.createToken(claims)
+	if err != nil {
+		return "", fmt.Errorf("failed to create JWT token: %w", err)
+	}
+
+	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
+
+	return tokenString, nil
+}
+
+// DeviceAuth initiates the OAuth2 device authorization flow.
+// It returns a device authorization response that contains the user code and verification URL.
+func (s *Service) DeviceAuth(ctx context.Context) (*oauth2.DeviceAuthResponse, error) {
+	deviceAuthRes, err := s.oauth2Config.DeviceAuth(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initiate device authorization: %w", err)
+	}
+
+	return deviceAuthRes, nil
+}
+
+// ExchangeDeviceAuth exchanges the device code for an access token.
+// It retrieves the user's primary email from GitHub and creates a JWT token with the email as a claim.
+// It returns the JWT token string or an error if the process fails.
+func (s *Service) ExchangeDeviceAuth(
+	ctx context.Context,
+	deviceCode string,
+	expiry time.Time,
+) (string, error) {
+	token, err := s.oauth2Config.DeviceAccessToken(ctx,
+		//exhaustruct:ignore
+		&oauth2.DeviceAuthResponse{
+			DeviceCode: deviceCode,
+			Expiry:     expiry,
+		})
+	if err != nil {
+		return "", fmt.Errorf("failed to exchange device code for token: %w", err)
 	}
 
 	s.logger.Debug("Exchanged OAuth2 code for token", slog.String("token", token.AccessToken))
