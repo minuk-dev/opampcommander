@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	configCmd "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -44,6 +45,9 @@ $HOME/.config/opampcommander/opampctl/config.yaml`)
 	cmd.AddCommand(get.NewCommand(get.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
+	cmd.AddCommand(configCmd.NewCommand(configCmd.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
 
 	return cmd
 }
@@ -52,6 +56,8 @@ $HOME/.config/opampcommander/opampctl/config.yaml`)
 // opampctl commands need to be prepare before running for each subcommand because all subcommands
 // depend on the global configuration.
 func (opt *CommandOption) PersistentPrepare(cmd *cobra.Command, _ []string) error {
+	opt.viper = viper.New()
+
 	err := opt.viper.BindPFlags(cmd.PersistentFlags())
 	if err != nil {
 		return fmt.Errorf("failed to bind flags: %w", err)
