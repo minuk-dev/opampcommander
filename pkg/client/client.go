@@ -11,19 +11,45 @@ import (
 // Client is a struct that contains the endpoint and the resty client.
 type Client struct {
 	Endpoint string
-	Client   *resty.Client
+	common   service
+
+	AgentService      *AgentService
+	ConnectionService *ConnectionService
+	AuthService       *AuthService
+}
+
+type service struct {
+	Client *resty.Client
 }
 
 // NewClient creates a new client for opampcommander's apiserver.
-func NewClient(endpoint string) *Client {
-	return &Client{
-		Endpoint: endpoint,
-		Client:   resty.New().SetBaseURL(endpoint),
+func NewClient(endpoint string, opt ...Option) *Client {
+	service := service{
+		Client: resty.New().SetBaseURL(endpoint),
 	}
+	client := &Client{
+		Endpoint: endpoint,
+		common:   service,
+
+		// Initialize services to nil, they will be set later
+		AgentService:      nil,
+		ConnectionService: nil,
+		AuthService:       nil,
+	}
+
+	for _, o := range opt {
+		o.Apply(client)
+	}
+
+	client.AgentService = NewAgentService(&service)
+	client.ConnectionService = NewConnectionService(&service)
+	client.AuthService = NewAuthService(&service)
+
+	return client
 }
 
 // Generic function for GET requests.
-func getResource[T any](c *Client, url string, id uuid.UUID) (*T, error) {
+func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
 	var result T
 
 	res, err := c.Client.R().
@@ -47,7 +73,7 @@ func getResource[T any](c *Client, url string, id uuid.UUID) (*T, error) {
 	return &result, nil
 }
 
-func listResources[T any](c *Client, url string) ([]T, error) {
+func listResources[T any](c *service, url string) ([]T, error) {
 	var result []T
 
 	res, err := c.Client.R().
