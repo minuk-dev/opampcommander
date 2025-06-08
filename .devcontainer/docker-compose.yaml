@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  devcontainer:
+    image: "mcr.microsoft.com/devcontainers/go:1-1.23-bookworm"
+    network_mode: service:db
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+  db:
+    image: quay.io/coreos/etcd:v3.5.0
+    restart: unless-stopped
+    volumes:
+      - etcd-data:/var/lib/etcd
+volumes:
+  etcd-data:
