@@ -2,6 +2,7 @@
 package filecache
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/afero"
@@ -35,29 +36,43 @@ func (fc *FileCache) GetFilename(id string) string {
 // Get retrieves data from the cache for a given key.
 func (fc *FileCache) Get(key string) ([]byte, error) {
 	filename := fc.GetFilename(key)
+
 	data, err := afero.ReadFile(fc.filesystem, filename)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read cache file %s: %w", filename, err)
 	}
+
 	return data, nil
 }
 
 // Set stores data in the cache for a given key.
+//
+//nolint:mnd
 func (fc *FileCache) Set(key string, data []byte) error {
 	filename := fc.GetFilename(key)
-	if err := fc.filesystem.MkdirAll(filepath.Dir(filename), 0o755); err != nil {
-		return err
+	if err := fc.filesystem.MkdirAll(filepath.Dir(filename), 0o750); err != nil {
+		return fmt.Errorf("failed to create cache directory %s: %w", filepath.Dir(filename), err)
 	}
-	return afero.WriteFile(fc.filesystem, filename, data, 0o600)
+
+	err := afero.WriteFile(fc.filesystem, filename, data, 0o600)
+	if err != nil {
+		return fmt.Errorf("failed to write cache file %s: %w", filename, err)
+	}
+
+	return nil
 }
 
 // Delete removes the cache entry for a given key.
 func (fc *FileCache) Delete(key string) error {
 	filename := fc.GetFilename(key)
 	if exists, err := afero.Exists(fc.filesystem, filename); err != nil {
-		return err
+		return fmt.Errorf("failed to check if cache file exists %s: %w", filename, err)
 	} else if exists {
-		return fc.filesystem.Remove(filename)
+		err := fc.filesystem.Remove(filename)
+		if err != nil {
+			return fmt.Errorf("failed to delete cache file %s: %w", filename, err)
+		}
 	}
+
 	return nil
 }

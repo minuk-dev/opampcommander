@@ -64,7 +64,7 @@ func (opt *CommandOption) PersistentPrepare(cmd *cobra.Command, _ []string) erro
 	}
 
 	if opt.configFilename != "" {
-		viper.SetConfigFile(opt.configFilename)
+		opt.viper.SetConfigFile(opt.configFilename)
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {

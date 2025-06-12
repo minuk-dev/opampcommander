@@ -2,6 +2,7 @@
 package init
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,11 @@ const (
 	DirectoryPermission = 0o755 // Permission for directories
 	// ConfigFilePermission defines the permission for configuration files created by the init command.
 	ConfigFilePermission = 0o600 // Permission for configuration files
+)
+
+var (
+	// ErrUserCancelled is returned when the user cancels the operation.
+	ErrUserCancelled = errors.New("user cancelled the operation")
 )
 
 // CommandOptions contains the options for the config command.
@@ -143,9 +149,7 @@ func (opt *CommandOptions) handleExistingFile(cmd *cobra.Command, filesystem afe
 		}
 
 		if strings.ToLower(response) != "y" {
-			cmd.Println("Aborting config initialization.")
-
-			return nil
+			return ErrUserCancelled
 		}
 	}
 
@@ -167,11 +171,7 @@ func (opt *CommandOptions) writeDefaultConfig(cmd *cobra.Command, filesystem afe
 
 	encoder := yaml.NewEncoder(configFile)
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
-	}
-	defaultConfig := config.NewDefaultGlobalConfig(homeDir)
+	defaultConfig := config.NewDefaultGlobalConfig()
 
 	err = encoder.Encode(defaultConfig)
 	if err != nil {

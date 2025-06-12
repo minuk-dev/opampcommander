@@ -9,9 +9,9 @@ func GetCurrentContext(config *config.GlobalConfig) *config.Context {
 		return nil
 	}
 
-	for _, context := range config.Contexts {
-		if context.Name == config.CurrentContext {
-			return &context
+	for i := range config.Contexts {
+		if config.Contexts[i].Name == config.CurrentContext {
+			return &config.Contexts[i]
 		}
 	}
 
@@ -29,9 +29,9 @@ func GetCurrentCluster(config *config.GlobalConfig) *config.Cluster {
 		return nil
 	}
 
-	for _, cluster := range config.Clusters {
-		if cluster.Name == currentContext.Cluster {
-			return &cluster
+	for i := range config.Clusters {
+		if config.Clusters[i].Name == currentContext.Cluster {
+			return &config.Clusters[i]
 		}
 	}
 
@@ -49,9 +49,9 @@ func GetCurrentUser(config *config.GlobalConfig) *config.User {
 		return nil
 	}
 
-	for _, user := range config.Users {
-		if user.Name == currentContext.User {
-			return &user
+	for i := range config.Users {
+		if config.Users[i].Name == currentContext.User {
+			return &config.Users[i]
 		}
 	}
 

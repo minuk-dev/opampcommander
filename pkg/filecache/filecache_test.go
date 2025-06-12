@@ -1,64 +1,64 @@
+//nolint:goconst
 package filecache_test
 
 import (
 	"testing"
 
-	"github.com/minuk-dev/opampcommander/pkg/filecache"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/minuk-dev/opampcommander/pkg/filecache"
 )
 
 func TestFileCache_SetAndGet(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	cacheDir := "test_cache"
 	prefix := "test_prefix"
-	fc := filecache.New(cacheDir, prefix, fs)
+	cache := filecache.New(cacheDir, prefix, fs)
 
 	key := "test_key"
 	data := []byte("test_data")
 
 	// Test Set
-	if err := fc.Set(key, data); err != nil {
-		t.Fatalf("Failed to set cache: %v", err)
-	}
+	err := cache.Set(key, data)
+	require.NoError(t, err, "Failed to set cache")
 
 	// Test Get
-	retrievedData, err := fc.Get(key)
-	if err != nil {
-		t.Fatalf("Failed to get cache: %v", err)
-	}
-
-	if string(retrievedData) != string(data) {
-		t.Errorf("Expected %s, got %s", string(data), string(retrievedData))
-	}
+	retrievedData, err := cache.Get(key)
+	require.NoError(t, err)
+	assert.Equal(t, data, retrievedData)
 }
 
 func TestFileCache_Delete(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	cacheDir := "test_cache"
 	prefix := "test_prefix"
-	fc := filecache.New(cacheDir, prefix, fs)
+	cache := filecache.New(cacheDir, prefix, fs)
 
 	key := "test_key"
 	data := []byte("test_data")
 
 	// Set data
-	if err := fc.Set(key, data); err != nil {
-		t.Fatalf("Failed to set cache: %v", err)
-	}
+	err := cache.Set(key, data)
+	require.NoError(t, err, "Failed to set cache")
 
 	// Delete data
-	if err := fc.Delete(key); err != nil {
-		t.Fatalf("Failed to delete cache: %v", err)
-	}
+	err = cache.Delete(key)
+	require.NoError(t, err, "Failed to delete cache")
 
 	// Verify deletion
-	_, err := fc.Get(key)
-	if err == nil {
-		t.Errorf("Expected error for non-existent key, got nil")
-	}
+	_, err = cache.Get(key)
+	assert.Error(t, err, "Expected error when getting deleted key")
 }
 
 func TestFileCache_NonExistentKey(t *testing.T) {
+	t.Parallel()
+
 	fs := afero.NewMemMapFs()
 	cacheDir := "test_cache"
 	prefix := "test_prefix"
@@ -68,7 +68,5 @@ func TestFileCache_NonExistentKey(t *testing.T) {
 
 	// Test Get for non-existent key
 	_, err := fc.Get(key)
-	if err == nil {
-		t.Errorf("Expected error for non-existent key, got nil")
-	}
+	assert.Error(t, err, "Expected error for non-existent key")
 }
