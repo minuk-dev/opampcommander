@@ -166,7 +166,12 @@ func (opt *CommandOptions) writeDefaultConfig(cmd *cobra.Command, filesystem afe
 	}()
 
 	encoder := yaml.NewEncoder(configFile)
-	defaultConfig := config.NewDefaultGlobalConfig()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+	defaultConfig := config.NewDefaultGlobalConfig(homeDir)
 
 	err = encoder.Encode(defaultConfig)
 	if err != nil {

@@ -1,6 +1,8 @@
 // Package config provides the configuration for opampctl.
 package config
 
+import "path/filepath"
+
 // GlobalConfig contains the global configuration for opampctl.
 type GlobalConfig struct {
 	// ConfigFilename is the path to the configuration file.
@@ -13,15 +15,16 @@ type GlobalConfig struct {
 }
 
 // NewDefaultGlobalConfig creates a new GlobalConfig with default values.
-func NewDefaultGlobalConfig() *GlobalConfig {
+func NewDefaultGlobalConfig(homeDir string) *GlobalConfig {
 	return &GlobalConfig{
 		ConfigFilename: "",
 		CurrentContext: "default",
 		Contexts: []Context{
 			{
-				Name:    "default",
-				Cluster: "default",
-				User:    "default",
+				Name:     "default",
+				Cluster:  "default",
+				User:     "default",
+				CacheDir: filepath.Join(homeDir, ".config", "opampcommander", "opampctl", "cache"),
 			},
 		},
 		Users: []User{

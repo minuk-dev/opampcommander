@@ -49,7 +49,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare prepares the command.
 func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
-	opt.client = client.NewClient(configutil.GetCurrentOpAMPCommanderEndpoint(opt.GlobalConfig))
+	opt.client = client.New(configutil.GetCurrentOpAMPCommanderEndpoint(opt.GlobalConfig))
 
 	return nil
 }

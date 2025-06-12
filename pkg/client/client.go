@@ -22,8 +22,8 @@ type service struct {
 	Client *resty.Client
 }
 
-// NewClient creates a new client for opampcommander's apiserver.
-func NewClient(endpoint string, opt ...Option) *Client {
+// New creates a new client for opampcommander's apiserver.
+func New(endpoint string, opt ...Option) *Client {
 	service := service{
 		Client: resty.New().SetBaseURL(endpoint),
 	}
