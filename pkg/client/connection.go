@@ -14,12 +14,24 @@ const (
 	GetConnectionPath = "/api/v1/connections/:id"
 )
 
+// ConnectionService provides methods to interact with connection resources.
+type ConnectionService struct {
+	service *service
+}
+
+// NewConnectionService creates a new ConnectionService.
+func NewConnectionService(service *service) *ConnectionService {
+	return &ConnectionService{
+		service: service,
+	}
+}
+
 // GetConnection retrieves a connection by its ID.
-func (c *Client) GetConnection(id uuid.UUID) (*connectionv1.Connection, error) {
-	return getResource[connectionv1.Connection](c, GetConnectionPath, id)
+func (s *ConnectionService) GetConnection(id uuid.UUID) (*connectionv1.Connection, error) {
+	return getResource[connectionv1.Connection](s.service, GetConnectionPath, id)
 }
 
 // ListConnections lists all connections.
-func (c *Client) ListConnections() ([]*connectionv1.Connection, error) {
-	return listResources[*connectionv1.Connection](c, ListConnectionsPath)
+func (s *ConnectionService) ListConnections() ([]*connectionv1.Connection, error) {
+	return listResources[*connectionv1.Connection](s.service, ListConnectionsPath)
 }

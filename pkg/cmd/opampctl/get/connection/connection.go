@@ -12,6 +12,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
 )
 
 // CommandOptions contains the options for the connection command.
@@ -48,7 +49,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare prepares the command.
 func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
-	opt.client = client.NewClient(opt.Endpoint)
+	opt.client = client.New(configutil.GetCurrentOpAMPCommanderEndpoint(opt.GlobalConfig))
 
 	return nil
 }
@@ -74,7 +75,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the connection information for all connections.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	connections, err := opt.client.ListConnections()
+	connections, err := opt.client.ConnectionService.ListConnections()
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -97,7 +98,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 
 	for _, connectionID := range connectionIDs {
-		connection, err := opt.client.GetConnection(connectionID)
+		connection, err := opt.client.ConnectionService.GetConnection(connectionID)
 		if err != nil {
 			return fmt.Errorf("failed to get agent: %w", err)
 		}

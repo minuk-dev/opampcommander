@@ -12,6 +12,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
 )
 
 // CommandOptions contains the options for the agent command.
@@ -48,7 +49,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare prepares the command to run.
 func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
-	opt.client = client.NewClient(opt.Endpoint)
+	opt.client = client.New(
+		configutil.GetCurrentOpAMPCommanderEndpoint(opt.GlobalConfig),
+	)
 
 	return nil
 }
@@ -74,7 +77,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agents, err := opt.client.ListAgents()
+	agents, err := opt.client.AgentService.ListAgents()
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -97,7 +100,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 
 	for _, instanceUID := range instanceUIDs {
-		agent, err := opt.client.GetAgent(instanceUID)
+		agent, err := opt.client.AgentService.GetAgent(instanceUID)
 		if err != nil {
 			return fmt.Errorf("failed to get agent: %w", err)
 		}

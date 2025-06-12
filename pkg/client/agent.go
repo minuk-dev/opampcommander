@@ -13,12 +13,24 @@ const (
 	GetAgentURL = "/api/v1/agents/:id"
 )
 
+// AgentService provides methods to interact with agents.
+type AgentService struct {
+	service *service
+}
+
+// NewAgentService creates a new AgentService.
+func NewAgentService(service *service) *AgentService {
+	return &AgentService{
+		service: service,
+	}
+}
+
 // GetAgent retrieves an agent by its ID.
-func (c *Client) GetAgent(id uuid.UUID) (*agentv1.Agent, error) {
-	return getResource[agentv1.Agent](c, GetAgentURL, id)
+func (s *AgentService) GetAgent(id uuid.UUID) (*agentv1.Agent, error) {
+	return getResource[agentv1.Agent](s.service, GetAgentURL, id)
 }
 
 // ListAgents lists all agents.
-func (c *Client) ListAgents() ([]*agentv1.Agent, error) {
-	return listResources[*agentv1.Agent](c, ListAgentURL)
+func (s *AgentService) ListAgents() ([]*agentv1.Agent, error) {
+	return listResources[*agentv1.Agent](s.service, ListAgentURL)
 }
