@@ -17,9 +17,9 @@ import (
 
 const (
 	// DirectoryPermission defines the permission for directories created by the init command.
-	DirectoryPermission = 0o755 // Permission for directories
+	DirectoryPermission = 0755 // Permission for directories
 	// ConfigFilePermission defines the permission for configuration files created by the init command.
-	ConfigFilePermission = 0o600 // Permission for configuration files
+	ConfigFilePermission = 0600 // Permission for configuration files
 )
 
 var (

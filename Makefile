@@ -4,8 +4,17 @@ GOARCH := $(shell go env GOARCH)
 lint:
 	golangci-lint run
 
-dev:
+lint-fix:
+	golangci-lint run --fix
+
+prebuilt-doc:
+	swag init --pd -o ./pkg/app/docs -g ./cmd/apiserver/main.go
+
+build-dev:
 	GOOS="darwin" GOARCH="arm64" goreleaser build --snapshot --clean --single-target
+
+dev:
+	go run ./cmd/apiserver/main.go
 
 run-dev-server: dev
 	./scripts/etcd/etcd && ./dist/apiserver_$(GOOS)_$(GOARCH)/apiserver
