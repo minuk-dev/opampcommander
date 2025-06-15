@@ -13,7 +13,7 @@ import (
 	"golang.org/x/oauth2"
 	oauth2github "golang.org/x/oauth2/github"
 
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 // Usecase defines the use case for the security package.
