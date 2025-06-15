@@ -30,9 +30,6 @@ func TestConnectionController_List(t *testing.T) {
 	t.Run("List Connections - happycase", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		ctrlBase := testutil.NewBase(t).ForController()
 		adminUsecase := newMockAdminUsecase(t)
 		controller := connection.NewController(adminUsecase)
@@ -56,7 +53,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/connections", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/connections", nil)
 		require.NoError(t, err)
 
 		// then
@@ -69,9 +66,6 @@ func TestConnectionController_List(t *testing.T) {
 	t.Run("List Connections - error case", func(t *testing.T) {
 		t.Parallel()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		ctrlBase := testutil.NewBase(t).ForController()
 		adminUsecase := newMockAdminUsecase(t)
 		controller := connection.NewController(adminUsecase)
@@ -83,7 +77,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/connections", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/connections", nil)
 		require.NoError(t, err)
 
 		// then

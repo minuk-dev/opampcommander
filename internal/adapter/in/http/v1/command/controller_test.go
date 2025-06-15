@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -37,9 +36,6 @@ func TestCommandController_Get(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// given
 		commandID := uuid.New()
 		//exhaustruct:ignore
@@ -50,7 +46,7 @@ func TestCommandController_Get(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands/"+commandID.String(), nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands/"+commandID.String(), nil)
 		require.NoError(t, err)
 
 		// then
@@ -69,12 +65,9 @@ func TestCommandController_Get(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands/invalid-id", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands/invalid-id", nil)
 		require.NoError(t, err)
 
 		// then
@@ -91,16 +84,13 @@ func TestCommandController_Get(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// given
 		commandID := uuid.New()
 		commandUsecase.On("GetCommand", mock.Anything, commandID).Return((*model.Command)(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands/"+commandID.String(), nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands/"+commandID.String(), nil)
 		require.NoError(t, err)
 
 		// then
@@ -121,9 +111,6 @@ func TestCommandController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// given
 		commands := []*model.Command{
 			{ID: uuid.New()},
@@ -133,7 +120,7 @@ func TestCommandController_List(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands", nil)
 		require.NoError(t, err)
 
 		// then
@@ -152,15 +139,12 @@ func TestCommandController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// given
 		commandUsecase.On("ListCommands", mock.Anything).Return(([]*model.Command)(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/commands", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands", nil)
 		require.NoError(t, err)
 
 		// then

@@ -42,7 +42,7 @@ func TestCommand(t *testing.T) {
 		"--database.endpoints", *etcd.Endpoint,
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	var waitGroup sync.WaitGroup
