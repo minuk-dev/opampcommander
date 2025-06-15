@@ -8,6 +8,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/apiserver"
 )
 
+// @title OpAMP Commander API Server
+// @version 1.0
+// @description	This is the API server for OpAMP Commander, providing endpoints for managing OpAMP agents.
+// @termsOfService http://swagger.io/terms/
 func main() {
 	//exhaustruct:ignore
 	options := apiserver.CommandOption{}

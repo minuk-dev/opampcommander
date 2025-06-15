@@ -1,0 +1,28 @@
+currentContext: default-1
+contexts:
+- name: default-1
+  cluster: default
+  user: admin
+- name: default-2
+  cluster: default
+  user: user
+- name: default-3
+  cluster: default
+  user: manual
+users:
+- name: admin
+  auth:
+    type: basic
+    username: admin
+    password: admin
+- name: user
+  auth:
+    type: github
+- name: manual
+  auth:
+    type: manual
+    bearerToken: "<your-bearer-token>"
+clusters:
+- name: default
+  opampcommander:
+    endpoint: http://localhost:8080

@@ -71,6 +71,19 @@ func (b *Base) UseEtcd(config any) *Etcd {
 	return etcd
 }
 
+// Etcd represents an etcd instance for testing purposes.
+// It provides methods to start, stop, and check the status of the etcd instance.
+type Etcd struct {
+	Base *Base
+
+	Target string
+	Binary string
+
+	Endpoint *string
+
+	result *icmd.Result
+}
+
 // NewEtcd creates a new instance of Etcd.
 func NewEtcd(base *Base) *Etcd {
 	base.t.Helper()
@@ -384,19 +397,6 @@ func alreadyInstalled(binaryFile string) bool {
 	_, err := exec.LookPath(binaryFile)
 
 	return err == nil
-}
-
-// Etcd represents an etcd instance for testing purposes.
-// It provides methods to start, stop, and check the status of the etcd instance.
-type Etcd struct {
-	Base *Base
-
-	Target string
-	Binary string
-
-	Endpoint *string
-
-	result *icmd.Result
 }
 
 // Name returns the name of the etcd instance.

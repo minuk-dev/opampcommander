@@ -53,6 +53,17 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 }
 
 // Get retrieves a command by its ID.
+//
+// @Summary  Get Command
+// @Tags command
+// @Description  Retrieve a command by its ID.
+// @Accept  json
+// @Produce json
+// @Param   id  path  string  true  "Command ID"
+// @Success 200 {object} commandv1.Command
+// @Failure 400 {object} map[string]any "Invalid command ID"
+// @Failure 500 {object} map[string]any "Failed to get command"
+// @Router /api/v1/commands/{id} [get].
 func (c *Controller) Get(ctx *gin.Context) {
 	commandID := ctx.Param("id")
 
@@ -74,6 +85,15 @@ func (c *Controller) Get(ctx *gin.Context) {
 }
 
 // List retrieves a list of commands.
+//
+// @Summary  List Commands
+// @Tags command
+// @Description  Retrieve a list of commands.
+// @Accept  json
+// @Produce json
+// @Success 200 {array} commandv1.Command
+// @Failure 500 {object} map[string]any "Failed to list commands"
+// @Router /api/v1/commands [get].
 func (c *Controller) List(ctx *gin.Context) {
 	commands, err := c.commandUsecase.ListCommands(ctx)
 	if err != nil {

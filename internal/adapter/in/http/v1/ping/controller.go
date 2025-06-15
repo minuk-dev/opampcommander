@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	pingv1 "github.com/minuk-dev/opampcommander/api/v1/ping"
 )
 
 // Controller is a struct that implements the ping controller.
@@ -37,7 +39,18 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 }
 
 // Handle handles the ping request.
+//
+// @Summary  Ping
+// @Tags ping
+// @Description Ping the server to check if it is alive.
+// @Accept json
+// @Produce json
+// @Success 200 {object} pingv1.Response
+// @Failure 500 {object} gin.H
+// @Router /api/v1/ping [get].
 func (c *Controller) Handle(ctx *gin.Context) {
 	c.logger.Info("handling request")
-	ctx.JSON(http.StatusOK, gin.H{"message": "pong"})
+	ctx.JSON(http.StatusOK, pingv1.Response{
+		Message: "pong",
+	})
 }

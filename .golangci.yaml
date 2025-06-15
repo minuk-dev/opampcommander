@@ -1,12 +1,15 @@
 version: "2"
 linters:
   default: all
+  exclusions:
+    paths:
+      - "pkg/app/docs/docs.go" # Generated file for Swagger documentation
   settings:
     cyclop:
-      max-complexity: 15 # default: 10
+      max-complexity: 15 # default: 10, but too strict
     varnamelen:
-      ignore-type-assert-ok: true # default: false
-      ignore-map-index-ok: true # default: false
+      ignore-type-assert-ok: true # default: false, but it's common in Go
+      ignore-map-index-ok: true # default: false, but it's common in Go
     ireturn:
       allow:
         - generic
@@ -28,6 +31,7 @@ linters:
             - github.com/samber/lo
             - github.com/spf13/cobra
             - github.com/spf13/viper
+            - github.com/spf13/afero
             - go.uber.org/fx
             - github.com/google/uuid
             - github.com/open-telemetry/opamp-go/protobufs
@@ -41,6 +45,8 @@ linters:
             - golang.org/x/oauth2/github
             - github.com/golang-jwt/jwt/v5
             - github.com/google/go-github/v72/github
+            - github.com/swaggo/files
+            - github.com/swaggo/gin-swagger
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code
@@ -51,6 +57,7 @@ linters:
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
+            - github.com/spf13/afero
             - github.com/gin-gonic/gin
             - github.com/stretchr/testify/assert
             - github.com/stretchr/testify/require
