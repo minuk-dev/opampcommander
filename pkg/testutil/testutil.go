@@ -34,7 +34,7 @@ type Dependency interface {
 func NewBase(tb testing.TB) *Base {
 	tb.Helper()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(tb.Context())
 
 	tb.Cleanup(func() {
 		cancel()

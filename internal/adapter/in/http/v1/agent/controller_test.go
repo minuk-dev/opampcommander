@@ -40,7 +40,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		// given
 		instanceUIDs := []uuid.UUID{uuid.New(), uuid.New()}
@@ -77,7 +77,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 		// given
 		agentUsecase.On("ListAgents", mock.Anything).Return([]*model.Agent{}, nil)
@@ -102,7 +102,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// given
@@ -129,7 +129,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// given
@@ -160,7 +160,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// given
@@ -188,7 +188,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/agents/not-a-uuid", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/not-a-uuid", nil)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -204,7 +204,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// given
@@ -233,7 +233,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// given
@@ -262,7 +262,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// when
@@ -286,7 +286,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		// given
