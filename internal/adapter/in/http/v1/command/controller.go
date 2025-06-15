@@ -55,7 +55,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // Get retrieves a command by its ID.
 //
 // @Summary  Get Command
-// @Schemes
+// @Tags command
 // @Description  Retrieve a command by its ID.
 // @Accept  json
 // @Produce json
@@ -87,7 +87,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // List retrieves a list of commands.
 //
 // @Summary  List Commands
-// @Schemes
+// @Tags command
 // @Description  Retrieve a list of commands.
 // @Accept  json
 // @Produce json

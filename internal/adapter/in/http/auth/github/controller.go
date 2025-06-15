@@ -69,7 +69,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // HTTPAuth handles the HTTP request for GitHub OAuth2 authentication.
 //
 // @Summary  GitHub OAuth2 Authentication
-// @Schemes
+// @Tags auth, github
 // @Description Redirects to GitHub for OAuth2 authentication.
 // @Accept   json
 // @Produce  json
@@ -93,7 +93,7 @@ func (c *Controller) HTTPAuth(ctx *gin.Context) {
 // APIAuth handles the API request for GitHub OAuth2 authentication.
 //
 // @Summary  GitHub OAuth2 Authentication
-// @Schemes
+// @Tags auth, github
 // @Description Returns the GitHub OAuth2 authentication URL.
 // @Accept json
 // @Produce json
@@ -120,7 +120,7 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 // Callback handles the callback from GitHub after the user has authenticated.
 //
 // @Summary	GitHub OAuth2 Callback
-// @Schemes
+// @Tags auth, github
 // @Description Exchanges the code received from GitHub for an authentication token.
 // @Accept json
 // @Produce json
@@ -151,7 +151,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 // GetDeviceAuth handles the request to get device authentication information.
 //
 // @Summary GitHub Device Authentication
-// @Schemes
+// @Tags auth, github
 // @Description Initiates device authorization for GitHub OAuth2.
 // @Accept json
 // @Produce json
@@ -183,7 +183,7 @@ func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
 // It expects the request to contain a device code and an optional expiry time.
 //
 // @Summary  GitHub Device Code Exchange
-// @Schemes
+// @Tags auth, github
 // @Description Exchanges a device code for an authentication token.
 // @Accept json
 // @Produce json

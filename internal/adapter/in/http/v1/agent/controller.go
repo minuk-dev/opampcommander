@@ -65,7 +65,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // List retrieves a list of agents.
 //
 // @Summary  List Agents
-// @Schemes
+// @Tags agent
 // @Description Retrieve a list of agents.
 // @Accept json
 // @Produce json
@@ -94,7 +94,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // Get retrieves an agent by its instance UID.
 //
 // @Summary  Get Agent
-// @Schemes
+// @Tags agent
 // @Description Retrieve an agent by its instance UID.
 // @Accept  json
 // @Produce  json
@@ -139,7 +139,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // UpdateAgentConfig creates a new command to update the agent configuration.
 //
 // @Summary  Update Agent Configuration
-// @Schemes
+// @Tags agent
 // @Description Create a new command to update the agent configuration.
 // @Accept  json
 // @Produce  json

@@ -50,8 +50,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 
 // List handles the request to list all connections.
 //
-// @Summary  List Connections
-// @Schemes
+// @Summary List Connections
+// @Tags connection
 // @Description  Retrieve a list of all connections.
 // @Accept  json
 // @Produce json

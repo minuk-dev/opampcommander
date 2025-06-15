@@ -45,7 +45,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // It expects the request to contain basic auth credentials in the format "username:password".
 //
 // @Summary Basic Authentication
-// @Schemes
+// @Tags auth, basic
 // @Description Authenticate using basic auth credentials.
 // @Accept json
 // @Produce json

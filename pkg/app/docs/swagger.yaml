@@ -123,6 +123,8 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: List Agents
+      tags:
+      - agent
   /api/v1/agents/{id}:
     get:
       consumes:
@@ -154,6 +156,8 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Get Agent
+      tags:
+      - agent
   /api/v1/agents/{id}/update-agent-config:
     post:
       consumes:
@@ -187,6 +191,8 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Update Agent Configuration
+      tags:
+      - agent
   /api/v1/auth/basic:
     get:
       consumes:
@@ -205,6 +211,9 @@ paths:
             additionalProperties: true
             type: object
       summary: Basic Authentication
+      tags:
+      - auth
+      - basic
   /api/v1/auth/github:
     get:
       consumes:
@@ -223,6 +232,9 @@ paths:
             additionalProperties: true
             type: object
       summary: GitHub OAuth2 Authentication
+      tags:
+      - auth
+      - github
   /api/v1/auth/github/device:
     get:
       consumes:
@@ -241,6 +253,9 @@ paths:
             additionalProperties: true
             type: object
       summary: GitHub Device Authentication
+      tags:
+      - auth
+      - github
   /api/v1/auth/github/device/exchange:
     get:
       consumes:
@@ -274,6 +289,9 @@ paths:
             additionalProperties: true
             type: object
       summary: GitHub Device Code Exchange
+      tags:
+      - auth
+      - github
   /api/v1/commands:
     get:
       consumes:
@@ -294,6 +312,8 @@ paths:
             additionalProperties: true
             type: object
       summary: List Commands
+      tags:
+      - command
   /api/v1/commands/{id}:
     get:
       consumes:
@@ -323,6 +343,8 @@ paths:
             additionalProperties: true
             type: object
       summary: Get Command
+      tags:
+      - command
   /api/v1/connections:
     get:
       consumes:
@@ -342,6 +364,8 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: List Connections
+      tags:
+      - connection
   /api/v1/ping:
     get:
       consumes:
@@ -359,6 +383,8 @@ paths:
           schema:
             $ref: '#/definitions/gin.H'
       summary: Ping
+      tags:
+      - ping
   /auth/github:
     get:
       consumes:
@@ -375,6 +401,9 @@ paths:
             additionalProperties: true
             type: object
       summary: GitHub OAuth2 Authentication
+      tags:
+      - auth
+      - github
   /auth/github/callback:
     get:
       consumes:
@@ -404,4 +433,7 @@ paths:
             additionalProperties: true
             type: object
       summary: GitHub OAuth2 Callback
+      tags:
+      - auth
+      - github
 swagger: "2.0"

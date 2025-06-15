@@ -41,9 +41,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // Handle handles the ping request.
 //
 // @Summary  Ping
-// @Schemes
-// @Description  Ping the server to check if it is alive.
-// @Accept  json
+// @Tags ping
+// @Description Ping the server to check if it is alive.
+// @Accept json
 // @Produce json
 // @Success 200 {object} pingv1.Response
 // @Failure 500 {object} gin.H

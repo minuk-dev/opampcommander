@@ -10,16 +10,16 @@ lint-fix:
 prebuilt-doc:
 	swag init --pd -o ./pkg/app/docs -g ./cmd/apiserver/main.go
 
-build-dev:
+build-dev: prebuilt-doc
 	GOOS="darwin" GOARCH="arm64" goreleaser build --snapshot --clean --single-target
 
-dev:
+dev: prebuilt-doc
 	go run ./cmd/apiserver/main.go
 
 run-dev-server: dev
 	./scripts/etcd/etcd && ./dist/apiserver_$(GOOS)_$(GOARCH)/apiserver
 
-build:
+build: prebuilt-doc
 	goreleaser build
 
 unittest:

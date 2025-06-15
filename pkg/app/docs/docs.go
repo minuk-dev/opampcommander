@@ -25,6 +25,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "agent"
+                ],
                 "summary": "List Agents",
                 "responses": {
                     "200": {
@@ -53,6 +56,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "agent"
                 ],
                 "summary": "Get Agent",
                 "parameters": [
@@ -100,6 +106,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "agent"
                 ],
                 "summary": "Update Agent Configuration",
                 "parameters": [
@@ -151,6 +160,10 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "auth",
+                    "basic"
+                ],
                 "summary": "Basic Authentication",
                 "responses": {
                     "200": {
@@ -177,6 +190,10 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
                 ],
                 "summary": "GitHub OAuth2 Authentication",
                 "responses": {
@@ -205,6 +222,10 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
                 "summary": "GitHub Device Authentication",
                 "responses": {
                     "200": {
@@ -231,6 +252,10 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
                 ],
                 "summary": "GitHub Device Code Exchange",
                 "parameters": [
@@ -281,6 +306,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "command"
+                ],
                 "summary": "List Commands",
                 "responses": {
                     "200": {
@@ -310,6 +338,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "command"
                 ],
                 "summary": "Get Command",
                 "parameters": [
@@ -354,6 +385,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "connection"
+                ],
                 "summary": "List Connections",
                 "responses": {
                     "200": {
@@ -383,6 +417,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "ping"
+                ],
                 "summary": "Ping",
                 "responses": {
                     "200": {
@@ -409,6 +446,10 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
                 "summary": "GitHub OAuth2 Authentication",
                 "responses": {
                     "302": {
@@ -432,6 +473,10 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
                 ],
                 "summary": "GitHub OAuth2 Callback",
                 "parameters": [
