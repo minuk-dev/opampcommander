@@ -94,7 +94,7 @@ func NewEtcd(base *Base) *Etcd {
 	if err != nil {
 		base.t.Logf("downloading etcd binary from cache directory: %s", base.CacheDir)
 
-		binary, err = installEtcd(base.ctx, base.CacheDir, DefaultEtcdVersion)
+		binary, err = installEtcd(base.t.Context(), base.CacheDir, DefaultEtcdVersion)
 		if err != nil {
 			base.t.Logf("etcd binary not found in PATH & cannot install: %v", err)
 		}
@@ -457,7 +457,7 @@ func (e *Etcd) Start() {
 	e.result = icmd.StartCmd(icmdCmd)
 	e.Base.Logger.Info("etcd pid: ", "pid", e.result.Cmd.Process.Pid)
 
-	err := e.WaitUntilReady(e.Base.ctx)
+	err := e.WaitUntilReady(e.Base.t.Context())
 	if err != nil {
 		e.Base.Logger.Warn("etcd is not ready", "error", err)
 	}
@@ -488,10 +488,10 @@ func (e *Etcd) IsAlive(ctx context.Context) bool {
 // IsReady checks if etcd is ready to serve requests.
 // readyz is a readiness endpoint of etcd since v3.4.29
 // ref. https://etcd.io/docs/v3.4/op-guide/monitoring/#health-check
-func (e *Etcd) IsReady() bool {
+func (e *Etcd) IsReady(ctx context.Context) bool {
 	readyEndpoint := must(url.JoinPath(*e.Endpoint, "/readyz"))
 
-	req, err := http.NewRequestWithContext(e.Base.ctx, http.MethodGet, readyEndpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, readyEndpoint, nil)
 	if err != nil {
 		e.Base.Logger.Error("failed to create request for readyz endpoint", "error", err)
 		e.Base.t.Fail()
@@ -532,7 +532,7 @@ func (e *Etcd) WaitUntilReady(ctx context.Context) error {
 		case <-ctx.Done():
 			return fmt.Errorf("context cancelled while waiting for etcd to be ready: %w", ctx.Err())
 		default:
-			if e.IsReady() {
+			if e.IsReady(ctx) {
 				e.Base.Logger.Info("etcd is ready")
 
 				return nil
@@ -555,7 +555,7 @@ func (e *Etcd) Stop() {
 		err := e.result.Cmd.Process.Signal(syscall.SIGTERM)
 		require.NoError(e.Base.t, err)
 
-		ctx, cancel := context.WithTimeout(e.Base.ctx, DefaultEtcdStartWaitTime)
+		ctx, cancel := context.WithTimeout(e.Base.t.Context(), DefaultEtcdStartWaitTime)
 		defer cancel()
 
 		stopCh := make(chan struct{})

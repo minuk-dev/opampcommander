@@ -2,18 +2,14 @@
 package testutil
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"testing"
 )
 
 // Base is a utility struct that provides common resources and utilities for testing.
-//
-//nolint:containedctx
 type Base struct {
-	t   testing.TB
-	ctx context.Context
+	t testing.TB
 
 	Logger       *slog.Logger
 	Dependencies map[string]Dependency
@@ -34,12 +30,6 @@ type Dependency interface {
 func NewBase(tb testing.TB) *Base {
 	tb.Helper()
 
-	ctx, cancel := context.WithCancel(tb.Context())
-
-	tb.Cleanup(func() {
-		cancel()
-	})
-
 	cacheDir, ok := os.LookupEnv("OPAMP_COMMANDER_TESTING_DIR")
 	if !ok {
 		cacheDir = tb.TempDir()
@@ -47,7 +37,6 @@ func NewBase(tb testing.TB) *Base {
 
 	return &Base{
 		t:            tb,
-		ctx:          ctx,
 		Logger:       slog.Default(),
 		Dependencies: make(map[string]Dependency),
 		CacheDir:     cacheDir,

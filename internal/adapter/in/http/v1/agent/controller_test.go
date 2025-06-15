@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -39,9 +38,6 @@ func TestAgentControllerListAgent(t *testing.T) {
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
-
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
 		// given
 		instanceUIDs := []uuid.UUID{uuid.New(), uuid.New()}
 		agents := []*model.Agent{
@@ -56,7 +52,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
 		require.NoError(t, err)
 
 		// then
@@ -77,14 +73,12 @@ func TestAgentControllerListAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
 		// given
 		agentUsecase.On("ListAgents", mock.Anything).Return([]*model.Agent{}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
 		require.NoError(t, err)
 
 		// then
@@ -102,14 +96,11 @@ func TestAgentControllerListAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// given
 		agentUsecase.On("ListAgents", mock.Anything).Return(([]*model.Agent)(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -129,9 +120,6 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// given
 		instanceUID := uuid.New()
 		//exhaustruct:ignore
@@ -141,7 +129,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return(agentData, nil)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -160,16 +148,13 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// given
 		instanceUID := uuid.New()
 
 		agentUsecase.On("GetAgent", mock.Anything, mock.Anything).Return((*model.Agent)(nil), port.ErrAgentNotExist)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -204,15 +189,12 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// given
 		instanceUID := uuid.New()
 		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return((*model.Agent)(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -233,9 +215,6 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
 
@@ -243,7 +222,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
 			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
 			strings.NewReader(requestBody))
 		require.NoError(t, err)
@@ -262,12 +241,9 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
 			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
 			strings.NewReader("invalid request body"))
 		require.NoError(t, err)
@@ -286,9 +262,6 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-		defer cancel()
-
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
 
@@ -296,7 +269,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
 			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
 			strings.NewReader(requestBody))
 		require.NoError(t, err)
