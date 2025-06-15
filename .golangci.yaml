@@ -3,7 +3,7 @@ linters:
   default: all
   exclusions:
     paths:
-      - "pkg/app/docs/docs.go" # Generated file for Swagger documentation
+      - "pkg/apiserver/docs/docs.go" # Generated file for Swagger documentation
   settings:
     cyclop:
       max-complexity: 15 # default: 10, but too strict

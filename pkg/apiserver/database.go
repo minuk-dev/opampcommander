@@ -1,4 +1,4 @@
-package app
+package apiserver
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 // Controller is an interface that defines the methods for handling HTTP requests.

@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/minuk-dev/opampcommander/pkg/app"
-	appconfig "github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver"
+	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 // CommandOption contains the options for the apiserver command.
@@ -64,7 +64,7 @@ type CommandOption struct {
 	viper *viper.Viper
 
 	// internal
-	app *app.Server
+	app *apiserver.Server
 }
 
 // NewCommand creates a new apiserver command.
@@ -161,7 +161,7 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 // Prepare prepares the command.
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	logLevel := toSlogLevel(opt.Log.Level)
-	opt.app = app.NewServer(appconfig.ServerSettings{
+	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address:           opt.Address,
 		DatabaesEndpoints: opt.Database.Endpoints,
 		LogLevel:          logLevel,

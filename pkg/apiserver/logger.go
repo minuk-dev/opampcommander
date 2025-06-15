@@ -1,10 +1,10 @@
-package app
+package apiserver
 
 import (
 	"log/slog"
 	"os"
 
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 // UnsupportedLogFormatError is an error type that indicates an unsupported log format.

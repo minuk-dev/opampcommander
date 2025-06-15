@@ -1,4 +1,4 @@
-package app
+package apiserver
 
 import (
 	"log/slog"
@@ -9,7 +9,7 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 
 	"github.com/minuk-dev/opampcommander/internal/security"
-	"github.com/minuk-dev/opampcommander/pkg/app/docs"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
 )
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.

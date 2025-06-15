@@ -1,4 +1,4 @@
-package app
+package apiserver
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 const (

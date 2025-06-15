@@ -1,4 +1,4 @@
-package app
+package apiserver
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
 	"github.com/minuk-dev/opampcommander/internal/helper"
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 // NewConfigModule creates a new module for configuration.

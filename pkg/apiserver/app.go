@@ -1,5 +1,4 @@
-// Package app provides app logic for the opampcommander apiserver.
-package app
+package apiserver
 
 import (
 	"context"
@@ -10,7 +9,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/security"
-	"github.com/minuk-dev/opampcommander/pkg/app/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 const (
@@ -29,8 +28,8 @@ type Server struct {
 	settings config.ServerSettings
 }
 
-// NewServer creates a new instance of the Server struct.
-func NewServer(settings config.ServerSettings) *Server {
+// New creates a new instance of the Server struct.
+func New(settings config.ServerSettings) *Server {
 	app := fx.New(
 		// hexagonal architecture
 		NewInPortModule(),
