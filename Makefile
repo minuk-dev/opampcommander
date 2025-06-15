@@ -8,7 +8,7 @@ lint-fix:
 	golangci-lint run --fix
 
 prebuilt-doc:
-	swag init --pd -o ./pkg/apiserver/docs -g ./cmd/apiserver/main.go
+	swag init --v3.1 -o ./pkg/apiserver/docs -g ./cmd/apiserver/main.go
 
 build-dev: prebuilt-doc
 	GOOS="darwin" GOARCH="arm64" goreleaser build --snapshot --clean --single-target
