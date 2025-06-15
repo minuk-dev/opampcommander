@@ -5,8 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
+	swaggerfiles "github.com/swaggo/files"
+	ginswagger "github.com/swaggo/gin-swagger"
 
 	"github.com/minuk-dev/opampcommander/internal/security"
+	"github.com/minuk-dev/opampcommander/pkg/app/docs"
 )
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.
@@ -19,6 +22,10 @@ func NewEngine(
 	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
 	engine.Use(security.NewAuthJWTMiddleware(securityService))
+	// swagger
+	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
+
+	docs.SwaggerInfo.BasePath = "/"
 
 	for _, controller := range controllers {
 		routeInfo := controller.RoutesInfo()
