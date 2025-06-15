@@ -1,0 +1,407 @@
+definitions:
+  gin.H:
+    additionalProperties: {}
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_agent.Agent:
+    properties:
+      instanceUid:
+        description: InstanceUID is a unique identifier for the agent instance.
+        type: string
+      raw:
+        description: |-
+          Raw is a raw data of the agent.
+          It is used for debugging purposes.
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_agent.Command:
+    properties:
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      kind:
+        type: string
+      targetInstanceUid:
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_agent.UpdateAgentConfigRequest:
+    properties:
+      remoteConfig: {}
+    required:
+    - remoteConfig
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_auth.AuthnTokenResponse:
+    properties:
+      token:
+        description: Token is the authentication token.
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_auth.DeviceAuthnTokenResponse:
+    properties:
+      deviceCode:
+        description: DeviceCode
+        type: string
+      expiry:
+        description: Expiry is when the device code and user code expire
+        type: string
+      interval:
+        description: Interval is the duration in seconds that Poll should wait between
+          requests
+        type: integer
+      userCode:
+        description: UserCode is the code the user should enter at the verification
+          uri
+        type: string
+      verificationUri:
+        description: VerificationURI is where user should enter the user code
+        type: string
+      verificationUriComplete:
+        description: |-
+          VerificationURIComplete (if populated) includes the user code in the verification URI.
+          This is typically shown to the user in non-textual form, such as a QR code.
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_auth.OAuth2AuthCodeURLResponse:
+    properties:
+      url:
+        description: URL is the OAuth2 authorization URL.
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_command.Command:
+    properties:
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      kind:
+        type: string
+      targetInstanceUid:
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_connection.Connection:
+    properties:
+      alive:
+        type: boolean
+      id:
+        type: string
+      instanceUid:
+        type: string
+      lastCommunicatedAt:
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1_ping.Response:
+    properties:
+      message:
+        description: Message is the response message.
+        type: string
+    type: object
+info:
+  contact: {}
+  description: This is the API server for OpAMP Commander, providing endpoints for
+    managing OpAMP agents.
+  termsOfService: http://swagger.io/terms/
+  title: OpAMP Commander API Server
+  version: "1.0"
+paths:
+  /api/v1/agents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of agents.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_agent.Agent'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: List Agents
+  /api/v1/agents/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve an agent by its instance UID.
+      parameters:
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_agent.Agent'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Get Agent
+  /api/v1/agents/{id}/update-agent-config:
+    post:
+      consumes:
+      - application/json
+      description: Create a new command to update the agent configuration.
+      parameters:
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Request body containing the remote configuration
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_agent.UpdateAgentConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_agent.Command'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/gin.H'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Update Agent Configuration
+  /api/v1/auth/basic:
+    get:
+      consumes:
+      - application/json
+      description: Authenticate using basic auth credentials.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_auth.AuthnTokenResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Basic Authentication
+  /api/v1/auth/github:
+    get:
+      consumes:
+      - application/json
+      description: Returns the GitHub OAuth2 authentication URL.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_auth.OAuth2AuthCodeURLResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: GitHub OAuth2 Authentication
+  /api/v1/auth/github/device:
+    get:
+      consumes:
+      - application/json
+      description: Initiates device authorization for GitHub OAuth2.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_auth.DeviceAuthnTokenResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: GitHub Device Authentication
+  /api/v1/auth/github/device/exchange:
+    get:
+      consumes:
+      - application/json
+      description: Exchanges a device code for an authentication token.
+      parameters:
+      - description: Device code to exchange
+        in: query
+        name: device_code
+        required: true
+        type: string
+      - description: Optional expiry time in RFC3339 format
+        in: query
+        name: expiry
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_auth.AuthnTokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: GitHub Device Code Exchange
+  /api/v1/commands:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of commands.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_command.Command'
+            type: array
+        "500":
+          description: Failed to list commands
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Commands
+  /api/v1/commands/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a command by its ID.
+      parameters:
+      - description: Command ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_command.Command'
+        "400":
+          description: Invalid command ID
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Failed to get command
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Command
+  /api/v1/connections:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all connections.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_connection.Connection'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: List Connections
+  /api/v1/ping:
+    get:
+      consumes:
+      - application/json
+      description: Ping the server to check if it is alive.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_ping.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/gin.H'
+      summary: Ping
+  /auth/github:
+    get:
+      consumes:
+      - application/json
+      description: Redirects to GitHub for OAuth2 authentication.
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Found
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: GitHub OAuth2 Authentication
+  /auth/github/callback:
+    get:
+      consumes:
+      - application/json
+      description: Exchanges the code received from GitHub for an authentication token.
+      parameters:
+      - description: State parameter to prevent CSRF attacks
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Code received from GitHub after authentication
+        in: query
+        name: code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1_auth.AuthnTokenResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: GitHub OAuth2 Callback
+swagger: "2.0"
