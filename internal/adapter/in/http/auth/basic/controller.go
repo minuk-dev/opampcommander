@@ -49,7 +49,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description Authenticate using basic auth credentials.
 // @Accept json
 // @Produce json
-// @Success 200 {object} v1auth.AuthnTokenResponse
+// @Success 200 {object} AuthnTokenResponse
 // @Failure 401 {object} map[string]any
 // @Router /api/v1/auth/basic [get].
 func (c *Controller) BasicAuth(ctx *gin.Context) {

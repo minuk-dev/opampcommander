@@ -12,4 +12,4 @@ type Connection struct {
 	InstanceUID        uuid.UUID `json:"instanceUid"`
 	LastCommunicatedAt time.Time `json:"lastCommunicatedAt"`
 	Alive              bool      `json:"alive"`
-}
+} // @name Connection

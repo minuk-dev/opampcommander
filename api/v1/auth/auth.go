@@ -7,14 +7,14 @@ import "time"
 type AuthnTokenResponse struct {
 	// Token is the authentication token.
 	Token string `json:"token"`
-}
+} // @name AuthnTokenResponse
 
 // OAuth2AuthCodeURLResponse defines the response structure for OAuth2 authorization URL requests.
 // It contains the URL that the client should redirect to for OAuth2 authentication.
 type OAuth2AuthCodeURLResponse struct {
 	// URL is the OAuth2 authorization URL.
 	URL string `json:"url"`
-}
+} // @name OAuth2AuthCodeURLResponse
 
 // DeviceAuthnTokenResponse defines the response structure for device authentication token requests.
 // It is same to `oauth2.DeviceAuthResponse`.
@@ -32,4 +32,4 @@ type DeviceAuthnTokenResponse struct {
 	Expiry time.Time `json:"expiry,omitempty"`
 	// Interval is the duration in seconds that Poll should wait between requests
 	Interval int64 `json:"interval,omitempty"`
-}
+} // @name DeviceAuthnTokenResponse

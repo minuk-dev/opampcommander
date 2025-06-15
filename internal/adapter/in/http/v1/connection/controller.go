@@ -55,8 +55,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description  Retrieve a list of all connections.
 // @Accept  json
 // @Produce json
-// @Success 200 {array} connectionv1.Connection
-// @Failure 500 {object} gin.H
+// @Success 200 {array} Connection
+// @Failure 500 {object} map[string]any
 // @Router /api/v1/connections [get].
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()

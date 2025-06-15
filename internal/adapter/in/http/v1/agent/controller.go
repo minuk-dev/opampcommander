@@ -69,8 +69,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description Retrieve a list of agents.
 // @Accept json
 // @Produce json
-// @Success 200 {array} agentv1.Agent
-// @Failure 500 {object} gin.H
+// @Success 200 {array} Agent
+// @Failure 500 {object} map[string]any
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
 	agents, err := c.agentUsecase.ListAgents(ctx)
@@ -99,10 +99,10 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Accept  json
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
-// @Success  200 {object} agentv1.Agent
-// @Failure  400 {object} gin.H
-// @Failure  404 {object} gin.H
-// @Failure  500 {object} gin.H
+// @Success  200 {object} Agent
+// @Failure  400 {object} map[string]any
+// @Failure  404 {object} map[string]any
+// @Failure  500 {object} map[string]any
 // @Router  /api/v1/agents/{id} [get].
 func (c *Controller) Get(ctx *gin.Context) {
 	id := ctx.Param("id")
@@ -144,10 +144,10 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Accept  json
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
-// @Param  request body agentv1.UpdateAgentConfigRequest true "Request body containing the remote configuration"
-// @Success  201 {object} agentv1.Command
-// @Failure  400 {object} gin.H
-// @Failure  500 {object} gin.H
+// @Param  request body UpdateAgentConfigRequest true "Request body containing the remote configuration"
+// @Success  201 {object} Command
+// @Failure  400 {object} map[string]any
+// @Failure  500 {object} map[string]any
 // @Router  /api/v1/agents/{id}/update-agent-config [post].
 func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
 	id := ctx.Param("id")

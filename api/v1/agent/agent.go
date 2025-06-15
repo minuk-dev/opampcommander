@@ -5,4 +5,4 @@ package agent
 // It contains the target instance UID and the remote configuration data.
 type UpdateAgentConfigRequest struct {
 	RemoteConfig any `binding:"required" json:"remoteConfig"`
-}
+} // @name UpdateAgentConfigRequest
