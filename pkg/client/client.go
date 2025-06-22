@@ -19,13 +19,13 @@ type Client struct {
 }
 
 type service struct {
-	Client *resty.Client
+	Resty *resty.Client
 }
 
 // New creates a new client for opampcommander's apiserver.
 func New(endpoint string, opt ...Option) *Client {
 	service := service{
-		Client: resty.New().SetBaseURL(endpoint),
+		Resty: resty.New().SetBaseURL(endpoint),
 	}
 	client := &Client{
 		Endpoint: endpoint,
@@ -48,11 +48,16 @@ func New(endpoint string, opt ...Option) *Client {
 	return client
 }
 
+// SetAuthToken sets the authentication token for the client.
+func (c *Client) SetAuthToken(barearToken string) {
+	c.common.Resty.SetAuthToken(barearToken)
+}
+
 // Generic function for GET requests.
 func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
 	var result T
 
-	res, err := c.Client.R().
+	res, err := c.Resty.R().
 		SetPathParam("id", id.String()).
 		SetResult(&result).
 		Get(url)
@@ -76,7 +81,7 @@ func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
 func listResources[T any](c *service, url string) ([]T, error) {
 	var result []T
 
-	res, err := c.Client.R().
+	res, err := c.Resty.R().
 		SetResult(&result).
 		Get(url)
 	if err != nil {

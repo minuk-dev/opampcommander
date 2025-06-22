@@ -3,6 +3,11 @@ package auth
 
 import "time"
 
+// InfoResponse defines the response structure for authentication info.
+type InfoResponse struct {
+	Email string `json:"email"`
+} // @name InfoResponse
+
 // AuthnTokenResponse defines the response structure for authentication token requests.
 type AuthnTokenResponse struct {
 	// Token is the authentication token.

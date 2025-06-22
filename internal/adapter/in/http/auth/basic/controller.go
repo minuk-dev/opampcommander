@@ -76,3 +76,27 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		Token: token,
 	})
 }
+
+// Info handles the HTTP request to get auth info.
+//
+// @Summary Info
+// @Tags auth, basic
+// @Description Get Authentication Info.
+// @Produce json
+// @Success 200 {object} InfoResponse
+// @Failure 401 {object} map[string]any
+// @Router /api/v1/auth/info [get].
+func (c *Controller) Info(ctx *gin.Context) {
+	user := security.GetUser(ctx)
+	if user == nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to fetch user",
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, v1auth.InfoResponse{
+		Email: *user.Email,
+	})
+}

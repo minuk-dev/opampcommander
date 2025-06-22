@@ -14,6 +14,8 @@ const (
 	GithubAuthExchangeDeviceAuthAPIURL = "/api/v1/auth/github/device/exchange"
 	// BasicAuthAPIURL is the API URL for basic authentication.
 	BasicAuthAPIURL = "/api/v1/auth/basic"
+	// InfoAPIURL is the API URL to fetch auth info.
+	InfoAPIURL = "/api/v1/auth/info"
 )
 
 // AuthService provides methods to interact with authentication resources.
@@ -28,11 +30,35 @@ func NewAuthService(service *service) *AuthService {
 	}
 }
 
+// GetInfo retrieves authentication information from the server.
+func (s *AuthService) GetInfo() (*v1auth.InfoResponse, error) {
+	var authInfo v1auth.InfoResponse
+
+	res, err := s.service.Resty.R().
+		SetResult(&authInfo).
+		Get(InfoAPIURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get auth info: %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to get auth info: %w", &ResponseError{
+			StatusCode: res.StatusCode(),
+		})
+	}
+
+	if res.Result() == nil {
+		return nil, fmt.Errorf("failed to get auth info: %w", ErrEmptyResponse)
+	}
+
+	return &authInfo, nil
+}
+
 // GetAuthTokenByBasicAuth retrieves an authentication token using basic authentication.
 func (s *AuthService) GetAuthTokenByBasicAuth(username, password string) (*v1auth.AuthnTokenResponse, error) {
 	var authToken v1auth.AuthnTokenResponse
 
-	res, err := s.service.Client.R().
+	res, err := s.service.Resty.R().
 		SetResult(&authToken).
 		SetBasicAuth(username, password).
 		Get(BasicAuthAPIURL)
@@ -57,7 +83,7 @@ func (s *AuthService) GetAuthTokenByBasicAuth(username, password string) (*v1aut
 func (s *AuthService) GetDeviceAuthToken() (*v1auth.DeviceAuthnTokenResponse, error) {
 	var deviceAuthToken v1auth.DeviceAuthnTokenResponse
 
-	res, err := s.service.Client.R().
+	res, err := s.service.Resty.R().
 		SetResult(&deviceAuthToken).
 		Get(GithubAuthDeviceAuthAPIURL)
 	if err != nil {
@@ -81,7 +107,7 @@ func (s *AuthService) GetDeviceAuthToken() (*v1auth.DeviceAuthnTokenResponse, er
 func (s *AuthService) ExchangeDeviceAuthToken(deviceCode string, expiry time.Time) (*v1auth.AuthnTokenResponse, error) {
 	var authToken v1auth.AuthnTokenResponse
 
-	req := s.service.Client.R().
+	req := s.service.Resty.R().
 		SetResult(&authToken).
 		SetQueryParam("device_code", deviceCode)
 

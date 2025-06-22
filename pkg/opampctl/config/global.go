@@ -1,10 +1,15 @@
 // Package config provides the configuration for opampctl.
 package config
 
+import "path/filepath"
+
 // GlobalConfig contains the global configuration for opampctl.
 type GlobalConfig struct {
 	// ConfigFilename is the path to the configuration file.
 	ConfigFilename string `json:"-" mapstructure:"-" yaml:"-"`
+
+	// CacheDir is the directory where cached files are stored.
+	CacheDir string `json:"cacheDir" mapstructure:"cacheDir" yaml:"cacheDir"`
 
 	CurrentContext string    `json:"currentContext" mapstructure:"currentContext" yaml:"currentContext"`
 	Contexts       []Context `json:"contexts"       mapstructure:"contexts"       yaml:"contexts"`
@@ -13,10 +18,11 @@ type GlobalConfig struct {
 }
 
 // NewDefaultGlobalConfig creates a new GlobalConfig with default values.
-func NewDefaultGlobalConfig() *GlobalConfig {
+func NewDefaultGlobalConfig(homedir string) *GlobalConfig {
 	return &GlobalConfig{
-		ConfigFilename: "",
+		ConfigFilename: filepath.Join(homedir, ".opampcommander", "opampctl", "config.yaml"),
 		CurrentContext: "default",
+		CacheDir:       filepath.Join(homedir, ".opampcommander", "opampctl", "cache"),
 		Contexts: []Context{
 			{
 				Name:    "default",
@@ -72,6 +78,15 @@ type User struct {
 	Name string `json:"name" mapstructure:"name" yaml:"name"`
 	Auth Auth   `json:"auth" mapstructure:"auth" yaml:"auth"`
 }
+
+const (
+	// AuthTypeGithub indicates that the user is authenticated using GitHub.
+	AuthTypeGithub = "github"
+	// AuthTypeBasic indicates that the user is authenticated using basic authentication.
+	AuthTypeBasic = "basic"
+	// AuthTypeManual indicates that the user is authenticated using a manual method (e.g., bearer token).
+	AuthTypeManual = "manual"
+)
 
 // Auth represents the authentication method for a user in the opampctl configuration.
 type Auth struct {

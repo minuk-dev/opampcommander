@@ -58,6 +58,11 @@ func GetCurrentUser(config *config.GlobalConfig) *config.User {
 	return nil
 }
 
+// GetCurrentCacheDir retrieves the current cacheDir based on the current user from the global configuration.
+func GetCurrentCacheDir(config *config.GlobalConfig) string {
+	return config.CacheDir
+}
+
 // GetCurrentOpAMPCommanderEndpoint retrieves the OpAMP Commander endpoint for the current cluster
 // from the global configuration.
 func GetCurrentOpAMPCommanderEndpoint(config *config.GlobalConfig) string {

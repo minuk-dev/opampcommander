@@ -31,10 +31,11 @@ func NewAuthJWTMiddleware(
 	service *Service,
 ) gin.HandlerFunc {
 	var (
-		authenticatedPrefixList = []string{
-			"/api/v1/agents",
-			"/api/v1/connections",
-			"/api/v1/commands",
+		bypassPrefix = []string{
+			"/api/v1/auth",
+		}
+		authenticatedPrefix = []string{
+			"/api/v1",
 		}
 	)
 
@@ -63,16 +64,14 @@ func NewAuthJWTMiddleware(
 		}
 
 		if !user.Authenticated {
-			// Check if the request path is in the authenticated prefix list
-			for _, prefix := range authenticatedPrefixList {
-				if strings.HasPrefix(ctx.Request.URL.Path, prefix) {
-					// If the path requires authentication, return 401 Unauthorized
-					ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-						"error": "unauthorized",
-					})
+			if !hasAnyPrefix(ctx.Request.URL.Path, bypassPrefix) &&
+				hasAnyPrefix(ctx.Request.URL.Path, authenticatedPrefix) {
+				// If the path requires authentication, return 401 Unauthorized
+				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": "unauthorized",
+				})
 
-					return
-				}
+				return
 			}
 		}
 		// Save the user in the context
@@ -88,4 +87,14 @@ func saveUser(ctx *gin.Context, user *User) {
 	}
 
 	ctx.Set("user", user)
+}
+
+func hasAnyPrefix(path string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+
+	return false
 }
