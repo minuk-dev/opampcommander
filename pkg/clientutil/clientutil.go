@@ -24,10 +24,32 @@ const (
 	BarearTokenKey = "barear"
 )
 
-var (
-	// ErrNoCachedBarearToken is returned when there is no cached barear token available.
-	ErrNoCachedBarearToken = errors.New("no cached barear token")
-)
+// NewClient creates a new authenticated Client.
+func NewClient(
+	config *config.GlobalConfig,
+	writer io.Writer,
+	logger *slog.Logger,
+) (*client.Client, error) {
+	cli, err := NewAuthedClient(config)
+	if err != nil {
+		if errors.Is(err, filecache.ErrNoCachedKey) {
+			cli, err = NewAuthedClientByIssuingTokenInCli(
+				config,
+				writer,
+				logger,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create authenticated client: %w", err)
+			}
+
+			return cli, nil
+		}
+
+		return nil, fmt.Errorf("failed to create authenticated client: %w", err)
+	}
+
+	return cli, nil
+}
 
 // NewAuthedClient creates a new authenticated OpAMP client using the cached barear token.
 // It retrieves the token from the file cache and initializes the client with it.

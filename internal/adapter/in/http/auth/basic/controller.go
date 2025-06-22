@@ -38,6 +38,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.github.BasicAuth",
 			HandlerFunc: c.BasicAuth,
 		},
+		{
+			Method:      "GET",
+			Path:        "/api/v1/auth/info",
+			Handler:     "http.github.Info",
+			HandlerFunc: c.Info,
+		},
 	}
 }
 

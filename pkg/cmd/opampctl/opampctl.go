@@ -12,6 +12,7 @@ import (
 
 	configCmd "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/whoami"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -46,6 +47,9 @@ $HOME/.config/opampcommander/opampctl/config.yaml`)
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(configCmd.NewCommand(configCmd.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(whoami.NewCommand(whoami.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 

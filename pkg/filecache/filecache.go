@@ -2,10 +2,16 @@
 package filecache
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
 	"github.com/spf13/afero"
+)
+
+var (
+	// ErrNoCachedKey is returned when there is no cached key available.
+	ErrNoCachedKey = errors.New("no cached key")
 )
 
 // FileCache provides a simple file-based cache implementation.
@@ -36,6 +42,15 @@ func (fc *FileCache) GetFilename(id string) string {
 // Get retrieves data from the cache for a given key.
 func (fc *FileCache) Get(key string) ([]byte, error) {
 	filename := fc.GetFilename(key)
+
+	exists, err := afero.Exists(fc.filesystem, filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if cache file exists %s: %w", filename, err)
+	}
+
+	if !exists {
+		return nil, ErrNoCachedKey
+	}
 
 	data, err := afero.ReadFile(fc.filesystem, filename)
 	if err != nil {

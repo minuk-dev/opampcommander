@@ -59,6 +59,11 @@ components:
             This is typically shown to the user in non-textual form, such as a QR code.
           type: string
       type: object
+    auth.InfoResponse:
+      properties:
+        email:
+          type: string
+      type: object
     auth.OAuth2AuthCodeURLResponse:
       properties:
         url:
@@ -342,6 +347,27 @@ paths:
       tags:
       - auth
       - github
+  /api/v1/auth/info:
+    get:
+      description: Get Authentication Info.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/auth.InfoResponse'
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: Unauthorized
+      summary: Info
+      tags:
+      - auth
+      - basic
   /api/v1/commands:
     get:
       description: Retrieve a list of commands.

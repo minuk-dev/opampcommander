@@ -10,6 +10,9 @@ linters:
     varnamelen:
       ignore-type-assert-ok: true # default: false, but it's common in Go
       ignore-map-index-ok: true # default: false, but it's common in Go
+    exhaustruct:
+      exclude:
+        - '.+/cobra\.Command$'
     ireturn:
       allow:
         - generic
