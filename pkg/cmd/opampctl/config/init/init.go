@@ -50,6 +50,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 			err = options.Run(cmd, args)
 			if err != nil {
+				if errors.Is(err, ErrUserCancelled) {
+					return nil
+				}
+
 				return err
 			}
 

@@ -10,6 +10,7 @@ import (
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/client"
+	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
@@ -48,10 +49,16 @@ func NewCommand(options CommandOptions) *cobra.Command {
 }
 
 // Prepare prepares the command to run.
-func (opt *CommandOptions) Prepare(_ *cobra.Command, _ []string) error {
-	opt.client = client.New(
-		configutil.GetCurrentOpAMPCommanderEndpoint(opt.GlobalConfig),
-	)
+func (opt *CommandOptions) Prepare(cmd *cobra.Command, _ []string) error {
+	config := opt.GlobalConfig
+	logger := configutil.NewLogger(config)
+
+	client, err := clientutil.NewClient(config, cmd.OutOrStdout(), logger)
+	if err != nil {
+		return fmt.Errorf("failed to create authenticated client: %w", err)
+	}
+
+	opt.client = client
 
 	return nil
 }
