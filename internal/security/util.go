@@ -33,6 +33,7 @@ func NewAuthJWTMiddleware(
 	var (
 		bypassPrefix = []string{
 			"/api/v1/auth",
+			"/api/v1/ping",
 		}
 		authenticatedPrefix = []string{
 			"/api/v1",
