@@ -50,6 +50,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 			err = options.Run(cmd, args)
 			if err != nil {
+				if errors.Is(err, ErrUserCancelled) {
+					return nil
+				}
+
 				return err
 			}
 
@@ -171,7 +175,12 @@ func (opt *CommandOptions) writeDefaultConfig(cmd *cobra.Command, filesystem afe
 
 	encoder := yaml.NewEncoder(configFile)
 
-	defaultConfig := config.NewDefaultGlobalConfig()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	defaultConfig := config.NewDefaultGlobalConfig(homeDir)
 
 	err = encoder.Encode(defaultConfig)
 	if err != nil {

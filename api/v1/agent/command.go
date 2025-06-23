@@ -6,4 +6,4 @@ type Command struct {
 	ID                string         `json:"id"`
 	TargetInstanceUID string         `json:"targetInstanceUid"`
 	Data              map[string]any `json:"data"`
-}
+} // @name agentCommand

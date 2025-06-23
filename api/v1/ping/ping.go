@@ -5,4 +5,4 @@ package ping
 type Response struct {
 	// Message is the response message.
 	Message string `json:"message"`
-}
+} // @name PingResponse

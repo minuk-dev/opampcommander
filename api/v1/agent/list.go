@@ -11,4 +11,4 @@ type Agent struct {
 	// Raw is a raw data of the agent.
 	// It is used for debugging purposes.
 	Raw any `json:"raw"`
-}
+} // @name Agent

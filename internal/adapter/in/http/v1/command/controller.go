@@ -60,7 +60,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Accept  json
 // @Produce json
 // @Param   id  path  string  true  "Command ID"
-// @Success 200 {object} commandv1.Command
+// @Success 200 {object} Audit
 // @Failure 400 {object} map[string]any "Invalid command ID"
 // @Failure 500 {object} map[string]any "Failed to get command"
 // @Router /api/v1/commands/{id} [get].
@@ -91,7 +91,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Description  Retrieve a list of commands.
 // @Accept  json
 // @Produce json
-// @Success 200 {array} commandv1.Command
+// @Success 200 {array} CommandAudit
 // @Failure 500 {object} map[string]any "Failed to list commands"
 // @Router /api/v1/commands [get].
 func (c *Controller) List(ctx *gin.Context) {
@@ -104,14 +104,14 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusOK,
-		lo.Map(commands, func(command *model.Command, _ int) *commandv1.Command {
+		lo.Map(commands, func(command *model.Command, _ int) *commandv1.Audit {
 			return convertToAPIModel(command)
 		}),
 	)
 }
 
-func convertToAPIModel(command *model.Command) *commandv1.Command {
-	return &commandv1.Command{
+func convertToAPIModel(command *model.Command) *commandv1.Audit {
+	return &commandv1.Audit{
 		Kind:              string(command.Kind),
 		ID:                command.ID.String(),
 		TargetInstanceUID: command.TargetInstanceUID.String(),

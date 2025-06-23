@@ -12,6 +12,7 @@ import (
 
 	configCmd "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/whoami"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -46,6 +47,9 @@ $HOME/.config/opampcommander/opampctl/config.yaml`)
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(configCmd.NewCommand(configCmd.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(whoami.NewCommand(whoami.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 
@@ -86,7 +90,7 @@ func (opt *CommandOption) PersistentPrepare(cmd *cobra.Command, _ []string) erro
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	err = opt.viper.Unmarshal(opt)
+	err = opt.viper.Unmarshal(opt.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}

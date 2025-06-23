@@ -38,6 +38,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.github.BasicAuth",
 			HandlerFunc: c.BasicAuth,
 		},
+		{
+			Method:      "GET",
+			Path:        "/api/v1/auth/info",
+			Handler:     "http.github.Info",
+			HandlerFunc: c.Info,
+		},
 	}
 }
 
@@ -49,7 +55,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description Authenticate using basic auth credentials.
 // @Accept json
 // @Produce json
-// @Success 200 {object} v1auth.AuthnTokenResponse
+// @Success 200 {object} AuthnTokenResponse
 // @Failure 401 {object} map[string]any
 // @Router /api/v1/auth/basic [get].
 func (c *Controller) BasicAuth(ctx *gin.Context) {
@@ -74,5 +80,29 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: token,
+	})
+}
+
+// Info handles the HTTP request to get auth info.
+//
+// @Summary Info
+// @Tags auth, basic
+// @Description Get Authentication Info.
+// @Produce json
+// @Success 200 {object} InfoResponse
+// @Failure 401 {object} map[string]any
+// @Router /api/v1/auth/info [get].
+func (c *Controller) Info(ctx *gin.Context) {
+	user := security.GetUser(ctx)
+	if user == nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to fetch user",
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, v1auth.InfoResponse{
+		Email: *user.Email,
 	})
 }

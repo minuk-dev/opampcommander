@@ -97,7 +97,7 @@ func (c *Controller) HTTPAuth(ctx *gin.Context) {
 // @Description Returns the GitHub OAuth2 authentication URL.
 // @Accept json
 // @Produce json
-// @Success 200 {object} v1auth.OAuth2AuthCodeURLResponse
+// @Success 200 {object} OAuth2AuthCodeURLResponse
 // @Failure 500 {object} map[string]any
 // @Router  /api/v1/auth/github [get].
 func (c *Controller) APIAuth(ctx *gin.Context) {
@@ -126,7 +126,7 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 // @Produce json
 // @Param state query string true "State parameter to prevent CSRF attacks"
 // @Param code query string true "Code received from GitHub after authentication"
-// @Success 200 {object} v1auth.AuthnTokenResponse
+// @Success 200 {object} AuthnTokenResponse
 // @Failure 500 {object} map[string]any
 // @Router /auth/github/callback [get].
 func (c *Controller) Callback(ctx *gin.Context) {
@@ -155,7 +155,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 // @Description Initiates device authorization for GitHub OAuth2.
 // @Accept json
 // @Produce json
-// @Success 200 {object} v1auth.DeviceAuthnTokenResponse
+// @Success 200 {object} DeviceAuthnTokenResponse
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/auth/github/device [get].
 func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
@@ -189,7 +189,7 @@ func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
 // @Produce json
 // @Param device_code query string true "Device code to exchange"
 // @Param expiry  query string false "Optional expiry time in RFC3339 format"
-// @Success 200 {object} v1auth.AuthnTokenResponse
+// @Success 200 {object} AuthnTokenResponse
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/auth/github/device/exchange [get].

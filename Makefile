@@ -11,7 +11,7 @@ prebuilt-doc:
 	swag init --v3.1 -o ./pkg/apiserver/docs -g ./cmd/apiserver/main.go
 
 build-dev: prebuilt-doc
-	GOOS="darwin" GOARCH="arm64" goreleaser build --snapshot --clean --single-target
+	goreleaser build --snapshot --clean --single-target
 
 dev: prebuilt-doc
 	go run ./cmd/apiserver/main.go
