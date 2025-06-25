@@ -36,6 +36,37 @@ spec:
         - name: config-volume
           mountPath: /etc/opampcommander
           readOnly: true
+        env:
+        - name: AUTH_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: apiserver-secrets
+              key: adminUsername
+        - name: AUTH_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: apiserver-secrets
+              key: adminPassword
+        - name: AUTH_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: apiserver-secrets
+              key: jwtSecret
+        - name: AUTH_OAUTH2_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: apiserver-secrets
+              key: oauth2ClientId
+        - name: AUTH_OAUTH2_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: apiserver-secrets
+              key: oauth2ClientSecret
+        - name: AUTH_OAUTH2_STATE_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: apiserver-secrets
+              key: oauth2StateJwtSecret
       volumes:
       - name: config-volume
         configMap:
@@ -59,28 +90,42 @@ data:
     auth:
       enabled: true
       admin:
-        username: "admin"
-        password: "admin_password"
+        username: # use environment variable. Please see secret
+        password: # use environment variable. Please see secret
       jwt:
         issuer: "opampcommander"
         expire: 5m
-        secret: "your_jwt_secret"
+        secret: # use environment variable. Please see secret
         audience:
         - "opampcommander"
       type: "oauth2"
       oauth2:
         provider: github
-        clientId: "your_client_id"
-        clientSecret: "your_client_secret"
-        redirectUri: "http://localhost:8080/auth/callback"
+        clientId: # use environment variable. Please see secret
+        clientSecret: # use environment variable. Please see secret
+        redirectUri: "https://opampcommander-apiserver.minuk.dev/api/v1/auth/callback"
         state: # to prevent CSRF attacks
           mode: jwt
           jwt:
             issuer: "opampcommander"
             expire: 5m
-            secret: "your_jwt_secret"
+            secret: # use environment variable. Please see secret
             audience:
             - "opampcommander"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: apiserver-secrets
+  namespace: opampcommander
+type: Opaque
+data:
+  adminUsername: admin
+  adminPassword: admin
+  jwtSecret: jwtsecret
+  oauth2ClientId: your_client_id
+  oauth2ClientSecret: your_client_secret
+  oauth2StateJwtSecret: state_jwt_secret
 ---
 apiVersion: v1
 kind: Service
