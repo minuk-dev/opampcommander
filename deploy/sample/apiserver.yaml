@@ -21,7 +21,7 @@ spec:
         image: minukdev/opampcommander:0.1.0
         command:
         - /apiserver
-        - --db-host=etcd.opampcommander.svc.cluster.local.:2379
+        - --config=/etc/opampcommander/config.yaml
         resources:
           requests:
             cpu: 100m
@@ -32,6 +32,55 @@ spec:
         ports:
         - containerPort: 8080
           name: http
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/opampcommander
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: apiserver-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apiserver-config
+  namespace: opampcommander
+data:
+  config.yaml: |
+    address: localhost:8080
+    database:
+      type: "etcd"
+      endpoints:
+      - "etcd.opampcommander.svc.cluster.local.:2379"
+    log:
+      level: "info"
+      format: "json"
+    auth:
+      enabled: true
+      admin:
+        username: "admin"
+        password: "admin_password"
+      jwt:
+        issuer: "opampcommander"
+        expire: 5m
+        secret: "your_jwt_secret"
+        audience:
+        - "opampcommander"
+      type: "oauth2"
+      oauth2:
+        provider: github
+        clientId: "your_client_id"
+        clientSecret: "your_client_secret"
+        redirectUri: "http://localhost:8080/auth/callback"
+        state: # to prevent CSRF attacks
+          mode: jwt
+          jwt:
+            issuer: "opampcommander"
+            expire: 5m
+            secret: "your_jwt_secret"
+            audience:
+            - "opampcommander"
 ---
 apiVersion: v1
 kind: Service
@@ -48,3 +97,14 @@ spec:
   selector:
     app: apiserver
   type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: apiserver-ingress
+  namespace: opampcommander
+spec:
+  rules:
+  - host: apiserver.opampcommander.local
+    http:
+      paths:
