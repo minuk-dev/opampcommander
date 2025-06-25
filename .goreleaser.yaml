@@ -37,16 +37,16 @@ builds:
 
 dockers:
   - image_templates:
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-amd64"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-amd64"
+      - "minukdev/opampcommander:{{ .Tag }}-amd64"
+      - "minukdev/opampcommander:{{ .Major }}-amd64"
     use: buildx
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
     dockerfile: build/docker/apiserver/Dockerfile
   - image_templates:
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-arm64"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Major }}-arm64"
+      - "minukdev/opampcommander:{{ .Tag }}-arm64"
+      - "minukdev/opampcommander:{{ .Major }}-arm64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -54,10 +54,10 @@ dockers:
     goarch: arm64
     dockerfile: build/docker/apiserver/Dockerfile
 docker_manifests:
-  - name_template: "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}"
+  - name_template: "minukdev/opampcommander:{{ .Tag }}"
     image_templates:
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-amd64"
-      - "harbor.minuk.dev/opampcommander/apiserver:{{ .Tag }}-arm64"
+      - "minukdev/opampcommander:{{ .Tag }}-amd64"
+      - "minukdev/opampcommander:{{ .Tag }}-arm64"
 
 release:
   github:
