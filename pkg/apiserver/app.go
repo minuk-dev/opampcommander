@@ -3,10 +3,12 @@ package apiserver
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -50,6 +52,11 @@ func New(settings config.ServerSettings) *Server {
 		// init
 		fx.Invoke(func(*http.Server) {}),
 		fx.Invoke(func(*Executor) {}),
+		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
+			return &fxevent.SlogLogger{
+				Logger: logger,
+			}
+		}),
 	)
 
 	server := &Server{
