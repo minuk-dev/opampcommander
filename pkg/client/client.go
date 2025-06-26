@@ -67,7 +67,8 @@ func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
 
 	if res.IsError() {
 		return nil, fmt.Errorf("failed to get resource: %w", &ResponseError{
-			StatusCode: res.StatusCode(),
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
 		})
 	}
 
@@ -90,7 +91,8 @@ func listResources[T any](c *service, url string) ([]T, error) {
 
 	if res.IsError() {
 		return nil, fmt.Errorf("failed to list resources(responseError): %w", &ResponseError{
-			StatusCode: res.StatusCode(),
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
 		})
 	}
 
