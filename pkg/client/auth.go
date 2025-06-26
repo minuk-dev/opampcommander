@@ -43,7 +43,8 @@ func (s *AuthService) GetInfo() (*v1auth.InfoResponse, error) {
 
 	if res.IsError() {
 		return nil, fmt.Errorf("failed to get auth info: %w", &ResponseError{
-			StatusCode: res.StatusCode(),
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
 		})
 	}
 
@@ -68,7 +69,8 @@ func (s *AuthService) GetAuthTokenByBasicAuth(username, password string) (*v1aut
 
 	if res.IsError() {
 		return nil, fmt.Errorf("failed to get auth token by basic auth: %w", &ResponseError{
-			StatusCode: res.StatusCode(),
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
 		})
 	}
 
@@ -92,7 +94,8 @@ func (s *AuthService) GetDeviceAuthToken() (*v1auth.DeviceAuthnTokenResponse, er
 
 	if res.IsError() {
 		return nil, fmt.Errorf("failed to get auth token by github: %w", &ResponseError{
-			StatusCode: res.StatusCode(),
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
 		})
 	}
 
@@ -122,7 +125,8 @@ func (s *AuthService) ExchangeDeviceAuthToken(deviceCode string, expiry time.Tim
 
 	if res.IsError() {
 		return nil, fmt.Errorf("failed to exchange device auth token: %w", &ResponseError{
-			StatusCode: res.StatusCode(),
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
 		})
 	}
 

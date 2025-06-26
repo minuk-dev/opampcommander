@@ -38,6 +38,8 @@ func NewLogger(settings *config.ServerSettings) (*slog.Logger, error) {
 
 	logger := slog.New(handler)
 
+	logger.Debug("Logger initialized", slog.String("settings", settings.String()))
+
 	return logger, nil
 }
 

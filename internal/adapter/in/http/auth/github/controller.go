@@ -111,7 +111,6 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 		return
 	}
 
-	c.logger.Info("Generated auth code URL", slog.String("auth_url", authcodeURL))
 	ctx.JSON(http.StatusOK, v1auth.OAuth2AuthCodeURLResponse{
 		URL: authcodeURL,
 	})

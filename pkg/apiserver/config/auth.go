@@ -5,9 +5,9 @@ import "time"
 // AuthSettings holds the authentication settings for the application.
 type AuthSettings struct {
 	// JWTSettings holds the configuration settings for JSON Web Tokens (JWT).
-	JWTSettings JWTSettings
+	JWTSettings JWTSettings `json:"jwtSettings" mapstructure:"jwtSettings" yaml:"jwtSettings"`
 	// AdminSettings holds the configuration settings for admin authentication.
-	AdminSettings AdminSettings
+	AdminSettings AdminSettings `json:"adminSettings" mapstructure:"adminSettings" yaml:"adminSettings"`
 	// OAuthSettings holds the configuration settings for OAuth2 authentication.
 	OAuthSettings *OAuthSettings
 }
