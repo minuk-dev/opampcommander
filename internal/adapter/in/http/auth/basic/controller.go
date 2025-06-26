@@ -2,6 +2,7 @@
 package basic
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -70,6 +71,14 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 
 	token, err := c.service.BasicAuth(username, password)
 	if err != nil {
+		if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
+			ctx.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid username or password",
+			})
+
+			return
+		}
+
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "failed to authenticate",
 			"details": fmt.Sprintf("error: %v", err),
@@ -95,8 +104,8 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 func (c *Controller) Info(ctx *gin.Context) {
 	user := security.GetUser(ctx)
 	if user == nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to fetch user",
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
 		})
 
 		return

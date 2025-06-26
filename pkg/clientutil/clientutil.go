@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 
 	"github.com/spf13/afero"
@@ -76,6 +77,13 @@ func NewAuthedClient(
 
 	_, err = cli.AuthService.GetInfo() // no need to use info. It's just to check if the client is authenticated
 	if err != nil {
+		var httpErr *client.ResponseError
+		if errors.As(err, &httpErr) {
+			if httpErr.StatusCode == http.StatusUnauthorized {
+				return nil, fmt.Errorf("unauthorized: please re-authenticate: %w", err)
+			}
+		}
+
 		return nil, fmt.Errorf("failed to get auth info: %w", err)
 	}
 
