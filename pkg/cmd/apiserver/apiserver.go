@@ -134,7 +134,7 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	}
 
 	if opt.configFilename != "" {
-		viper.SetConfigFile(opt.configFilename)
+		opt.viper.SetConfigFile(opt.configFilename)
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {
