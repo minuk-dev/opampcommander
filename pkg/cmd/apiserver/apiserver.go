@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -146,9 +147,12 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 		opt.viper.SetConfigType("yaml")
 	}
 
-	opt.viper.AutomaticEnv() // read in environment variables that match
-
 	_ = opt.viper.ReadInConfig()
+
+	// Use environment variables
+	// e.g. LOG_LEVEL=debug will set log.level to debug
+	opt.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace '.' with '_' for environment variables
+	opt.viper.AutomaticEnv()                                   // read in environment variables that match
 
 	err = opt.viper.Unmarshal(opt)
 	if err != nil {
