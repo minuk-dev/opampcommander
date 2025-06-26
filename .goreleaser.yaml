@@ -63,13 +63,14 @@ release:
   github:
     owner: minuk-dev
     name: opampcommander
-  draft: true
+  draft: false
   replace_existing_draft: true
   skip_upload: false
 
 archives:
-  - formats:
-    - tar.gz
+  - id: opampcommander
+    formats:
+      - tar.gz
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
@@ -82,6 +83,30 @@ archives:
     # format_overrides:
     #  - goos: windows
     #    format: zip
+  - id: apiserver
+    formats:
+      - tar.gz
+    ids:
+      - apiserver
+    name_template: >-
+      {{ .ProjectName }}-{{ .Binary }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+  - id: opampctl
+    formats:
+      - tar.gz
+    ids:
+      - opampctl
+    name_template: >-
+      {{ .ProjectName }}-{{ .Binary }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
 
 changelog:
   sort: asc
