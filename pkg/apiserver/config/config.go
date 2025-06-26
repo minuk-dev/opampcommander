@@ -9,7 +9,7 @@ import (
 // ServerSettings is a struct that holds the server settings.
 type ServerSettings struct {
 	Address           string
-	DatabaesEndpoints []string
+	DatabaseEndpoints []string
 	LogLevel          slog.Level
 	LogFormat         LogFormat
 	AuthSettings      *AuthSettings

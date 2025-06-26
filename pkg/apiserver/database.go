@@ -20,7 +20,7 @@ type Controller interface {
 func NewEtcdClient(settings *config.ServerSettings, lifecycle fx.Lifecycle) (*clientv3.Client, error) {
 	//exhaustruct:ignore
 	etcdConfig := clientv3.Config{
-		Endpoints: settings.DatabaesEndpoints,
+		Endpoints: settings.DatabaseEndpoints,
 	}
 
 	etcdClient, err := clientv3.New(etcdConfig)

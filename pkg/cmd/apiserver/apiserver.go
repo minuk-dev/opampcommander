@@ -163,7 +163,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	logLevel := toSlogLevel(opt.Log.Level)
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address:           opt.Address,
-		DatabaesEndpoints: opt.Database.Endpoints,
+		DatabaseEndpoints: opt.Database.Endpoints,
 		LogLevel:          logLevel,
 		LogFormat:         appconfig.LogFormat(opt.Log.Format),
 		AuthSettings: &appconfig.AuthSettings{
