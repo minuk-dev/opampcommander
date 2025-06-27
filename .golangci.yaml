@@ -50,6 +50,7 @@ linters:
             - github.com/google/go-github/v72/github
             - github.com/swaggo/files
             - github.com/swaggo/gin-swagger
+            - go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code

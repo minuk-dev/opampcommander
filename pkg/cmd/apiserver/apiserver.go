@@ -166,11 +166,12 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	logLevel := toSlogLevel(opt.Log.Level)
 	opt.app = apiserver.New(appconfig.ServerSettings{
-		Address:           opt.Address,
-		DatabaseEndpoints: opt.Database.Endpoints,
-		LogLevel:          logLevel,
-		LogFormat:         appconfig.LogFormat(opt.Log.Format),
-		AuthSettings: &appconfig.AuthSettings{
+		Address: opt.Address,
+		DatabaseSettings: appconfig.DatabaseSettings{
+			Type:      appconfig.DatabaseType(opt.Database.Type),
+			Endpoints: opt.Database.Endpoints,
+		},
+		AuthSettings: appconfig.AuthSettings{
 			AdminSettings: appconfig.AdminSettings{
 				Username: opt.Auth.Admin.Username,
 				Password: opt.Auth.Admin.Password,
@@ -192,6 +193,22 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 					SigningKey: opt.Auth.OAuth2.State.JWT.Secret,
 					Audience:   opt.Auth.OAuth2.State.JWT.Audience,
 				},
+			},
+		},
+		ObservabiilitySettings: appconfig.ObservabilitySettings{
+			Metric: appconfig.MetricSettings{
+				Enabled:  false,                          // TODO: enable metrics
+				Type:     appconfig.MetricTypePrometheus, // TODO: set metrics type
+				Endpoint: "todo",                         // TODO: set prometheus endpoint
+			},
+			Log: appconfig.LogSettings{
+				Enabled: true,
+				Level:   logLevel,
+				Format:  appconfig.LogFormat(opt.Log.Format),
+			},
+			Trace: appconfig.TraceSettings{
+				Enabled:  false,  // TODO: enable tracing
+				Endpoint: "todo", // TODO: set tracing endpoint
 			},
 		},
 	})
