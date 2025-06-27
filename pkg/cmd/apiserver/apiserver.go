@@ -26,10 +26,20 @@ type CommandOption struct {
 		Type      string   `mapstructure:"type"`
 		Endpoints []string `mapstructure:"endpoints"`
 	} `mapstructure:"database"`
+	Metric struct {
+		Enabled  bool   `mapstructure:"enabled"`
+		Type     string `mapstructure:"type"`
+		Endpoint string `mapstructure:"endpoint"`
+	}
 	Log struct {
-		Level  string `mapstructure:"level"`
-		Format string `mapstructure:"format"`
+		Enabled bool   `mapstructure:"enabled"`
+		Level   string `mapstructure:"level"`
+		Format  string `mapstructure:"format"`
 	} `mapstructure:"log"`
+	Trace struct {
+		Enabled  bool   `mapstructure:"enabled"`
+		Endpoint string `mapstructure:"endpoint"`
+	} `mapstructure:"trace"`
 	Auth struct {
 		Enabled bool `mapstructure:"enabled"`
 		Admin   struct {
@@ -105,8 +115,14 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("address", ":8080", "server address")
 	cmd.Flags().String("database.type", "etcd", "etcd")
 	cmd.Flags().StringSlice("database.endpoints", []string{"localhost:2379"}, "etcd host")
+	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
+	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
+	cmd.Flags().String("metric.endpoint", "http://0.0.0.0:8081", "metric endpoint (for prometheus, opentelemetry)")
+	cmd.Flags().Bool("log.enabled", true, "enable logging")
 	cmd.Flags().String("log.level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().String("log.format", "json", "log format (json, text)")
+	cmd.Flags().Bool("trace.enabled", false, "enable tracing")
+	cmd.Flags().String("trace.endpoint", "grpc://localhost:4317", "tracing endpoint (for OpenTelemetry, Jaeger, etc.)")
 	cmd.Flags().Bool("auth.enabled", false, "enable authentication")
 	cmd.Flags().String("auth.admin.username", "admin", "admin username")
 	cmd.Flags().String("auth.admin.password", "admin", "admin password")
@@ -164,7 +180,6 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 
 // Prepare prepares the command.
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
-	logLevel := toSlogLevel(opt.Log.Level)
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address: opt.Address,
 		DatabaseSettings: appconfig.DatabaseSettings{
@@ -197,18 +212,18 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 		},
 		ObservabiilitySettings: appconfig.ObservabilitySettings{
 			Metric: appconfig.MetricSettings{
-				Enabled:  false,                          // TODO: enable metrics
-				Type:     appconfig.MetricTypePrometheus, // TODO: set metrics type
-				Endpoint: "todo",                         // TODO: set prometheus endpoint
+				Enabled:  opt.Metric.Enabled,
+				Type:     appconfig.MetricType(opt.Metric.Type),
+				Endpoint: opt.Metric.Endpoint,
 			},
 			Log: appconfig.LogSettings{
-				Enabled: true,
-				Level:   logLevel,
+				Enabled: opt.Log.Enabled,
+				Level:   toSlogLevel(opt.Log.Level),
 				Format:  appconfig.LogFormat(opt.Log.Format),
 			},
 			Trace: appconfig.TraceSettings{
-				Enabled:  false,  // TODO: enable tracing
-				Endpoint: "todo", // TODO: set tracing endpoint
+				Enabled:  opt.Trace.Enabled,
+				Endpoint: opt.Trace.Endpoint,
 			},
 		},
 	})
