@@ -4,6 +4,10 @@ import "log/slog"
 
 // ObservabilitySettings holds the settings for observability features.
 type ObservabilitySettings struct {
+	// ServiceName is the name of the service for which observability is configured.
+	// It used for naming traces, metrics, and logs.
+	ServiceName string
+
 	Metric MetricSettings
 	Log    LogSettings
 	Trace  TraceSettings

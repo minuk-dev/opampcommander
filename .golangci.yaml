@@ -29,28 +29,38 @@ linters:
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander
-            - github.com/gin-gonic/gin
-            - github.com/samber/slog-gin
-            - github.com/samber/lo
+            # Basic Frameworks
             - github.com/spf13/cobra
             - github.com/spf13/viper
             - github.com/spf13/afero
             - go.uber.org/fx
+            - github.com/gin-gonic/gin
+            # Basic Libraries
             - github.com/google/uuid
+            # OpAMP
             - github.com/open-telemetry/opamp-go/protobufs
-            - k8s.io/utils/clock
             - github.com/open-telemetry/opamp-go/server
+            # Database
             - go.etcd.io/etcd/client/v3
+            # Utils
+            - github.com/samber/lo
+            - k8s.io/utils/clock
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3
             - github.com/puzpuzpuz/xsync/v3
+            # authentication
             - golang.org/x/oauth2
             - golang.org/x/oauth2/github
             - github.com/golang-jwt/jwt/v5
             - github.com/google/go-github/v72/github
+            # documentation
             - github.com/swaggo/files
             - github.com/swaggo/gin-swagger
+            # observability
+            - github.com/samber/slog-gin
+            - go.opentelemetry.io/otel
             - go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin
+            - github.com/prometheus/client_golang/prometheus
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code

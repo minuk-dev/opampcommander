@@ -9,6 +9,7 @@ require (
 	github.com/google/go-github/v72 v72.0.0
 	github.com/google/uuid v1.6.0
 	github.com/open-telemetry/opamp-go v0.19.0
+	github.com/prometheus/client_golang v1.22.0
 	github.com/samber/lo v1.49.1
 	github.com/samber/slog-gin v1.15.1
 	github.com/spf13/afero v1.12.0
@@ -19,9 +20,12 @@ require (
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag/v2 v2.0.0-rc4
 	go.etcd.io/etcd/client/v3 v3.5.18
+	go.opentelemetry.io/otel/metric v1.37.0
+	go.opentelemetry.io/otel/sdk/metric v1.37.0
+	go.opentelemetry.io/otel/trace v1.37.0
 	go.uber.org/fx v1.23.0
-	go.uber.org/goleak v1.2.0
-	golang.org/x/oauth2 v0.26.0
+	go.uber.org/goleak v1.3.0
+	golang.org/x/oauth2 v0.30.0
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
@@ -29,6 +33,8 @@ require (
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/getkin/kin-openapi v0.127.0 // indirect
@@ -44,8 +50,12 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/common v0.65.0 // indirect
+	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/sagikazarmark/locafero v0.7.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/speakeasy-api/openapi-overlay v0.9.0 // indirect
@@ -58,8 +68,7 @@ require (
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect
-	go.opentelemetry.io/otel/metric v1.37.0 // indirect
-	go.opentelemetry.io/otel/trace v1.37.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.37.0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/tools v0.33.0 // indirect
@@ -101,6 +110,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.18 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.18 // indirect
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.62.0
+	go.opentelemetry.io/otel/exporters/prometheus v0.59.0
 	go.uber.org/dig v1.18.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect

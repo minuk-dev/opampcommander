@@ -13,9 +13,9 @@ import (
 	sloggin "github.com/samber/slog-gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginswagger "github.com/swaggo/gin-swagger"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/observability"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
@@ -76,12 +76,20 @@ func NewEngine(
 	controllers []Controller,
 	securityService *security.Service,
 	logger *slog.Logger,
+	observabilitySettings *config.ObservabilitySettings,
+	lifecycle fx.Lifecycle,
 ) *gin.Engine {
 	engine := gin.New()
 	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
 	engine.Use(security.NewAuthJWTMiddleware(securityService))
-	engine.Use(otelgin.Middleware("opampcommander"))
+
+	observabilityMiddleware, err := observability.Middleware(observabilitySettings, lifecycle, logger)
+	if err != nil {
+		logger.Warn("Failed to initialize observability middleware", "error", err)
+	} else {
+		engine.Use(observabilityMiddleware)
+	}
 	// swagger
 	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 
