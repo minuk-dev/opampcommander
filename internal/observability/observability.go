@@ -90,8 +90,8 @@ func New(
 			runtime.WithMeterProvider(service.meterProvider),
 		)
 		if err != nil {
-			logger.Warn("failed to start golang runtime metrics", slog.String("error", err.Error()))
 			// If runtime metrics cannot be started, we log the error but do not return it.
+			logger.Warn("failed to start golang runtime metrics", slog.String("error", err.Error()))
 		}
 	}
 
