@@ -130,6 +130,10 @@ func validatePrometheusEndpoint(endpoint string) (*url.URL, error) {
 		return nil, fmt.Errorf("%w: %s", ErrInvalidPrometheusEndpoint, url.Scheme)
 	}
 
+	if url.Host == "" {
+		return nil, fmt.Errorf("%w: missing host in Prometheus endpoint URL", ErrInvalidPrometheusEndpoint)
+	}
+
 	return url, nil
 }
 
