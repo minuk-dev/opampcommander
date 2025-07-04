@@ -84,6 +84,10 @@ data:
       type: "etcd"
       endpoints:
       - "etcd.opampcommander.svc.cluster.local.:2379"
+    metric:
+      enabled: true
+      type: prometheus
+      endpoint: http://localhost:9090/metrics
     log:
       level: "info"
       format: "json"

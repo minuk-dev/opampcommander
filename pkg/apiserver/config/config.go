@@ -7,10 +7,10 @@ import (
 
 // ServerSettings is a struct that holds the server settings.
 type ServerSettings struct {
-	Address                string
-	DatabaseSettings       DatabaseSettings
-	AuthSettings           AuthSettings
-	ObservabiilitySettings ObservabilitySettings
+	Address               string
+	DatabaseSettings      DatabaseSettings
+	AuthSettings          AuthSettings
+	ObservabilitySettings ObservabilitySettings
 }
 
 // String returns a JSON representation of the ServerSettings struct.

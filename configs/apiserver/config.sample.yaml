@@ -5,8 +5,8 @@ database:
   - "localhost:2379"
 metric:
   enabled: true
-  type: "prometheus"
-  endpoint: "localhost:9090"
+  type: prometheus
+  endpoint: http://localhost:9090/metrics
 log:
   level: "info"
   format: "json"
