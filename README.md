@@ -22,8 +22,14 @@ opampctl config init
 ## Development
 
 ```sh
-# build binary
+# run opampcommander's apiserver with default settings
 make dev
+
+# run opampcommander's apiserver with args
+make ARGS="--log.level=warn --log.format=text --metric.enabled" dev
+
+# run opampcommander's apiserver with args and GIN_MODE=release
+GIN_MODE=release make ARGS="--log.level=warn --log.format=text --metric.enabled" dev
 ```
 
 ## Release

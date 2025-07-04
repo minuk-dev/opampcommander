@@ -14,31 +14,30 @@ type UnsupportedLogFormatError struct {
 }
 
 // NewLogger creates a new logger instance with default settings.
-func NewLogger(settings *config.ServerSettings) (*slog.Logger, error) {
+func NewLogger(settings *config.ObservabilitySettings) (*slog.Logger, error) {
 	logWriter := os.Stdout
+	logSettings := settings.Log
 
 	options := &slog.HandlerOptions{
 		AddSource:   true,
-		Level:       settings.LogLevel,
+		Level:       logSettings.Level,
 		ReplaceAttr: nil,
 	}
 
 	var handler slog.Handler
 
-	switch settings.LogFormat {
+	switch logSettings.Format {
 	case config.LogFormatJSON:
 		handler = slog.NewJSONHandler(logWriter, options)
 	case config.LogFormatText:
 		handler = slog.NewTextHandler(logWriter, options)
 	default:
 		return nil, &UnsupportedLogFormatError{
-			LogFormat: settings.LogFormat,
+			LogFormat: logSettings.Format,
 		}
 	}
 
 	logger := slog.New(handler)
-
-	logger.Debug("Logger initialized", slog.String("settings", settings.String()))
 
 	return logger, nil
 }

@@ -14,7 +14,7 @@ build-dev: prebuilt-doc
 	goreleaser build --snapshot --clean --single-target
 
 dev: prebuilt-doc
-	go run ./cmd/apiserver/main.go --log.level=debug --log.format=text
+	go run ./cmd/apiserver/main.go $(ARGS)
 
 run-dev-server: dev
 	./scripts/etcd/etcd && ./dist/apiserver_$(GOOS)_$(GOARCH)/apiserver

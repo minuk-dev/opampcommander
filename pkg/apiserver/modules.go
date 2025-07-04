@@ -32,14 +32,10 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 	return fx.Module(
 		"config",
 		// config
-		fx.Provide(func() *config.ServerSettings {
-			return settings
-		}),
-		fx.Provide(
-			func() *config.AuthSettings {
-				return settings.AuthSettings
-			},
-		),
+		fx.Provide(ValueFunc(settings)),
+		fx.Provide(PointerFunc(settings.DatabaseSettings)),
+		fx.Provide(PointerFunc(settings.AuthSettings)),
+		fx.Provide(PointerFunc(settings.ObservabiilitySettings)),
 	)
 }
 
@@ -124,6 +120,16 @@ func NewOutPortModule() fx.Option {
 	)
 }
 
+// NewObservabilityModule creates a new module for observability.
+//
+//nolint:ireturn
+func NewObservabilityModule() fx.Option {
+	return fx.Module(
+		"observability",
+		fx.Provide(),
+	)
+}
+
 // AsController is a helper function to annotate a function as a controller.
 func AsController(f any) any {
 	return fx.Annotate(
@@ -154,4 +160,21 @@ func NoInheritContext(_ context.Context) context.Context {
 // It is used to provide a function as a interface.
 func Identity[T any](a T) T {
 	return a
+}
+
+// PointerFunc is a generic function that returns a function that returns a pointer to the input value.
+// It is a helper function to generate a function that returns a pointer to the input value.
+// It is used to provide a function as a interface.
+func PointerFunc[T any](a T) func() *T {
+	return func() *T {
+		return &a
+	}
+}
+
+// ValueFunc is a generic function that returns a function that returns the input value.
+// It is a helper function to generate a function that returns the input value.
+func ValueFunc[T any](a T) func() T {
+	return func() T {
+		return a
+	}
 }
