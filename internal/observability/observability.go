@@ -115,6 +115,7 @@ func (service *Service) Middleware() gin.HandlerFunc {
 	if service.meterProvider != nil {
 		opts = append(opts, otelgin.WithMeterProvider(service.meterProvider))
 	}
+
 	if service.traceProvider != nil {
 		opts = append(opts, otelgin.WithTracerProvider(service.traceProvider))
 	}
