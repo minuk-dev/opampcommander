@@ -110,11 +110,16 @@ func (service *Service) Middleware() gin.HandlerFunc {
 		}
 	}
 
-	return otelgin.Middleware(
-		service.serviceName,
-		otelgin.WithMeterProvider(service.meterProvider),
-		otelgin.WithTracerProvider(service.traceProvider),
-	)
+	var opts []otelgin.Option
+
+	if service.meterProvider != nil {
+		opts = append(opts, otelgin.WithMeterProvider(service.meterProvider))
+	}
+	if service.traceProvider != nil {
+		opts = append(opts, otelgin.WithTracerProvider(service.traceProvider))
+	}
+
+	return otelgin.Middleware(service.serviceName, opts...)
 }
 
 func newPrometheusMetricProvider(
