@@ -63,6 +63,9 @@ func (s *CommandService) SaveCommand(ctx context.Context, command *model.Command
 }
 
 // ListCommands implements port.CommandUsecase.
-func (s *CommandService) ListCommands(context.Context) ([]*model.Command, error) {
+func (s *CommandService) ListCommands(
+	context.Context,
+	*model.ListOptions,
+) (*model.ListResponse[*model.Command], error) {
 	return nil, ErrNotImplemented
 }

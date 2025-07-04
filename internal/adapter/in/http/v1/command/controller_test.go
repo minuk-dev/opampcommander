@@ -14,8 +14,8 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
+	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -153,7 +153,7 @@ func TestCommandController_List(t *testing.T) {
 	})
 }
 
-var _ port.CommandUsecase = (*mockCommandUsecase)(nil)
+var _ port.CommandLookUpUsecase = (*mockCommandUsecase)(nil)
 
 type mockCommandUsecase struct {
 	mock.Mock
@@ -178,13 +178,6 @@ func (m *mockCommandUsecase) ListCommands(ctx context.Context) ([]*model.Command
 	args := m.Called(ctx)
 
 	return args.Get(0).([]*model.Command), args.Error(1)
-}
-
-//nolint:wrapcheck
-func (m *mockCommandUsecase) SaveCommand(ctx context.Context, command *model.Command) error {
-	args := m.Called(ctx, command)
-
-	return args.Error(0)
 }
 
 //nolint:forcetypeassert,wrapcheck

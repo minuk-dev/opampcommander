@@ -43,12 +43,12 @@ func (s *Service) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.A
 
 // ListAgents implements port.AgentManageUsecase.
 func (s *Service) ListAgents(ctx context.Context) ([]*model.Agent, error) {
-	agents, err := s.agentUsecase.ListAgents(ctx)
+	agents, err := s.agentUsecase.ListAgents(ctx, &model.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return agents, nil
+	return agents.Items, nil
 }
 
 // SendCommand implements port.AgentManageUsecase.

@@ -57,10 +57,10 @@ func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUI
 
 // ListConnections lists all connections.
 func (s *Service) ListConnections(ctx context.Context) ([]*model.Connection, error) {
-	connections, err := s.connectionUsecase.ListConnections(ctx)
+	connections, err := s.connectionUsecase.ListConnections(ctx, &model.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}
 
-	return connections, nil
+	return connections.Items, nil
 }

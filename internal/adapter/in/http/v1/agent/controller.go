@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -81,12 +82,15 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	agentResponse := lo.Map(agents, func(agent *model.Agent, _ int) *agentv1.Agent {
-		return &agentv1.Agent{
-			InstanceUID: agent.InstanceUID,
-			Raw:         agent,
-		}
-	})
+	agentResponse := agentv1.NewListResponse(
+		lo.Map(agents, func(agent *model.Agent, _ int) agentv1.Agent {
+			return agentv1.Agent{
+				InstanceUID: agent.InstanceUID,
+				Raw:         agent,
+			}
+		}),
+		v1.ListMeta{},
+	)
 
 	ctx.JSON(http.StatusOK, agentResponse)
 }

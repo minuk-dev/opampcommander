@@ -68,8 +68,13 @@ func (s *Service) GetConnectionByInstanceUID(_ context.Context, instanceUID uuid
 }
 
 // ListConnections implements port.ConnectionUsecase.
-func (s *Service) ListConnections(_ context.Context) ([]*model.Connection, error) {
-	return s.connectionMap.Values(), nil
+func (s *Service) ListConnections(
+	_ context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Connection], error) {
+	return &model.ListResponse[*model.Connection]{
+		Items: s.connectionMap.Values(),
+	}, nil
 }
 
 // SaveConnection implements port.ConnectionUsecase.
