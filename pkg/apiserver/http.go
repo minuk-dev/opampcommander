@@ -75,21 +75,14 @@ func NewHTTPServer(
 func NewEngine(
 	controllers []Controller,
 	securityService *security.Service,
+	observabilityService *observability.Service,
 	logger *slog.Logger,
-	observabilitySettings *config.ObservabilitySettings,
-	lifecycle fx.Lifecycle,
 ) *gin.Engine {
 	engine := gin.New()
 	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
 	engine.Use(security.NewAuthJWTMiddleware(securityService))
-
-	observabilityMiddleware, err := observability.Middleware(observabilitySettings, lifecycle, logger)
-	if err != nil {
-		logger.Warn("Failed to initialize observability middleware", "error", err)
-	} else {
-		engine.Use(observabilityMiddleware)
-	}
+	engine.Use(observabilityService.Middleware())
 	// swagger
 	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 

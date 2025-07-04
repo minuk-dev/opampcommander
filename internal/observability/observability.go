@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	otelpromethues "go.opentelemetry.io/otel/exporters/prometheus"
 	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -43,31 +44,38 @@ const (
 	DefaultPrometheusReadHeaderTimeout = 10 * time.Second
 )
 
-// Middleware initializes observability features based on the provided settings.
-// It returns a gin.HandlerFunc for middleware or an error if the settings are invalid.
-func Middleware(
+// Service provides observability features such as metrics and tracing.
+type Service struct {
+	serviceName   string // observability service name
+	meterProvider metricapi.MeterProvider
+	traceProvider traceapi.TracerProvider
+}
+
+// New creates a new observability Service based on the provided settings.
+func New(
 	settings *config.ObservabilitySettings,
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
-) (gin.HandlerFunc, error) {
+) (*Service, error) {
 	if settings == nil {
-		// do nothing if settings are nil
-		return func(ctx *gin.Context) {
-			ctx.Next()
-		}, nil
+		// If no settings are provided, return a default Service instance.
+		//exhaustruct:ignore
+		return &Service{}, nil
+	}
+
+	service := &Service{
+		serviceName:   settings.ServiceName,
+		meterProvider: nil,
+		traceProvider: nil,
 	}
 
 	var err error
-
-	var metricProvider metricapi.MeterProvider
-
-	var tracerProvider traceapi.TracerProvider
 
 	if settings.Metric.Enabled {
 		switch settings.Metric.Type {
 		case config.MetricTypePrometheus:
 			// Initialize Prometheus metrics
-			metricProvider, err = newPrometheusMetricProvider(settings.Metric.Endpoint, lifecycle, logger)
+			service.meterProvider, err = newPrometheusMetricProvider(settings.Metric.Endpoint, lifecycle, logger)
 			if err != nil {
 				return nil, fmt.Errorf("failed to initialize Prometheus metrics: %w", err)
 			}
@@ -76,17 +84,37 @@ func Middleware(
 		default:
 			return nil, fmt.Errorf("%w: %s", ErrUnsupportedObservabilityType, settings.Metric.Type)
 		}
+
+		// collect runtime metrics
+		err = runtime.Start(
+			runtime.WithMeterProvider(service.meterProvider),
+		)
+		if err != nil {
+			logger.Warn("failed to start golang runtime metrics", slog.String("error", err.Error()))
+			// If runtime metrics cannot be started, we log the error but do not return it.
+		}
 	}
 
 	if settings.Trace.Enabled {
 		return nil, ErrNoImplementation
 	}
 
+	return service, nil
+}
+
+// Middleware returns a Gin middleware function that applies OpenTelemetry instrumentation.
+func (service *Service) Middleware() gin.HandlerFunc {
+	if service.meterProvider == nil {
+		return func(ctx *gin.Context) {
+			ctx.Next()
+		}
+	}
+
 	return otelgin.Middleware(
-		settings.ServiceName,
-		otelgin.WithTracerProvider(tracerProvider),
-		otelgin.WithMeterProvider(metricProvider),
-	), nil
+		service.serviceName,
+		otelgin.WithMeterProvider(service.meterProvider),
+		otelgin.WithTracerProvider(service.traceProvider),
+	)
 }
 
 func newPrometheusMetricProvider(

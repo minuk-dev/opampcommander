@@ -22,6 +22,7 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
 	"github.com/minuk-dev/opampcommander/internal/helper"
+	"github.com/minuk-dev/opampcommander/internal/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
@@ -126,7 +127,7 @@ func NewOutPortModule() fx.Option {
 func NewObservabilityModule() fx.Option {
 	return fx.Module(
 		"observability",
-		fx.Provide(),
+		fx.Provide(observability.New),
 	)
 }
 
