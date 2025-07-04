@@ -10,6 +10,7 @@ import (
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
+	"github.com/minuk-dev/opampcommander/internal/observability"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
@@ -48,6 +49,7 @@ func New(settings config.ServerSettings) *Server {
 			NewLogger,
 			// security,
 			security.New,
+			observability.New,
 		),
 		// init
 		fx.Invoke(func(*http.Server) {}),

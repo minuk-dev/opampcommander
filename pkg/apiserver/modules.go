@@ -120,16 +120,6 @@ func NewOutPortModule() fx.Option {
 	)
 }
 
-// NewObservabilityModule creates a new module for observability.
-//
-//nolint:ireturn
-func NewObservabilityModule() fx.Option {
-	return fx.Module(
-		"observability",
-		fx.Provide(),
-	)
-}
-
 // AsController is a helper function to annotate a function as a controller.
 func AsController(f any) any {
 	return fx.Annotate(
