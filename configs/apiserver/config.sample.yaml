@@ -3,9 +3,16 @@ database:
   type: "etcd"
   endpoints:
   - "localhost:2379"
+metric:
+  enabled: true
+  type: "prometheus"
+  endpoint: "localhost:9090"
 log:
   level: "info"
   format: "json"
+trace:
+  enabled: false
+  endpoint: "localhost:4317"
 auth:
   enabled: true
   admin:
