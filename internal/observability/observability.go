@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -90,6 +91,15 @@ func newPrometheusMetricProvider(
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
 ) (*metric.MeterProvider, error) {
+	url, err := url.Parse(endpoint) // Validate the endpoint URL
+	if err != nil {
+		return nil, fmt.Errorf("invalid Prometheus endpoint URL: %w", err)
+	}
+	// Ensure the URL scheme is either "http" or empty (for default HTTP)
+	if url.Scheme != "http" && url.Scheme != "" {
+		return nil, fmt.Errorf("unsupported Prometheus endpoint URL scheme: %s", url.Scheme)
+	}
+
 	registry := prometheus.NewRegistry()
 
 	var handlerOpts promhttp.HandlerOpts
@@ -99,8 +109,18 @@ func newPrometheusMetricProvider(
 	)
 	//exhaustruct:ignore
 	server := &http.Server{
-		Addr:              endpoint,
-		Handler:           handler,
+		Addr: url.Host,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			if r.URL.Path != url.Path {
+				http.NotFound(w, r)
+				return
+			}
+			handler.ServeHTTP(w, r)
+		}),
 		ReadTimeout:       DefaultPrometheusReadTimeout,
 		ReadHeaderTimeout: DefaultPrometheusReadHeaderTimeout,
 	}

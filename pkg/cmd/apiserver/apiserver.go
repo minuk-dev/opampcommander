@@ -119,10 +119,10 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
 	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
-	cmd.Flags().String("metric.endpoint", "localhost:8081", "metric endpoint (for prometheus, opentelemetry)")
+	cmd.Flags().String("metric.endpoint", "http://localhost:8081/metrics", "metric endpoint (for prometheus, opentelemetry)")
 	cmd.Flags().Bool("log.enabled", true, "enable logging")
 	cmd.Flags().String("log.level", "info", "log level (debug, info, warn, error)")
-	cmd.Flags().String("log.format", "json", "log format (json, text)")
+	cmd.Flags().String("log.format", "text", "log format (json, text)")
 	cmd.Flags().Bool("trace.enabled", false, "enable tracing")
 	cmd.Flags().String("trace.endpoint", "grpc://localhost:4317", "tracing endpoint (for OpenTelemetry, Jaeger, etc.)")
 	cmd.Flags().Bool("auth.enabled", false, "enable authentication")
@@ -212,7 +212,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				},
 			},
 		},
-		ObservabiilitySettings: appconfig.ObservabilitySettings{
+		ObservabilitySettings: appconfig.ObservabilitySettings{
 			ServiceName: opt.ServiceName,
 			Metric: appconfig.MetricSettings{
 				Enabled:  opt.Metric.Enabled,
