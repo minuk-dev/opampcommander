@@ -80,6 +80,8 @@ type CommandOption struct {
 }
 
 // NewCommand creates a new apiserver command.
+//
+//nolint:funlen
 func NewCommand(opt CommandOption) *cobra.Command {
 	if opt.viper == nil {
 		opt.viper = viper.New()
@@ -119,7 +121,8 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
 	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
-	cmd.Flags().String("metric.endpoint", "http://localhost:8081/metrics", "metric endpoint (for prometheus, opentelemetry)")
+	cmd.Flags().String("metric.endpoint", "http://localhost:8081/metrics",
+		"metric endpoint (for prometheus, opentelemetry)")
 	cmd.Flags().Bool("log.enabled", true, "enable logging")
 	cmd.Flags().String("log.level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().String("log.format", "text", "log format (json, text)")

@@ -30,6 +30,9 @@ var (
 
 	// ErrNoImplementation is returned when no implementation is provided for the observability type.
 	ErrNoImplementation = errors.New("no implementation provided for the observability type")
+
+	// ErrInvalidPrometheusEndpoint is returned when the Prometheus endpoint is invalid.
+	ErrInvalidPrometheusEndpoint = errors.New("invalid Prometheus endpoint URL")
 )
 
 const (
@@ -91,40 +94,74 @@ func newPrometheusMetricProvider(
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
 ) (*metric.MeterProvider, error) {
-	url, err := url.Parse(endpoint) // Validate the endpoint URL
+	url, err := validatePrometheusEndpoint(endpoint)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Prometheus endpoint URL: %w", err)
-	}
-	// Ensure the URL scheme is either "http" or empty (for default HTTP)
-	if url.Scheme != "http" && url.Scheme != "" {
-		return nil, fmt.Errorf("unsupported Prometheus endpoint URL scheme: %s", url.Scheme)
+		return nil, fmt.Errorf("failed to validate Prometheus endpoint: %w", err)
 	}
 
 	registry := prometheus.NewRegistry()
+	handler := createPrometheusHandler(registry)
 
-	var handlerOpts promhttp.HandlerOpts
-	handler := promhttp.InstrumentMetricHandler(
-		registry,
-		promhttp.HandlerFor(registry, handlerOpts),
+	server := createPrometheusServer(url, handler)
+
+	setupLifecycleHooks(lifecycle, server, logger)
+
+	exporter, err := otelpromethues.New(
+		otelpromethues.WithRegisterer(registry),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
+	}
+
+	provider := metric.NewMeterProvider(
+		metric.WithReader(exporter),
+	)
+
+	return provider, nil
+}
+
+func validatePrometheusEndpoint(endpoint string) (*url.URL, error) {
+	url, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Prometheus endpoint URL: %w", err)
+	}
+
+	if url.Scheme != "http" && url.Scheme != "" {
+		return nil, fmt.Errorf("%w: %s", ErrInvalidPrometheusEndpoint, url.Scheme)
+	}
+
+	return url, nil
+}
+
+func createPrometheusHandler(registry *prometheus.Registry) http.Handler {
+	var handlerOpts promhttp.HandlerOpts
+
+	return promhttp.InstrumentMetricHandler(registry, promhttp.HandlerFor(registry, handlerOpts))
+}
+
+func createPrometheusServer(url *url.URL, handler http.Handler) *http.Server {
 	//exhaustruct:ignore
-	server := &http.Server{
+	return &http.Server{
 		Addr: url.Host,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method != http.MethodGet {
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		Handler: http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
+			if req.Method != http.MethodGet {
+				http.Error(writer, "Method Not Allowed", http.StatusMethodNotAllowed)
+
 				return
 			}
-			if r.URL.Path != url.Path {
-				http.NotFound(w, r)
+			if req.URL.Path != url.Path {
+				http.NotFound(writer, req)
+
 				return
 			}
-			handler.ServeHTTP(w, r)
+			handler.ServeHTTP(writer, req)
 		}),
 		ReadTimeout:       DefaultPrometheusReadTimeout,
 		ReadHeaderTimeout: DefaultPrometheusReadHeaderTimeout,
 	}
+}
 
+func setupLifecycleHooks(lifecycle fx.Lifecycle, server *http.Server, logger *slog.Logger) {
 	var httpWg sync.WaitGroup
 
 	lifecycle.Append(fx.Hook{
@@ -143,22 +180,9 @@ func newPrometheusMetricProvider(
 			if err := server.Shutdown(ctx); err != nil {
 				return fmt.Errorf("failed to shutdown Prometheus metrics server: %w", err)
 			}
-			httpWg.Wait() // Wait for the goroutine to finish
+			httpWg.Wait()
 
 			return nil
 		},
 	})
-
-	exporter, err := otelpromethues.New(
-		otelpromethues.WithRegisterer(registry),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Prometheus exporter: %w", err)
-	}
-
-	provider := metric.NewMeterProvider(
-		metric.WithReader(exporter),
-	)
-
-	return provider, nil
 }
