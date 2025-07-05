@@ -95,6 +95,24 @@ func TestAgentControllerListAgent(t *testing.T) {
 		assert.Equal(t, int64(0), gjson.Get(recorder.Body.String(), "items.#").Int())
 	})
 
+	t.Run("List Agents - invalid limit returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents?limit=invalid", nil)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.JSONEq(t, `{"error":"invalid limit parameter"}`, recorder.Body.String())
+	})
+
 	t.Run("List Agents - any error returns 500", func(t *testing.T) {
 		t.Parallel()
 
@@ -236,6 +254,24 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusCreated, recorder.Code)
+	})
+
+	t.Run("Update Agent Config - 400 Bad Request when instanceUID is not uuid", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentManageUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/agents/not-a-uuid/update-agent-config",
+			strings.NewReader(`{"targetInstanceUid":"not-a-uuid","remoteConfig":{"key":"value"}}`))
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
 	t.Run("Update Agent Config - 400 Bad Request when invalid request body", func(t *testing.T) {
