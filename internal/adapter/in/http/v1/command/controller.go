@@ -4,11 +4,13 @@ package command
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	commandv1 "github.com/minuk-dev/opampcommander/api/v1/command"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -95,7 +97,22 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Failure 500 {object} map[string]any "Failed to list commands"
 // @Router /api/v1/commands [get].
 func (c *Controller) List(ctx *gin.Context) {
-	commands, err := c.commandUsecase.ListCommands(ctx)
+	limitStr := ctx.Query("limit")
+
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil {
+		c.logger.Error("failed to parse limit", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.commandUsecase.ListCommands(ctx, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list commands"})
 
@@ -104,14 +121,20 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusOK,
-		lo.Map(commands, func(command *model.Command, _ int) *commandv1.Audit {
-			return convertToAPIModel(command)
-		}),
+		commandv1.NewListResponse(
+			lo.Map(response.Items, func(command *model.Command, _ int) commandv1.Audit {
+				return convertToAPIModel(command)
+			}),
+			v1.ListMeta{
+				RemainingItemCount: response.RemainingItemCount,
+				Continue:           response.Continue,
+			},
+		),
 	)
 }
 
-func convertToAPIModel(command *model.Command) *commandv1.Audit {
-	return &commandv1.Audit{
+func convertToAPIModel(command *model.Command) commandv1.Audit {
+	return commandv1.Audit{
 		Kind:              string(command.Kind),
 		ID:                command.ID.String(),
 		TargetInstanceUID: command.TargetInstanceUID.String(),

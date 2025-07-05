@@ -315,10 +315,13 @@ func (m *mockAgentManageUsecase) SaveAgent(ctx context.Context, agent *model.Age
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockAgentManageUsecase) ListAgents(ctx context.Context) ([]*model.Agent, error) {
-	args := m.Called(ctx)
+func (m *mockAgentManageUsecase) ListAgents(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	args := m.Called(ctx, options)
 
-	return args.Get(0).([]*model.Agent), args.Error(1)
+	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1)
 }
 
 //nolint:wrapcheck

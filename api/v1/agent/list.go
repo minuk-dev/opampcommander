@@ -10,6 +10,7 @@ type ListResponse struct {
 	Items      []Agent     `json:"items"`
 } // @name AgentListResponse
 
+// NewListResponse creates a new ListResponse with the given agents and metadata.
 func NewListResponse(agents []Agent, metadata v1.ListMeta) *ListResponse {
 	return &ListResponse{
 		Kind:       AgentKind,

@@ -60,6 +60,19 @@ func (m *MultiMap[T]) Keys() []string {
 	return keys
 }
 
+// KeyValues returns all key-value pairs in the map.
+func (m *MultiMap[T]) KeyValues() map[string]T {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	keyValues := make(map[string]T, len(m.byID))
+	for key, value := range m.byID {
+		keyValues[key] = value
+	}
+
+	return keyValues
+}
+
 // Indexes returns all indexes in the map.
 func (m *MultiMap[T]) Indexes(indexName string) []string {
 	m.mu.RLock()

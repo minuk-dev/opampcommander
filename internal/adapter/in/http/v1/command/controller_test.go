@@ -174,10 +174,13 @@ func (m *mockCommandUsecase) GetCommand(ctx context.Context, commandID uuid.UUID
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockCommandUsecase) ListCommands(ctx context.Context) ([]*model.Command, error) {
-	args := m.Called(ctx)
+func (m *mockCommandUsecase) ListCommands(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Command], error) {
+	args := m.Called(ctx, options)
 
-	return args.Get(0).([]*model.Command), args.Error(1)
+	return args.Get(0).(*model.ListResponse[*model.Command]), args.Error(1)
 }
 
 //nolint:forcetypeassert,wrapcheck

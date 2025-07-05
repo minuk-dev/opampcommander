@@ -4,11 +4,13 @@ package connection
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 	k8sclock "k8s.io/utils/clock"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -60,22 +62,42 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Router /api/v1/connections [get].
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()
+	limitStr := ctx.Query("limit")
 
-	connections, err := c.adminUsecase.ListConnections(ctx.Request.Context())
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil {
+		c.logger.Error("failed to parse limit", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.adminUsecase.ListConnections(ctx, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, err)
 
 		return
 	}
 
-	connectionResponse := lo.Map(connections, func(connection *model.Connection, _ int) *connectionv1.Connection {
-		return &connectionv1.Connection{
-			ID:                 connection.UID,
-			InstanceUID:        connection.InstanceUID,
-			Alive:              connection.IsAlive(now),
-			LastCommunicatedAt: connection.LastCommunicatedAt,
-		}
-	})
+	connectionResponse := connectionv1.NewListResponse(
+		lo.Map(response.Items, func(connection *model.Connection, _ int) connectionv1.Connection {
+			return connectionv1.Connection{
+				ID:                 connection.UID,
+				InstanceUID:        connection.InstanceUID,
+				Alive:              connection.IsAlive(now),
+				LastCommunicatedAt: connection.LastCommunicatedAt,
+			}
+		}),
+		v1.ListMeta{
+			RemainingItemCount: response.RemainingItemCount,
+			Continue:           response.Continue,
+		},
+	)
 
 	ctx.JSON(http.StatusOK, connectionResponse)
 }

@@ -53,11 +53,14 @@ func (s *Service) GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.
 }
 
 // ListCommands implements port.CommandLookUpUsecase.
-func (s *Service) ListCommands(ctx context.Context) ([]*model.Command, error) {
-	commands, err := s.commandUsecase.ListCommands(ctx, &model.ListOptions{})
+func (s *Service) ListCommands(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Command], error) {
+	response, err := s.commandUsecase.ListCommands(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list commands: %w", err)
 	}
 
-	return commands.Items, nil
+	return response, nil
 }

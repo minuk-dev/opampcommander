@@ -7,7 +7,8 @@ const (
 	APIVersion = "v1"
 )
 
+// ListMeta is a struct that contains metadata for list responses.
 type ListMeta struct {
 	Continue           string `json:"continue"`
-	RemainingItemCount int    `json:"remainingItemCount"`
+	RemainingItemCount int64  `json:"remainingItemCount"`
 } // @name ListMeta

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -71,10 +72,28 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Accept json
 // @Produce json
 // @Success 200 {array} Agent
+// @Param limit query int false "Maximum number of agents to return"
+// @Param continue query string false "Token to continue listing agents"
+// @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
-	agents, err := c.agentUsecase.ListAgents(ctx)
+	limitStr := ctx.Query("limit")
+
+	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	if err != nil {
+		c.logger.Error("failed to parse limit", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.agentUsecase.ListAgents(ctx, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -83,13 +102,16 @@ func (c *Controller) List(ctx *gin.Context) {
 	}
 
 	agentResponse := agentv1.NewListResponse(
-		lo.Map(agents, func(agent *model.Agent, _ int) agentv1.Agent {
+		lo.Map(response.Items, func(agent *model.Agent, _ int) agentv1.Agent {
 			return agentv1.Agent{
 				InstanceUID: agent.InstanceUID,
 				Raw:         agent,
 			}
 		}),
-		v1.ListMeta{},
+		v1.ListMeta{
+			RemainingItemCount: response.RemainingItemCount,
+			Continue:           response.Continue,
+		},
 	)
 
 	ctx.JSON(http.StatusOK, agentResponse)

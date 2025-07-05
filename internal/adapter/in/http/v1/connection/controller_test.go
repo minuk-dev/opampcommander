@@ -100,10 +100,13 @@ func newMockAdminUsecase(t *testing.T) *mockAdminUsecase {
 }
 
 //nolint:forcetypeassert,wrapcheck
-func (m *mockAdminUsecase) ListConnections(ctx context.Context) ([]*model.Connection, error) {
-	args := m.Called(ctx)
+func (m *mockAdminUsecase) ListConnections(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Connection], error) {
+	args := m.Called(ctx, options)
 
-	return args.Get(0).([]*model.Connection), args.Error(1)
+	return args.Get(0).(*model.ListResponse[*model.Connection]), args.Error(1)
 }
 
 //nolint:wrapcheck

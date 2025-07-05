@@ -113,6 +113,17 @@ paths:
   /api/v1/agents:
     get:
       description: Retrieve a list of agents.
+      parameters:
+      - description: Maximum number of agents to return
+        in: query
+        name: limit
+        schema:
+          type: integer
+      - description: Token to continue listing agents
+        in: query
+        name: continue
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -127,6 +138,13 @@ paths:
                   $ref: '#/components/schemas/agent.Agent'
                 type: array
           description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: Bad Request
         "500":
           content:
             application/json:

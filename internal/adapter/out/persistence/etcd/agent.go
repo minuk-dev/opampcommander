@@ -76,7 +76,10 @@ func (a *AgentEtcdAdapter) ListAgents(
 	options *domainmodel.ListOptions,
 ) (*domainmodel.ListResponse[*domainmodel.Agent], error) {
 	if options == nil {
-		options = &domainmodel.ListOptions{}
+		options = &domainmodel.ListOptions{
+			Limit:    0,  // 0 means no limit
+			Continue: "", // empty continue token means start from the beginning
+		}
 	}
 
 	startKey := "agents/" + options.Continue
