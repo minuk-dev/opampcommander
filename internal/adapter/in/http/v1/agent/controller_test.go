@@ -47,7 +47,11 @@ func TestAgentControllerListAgent(t *testing.T) {
 				InstanceUID: instanceUIDs[1],
 			},
 		}
-		agentUsecase.On("ListAgents", mock.Anything).Return(agents, nil)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              agents,
+		}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -58,9 +62,9 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
-		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "#").Int())
-		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "0.instanceUid").String())
-		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "1.instanceUid").String())
+		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "items.#").Int())
+		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "items.0.instanceUid").String())
+		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "items.1.instanceUid").String())
 	})
 
 	t.Run("List Agents - empty returns 200, empty", func(t *testing.T) {
@@ -73,7 +77,11 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything).Return([]*model.Agent{}, nil)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              []*model.Agent{},
+		}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -83,7 +91,8 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.JSONEq(t, "[]", recorder.Body.String())
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, int64(0), gjson.Get(recorder.Body.String(), "items.#").Int())
 	})
 
 	t.Run("List Agents - any error returns 500", func(t *testing.T) {
@@ -96,7 +105,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything).Return(([]*model.Agent)(nil), assert.AnError)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return((*model.ListResponse[*model.Agent])(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)

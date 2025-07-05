@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -16,6 +15,7 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 // Controller is a struct that implements the agent controller.
@@ -78,9 +78,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
-	limitStr := ctx.Query("limit")
-
-	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
 	if err != nil {
 		c.logger.Error("failed to parse limit", "error", err.Error())
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
