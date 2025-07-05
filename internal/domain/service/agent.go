@@ -79,14 +79,12 @@ func (s *AgentService) ListAgents(
 	ctx context.Context,
 	options *model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	agents, err := s.agentPersistencePort.ListAgents(ctx)
+	res, err := s.agentPersistencePort.ListAgents(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return &model.ListResponse[*model.Agent]{
-		Items: agents,
-	}, nil
+	return res, nil
 }
 
 // UpdateAgentConfig updates the agent configuration.
