@@ -13,7 +13,6 @@ type testcase[T any] struct {
 	expected   *MultiMap[T]
 }
 
-//nolint:funlen
 func TestMultiMap_String(t *testing.T) {
 	t.Parallel()
 
