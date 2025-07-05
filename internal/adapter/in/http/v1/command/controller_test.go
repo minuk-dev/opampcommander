@@ -23,7 +23,6 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-//nolint:funlen
 func TestCommandController_Get(t *testing.T) {
 	t.Parallel()
 

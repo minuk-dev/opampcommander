@@ -4,7 +4,6 @@ package connection
 import (
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -14,6 +13,7 @@ import (
 	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -62,11 +62,10 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Router /api/v1/connections [get].
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()
-	limitStr := ctx.Query("limit")
 
-	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
 	if err != nil {
-		c.logger.Error("failed to parse limit", "error", err.Error())
+		c.logger.Error("failed to get limit query parameter", "error", err.Error())
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
 
 		return

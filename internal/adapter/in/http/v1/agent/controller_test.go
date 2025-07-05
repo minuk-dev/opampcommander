@@ -26,7 +26,6 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-//nolint:funlen
 func TestAgentControllerListAgent(t *testing.T) {
 	t.Parallel()
 
@@ -108,7 +107,6 @@ func TestAgentControllerListAgent(t *testing.T) {
 	})
 }
 
-//nolint:funlen
 func TestAgentControllerGetAgent(t *testing.T) {
 	t.Parallel()
 	t.Run("Get Agent - happycase", func(t *testing.T) {
@@ -202,7 +200,6 @@ func TestAgentControllerGetAgent(t *testing.T) {
 	})
 }
 
-//nolint:funlen
 func TestAgentController_UpdateAgentConfig(t *testing.T) {
 	t.Parallel()
 
