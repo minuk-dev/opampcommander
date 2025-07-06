@@ -62,7 +62,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Accept  json
 // @Produce json
 // @Param   id  path  string  true  "Command ID"
-// @Success 200 {object} Audit
+// @Success 200 {object} CommandAudit
 // @Failure 400 {object} map[string]any "Invalid command ID"
 // @Failure 500 {object} map[string]any "Failed to get command"
 // @Router /api/v1/commands/{id} [get].

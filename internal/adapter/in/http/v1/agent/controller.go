@@ -169,7 +169,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
 // @Param  request body UpdateAgentConfigRequest true "Request body containing the remote configuration"
-// @Success  201 {object} Command
+// @Success  201 {object} AgentCommand
 // @Failure  400 {object} map[string]any
 // @Failure  500 {object} map[string]any
 // @Router  /api/v1/agents/{id}/update-agent-config [post].

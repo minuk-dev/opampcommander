@@ -1,7 +1,705 @@
 {
-    "components": {"schemas":{"agent.Agent":{"properties":{"instanceUid":{"description":"InstanceUID is a unique identifier for the agent instance.","type":"string"},"raw":{"description":"Raw is a raw data of the agent.\nIt is used for debugging purposes."}},"type":"object"},"agent.Command":{"properties":{"data":{"additionalProperties":{},"type":"object"},"id":{"type":"string"},"kind":{"type":"string"},"targetInstanceUid":{"type":"string"}},"type":"object"},"agent.UpdateAgentConfigRequest":{"properties":{"remoteConfig":{}},"required":["remoteConfig"],"type":"object"},"auth.AuthnTokenResponse":{"properties":{"token":{"description":"Token is the authentication token.","type":"string"}},"type":"object"},"auth.DeviceAuthnTokenResponse":{"properties":{"deviceCode":{"description":"DeviceCode","type":"string"},"expiry":{"description":"Expiry is when the device code and user code expire","type":"string"},"interval":{"description":"Interval is the duration in seconds that Poll should wait between requests","type":"integer"},"userCode":{"description":"UserCode is the code the user should enter at the verification uri","type":"string"},"verificationUri":{"description":"VerificationURI is where user should enter the user code","type":"string"},"verificationUriComplete":{"description":"VerificationURIComplete (if populated) includes the user code in the verification URI.\nThis is typically shown to the user in non-textual form, such as a QR code.","type":"string"}},"type":"object"},"auth.InfoResponse":{"properties":{"email":{"type":"string"}},"type":"object"},"auth.OAuth2AuthCodeURLResponse":{"properties":{"url":{"description":"URL is the OAuth2 authorization URL.","type":"string"}},"type":"object"},"command.Audit":{"properties":{"data":{"additionalProperties":{},"type":"object"},"id":{"type":"string"},"kind":{"type":"string"},"targetInstanceUid":{"type":"string"}},"type":"object"},"connection.Connection":{"properties":{"alive":{"type":"boolean"},"id":{"type":"string"},"instanceUid":{"type":"string"},"lastCommunicatedAt":{"type":"string"}},"type":"object"},"ping.Response":{"properties":{"message":{"description":"Message is the response message.","type":"string"}},"type":"object"}}},
-    "info": {"description":"This is the API server for OpAMP Commander, providing endpoints for managing OpAMP agents.","termsOfService":"http://swagger.io/terms/","title":"OpAMP Commander API Server","version":"1.0"},
-    "externalDocs": {"description":"","url":""},
-    "paths": {"/api/v1/agents":{"get":{"description":"Retrieve a list of agents.","parameters":[{"description":"Maximum number of agents to return","in":"query","name":"limit","schema":{"type":"integer"}},{"description":"Token to continue listing agents","in":"query","name":"continue","schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"items":{"$ref":"#/components/schemas/agent.Agent"},"type":"array"}}},"description":"OK"},"400":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Bad Request"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"List Agents","tags":["agent"]}},"/api/v1/agents/{id}":{"get":{"description":"Retrieve an agent by its instance UID.","parameters":[{"description":"Instance UID of the agent","in":"path","name":"id","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/agent.Agent"}}},"description":"OK"},"400":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Bad Request"},"404":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Not Found"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"Get Agent","tags":["agent"]}},"/api/v1/agents/{id}/update-agent-config":{"post":{"description":"Create a new command to update the agent configuration.","parameters":[{"description":"Instance UID of the agent","in":"path","name":"id","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/agent.UpdateAgentConfigRequest"}}},"description":"Request body containing the remote configuration","required":true},"responses":{"201":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/agent.Command"}}},"description":"Created"},"400":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Bad Request"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"Update Agent Configuration","tags":["agent"]}},"/api/v1/auth/basic":{"get":{"description":"Authenticate using basic auth credentials.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/auth.AuthnTokenResponse"}}},"description":"OK"},"401":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Unauthorized"}},"summary":"Basic Authentication","tags":["auth","basic"]}},"/api/v1/auth/github":{"get":{"description":"Returns the GitHub OAuth2 authentication URL.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/auth.OAuth2AuthCodeURLResponse"}}},"description":"OK"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"GitHub OAuth2 Authentication","tags":["auth","github"]}},"/api/v1/auth/github/device":{"get":{"description":"Initiates device authorization for GitHub OAuth2.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/auth.DeviceAuthnTokenResponse"}}},"description":"OK"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"GitHub Device Authentication","tags":["auth","github"]}},"/api/v1/auth/github/device/exchange":{"get":{"description":"Exchanges a device code for an authentication token.","parameters":[{"description":"Device code to exchange","in":"query","name":"device_code","required":true,"schema":{"type":"string"}},{"description":"Optional expiry time in RFC3339 format","in":"query","name":"expiry","schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/auth.AuthnTokenResponse"}}},"description":"OK"},"400":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Bad Request"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"GitHub Device Code Exchange","tags":["auth","github"]}},"/api/v1/auth/info":{"get":{"description":"Get Authentication Info.","responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/auth.InfoResponse"}}},"description":"OK"},"401":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Unauthorized"}},"summary":"Info","tags":["auth","basic"]}},"/api/v1/commands":{"get":{"description":"Retrieve a list of commands.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"items":{"$ref":"#/components/schemas/command.Audit"},"type":"array"}}},"description":"OK"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Failed to list commands"}},"summary":"List Commands","tags":["command"]}},"/api/v1/commands/{id}":{"get":{"description":"Retrieve a command by its ID.","parameters":[{"description":"Command ID","in":"path","name":"id","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/command.Audit"}}},"description":"OK"},"400":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Invalid command ID"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Failed to get command"}},"summary":"Get Command","tags":["command"]}},"/api/v1/connections":{"get":{"description":"Retrieve a list of all connections.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"items":{"$ref":"#/components/schemas/connection.Connection"},"type":"array"}}},"description":"OK"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"List Connections","tags":["connection"]}},"/api/v1/ping":{"get":{"description":"Ping the server to check if it is alive.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/ping.Response"}}},"description":"OK"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"Ping","tags":["ping"]}},"/auth/github":{"get":{"description":"Redirects to GitHub for OAuth2 authentication.","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"302":{"description":"Found"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"GitHub OAuth2 Authentication","tags":["auth","github"]}},"/auth/github/callback":{"get":{"description":"Exchanges the code received from GitHub for an authentication token.","parameters":[{"description":"State parameter to prevent CSRF attacks","in":"query","name":"state","required":true,"schema":{"type":"string"}},{"description":"Code received from GitHub after authentication","in":"query","name":"code","required":true,"schema":{"type":"string"}}],"requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}},"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/auth.AuthnTokenResponse"}}},"description":"OK"},"500":{"content":{"application/json":{"schema":{"additionalProperties":{},"type":"object"}}},"description":"Internal Server Error"}},"summary":"GitHub OAuth2 Callback","tags":["auth","github"]}}},
-    "openapi": "3.1.0"
+    "swagger": "2.0",
+    "info": {
+        "description": "This is the API server for OpAMP Commander, providing endpoints for managing OpAMP agents.",
+        "title": "OpAMP Commander API Server",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {
+        "/api/v1/agents": {
+            "get": {
+                "description": "Retrieve a list of agents.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "List Agents",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of agents to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agents",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Agent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agents/{id}": {
+            "get": {
+                "description": "Retrieve an agent by its instance UID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Get Agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UID of the agent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Agent"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agents/{id}/update-agent-config": {
+            "post": {
+                "description": "Create a new command to update the agent configuration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Update Agent Configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UID of the agent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body containing the remote configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateAgentConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/AgentCommand"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/basic": {
+            "get": {
+                "description": "Authenticate using basic auth credentials.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "basic"
+                ],
+                "summary": "Basic Authentication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/github": {
+            "get": {
+                "description": "Returns the GitHub OAuth2 authentication URL.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Authentication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/OAuth2AuthCodeURLResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/github/device": {
+            "get": {
+                "description": "Initiates device authorization for GitHub OAuth2.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub Device Authentication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/DeviceAuthnTokenResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/github/device/exchange": {
+            "get": {
+                "description": "Exchanges a device code for an authentication token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub Device Code Exchange",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device code to exchange",
+                        "name": "device_code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional expiry time in RFC3339 format",
+                        "name": "expiry",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/info": {
+            "get": {
+                "description": "Get Authentication Info.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "basic"
+                ],
+                "summary": "Info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/InfoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/commands": {
+            "get": {
+                "description": "Retrieve a list of commands.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "command"
+                ],
+                "summary": "List Commands",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CommandAudit"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to list commands",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/commands/{id}": {
+            "get": {
+                "description": "Retrieve a command by its ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "command"
+                ],
+                "summary": "Get Command",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Command ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CommandAudit"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid command ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to get command",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/connections": {
+            "get": {
+                "description": "Retrieve a list of all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connection"
+                ],
+                "summary": "List Connections",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Connection"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ping": {
+            "get": {
+                "description": "Ping the server to check if it is alive.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ping"
+                ],
+                "summary": "Ping",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PingResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/github": {
+            "get": {
+                "description": "Redirects to GitHub for OAuth2 authentication.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Authentication",
+                "responses": {
+                    "302": {
+                        "description": "Found"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/github/callback": {
+            "get": {
+                "description": "Exchanges the code received from GitHub for an authentication token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "State parameter to prevent CSRF attacks",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Code received from GitHub after authentication",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "Agent": {
+            "type": "object",
+            "properties": {
+                "instanceUid": {
+                    "description": "InstanceUID is a unique identifier for the agent instance.",
+                    "type": "string"
+                },
+                "raw": {
+                    "description": "Raw is a raw data of the agent.\nIt is used for debugging purposes."
+                }
+            }
+        },
+        "AgentCommand": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "targetInstanceUid": {
+                    "type": "string"
+                }
+            }
+        },
+        "AuthnTokenResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "description": "Token is the authentication token.",
+                    "type": "string"
+                }
+            }
+        },
+        "CommandAudit": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "targetInstanceUid": {
+                    "type": "string"
+                }
+            }
+        },
+        "Connection": {
+            "type": "object",
+            "properties": {
+                "alive": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instanceUid": {
+                    "type": "string"
+                },
+                "lastCommunicatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "DeviceAuthnTokenResponse": {
+            "type": "object",
+            "properties": {
+                "deviceCode": {
+                    "description": "DeviceCode",
+                    "type": "string"
+                },
+                "expiry": {
+                    "description": "Expiry is when the device code and user code expire",
+                    "type": "string"
+                },
+                "interval": {
+                    "description": "Interval is the duration in seconds that Poll should wait between requests",
+                    "type": "integer"
+                },
+                "userCode": {
+                    "description": "UserCode is the code the user should enter at the verification uri",
+                    "type": "string"
+                },
+                "verificationUri": {
+                    "description": "VerificationURI is where user should enter the user code",
+                    "type": "string"
+                },
+                "verificationUriComplete": {
+                    "description": "VerificationURIComplete (if populated) includes the user code in the verification URI.\nThis is typically shown to the user in non-textual form, such as a QR code.",
+                    "type": "string"
+                }
+            }
+        },
+        "InfoResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "OAuth2AuthCodeURLResponse": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "description": "URL is the OAuth2 authorization URL.",
+                    "type": "string"
+                }
+            }
+        },
+        "PingResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "Message is the response message.",
+                    "type": "string"
+                }
+            }
+        },
+        "UpdateAgentConfigRequest": {
+            "type": "object",
+            "required": [
+                "remoteConfig"
+            ],
+            "properties": {
+                "remoteConfig": {}
+            }
+        }
+    }
 }
