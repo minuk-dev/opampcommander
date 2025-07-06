@@ -17,12 +17,7 @@ type Audit struct {
 } // @name CommandAudit
 
 // ListResponse is a struct that represents the response for listing commands.
-type ListResponse struct {
-	Kind       string      `json:"kind"`
-	APIVersion string      `json:"apiVersion"`
-	Metadata   v1.ListMeta `json:"metadata"`
-	Items      []Audit     `json:"items"`
-} // @name CommandAuditListResponse
+type ListResponse = v1.ListResponse[Audit]
 
 // NewListResponse creates a new ListResponse with the given commands and metadata.
 func NewListResponse(commands []Audit, metadata v1.ListMeta) *ListResponse {

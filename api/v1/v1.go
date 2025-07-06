@@ -12,3 +12,11 @@ type ListMeta struct {
 	Continue           string `json:"continue"`
 	RemainingItemCount int64  `json:"remainingItemCount"`
 } // @name ListMeta
+
+// ListResponse is a struct that represents the response for listing agents.
+type ListResponse[T any] struct {
+	Kind       string   `json:"kind"`
+	APIVersion string   `json:"apiVersion"`
+	Metadata   ListMeta `json:"metadata"`
+	Items      []T      `json:"items"`
+} // @name ListResponse

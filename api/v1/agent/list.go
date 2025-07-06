@@ -2,13 +2,8 @@ package agent
 
 import v1 "github.com/minuk-dev/opampcommander/api/v1"
 
-// ListResponse is a struct that represents the response for listing agents.
-type ListResponse struct {
-	Kind       string      `json:"kind"`
-	APIVersion string      `json:"apiVersion"`
-	Metadata   v1.ListMeta `json:"metadata"`
-	Items      []Agent     `json:"items"`
-} // @name AgentListResponse
+// ListResponse represents a list of agents with metadata.
+type ListResponse = v1.ListResponse[Agent]
 
 // NewListResponse creates a new ListResponse with the given agents and metadata.
 func NewListResponse(agents []Agent, metadata v1.ListMeta) *ListResponse {
