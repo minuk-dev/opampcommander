@@ -4,7 +4,6 @@ package command
 import (
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,6 +13,7 @@ import (
 	commandv1 "github.com/minuk-dev/opampcommander/api/v1/command"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 // Controller is a struct that implements the command controller.
@@ -97,9 +97,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Failure 500 {object} map[string]any "Failed to list commands"
 // @Router /api/v1/commands [get].
 func (c *Controller) List(ctx *gin.Context) {
-	limitStr := ctx.Query("limit")
-
-	limit, err := strconv.ParseInt(limitStr, 10, 64)
+	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
 	if err != nil {
 		c.logger.Error("failed to parse limit", "error", err.Error())
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})

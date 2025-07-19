@@ -115,7 +115,11 @@ func TestCommandController_List(t *testing.T) {
 			{ID: uuid.New()},
 			{ID: uuid.New()},
 		}
-		commandUsecase.On("ListCommands", mock.Anything).Return(commands, nil)
+		commandUsecase.On("ListCommands", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Command]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              commands,
+		}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -126,7 +130,46 @@ func TestCommandController_List(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
-		assert.Equal(t, len(commands), int(gjson.Get(recorder.Body.String(), "#").Int()))
+		assert.Equal(t, len(commands), int(gjson.Get(recorder.Body.String(), "items.#").Int()))
+	})
+
+	t.Run("List Commands - 400 Bad Request when invalid continue query parameters", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands?limit=invalid", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "invalid limit parameter", gjson.Get(recorder.Body.String(), "error").String())
+	})
+
+	t.Run("List Commands - 400 Bad Request when invalid limit query parameters", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands?limit=invalid", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "invalid limit parameter", gjson.Get(recorder.Body.String(), "error").String())
 	})
 
 	t.Run("List Commands - 500 Internal Server Error when usecase fails", func(t *testing.T) {
@@ -139,7 +182,7 @@ func TestCommandController_List(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		commandUsecase.On("ListCommands", mock.Anything).Return(([]*model.Command)(nil), assert.AnError)
+		commandUsecase.On("ListCommands", mock.Anything, mock.Anything).Return((*model.ListResponse[*model.Command])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()

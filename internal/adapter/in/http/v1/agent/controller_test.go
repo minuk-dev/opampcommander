@@ -123,7 +123,8 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return((*model.ListResponse[*model.Agent])(nil), assert.AnError)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).
+			Return((*model.ListResponse[*model.Agent])(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
