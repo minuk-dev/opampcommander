@@ -32,6 +32,6 @@ func (s *ConnectionService) GetConnection(id uuid.UUID) (*connectionv1.Connectio
 }
 
 // ListConnections lists all connections.
-func (s *ConnectionService) ListConnections() ([]*connectionv1.Connection, error) {
-	return listResources[*connectionv1.Connection](s.service, ListConnectionsPath)
+func (s *ConnectionService) ListConnections() (*connectionv1.ListResponse, error) {
+	return listResources[connectionv1.Connection](s.service, ListConnectionsPath)
 }
