@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd/entity"
@@ -107,9 +108,11 @@ func (a *AgentEtcdAdapter) ListAgents(
 		agents = append(agents, agent.ToDomain())
 	}
 
+	continueKey := lo.LastOrEmpty(agents).InstanceUID.String() + "\x00" // Use a null byte to ensure the next key is lexicographically greater
+
 	return &domainmodel.ListResponse[*domainmodel.Agent]{
 		RemainingItemCount: getResponse.Count - int64(len(agents)),
-		Continue:           agents[len(agents)-1].InstanceUID.String(),
+		Continue:           continueKey,
 		Items:              agents,
 	}, nil
 }
