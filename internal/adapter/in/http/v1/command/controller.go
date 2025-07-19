@@ -9,9 +9,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	commandv1 "github.com/minuk-dev/opampcommander/api/v1/command"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 // Controller is a struct that implements the command controller.
@@ -60,7 +62,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Accept  json
 // @Produce json
 // @Param   id  path  string  true  "Command ID"
-// @Success 200 {object} Audit
+// @Success 200 {object} CommandAudit
 // @Failure 400 {object} map[string]any "Invalid command ID"
 // @Failure 500 {object} map[string]any "Failed to get command"
 // @Router /api/v1/commands/{id} [get].
@@ -95,7 +97,20 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Failure 500 {object} map[string]any "Failed to list commands"
 // @Router /api/v1/commands [get].
 func (c *Controller) List(ctx *gin.Context) {
-	commands, err := c.commandUsecase.ListCommands(ctx)
+	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	if err != nil {
+		c.logger.Error("failed to parse limit", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.commandUsecase.ListCommands(ctx, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list commands"})
 
@@ -104,14 +119,20 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	ctx.JSON(
 		http.StatusOK,
-		lo.Map(commands, func(command *model.Command, _ int) *commandv1.Audit {
-			return convertToAPIModel(command)
-		}),
+		commandv1.NewListResponse(
+			lo.Map(response.Items, func(command *model.Command, _ int) commandv1.Audit {
+				return convertToAPIModel(command)
+			}),
+			v1.ListMeta{
+				RemainingItemCount: response.RemainingItemCount,
+				Continue:           response.Continue,
+			},
+		),
 	)
 }
 
-func convertToAPIModel(command *model.Command) *commandv1.Audit {
-	return &commandv1.Audit{
+func convertToAPIModel(command *model.Command) commandv1.Audit {
+	return commandv1.Audit{
 		Kind:              string(command.Kind),
 		ID:                command.ID.String(),
 		TargetInstanceUID: command.TargetInstanceUID.String(),

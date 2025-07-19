@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd/entity"
@@ -71,18 +72,30 @@ func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) 
 }
 
 // ListAgents retrieves all agents from the persistence layer.
-func (a *AgentEtcdAdapter) ListAgents(ctx context.Context) ([]*domainmodel.Agent, error) {
-	getResponse, err := a.client.Get(ctx, "agents/", clientv3.WithPrefix())
+func (a *AgentEtcdAdapter) ListAgents(
+	ctx context.Context,
+	options *domainmodel.ListOptions,
+) (*domainmodel.ListResponse[*domainmodel.Agent], error) {
+	if options == nil {
+		options = &domainmodel.ListOptions{
+			Limit:    0,  // 0 means no limit
+			Continue: "", // empty continue token means start from the beginning
+		}
+	}
+
+	startKey := "agents/" + options.Continue
+
+	getResponse, err := a.client.Get(
+		ctx,
+		startKey,
+		clientv3.WithLimit(options.Limit),
+		clientv3.WithRange("agents/\xFF"), // Use a range to get all keys under "agents/"
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agents from etcd: %w", err)
 	}
 
 	agents := make([]*domainmodel.Agent, 0, getResponse.Count)
-
-	a.logger.Debug("ListAgents",
-		slog.String("key", "agents/"),
-		slog.Any("value", getResponse.Kvs),
-	)
 
 	for _, kv := range getResponse.Kvs {
 		var agent entity.Agent
@@ -94,8 +107,14 @@ func (a *AgentEtcdAdapter) ListAgents(ctx context.Context) ([]*domainmodel.Agent
 
 		agents = append(agents, agent.ToDomain())
 	}
+	// Use a null byte to ensure the next key is lexicographically greater
+	continueKey := lo.LastOrEmpty(agents).InstanceUID.String() + "\x00"
 
-	return agents, nil
+	return &domainmodel.ListResponse[*domainmodel.Agent]{
+		RemainingItemCount: getResponse.Count - int64(len(agents)),
+		Continue:           continueKey,
+		Items:              agents,
+	}, nil
 }
 
 // PutAgent saves the agent to the persistence layer.

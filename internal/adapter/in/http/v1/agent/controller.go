@@ -10,10 +10,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 // Controller is a struct that implements the agent controller.
@@ -70,10 +72,26 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Accept json
 // @Produce json
 // @Success 200 {array} Agent
+// @Param limit query int false "Maximum number of agents to return"
+// @Param continue query string false "Token to continue listing agents"
+// @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
-	agents, err := c.agentUsecase.ListAgents(ctx)
+	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	if err != nil {
+		c.logger.Error("failed to parse limit", "error", err.Error())
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.agentUsecase.ListAgents(ctx, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -81,12 +99,18 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	agentResponse := lo.Map(agents, func(agent *model.Agent, _ int) *agentv1.Agent {
-		return &agentv1.Agent{
-			InstanceUID: agent.InstanceUID,
-			Raw:         agent,
-		}
-	})
+	agentResponse := agentv1.NewListResponse(
+		lo.Map(response.Items, func(agent *model.Agent, _ int) agentv1.Agent {
+			return agentv1.Agent{
+				InstanceUID: agent.InstanceUID,
+				Raw:         agent,
+			}
+		}),
+		v1.ListMeta{
+			RemainingItemCount: response.RemainingItemCount,
+			Continue:           response.Continue,
+		},
+	)
 
 	ctx.JSON(http.StatusOK, agentResponse)
 }
@@ -145,7 +169,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
 // @Param  request body UpdateAgentConfigRequest true "Request body containing the remote configuration"
-// @Success  201 {object} Command
+// @Success  201 {object} AgentCommand
 // @Failure  400 {object} map[string]any
 // @Failure  500 {object} map[string]any
 // @Router  /api/v1/agents/{id}/update-agent-config [post].

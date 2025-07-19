@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	uuid "github.com/google/uuid"
+
+	apiv1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
 // Client is a struct that contains the endpoint and the resty client.
@@ -79,11 +81,11 @@ func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
 	return &result, nil
 }
 
-func listResources[T any](c *service, url string) ([]T, error) {
-	var result []T
+func listResources[T any](c *service, url string) (*apiv1.ListResponse[T], error) {
+	var listResponse apiv1.ListResponse[T]
 
 	res, err := c.Resty.R().
-		SetResult(&result).
+		SetResult(&listResponse).
 		Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resources(restyError): %w", err)
@@ -100,5 +102,5 @@ func listResources[T any](c *service, url string) ([]T, error) {
 		return nil, fmt.Errorf("failed to list resources: %w", ErrEmptyResponse)
 	}
 
-	return result, nil
+	return &listResponse, nil
 }

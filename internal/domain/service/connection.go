@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"log/slog"
+	"sort"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -68,8 +70,48 @@ func (s *Service) GetConnectionByInstanceUID(_ context.Context, instanceUID uuid
 }
 
 // ListConnections implements port.ConnectionUsecase.
-func (s *Service) ListConnections(_ context.Context) ([]*model.Connection, error) {
-	return s.connectionMap.Values(), nil
+func (s *Service) ListConnections(
+	_ context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Connection], error) {
+	if options == nil {
+		options = &model.ListOptions{
+			Limit:    0,  // 0 means no limit
+			Continue: "", // empty continue token means start from the beginning
+		}
+	}
+
+	keyValues := s.connectionMap.KeyValues()
+	keys := lo.Keys(keyValues)
+	sort.Strings(keys)
+
+	if options.Continue != "" {
+		// Find the index of the continue token
+		index := sort.SearchStrings(keys, options.Continue)
+		if index < len(keys) {
+			keys = keys[index:]
+		} else {
+			keys = nil // If continue token not found, return empty list
+		}
+	}
+
+	totalMatchedItemsCount := len(keys)
+
+	var nextContinue string
+	if options.Limit > 0 && len(keys) > int(options.Limit) {
+		nextContinue = keys[options.Limit]
+		keys = keys[:options.Limit]
+	} else {
+		nextContinue = "\xff" // Use a sentinel value to indicate no more items
+	}
+
+	return &model.ListResponse[*model.Connection]{
+		Items: lo.Map(keys, func(key string, _ int) *model.Connection {
+			return keyValues[key]
+		}),
+		Continue:           nextContinue,
+		RemainingItemCount: int64(totalMatchedItemsCount - len(keys)),
+	}, nil
 }
 
 // SaveConnection implements port.ConnectionUsecase.

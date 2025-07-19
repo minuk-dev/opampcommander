@@ -49,7 +49,12 @@ func TestConnectionController_List(t *testing.T) {
 				LastCommunicatedAt: time.Now(),
 			},
 		}
-		adminUsecase.On("ListConnections", mock.Anything).Return(connections, nil)
+		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
+			Return(&model.ListResponse[*model.Connection]{
+				RemainingItemCount: 0,
+				Continue:           "",
+				Items:              connections,
+			}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -60,7 +65,8 @@ func TestConnectionController_List(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
-		assert.Equal(t, len(connections), int(gjson.Get(recorder.Body.String(), "#").Int()))
+		t.Logf("Response Body: %s", recorder.Body.String())
+		assert.Equal(t, len(connections), int(gjson.Get(recorder.Body.String(), "items.#").Int()))
 	})
 
 	t.Run("List Connections - error case", func(t *testing.T) {
@@ -73,7 +79,8 @@ func TestConnectionController_List(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		adminUsecase.On("ListConnections", mock.Anything).Return(([]*model.Connection)(nil), assert.AnError)
+		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
+			Return((*model.ListResponse[*model.Connection])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -83,6 +90,25 @@ func TestConnectionController_List(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+
+	t.Run("List Connections - invalid limit query parameter", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		adminUsecase := newMockAdminUsecase(t)
+		controller := connection.NewController(adminUsecase)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/connections?limit=invalid", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 }
 
@@ -100,10 +126,13 @@ func newMockAdminUsecase(t *testing.T) *mockAdminUsecase {
 }
 
 //nolint:forcetypeassert,wrapcheck
-func (m *mockAdminUsecase) ListConnections(ctx context.Context) ([]*model.Connection, error) {
-	args := m.Called(ctx)
+func (m *mockAdminUsecase) ListConnections(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Connection], error) {
+	args := m.Called(ctx, options)
 
-	return args.Get(0).([]*model.Connection), args.Error(1)
+	return args.Get(0).(*model.ListResponse[*model.Connection]), args.Error(1)
 }
 
 //nolint:wrapcheck

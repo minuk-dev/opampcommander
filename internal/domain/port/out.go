@@ -15,8 +15,8 @@ type AgentPersistencePort interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
 	// GetAgentByID retrieves an agent by its ID.
 	PutAgent(ctx context.Context, agent *model.Agent) error
-	// GetAgentByID retrieves an agent by its ID.
-	ListAgents(ctx context.Context) ([]*model.Agent, error)
+	// ListAgents retrieves a list of agents with pagination options.
+	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 }
 
 // CommandPersistencePort is an interface that defines the methods for command persistence.

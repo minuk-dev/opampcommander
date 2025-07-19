@@ -75,13 +75,16 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 }
 
 // ListAgents retrieves all agents from the persistence layer.
-func (s *AgentService) ListAgents(ctx context.Context) ([]*model.Agent, error) {
-	agents, err := s.agentPersistencePort.ListAgents(ctx)
+func (s *AgentService) ListAgents(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	res, err := s.agentPersistencePort.ListAgents(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return agents, nil
+	return res, nil
 }
 
 // UpdateAgentConfig updates the agent configuration.

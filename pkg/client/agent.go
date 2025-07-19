@@ -31,6 +31,6 @@ func (s *AgentService) GetAgent(id uuid.UUID) (*agentv1.Agent, error) {
 }
 
 // ListAgents lists all agents.
-func (s *AgentService) ListAgents() ([]*agentv1.Agent, error) {
-	return listResources[*agentv1.Agent](s.service, ListAgentURL)
+func (s *AgentService) ListAgents() (*agentv1.ListResponse, error) {
+	return listResources[agentv1.Agent](s.service, ListAgentURL)
 }

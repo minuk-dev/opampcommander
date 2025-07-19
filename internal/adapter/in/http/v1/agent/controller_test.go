@@ -26,7 +26,6 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-//nolint:funlen
 func TestAgentControllerListAgent(t *testing.T) {
 	t.Parallel()
 
@@ -48,7 +47,11 @@ func TestAgentControllerListAgent(t *testing.T) {
 				InstanceUID: instanceUIDs[1],
 			},
 		}
-		agentUsecase.On("ListAgents", mock.Anything).Return(agents, nil)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              agents,
+		}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -59,9 +62,9 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
-		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "#").Int())
-		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "0.instanceUid").String())
-		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "1.instanceUid").String())
+		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "items.#").Int())
+		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "items.0.instanceUid").String())
+		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "items.1.instanceUid").String())
 	})
 
 	t.Run("List Agents - empty returns 200, empty", func(t *testing.T) {
@@ -74,7 +77,11 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything).Return([]*model.Agent{}, nil)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              []*model.Agent{},
+		}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -84,7 +91,26 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.JSONEq(t, "[]", recorder.Body.String())
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, int64(0), gjson.Get(recorder.Body.String(), "items.#").Int())
+	})
+
+	t.Run("List Agents - invalid limit returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents?limit=invalid", nil)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.JSONEq(t, `{"error":"invalid limit parameter"}`, recorder.Body.String())
 	})
 
 	t.Run("List Agents - any error returns 500", func(t *testing.T) {
@@ -97,7 +123,8 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything).Return(([]*model.Agent)(nil), assert.AnError)
+		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).
+			Return((*model.ListResponse[*model.Agent])(nil), assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
@@ -108,7 +135,6 @@ func TestAgentControllerListAgent(t *testing.T) {
 	})
 }
 
-//nolint:funlen
 func TestAgentControllerGetAgent(t *testing.T) {
 	t.Parallel()
 	t.Run("Get Agent - happycase", func(t *testing.T) {
@@ -202,7 +228,6 @@ func TestAgentControllerGetAgent(t *testing.T) {
 	})
 }
 
-//nolint:funlen
 func TestAgentController_UpdateAgentConfig(t *testing.T) {
 	t.Parallel()
 
@@ -230,6 +255,24 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusCreated, recorder.Code)
+	})
+
+	t.Run("Update Agent Config - 400 Bad Request when instanceUID is not uuid", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentManageUsecase := newMockAgentManageUsecase(t)
+		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
+			"/api/v1/agents/not-a-uuid/update-agent-config",
+			strings.NewReader(`{"targetInstanceUid":"not-a-uuid","remoteConfig":{"key":"value"}}`))
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
 	t.Run("Update Agent Config - 400 Bad Request when invalid request body", func(t *testing.T) {
@@ -315,10 +358,13 @@ func (m *mockAgentManageUsecase) SaveAgent(ctx context.Context, agent *model.Age
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockAgentManageUsecase) ListAgents(ctx context.Context) ([]*model.Agent, error) {
-	args := m.Called(ctx)
+func (m *mockAgentManageUsecase) ListAgents(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	args := m.Called(ctx, options)
 
-	return args.Get(0).([]*model.Agent), args.Error(1)
+	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1)
 }
 
 //nolint:wrapcheck

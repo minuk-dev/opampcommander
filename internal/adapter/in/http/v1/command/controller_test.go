@@ -14,8 +14,8 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
+	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -23,7 +23,6 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-//nolint:funlen
 func TestCommandController_Get(t *testing.T) {
 	t.Parallel()
 
@@ -116,7 +115,11 @@ func TestCommandController_List(t *testing.T) {
 			{ID: uuid.New()},
 			{ID: uuid.New()},
 		}
-		commandUsecase.On("ListCommands", mock.Anything).Return(commands, nil)
+		commandUsecase.On("ListCommands", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Command]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              commands,
+		}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -127,7 +130,46 @@ func TestCommandController_List(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
-		assert.Equal(t, len(commands), int(gjson.Get(recorder.Body.String(), "#").Int()))
+		assert.Equal(t, len(commands), int(gjson.Get(recorder.Body.String(), "items.#").Int()))
+	})
+
+	t.Run("List Commands - 400 Bad Request when invalid continue query parameters", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands?limit=invalid", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "invalid limit parameter", gjson.Get(recorder.Body.String(), "error").String())
+	})
+
+	t.Run("List Commands - 400 Bad Request when invalid limit query parameters", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		commandUsecase := newMockCommandUsecase(t)
+		controller := command.NewController(commandUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/commands?limit=invalid", nil)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
+		assert.Equal(t, "invalid limit parameter", gjson.Get(recorder.Body.String(), "error").String())
 	})
 
 	t.Run("List Commands - 500 Internal Server Error when usecase fails", func(t *testing.T) {
@@ -140,7 +182,8 @@ func TestCommandController_List(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		commandUsecase.On("ListCommands", mock.Anything).Return(([]*model.Command)(nil), assert.AnError)
+		commandUsecase.On("ListCommands", mock.Anything, mock.Anything).
+			Return((*model.ListResponse[*model.Command])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -153,7 +196,7 @@ func TestCommandController_List(t *testing.T) {
 	})
 }
 
-var _ port.CommandUsecase = (*mockCommandUsecase)(nil)
+var _ port.CommandLookUpUsecase = (*mockCommandUsecase)(nil)
 
 type mockCommandUsecase struct {
 	mock.Mock
@@ -174,17 +217,13 @@ func (m *mockCommandUsecase) GetCommand(ctx context.Context, commandID uuid.UUID
 }
 
 //nolint:wrapcheck,forcetypeassert
-func (m *mockCommandUsecase) ListCommands(ctx context.Context) ([]*model.Command, error) {
-	args := m.Called(ctx)
+func (m *mockCommandUsecase) ListCommands(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Command], error) {
+	args := m.Called(ctx, options)
 
-	return args.Get(0).([]*model.Command), args.Error(1)
-}
-
-//nolint:wrapcheck
-func (m *mockCommandUsecase) SaveCommand(ctx context.Context, command *model.Command) error {
-	args := m.Called(ctx, command)
-
-	return args.Error(0)
+	return args.Get(0).(*model.ListResponse[*model.Command]), args.Error(1)
 }
 
 //nolint:forcetypeassert,wrapcheck

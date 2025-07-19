@@ -1,348 +1,315 @@
-components:
-  schemas:
-    agent.Agent:
-      properties:
-        instanceUid:
-          description: InstanceUID is a unique identifier for the agent instance.
-          type: string
-        raw:
-          description: |-
-            Raw is a raw data of the agent.
-            It is used for debugging purposes.
-      type: object
-    agent.Command:
-      properties:
-        data:
-          additionalProperties: {}
-          type: object
-        id:
-          type: string
-        kind:
-          type: string
-        targetInstanceUid:
-          type: string
-      type: object
-    agent.UpdateAgentConfigRequest:
-      properties:
-        remoteConfig: {}
-      required:
-      - remoteConfig
-      type: object
-    auth.AuthnTokenResponse:
-      properties:
-        token:
-          description: Token is the authentication token.
-          type: string
-      type: object
-    auth.DeviceAuthnTokenResponse:
-      properties:
-        deviceCode:
-          description: DeviceCode
-          type: string
-        expiry:
-          description: Expiry is when the device code and user code expire
-          type: string
-        interval:
-          description: Interval is the duration in seconds that Poll should wait between
-            requests
-          type: integer
-        userCode:
-          description: UserCode is the code the user should enter at the verification
-            uri
-          type: string
-        verificationUri:
-          description: VerificationURI is where user should enter the user code
-          type: string
-        verificationUriComplete:
-          description: |-
-            VerificationURIComplete (if populated) includes the user code in the verification URI.
-            This is typically shown to the user in non-textual form, such as a QR code.
-          type: string
-      type: object
-    auth.InfoResponse:
-      properties:
-        email:
-          type: string
-      type: object
-    auth.OAuth2AuthCodeURLResponse:
-      properties:
-        url:
-          description: URL is the OAuth2 authorization URL.
-          type: string
-      type: object
-    command.Audit:
-      properties:
-        data:
-          additionalProperties: {}
-          type: object
-        id:
-          type: string
-        kind:
-          type: string
-        targetInstanceUid:
-          type: string
-      type: object
-    connection.Connection:
-      properties:
-        alive:
-          type: boolean
-        id:
-          type: string
-        instanceUid:
-          type: string
-        lastCommunicatedAt:
-          type: string
-      type: object
-    ping.Response:
-      properties:
-        message:
-          description: Message is the response message.
-          type: string
-      type: object
-externalDocs:
-  description: ""
-  url: ""
+definitions:
+  Agent:
+    properties:
+      instanceUid:
+        description: InstanceUID is a unique identifier for the agent instance.
+        type: string
+      raw:
+        description: |-
+          Raw is a raw data of the agent.
+          It is used for debugging purposes.
+    type: object
+  AgentCommand:
+    properties:
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      kind:
+        type: string
+      targetInstanceUid:
+        type: string
+    type: object
+  AuthnTokenResponse:
+    properties:
+      token:
+        description: Token is the authentication token.
+        type: string
+    type: object
+  CommandAudit:
+    properties:
+      data:
+        additionalProperties: {}
+        type: object
+      id:
+        type: string
+      kind:
+        type: string
+      targetInstanceUid:
+        type: string
+    type: object
+  Connection:
+    properties:
+      alive:
+        type: boolean
+      id:
+        type: string
+      instanceUid:
+        type: string
+      lastCommunicatedAt:
+        type: string
+    type: object
+  DeviceAuthnTokenResponse:
+    properties:
+      deviceCode:
+        description: DeviceCode
+        type: string
+      expiry:
+        description: Expiry is when the device code and user code expire
+        type: string
+      interval:
+        description: Interval is the duration in seconds that Poll should wait between
+          requests
+        type: integer
+      userCode:
+        description: UserCode is the code the user should enter at the verification
+          uri
+        type: string
+      verificationUri:
+        description: VerificationURI is where user should enter the user code
+        type: string
+      verificationUriComplete:
+        description: |-
+          VerificationURIComplete (if populated) includes the user code in the verification URI.
+          This is typically shown to the user in non-textual form, such as a QR code.
+        type: string
+    type: object
+  InfoResponse:
+    properties:
+      email:
+        type: string
+    type: object
+  OAuth2AuthCodeURLResponse:
+    properties:
+      url:
+        description: URL is the OAuth2 authorization URL.
+        type: string
+    type: object
+  PingResponse:
+    properties:
+      message:
+        description: Message is the response message.
+        type: string
+    type: object
+  UpdateAgentConfigRequest:
+    properties:
+      remoteConfig: {}
+    required:
+    - remoteConfig
+    type: object
 info:
+  contact: {}
   description: This is the API server for OpAMP Commander, providing endpoints for
     managing OpAMP agents.
   termsOfService: http://swagger.io/terms/
   title: OpAMP Commander API Server
   version: "1.0"
-openapi: 3.1.0
 paths:
   /api/v1/agents:
     get:
+      consumes:
+      - application/json
       description: Retrieve a list of agents.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      parameters:
+      - description: Maximum number of agents to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agents
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/agent.Agent'
-                type: array
           description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Agent'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: List Agents
       tags:
       - agent
   /api/v1/agents/{id}:
     get:
+      consumes:
+      - application/json
       description: Retrieve an agent by its instance UID.
       parameters:
       - description: Instance UID of the agent
         in: path
         name: id
         required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/agent.Agent'
           description: OK
+          schema:
+            $ref: '#/definitions/Agent'
         "400":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
         "404":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: Get Agent
       tags:
       - agent
   /api/v1/agents/{id}/update-agent-config:
     post:
+      consumes:
+      - application/json
       description: Create a new command to update the agent configuration.
       parameters:
       - description: Instance UID of the agent
         in: path
         name: id
         required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/agent.UpdateAgentConfigRequest'
-        description: Request body containing the remote configuration
+        type: string
+      - description: Request body containing the remote configuration
+        in: body
+        name: request
         required: true
+        schema:
+          $ref: '#/definitions/UpdateAgentConfigRequest'
+      produces:
+      - application/json
       responses:
         "201":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/agent.Command'
           description: Created
+          schema:
+            $ref: '#/definitions/AgentCommand'
         "400":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: Update Agent Configuration
       tags:
       - agent
   /api/v1/auth/basic:
     get:
+      consumes:
+      - application/json
       description: Authenticate using basic auth credentials.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/auth.AuthnTokenResponse'
           description: OK
+          schema:
+            $ref: '#/definitions/AuthnTokenResponse'
         "401":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
       summary: Basic Authentication
       tags:
       - auth
       - basic
   /api/v1/auth/github:
     get:
+      consumes:
+      - application/json
       description: Returns the GitHub OAuth2 authentication URL.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/auth.OAuth2AuthCodeURLResponse'
           description: OK
+          schema:
+            $ref: '#/definitions/OAuth2AuthCodeURLResponse'
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: GitHub OAuth2 Authentication
       tags:
       - auth
       - github
   /api/v1/auth/github/device:
     get:
+      consumes:
+      - application/json
       description: Initiates device authorization for GitHub OAuth2.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/auth.DeviceAuthnTokenResponse'
           description: OK
+          schema:
+            $ref: '#/definitions/DeviceAuthnTokenResponse'
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: GitHub Device Authentication
       tags:
       - auth
       - github
   /api/v1/auth/github/device/exchange:
     get:
+      consumes:
+      - application/json
       description: Exchanges a device code for an authentication token.
       parameters:
       - description: Device code to exchange
         in: query
         name: device_code
         required: true
-        schema:
-          type: string
+        type: string
       - description: Optional expiry time in RFC3339 format
         in: query
         name: expiry
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/auth.AuthnTokenResponse'
           description: OK
+          schema:
+            $ref: '#/definitions/AuthnTokenResponse'
         "400":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: GitHub Device Code Exchange
       tags:
       - auth
@@ -350,200 +317,166 @@ paths:
   /api/v1/auth/info:
     get:
       description: Get Authentication Info.
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/auth.InfoResponse'
           description: OK
+          schema:
+            $ref: '#/definitions/InfoResponse'
         "401":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
       summary: Info
       tags:
       - auth
       - basic
   /api/v1/commands:
     get:
+      consumes:
+      - application/json
       description: Retrieve a list of commands.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/command.Audit'
-                type: array
           description: OK
+          schema:
+            items:
+              $ref: '#/definitions/CommandAudit'
+            type: array
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Failed to list commands
+          schema:
+            additionalProperties: true
+            type: object
       summary: List Commands
       tags:
       - command
   /api/v1/commands/{id}:
     get:
+      consumes:
+      - application/json
       description: Retrieve a command by its ID.
       parameters:
       - description: Command ID
         in: path
         name: id
         required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/command.Audit'
           description: OK
+          schema:
+            $ref: '#/definitions/CommandAudit'
         "400":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Invalid command ID
+          schema:
+            additionalProperties: true
+            type: object
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Failed to get command
+          schema:
+            additionalProperties: true
+            type: object
       summary: Get Command
       tags:
       - command
   /api/v1/connections:
     get:
+      consumes:
+      - application/json
       description: Retrieve a list of all connections.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/connection.Connection'
-                type: array
           description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Connection'
+            type: array
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: List Connections
       tags:
       - connection
   /api/v1/ping:
     get:
+      consumes:
+      - application/json
       description: Ping the server to check if it is alive.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ping.Response'
           description: OK
+          schema:
+            $ref: '#/definitions/PingResponse'
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: Ping
       tags:
       - ping
   /auth/github:
     get:
+      consumes:
+      - application/json
       description: Redirects to GitHub for OAuth2 authentication.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+      produces:
+      - application/json
       responses:
         "302":
           description: Found
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: GitHub OAuth2 Authentication
       tags:
       - auth
       - github
   /auth/github/callback:
     get:
+      consumes:
+      - application/json
       description: Exchanges the code received from GitHub for an authentication token.
       parameters:
       - description: State parameter to prevent CSRF attacks
         in: query
         name: state
         required: true
-        schema:
-          type: string
+        type: string
       - description: Code received from GitHub after authentication
         in: query
         name: code
         required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+        type: string
+      produces:
+      - application/json
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/auth.AuthnTokenResponse'
           description: OK
+          schema:
+            $ref: '#/definitions/AuthnTokenResponse'
         "500":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
           description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
       summary: GitHub OAuth2 Callback
       tags:
       - auth
       - github
+swagger: "2.0"
