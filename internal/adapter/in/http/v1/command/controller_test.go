@@ -182,7 +182,8 @@ func TestCommandController_List(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		commandUsecase.On("ListCommands", mock.Anything, mock.Anything).Return((*model.ListResponse[*model.Command])(nil), assert.AnError)
+		commandUsecase.On("ListCommands", mock.Anything, mock.Anything).
+			Return((*model.ListResponse[*model.Command])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
