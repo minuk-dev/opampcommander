@@ -96,15 +96,19 @@ func (s *Service) ListConnections(
 	}
 
 	totalMatchedItemsCount := len(keys)
+	var nextContinue string
 	if options.Limit > 0 && len(keys) > int(options.Limit) {
+		nextContinue = keys[options.Limit]
 		keys = keys[:options.Limit]
+	} else {
+		nextContinue = "\xff" // Use a sentinel value to indicate no more items
 	}
 
 	return &model.ListResponse[*model.Connection]{
 		Items: lo.Map(keys, func(key string, _ int) *model.Connection {
 			return keyValues[key]
 		}),
-		Continue:           lo.LastOrEmpty(keys),
+		Continue:           nextContinue,
 		RemainingItemCount: int64(totalMatchedItemsCount - len(keys)),
 	}, nil
 }
