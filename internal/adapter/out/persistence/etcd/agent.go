@@ -107,8 +107,8 @@ func (a *AgentEtcdAdapter) ListAgents(
 
 		agents = append(agents, agent.ToDomain())
 	}
-
-	continueKey := lo.LastOrEmpty(agents).InstanceUID.String() + "\x00" // Use a null byte to ensure the next key is lexicographically greater
+	// Use a null byte to ensure the next key is lexicographically greater
+	continueKey := lo.LastOrEmpty(agents).InstanceUID.String() + "\x00"
 
 	return &domainmodel.ListResponse[*domainmodel.Agent]{
 		RemainingItemCount: getResponse.Count - int64(len(agents)),
