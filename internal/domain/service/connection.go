@@ -95,6 +95,7 @@ func (s *Service) ListConnections(
 		}
 	}
 
+	totalMatchedItemsCount := len(keys)
 	if options.Limit > 0 && len(keys) > int(options.Limit) {
 		keys = keys[:options.Limit]
 	}
@@ -104,7 +105,7 @@ func (s *Service) ListConnections(
 			return keyValues[key]
 		}),
 		Continue:           lo.LastOrEmpty(keys),
-		RemainingItemCount: int64(len(keys)),
+		RemainingItemCount: int64(totalMatchedItemsCount - len(keys)),
 	}, nil
 }
 
