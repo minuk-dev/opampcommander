@@ -87,6 +87,9 @@ linters:
             - github.com/tidwall/gjson
             - gotest.tools/icmd
             - go.uber.org/goleak
+            - go.etcd.io/etcd/client/v3
+            - github.com/testcontainers/testcontainers-go
+            - github.com/testcontainers/testcontainers-go/modules/etcd
 formatters:
   enable:
     - gci

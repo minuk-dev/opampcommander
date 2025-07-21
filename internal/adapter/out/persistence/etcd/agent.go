@@ -46,27 +46,17 @@ func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) 
 	}
 
 	if getResponse.Count > 1 {
+		// it should not happen, but if it does, we return an error
+		// it's untestable because we always put a single agent with a unique key
 		return nil, domainport.ErrMultipleAgentExist
 	}
 
 	var agent entity.Agent
 
-	a.logger.Debug("GetAgent",
-		slog.String("instanceUID", instanceUID.String()),
-		slog.String("key", getAgentKey(instanceUID)),
-		slog.String("value", string(getResponse.Kvs[0].Value)),
-	)
-
 	err = json.Unmarshal(getResponse.Kvs[0].Value, &agent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode agent from received data: %w", err)
 	}
-
-	a.logger.Debug("GetAgent",
-		slog.String("instanceUID", instanceUID.String()),
-		slog.String("message", "success"),
-		slog.Any("agent", agent),
-	)
 
 	return agent.ToDomain(), nil
 }
