@@ -129,7 +129,7 @@ func TestAgentEtcdAdapter_ListAgents(t *testing.T) {
 		assert.NotNil(t, listResponse)
 		// at least one agent should be present
 		// because for better test performance, we uses shared etcd instance
-		assert.Greater(t, len(listResponse.Items), 1)
+		assert.GreaterOrEqual(t, len(listResponse.Items), 1)
 	})
 }
 
