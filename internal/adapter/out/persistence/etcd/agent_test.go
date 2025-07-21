@@ -129,7 +129,7 @@ func TestAgentEtcdAdapter_ListAgents(t *testing.T) {
 		assert.NotNil(t, listResponse)
 		// at least one agent should be present
 		// because for better test performance, we uses shared etcd instance
-		assert.Greater(t, listResponse.Items, 1)
+		assert.Greater(t, len(listResponse.Items), 1)
 	})
 }
 
@@ -177,7 +177,7 @@ func TestAgentEtcdAdapter_PutAgent(t *testing.T) {
 		// then
 		getResponse, err := etcdClient.Get(ctx, "agents/"+instanceUID.String())
 		require.NoError(t, err)
-		assert.Equal(t, 1, getResponse.Count)
+		assert.Equal(t, int64(1), getResponse.Count)
 		assert.NotEmpty(t, getResponse.Kvs[0].Value)
 	})
 }
