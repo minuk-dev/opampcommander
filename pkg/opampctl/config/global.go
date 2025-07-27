@@ -1,13 +1,14 @@
 // Package config provides the configuration for opampctl.
 package config
 
-import "path/filepath"
+import (
+	"io"
+	"log/slog"
+	"path/filepath"
+)
 
 // GlobalConfig contains the global configuration for opampctl.
 type GlobalConfig struct {
-	// ConfigFilename is the path to the configuration file.
-	ConfigFilename string `json:"-" mapstructure:"-" yaml:"-"`
-
 	// CacheDir is the directory where cached files are stored.
 	CacheDir string `json:"cacheDir" mapstructure:"cacheDir" yaml:"cacheDir"`
 
@@ -15,12 +16,34 @@ type GlobalConfig struct {
 	Contexts       []Context `json:"contexts"       mapstructure:"contexts"       yaml:"contexts"`
 	Users          []User    `json:"users"          mapstructure:"users"          yaml:"users"`
 	Clusters       []Cluster `json:"clusters"       mapstructure:"clusters"       yaml:"clusters"`
+
+	// Debugging Configuration
+	// This configuration is not serialized to the config file.
+	Runtime `json:"-" mapstructure:"-" yaml:"-"`
+}
+
+// Runtime contains runtime configuration that is not serialized to the config file.
+// It's helper to run the command.
+type Runtime struct {
+	// ConfigFilename is the path to the configuration file.
+	ConfigFilename string `json:"-" mapstructure:"-" yaml:"-"`
+	// Output is the output writer for the command.
+	Output io.Writer `json:"-" mapstructure:"-" yaml:"-"`
+	// Log
+	Log Log `json:"-" mapstructure:"-" yaml:"-"`
+}
+
+// Log contains the logging configuration for opampctl.
+type Log struct {
+	Logger *slog.Logger
+	Level  slog.Level
+	Format string
+	Writer io.Writer
 }
 
 // NewDefaultGlobalConfig creates a new GlobalConfig with default values.
 func NewDefaultGlobalConfig(homedir string) *GlobalConfig {
 	return &GlobalConfig{
-		ConfigFilename: filepath.Join(homedir, ".opampcommander", "opampctl", "config.yaml"),
 		CurrentContext: "default",
 		CacheDir:       filepath.Join(homedir, ".opampcommander", "opampctl", "cache"),
 		Contexts: []Context{
@@ -50,6 +73,16 @@ func NewDefaultGlobalConfig(homedir string) *GlobalConfig {
 				OpAMPCommander: OpAMPCommander{
 					Endpoint: "http://localhost:8080",
 				},
+			},
+		},
+		Runtime: Runtime{
+			ConfigFilename: filepath.Join(homedir, ".opampcommander", "opampctl", "config.yaml"),
+			Output:         io.Discard, // Default output is discarded
+			Log: Log{
+				Logger: nil,
+				Level:  slog.LevelInfo,
+				Format: "text",
+				Writer: io.Discard, // Default log writer is discarded
 			},
 		},
 	}
@@ -90,10 +123,10 @@ const (
 
 // Auth represents the authentication method for a user in the opampctl configuration.
 type Auth struct {
-	Type string `json:"type" mapstructure:"type" yaml:"type"`
-	GithubAuth
-	BasicAuth
-	ManualAuth
+	Type       string `json:"type"    mapstructure:"type"    yaml:"type"`
+	GithubAuth `json:",inline" mapstructure:",squash" yaml:",inline"`
+	BasicAuth  `json:",inline" mapstructure:",squash" yaml:",inline"`
+	ManualAuth `json:",inline" mapstructure:",squash" yaml:",inline"`
 }
 
 // GithubAuth represents the GitHub authentication method for a user in the opampctl configuration.
@@ -101,11 +134,11 @@ type GithubAuth struct{}
 
 // BasicAuth represents the basic authentication method for a user in the opampctl configuration.
 type BasicAuth struct {
-	Username string `json:"username" mapstructure:"username" yaml:"username"`
-	Password string `json:"password" mapstructure:"password" yaml:"password"`
+	Username string `json:"username,omitempty" mapstructure:"username,omitempty" yaml:"username,omitempty"`
+	Password string `json:"password,omitempty" mapstructure:"password,omitempty" yaml:"password,omitempty"`
 }
 
 // ManualAuth represents the manual authentication method for a user in the opampctl configuration.
 type ManualAuth struct {
-	BearerToken string `json:"bearerToken" mapstructure:"bearerToken" yaml:"bearerToken"`
+	BearerToken string `json:"bearerToken,omitempty" mapstructure:"bearerToken,omitempty" yaml:"bearerToken,omitempty"`
 }

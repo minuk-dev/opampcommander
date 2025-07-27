@@ -52,10 +52,12 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare prepares the command options before running the command.
 func (o *CommandOptions) Prepare(cmd *cobra.Command, _ []string) error {
-	config := o.GlobalConfig
-	logger := configutil.NewLogger(config)
+	config, err := configutil.ApplyCmdFlags(o.GlobalConfig, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to apply command flags: %w", err)
+	}
 
-	client, err := clientutil.NewClient(config, cmd.OutOrStdout(), logger)
+	client, err := clientutil.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to create authenticated client: %w", err)
 	}
