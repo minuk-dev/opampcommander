@@ -28,17 +28,11 @@ const (
 // NewClient creates a new authenticated Client.
 func NewClient(
 	config *config.GlobalConfig,
-	writer io.Writer,
-	logger *slog.Logger,
 ) (*client.Client, error) {
 	cli, err := NewAuthedClient(config)
 	if err != nil {
 		if errors.Is(err, filecache.ErrNoCachedKey) {
-			cli, err = NewAuthedClientByIssuingTokenInCli(
-				config,
-				writer,
-				logger,
-			)
+			cli, err = NewAuthedClientByIssuingTokenInCli(config)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create authenticated client: %w", err)
 			}
@@ -73,6 +67,8 @@ func NewAuthedClient(
 	cli := client.New(
 		endpoint,
 		client.WithBarearToken(string(barearToken)),
+		client.WithLogger(config.Log.Logger),
+		client.WithVerbose(config.Log.Level == slog.LevelDebug),
 	)
 
 	_, err = cli.AuthService.GetInfo() // no need to use info. It's just to check if the client is authenticated
@@ -94,12 +90,6 @@ func NewAuthedClient(
 // It supports different authentication methods such as basic auth, manual token input, and GitHub device.
 func NewAuthedClientByIssuingTokenInCli(
 	conf *config.GlobalConfig,
-
-	// writer is used to write the output of the authentication process.
-	// for now, it is only used for the GitHub authentication flow.
-	writer io.Writer,
-
-	logger *slog.Logger,
 ) (*client.Client, error) {
 	endpoint := configutil.GetCurrentOpAMPCommanderEndpoint(conf)
 	cacheDir := configutil.GetCurrentCacheDir(conf)
@@ -109,9 +99,12 @@ func NewAuthedClientByIssuingTokenInCli(
 	tokenPrefix := TokenPath(user.Name)
 	filecache := filecache.New(cacheDir, tokenPrefix, filesystem)
 
-	cli := client.New(endpoint)
+	cli := client.New(endpoint,
+		client.WithLogger(conf.Log.Logger),
+		client.WithVerbose(conf.Log.Level == slog.LevelDebug),
+	)
 
-	barearToken, err := getAuthToken(cli, user, writer)
+	barearToken, err := getAuthToken(cli, user, conf.Output)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth token: %w", err)
 	}
@@ -119,7 +112,7 @@ func NewAuthedClientByIssuingTokenInCli(
 	err = cacheToken(filecache, BarearTokenKey, barearToken)
 	if err != nil {
 		// Log the error but do not return it, as we still want to return the client.
-		logger.Warn("failed to cache barear token", "error", err)
+		conf.Log.Logger.Warn("failed to cache barear token", "error", err)
 	}
 
 	cli.SetAuthToken(string(barearToken))

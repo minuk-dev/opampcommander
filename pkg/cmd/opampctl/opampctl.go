@@ -14,14 +14,12 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/whoami"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
 )
 
 // CommandOption contains the options for the opampctl command.
 type CommandOption struct {
-	// flags
-	configFilename string
-
-	*config.GlobalConfig
+	globalConfig *config.GlobalConfig
 
 	// viper
 	viper *viper.Viper
@@ -29,9 +27,9 @@ type CommandOption struct {
 
 // NewCommand creates a new opampctl command.
 func NewCommand(options CommandOption) *cobra.Command {
-	if options.GlobalConfig == nil {
+	if options.globalConfig == nil {
 		//exhaustruct:ignore
-		options.GlobalConfig = &config.GlobalConfig{}
+		options.globalConfig = &config.GlobalConfig{}
 	}
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
@@ -39,18 +37,15 @@ func NewCommand(options CommandOption) *cobra.Command {
 		Use:               "opampctl",
 		Short:             "opampctl",
 	}
-	cmd.PersistentFlags().StringVarP(&options.configFilename, "config", "c", "",
-		`Path to the configuration file (yaml format).
-If not specified, it will look for a config file in the default location:
-$HOME/.config/opampcommander/opampctl/config.yaml`)
+	configutil.CreateGlobalConfigFlags(cmd.PersistentFlags())
 	cmd.AddCommand(get.NewCommand(get.CommandOptions{
-		GlobalConfig: options.GlobalConfig,
+		GlobalConfig: options.globalConfig,
 	}))
 	cmd.AddCommand(configCmd.NewCommand(configCmd.CommandOptions{
-		GlobalConfig: options.GlobalConfig,
+		GlobalConfig: options.globalConfig,
 	}))
 	cmd.AddCommand(whoami.NewCommand(whoami.CommandOptions{
-		GlobalConfig: options.GlobalConfig,
+		GlobalConfig: options.globalConfig,
 	}))
 
 	return cmd
@@ -67,8 +62,13 @@ func (opt *CommandOption) PersistentPrepare(cmd *cobra.Command, _ []string) erro
 		return fmt.Errorf("failed to bind flags: %w", err)
 	}
 
-	if opt.configFilename != "" {
-		opt.viper.SetConfigFile(opt.configFilename)
+	globalConfig, err := configutil.ApplyCmdFlags(opt.globalConfig, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to apply command flags: %w", err)
+	}
+
+	if globalConfig.ConfigFilename != "" {
+		opt.viper.SetConfigFile(globalConfig.ConfigFilename)
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -90,7 +90,7 @@ func (opt *CommandOption) PersistentPrepare(cmd *cobra.Command, _ []string) erro
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	err = opt.viper.Unmarshal(opt.GlobalConfig)
+	err = opt.viper.Unmarshal(opt.globalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}

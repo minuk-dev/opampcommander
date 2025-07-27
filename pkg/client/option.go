@@ -1,5 +1,7 @@
 package client
 
+import "log/slog"
+
 // Option provides a way to configure the opampcommander API client.
 type Option interface {
 	Apply(client *Client)
@@ -17,5 +19,19 @@ func (f OptionFunc) Apply(c *Client) {
 func WithBarearToken(barearToken string) OptionFunc {
 	return func(c *Client) {
 		c.SetAuthToken(barearToken)
+	}
+}
+
+// WithVerbose enables verbose logging for the client.
+func WithVerbose(verbose bool) OptionFunc {
+	return func(c *Client) {
+		c.SetVerbose(verbose)
+	}
+}
+
+// WithLogger sets the logger for the client.
+func WithLogger(logger *slog.Logger) OptionFunc {
+	return func(c *Client) {
+		c.SetLogger(logger)
 	}
 }

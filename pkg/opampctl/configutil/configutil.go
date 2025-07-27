@@ -2,7 +2,12 @@
 package configutil
 
 import (
+	"fmt"
+	"io"
 	"log/slog"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -78,9 +83,90 @@ func GetCurrentOpAMPCommanderEndpoint(config *config.GlobalConfig) string {
 	return currentCluster.OpAMPCommander.Endpoint
 }
 
-// NewLogger creates a new logger for the opampctl tool.
+// CreateGlobalConfigFlags creates flags for the global configuration.
+func CreateGlobalConfigFlags(flags *pflag.FlagSet) {
+	flags.StringP("config", "c", "",
+		`Path to the configuration file (yaml format).
+If not specified, it will look for a config file in the default location:
+$HOME/.config/opampcommander/opampctl/config.yaml`)
+	flags.BoolP("verbose", "v", false, "Enable verbose output. Equivalent to --log.level=debug")
+	flags.String("log.format", "text", "Log output format (text, json)")
+	flags.String("log.level", "info", "Log level (debug, info, warn)")
+}
+
+// ApplyCmdFlags applies the command flags to the global configuration and returns the updated configuration.
+func ApplyCmdFlags(globalConfig *config.GlobalConfig, cmd *cobra.Command) (*config.GlobalConfig, error) {
+	flags := cmd.Flags()
+
+	verbose, err := flags.GetBool("verbose")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get verbose flag: %w", err)
+	}
+
+	logFormat, err := flags.GetString("log.format")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get log format: %w", err)
+	}
+
+	logLevel, err := flags.GetString("log.level")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get log level: %w", err)
+	}
+
+	if verbose {
+		logLevel = "debug"
+	}
+
+	var level slog.Level
+
+	switch logLevel {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	globalConfig.Log = config.Log{
+		Logger: newLogger(level, logFormat, cmd.ErrOrStderr()),
+		Format: logFormat,
+		Level:  level,
+		Writer: cmd.ErrOrStderr(),
+	}
+	globalConfig.Output = cmd.OutOrStdout()
+
+	return globalConfig, nil
+}
+
+// GetLogger creates a new logger for the opampctl tool.
 // It uses the default slog logger.
 // In future, improve a logger: https://github.com/minuk-dev/opampcommander/issues/53
-func NewLogger(*config.GlobalConfig) *slog.Logger {
-	return slog.Default()
+func GetLogger(config *config.GlobalConfig) *slog.Logger {
+	return config.Log.Logger
+}
+
+func newLogger(level slog.Level, format string, writer io.Writer) *slog.Logger {
+	handlerOptions := &slog.HandlerOptions{
+		AddSource:   true,
+		Level:       level,
+		ReplaceAttr: nil,
+	}
+
+	var handler slog.Handler
+
+	switch format {
+	case "json":
+		handler = slog.NewJSONHandler(writer, handlerOptions)
+	case "text":
+		fallthrough
+	default:
+		handler = slog.NewTextHandler(writer, handlerOptions)
+	}
+
+	return slog.New(handler)
 }

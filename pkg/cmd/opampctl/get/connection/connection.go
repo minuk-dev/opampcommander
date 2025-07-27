@@ -13,7 +13,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
-	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
 )
 
 // CommandOptions contains the options for the connection command.
@@ -49,11 +48,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 }
 
 // Prepare prepares the command.
-func (opt *CommandOptions) Prepare(cmd *cobra.Command, _ []string) error {
+func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 	config := opt.GlobalConfig
-	logger := configutil.NewLogger(config)
 
-	client, err := clientutil.NewClient(config, cmd.OutOrStdout(), logger)
+	client, err := clientutil.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to create authenticated client: %w", err)
 	}

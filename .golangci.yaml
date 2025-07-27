@@ -54,6 +54,7 @@ linters:
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3
             - github.com/puzpuzpuz/xsync/v3
+            - github.com/spf13/pflag
             # authentication
             - golang.org/x/oauth2
             - golang.org/x/oauth2/github
