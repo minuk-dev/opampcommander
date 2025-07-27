@@ -3,6 +3,7 @@ package configutil
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/spf13/cobra"
@@ -132,7 +133,7 @@ func ApplyCmdFlags(globalConfig *config.GlobalConfig, cmd *cobra.Command) (*conf
 	}
 
 	globalConfig.Log = config.Log{
-		Logger: newLogger(globalConfig),
+		Logger: newLogger(level, logFormat, cmd.ErrOrStderr()),
 		Format: logFormat,
 		Level:  level,
 		Writer: cmd.ErrOrStderr(),
@@ -149,22 +150,22 @@ func GetLogger(config *config.GlobalConfig) *slog.Logger {
 	return config.Log.Logger
 }
 
-func newLogger(config *config.GlobalConfig) *slog.Logger {
+func newLogger(level slog.Level, format string, writer io.Writer) *slog.Logger {
 	handlerOptions := &slog.HandlerOptions{
 		AddSource:   true,
-		Level:       config.Log.Level,
+		Level:       level,
 		ReplaceAttr: nil,
 	}
 
 	var handler slog.Handler
 
-	switch config.Log.Format {
+	switch format {
 	case "json":
-		handler = slog.NewJSONHandler(config.Log.Writer, handlerOptions)
+		handler = slog.NewJSONHandler(writer, handlerOptions)
 	case "text":
 		fallthrough
 	default:
-		handler = slog.NewTextHandler(config.Log.Writer, handlerOptions)
+		handler = slog.NewTextHandler(writer, handlerOptions)
 	}
 
 	return slog.New(handler)
