@@ -88,7 +88,7 @@ func CreateGlobalConfigFlags(flags *pflag.FlagSet) {
 		`Path to the configuration file (yaml format).
 If not specified, it will look for a config file in the default location:
 $HOME/.config/opampcommander/opampctl/config.yaml`)
-	flags.BoolP("verbose", "v", false, "Enable verbose output")
+	flags.BoolP("verbose", "v", false, "Enable verbose output. Equivalent to --log.level=debug")
 	flags.String("log.format", "text", "Log output format (text, json)")
 	flags.String("log.level", "info", "Log level (debug, info, warn)")
 }
