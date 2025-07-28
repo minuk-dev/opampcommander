@@ -113,6 +113,6 @@ func (c *Controller) Info(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, v1auth.InfoResponse{
 		Authenticated: user.Authenticated,
-		Email:         *user.Email,
+		Email:         user.Email,
 	})
 }
