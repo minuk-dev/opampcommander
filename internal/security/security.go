@@ -85,7 +85,7 @@ func (s *Service) ValidateToken(tokenString string) (*OPAMPClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString,
 		//exhaustruct:ignore
 		&OPAMPClaims{},
-		func(_ *jwt.Token) (interface{}, error) {
+		func(_ *jwt.Token) (any, error) {
 			return []byte(s.tokenSettings.SigningKey), nil
 		})
 	if err != nil {

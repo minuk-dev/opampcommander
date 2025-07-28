@@ -32,7 +32,9 @@ func NewAuthJWTMiddleware(
 ) gin.HandlerFunc {
 	var (
 		bypassPrefix = []string{
-			"/api/v1/auth",
+			"/auth",
+			"/api/v1/auth/basic",
+			"/api/v1/auth/github",
 			"/api/v1/ping",
 			"/api/v1/opamp",
 		}
@@ -42,6 +44,12 @@ func NewAuthJWTMiddleware(
 	)
 
 	return func(ctx *gin.Context) {
+		if hasAnyPrefix(ctx.Request.URL.Path, bypassPrefix) {
+			ctx.Next()
+
+			return
+		}
+
 		user := &User{
 			Authenticated: false,
 			Email:         nil,
@@ -57,17 +65,20 @@ func NewAuthJWTMiddleware(
 
 		if tokenString != "" {
 			claims, err := service.ValidateToken(tokenString)
-			if err == nil {
-				user = &User{
-					Authenticated: true,
-					Email:         &claims.Email,
-				}
+			if err != nil {
+				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": "unauthorized",
+				})
+			}
+
+			user = &User{
+				Authenticated: true,
+				Email:         &claims.Email,
 			}
 		}
 
 		if !user.Authenticated {
-			if !hasAnyPrefix(ctx.Request.URL.Path, bypassPrefix) &&
-				hasAnyPrefix(ctx.Request.URL.Path, authenticatedPrefix) {
+			if hasAnyPrefix(ctx.Request.URL.Path, authenticatedPrefix) {
 				// If the path requires authentication, return 401 Unauthorized
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"error": "unauthorized",
