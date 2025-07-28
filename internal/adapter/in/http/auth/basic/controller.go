@@ -112,6 +112,7 @@ func (c *Controller) Info(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, v1auth.InfoResponse{
-		Email: *user.Email,
+		Authenticated: user.Authenticated,
+		Email:         *user.Email,
 	})
 }
