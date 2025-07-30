@@ -15,8 +15,8 @@ func (f OptionFunc) Apply(c *Client) {
 	f(c)
 }
 
-// WithBarearToken sets the Bearer token for the client.
-func WithBarearToken(barearToken string) OptionFunc {
+// WithBearerToken sets the Bearer token for the client.
+func WithBearerToken(barearToken string) OptionFunc {
 	return func(c *Client) {
 		c.SetAuthToken(barearToken)
 	}

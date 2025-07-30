@@ -21,8 +21,8 @@ const (
 	// TokenPrefix is the prefix used for cached tokens in the file system.
 	TokenPrefix = "token"
 
-	// BarearTokenKey is the key used to store the barear token in the file cache.
-	BarearTokenKey = "barear"
+	// BearerTokenKey is the key used to store the barear token in the file cache.
+	BearerTokenKey = "bearer"
 )
 
 var (
@@ -65,14 +65,14 @@ func NewAuthedClient(
 	tokenPrefix := TokenPath(user.Name)
 	filecache := filecache.New(cacheDir, tokenPrefix, filesystem)
 
-	barearToken, err := filecache.Get(BarearTokenKey)
+	barearToken, err := filecache.Get(BearerTokenKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get barear token from cache: %w", err)
 	}
 
 	cli := client.New(
 		endpoint,
-		client.WithBarearToken(string(barearToken)),
+		client.WithBearerToken(string(barearToken)),
 		client.WithLogger(config.Log.Logger),
 		client.WithVerbose(config.Log.Level == slog.LevelDebug),
 	)
@@ -115,7 +115,7 @@ func NewAuthedClientByIssuingTokenInCli(
 		return nil, fmt.Errorf("failed to get auth token: %w", err)
 	}
 
-	err = cacheToken(filecache, BarearTokenKey, barearToken)
+	err = cacheToken(filecache, BearerTokenKey, barearToken)
 	if err != nil {
 		// Log the error but do not return it, as we still want to return the client.
 		conf.Log.Logger.Warn("failed to cache barear token", "error", err)
