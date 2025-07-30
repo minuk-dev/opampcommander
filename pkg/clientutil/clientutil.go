@@ -25,13 +25,19 @@ const (
 	BarearTokenKey = "barear"
 )
 
+var (
+	// ErrUnauthorized is returned when the client is unauthorized.
+	ErrUnauthorized = errors.New("unauthorized")
+)
+
 // NewClient creates a new authenticated Client.
 func NewClient(
 	config *config.GlobalConfig,
 ) (*client.Client, error) {
 	cli, err := NewAuthedClient(config)
 	if err != nil {
-		if errors.Is(err, filecache.ErrNoCachedKey) {
+		if errors.Is(err, filecache.ErrNoCachedKey) ||
+			errors.Is(err, ErrUnauthorized) {
 			cli, err = NewAuthedClientByIssuingTokenInCli(config)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create authenticated client: %w", err)
@@ -76,7 +82,7 @@ func NewAuthedClient(
 		var httpErr *client.ResponseError
 		if errors.As(err, &httpErr) {
 			if httpErr.StatusCode == http.StatusUnauthorized {
-				return nil, fmt.Errorf("unauthorized: please re-authenticate: %w", err)
+				return nil, ErrUnauthorized
 			}
 		}
 

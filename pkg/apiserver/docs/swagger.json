@@ -669,6 +669,9 @@
         "InfoResponse": {
             "type": "object",
             "properties": {
+                "authenticated": {
+                    "type": "boolean"
+                },
                 "email": {
                     "type": "string"
                 }
