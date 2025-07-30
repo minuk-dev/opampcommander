@@ -21,8 +21,13 @@ const (
 	// TokenPrefix is the prefix used for cached tokens in the file system.
 	TokenPrefix = "token"
 
-	// BarearTokenKey is the key used to store the barear token in the file cache.
-	BarearTokenKey = "barear"
+	// BearerTokenKey is the key used to store the bearer token in the file cache.
+	BearerTokenKey = "bearer"
+)
+
+var (
+	// ErrUnauthorized is returned when the client is unauthorized.
+	ErrUnauthorized = errors.New("unauthorized")
 )
 
 // NewClient creates a new authenticated Client.
@@ -31,7 +36,8 @@ func NewClient(
 ) (*client.Client, error) {
 	cli, err := NewAuthedClient(config)
 	if err != nil {
-		if errors.Is(err, filecache.ErrNoCachedKey) {
+		if errors.Is(err, filecache.ErrNoCachedKey) ||
+			errors.Is(err, ErrUnauthorized) {
 			cli, err = NewAuthedClientByIssuingTokenInCli(config)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create authenticated client: %w", err)
@@ -46,7 +52,7 @@ func NewClient(
 	return cli, nil
 }
 
-// NewAuthedClient creates a new authenticated OpAMP client using the cached barear token.
+// NewAuthedClient creates a new authenticated OpAMP client using the cached bearer token.
 // It retrieves the token from the file cache and initializes the client with it.
 func NewAuthedClient(
 	config *config.GlobalConfig,
@@ -59,14 +65,14 @@ func NewAuthedClient(
 	tokenPrefix := TokenPath(user.Name)
 	filecache := filecache.New(cacheDir, tokenPrefix, filesystem)
 
-	barearToken, err := filecache.Get(BarearTokenKey)
+	bearerToken, err := filecache.Get(BearerTokenKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get barear token from cache: %w", err)
+		return nil, fmt.Errorf("failed to get bearer token from cache: %w", err)
 	}
 
 	cli := client.New(
 		endpoint,
-		client.WithBarearToken(string(barearToken)),
+		client.WithBearerToken(string(bearerToken)),
 		client.WithLogger(config.Log.Logger),
 		client.WithVerbose(config.Log.Level == slog.LevelDebug),
 	)
@@ -76,7 +82,7 @@ func NewAuthedClient(
 		var httpErr *client.ResponseError
 		if errors.As(err, &httpErr) {
 			if httpErr.StatusCode == http.StatusUnauthorized {
-				return nil, fmt.Errorf("unauthorized: please re-authenticate: %w", err)
+				return nil, ErrUnauthorized
 			}
 		}
 
@@ -104,18 +110,18 @@ func NewAuthedClientByIssuingTokenInCli(
 		client.WithVerbose(conf.Log.Level == slog.LevelDebug),
 	)
 
-	barearToken, err := getAuthToken(cli, user, conf.Output)
+	bearerToken, err := getAuthToken(cli, user, conf.Output)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth token: %w", err)
 	}
 
-	err = cacheToken(filecache, BarearTokenKey, barearToken)
+	err = cacheToken(filecache, BearerTokenKey, bearerToken)
 	if err != nil {
 		// Log the error but do not return it, as we still want to return the client.
-		conf.Log.Logger.Warn("failed to cache barear token", "error", err)
+		conf.Log.Logger.Warn("failed to cache bearer token", "error", err)
 	}
 
-	cli.SetAuthToken(string(barearToken))
+	cli.SetAuthToken(string(bearerToken))
 
 	return cli, nil
 }

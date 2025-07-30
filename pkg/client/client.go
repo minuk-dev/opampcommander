@@ -52,8 +52,8 @@ func New(endpoint string, opt ...Option) *Client {
 }
 
 // SetAuthToken sets the authentication token for the client.
-func (c *Client) SetAuthToken(barearToken string) {
-	c.common.Resty.SetAuthToken(barearToken)
+func (c *Client) SetAuthToken(bearerToken string) {
+	c.common.Resty.SetAuthToken(bearerToken)
 }
 
 // SetLogger sets the logger for the client.

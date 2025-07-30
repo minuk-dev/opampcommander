@@ -77,6 +77,8 @@ definitions:
     type: object
   InfoResponse:
     properties:
+      authenticated:
+        type: boolean
       email:
         type: string
     type: object
