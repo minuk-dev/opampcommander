@@ -97,6 +97,7 @@ func (a *AgentEtcdAdapter) ListAgents(
 
 		agents = append(agents, agent.ToDomain())
 	}
+
 	var continueKey string
 	if len(getResponse.Kvs) > 0 {
 		// Use a null byte to ensure the next key is lexicographically greater
