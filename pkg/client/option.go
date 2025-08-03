@@ -35,3 +35,47 @@ func WithLogger(logger *slog.Logger) OptionFunc {
 		c.SetLogger(logger)
 	}
 }
+
+// ListOption is an interface for options that can be applied to list operations.
+type ListOption interface {
+	Apply(settings *ListSettings)
+}
+
+// ListSettings holds the settings for listing resources.
+type ListSettings struct {
+	// how many items to return
+	// specially, if this is set to 0, it will return all items
+	limit *int
+	// continue token for pagination
+	continueToken *string
+}
+
+// ListOptionFunc is a function type that implements the ListOption interface.
+type ListOptionFunc func(*ListSettings)
+
+// Apply applies the ListOptionFunc to the ListSettings.
+func (f ListOptionFunc) Apply(opt *ListSettings) {
+	f(opt)
+}
+
+// WithLimit sets the limit for the number of items to return.
+//
+//nolint:ireturn
+func WithLimit(limit int) ListOption {
+	if limit <= 0 {
+		limit = 100 // default limit
+	}
+
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.limit = &limit
+	})
+}
+
+// WithContinueToken sets the continue token for pagination.
+//
+//nolint:ireturn
+func WithContinueToken(token string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.continueToken = &token
+	})
+}

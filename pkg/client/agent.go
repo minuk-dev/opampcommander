@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+
 	uuid "github.com/google/uuid"
 
 	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
@@ -26,11 +28,24 @@ func NewAgentService(service *service) *AgentService {
 }
 
 // GetAgent retrieves an agent by its ID.
-func (s *AgentService) GetAgent(id uuid.UUID) (*agentv1.Agent, error) {
-	return getResource[agentv1.Agent](s.service, GetAgentURL, id)
+func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*agentv1.Agent, error) {
+	return getResource[agentv1.Agent](ctx, s.service, GetAgentURL, id)
 }
 
 // ListAgents lists all agents.
-func (s *AgentService) ListAgents() (*agentv1.ListResponse, error) {
-	return listResources[agentv1.Agent](s.service, ListAgentURL)
+func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*agentv1.ListResponse, error) {
+	var listSettings ListSettings
+	for _, opt := range opts {
+		opt.Apply(&listSettings)
+	}
+
+	return listResources[agentv1.Agent](
+		ctx,
+		s.service,
+		ListAgentURL,
+		ListSettings{
+			limit:         listSettings.limit,
+			continueToken: listSettings.continueToken,
+		},
+	)
 }

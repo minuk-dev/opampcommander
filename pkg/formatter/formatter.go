@@ -123,8 +123,14 @@ func formatStruct(writer io.Writer, target any, short bool) error {
 		}
 
 		fieldName := field.Name
-		if shortTag, ok := field.Tag.Lookup("short"); ok && short {
+		shortTag, shortOk := field.Tag.Lookup("short")
+
+		if short && (shortOk && fieldName != "name") { // If field name is "name". Always use it as the key.
 			fieldName = shortTag
+		}
+
+		if short && (!shortOk && fieldName != "name") { // Name is always used as the key.
+			continue // Skip fields without a "short" tag in short mode
 		}
 
 		fmt.Fprintf(writer, "%s: ", fieldName)

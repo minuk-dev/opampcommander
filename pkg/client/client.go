@@ -2,8 +2,10 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/go-resty/resty/v2"
 	uuid "github.com/google/uuid"
@@ -67,10 +69,11 @@ func (c *Client) SetVerbose(verbose bool) {
 }
 
 // Generic function for GET requests.
-func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
+func getResource[T any](ctx context.Context, c *service, url string, id uuid.UUID) (*T, error) {
 	var result T
 
 	res, err := c.Resty.R().
+		SetContext(ctx).
 		SetPathParam("id", id.String()).
 		SetResult(&result).
 		Get(url)
@@ -92,12 +95,27 @@ func getResource[T any](c *service, url string, id uuid.UUID) (*T, error) {
 	return &result, nil
 }
 
-func listResources[T any](c *service, url string) (*apiv1.ListResponse[T], error) {
+func listResources[T any](
+	ctx context.Context,
+	service *service,
+	url string,
+	option ListSettings,
+) (*apiv1.ListResponse[T], error) {
 	var listResponse apiv1.ListResponse[T]
 
-	res, err := c.Resty.R().
-		SetResult(&listResponse).
-		Get(url)
+	req := service.Resty.R().
+		SetContext(ctx).
+		SetResult(&listResponse)
+
+	if option.limit != nil {
+		req.SetQueryParam("limit", strconv.Itoa(*option.limit))
+	}
+
+	if option.continueToken != nil {
+		req.SetQueryParam("continue", *option.continueToken)
+	}
+
+	res, err := req.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resources(restyError): %w", err)
 	}

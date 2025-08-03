@@ -2,6 +2,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -18,6 +19,9 @@ import (
 // CommandOptions contains the options for the agent command.
 type CommandOptions struct {
 	*config.GlobalConfig
+
+	// flags
+	formatType string
 
 	// internal
 	client *client.Client
@@ -43,6 +47,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&options.formatType, "format", "f", "short", "Output format (short, text, json, yaml)")
 
 	return cmd
 }
@@ -82,14 +87,20 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agents, err := opt.client.AgentService.ListAgents()
+	err := clientutil.ListAgentFully(cmd.Context(), opt.client, func(_ context.Context, agents []v1agent.Agent) error {
+		if len(agents) == 0 {
+			return nil
+		}
+
+		err := formatter.Format(cmd.OutOrStdout(), agents, formatter.FormatType(opt.formatType))
+		if err != nil {
+			return fmt.Errorf("failed to format agents: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	err = formatter.FormatYAML(cmd.OutOrStdout(), agents)
-	if err != nil {
-		return fmt.Errorf("failed to format yaml: %w", err)
 	}
 
 	return nil
@@ -105,7 +116,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 
 	for _, instanceUID := range instanceUIDs {
-		agent, err := opt.client.AgentService.GetAgent(instanceUID)
+		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), instanceUID)
 		if err != nil {
 			return fmt.Errorf("failed to get agent: %w", err)
 		}
