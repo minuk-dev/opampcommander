@@ -207,7 +207,8 @@ func setupLifecycleHooks(lifecycle fx.Lifecycle, server *http.Server, logger *sl
 			httpWg.Add(1)
 			go func() {
 				defer httpWg.Done()
-				if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				err := server.ListenAndServe()
+				if err != nil && !errors.Is(err, http.ErrServerClosed) {
 					logger.Warn("Failed to start Prometheus metrics server", slog.String("error", err.Error()))
 				}
 			}()
@@ -215,7 +216,8 @@ func setupLifecycleHooks(lifecycle fx.Lifecycle, server *http.Server, logger *sl
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			if err := server.Shutdown(ctx); err != nil {
+			err := server.Shutdown(ctx)
+			if err != nil {
 				return fmt.Errorf("failed to shutdown Prometheus metrics server: %w", err)
 			}
 			httpWg.Wait()

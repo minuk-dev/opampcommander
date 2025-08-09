@@ -19,7 +19,7 @@ definitions:
         description: CustomCapabilities is a map of custom capabilities for the agent.
       description:
         allOf:
-        - $ref: '#/definitions/agent.Description'
+        - $ref: '#/definitions/AgentDescription'
         description: Description is a human-readable description of the agent.
       effectiveConfig:
         allOf:
@@ -77,6 +77,21 @@ definitions:
         type: object
     type: object
   AgentCustomCapabilities:
+    type: object
+  AgentDescription:
+    properties:
+      identifyingAttributes:
+        additionalProperties:
+          type: string
+        description: IdentifyingAttributes are attributes that uniquely identify the
+          agent.
+        type: object
+      nonIdentifyingAttributes:
+        additionalProperties:
+          type: string
+        description: NonIdentifyingAttributes are attributes that do not uniquely
+          identify the agent.
+        type: object
     type: object
   AgentEffectiveConfig:
     properties:
@@ -180,17 +195,6 @@ definitions:
       remoteConfig: {}
     required:
     - remoteConfig
-    type: object
-  agent.Description:
-    properties:
-      identifyingAttributes:
-        additionalProperties:
-          type: string
-        type: object
-      nonIdentifyingAttributes:
-        additionalProperties:
-          type: string
-        type: object
     type: object
 info:
   contact: {}

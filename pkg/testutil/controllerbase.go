@@ -6,9 +6,9 @@ import (
 
 // ControllerBase is a struct that provides a base for controllers.
 type ControllerBase struct {
-	Router *gin.Engine
-
 	*Base
+
+	Router *gin.Engine
 }
 
 // ForController creates a new instance of ControllerBase with a Base.

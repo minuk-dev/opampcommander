@@ -593,7 +593,7 @@
                     "description": "Description is a human-readable description of the agent.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/agent.Description"
+                            "$ref": "#/definitions/AgentDescription"
                         }
                     ]
                 },
@@ -679,6 +679,25 @@
         },
         "AgentCustomCapabilities": {
             "type": "object"
+        },
+        "AgentDescription": {
+            "type": "object",
+            "properties": {
+                "identifyingAttributes": {
+                    "description": "IdentifyingAttributes are attributes that uniquely identify the agent.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "nonIdentifyingAttributes": {
+                    "description": "NonIdentifyingAttributes are attributes that do not uniquely identify the agent.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
         },
         "AgentEffectiveConfig": {
             "type": "object",
@@ -826,23 +845,6 @@
             ],
             "properties": {
                 "remoteConfig": {}
-            }
-        },
-        "agent.Description": {
-            "type": "object",
-            "properties": {
-                "identifyingAttributes": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "nonIdentifyingAttributes": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                }
             }
         }
     }
