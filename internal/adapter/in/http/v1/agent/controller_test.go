@@ -14,9 +14,10 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/goleak"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent/usecasemock"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -38,7 +39,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 		// given
 		instanceUIDs := []uuid.UUID{uuid.New(), uuid.New()}
-		agents := []*model.Agent{
+		agents := []v1agent.Agent{
 			{
 				InstanceUID: instanceUIDs[0],
 			},
@@ -46,11 +47,17 @@ func TestAgentControllerListAgent(t *testing.T) {
 				InstanceUID: instanceUIDs[1],
 			},
 		}
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
-			RemainingItemCount: 0,
-			Continue:           "",
-			Items:              agents,
-		}, nil)
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, mock.Anything).
+			Return(&v1agent.ListResponse{
+				APIVersion: "v1",
+				Kind:       v1agent.AgentKind,
+				Items:      agents,
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -76,11 +83,17 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
-			RemainingItemCount: 0,
-			Continue:           "",
-			Items:              []*model.Agent{},
-		}, nil)
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, mock.Anything).
+			Return(&v1agent.ListResponse{
+				APIVersion: "v1",
+				Kind:       v1agent.AgentKind,
+				Items:      []v1agent.Agent{},
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -122,8 +135,9 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).
-			Return((*model.ListResponse[*model.Agent])(nil), assert.AnError)
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, mock.Anything).
+			Return(nil, assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
@@ -148,10 +162,9 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// given
 		instanceUID := uuid.New()
 		//exhaustruct:ignore
-		agentData := &model.Agent{
-			InstanceUID: instanceUID,
-		}
-		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return(agentData, nil)
+		agentUsecase.EXPECT().
+			GetAgent(mock.Anything, mock.Anything).
+			Return(&v1agent.Agent{InstanceUID: instanceUID}, nil)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -175,8 +188,9 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-
-		agentUsecase.On("GetAgent", mock.Anything, mock.Anything).Return((*model.Agent)(nil), port.ErrAgentNotExist)
+		agentUsecase.EXPECT().
+			GetAgent(mock.Anything, mock.Anything).
+			Return(nil, port.ErrAgentNotExist)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -216,7 +230,9 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return((*model.Agent)(nil), assert.AnError)
+		agentUsecase.EXPECT().
+			GetAgent(mock.Anything, mock.Anything).
+			Return(nil, assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -242,7 +258,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
 
-		agentUsecase.On("SendCommand", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		agentUsecase.EXPECT().SendCommand(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -307,7 +323,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
 
-		agentManageUsecase.On("SendCommand", mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+		agentManageUsecase.EXPECT().SendCommand(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
