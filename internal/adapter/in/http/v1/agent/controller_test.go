@@ -39,6 +39,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 		// given
 		instanceUIDs := []uuid.UUID{uuid.New(), uuid.New()}
+		//exhaustruct:ignore
 		agents := []v1agent.Agent{
 			{
 				InstanceUID: instanceUIDs[0],
@@ -161,10 +162,13 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		//exhaustruct:ignore
 		agentUsecase.EXPECT().
 			GetAgent(mock.Anything, mock.Anything).
-			Return(&v1agent.Agent{InstanceUID: instanceUID}, nil)
+			Return(
+				//exhaustruct:ignore
+				&v1agent.Agent{
+					InstanceUID: instanceUID,
+				}, nil)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -188,6 +192,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
+
 		agentUsecase.EXPECT().
 			GetAgent(mock.Anything, mock.Anything).
 			Return(nil, port.ErrAgentNotExist)
@@ -230,6 +235,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
+
 		agentUsecase.EXPECT().
 			GetAgent(mock.Anything, mock.Anything).
 			Return(nil, assert.AnError)
