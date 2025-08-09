@@ -66,6 +66,7 @@ func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1connectio
 		if len(resp.Items) == 0 {
 			return connections, nil // No connections found, exit the loop
 		}
+
 		connections = append(connections, resp.Items...)
 
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
