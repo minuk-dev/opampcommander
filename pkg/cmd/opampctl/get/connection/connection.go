@@ -2,7 +2,6 @@
 package connection
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -87,21 +86,18 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the connection information for all connections.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	err := clientutil.ListConnectionFully(cmd.Context(), opt.client,
-		func(_ context.Context, connections []v1connection.Connection) error {
-			if len(connections) == 0 {
-				return nil // No connections found, exit the loop
-			}
-
-			err := formatter.Format(cmd.OutOrStdout(), connections, formatter.FormatType(opt.formatType))
-			if err != nil {
-				return fmt.Errorf("failed to format agents: %w", err)
-			}
-
-			return nil
-		})
+	connections, err := clientutil.ListConnectionFully(cmd.Context(), opt.client)
 	if err != nil {
 		return fmt.Errorf("failed to list connections: %w", err)
+	}
+
+	if len(connections) == 0 {
+		cmd.Println("No connections found.")
+	}
+
+	err = formatter.Format(cmd.OutOrStdout(), connections, formatter.FormatType(opt.formatType))
+	if err != nil {
+		return fmt.Errorf("failed to format connections: %w", err)
 	}
 
 	return nil

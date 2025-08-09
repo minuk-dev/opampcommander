@@ -59,8 +59,6 @@ func (f ListOptionFunc) Apply(opt *ListSettings) {
 }
 
 // WithLimit sets the limit for the number of items to return.
-//
-//nolint:ireturn
 func WithLimit(limit int) ListOption {
 	if limit <= 0 {
 		limit = 100 // default limit
@@ -72,8 +70,6 @@ func WithLimit(limit int) ListOption {
 }
 
 // WithContinueToken sets the continue token for pagination.
-//
-//nolint:ireturn
 func WithContinueToken(token string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.continueToken = &token

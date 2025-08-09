@@ -76,7 +76,7 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to get info from server: %w", err)
 	}
 
-	err = formatter.FormatTEXT(cmd.OutOrStdout(), struct {
+	err = formatter.FormatText(cmd.OutOrStdout(), struct {
 		User *config.User
 		Info *v1auth.InfoResponse
 	}{

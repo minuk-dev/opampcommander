@@ -8,11 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
-	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
@@ -23,12 +20,12 @@ type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	agentUsecase applicationport.AgentManageUsecase
+	agentUsecase ManageUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
-	usecase applicationport.AgentManageUsecase,
+	usecase ManageUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	controller := &Controller{
@@ -99,20 +96,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	agentResponse := agentv1.NewListResponse(
-		lo.Map(response.Items, func(agent *model.Agent, _ int) agentv1.Agent {
-			return agentv1.Agent{
-				InstanceUID: agent.InstanceUID,
-				Raw:         agent,
-			}
-		}),
-		v1.ListMeta{
-			RemainingItemCount: response.RemainingItemCount,
-			Continue:           response.Continue,
-		},
-	)
-
-	ctx.JSON(http.StatusOK, agentResponse)
+	ctx.JSON(http.StatusOK, response)
 }
 
 // Get retrieves an agent by its instance UID.
@@ -154,10 +138,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, &agentv1.Agent{
-		InstanceUID: agent.InstanceUID,
-		Raw:         agent,
-	})
+	ctx.JSON(http.StatusOK, agent)
 }
 
 // UpdateAgentConfig creates a new command to update the agent configuration.

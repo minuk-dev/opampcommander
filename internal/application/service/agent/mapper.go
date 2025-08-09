@@ -1,0 +1,87 @@
+package agent
+
+import (
+	"github.com/samber/lo"
+
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+)
+
+// Mapper is a struct that provides methods to map between domain models and API models.
+type Mapper struct{}
+
+// NewMapper creates a new instance of Mapper.
+func NewMapper() *Mapper {
+	return &Mapper{}
+}
+
+// MapAgentToAPI maps a domain model Agent to an API model Agent.
+func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
+	return &v1agent.Agent{
+		InstanceUID:  agent.InstanceUID,
+		IsManaged:    agent.IsManaged(),
+		Capabilities: v1agent.Capabilities(switchIfNil(agent.Capabilities, 0)),
+		Description: v1agent.Description{
+			IdentifyingAttributes:    agent.Description.IdentifyingAttributes,
+			NonIdentifyingAttributes: agent.Description.NonIdentifyingAttributes,
+		},
+		EffectiveConfig: v1agent.EffectiveConfig{
+			ConfigMap: v1agent.ConfigMap{
+				ConfigMap: lo.MapValues(agent.EffectiveConfig.ConfigMap.ConfigMap,
+					func(value model.AgentConfigFile, _ string) v1agent.ConfigFile {
+						return mapper.mapConfigFileToAPI(value)
+					}),
+			},
+		},
+		PackageStatuses: v1agent.PackageStatuses{
+			Packages: lo.MapValues(agent.PackageStatuses.Packages,
+				func(value model.AgentPackageStatus, _ string) v1agent.PackageStstus {
+					return v1agent.PackageStstus{
+						Name: value.Name,
+					}
+				}),
+			ServerProvidedAllPackgesHash: string(agent.PackageStatuses.ServerProvidedAllPackgesHash),
+			ErrorMessage:                 agent.PackageStatuses.ErrorMessage,
+		},
+		ComponentHealth:     v1agent.ComponentHealth{},
+		RemoteConfig:        v1agent.RemoteConfig{},
+		CustomCapabilities:  v1agent.CustomCapabilities{},
+		AvailableComponents: v1agent.AvailableComponents{},
+	}
+}
+
+const (
+	// ContentTypeJSON is the content type for JSON.
+	ContentTypeJSON = "application/json"
+	// ContentTypeYAML is the content type for YAML.
+	ContentTypeYAML = "application/yaml"
+	// EmptyContentType is the content type for empty.
+	// Empty content type is treated as YAML by default.
+	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
+	EmptyContentType = ""
+)
+
+func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1agent.ConfigFile {
+	switch configFile.ContentType {
+	case ContentTypeJSON,
+		ContentTypeYAML,
+		EmptyContentType:
+		return v1agent.ConfigFile{
+			Body:        string(configFile.Body),
+			ContentType: configFile.ContentType,
+		}
+	default:
+		return v1agent.ConfigFile{
+			Body:        "unsupported content type",
+			ContentType: configFile.ContentType,
+		}
+	}
+}
+
+func switchIfNil[T any](value *T, defaultValue T) T {
+	if value == nil {
+		return defaultValue
+	}
+
+	return *value
+}

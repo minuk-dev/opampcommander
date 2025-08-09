@@ -4,9 +4,11 @@ package formatter
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
+	"text/tabwriter"
 
 	"gopkg.in/yaml.v3"
 )
@@ -33,11 +35,11 @@ func Format(writer io.Writer, target any, t FormatType) error {
 	case JSON:
 		err = FormatJSON(writer, target)
 	case TEXT:
-		err = FormatTEXT(writer, target)
+		err = FormatText(writer, target)
 	case SHORT:
 		err = FormatShort(writer, target)
 	default:
-		err = FormatTEXT(writer, target)
+		err = FormatText(writer, target)
 	}
 
 	if err != nil {
@@ -77,77 +79,142 @@ func FormatJSON(writer io.Writer, target any) error {
 	return nil
 }
 
-// FormatTEXT formats the target as a text representation.
+// FormatText formats the target as a text representation.
 // It uses the field name as the key and the field value as the value.
-func FormatTEXT(writer io.Writer, target any) error {
-	err := formatStruct(writer, target, false)
-	if err != nil {
-		return fmt.Errorf("failed to format text: %w", err)
+//
+//nolint:varnamelen,err113,intrange,errcheck,gosec,mnd
+func FormatText(writer io.Writer, data any) error {
+	v := reflect.ValueOf(data)
+	if v.Kind() != reflect.Slice {
+		return errors.New("data must be a slice")
 	}
+
+	if v.Len() == 0 {
+		return errors.New("no data to display")
+	}
+
+	firstElem := v.Index(0)
+	elemType := firstElem.Type()
+
+	if elemType.Kind() == reflect.Ptr {
+		firstElem = firstElem.Elem()
+		elemType = firstElem.Type()
+	}
+
+	var fieldIndexes []int
+
+	var fieldNames []string
+
+	for i := 0; i < elemType.NumField(); i++ {
+		field := elemType.Field(i)
+		if field.PkgPath == "" { // only exported
+			fieldIndexes = append(fieldIndexes, i)
+			fieldNames = append(fieldNames, field.Name)
+		}
+	}
+
+	tw := tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
+
+	// Header
+	for _, name := range fieldNames {
+		fmt.Fprintf(tw, "%s\t", name)
+	}
+
+	fmt.Fprintln(tw)
+
+	// Separator (optional)
+	for range fieldNames {
+		fmt.Fprintf(tw, "--------\t")
+	}
+
+	fmt.Fprintln(tw)
+
+	// Rows
+	for i := 0; i < v.Len(); i++ {
+		row := v.Index(i)
+		if row.Kind() == reflect.Ptr {
+			row = row.Elem()
+		}
+
+		for _, idx := range fieldIndexes {
+			fmt.Fprintf(tw, "%v\t", row.Field(idx).Interface())
+		}
+
+		fmt.Fprintln(tw)
+	}
+
+	tw.Flush()
 
 	return nil
 }
 
 // FormatShort formats the target struct to a short text representation.
 // If the field has a "short" tag, it uses the value of that tag as the key.
-func FormatShort(writer io.Writer, target any) error {
-	err := formatStruct(writer, target, true)
-	if err != nil {
-		return fmt.Errorf("failed to format short: %w", err)
+//
+//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113
+func FormatShort(w io.Writer, data any) error {
+	v := reflect.ValueOf(data)
+	if v.Kind() != reflect.Slice {
+		return errors.New("data must be a slice")
 	}
 
-	return nil
-}
-
-//nolint:errcheck
-func formatStruct(writer io.Writer, target any, short bool) error {
-	val := reflect.ValueOf(target)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
+	if v.Len() == 0 {
+		return errors.New("no data to display")
 	}
 
-	typ := val.Type()
-	if typ.Kind() != reflect.Struct {
-		fmt.Fprintf(writer, "%v\n", target)
+	firstElem := v.Index(0)
+	elemType := firstElem.Type()
 
-		return nil
+	if elemType.Kind() == reflect.Ptr {
+		firstElem = firstElem.Elem()
+		elemType = firstElem.Type()
 	}
 
-	n := typ.NumField()
-	for i := range n {
-		field := typ.Field(i)
+	var fieldIndexes []int
 
-		value := val.Field(i)
-		if !value.CanInterface() {
-			continue
-		}
+	var fieldNames []string
 
-		fieldName := field.Name
-		shortTag, shortOk := field.Tag.Lookup("short")
-
-		if short && (shortOk && fieldName != "name") { // If field name is "name". Always use it as the key.
-			fieldName = shortTag
-		}
-
-		if short && (!shortOk && fieldName != "name") { // Name is always used as the key.
-			continue // Skip fields without a "short" tag in short mode
-		}
-
-		fmt.Fprintf(writer, "%s: ", fieldName)
-
-		if value.Kind() == reflect.Struct {
-			fmt.Fprint(writer, "{ ")
-
-			err := formatStruct(writer, value.Interface(), short)
-			if err != nil {
-				return fmt.Errorf("failed to format struct: %w", err)
-			}
-
-			fmt.Fprint(writer, "} ")
-		} else {
-			fmt.Fprintf(writer, "%v\n", value.Interface())
+	for i := 0; i < elemType.NumField(); i++ {
+		field := elemType.Field(i)
+		if field.Name == "Name" ||
+			field.Name == "ID" ||
+			field.Tag.Get("short") != "" {
+			fieldIndexes = append(fieldIndexes, i)
+			fieldNames = append(fieldNames, field.Name)
 		}
 	}
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+
+	// Header
+	for _, name := range fieldNames {
+		fmt.Fprintf(tw, "%s\t", name)
+	}
+
+	fmt.Fprintln(tw)
+
+	// Separator (optional)
+	for range fieldNames {
+		fmt.Fprintf(tw, "--------\t")
+	}
+
+	fmt.Fprintln(tw)
+
+	// Rows
+	for i := 0; i < v.Len(); i++ {
+		row := v.Index(i)
+		if row.Kind() == reflect.Ptr {
+			row = row.Elem()
+		}
+
+		for _, idx := range fieldIndexes {
+			fmt.Fprintf(tw, "%v\t", row.Field(idx).Interface())
+		}
+
+		fmt.Fprintln(tw)
+	}
+
+	tw.Flush()
 
 	return nil
 }

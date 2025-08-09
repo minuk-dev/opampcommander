@@ -8,6 +8,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -27,8 +28,8 @@ type AdminUsecase interface {
 
 // AgentManageUsecase is a use case that handles agent management operations.
 type AgentManageUsecase interface {
-	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
-	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
+	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error)
+	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
 	SendCommand(ctx context.Context, targetInstanceUID uuid.UUID, command *model.Command) error
 }
 
