@@ -35,13 +35,13 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 		},
 		PackageStatuses: v1agent.PackageStatuses{
 			Packages: lo.MapValues(agent.PackageStatuses.Packages,
-				func(value model.AgentPackageStatus, _ string) v1agent.PackageStstus {
-					return v1agent.PackageStstus{
+				func(value model.AgentPackageStatus, _ string) v1agent.PackageStatus {
+					return v1agent.PackageStatus{
 						Name: value.Name,
 					}
 				}),
-			ServerProvidedAllPackgesHash: string(agent.PackageStatuses.ServerProvidedAllPackgesHash),
-			ErrorMessage:                 agent.PackageStatuses.ErrorMessage,
+			ServerProvidedAllPackagesHash: string(agent.PackageStatuses.ServerProvidedAllPackgesHash),
+			ErrorMessage:                  agent.PackageStatuses.ErrorMessage,
 		},
 		ComponentHealth:     v1agent.ComponentHealth{},
 		RemoteConfig:        v1agent.RemoteConfig{},

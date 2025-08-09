@@ -81,9 +81,9 @@ type ConfigFile struct {
 
 // PackageStatuses represents the package statuses of the agent.
 type PackageStatuses struct {
-	Packages                     map[string]PackageStstus `json:"packages"`
-	ServerProvidedAllPackgesHash string                   `json:"serverProvidedAllPackagesHash,omitempty"`
-	ErrorMessage                 string                   `json:"errorMessage,omitempty"`
+	Packages                      map[string]PackageStatus `json:"packages"`
+	ServerProvidedAllPackagesHash string                   `json:"serverProvidedAllPackagesHash,omitempty"`
+	ErrorMessage                  string                   `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
 
 // RemoteConfig represents the remote configuration of the agent.
@@ -102,8 +102,8 @@ type CustomCapabilities struct {
 type AvailableComponents struct {
 } // @name AgentAvailableComponents
 
-// PackageStstus represents the status of a package in the agent.
-type PackageStstus struct {
+// PackageStatus represents the status of a package in the agent.
+type PackageStatus struct {
 	// Name is the name of the package.
 	Name string `json:"name"`
 } // @name AgentPackageStatus
