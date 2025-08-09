@@ -51,21 +51,21 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 }
 
 const (
-	// ContentTypeJSON is the content type for JSON.
-	ContentTypeJSON = "application/json"
-	// ContentTypeYAML is the content type for YAML.
-	ContentTypeYAML = "application/yaml"
-	// EmptyContentType is the content type for empty.
+	// TextJSON is the content type for JSON.
+	TextJSON = "text/json"
+	// TextYAML is the content type for YAML.
+	TextYAML = "text/yaml"
+	// Empty is the content type for empty.
 	// Empty content type is treated as YAML by default.
 	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
-	EmptyContentType = ""
+	Empty = ""
 )
 
 func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1agent.ConfigFile {
 	switch configFile.ContentType {
-	case ContentTypeJSON,
-		ContentTypeYAML,
-		EmptyContentType:
+	case TextJSON,
+		TextYAML,
+		Empty:
 		return v1agent.ConfigFile{
 			Body:        string(configFile.Body),
 			ContentType: configFile.ContentType,
