@@ -20,14 +20,17 @@ func (b *Base) GetFreeTCPPort() int {
 func GetFreeTCPPort() (int, error) {
 	var err error
 
-	var a *net.TCPAddr
+	var tcpAddr *net.TCPAddr
 
-	if a, err = net.ResolveTCPAddr("tcp", "localhost:0"); err == nil {
-		var l *net.TCPListener
-		if l, err = net.ListenTCP("tcp", a); err == nil {
-			defer closeSilently(l)
+	tcpAddr, err = net.ResolveTCPAddr("tcp", "localhost:0")
+	if err == nil {
+		var listener *net.TCPListener
 
-			tcpAddr, ok := l.Addr().(*net.TCPAddr)
+		listener, err = net.ListenTCP("tcp", tcpAddr)
+		if err == nil {
+			defer closeSilently(listener)
+
+			tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 			if !ok {
 				return 0, net.InvalidAddrError("not a TCP address")
 			}

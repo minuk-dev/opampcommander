@@ -250,7 +250,8 @@ func unzipWithoutWrap(src string, dest string) error {
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(fpath), 0700); err != nil {
+		err := os.MkdirAll(filepath.Dir(fpath), 0700)
+		if err != nil {
 			return err
 		}
 
@@ -559,6 +560,7 @@ func (e *Etcd) Stop() {
 		defer cancel()
 
 		stopCh := make(chan struct{})
+
 		go func() {
 			defer close(stopCh)
 
@@ -574,7 +576,8 @@ func (e *Etcd) Stop() {
 		case <-ctx.Done():
 			e.Base.Logger.Warn("etcd stop timed out, force killing process")
 
-			if err := e.result.Cmd.Process.Kill(); err != nil {
+			err := e.result.Cmd.Process.Kill()
+			if err != nil {
 				e.Base.Logger.Error("failed to kill etcd process", "error", err)
 			}
 		case <-stopCh:

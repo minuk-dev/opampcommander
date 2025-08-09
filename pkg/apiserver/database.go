@@ -31,7 +31,8 @@ func NewEtcdClient(settings *config.ServerSettings, lifecycle fx.Lifecycle) (*cl
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error { return nil },
 		OnStop: func(_ context.Context) error {
-			if err := etcdClient.Close(); err != nil {
+			err := etcdClient.Close()
+			if err != nil {
 				return fmt.Errorf("failed to close etcd client: %w", err)
 			}
 

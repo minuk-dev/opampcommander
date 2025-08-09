@@ -2,6 +2,7 @@
 package agent
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,6 +15,11 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+)
+
+var (
+	// ErrCommandExecutionFailed is returned when the command execution fails.
+	ErrCommandExecutionFailed = errors.New("command execution failed")
 )
 
 // CommandOptions contains the options for the agent command.
@@ -89,7 +95,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // ShortItemForCLI is a struct that represents an agent item for display.
 type ShortItemForCLI struct {
-	InstanceUID uuid.UUID `short:"Instance UID""Instance Uid" yaml:"instanceUid"`
+	InstanceUID uuid.UUID `short:"Instance UID" text:"instanceUid"`
 }
 
 // List retrieves the list of agents.
@@ -99,19 +105,20 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	switch ft := formatter.FormatType(opt.formatType); ft {
+	switch formatType := formatter.FormatType(opt.formatType); formatType {
 	case formatter.SHORT, formatter.TEXT:
 		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ShortItemForCLI {
 			return ShortItemForCLI{
 				InstanceUID: agent.InstanceUID,
 			}
 		})
-		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, ft)
+		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
 	case formatter.JSON, formatter.YAML:
-		err = formatter.Format(cmd.OutOrStdout(), agents, ft)
+		err = formatter.Format(cmd.OutOrStdout(), agents, formatType)
 	default:
-		return fmt.Errorf("unsupported format type: %s", opt.formatType)
+		return fmt.Errorf("unsupported format type: %s, %w", opt.formatType, ErrCommandExecutionFailed)
 	}
+
 	if err != nil {
 		return fmt.Errorf("failed to format agents: %w", err)
 	}

@@ -9,6 +9,10 @@ import (
 
 // GlobalConfig contains the global configuration for opampctl.
 type GlobalConfig struct {
+	// Debugging Configuration
+	// This configuration is not serialized to the config file.
+	Runtime `json:"-" mapstructure:"-" yaml:"-"`
+
 	// CacheDir is the directory where cached files are stored.
 	CacheDir string `json:"cacheDir" mapstructure:"cacheDir" yaml:"cacheDir"`
 
@@ -16,10 +20,6 @@ type GlobalConfig struct {
 	Contexts       []Context `json:"contexts"       mapstructure:"contexts"       yaml:"contexts"`
 	Users          []User    `json:"users"          mapstructure:"users"          yaml:"users"`
 	Clusters       []Cluster `json:"clusters"       mapstructure:"clusters"       yaml:"clusters"`
-
-	// Debugging Configuration
-	// This configuration is not serialized to the config file.
-	Runtime `json:"-" mapstructure:"-" yaml:"-"`
 }
 
 // Runtime contains runtime configuration that is not serialized to the config file.
@@ -123,10 +123,11 @@ const (
 
 // Auth represents the authentication method for a user in the opampctl configuration.
 type Auth struct {
-	Type       string `json:"type"    mapstructure:"type"    yaml:"type"`
 	GithubAuth `json:",inline" mapstructure:",squash" yaml:",inline"`
 	BasicAuth  `json:",inline" mapstructure:",squash" yaml:",inline"`
 	ManualAuth `json:",inline" mapstructure:",squash" yaml:",inline"`
+
+	Type string `json:"type" mapstructure:"type" yaml:"type"`
 }
 
 // GithubAuth represents the GitHub authentication method for a user in the opampctl configuration.
