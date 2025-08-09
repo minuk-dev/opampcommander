@@ -92,6 +92,7 @@ linters:
             - go.etcd.io/etcd/client/v3
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/etcd
+            - github.com/testcontainers/testcontainers-go/wait
 formatters:
   enable:
     - gci

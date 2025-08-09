@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	etcdTestContainer "github.com/testcontainers/testcontainers-go/modules/etcd"
+	"github.com/testcontainers/testcontainers-go/wait"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
@@ -180,4 +181,61 @@ func TestAgentEtcdAdapter_PutAgent(t *testing.T) {
 		assert.Equal(t, int64(1), getResponse.Count)
 		assert.NotEmpty(t, getResponse.Kvs[0].Value)
 	})
+}
+
+func TestAgentEtcdAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	ctx := t.Context()
+	etcdContainer, err := etcdTestContainer.Run(ctx,
+		"gcr.io/etcd-development/etcd:v3.5.14",
+		testcontainers.WithWaitStrategy(wait.ForExposedPort()))
+	require.NoError(t, err)
+
+	etcdEndpoint, err := etcdContainer.ClientEndpoint(ctx)
+	require.NoError(t, err)
+
+	//exhaustruct:ignore
+	etcdClient, err := clientv3.New(clientv3.Config{
+		Endpoints: []string{etcdEndpoint},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := etcdClient.Close()
+		require.NoError(t, err)
+	})
+
+	instanceUID := uuid.New()
+	agentEtcdAdapter := etcd.NewAgentEtcdAdapter(etcdClient, testutil.NewBase(t).Logger)
+
+	// when
+	originalAgent := &model.Agent{
+		InstanceUID:  instanceUID,
+		Capabilities: nil,
+		Description:  nil,
+		EffectiveConfig: &model.AgentEffectiveConfig{
+			ConfigMap: model.AgentConfigMap{
+				ConfigMap: map[string]model.AgentConfigFile{
+					"config.yaml": {
+						Body:        []byte("key: value"),
+						ContentType: "application/yaml",
+					},
+				},
+			},
+		},
+		PackageStatuses:     nil,
+		ComponentHealth:     nil,
+		RemoteConfig:        remoteconfig.New(),
+		CustomCapabilities:  nil,
+		AvailableComponents: nil,
+		ReportFullState:     false,
+	}
+	err = agentEtcdAdapter.PutAgent(ctx, originalAgent)
+	require.NoError(t, err)
+	loadedAgent, err := agentEtcdAdapter.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// then
+	assert.Equal(t, originalAgent.InstanceUID, loadedAgent.InstanceUID)
+	assert.Equal(t, originalAgent.EffectiveConfig.ConfigMap.ConfigMap, loadedAgent.EffectiveConfig.ConfigMap.ConfigMap)
 }
