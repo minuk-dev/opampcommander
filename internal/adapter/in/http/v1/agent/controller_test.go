@@ -1,7 +1,6 @@
 package agent_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,9 +14,10 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/goleak"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
-	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent/usecasemock"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -33,13 +33,14 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 		// given
 		instanceUIDs := []uuid.UUID{uuid.New(), uuid.New()}
-		agents := []*model.Agent{
+		//exhaustruct:ignore
+		agents := []v1agent.Agent{
 			{
 				InstanceUID: instanceUIDs[0],
 			},
@@ -47,11 +48,17 @@ func TestAgentControllerListAgent(t *testing.T) {
 				InstanceUID: instanceUIDs[1],
 			},
 		}
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
-			RemainingItemCount: 0,
-			Continue:           "",
-			Items:              agents,
-		}, nil)
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, mock.Anything).
+			Return(&v1agent.ListResponse{
+				APIVersion: "v1",
+				Kind:       v1agent.AgentKind,
+				Items:      agents,
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -71,17 +78,23 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).Return(&model.ListResponse[*model.Agent]{
-			RemainingItemCount: 0,
-			Continue:           "",
-			Items:              []*model.Agent{},
-		}, nil)
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, mock.Anything).
+			Return(&v1agent.ListResponse{
+				APIVersion: "v1",
+				Kind:       v1agent.AgentKind,
+				Items:      []v1agent.Agent{},
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -99,7 +112,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -117,14 +130,15 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
 		// given
-		agentUsecase.On("ListAgents", mock.Anything, mock.Anything).
-			Return((*model.ListResponse[*model.Agent])(nil), assert.AnError)
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, mock.Anything).
+			Return(nil, assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
@@ -141,18 +155,20 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
 		// given
 		instanceUID := uuid.New()
-		//exhaustruct:ignore
-		agentData := &model.Agent{
-			InstanceUID: instanceUID,
-		}
-		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return(agentData, nil)
+		agentUsecase.EXPECT().
+			GetAgent(mock.Anything, mock.Anything).
+			Return(
+				//exhaustruct:ignore
+				&v1agent.Agent{
+					InstanceUID: instanceUID,
+				}, nil)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -169,7 +185,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -177,7 +193,9 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// given
 		instanceUID := uuid.New()
 
-		agentUsecase.On("GetAgent", mock.Anything, mock.Anything).Return((*model.Agent)(nil), port.ErrAgentNotExist)
+		agentUsecase.EXPECT().
+			GetAgent(mock.Anything, mock.Anything).
+			Return(nil, port.ErrAgentNotExist)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -192,7 +210,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -210,14 +228,17 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := newMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
 		// given
 		instanceUID := uuid.New()
-		agentUsecase.On("GetAgent", mock.Anything, instanceUID).Return((*model.Agent)(nil), assert.AnError)
+
+		agentUsecase.EXPECT().
+			GetAgent(mock.Anything, mock.Anything).
+			Return(nil, assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
@@ -235,15 +256,15 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := newMockAgentManageUsecase(t)
-		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
+		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
 
-		agentManageUsecase.On("SendCommand", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		agentUsecase.EXPECT().SendCommand(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -260,7 +281,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 	t.Run("Update Agent Config - 400 Bad Request when instanceUID is not uuid", func(t *testing.T) {
 		t.Parallel()
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := newMockAgentManageUsecase(t)
+		agentManageUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -279,7 +300,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := newMockAgentManageUsecase(t)
+		agentManageUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -300,7 +321,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := newMockAgentManageUsecase(t)
+		agentManageUsecase := usecasemock.NewMockAgentManageUsecase(t)
 		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -308,7 +329,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		// given
 		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
 
-		agentManageUsecase.On("SendCommand", mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+		agentManageUsecase.EXPECT().SendCommand(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -321,55 +342,4 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
-}
-
-var _ applicationport.AgentManageUsecase = (*mockAgentManageUsecase)(nil)
-
-func newMockAgentManageUsecase(t *testing.T) *mockAgentManageUsecase {
-	t.Helper()
-
-	//exhaustruct:ignore
-	return &mockAgentManageUsecase{}
-}
-
-type mockAgentManageUsecase struct {
-	mock.Mock
-}
-
-//nolint:wrapcheck,forcetypeassert
-func (m *mockAgentManageUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
-	args := m.Called(ctx, instanceUID)
-
-	return args.Get(0).(*model.Agent), args.Error(1)
-}
-
-//nolint:wrapcheck,forcetypeassert
-func (m *mockAgentManageUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
-	args := m.Called(ctx, instanceUID)
-
-	return args.Get(0).(*model.Agent), args.Error(1)
-}
-
-//nolint:wrapcheck
-func (m *mockAgentManageUsecase) SaveAgent(ctx context.Context, agent *model.Agent) error {
-	args := m.Called(ctx, agent)
-
-	return args.Error(0)
-}
-
-//nolint:wrapcheck,forcetypeassert
-func (m *mockAgentManageUsecase) ListAgents(
-	ctx context.Context,
-	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
-	args := m.Called(ctx, options)
-
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1)
-}
-
-//nolint:wrapcheck
-func (m *mockAgentManageUsecase) SendCommand(ctx context.Context, instanceUID uuid.UUID, command *model.Command) error {
-	args := m.Called(ctx, instanceUID, command)
-
-	return args.Error(0)
 }

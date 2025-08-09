@@ -3,6 +3,7 @@ package agent
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -18,6 +19,9 @@ import (
 // CommandOptions contains the options for the agent command.
 type CommandOptions struct {
 	*config.GlobalConfig
+
+	// flags
+	formatType string
 
 	// internal
 	client *client.Client
@@ -43,6 +47,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
 
 	return cmd
 }
@@ -68,6 +73,8 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("list failed: %w", err)
 		}
+
+		return nil
 	}
 
 	agentUIDs := args
@@ -80,16 +87,27 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// ItemForCLI is a struct that represents an agent item for display.
+type ItemForCLI struct {
+	InstanceUID uuid.UUID `json:"instanceUid" short:"Instance UID" text:"Instance Uid" yaml:"instanceUid"`
+}
+
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agents, err := opt.client.AgentService.ListAgents()
+	agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client)
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	err = formatter.FormatYAML(cmd.OutOrStdout(), agents)
+	displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ItemForCLI {
+		return ItemForCLI{
+			InstanceUID: agent.InstanceUID,
+		}
+	})
+
+	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format yaml: %w", err)
+		return fmt.Errorf("failed to format agents: %w", err)
 	}
 
 	return nil
@@ -97,23 +115,51 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves the agent information for the given agent UIDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	agents := make([]*v1agent.Agent, 0, len(ids))
-	instanceUIDs := lo.Map(ids, func(id string, _ int) uuid.UUID {
-		instanceUID, _ := uuid.Parse(id)
-
-		return instanceUID
-	})
-
-	for _, instanceUID := range instanceUIDs {
-		agent, err := opt.client.AgentService.GetAgent(instanceUID)
-		if err != nil {
-			return fmt.Errorf("failed to get agent: %w", err)
-		}
-
-		agents = append(agents, agent)
+	type AgentWithErr struct {
+		Agent *v1agent.Agent
+		Err   error
 	}
 
-	cmd.Println(agents)
+	agentWithErrs := lo.Map(ids, func(id string, _ int) AgentWithErr {
+		instanceUID, _ := uuid.Parse(id)
+		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), instanceUID)
+
+		return AgentWithErr{
+			Agent: agent,
+			Err:   err,
+		}
+	})
+
+	agents := lo.Filter(agentWithErrs, func(a AgentWithErr, _ int) bool {
+		return a.Err == nil
+	})
+	if len(agents) == 0 {
+		cmd.Println("No agents found or all specified agents could not be retrieved.")
+
+		return nil
+	}
+
+	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ItemForCLI {
+		return ItemForCLI{
+			InstanceUID: a.Agent.InstanceUID,
+		}
+	})
+
+	err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
+	if err != nil {
+		return fmt.Errorf("failed to format agents: %w", err)
+	}
+
+	errs := lo.Filter(agentWithErrs, func(a AgentWithErr, _ int) bool {
+		return a.Err != nil
+	})
+	if len(errs) > 0 {
+		errMessages := lo.Map(errs, func(a AgentWithErr, _ int) string {
+			return fmt.Sprintf("failed to get agent %s: %v", a.Agent.InstanceUID, a.Err)
+		})
+
+		cmd.PrintErrf("Some agents could not be retrieved: %s", strings.Join(errMessages, ", "))
+	}
 
 	return nil
 }

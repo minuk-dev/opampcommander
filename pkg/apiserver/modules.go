@@ -26,8 +26,6 @@ import (
 )
 
 // NewConfigModule creates a new module for configuration.
-//
-//nolint:ireturn
 func NewConfigModule(settings *config.ServerSettings) fx.Option {
 	return fx.Module(
 		"config",
@@ -40,8 +38,6 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 }
 
 // NewInPortModule creates a new module for controllers.
-//
-//nolint:ireturn
 func NewInPortModule() fx.Option {
 	return fx.Module(
 		"inport",
@@ -69,8 +65,6 @@ func NewInPortModule() fx.Option {
 }
 
 // NewApplicationServiceModule creates a new module for application services.
-//
-//nolint:ireturn
 func NewApplicationServiceModule() fx.Option {
 	return fx.Module(
 		"application",
@@ -93,8 +87,6 @@ func NewApplicationServiceModule() fx.Option {
 }
 
 // NewDomainServiceModule creates a new module for domain services.
-//
-//nolint:ireturn
 func NewDomainServiceModule() fx.Option {
 	return fx.Module(
 		"domain",
@@ -107,8 +99,6 @@ func NewDomainServiceModule() fx.Option {
 }
 
 // NewOutPortModule creates a new module for output adapters.
-//
-//nolint:ireturn
 func NewOutPortModule() fx.Option {
 	return fx.Module(
 		"outport",

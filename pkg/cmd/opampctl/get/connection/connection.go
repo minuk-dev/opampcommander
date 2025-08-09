@@ -19,6 +19,9 @@ import (
 type CommandOptions struct {
 	*config.GlobalConfig
 
+	// flags
+	formatType string
+
 	// internal
 	client *client.Client
 }
@@ -43,6 +46,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVarP(&options.formatType, "format", "f", "short", "Output format (short, text, json, yaml)")
 
 	return cmd
 }
@@ -82,14 +86,18 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the connection information for all connections.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	connections, err := opt.client.ConnectionService.ListConnections()
+	connections, err := clientutil.ListConnectionFully(cmd.Context(), opt.client)
 	if err != nil {
-		return fmt.Errorf("failed to list agents: %w", err)
+		return fmt.Errorf("failed to list connections: %w", err)
 	}
 
-	err = formatter.FormatYAML(cmd.OutOrStdout(), connections)
+	if len(connections) == 0 {
+		cmd.Println("No connections found.")
+	}
+
+	err = formatter.Format(cmd.OutOrStdout(), connections, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format yaml: %w", err)
+		return fmt.Errorf("failed to format connections: %w", err)
 	}
 
 	return nil
@@ -105,7 +113,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 
 	for _, connectionID := range connectionIDs {
-		connection, err := opt.client.ConnectionService.GetConnection(connectionID)
+		connection, err := opt.client.ConnectionService.GetConnection(cmd.Context(), connectionID)
 		if err != nil {
 			return fmt.Errorf("failed to get agent: %w", err)
 		}

@@ -575,14 +575,73 @@ const docTemplate = `{
         "Agent": {
             "type": "object",
             "properties": {
+                "availableComponents": {
+                    "$ref": "#/definitions/AgentAvailableComponents"
+                },
+                "capabilities": {
+                    "description": "Capabilities is a bitmask representing the capabilities of the agent.\nIt is used to determine what features the agent supports.\nIf nil, it means the capabilities are unspecified.",
+                    "type": "integer"
+                },
+                "componentHealth": {
+                    "description": "ComponentHealth is the health status of the agent's components.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentComponentHealth"
+                        }
+                    ]
+                },
+                "customCapabilities": {
+                    "description": "CustomCapabilities is a map of custom capabilities for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentCustomCapabilities"
+                        }
+                    ]
+                },
+                "description": {
+                    "description": "Description is a human-readable description of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/agent.Description"
+                        }
+                    ]
+                },
+                "effectiveConfig": {
+                    "description": "EffectiveConfig is the effective configuration of the agent.\nIt is used to determine the current configuration of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentEffectiveConfig"
+                        }
+                    ]
+                },
                 "instanceUid": {
                     "description": "InstanceUID is a unique identifier for the agent instance.",
                     "type": "string"
                 },
-                "raw": {
-                    "description": "Raw is a raw data of the agent.\nIt is used for debugging purposes."
+                "isManaged": {
+                    "description": "IsManaged indicates whether the agent is managed by the server.\nIf true, the server manages the agent and can send commands to it.",
+                    "type": "boolean"
+                },
+                "packageStatuses": {
+                    "description": "PackageStatuses is a map of package statuses for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentPackageStatuses"
+                        }
+                    ]
+                },
+                "remoteConfig": {
+                    "description": "RemoteConfig is the remote configuration of the agent.\nIt is used to determine the current remote configuration of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentRemoteConfig"
+                        }
+                    ]
                 }
             }
+        },
+        "AgentAvailableComponents": {
+            "type": "object"
         },
         "AgentCommand": {
             "type": "object",
@@ -601,6 +660,71 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "AgentComponentHealth": {
+            "type": "object"
+        },
+        "AgentConfigFile": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "contentType": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentConfigMap": {
+            "type": "object",
+            "properties": {
+                "configMap": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/AgentConfigFile"
+                    }
+                }
+            }
+        },
+        "AgentCustomCapabilities": {
+            "type": "object"
+        },
+        "AgentEffectiveConfig": {
+            "type": "object",
+            "properties": {
+                "configMap": {
+                    "$ref": "#/definitions/AgentConfigMap"
+                }
+            }
+        },
+        "AgentPackageStatus": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the name of the package.",
+                    "type": "string"
+                }
+            }
+        },
+        "AgentPackageStatuses": {
+            "type": "object",
+            "properties": {
+                "errorMessage": {
+                    "type": "string"
+                },
+                "packages": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/AgentPackageStatus"
+                    }
+                },
+                "serverProvidedAllPackagesHash": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentRemoteConfig": {
+            "type": "object"
         },
         "AuthnTokenResponse": {
             "type": "object",
@@ -711,6 +835,23 @@ const docTemplate = `{
             ],
             "properties": {
                 "remoteConfig": {}
+            }
+        },
+        "agent.Description": {
+            "type": "object",
+            "properties": {
+                "identifyingAttributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "nonIdentifyingAttributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
             }
         }
     }

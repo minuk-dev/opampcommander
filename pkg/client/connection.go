@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+
 	uuid "github.com/google/uuid"
 
 	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
@@ -27,11 +29,27 @@ func NewConnectionService(service *service) *ConnectionService {
 }
 
 // GetConnection retrieves a connection by its ID.
-func (s *ConnectionService) GetConnection(id uuid.UUID) (*connectionv1.Connection, error) {
-	return getResource[connectionv1.Connection](s.service, GetConnectionPath, id)
+func (s *ConnectionService) GetConnection(ctx context.Context, id uuid.UUID) (*connectionv1.Connection, error) {
+	return getResource[connectionv1.Connection](ctx, s.service, GetConnectionPath, id)
 }
 
 // ListConnections lists all connections.
-func (s *ConnectionService) ListConnections() (*connectionv1.ListResponse, error) {
-	return listResources[connectionv1.Connection](s.service, ListConnectionsPath)
+func (s *ConnectionService) ListConnections(
+	ctx context.Context,
+	opts ...ListOption,
+) (*connectionv1.ListResponse, error) {
+	var listSettings ListSettings
+	for _, opt := range opts {
+		opt.Apply(&listSettings)
+	}
+
+	return listResources[connectionv1.Connection](
+		ctx,
+		s.service,
+		ListConnectionsPath,
+		ListSettings{
+			limit:         listSettings.limit,
+			continueToken: listSettings.continueToken,
+		},
+	)
 }
