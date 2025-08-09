@@ -87,9 +87,9 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// ItemForCLI is a struct that represents an agent item for display.
-type ItemForCLI struct {
-	InstanceUID uuid.UUID `json:"instanceUid" short:"Instance UID" text:"Instance Uid" yaml:"instanceUid"`
+// ShortItemForCLI is a struct that represents an agent item for display.
+type ShortItemForCLI struct {
+	InstanceUID uuid.UUID `short:"Instance UID""Instance Uid" yaml:"instanceUid"`
 }
 
 // List retrieves the list of agents.
@@ -99,13 +99,19 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ItemForCLI {
-		return ItemForCLI{
-			InstanceUID: agent.InstanceUID,
-		}
-	})
-
-	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
+	switch ft := formatter.FormatType(opt.formatType); ft {
+	case formatter.SHORT, formatter.TEXT:
+		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ShortItemForCLI {
+			return ShortItemForCLI{
+				InstanceUID: agent.InstanceUID,
+			}
+		})
+		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, ft)
+	case formatter.JSON, formatter.YAML:
+		err = formatter.Format(cmd.OutOrStdout(), agents, ft)
+	default:
+		return fmt.Errorf("unsupported format type: %s", opt.formatType)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to format agents: %w", err)
 	}
@@ -139,8 +145,8 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 		return nil
 	}
 
-	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ItemForCLI {
-		return ItemForCLI{
+	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ShortItemForCLI {
+		return ShortItemForCLI{
 			InstanceUID: a.Agent.InstanceUID,
 		}
 	})
