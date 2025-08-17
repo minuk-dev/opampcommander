@@ -37,6 +37,7 @@ func NewAuthJWTMiddleware(
 			"/api/v1/auth/github",
 			"/api/v1/ping",
 			"/api/v1/opamp",
+			"/api/v1/version",
 		}
 		authenticatedPrefix = []string{
 			"/api/v1",

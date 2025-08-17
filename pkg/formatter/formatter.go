@@ -85,15 +85,25 @@ func FormatJSON(writer io.Writer, target any) error {
 //nolint:varnamelen,err113,intrange,errcheck,gosec,mnd
 func FormatText(writer io.Writer, data any) error {
 	v := reflect.ValueOf(data)
-	if v.Kind() != reflect.Slice {
-		return errors.New("data must be a slice")
+	var slice reflect.Value
+
+	switch v.Kind() {
+	case reflect.Slice:
+		if v.Len() == 0 {
+			return errors.New("no data to display")
+		}
+		slice = v
+	case reflect.Struct, reflect.Ptr:
+		slice = reflect.MakeSlice(reflect.SliceOf(v.Type()), 1, 1)
+		slice.Index(0).Set(v)
+	default:
+		return errors.New("data must be a slice or struct")
 	}
 
-	if v.Len() == 0 {
-		return errors.New("no data to display")
+	firstElem := slice.Index(0)
+	if firstElem.Kind() == reflect.Ptr {
+		firstElem = firstElem.Elem()
 	}
-
-	firstElem := v.Index(0)
 	elemType := firstElem.Type()
 
 	if elemType.Kind() == reflect.Ptr {
@@ -154,31 +164,33 @@ func FormatText(writer io.Writer, data any) error {
 //nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113
 func FormatShort(w io.Writer, data any) error {
 	v := reflect.ValueOf(data)
-	if v.Kind() != reflect.Slice {
-		return errors.New("data must be a slice")
+	var slice reflect.Value
+
+	switch v.Kind() {
+	case reflect.Slice:
+		if v.Len() == 0 {
+			return errors.New("no data to display")
+		}
+		slice = v
+	case reflect.Struct, reflect.Ptr:
+		slice = reflect.MakeSlice(reflect.SliceOf(v.Type()), 1, 1)
+		slice.Index(0).Set(v)
+	default:
+		return errors.New("data must be a slice or struct")
 	}
 
-	if v.Len() == 0 {
-		return errors.New("no data to display")
+	firstElem := slice.Index(0)
+	if firstElem.Kind() == reflect.Ptr {
+		firstElem = firstElem.Elem()
 	}
-
-	firstElem := v.Index(0)
 	elemType := firstElem.Type()
 
-	if elemType.Kind() == reflect.Ptr {
-		firstElem = firstElem.Elem()
-		elemType = firstElem.Type()
-	}
-
 	var fieldIndexes []int
-
 	var fieldNames []string
 
 	for i := 0; i < elemType.NumField(); i++ {
 		field := elemType.Field(i)
-		if field.Name == "Name" ||
-			field.Name == "ID" ||
-			field.Tag.Get("short") != "" {
+		if field.Name == "Name" || field.Name == "ID" || field.Tag.Get("short") != "" {
 			fieldIndexes = append(fieldIndexes, i)
 			fieldNames = append(fieldNames, field.Name)
 		}
@@ -190,19 +202,17 @@ func FormatShort(w io.Writer, data any) error {
 	for _, name := range fieldNames {
 		fmt.Fprintf(tw, "%s\t", name)
 	}
-
 	fmt.Fprintln(tw)
 
-	// Separator (optional)
+	// Separator
 	for range fieldNames {
 		fmt.Fprintf(tw, "--------\t")
 	}
-
 	fmt.Fprintln(tw)
 
 	// Rows
-	for i := 0; i < v.Len(); i++ {
-		row := v.Index(i)
+	for i := 0; i < slice.Len(); i++ {
+		row := slice.Index(i)
 		if row.Kind() == reflect.Ptr {
 			row = row.Elem()
 		}
@@ -210,11 +220,9 @@ func FormatShort(w io.Writer, data any) error {
 		for _, idx := range fieldIndexes {
 			fmt.Fprintf(tw, "%v\t", row.Field(idx).Interface())
 		}
-
 		fmt.Fprintln(tw)
 	}
 
 	tw.Flush()
-
 	return nil
 }

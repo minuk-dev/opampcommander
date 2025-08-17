@@ -25,6 +25,13 @@ builds:
       # - windows
       - darwin
     main: ./cmd/apiserver
+    ldflags:
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitMajor={{.Major}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitMinor={{.Minor}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitVersion={{.Version}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitCommit={{.Commit}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitTreeState={{.GitTreeState}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.buildDate={{.Date}}"
   - id: opampctl
     binary: opampctl
     env:
@@ -34,6 +41,13 @@ builds:
       # - windows
       - darwin
     main: ./cmd/opampctl
+    ldflags:
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitMajor={{.Major}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitMinor={{.Minor}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitVersion={{.Version}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitCommit={{.Commit}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.gitTreeState={{.GitTreeState}}"
+      - "-X github.com/minuk-dev/opampcommander/pkg/version.buildDate={{.Date}}"
 
 dockers:
   - image_templates:

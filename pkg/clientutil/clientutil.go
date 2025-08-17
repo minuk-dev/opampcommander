@@ -52,6 +52,19 @@ func NewClient(
 	return cli, nil
 }
 
+// NewUnauthenticatedClient creates a new unauthenticated Client.
+func NewUnauthenticatedClient(
+	config *config.GlobalConfig,
+) *client.Client {
+	endpoint := configutil.GetCurrentOpAMPCommanderEndpoint(config)
+	cli := client.New(
+		endpoint,
+		client.WithLogger(config.Log.Logger),
+		client.WithVerbose(config.Log.Level == slog.LevelDebug),
+	)
+	return cli
+}
+
 // NewAuthedClient creates a new authenticated OpAMP client using the cached bearer token.
 // It retrieves the token from the file cache and initializes the client with it.
 func NewAuthedClient(

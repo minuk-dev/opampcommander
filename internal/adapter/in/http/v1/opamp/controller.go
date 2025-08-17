@@ -89,13 +89,13 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/api/v1/opamp",
 			Handler:     "opamp.v1.opamp.Handle",
 			HandlerFunc: c.Handle,
 		},
 		{
-			Method:      "POST",
+			Method:      http.MethodPost,
 			Path:        "/api/v1/opamp",
 			Handler:     "opamp.v1.opamp.Handle",
 			HandlerFunc: c.Handle,

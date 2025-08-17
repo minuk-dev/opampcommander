@@ -12,6 +12,7 @@ import (
 
 	configCmd "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/version"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/whoami"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/configutil"
@@ -45,6 +46,9 @@ func NewCommand(options CommandOption) *cobra.Command {
 		GlobalConfig: options.globalConfig,
 	}))
 	cmd.AddCommand(whoami.NewCommand(whoami.CommandOptions{
+		GlobalConfig: options.globalConfig,
+	}))
+	cmd.AddCommand(version.NewCommand(version.CommandOptions{
 		GlobalConfig: options.globalConfig,
 	}))
 
