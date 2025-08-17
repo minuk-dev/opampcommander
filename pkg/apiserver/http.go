@@ -44,8 +44,10 @@ func NewHTTPServer(
 	}
 
 	lifecycle.Append(fx.Hook{
-		OnStart: func(context.Context) error {
-			listener, err := net.Listen("tcp", srv.Addr)
+		OnStart: func(ctx context.Context) error {
+			//exhaustruct:ignore
+			listenConfig := &net.ListenConfig{}
+			listener, err := listenConfig.Listen(ctx, "tcp", srv.Addr)
 			if err != nil {
 				return fmt.Errorf("failed to listen: %w", err)
 			}

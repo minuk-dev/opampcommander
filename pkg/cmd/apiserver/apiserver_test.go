@@ -73,7 +73,8 @@ func TestCommand(t *testing.T) {
 		}
 
 		defer func() {
-			if closeErr := resp.Body.Close(); closeErr != nil {
+			closeErr := resp.Body.Close()
+			if closeErr != nil {
 				t.Logf("failed to close response body: %v", closeErr)
 			}
 		}()

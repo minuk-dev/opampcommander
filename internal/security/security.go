@@ -55,8 +55,9 @@ type Service struct {
 // OPAMPClaims defines the custom claims for the JWT token used for opampcommander's authentication.
 // It includes the user's email and standard JWT registered claims.
 type OPAMPClaims struct {
-	Email string `json:"email"`
 	jwt.RegisteredClaims
+
+	Email string `json:"email"`
 }
 
 // New creates a new instance of the Service struct with the provided logger and OAuth settings.

@@ -65,11 +65,13 @@ func (fc *FileCache) Get(key string) ([]byte, error) {
 //nolint:mnd
 func (fc *FileCache) Set(key string, data []byte) error {
 	filename := fc.GetFilename(key)
-	if err := fc.filesystem.MkdirAll(filepath.Dir(filename), 0o750); err != nil {
+
+	err := fc.filesystem.MkdirAll(filepath.Dir(filename), 0o750)
+	if err != nil {
 		return fmt.Errorf("failed to create cache directory %s: %w", filepath.Dir(filename), err)
 	}
 
-	err := afero.WriteFile(fc.filesystem, filename, data, 0o600)
+	err = afero.WriteFile(fc.filesystem, filename, data, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to write cache file %s: %w", filename, err)
 	}
@@ -80,7 +82,9 @@ func (fc *FileCache) Set(key string, data []byte) error {
 // Delete removes the cache entry for a given key.
 func (fc *FileCache) Delete(key string) error {
 	filename := fc.GetFilename(key)
-	if exists, err := afero.Exists(fc.filesystem, filename); err != nil {
+
+	exists, err := afero.Exists(fc.filesystem, filename)
+	if err != nil {
 		return fmt.Errorf("failed to check if cache file exists %s: %w", filename, err)
 	} else if exists {
 		err := fc.filesystem.Remove(filename)
