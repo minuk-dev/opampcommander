@@ -90,8 +90,8 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	switch opt.formatType {
 	case "short":
 		type shortItem struct {
-			ClientGitVersion string `json:"clientGitVersion" yaml:"clientGitVersion"`
-			ServerGitVersion string `json:"serverGitVersion" yaml:"serverGitVersion"`
+			ClientGitVersion string `short:"clientGitVersion"`
+			ServerGitVersion string `short:"serverGitVersion"`
 		}
 
 		formatErr = formatter.FormatShort(cmd.OutOrStdout(), shortItem{
@@ -100,12 +100,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		})
 	case "text":
 		type textItem struct {
-			ClientGitVersion string `json:"clientGitVersion" yaml:"clientGitVersion"`
-			ClientBuildDate  string `json:"clientBuildDate"  yaml:"clientBuildDate"`
-			ClientCommitHash string `json:"clientCommitHash" yaml:"clientCommitHash"`
-			ServerGitVersion string `json:"serverGitVersion" yaml:"serverGitVersion"`
-			ServerBuildDate  string `json:"serverBuildDate"  yaml:"serverBuildDate"`
-			ServerCommitHash string `json:"serverCommitHash" yaml:"serverCommitHash"`
+			ClientGitVersion string `text:"clientGitVersion"`
+			ClientBuildDate  string `text:"clientBuildDate"`
+			ClientCommitHash string `text:"clientCommitHash"`
+			ServerGitVersion string `text:"serverGitVersion"`
+			ServerBuildDate  string `text:"serverBuildDate"`
+			ServerCommitHash string `text:"serverCommitHash"`
 		}
 
 		formatErr = formatter.FormatText(cmd.OutOrStdout(), textItem{

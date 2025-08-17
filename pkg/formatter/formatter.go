@@ -83,7 +83,7 @@ func FormatJSON(writer io.Writer, target any) error {
 // It uses the field name as the key and the field value as the value.
 //
 //nolint:varnamelen,err113,intrange,errcheck,gosec,mnd,funlen,exhaustive
-func FormatText(writer io.Writer, data any) error {
+func FormatText(w io.Writer, data any) error {
 	v := reflect.ValueOf(data)
 
 	var slice reflect.Value
@@ -109,24 +109,20 @@ func FormatText(writer io.Writer, data any) error {
 
 	elemType := firstElem.Type()
 
-	if elemType.Kind() == reflect.Ptr {
-		firstElem = firstElem.Elem()
-		elemType = firstElem.Type()
-	}
-
-	var fieldIndexes []int
-
-	var fieldNames []string
+	var (
+		fieldIndexes []int
+		fieldNames   []string
+	)
 
 	for i := 0; i < elemType.NumField(); i++ {
 		field := elemType.Field(i)
-		if field.PkgPath == "" { // only exported
+		if field.Name == "Name" || field.Name == "ID" || field.Tag.Get("text") != "" {
 			fieldIndexes = append(fieldIndexes, i)
 			fieldNames = append(fieldNames, field.Name)
 		}
 	}
 
-	tw := tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 
 	// Header
 	for _, name := range fieldNames {
@@ -135,7 +131,7 @@ func FormatText(writer io.Writer, data any) error {
 
 	fmt.Fprintln(tw)
 
-	// Separator (optional)
+	// Separator
 	for range fieldNames {
 		fmt.Fprintf(tw, "--------\t")
 	}
@@ -143,8 +139,8 @@ func FormatText(writer io.Writer, data any) error {
 	fmt.Fprintln(tw)
 
 	// Rows
-	for i := 0; i < v.Len(); i++ {
-		row := v.Index(i)
+	for i := 0; i < slice.Len(); i++ {
+		row := slice.Index(i)
 		if row.Kind() == reflect.Ptr {
 			row = row.Elem()
 		}
