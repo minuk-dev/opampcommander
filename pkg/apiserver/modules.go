@@ -13,6 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	adminApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/admin"
@@ -49,6 +50,7 @@ func NewInPortModule() fx.Option {
 		fx.Provide(
 			ping.NewController, AsController(Identity[*ping.Controller]),
 			opamp.NewController, AsController(Identity[*opamp.Controller]),
+			version.NewController, AsController(Identity[*version.Controller]),
 			connection.NewController, AsController(Identity[*connection.Controller]),
 			agent.NewController, AsController(Identity[*agent.Controller]),
 			command.NewController, AsController(Identity[*command.Controller]),

@@ -11,6 +11,7 @@ import (
 	uuid "github.com/google/uuid"
 
 	apiv1 "github.com/minuk-dev/opampcommander/api/v1"
+	v1version "github.com/minuk-dev/opampcommander/api/v1/version"
 )
 
 // Client is a struct that contains the endpoint and the resty client.
@@ -51,6 +52,32 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AuthService = NewAuthService(&service)
 
 	return client
+}
+
+// GetServerVersion retrieves the server version information.
+func (c *Client) GetServerVersion(ctx context.Context) (*v1version.Info, error) {
+	var versionInfo v1version.Info
+
+	res, err := c.common.Resty.R().
+		SetContext(ctx).
+		SetResult(&versionInfo).
+		Get("/api/v1/version")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get version: %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to get version: %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	if res.Result() == nil {
+		return nil, fmt.Errorf("failed to get version: %w", ErrEmptyResponse)
+	}
+
+	return &versionInfo, nil
 }
 
 // SetAuthToken sets the authentication token for the client.
