@@ -82,9 +82,10 @@ func FormatJSON(writer io.Writer, target any) error {
 // FormatText formats the target as a text representation.
 // It uses the field name as the key and the field value as the value.
 //
-//nolint:varnamelen,err113,intrange,errcheck,gosec,mnd
+//nolint:varnamelen,err113,intrange,errcheck,gosec,mnd,funlen,exhaustive
 func FormatText(writer io.Writer, data any) error {
 	v := reflect.ValueOf(data)
+
 	var slice reflect.Value
 
 	switch v.Kind() {
@@ -92,6 +93,7 @@ func FormatText(writer io.Writer, data any) error {
 		if v.Len() == 0 {
 			return errors.New("no data to display")
 		}
+
 		slice = v
 	case reflect.Struct, reflect.Ptr:
 		slice = reflect.MakeSlice(reflect.SliceOf(v.Type()), 1, 1)
@@ -104,6 +106,7 @@ func FormatText(writer io.Writer, data any) error {
 	if firstElem.Kind() == reflect.Ptr {
 		firstElem = firstElem.Elem()
 	}
+
 	elemType := firstElem.Type()
 
 	if elemType.Kind() == reflect.Ptr {
@@ -161,9 +164,10 @@ func FormatText(writer io.Writer, data any) error {
 // FormatShort formats the target struct to a short text representation.
 // If the field has a "short" tag, it uses the value of that tag as the key.
 //
-//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113
+//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113,exhaustive
 func FormatShort(w io.Writer, data any) error {
 	v := reflect.ValueOf(data)
+
 	var slice reflect.Value
 
 	switch v.Kind() {
@@ -171,6 +175,7 @@ func FormatShort(w io.Writer, data any) error {
 		if v.Len() == 0 {
 			return errors.New("no data to display")
 		}
+
 		slice = v
 	case reflect.Struct, reflect.Ptr:
 		slice = reflect.MakeSlice(reflect.SliceOf(v.Type()), 1, 1)
@@ -183,10 +188,13 @@ func FormatShort(w io.Writer, data any) error {
 	if firstElem.Kind() == reflect.Ptr {
 		firstElem = firstElem.Elem()
 	}
+
 	elemType := firstElem.Type()
 
-	var fieldIndexes []int
-	var fieldNames []string
+	var (
+		fieldIndexes []int
+		fieldNames   []string
+	)
 
 	for i := 0; i < elemType.NumField(); i++ {
 		field := elemType.Field(i)
@@ -202,12 +210,14 @@ func FormatShort(w io.Writer, data any) error {
 	for _, name := range fieldNames {
 		fmt.Fprintf(tw, "%s\t", name)
 	}
+
 	fmt.Fprintln(tw)
 
 	// Separator
 	for range fieldNames {
 		fmt.Fprintf(tw, "--------\t")
 	}
+
 	fmt.Fprintln(tw)
 
 	// Rows
@@ -220,9 +230,11 @@ func FormatShort(w io.Writer, data any) error {
 		for _, idx := range fieldIndexes {
 			fmt.Fprintf(tw, "%v\t", row.Field(idx).Interface())
 		}
+
 		fmt.Fprintln(tw)
 	}
 
 	tw.Flush()
+
 	return nil
 }

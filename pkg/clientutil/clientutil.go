@@ -62,6 +62,7 @@ func NewUnauthenticatedClient(
 		client.WithLogger(config.Log.Logger),
 		client.WithVerbose(config.Log.Level == slog.LevelDebug),
 	)
+
 	return cli
 }
 
