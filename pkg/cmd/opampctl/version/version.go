@@ -82,6 +82,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		versionInfo.ServerVersion, serverErr = opt.client.GetServerVersion(cmd.Context())
 		if serverErr != nil {
 			cmd.PrintErrf("Failed to get server version: %v\n", serverErr)
+			//exhaustruct:ignore
 			versionInfo.ServerVersion = &v1version.Info{} // to prevent nil pointer dereference
 		}
 	}
@@ -126,12 +127,4 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
-}
-
-func switchIfNil[T any](ptr *T, defaultValue T) T {
-	if ptr == nil {
-		return defaultValue
-	}
-
-	return *ptr
 }
