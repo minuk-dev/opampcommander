@@ -78,9 +78,10 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 		HTTPStatusCode:     http.StatusOK,
 		HTTPResponseHeader: map[string]string{},
 		ConnectionCallbacks: types.ConnectionCallbacks{
-			OnConnected:       c.opampUsecase.OnConnected,
-			OnMessage:         c.opampUsecase.OnMessage,
-			OnConnectionClose: c.opampUsecase.OnConnectionClose,
+			OnConnected:        c.opampUsecase.OnConnected,
+			OnMessage:          c.opampUsecase.OnMessage,
+			OnConnectionClose:  c.opampUsecase.OnConnectionClose,
+			OnReadMessageError: c.opampUsecase.OnReadMessageError,
 		},
 	}
 }
