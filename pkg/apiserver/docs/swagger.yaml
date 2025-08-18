@@ -196,6 +196,27 @@ definitions:
     required:
     - remoteConfig
     type: object
+  VersionInfo:
+    properties:
+      buildDate:
+        type: string
+      compiler:
+        type: string
+      gitCommit:
+        type: string
+      gitTreeState:
+        type: string
+      gitVersion:
+        type: string
+      goVersion:
+        type: string
+      major:
+        type: string
+      minor:
+        type: string
+      platform:
+        type: string
+    type: object
 info:
   contact: {}
   description: This is the API server for OpAMP Commander, providing endpoints for
@@ -526,6 +547,19 @@ paths:
       summary: Ping
       tags:
       - ping
+  /api/v1/version:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the server version information.
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/VersionInfo'
+      summary: Get Server Version
+      tags:
+      - version
   /auth/github:
     get:
       consumes:

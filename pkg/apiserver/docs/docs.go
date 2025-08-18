@@ -494,6 +494,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/version": {
+            "get": {
+                "description": "Retrieve the server version information.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "version"
+                ],
+                "summary": "Get Server Version",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/VersionInfo"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/github": {
             "get": {
                 "description": "Redirects to GitHub for OAuth2 authentication.",
@@ -853,6 +873,38 @@ const docTemplate = `{
             ],
             "properties": {
                 "remoteConfig": {}
+            }
+        },
+        "VersionInfo": {
+            "type": "object",
+            "properties": {
+                "buildDate": {
+                    "type": "string"
+                },
+                "compiler": {
+                    "type": "string"
+                },
+                "gitCommit": {
+                    "type": "string"
+                },
+                "gitTreeState": {
+                    "type": "string"
+                },
+                "gitVersion": {
+                    "type": "string"
+                },
+                "goVersion": {
+                    "type": "string"
+                },
+                "major": {
+                    "type": "string"
+                },
+                "minor": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                }
             }
         }
     }
