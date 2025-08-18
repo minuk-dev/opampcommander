@@ -183,3 +183,22 @@ func (s *Service) OnMessage(
 
 	return response
 }
+
+// OnReadMessageError implements port.OpAMPUsecase.
+func (s *Service) OnReadMessageError(
+	conn types.Connection,
+	messageType int,
+	msgByte []byte,
+	err error,
+) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(
+		slog.String("method", "OnReadMessageError"),
+		slog.String("remoteAddr", remoteAddr),
+		slog.Int("messageType", messageType),
+		slog.String("message", string(msgByte)),
+		slog.String("error", err.Error()),
+	)
+
+	logger.Error("read message error")
+}
