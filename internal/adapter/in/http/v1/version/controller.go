@@ -35,6 +35,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 }
 
 // GetVersion handles the request to get the server version.
+//
+// @Summary Get Server Version
+// @Tags version
+// @Description  Retrieve the server version information.
+// @Accept  json
+// @Success 200 {object} version.Info
+// @Router /api/v1/version [get]
 func (c *Controller) GetVersion(ctx *gin.Context) {
 	c.logger.Debug("GetVersion called")
 
