@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
@@ -21,7 +20,7 @@ type Agent struct {
 	EffectiveConfig     *AgentEffectiveConfig
 	PackageStatuses     *AgentPackageStatuses
 	ComponentHealth     *AgentComponentHealth
-	RemoteConfig        remoteconfig.RemoteConfig
+	RemoteConfig        agent.RemoteConfig
 	CustomCapabilities  *AgentCustomCapabilities
 	AvailableComponents *AgentAvailableComponents
 
@@ -83,7 +82,7 @@ type AgentConfigFile struct {
 // AgentRemoteConfigStatus is the status of the remote configuration.
 type AgentRemoteConfigStatus struct {
 	LastRemoteConfigHash []byte
-	Status               remoteconfig.Status
+	Status               agent.Status
 	ErrorMessage         string
 }
 
@@ -198,7 +197,7 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 
 // ApplyRemoteConfig is a method to apply the remote configuration to the agent.
 func (a *Agent) ApplyRemoteConfig(config any) error {
-	subconfig, err := remoteconfig.NewCommand(config)
+	subconfig, err := agent.NewCommand(config)
 	if err != nil {
 		return fmt.Errorf("failed to create remote config command: %w", err)
 	}
