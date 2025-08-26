@@ -32,6 +32,19 @@ type AgentGroup struct {
 	CreatedAt time.Time
 	// CreatedBy is the identifier of the user or system that created the agent group.
 	CreatedBy string
+	// DeletedAt is the timestamp when the agent group was deleted. It is nil if the agent group is not deleted.
+	DeletedAt *time.Time
+	// DeletedBy is the identifier of the user or system that deleted the agent group. It
+	DeletedBy *string
+}
+
+func (ag *AgentGroup) IsDeleted() bool {
+	return ag.DeletedAt != nil
+}
+
+func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
+	ag.DeletedAt = &deletedAt
+	ag.DeletedBy = &deletedBy
 }
 
 // New creates a new instance of AgentGroup with the provided name, attributes, createdAt timestamp, and createdBy identifier.
