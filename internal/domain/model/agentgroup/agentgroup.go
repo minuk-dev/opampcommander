@@ -26,12 +26,34 @@ type AgentGroup struct {
 	UID uuid.UUID
 	// Name is the name of the agent group.
 	Name string
-	// Description is a brief description of the agent group.
+	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
+	// Selector is a set of criteria used to select agents for the group.
+	Selector AgentSelector
 	// CreatedAt is the timestamp when the agent group was created.
 	CreatedAt time.Time
 	// CreatedBy is the identifier of the user or system that created the agent group.
 	CreatedBy string
+	// DeletedAt is the timestamp when the agent group was deleted. It is nil if the agent group is not deleted.
+	DeletedAt *time.Time
+	// DeletedBy is the identifier of the user or system that deleted the agent group. It
+	DeletedBy *string
+}
+
+type AgentSelector struct {
+	// IdentifyingAttributes is a map of identifying attributes used to select agents.
+	IdentifyingAttributes map[string]string
+	// NonIdentifyingAttributes is a map of non-identifying attributes used to select agents.
+	NonIdentifyingAttributes map[string]string
+}
+
+func (ag *AgentGroup) IsDeleted() bool {
+	return ag.DeletedAt != nil
+}
+
+func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
+	ag.DeletedAt = &deletedAt
+	ag.DeletedBy = &deletedBy
 }
 
 // New creates a new instance of AgentGroup with the provided name, attributes, createdAt timestamp, and createdBy identifier.

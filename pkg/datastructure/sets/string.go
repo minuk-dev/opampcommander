@@ -1,4 +1,4 @@
-package set
+package sets
 
 // String is a set of strings.
 type String map[string]Empty
@@ -8,6 +8,15 @@ func NewString(items ...string) String {
 	ss := String{}
 	ss.Insert(items...)
 	return ss
+}
+
+// StringKeySet creates a String set from the keys of the given map.
+func StringKeySet[useless any](m map[string]useless) String {
+	ret := String{}
+	for key := range m {
+		ret.Insert(key)
+	}
+	return ret
 }
 
 // Insert adds items to the set.
@@ -48,4 +57,33 @@ func (s String) HasAny(items ...string) bool {
 		}
 	}
 	return false
+}
+
+// List returns the items in the set as a slice.
+func (s String) List() []string {
+	ret := make([]string, 0, len(s))
+	for key := range s {
+		ret = append(ret, key)
+	}
+	return ret
+}
+
+// Intersection returns a new set that is the intersection of the two sets.
+func (s String) Intersection(other String) String {
+	result := String{}
+	// Iterate over the smaller set for efficiency.
+	if len(s) < len(other) {
+		for key := range s {
+			if other.Has(key) {
+				result.Insert(key)
+			}
+		}
+	} else {
+		for key := range other {
+			if s.Has(key) {
+				result.Insert(key)
+			}
+		}
+	}
+	return result
 }
