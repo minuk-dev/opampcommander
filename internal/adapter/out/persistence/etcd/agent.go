@@ -19,8 +19,7 @@ var _ domainport.AgentPersistencePort = (*AgentEtcdAdapter)(nil)
 
 // AgentEtcdAdapter is a struct that implements the AgentPersistencePort interface.
 type AgentEtcdAdapter struct {
-	client *clientv3.Client
-	logger *slog.Logger
+	common commonAdapter[domainmodel.Agent]
 }
 
 // NewAgentEtcdAdapter creates a new instance of AgentEtcdAdapter.
@@ -28,37 +27,30 @@ func NewAgentEtcdAdapter(
 	client *clientv3.Client,
 	logger *slog.Logger,
 ) *AgentEtcdAdapter {
+	ToEntityFunc := func(domain domainmodel.Agent) (Entity[domainmodel.Agent], error) {
+		return entity.AgentFromDomain(&domain), nil
+	}
+
+	keyPrefix := "agents/"
+
+	keyFunc := func(domain domainmodel.Agent) string {
+		return domain.InstanceUID.String()
+	}
+
 	return &AgentEtcdAdapter{
-		client: client,
-		logger: logger,
+		common: newCommonAdapter(
+			client,
+			logger,
+			toEntityFunc,
+			keyPrefix,
+			keyFunc,
+		),
 	}
 }
 
 // GetAgent retrieves an agent by its instance UID.
 func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*domainmodel.Agent, error) {
-	getResponse, err := a.client.Get(ctx, getAgentKey(instanceUID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get agent from etcd: %w", err)
-	}
-
-	if getResponse.Count == 0 {
-		return nil, domainport.ErrResourceNotExist
-	}
-
-	if getResponse.Count > 1 {
-		// it should not happen, but if it does, we return an error
-		// it's untestable because we always put a single agent with a unique key
-		return nil, domainport.ErrMultipleResourceExist
-	}
-
-	var agent entity.Agent
-
-	err = json.Unmarshal(getResponse.Kvs[0].Value, &agent)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode agent from received data: %w", err)
-	}
-
-	return agent.ToDomain(), nil
+	return a.common.get(ctx, instanceUID.String())
 }
 
 // ListAgents retrieves all agents from the persistence layer.
