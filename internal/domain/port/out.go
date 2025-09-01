@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
 // AgentPersistencePort is an interface that defines the methods for agent persistence.
@@ -17,6 +18,15 @@ type AgentPersistencePort interface {
 	PutAgent(ctx context.Context, agent *model.Agent) error
 	// ListAgents retrieves a list of agents with pagination options.
 	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
+}
+
+type AgentGroupPersistencePort interface {
+	// GetAgentGroup retrieves an agent group by its ID.
+	GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error)
+	// PutAgentGroup saves the agent group.
+	PutAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup) error
+	// ListAgentGroups retrieves a list of agent groups with pagination options.
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)
 }
 
 // CommandPersistencePort is an interface that defines the methods for command persistence.
@@ -30,8 +40,8 @@ type CommandPersistencePort interface {
 }
 
 var (
-	// ErrAgentNotExist is an error that indicates that the agent does not exist.
-	ErrAgentNotExist = errors.New("agent does not exist")
-	// ErrMultipleAgentExist is an error that indicates that multiple agents exist.
-	ErrMultipleAgentExist = errors.New("multiple agent exists")
+	// ErrResourceNotExist is an error that indicates that the resource does not exist.
+	ErrResourceNotExist = errors.New("resource does not exist")
+	// ErrMultipleResourceExist is an error that indicates that multiple resources exist.
+	ErrMultipleResourceExist = errors.New("multiple resources exist")
 )

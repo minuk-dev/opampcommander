@@ -42,7 +42,7 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*mo
 func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	agent, err := s.GetAgent(ctx, instanceUID)
 	if err != nil {
-		if errors.Is(err, port.ErrAgentNotExist) {
+		if errors.Is(err, port.ErrResourceNotExist) {
 			agent = &model.Agent{
 				InstanceUID:         instanceUID,
 				Capabilities:        nil,

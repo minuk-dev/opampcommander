@@ -195,7 +195,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		agentUsecase.EXPECT().
 			GetAgent(mock.Anything, mock.Anything).
-			Return(nil, port.ErrAgentNotExist)
+			Return(nil, port.ErrResourceNotExist)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)

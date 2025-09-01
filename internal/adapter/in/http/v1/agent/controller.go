@@ -125,7 +125,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 	agent, err := c.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
-		if errors.Is(err, domainport.ErrAgentNotExist) {
+		if errors.Is(err, domainport.ErrResourceNotExist) {
 			c.logger.Error("agent not found", "instanceUID", instanceUID.String())
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
 

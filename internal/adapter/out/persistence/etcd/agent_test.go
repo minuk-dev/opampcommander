@@ -76,7 +76,7 @@ func TestAgentEtcdAdapter_GetAgent(t *testing.T) {
 		// when
 		agent, err := agentEtcdAdapter.GetAgent(ctx, notExistUID)
 		// then
-		require.ErrorIs(t, err, domainport.ErrAgentNotExist)
+		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
 		assert.Nil(t, agent)
 	})
 }

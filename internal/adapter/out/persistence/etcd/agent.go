@@ -42,13 +42,13 @@ func (a *AgentEtcdAdapter) GetAgent(ctx context.Context, instanceUID uuid.UUID) 
 	}
 
 	if getResponse.Count == 0 {
-		return nil, domainport.ErrAgentNotExist
+		return nil, domainport.ErrResourceNotExist
 	}
 
 	if getResponse.Count > 1 {
 		// it should not happen, but if it does, we return an error
 		// it's untestable because we always put a single agent with a unique key
-		return nil, domainport.ErrMultipleAgentExist
+		return nil, domainport.ErrMultipleResourceExist
 	}
 
 	var agent entity.Agent
