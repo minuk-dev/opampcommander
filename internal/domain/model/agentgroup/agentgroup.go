@@ -76,5 +76,6 @@ func OfAttributes(attributes map[string]string) Attributes {
 
 	// deep copy the attributes to avoid mutation
 	attr := maps.Clone(attributes)
+
 	return attr
 }

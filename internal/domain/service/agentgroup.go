@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -43,6 +44,7 @@ func (s *AgentGroupService) GetAgentGroup(ctx context.Context, id uuid.UUID) (*a
 	if err != nil {
 		return nil, err
 	}
+
 	return agentGroup, nil
 }
 
@@ -66,6 +68,7 @@ func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, id uuid.UUID, 
 	if err != nil {
 		return fmt.Errorf("failed to delete agent group: %w", err)
 	}
+
 	return nil
 }
 
@@ -80,5 +83,6 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
 	}
+
 	return listResp, nil
 }

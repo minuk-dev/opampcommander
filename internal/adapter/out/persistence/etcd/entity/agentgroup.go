@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
@@ -25,7 +26,7 @@ type AgentSelector struct {
 }
 
 func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
-	ag := &agentgroup.AgentGroup{
+	return &agentgroup.AgentGroup{
 		Version:    agentgroup.Version(e.Version),
 		UID:        uuid.MustParse(e.UID),
 		Name:       e.Name,
@@ -39,5 +40,21 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 		DeletedAt: e.DeletedAt,
 		DeletedBy: e.DeletedBy,
 	}
-	return ag
+}
+
+func AgentGroupFromDomain(ag *agentgroup.AgentGroup) *AgentGroup {
+	return &AgentGroup{
+		Version:    string(ag.Version),
+		UID:        ag.UID.String(),
+		Name:       ag.Name,
+		Attributes: ag.Attributes,
+		Selector: AgentSelector{
+			IdentifyingAttributes:    ag.Selector.IdentifyingAttributes,
+			NonIdentifyingAttributes: ag.Selector.NonIdentifyingAttributes,
+		},
+		CreatedAt: ag.CreatedAt,
+		CreatedBy: ag.CreatedBy,
+		DeletedAt: ag.DeletedAt,
+		DeletedBy: ag.DeletedBy,
+	}
 }

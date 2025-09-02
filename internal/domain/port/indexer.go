@@ -27,8 +27,8 @@ type Indexers[T any] map[string]IndexFunc[T]
 
 type IndexFunc[T any] func(obj T) ([]string, error)
 
-// Index maps the indexed value to a set of keys in the store that match on that value
+// Index maps the indexed value to a set of keys in the store that match on that value.
 type Index map[string]sets.String
 
-// Indices maps a name to an Index
+// Indices maps a name to an Index.
 type Indices map[string]Index

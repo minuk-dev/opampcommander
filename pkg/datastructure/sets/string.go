@@ -7,6 +7,7 @@ type String map[string]Empty
 func NewString(items ...string) String {
 	ss := String{}
 	ss.Insert(items...)
+
 	return ss
 }
 
@@ -16,6 +17,7 @@ func StringKeySet[useless any](m map[string]useless) String {
 	for key := range m {
 		ret.Insert(key)
 	}
+
 	return ret
 }
 
@@ -36,6 +38,7 @@ func (s String) Delete(items ...string) {
 // Has checks if the set contains the item.
 func (s String) Has(item string) bool {
 	_, contained := s[item]
+
 	return contained
 }
 
@@ -46,6 +49,7 @@ func (s String) HasAll(items ...string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -56,6 +60,7 @@ func (s String) HasAny(items ...string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -65,6 +70,7 @@ func (s String) List() []string {
 	for key := range s {
 		ret = append(ret, key)
 	}
+
 	return ret
 }
 
@@ -85,5 +91,6 @@ func (s String) Intersection(other String) String {
 			}
 		}
 	}
+
 	return result
 }

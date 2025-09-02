@@ -6,18 +6,19 @@ import (
 	"fmt"
 	"log/slog"
 
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
+	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-type ToEntityFunc[Domain any] func(domain Domain) (Entity[Domain], error)
+type ToEntityFunc[Domain any] func(domain *Domain) (Entity[Domain], error)
 
-type KeyFunc[Domain any] func(domain Domain) string
+type KeyFunc[Domain any] func(domain *Domain) string
 
 type Entity[Domain any] interface {
-	ToDomain() Domain
+	ToDomain() *Domain
 }
 
 type commonAdapter[Domain any] struct {
@@ -46,6 +47,7 @@ func newCommonAdapter[Domain any](
 
 func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string) (*Domain, error) {
 	key := a.KeyPrefix + keyWithoutPrefix
+
 	getResponse, err := a.client.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -68,8 +70,7 @@ func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string
 		return nil, err
 	}
 
-	domain := entity.ToDomain()
-	return &domain, nil
+	return entity.ToDomain(), nil
 }
 
 func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.ListOptions) (*domainmodel.ListResponse[*Domain], error) {
@@ -103,12 +104,12 @@ func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.L
 		}
 
 		domain := entity.ToDomain()
-		domains = append(domains, &domain)
+		domains = append(domains, domain)
 	}
 	// Use a null byte to ensure the next key is lexicographically greater
 	var continueKey string
 	if len(domains) > 0 {
-		continueKey = a.KeyFunc(*lo.LastOrEmpty(domains)) + "\x00"
+		continueKey = a.KeyFunc(lo.LastOrEmpty(domains)) + "\x00"
 	}
 
 	return &domainmodel.ListResponse[*Domain]{
@@ -118,7 +119,7 @@ func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.L
 	}, nil
 }
 
-func (a *commonAdapter[Domain]) put(ctx context.Context, domain Domain) error {
+func (a *commonAdapter[Domain]) put(ctx context.Context, domain *Domain) error {
 	key := a.KeyPrefix + a.KeyFunc(domain)
 
 	entity, err := a.ToEntityFunc(domain)

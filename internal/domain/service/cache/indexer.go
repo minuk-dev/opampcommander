@@ -46,7 +46,9 @@ func (c *cache[T]) Add(obj T) error {
 			Err: err,
 		}
 	}
+
 	c.storage.Add(key, obj)
+
 	return nil
 }
 
@@ -58,7 +60,9 @@ func (c *cache[T]) Update(obj T) error {
 			Err: err,
 		}
 	}
+
 	c.storage.Update(key, obj)
+
 	return nil
 }
 
@@ -70,7 +74,9 @@ func (c *cache[T]) Delete(obj T) error {
 			Err: err,
 		}
 	}
+
 	c.storage.Delete(key)
+
 	return nil
 }
 
@@ -120,6 +126,7 @@ func (c *cache[T]) Get(obj T) (item *T, exists bool, err error) {
 
 func (c *cache[T]) GetByKey(key string) (item *T, exists bool, err error) {
 	item, exists = c.storage.Get(key)
+
 	return item, exists, nil
 }
 
@@ -133,6 +140,8 @@ func (c *cache[T]) Replace(list []T, resourceVersion string) error {
 
 		items[key] = item
 	}
+
 	c.storage.Replace(items, resourceVersion)
+
 	return nil
 }
