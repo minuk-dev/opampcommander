@@ -34,6 +34,22 @@ type ItemStore[T any] interface {
 	Keys() []string
 }
 
+type IndexNotFoundError struct {
+	IndexName string
+}
+
+func (e IndexNotFoundError) Error() string {
+	return fmt.Sprintf("index %q not found", e.IndexName)
+}
+
+type IndexerConflictError struct {
+	IndexNames []string
+}
+
+func (e IndexerConflictError) Error() string {
+	return fmt.Sprintf("indexer conflict: %v", e.IndexNames)
+}
+
 type inMemoryItemStore[T any] struct {
 	items map[string]T
 }
@@ -241,7 +257,7 @@ type storeIndex[T any] struct {
 func (i *storeIndex[T]) getKeysFromIndex(indexName string, obj T) (sets.String, error) {
 	indexFunc := i.indexers[indexName]
 	if indexFunc == nil {
-		return nil, fmt.Errorf("index %s does not exist", indexName)
+		return nil, IndexNotFoundError{indexName}
 	}
 
 	indexedValues, err := indexFunc(obj)
@@ -274,7 +290,7 @@ func (i *storeIndex[T]) getKeysFromIndex(indexName string, obj T) (sets.String, 
 func (i *storeIndex[T]) getKeysByIndex(indexName, indexedValue string) (sets.String, error) {
 	indexFunc := i.indexers[indexName]
 	if indexFunc == nil {
-		return nil, fmt.Errorf("Index with name %s does not exist", indexName)
+		return nil, IndexNotFoundError{indexName}
 	}
 
 	index := i.indices[indexName]
@@ -298,7 +314,7 @@ func (i *storeIndex[T]) addIndexers(newIndexers port.Indexers[T]) error {
 	newKeys := sets.StringKeySet(newIndexers)
 
 	if oldKeys.HasAny(newKeys.List()...) {
-		return fmt.Errorf("indexer conflict: %v", oldKeys.Intersection(newKeys))
+		return IndexerConflictError{IndexNames: oldKeys.Intersection(newKeys).List()}
 	}
 
 	for k, v := range newIndexers {
