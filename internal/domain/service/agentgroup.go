@@ -39,19 +39,17 @@ func NewAgentGroupService() *AgentGroupService {
 	}
 }
 
+//nolint:wrapcheck
 func (s *AgentGroupService) GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error) {
-	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return agentGroup, nil
+	return s.persistencePort.GetAgentGroup(ctx, id)
 }
 
+//nolint:wrapcheck
 func (s *AgentGroupService) SaveAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup) error {
 	return s.persistencePort.PutAgentGroup(ctx, agentGroup)
 }
 
+//nolint:wrapcheck
 func (s *AgentGroupService) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error) {
 	return s.persistencePort.ListAgentGroups(ctx, options)
 }

@@ -50,7 +50,7 @@ func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string
 
 	getResponse, err := a.client.Get(ctx, key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get resource from etcd: %w", err)
 	}
 
 	if getResponse.Count == 0 {
@@ -67,7 +67,7 @@ func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string
 
 	err = json.Unmarshal(getResponse.Kvs[0].Value, &entity)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to decode resource from received data: %w", err)
 	}
 
 	return entity.ToDomain(), nil

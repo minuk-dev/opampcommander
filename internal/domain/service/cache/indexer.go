@@ -92,10 +92,12 @@ func (c *cache[T]) GetIndexers() port.Indexers[T] {
 	return c.storage.GetIndexers()
 }
 
+//nolint:wrapcheck
 func (c *cache[T]) Index(indexName string, obj T) ([]any, error) {
 	return c.storage.Index(indexName, obj)
 }
 
+//nolint:wrapcheck
 func (c *cache[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
 	return c.storage.IndexKeys(indexName, indexedValue)
 }
@@ -104,10 +106,12 @@ func (c *cache[T]) ListIndexFuncValues(indexName string) []string {
 	return c.storage.ListIndexFuncValues(indexName)
 }
 
+//nolint:wrapcheck
 func (c *cache[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 	return c.storage.ByIndex(indexName, indexedValue)
 }
 
+//nolint:wrapcheck
 func (c *cache[T]) AddIndexers(newIndexers port.Indexers[T]) error {
 	return c.storage.AddIndexers(newIndexers)
 }

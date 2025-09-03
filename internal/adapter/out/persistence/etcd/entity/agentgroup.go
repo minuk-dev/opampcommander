@@ -14,15 +14,15 @@ type AgentGroup struct {
 	Name       string            `json:"name"`
 	Attributes map[string]string `json:"attributes"`
 	Selector   AgentSelector     `json:"selector"`
-	CreatedAt  time.Time         `json:"created_at"`
-	CreatedBy  string            `json:"created_by"`
-	DeletedAt  *time.Time        `json:"deleted_at,omitempty"`
-	DeletedBy  *string           `json:"deleted_by,omitempty"`
+	CreatedAt  time.Time         `json:"createdAt"`
+	CreatedBy  string            `json:"createdBy"`
+	DeletedAt  *time.Time        `json:"deletedAt,omitempty"`
+	DeletedBy  *string           `json:"deletedBy,omitempty"`
 }
 
 type AgentSelector struct {
-	IdentifyingAttributes    map[string]string `json:"identifying_attributes"`
-	NonIdentifyingAttributes map[string]string `json:"non_identifying_attributes"`
+	IdentifyingAttributes    map[string]string `json:"identifyingAttributes"`
+	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`
 }
 
 func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
