@@ -1,3 +1,4 @@
+// Package cache provides a generic caching mechanism with indexing capabilities.
 package cache
 
 import (
@@ -6,39 +7,45 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ port.Indexer[any] = (*cache[any])(nil)
+var _ port.Indexer[any] = (*Cache[any])(nil)
 
 var (
 	ErrNotImplemented = errors.New("not implemented")
 )
 
+// KeyFunc is a function that takes an object of type T and returns a string key and an error if any.
 type KeyFunc[T any] func(obj T) (string, error)
 
+// KeyError represents an error that occurred while generating a key for an object of type T.
 type KeyError[T any] struct {
 	Obj T
 	Err error
 }
 
+// Error implements the error interface.
 func (e KeyError[T]) Error() string {
 	return e.Err.Error()
 }
 
-type cache[T any] struct {
+// Cache is a generic struct that provides caching functionality for objects of type T.
+type Cache[T any] struct {
 	storage Storage[T]
 	keyFunc KeyFunc[T]
 }
 
+// NewIndexer creates a new instance of Cache with the provided storage and key function.
 func NewIndexer[T any](
 	store Storage[T],
 	keyFunc KeyFunc[T],
-) *cache[T] {
-	return &cache[T]{
+) *Cache[T] {
+	return &Cache[T]{
 		storage: store,
 		keyFunc: keyFunc,
 	}
 }
 
-func (c *cache[T]) Add(obj T) error {
+// Add adds a new item to the cache.
+func (c *Cache[T]) Add(obj T) error {
 	key, err := c.keyFunc(obj)
 	if err != nil {
 		return KeyError[T]{
@@ -52,7 +59,8 @@ func (c *cache[T]) Add(obj T) error {
 	return nil
 }
 
-func (c *cache[T]) Update(obj T) error {
+// Update updates an existing item in the cache.
+func (c *Cache[T]) Update(obj T) error {
 	key, err := c.keyFunc(obj)
 	if err != nil {
 		return KeyError[T]{
@@ -66,7 +74,8 @@ func (c *cache[T]) Update(obj T) error {
 	return nil
 }
 
-func (c *cache[T]) Delete(obj T) error {
+// Delete removes an item from the cache by its object.
+func (c *Cache[T]) Delete(obj T) error {
 	key, err := c.keyFunc(obj)
 	if err != nil {
 		return KeyError[T]{
@@ -80,43 +89,58 @@ func (c *cache[T]) Delete(obj T) error {
 	return nil
 }
 
-func (c *cache[T]) List() []T {
+// List returns a list of all items in the cache.
+func (c *Cache[T]) List() []T {
 	return c.storage.List()
 }
 
-func (c *cache[T]) ListKeys() []string {
+// ListKeys returns a list of all keys in the cache.
+func (c *Cache[T]) ListKeys() []string {
 	return c.storage.ListKeys()
 }
 
-func (c *cache[T]) GetIndexers() port.Indexers[T] {
+// GetIndexers returns the indexers used by the cache.
+func (c *Cache[T]) GetIndexers() port.Indexers[T] {
 	return c.storage.GetIndexers()
 }
 
+// Index returns the indexed values for a specific object and index function.
+//
 //nolint:wrapcheck
-func (c *cache[T]) Index(indexName string, obj T) ([]any, error) {
+func (c *Cache[T]) Index(indexName string, obj T) ([]any, error) {
 	return c.storage.Index(indexName, obj)
 }
 
+// IndexKeys lists all keys that match the given indexed value for a specific index function.
+//
 //nolint:wrapcheck
-func (c *cache[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
+func (c *Cache[T]) IndexKeys(indexName, indexedValue string) ([]string, error) {
 	return c.storage.IndexKeys(indexName, indexedValue)
 }
 
-func (c *cache[T]) ListIndexFuncValues(indexName string) []string {
+// ListIndexFuncValues lists all indexed values for a given index function.
+func (c *Cache[T]) ListIndexFuncValues(indexName string) []string {
 	return c.storage.ListIndexFuncValues(indexName)
 }
 
+// ByIndex retrieves all items that match the given indexed value for a specific index function.
+//
 //nolint:wrapcheck
-func (c *cache[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
+func (c *Cache[T]) ByIndex(indexName, indexedValue string) ([]T, error) {
 	return c.storage.ByIndex(indexName, indexedValue)
 }
 
+// AddIndexers adds new indexers to the cache.
+//
 //nolint:wrapcheck
-func (c *cache[T]) AddIndexers(newIndexers port.Indexers[T]) error {
+func (c *Cache[T]) AddIndexers(newIndexers port.Indexers[T]) error {
 	return c.storage.AddIndexers(newIndexers)
 }
 
-func (c *cache[T]) Get(obj T) (item *T, exists bool, err error) {
+// Get retrieves an item from the cache by its object.
+//
+//nolint:nonamedreturns
+func (c *Cache[T]) Get(obj T) (item *T, exists bool, err error) {
 	key, err := c.keyFunc(obj)
 	if err != nil {
 		return nil, false, KeyError[T]{
@@ -128,13 +152,17 @@ func (c *cache[T]) Get(obj T) (item *T, exists bool, err error) {
 	return c.GetByKey(key)
 }
 
-func (c *cache[T]) GetByKey(key string) (item *T, exists bool, err error) {
+// GetByKey retrieves an item from the cache by its key.
+//
+//nolint:nonamedreturns
+func (c *Cache[T]) GetByKey(key string) (item *T, exists bool, err error) {
 	item, exists = c.storage.Get(key)
 
 	return item, exists, nil
 }
 
-func (c *cache[T]) Replace(list []T, resourceVersion string) error {
+// Replace replaces the entire contents of the cache with the provided list of items.
+func (c *Cache[T]) Replace(list []T, resourceVersion string) error {
 	items := make(map[string]T, len(list))
 	for _, item := range list {
 		key, err := c.keyFunc(item)

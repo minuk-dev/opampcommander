@@ -20,6 +20,7 @@ type AgentPersistencePort interface {
 	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 }
 
+// AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.
 type AgentGroupPersistencePort interface {
 	// GetAgentGroup retrieves an agent group by its ID.
 	GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error)

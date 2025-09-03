@@ -8,6 +8,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
+// AgentGroup is the etcd entity representation of the AgentGroup domain model.
 type AgentGroup struct {
 	Version    string            `json:"version"`
 	UID        string            `json:"uid"`
@@ -20,11 +21,13 @@ type AgentGroup struct {
 	DeletedBy  *string           `json:"deletedBy,omitempty"`
 }
 
+// AgentSelector defines the criteria for selecting agents to be included in the agent group.
 type AgentSelector struct {
 	IdentifyingAttributes    map[string]string `json:"identifyingAttributes"`
 	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`
 }
 
+// ToDomain converts the AgentGroup entity to the domain model.
 func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 	return &agentgroup.AgentGroup{
 		Version:    agentgroup.Version(e.Version),
@@ -42,19 +45,20 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 	}
 }
 
-func AgentGroupFromDomain(ag *agentgroup.AgentGroup) *AgentGroup {
+// AgentGroupFromDomain converts the AgentGroup domain model to the entity representation.
+func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 	return &AgentGroup{
-		Version:    string(ag.Version),
-		UID:        ag.UID.String(),
-		Name:       ag.Name,
-		Attributes: ag.Attributes,
+		Version:    string(agentgroup.Version),
+		UID:        agentgroup.UID.String(),
+		Name:       agentgroup.Name,
+		Attributes: agentgroup.Attributes,
 		Selector: AgentSelector{
-			IdentifyingAttributes:    ag.Selector.IdentifyingAttributes,
-			NonIdentifyingAttributes: ag.Selector.NonIdentifyingAttributes,
+			IdentifyingAttributes:    agentgroup.Selector.IdentifyingAttributes,
+			NonIdentifyingAttributes: agentgroup.Selector.NonIdentifyingAttributes,
 		},
-		CreatedAt: ag.CreatedAt,
-		CreatedBy: ag.CreatedBy,
-		DeletedAt: ag.DeletedAt,
-		DeletedBy: ag.DeletedBy,
+		CreatedAt: agentgroup.CreatedAt,
+		CreatedBy: agentgroup.CreatedBy,
+		DeletedAt: agentgroup.DeletedAt,
+		DeletedBy: agentgroup.DeletedBy,
 	}
 }

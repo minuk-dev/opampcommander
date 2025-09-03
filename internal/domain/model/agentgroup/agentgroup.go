@@ -1,3 +1,4 @@
+// Package agentgroup defines the AgentGroup model and related types.
 package agentgroup
 
 import (
@@ -40,6 +41,7 @@ type AgentGroup struct {
 	DeletedBy *string
 }
 
+// AgentSelector defines the criteria for selecting agents to be included in the agent group.
 type AgentSelector struct {
 	// IdentifyingAttributes is a map of identifying attributes used to select agents.
 	IdentifyingAttributes map[string]string
@@ -47,17 +49,25 @@ type AgentSelector struct {
 	NonIdentifyingAttributes map[string]string
 }
 
+// IsDeleted returns true if the agent group is marked as deleted.
 func (ag *AgentGroup) IsDeleted() bool {
 	return ag.DeletedAt != nil
 }
 
+// MarkDeleted marks the agent group as deleted by setting the DeletedAt and DeletedBy fields.
 func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
 	ag.DeletedAt = &deletedAt
 	ag.DeletedBy = &deletedBy
 }
 
-// New creates a new instance of AgentGroup with the provided name, attributes, createdAt timestamp, and createdBy identifier.
-func New(name string, attributes Attributes, createdAt time.Time, createdBy string) *AgentGroup {
+// New creates a new instance of AgentGroup with the provided name, attributes,
+// createdAt timestamp, and createdBy identifier.
+func New(
+	name string,
+	attributes Attributes,
+	createdAt time.Time,
+	createdBy string,
+) *AgentGroup {
 	return &AgentGroup{
 		Version:    Version1,
 		UID:        uuid.New(),
@@ -65,10 +75,12 @@ func New(name string, attributes Attributes, createdAt time.Time, createdBy stri
 		Attributes: attributes,
 		CreatedAt:  createdAt,
 		CreatedBy:  createdBy,
+		DeletedAt:  nil,
+		DeletedBy:  nil,
 	}
 }
 
-// OfVersion returns a new AgentGroup with the specified version.
+// OfAttributes creates an Attributes instance from a map of attributes.
 func OfAttributes(attributes map[string]string) Attributes {
 	if attributes == nil {
 		return nil

@@ -15,8 +15,10 @@ import (
 var _ port.AgentGroupUsecase = (*AgentGroupService)(nil)
 var _ port.AgentGroupRelatedUsecase = (*AgentGroupService)(nil)
 
+// AgentGroupPersistencePort is an alias for port.AgentGroupPersistencePort.
 type AgentGroupPersistencePort = port.AgentGroupPersistencePort
 
+// AgentByLabelsIndexer is an interface that defines the methods for listing agents by their labels.
 type AgentByLabelsIndexer interface {
 	// ListAgentsByIdentifyingAttributes lists agents by their identifying attributes such as labels.
 	ListAgentsByAttributes(
@@ -27,34 +29,56 @@ type AgentByLabelsIndexer interface {
 	) (*model.ListResponse[*model.Agent], error)
 }
 
+// AgentGroupService is a struct that implements the AgentGroupUsecase interface.
 type AgentGroupService struct {
 	clock           clock.PassiveClock
 	persistencePort AgentGroupPersistencePort
 	agentIndexer    AgentByLabelsIndexer
 }
 
+// NewAgentGroupService creates a new instance of AgentGroupService.
 func NewAgentGroupService() *AgentGroupService {
 	return &AgentGroupService{
 		persistencePort: nil,
 	}
 }
 
+// GetAgentGroup retrieves an agent group by its ID.
+//
 //nolint:wrapcheck
-func (s *AgentGroupService) GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error) {
+func (s *AgentGroupService) GetAgentGroup(
+	ctx context.Context,
+	id uuid.UUID,
+) (*agentgroup.AgentGroup, error) {
 	return s.persistencePort.GetAgentGroup(ctx, id)
 }
 
+// SaveAgentGroup saves the agent group.
+//
 //nolint:wrapcheck
-func (s *AgentGroupService) SaveAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup) error {
+func (s *AgentGroupService) SaveAgentGroup(
+	ctx context.Context,
+	agentGroup *agentgroup.AgentGroup,
+) error {
 	return s.persistencePort.PutAgentGroup(ctx, agentGroup)
 }
 
+// ListAgentGroups retrieves a list of agent groups with pagination options.
+//
 //nolint:wrapcheck
-func (s *AgentGroupService) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+func (s *AgentGroupService) ListAgentGroups(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentgroup.AgentGroup], error) {
 	return s.persistencePort.ListAgentGroups(ctx, options)
 }
 
-func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, id uuid.UUID, deletedBy string) error {
+// DeleteAgentGroup marks an agent group as deleted.
+func (s *AgentGroupService) DeleteAgentGroup(
+	ctx context.Context,
+	id uuid.UUID,
+	deletedBy string,
+) error {
 	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get agent group: %w", err)
@@ -70,6 +94,7 @@ func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, id uuid.UUID, 
 	return nil
 }
 
+// ListAgentsByAgentGroup lists agents that belong to the specified agent group.
 func (s *AgentGroupService) ListAgentsByAgentGroup(
 	ctx context.Context,
 	agentGroup *agentgroup.AgentGroup,
@@ -77,7 +102,12 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 ) (*model.ListResponse[*model.Agent], error) {
 	agentSelector := agentGroup.Selector
 
-	listResp, err := s.agentIndexer.ListAgentsByAttributes(ctx, agentSelector.IdentifyingAttributes, agentSelector.NonIdentifyingAttributes, options)
+	listResp, err := s.agentIndexer.ListAgentsByAttributes(
+		ctx,
+		agentSelector.IdentifyingAttributes,
+		agentSelector.NonIdentifyingAttributes,
+		options,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
 	}

@@ -15,12 +15,14 @@ import (
 
 var _ port.AgentGroupPersistencePort = (*AgentGroupEtcdAdapter)(nil)
 
+// AgentGroupEtcdAdapter is a struct that implements the AgentGroupPersistencePort interface.
 type AgentGroupEtcdAdapter struct {
 	common commonAdapter[agentgroup.AgentGroup]
 }
 
 var agentGroupKeyPrefix = "agentgroups/"
 
+// NewAgentGroupEtcdAdapter creates a new instance of AgentGroupEtcdAdapter.
 func NewAgentGroupEtcdAdapter(
 	client *clientv3.Client,
 	logger *slog.Logger,
@@ -45,16 +47,22 @@ func NewAgentGroupEtcdAdapter(
 }
 
 // GetAgentGroup implements port.AgentGroupPersistencePort.
-func (a *AgentGroupEtcdAdapter) GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error) {
+func (a *AgentGroupEtcdAdapter) GetAgentGroup(
+	ctx context.Context, id uuid.UUID,
+) (*agentgroup.AgentGroup, error) {
 	return a.common.get(ctx, id.String())
 }
 
 // ListAgentGroups implements port.AgentGroupPersistencePort.
-func (a *AgentGroupEtcdAdapter) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+func (a *AgentGroupEtcdAdapter) ListAgentGroups(
+	ctx context.Context, options *model.ListOptions,
+) (*model.ListResponse[*agentgroup.AgentGroup], error) {
 	return a.common.list(ctx, options)
 }
 
 // PutAgentGroup implements port.AgentGroupPersistencePort.
-func (a *AgentGroupEtcdAdapter) PutAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup) error {
+func (a *AgentGroupEtcdAdapter) PutAgentGroup(
+	ctx context.Context, agentGroup *agentgroup.AgentGroup,
+) error {
 	return a.common.put(ctx, agentGroup)
 }

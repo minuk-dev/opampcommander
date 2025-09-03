@@ -8,6 +8,9 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/datastructure/sets"
 )
 
+// Storage is a generic interface for a storage backend that supports basic CRUD operations and indexing.
+//
+//nolint:interfacebloat
 type Storage[T any] interface {
 	Add(key string, obj T)
 	Update(key string, obj T)
@@ -15,7 +18,7 @@ type Storage[T any] interface {
 	Get(key string) (item *T, exists bool)
 	List() []T
 	ListKeys() []string
-	Replace(map[string]T, string)
+	Replace(list map[string]T, resourceVersion string)
 	Index(indexName string, obj T) ([]interface{}, error)
 	IndexKeys(indexName, indexedValue string) ([]string, error)
 	ListIndexFuncValues(name string) []string
@@ -26,6 +29,7 @@ type Storage[T any] interface {
 	AddIndexers(newIndexers port.Indexers[T]) error
 }
 
+// ItemStore is a simple key-value store for items of type T.
 type ItemStore[T any] interface {
 	Get(key string) *T
 	Set(key string, obj T)
@@ -34,18 +38,22 @@ type ItemStore[T any] interface {
 	Keys() []string
 }
 
+// IndexNotFoundError indicates that the requested index does not exist.
 type IndexNotFoundError struct {
 	IndexName string
 }
 
+// Error implements the error interface.
 func (e IndexNotFoundError) Error() string {
 	return fmt.Sprintf("index %q not found", e.IndexName)
 }
 
+// IndexerConflictError indicates that one or more indexers being added already exist.
 type IndexerConflictError struct {
 	IndexNames []string
 }
 
+// Error implements the error interface.
 func (e IndexerConflictError) Error() string {
 	return fmt.Sprintf("indexer conflict: %v", e.IndexNames)
 }
@@ -116,6 +124,9 @@ func (s *storage[T]) Update(key string, obj T) {
 	s.index.updateIndices(oldObject, &obj, key)
 }
 
+// Get retrieves an item from the storage by its key.
+//
+//nolint:nonamedreturns
 func (s *storage[T]) Get(key string) (item *T, exists bool) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
@@ -210,7 +221,7 @@ func (s *storage[T]) ListIndexFuncValues(name string) []string {
 	return s.index.getIndexValues(name)
 }
 
-func (s *storage[T]) Replace(list map[string]T, resourceVersion string) {
+func (s *storage[T]) Replace(list map[string]T, _ string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -336,7 +347,7 @@ func (i *storeIndex[T]) updateSingleIndex(name string, oldObj *T, newObj *T, key
 	if !ok {
 		// Should never happen. Caller is responsible for ensuring this exists, and should call with lock
 		// held to avoid any races.
-		panic(fmt.Errorf("indexer %q does not exist", name))
+		panic(IndexNotFoundError{IndexName: name})
 	}
 
 	if oldObj != nil {

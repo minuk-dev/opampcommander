@@ -45,7 +45,11 @@ type AgentGroupUsecase interface {
 // AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.
 type AgentGroupRelatedUsecase interface {
 	// ListAgentsByAgentGroup lists agents belonging to a specific agent group.
-	ListAgentsByAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
+	ListAgentsByAgentGroup(
+		ctx context.Context,
+		agentGroup *agentgroup.AgentGroup,
+		options *model.ListOptions,
+	) (*model.ListResponse[*model.Agent], error)
 }
 
 // UpdateAgentConfigUsecase is an interface that defines the methods for updating agent configurations.

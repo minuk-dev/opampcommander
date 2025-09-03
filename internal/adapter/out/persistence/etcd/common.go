@@ -13,10 +13,13 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
+// ToEntityFunc is a function that converts a domain model to its corresponding entity representation.
 type ToEntityFunc[Domain any] func(domain *Domain) (Entity[Domain], error)
 
+// KeyFunc is a function that generates a unique key for a given domain model.
 type KeyFunc[Domain any] func(domain *Domain) string
 
+// Entity is a generic interface that defines a method to convert an entity to its corresponding domain model.
 type Entity[Domain any] interface {
 	ToDomain() *Domain
 }
@@ -73,7 +76,10 @@ func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string
 	return entity.ToDomain(), nil
 }
 
-func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.ListOptions) (*domainmodel.ListResponse[*Domain], error) {
+func (a *commonAdapter[Domain]) list(
+	ctx context.Context,
+	options *domainmodel.ListOptions,
+) (*domainmodel.ListResponse[*Domain], error) {
 	if options == nil {
 		options = &domainmodel.ListOptions{
 			Limit:    0,  // 0 means no limit
