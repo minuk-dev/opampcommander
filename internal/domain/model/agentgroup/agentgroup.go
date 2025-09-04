@@ -73,10 +73,14 @@ func New(
 		UID:        uuid.New(),
 		Name:       name,
 		Attributes: attributes,
-		CreatedAt:  createdAt,
-		CreatedBy:  createdBy,
-		DeletedAt:  nil,
-		DeletedBy:  nil,
+		Selector: AgentSelector{
+			IdentifyingAttributes:    nil,
+			NonIdentifyingAttributes: nil,
+		},
+		CreatedAt: createdAt,
+		CreatedBy: createdBy,
+		DeletedAt: nil,
+		DeletedBy: nil,
 	}
 }
 

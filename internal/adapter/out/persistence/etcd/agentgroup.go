@@ -1,3 +1,4 @@
+//nolint:dupl
 package etcd
 
 import (
@@ -20,8 +21,6 @@ type AgentGroupEtcdAdapter struct {
 	common commonAdapter[agentgroup.AgentGroup]
 }
 
-var agentGroupKeyPrefix = "agentgroups/"
-
 // NewAgentGroupEtcdAdapter creates a new instance of AgentGroupEtcdAdapter.
 func NewAgentGroupEtcdAdapter(
 	client *clientv3.Client,
@@ -40,7 +39,7 @@ func NewAgentGroupEtcdAdapter(
 			client,
 			logger,
 			ToEntityFunc,
-			agentGroupKeyPrefix,
+			"agentgroups/",
 			keyFunc,
 		),
 	}

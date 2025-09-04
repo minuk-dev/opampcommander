@@ -2,16 +2,10 @@
 package cache
 
 import (
-	"errors"
-
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var _ port.Indexer[any] = (*Cache[any])(nil)
-
-var (
-	ErrNotImplemented = errors.New("not implemented")
-)
 
 // KeyFunc is a function that takes an object of type T and returns a string key and an error if any.
 type KeyFunc[T any] func(obj T) (string, error)

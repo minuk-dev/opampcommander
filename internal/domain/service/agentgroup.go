@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	k8sclock "k8s.io/utils/clock"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
@@ -40,6 +41,8 @@ type AgentGroupService struct {
 func NewAgentGroupService() *AgentGroupService {
 	return &AgentGroupService{
 		persistencePort: nil,
+		clock:           k8sclock.RealClock{},
+		agentIndexer:    nil,
 	}
 }
 

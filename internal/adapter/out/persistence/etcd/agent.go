@@ -1,3 +1,4 @@
+//nolint:dupl
 package etcd
 
 import (
@@ -19,8 +20,6 @@ type AgentEtcdAdapter struct {
 	common commonAdapter[domainmodel.Agent]
 }
 
-var agentKeyPrefix = "agents/"
-
 // NewAgentEtcdAdapter creates a new instance of AgentEtcdAdapter.
 func NewAgentEtcdAdapter(
 	client *clientv3.Client,
@@ -39,7 +38,7 @@ func NewAgentEtcdAdapter(
 			client,
 			logger,
 			ToEntityFunc,
-			agentKeyPrefix,
+			"agents/",
 			keyFunc,
 		),
 	}
