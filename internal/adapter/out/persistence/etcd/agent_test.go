@@ -23,7 +23,12 @@ func TestAgentEtcdAdapter_GetAgent(t *testing.T) {
 	t.Parallel()
 	base := testutil.NewBase(t)
 	ctx := t.Context()
-	etcdContainer, err := etcdTestContainer.Run(ctx, "gcr.io/etcd-development/etcd:v3.5.14")
+	etcdContainer, err := etcdTestContainer.Run(
+		ctx, "gcr.io/etcd-development/etcd:v3.5.14",
+		testcontainers.WithWaitStrategy(
+			wait.ForExposedPort(),
+		),
+	)
 	require.NoError(t, err)
 
 	etcdEndpoint, err := etcdContainer.ClientEndpoint(ctx)
@@ -88,7 +93,12 @@ func TestAgentEtcdAdapter_ListAgents(t *testing.T) {
 	t.Run("Happy case", func(t *testing.T) {
 		t.Parallel()
 		ctx := t.Context()
-		etcdContainer, err := etcdTestContainer.Run(ctx, "gcr.io/etcd-development/etcd:v3.5.14")
+		etcdContainer, err := etcdTestContainer.Run(
+			ctx, "gcr.io/etcd-development/etcd:v3.5.14",
+			testcontainers.WithWaitStrategy(
+				wait.ForExposedPort(),
+			),
+		)
 		require.NoError(t, err)
 
 		etcdEndpoint, err := etcdContainer.ClientEndpoint(ctx)
