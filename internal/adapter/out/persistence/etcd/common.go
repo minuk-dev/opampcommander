@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,9 +23,11 @@ type KeyFunc[Domain any] func(domain *Domain) string
 // Entity is a generic interface that defines a method to convert an entity to its corresponding domain model.
 type Entity[Domain any] interface {
 	ToDomain() *Domain
+	json.Marshaler
+	json.Unmarshaler
 }
 
-type commonAdapter[Domain any] struct {
+type commonAdapter[Domain any, EntityModel any] struct {
 	client       *clientv3.Client
 	logger       *slog.Logger
 	ToEntityFunc ToEntityFunc[Domain]
@@ -32,14 +35,14 @@ type commonAdapter[Domain any] struct {
 	KeyFunc      KeyFunc[Domain]
 }
 
-func newCommonAdapter[Domain any](
+func newCommonAdapter[Domain any, EntityModel any](
 	client *clientv3.Client,
 	logger *slog.Logger,
 	toEntityFunc ToEntityFunc[Domain],
 	keyPrefix string,
 	keyFunc KeyFunc[Domain],
-) commonAdapter[Domain] {
-	return commonAdapter[Domain]{
+) commonAdapter[Domain, EntityModel] {
+	return commonAdapter[Domain, EntityModel]{
 		client:       client,
 		logger:       logger,
 		ToEntityFunc: toEntityFunc,
@@ -48,7 +51,7 @@ func newCommonAdapter[Domain any](
 	}
 }
 
-func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string) (*Domain, error) {
+func (a *commonAdapter[Domain, EntityModel]) get(ctx context.Context, keyWithoutPrefix string) (*Domain, error) {
 	key := a.KeyPrefix + keyWithoutPrefix
 
 	getResponse, err := a.client.Get(ctx, key)
@@ -66,14 +69,19 @@ func (a *commonAdapter[Domain]) get(ctx context.Context, keyWithoutPrefix string
 		return nil, domainport.ErrMultipleResourceExist
 	}
 
-	var entity Entity[Domain]
+	var entity EntityModel
 
-	err = json.Unmarshal(getResponse.Kvs[0].Value, &entity)
+	buf := bytes.NewBuffer(getResponse.Kvs[0].Value)
+	decoder := json.NewDecoder(buf)
+
+	err = decoder.Decode(&entity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode resource from received data: %w", err)
 	}
 
-	return entity.ToDomain(), nil
+	tmp := entity.(Entity[Domain])
+
+	return entity.(Entity).ToDomain(), nil
 }
 
 func (a *commonAdapter[Domain]) list(
@@ -104,7 +112,10 @@ func (a *commonAdapter[Domain]) list(
 	for _, kv := range getResponse.Kvs {
 		var entity Entity[Domain]
 
-		err = json.Unmarshal(kv.Value, &entity)
+		buf := bytes.NewBuffer(kv.Value)
+		decoder := json.NewDecoder(buf)
+
+		err = decoder.Decode(&entity)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode resource from received data: %w", err)
 		}
@@ -133,12 +144,14 @@ func (a *commonAdapter[Domain]) put(ctx context.Context, domain *Domain) error {
 		return fmt.Errorf("failed to convert domain to entity: %w", err)
 	}
 
-	data, err := json.Marshal(entity)
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	err = encoder.Encode(entity)
 	if err != nil {
 		return fmt.Errorf("failed to encode entity to JSON: %w", err)
 	}
 
-	_, err = a.client.Put(ctx, key, string(data))
+	_, err = a.client.Put(ctx, key, buf.String())
 	if err != nil {
 		return fmt.Errorf("failed to put resource to etcd: %w", err)
 	}

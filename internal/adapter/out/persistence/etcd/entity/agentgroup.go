@@ -1,11 +1,17 @@
 package entity
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
+)
+
+var (
+	_ json.Marshaler   = (*AgentGroup)(nil)
+	_ json.Unmarshaler = (*AgentGroup)(nil)
 )
 
 // AgentGroup is the etcd entity representation of the AgentGroup domain model.
@@ -19,6 +25,16 @@ type AgentGroup struct {
 	CreatedBy  string            `json:"createdBy"`
 	DeletedAt  *time.Time        `json:"deletedAt,omitempty"`
 	DeletedBy  *string           `json:"deletedBy,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (e *AgentGroup) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, e)
+}
+
+// MarshalJSON implements json.Marshaler.
+func (e *AgentGroup) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e)
 }
 
 // AgentSelector defines the criteria for selecting agents to be included in the agent group.

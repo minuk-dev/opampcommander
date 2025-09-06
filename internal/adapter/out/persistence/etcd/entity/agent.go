@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,11 @@ const (
 	// VersionV1 is a magic number for version 1.
 	// This is used to identify the version of the agent.
 	VersionV1 = 1
+)
+
+var (
+	_ json.Marshaler   = (*Agent)(nil)
+	_ json.Unmarshaler = (*Agent)(nil)
 )
 
 // Agent is a struct to manage agent information.
@@ -33,6 +39,16 @@ type Agent struct {
 	AvailableComponents *AgentAvailableComponents `json:"availableComponents"`
 
 	ReportFullState bool `json:"reportFullState"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (a *Agent) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, a)
+}
+
+// MarshalJSON implements json.Marshaler.
+func (a *Agent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a)
 }
 
 // AgentDescription is a struct to manage agent description.
