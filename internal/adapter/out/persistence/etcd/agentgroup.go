@@ -30,6 +30,11 @@ func NewAgentGroupEtcdAdapter(
 		return entity.AgentGroupFromDomain(domain), nil
 	}
 
+	CreateNewEmptyEntityFunc := func() Entity[agentgroup.AgentGroup] {
+		//exhaustruct:ignore
+		return &entity.AgentGroup{}
+	}
+
 	keyFunc := func(domain *agentgroup.AgentGroup) string {
 		return domain.UID.String()
 	}
@@ -39,6 +44,7 @@ func NewAgentGroupEtcdAdapter(
 			client,
 			logger,
 			ToEntityFunc,
+			CreateNewEmptyEntityFunc,
 			"agentgroups/",
 			keyFunc,
 		),
