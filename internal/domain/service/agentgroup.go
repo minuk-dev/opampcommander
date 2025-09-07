@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	k8sclock "k8s.io/utils/clock"
@@ -38,9 +39,12 @@ type AgentGroupService struct {
 }
 
 // NewAgentGroupService creates a new instance of AgentGroupService.
-func NewAgentGroupService() *AgentGroupService {
+func NewAgentGroupService(
+	persistencePort AgentGroupPersistencePort,
+	_ *slog.Logger,
+) *AgentGroupService {
 	return &AgentGroupService{
-		persistencePort: nil,
+		persistencePort: persistencePort,
 		clock:           k8sclock.RealClock{},
 		agentIndexer:    nil,
 	}
