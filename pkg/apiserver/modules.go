@@ -96,6 +96,10 @@ func NewDomainServiceModule() fx.Option {
 			fx.Annotate(domainservice.NewCommandService, fx.As(new(domainport.CommandUsecase))),
 			fx.Annotate(domainservice.NewConnectionService, fx.As(new(domainport.ConnectionUsecase))),
 			fx.Annotate(domainservice.NewAgentService, fx.As(new(domainport.AgentUsecase))),
+			fx.Annotate(domainservice.NewAgentGroupService,
+				fx.As(new(domainport.AgentGroupUsecase)),
+				fx.As(new(domainport.AgentGroupRelatedUsecase)),
+			),
 		),
 	)
 }
@@ -107,6 +111,7 @@ func NewOutPortModule() fx.Option {
 		fx.Provide(
 			NewEtcdClient,
 			fx.Annotate(etcd.NewAgentEtcdAdapter, fx.As(new(domainport.AgentPersistencePort))),
+			fx.Annotate(etcd.NewAgentGroupEtcdAdapter, fx.As(new(domainport.AgentGroupPersistencePort))),
 			fx.Annotate(etcd.NewCommandEtcdAdapter, fx.As(new(domainport.CommandPersistencePort))),
 		),
 	)
