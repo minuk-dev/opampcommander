@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
 var (
@@ -27,6 +28,28 @@ type AgentUsecase interface {
 	// ListAgents lists all agents.
 	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 	UpdateAgentConfigUsecase
+}
+
+// AgentGroupUsecase is an interface that defines the methods for agent group use cases.
+type AgentGroupUsecase interface {
+	// GetAgentGroup retrieves an agent group by its ID.
+	GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error)
+	// SaveAgentGroup saves the agent group.
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)
+	// SaveAgentGroup saves the agent group.
+	SaveAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup) error
+	// DeleteAgentGroup deletes the agent group by its ID.
+	DeleteAgentGroup(ctx context.Context, id uuid.UUID, deletedBy string) error
+}
+
+// AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.
+type AgentGroupRelatedUsecase interface {
+	// ListAgentsByAgentGroup lists agents belonging to a specific agent group.
+	ListAgentsByAgentGroup(
+		ctx context.Context,
+		agentGroup *agentgroup.AgentGroup,
+		options *model.ListOptions,
+	) (*model.ListResponse[*model.Agent], error)
 }
 
 // UpdateAgentConfigUsecase is an interface that defines the methods for updating agent configurations.
