@@ -21,11 +21,11 @@ type AgentGroup struct {
 } // @name AgentGroup
 
 // Attributes represents a map of attributes for the agent group.
-// @name AgentGroupAttributes
+// @name AgentGroupAttributes.
 type Attributes map[string]string
 
 // AgentSelector defines the criteria for selecting agents to be included in the agent group.
-// @name AgentGroupAgentSelector
+// @name AgentGroupAgentSelector.
 type AgentSelector struct {
 	IdentifyingAttributes    map[string]string `json:"identifyingAttributes"`
 	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`

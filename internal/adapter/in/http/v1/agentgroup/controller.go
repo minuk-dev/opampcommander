@@ -2,32 +2,38 @@
 package agentgroup
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
-type AgentGroupUsecase = domainport.AgentGroupUsecase
+// Usecase is an alias for the AgentGroupManageUsecase interface.
+type Usecase = applicationport.AgentGroupManageUsecase
 
+// Controller is a struct that implements the agent group controller.
 type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	agentGroupUsecase AgentGroupUsecase
+	agentGroupUsecase Usecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
-	usecase AgentGroupUsecase,
+	usecase Usecase,
 	logger *slog.Logger,
 ) *Controller {
 	return &Controller{
+		logger:            logger,
 		agentGroupUsecase: usecase,
 	}
 }
@@ -43,7 +49,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentgroups/:id",
+			Path:        "/api/v1/agentgroups/:uid",
 			Handler:     "http.v1.agentgroup.Get",
 			HandlerFunc: c.Get,
 		},
@@ -55,13 +61,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/agentgroups/:id",
+			Path:        "/api/v1/agentgroups/:uid",
 			Handler:     "http.v1.agentgroup.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/agentgroups/:id",
+			Path:        "/api/v1/agentgroups/:uid",
 			Handler:     "http.v1.agentgroup.Delete",
 			HandlerFunc: c.Delete,
 		},
@@ -116,9 +122,9 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{id} [get].
+// @Router /api/v1/agentgroups/{uid} [get].
 func (c *Controller) Get(ctx *gin.Context) {
-	id := ctx.Param("id")
+	id := ctx.Param("uid")
 
 	uuid, err := uuid.Parse(id)
 	if err != nil {
@@ -130,7 +136,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx, uuid)
 	if err != nil {
-		if err == domainport.ErrResourceNotExist {
+		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
 
 			return
@@ -159,18 +165,19 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
 	var req agentgroupv1.AgentGroup
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
 		c.logger.Error("failed to bind request", slog.String("error", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 
 		return
 	}
 
-	newAgentGroup, err := c.agentGroupUsecase.CreateAgentGroup(ctx, &agentgroupv1.AgentGroup{
+	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx, &applicationport.CreateAgentGroupCommand{
 		Name:       req.Name,
 		Attributes: req.Attributes,
 		Selector:   req.Selector,
-		CreatedBy:  req.CreatedBy,
 	})
 	if err != nil {
 		c.logger.Error("failed to create agent group", slog.String("error", err.Error()))
@@ -179,7 +186,8 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, newAgentGroup)
+	ctx.Header("Location", "/api/v1/agentgroups/"+req.UID.String())
+	ctx.JSON(http.StatusCreated, created)
 }
 
 // Update updates an existing agent group.
@@ -195,8 +203,41 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{id} [put].
+// @Router /api/v1/agentgroups/{uid} [put].
 func (c *Controller) Update(ctx *gin.Context) {
+	id := ctx.Param("uid")
+
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
+	}
+
+	var req agentgroupv1.AgentGroup
+
+	err = ctx.ShouldBindJSON(&req)
+	if err != nil {
+		c.logger.Error("failed to bind request", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+
+		return
+	}
+
+	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx, uid, &req)
+	if err != nil {
+		if errors.Is(err, domainport.ErrResourceNotExist) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
+
+			return
+		}
+
+		c.logger.Error("failed to update agent group", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, updated)
 }
 
 // Delete marks an agent group as deleted.
@@ -209,6 +250,33 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{id} [delete].
+// @Router /api/v1/agentgroups/{uid} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
+	id := ctx.Param("uid")
+
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
+
+		return
+	}
+
+	deletedBy := ctx.Query("deletedBy")
+
+	err = c.agentGroupUsecase.DeleteAgentGroup(ctx, uid, deletedBy)
+	if err != nil {
+		if errors.Is(err, domainport.ErrResourceNotExist) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
+
+			return
+		}
+
+		c.logger.Error("failed to delete agent group", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
