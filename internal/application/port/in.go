@@ -34,6 +34,15 @@ type AgentManageUsecase interface {
 	SendCommand(ctx context.Context, targetInstanceUID uuid.UUID, command *model.Command) error
 }
 
+// AgentGroupManageUsecase is a use case that handles agent group management operations.
+type AgentGroupManageUsecase interface {
+	GetAgentGroup(ctx context.Context, id uuid.UUID) (*model.AgentGroup, error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentGroup], error)
+	CreateAgentGroup(ctx context.Context, agentGroup *model.AgentGroup) error
+	UpdateAgentGroup(ctx context.Context, agentGroup *model.AgentGroup) error
+	DeleteAgentGroup(ctx context.Context, id uuid.UUID, deletedBy string) error
+}
+
 // CommandLookUpUsecase is a use case that handles command operations.
 type CommandLookUpUsecase interface {
 	// GetCommand retrieves a command by its ID.

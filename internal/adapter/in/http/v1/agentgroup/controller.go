@@ -6,7 +6,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 type AgentGroupUsecase = domainport.AgentGroupUsecase
@@ -76,6 +80,28 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups [get].
 func (c *Controller) List(ctx *gin.Context) {
+	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	if err != nil {
+		c.logger.Error("failed to get limit from query", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.agentGroupUsecase.ListAgentGroups(ctx, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
+	if err != nil {
+		c.logger.Error("failed to list agent groups", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
 }
 
 // Get retrieves an agent group by its ID.
@@ -92,6 +118,31 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups/{id} [get].
 func (c *Controller) Get(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	uuid, err := uuid.Parse(id)
+	if err != nil {
+		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
+
+		return
+	}
+
+	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx, uuid)
+	if err != nil {
+		if err == domainport.ErrResourceNotExist {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
+
+			return
+		}
+
+		c.logger.Error("failed to get agent group", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, agentGroup)
 }
 
 // Create creates a new agent group.
@@ -107,6 +158,28 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
+	var req agentgroupv1.AgentGroup
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		c.logger.Error("failed to bind request", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+
+		return
+	}
+
+	newAgentGroup, err := c.agentGroupUsecase.CreateAgentGroup(ctx, &agentgroupv1.AgentGroup{
+		Name:       req.Name,
+		Attributes: req.Attributes,
+		Selector:   req.Selector,
+		CreatedBy:  req.CreatedBy,
+	})
+	if err != nil {
+		c.logger.Error("failed to create agent group", slog.String("error", err.Error()))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, newAgentGroup)
 }
 
 // Update updates an existing agent group.
