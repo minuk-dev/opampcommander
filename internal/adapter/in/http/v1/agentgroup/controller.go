@@ -10,14 +10,10 @@ import (
 	"github.com/google/uuid"
 
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
-	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
-
-// Usecase is an alias for the AgentGroupManageUsecase interface.
-type Usecase = applicationport.AgentGroupManageUsecase
 
 // Controller is a struct that implements the agent group controller.
 type Controller struct {
@@ -174,7 +170,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx, &applicationport.CreateAgentGroupCommand{
+	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx, &CreateAgentGroupCommand{
 		Name:       req.Name,
 		Attributes: req.Attributes,
 		Selector:   req.Selector,
@@ -211,6 +207,8 @@ func (c *Controller) Update(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
+
+		return
 	}
 
 	var req agentgroupv1.AgentGroup
