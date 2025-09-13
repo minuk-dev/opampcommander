@@ -30,6 +30,14 @@ func NewManageService(persistence domainport.AgentGroupPersistencePort) *ManageS
 	}
 }
 
+// NewManageServiceWithClock returns a new ManageService with custom clock (for testing).
+func NewManageServiceWithClock(persistence domainport.AgentGroupPersistencePort, clk clock.Clock) *ManageService {
+	return &ManageService{
+		persistence: persistence,
+		clock:       clk,
+	}
+}
+
 // GetAgentGroup returns an agent group by its UUID.
 func (s *ManageService) GetAgentGroup(
 	ctx context.Context,
