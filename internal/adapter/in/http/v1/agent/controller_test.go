@@ -33,7 +33,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -78,7 +78,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -112,7 +112,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -130,7 +130,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -155,7 +155,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -185,7 +185,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -210,7 +210,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -228,7 +228,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -256,7 +256,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -281,7 +281,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 	t.Run("Update Agent Config - 400 Bad Request when instanceUID is not uuid", func(t *testing.T) {
 		t.Parallel()
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentManageUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -300,7 +300,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentManageUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
@@ -321,7 +321,7 @@ func TestAgentController_UpdateAgentConfig(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := usecasemock.NewMockAgentManageUsecase(t)
+		agentManageUsecase := usecasemock.NewMockManageUsecase(t)
 		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router

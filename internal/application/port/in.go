@@ -9,6 +9,7 @@ import (
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -32,6 +33,26 @@ type AgentManageUsecase interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error)
 	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
 	SendCommand(ctx context.Context, targetInstanceUID uuid.UUID, command *model.Command) error
+}
+
+// AgentGroupManageUsecase is a use case that handles agent group management operations.
+type AgentGroupManageUsecase interface {
+	GetAgentGroup(ctx context.Context, id uuid.UUID) (*v1agentgroup.AgentGroup, error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*v1agentgroup.AgentGroup], error)
+	CreateAgentGroup(ctx context.Context, createCommand *CreateAgentGroupCommand) (*v1agentgroup.AgentGroup, error)
+	UpdateAgentGroup(
+		ctx context.Context,
+		uid uuid.UUID,
+		agentGroup *v1agentgroup.AgentGroup,
+	) (*v1agentgroup.AgentGroup, error)
+	DeleteAgentGroup(ctx context.Context, id uuid.UUID, deletedBy string) error
+}
+
+// CreateAgentGroupCommand is a command to create an agent group.
+type CreateAgentGroupCommand struct {
+	Name       string
+	Attributes v1agentgroup.Attributes
+	Selector   v1agentgroup.AgentSelector
 }
 
 // CommandLookUpUsecase is a use case that handles command operations.
