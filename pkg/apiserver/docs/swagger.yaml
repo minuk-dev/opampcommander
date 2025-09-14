@@ -328,7 +328,7 @@ paths:
       parameters:
       - description: Agent Group ID
         in: path
-        name: id
+        name: uid
         required: true
         type: string
       responses:
@@ -359,7 +359,7 @@ paths:
       parameters:
       - description: Agent Group ID
         in: path
-        name: id
+        name: uid
         required: true
         type: string
       produces:
@@ -394,7 +394,7 @@ paths:
       parameters:
       - description: Agent Group ID
         in: path
-        name: id
+        name: uid
         required: true
         type: string
       - description: Updated Agent Group

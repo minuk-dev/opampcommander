@@ -119,7 +119,7 @@
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "id",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -170,7 +170,7 @@
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "id",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     },
@@ -224,7 +224,7 @@
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "id",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }

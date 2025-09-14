@@ -127,7 +127,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "id",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -178,7 +178,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "id",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     },
@@ -232,7 +232,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "id",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
