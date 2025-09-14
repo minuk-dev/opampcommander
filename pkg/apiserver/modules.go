@@ -9,6 +9,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/basic"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
@@ -18,6 +19,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	adminApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/admin"
 	agentApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agent"
+	agentgroupApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agentgroup"
 	commandApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/command"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -53,6 +55,7 @@ func NewInPortModule() fx.Option {
 			version.NewController, AsController(Identity[*version.Controller]),
 			connection.NewController, AsController(Identity[*connection.Controller]),
 			agent.NewController, AsController(Identity[*agent.Controller]),
+			agentgroup.NewController, AsController(Identity[*agentgroup.Controller]),
 			command.NewController, AsController(Identity[*command.Controller]),
 			github.NewController, AsController(Identity[*github.Controller]),
 			basic.NewController, AsController(Identity[*basic.Controller]),
@@ -84,6 +87,9 @@ func NewApplicationServiceModule() fx.Option {
 
 			agentApplicationService.New,
 			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
+
+			agentgroupApplicationService.NewManageService,
+			fx.Annotate(Identity[*agentgroupApplicationService.ManageService], fx.As(new(port.AgentGroupManageUsecase))),
 		),
 	)
 }
