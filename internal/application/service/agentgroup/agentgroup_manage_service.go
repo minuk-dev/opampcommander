@@ -54,7 +54,6 @@ func (s *ManageService) GetAgentGroup(
 }
 
 // ListAgentGroups returns a paginated list of agent groups.
-// ListAgentGroups returns a paginated list of agent groups.
 func (s *ManageService) ListAgentGroups(
 	ctx context.Context,
 	options *model.ListOptions,
@@ -165,7 +164,6 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	cmd *port.CreateAgentGroupCommand,
 	requestedBy *security.User,
 ) *domainagentgroup.AgentGroup {
-	// NOTE: Replace "system" with actual user info in production.
 	return &domainagentgroup.AgentGroup{
 		Version:    domainagentgroup.Version1,
 		UID:        uuid.New(),
