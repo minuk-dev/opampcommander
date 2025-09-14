@@ -114,7 +114,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} AgentGroup
-// @Param id path string true "Agent Group ID"
+// @Param uid path string true "Agent Group ID"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
@@ -193,7 +193,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Description Update an existing agent group.
 // @Accept json
 // @Produce json
-// @Param id path string true "Agent Group ID"
+// @Param uid path string true "Agent Group ID"
 // @Param agentGroup body AgentGroup true "Updated Agent Group"
 // @Success 200 {object} AgentGroup
 // @Failure 400 {object} map[string]any
@@ -243,7 +243,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Summary Delete Agent Group
 // @Tags agentgroup
 // @Description Mark an agent group as deleted.
-// @Param id path string true "Agent Group ID"
+// @Param uid path string true "Agent Group ID"
 // @Success 204 "No Content"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
