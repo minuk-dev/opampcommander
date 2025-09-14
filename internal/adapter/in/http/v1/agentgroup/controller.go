@@ -182,7 +182,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/agentgroups/"+req.UID.String())
+	ctx.Header("Location", "/api/v1/agentgroups/"+created.UID.String())
 	ctx.JSON(http.StatusCreated, created)
 }
 

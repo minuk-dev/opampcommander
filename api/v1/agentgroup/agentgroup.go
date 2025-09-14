@@ -1,7 +1,11 @@
-// Package agentgroup proviedes the agentgroup API for the server
+// Package agentgroup provides the agentgroup API for the server
 package agentgroup
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 const (
 	// AgentGroupKind is the kind of the agent group resource.
@@ -14,9 +18,9 @@ type AgentGroup struct {
 	Name       string        `json:"name"`
 	Attributes Attributes    `json:"attributes"`
 	Selector   AgentSelector `json:"selector"`
-	CreatedAt  string        `json:"createdAt"`
+	CreatedAt  time.Time     `json:"createdAt"`
 	CreatedBy  string        `json:"createdBy"`
-	DeletedAt  *string       `json:"deletedAt,omitempty"`
+	DeletedAt  *time.Time    `json:"deletedAt,omitempty"`
 	DeletedBy  *string       `json:"deletedBy,omitempty"`
 } // @name AgentGroup
 

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -46,7 +47,7 @@ func TestAgentGroupController_List(t *testing.T) {
 					IdentifyingAttributes:    map[string]string{},
 					NonIdentifyingAttributes: map[string]string{},
 				},
-				CreatedAt: "",
+				CreatedAt: time.Now(),
 				CreatedBy: "",
 				DeletedAt: nil,
 				DeletedBy: nil,
@@ -59,7 +60,7 @@ func TestAgentGroupController_List(t *testing.T) {
 					IdentifyingAttributes:    map[string]string{},
 					NonIdentifyingAttributes: map[string]string{},
 				},
-				CreatedAt: "",
+				CreatedAt: time.Now(),
 				CreatedBy: "",
 				DeletedAt: nil,
 				DeletedBy: nil,
@@ -130,7 +131,7 @@ func TestAgentGroupController_Get(t *testing.T) {
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		},
-		CreatedAt: "",
+		CreatedAt: time.Now(),
 		CreatedBy: "",
 		DeletedAt: nil,
 		DeletedBy: nil,
@@ -212,7 +213,7 @@ func TestAgentGroupController_Create(t *testing.T) {
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		},
-		CreatedAt: "",
+		CreatedAt: time.Now(),
 		CreatedBy: "",
 		DeletedAt: nil,
 		DeletedBy: nil,
@@ -269,7 +270,7 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		},
-		CreatedAt: "",
+		CreatedAt: time.Now(),
 		CreatedBy: "",
 		DeletedAt: nil,
 		DeletedBy: nil,
@@ -307,7 +308,7 @@ func TestAgentGroupController_Update(t *testing.T) {
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		},
-		CreatedAt: "",
+		CreatedAt: time.Now(),
 		CreatedBy: "",
 		DeletedAt: nil,
 		DeletedBy: nil,
@@ -343,7 +344,7 @@ func TestAgentGroupController_Update_InvalidUUID(t *testing.T) {
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		},
-		CreatedAt: "",
+		CreatedAt: time.Now(),
 		CreatedBy: "",
 		DeletedAt: nil,
 		DeletedBy: nil,
@@ -399,7 +400,7 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		},
-		CreatedAt: "",
+		CreatedAt: time.Now(),
 		CreatedBy: "",
 		DeletedAt: nil,
 		DeletedBy: nil,

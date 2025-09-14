@@ -4,7 +4,6 @@ package agentgroup
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -147,17 +146,6 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 		return nil
 	}
 
-	var deletedAt, deletedBy *string
-
-	if domain.DeletedAt != nil {
-		dt := domain.DeletedAt.Format("2006-01-02T15:04:05Z07:00")
-		deletedAt = &dt
-	}
-
-	if domain.DeletedBy != nil {
-		deletedBy = domain.DeletedBy
-	}
-
 	return &v1agentgroup.AgentGroup{
 		UID:        domain.UID,
 		Name:       domain.Name,
@@ -166,10 +154,10 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 			IdentifyingAttributes:    domain.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: domain.Selector.NonIdentifyingAttributes,
 		},
-		CreatedAt: domain.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt: domain.CreatedAt,
 		CreatedBy: domain.CreatedBy,
-		DeletedAt: deletedAt,
-		DeletedBy: deletedBy,
+		DeletedAt: domain.DeletedAt,
+		DeletedBy: domain.DeletedBy,
 	}
 }
 
@@ -199,15 +187,6 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 		return nil
 	}
 
-	var deletedAt *time.Time
-
-	if api.DeletedAt != nil {
-		t, _ := time.Parse("2006-01-02T15:04:05Z07:00", *api.DeletedAt)
-		deletedAt = &t
-	}
-
-	createdAt, _ := time.Parse("2006-01-02T15:04:05Z07:00", api.CreatedAt)
-
 	return &domainagentgroup.AgentGroup{
 		Version:    domainagentgroup.Version1,
 		UID:        api.UID,
@@ -217,9 +196,9 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 			IdentifyingAttributes:    api.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: api.Selector.NonIdentifyingAttributes,
 		},
-		CreatedAt: createdAt,
+		CreatedAt: api.CreatedAt,
 		CreatedBy: api.CreatedBy,
-		DeletedAt: deletedAt,
+		DeletedAt: api.DeletedAt,
 		DeletedBy: api.DeletedBy,
 	}
 }
