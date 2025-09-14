@@ -2,9 +2,10 @@
 package create
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
-	"github.com/spf13/cobra"
 )
 
 // CommandOptions contains the options for the create command.

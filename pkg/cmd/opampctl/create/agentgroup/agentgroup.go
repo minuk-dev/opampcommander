@@ -4,12 +4,14 @@ package agentgroup
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
-	"github.com/spf13/cobra"
 )
 
+// CommandOptions contains the options for the create agentgroup command.
 type CommandOptions struct {
 	*config.GlobalConfig
 
@@ -47,7 +49,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringToStringVar(&options.attributes, "attributes", nil, "Attributes of the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.selector, "selector", nil, "Selector for the agent group (key=value)")
 
-	cmd.MarkFlagRequired("name") //nolint:errcheck
+	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
+
 	return cmd
 }
 
@@ -59,10 +62,11 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 	}
 
 	opt.client = client
+
 	return nil
 }
 
 // Run executes the create agentgroup command.
-func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
+func (opt *CommandOptions) Run(*cobra.Command, []string) error {
 	return nil
 }

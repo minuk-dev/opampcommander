@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
 const (
@@ -23,6 +25,16 @@ type AgentGroup struct {
 	DeletedAt  *time.Time    `json:"deletedAt,omitempty"`
 	DeletedBy  *string       `json:"deletedBy,omitempty"`
 } // @name AgentGroup
+
+// ListResponse represents a response for listing agent groups.
+type ListResponse = v1.ListResponse[AgentGroup]
+
+// CreateRequest represents a request to create an agent group.
+type CreateRequest struct {
+	Name       string        `binding:"required" json:"name"`
+	Attributes Attributes    `json:"attributes"`
+	Selector   AgentSelector `json:"selector"`
+} // @name AgentGroupCreateRequest
 
 // Attributes represents a map of attributes for the agent group.
 // @name AgentGroupAttributes.

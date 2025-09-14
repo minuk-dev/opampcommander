@@ -154,13 +154,13 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Description Create a new agent group.
 // @Accept json
 // @Produce json
-// @Param agentGroup body AgentGroup true "Agent Group to create"
+// @Param agentGroup body AgentGroupCreateRequest true "Agent Group to create"
 // @Success 201 {object} AgentGroup
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
-	var req agentgroupv1.AgentGroup
+	var req agentgroupv1.CreateRequest
 
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
