@@ -102,8 +102,12 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 // @Failure 401 {object} map[string]any
 // @Router /api/v1/auth/info [get].
 func (c *Controller) Info(ctx *gin.Context) {
-	user := security.GetUser(ctx)
-	if user == nil {
+	user, err := security.GetUser(ctx)
+	if err != nil {
+		c.logger.Error("failed to get user from context",
+			slog.String("ip", ctx.ClientIP()),
+			slog.String("error", err.Error()),
+		)
 		ctx.JSON(http.StatusUnauthorized, gin.H{
 			"error": "unauthorized",
 		})

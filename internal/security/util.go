@@ -1,29 +1,51 @@
 package security
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	userContextKey = "user"
+)
+
+var (
+	// ErrNilContext is returned when the context is nil.
+	ErrNilContext = errors.New("nil context")
+	// ErrInvalidContext is returned when the context is not a valid Gin context.
+	ErrInvalidContext = errors.New("invalid context")
+	// ErrNoUserInContext is returned when there is no user in the context.
+	ErrNoUserInContext = errors.New("no user in context")
+	// ErrInvalidUserInContext is returned when the user in the context is not valid.
+	ErrInvalidUserInContext = errors.New("invalid user in context")
+)
+
 // GetUser retrieves the user from the Gin context.
-func GetUser(ctx *gin.Context) *User {
+func GetUser(ctx context.Context) (*User, error) {
 	if ctx == nil {
-		return nil
+		return nil, ErrNilContext
 	}
 
-	user, exists := ctx.Get("user")
+	ginContext, ok := ctx.(*gin.Context)
+	if !ok || ginContext == nil {
+		return nil, ErrInvalidContext
+	}
+
+	user, exists := ginContext.Get(userContextKey)
 	if !exists {
-		return nil
+		return nil, ErrNoUserInContext
 	}
 
 	u, ok := user.(*User)
 	if !ok {
-		return nil
+		return nil, ErrInvalidUserInContext
 	}
 
-	return u
+	return u, nil
 }
 
 // NewAuthJWTMiddleware creates a new Gin middleware for JWT authentication.
@@ -100,7 +122,7 @@ func saveUser(ctx *gin.Context, user *User) {
 		return
 	}
 
-	ctx.Set("user", user)
+	ctx.Set(userContextKey, user)
 }
 
 func hasAnyPrefix(path string, prefixes []string) bool {

@@ -13,8 +13,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainagentgroup "github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
+
+var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
 
 // ManageService implements port.AgentGroupManageUsecase. You can inject repository or other dependencies as needed.
 type ManageService struct {
@@ -78,14 +81,18 @@ func (s *ManageService) ListAgentGroups(
 }
 
 // CreateAgentGroup creates a new agent group.
-// CreateAgentGroup creates a new agent group.
 func (s *ManageService) CreateAgentGroup(
 	ctx context.Context,
 	createCommand *port.CreateAgentGroupCommand,
 ) (*v1agentgroup.AgentGroup, error) {
-	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand)
+	requestedBy, err := security.GetUser(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get user from context: %w", err)
+	}
 
-	var err = s.persistence.PutAgentGroup(ctx, domainAgentGroup)
+	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand, requestedBy)
+
+	err = s.persistence.PutAgentGroup(ctx, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
@@ -93,7 +100,6 @@ func (s *ManageService) CreateAgentGroup(
 	return toAPIModelAgentGroup(domainAgentGroup), nil
 }
 
-// UpdateAgentGroup updates an existing agent group.
 // UpdateAgentGroup updates an existing agent group.
 func (s *ManageService) UpdateAgentGroup(
 	ctx context.Context,
@@ -103,7 +109,7 @@ func (s *ManageService) UpdateAgentGroup(
 	domainAgentGroup := toDomainModelAgentGroupFromAPI(apiAgentGroup)
 	domainAgentGroup.UID = uid
 
-	var err = s.persistence.PutAgentGroup(ctx, domainAgentGroup)
+	err := s.persistence.PutAgentGroup(ctx, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
@@ -111,7 +117,6 @@ func (s *ManageService) UpdateAgentGroup(
 	return toAPIModelAgentGroup(domainAgentGroup), nil
 }
 
-// DeleteAgentGroup marks an agent group as deleted.
 // DeleteAgentGroup marks an agent group as deleted.
 func (s *ManageService) DeleteAgentGroup(
 	ctx context.Context,
@@ -137,7 +142,6 @@ func (s *ManageService) DeleteAgentGroup(
 	return nil
 }
 
-// Model 변환 함수 (domain <-> api).
 func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.AgentGroup {
 	if domain == nil {
 		return nil
@@ -171,6 +175,7 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 
 func (s *ManageService) toDomainModelAgentGroupForCreate(
 	cmd *port.CreateAgentGroupCommand,
+	requestedBy *security.User,
 ) *domainagentgroup.AgentGroup {
 	// NOTE: Replace "system" with actual user info in production.
 	return &domainagentgroup.AgentGroup{
@@ -183,7 +188,7 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 			NonIdentifyingAttributes: cmd.Selector.NonIdentifyingAttributes,
 		},
 		CreatedAt: s.clock.Now(),
-		CreatedBy: "system",
+		CreatedBy: requestedBy.String(),
 		DeletedAt: nil,
 		DeletedBy: nil,
 	}
@@ -218,5 +223,3 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 		DeletedBy: api.DeletedBy,
 	}
 }
-
-var _ port.AgentGroupManageUsecase = (*ManageService)(nil)

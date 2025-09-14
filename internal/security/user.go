@@ -8,3 +8,19 @@ type User struct {
 	// If the user is not authenticated, this will be nil
 	Email *string
 }
+
+func (user *User) String() string {
+	if user == nil {
+		return "anonymous"
+	}
+
+	if user.Authenticated {
+		if user.Email != nil {
+			return *user.Email
+		}
+
+		return "authenticated;no-email"
+	}
+
+	return "unauthenticated"
+}
