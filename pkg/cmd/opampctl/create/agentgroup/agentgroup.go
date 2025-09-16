@@ -104,16 +104,17 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
+//nolint:lll
 type formattedAgentGroup struct {
-	UID                              string            `text:"uid" short:"uid" json:"uid" yaml:"uid"`
-	Name                             string            `text:"name" short:"name" json:"name" yaml:"name"`
-	Attributes                       map[string]string `text:"-" short:"-" json:"attributes" yaml:"attributes"`
-	IdentifyingAttributesSelector    map[string]string `text:"-" short:"-" json:"identifyingAttributesSelector" yaml:"identifyingAttributesSelector"`
-	NonIdentifyingAttributesSelector map[string]string `text:"-" short:"-" json:"nonIdentifyingAttributesSelector" yaml:"nonIdentifyingAttributesSelector"`
-	CreatedAt                        time.Time         `text:"createdAt" short:"createdAt" json:"createdAt" yaml:"createdAt"`
-	CreatedBy                        string            `text:"createdBy" short:"createdBy" json:"createdBy" yaml:"createdBy"`
-	DeletedAt                        *time.Time        `text:"deletedAt,omitempty" short:"deletedAt,omitempty" json:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy                        *string           `text:"deletedBy,omitempty" short:"deletedBy,omitempty" json:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
+	UID                              string            `json:"uid"                              short:"uid"                 text:"uid"                 yaml:"uid"`
+	Name                             string            `json:"name"                             short:"name"                text:"name"                yaml:"name"`
+	Attributes                       map[string]string `json:"attributes"                       short:"-"                   text:"-"                   yaml:"attributes"`
+	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"                   text:"-"                   yaml:"identifyingAttributesSelector"`
+	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"                   text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
+	CreatedAt                        time.Time         `json:"createdAt"                        short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
+	CreatedBy                        string            `json:"createdBy"                        short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
+	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func toFormattedAgentGroup(agentGroup *agentgroupv1.AgentGroup) *formattedAgentGroup {
