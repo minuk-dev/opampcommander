@@ -133,7 +133,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		Err   error
 	}
 
-	agentWithErrs := lo.Map(ids, func(id string, _ int) AgentWithErr {
+	agentWithErrs := lo.Map(names, func(id string, _ int) AgentWithErr {
 		instanceUID, _ := uuid.Parse(id)
 		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), instanceUID)
 
