@@ -173,7 +173,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/agentgroups/"+created.UID.String())
+	ctx.Header("Location", "/api/v1/agentgroups/"+created.Name)
 	ctx.JSON(http.StatusCreated, created)
 }
 
@@ -190,7 +190,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{uid} [put].
+// @Router /api/v1/agentgroups/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	name := ctx.Param("name")
 	var req agentgroupv1.AgentGroup
@@ -225,12 +225,12 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Summary Delete Agent Group
 // @Tags agentgroup
 // @Description Mark an agent group as deleted.
-// @Param uid path string true "Agent Group ID"
+// @Param name path string true "Agent Group ID"
 // @Success 204 "No Content"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{uid} [delete].
+// @Router /api/v1/agentgroups/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
 	name := ctx.Param("name")
 	deletedBy := ctx.Query("deletedBy")

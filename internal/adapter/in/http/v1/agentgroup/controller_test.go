@@ -139,7 +139,7 @@ func TestAgentGroupController_Get(t *testing.T) {
 	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(agentGroup, nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/"+uid.String(), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/g1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusOK, recorder.Code)
@@ -153,29 +153,14 @@ func TestAgentGroupController_Get_NotFound(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
 
 	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/"+uid.String(), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/notfound", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
-}
-
-func TestAgentGroupController_Get_InvalidUUID(t *testing.T) {
-	t.Parallel()
-	ctrlBase := testutil.NewBase(t).ForController()
-	usecase := usecasemock.NewMockUsecase(t)
-	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
-	ctrlBase.SetupRouter(controller)
-	router := ctrlBase.Router
-	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/not-a-uuid", nil)
-	require.NoError(t, err)
-	router.ServeHTTP(recorder, req)
-	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 }
 
 func TestAgentGroupController_Get_InternalError(t *testing.T) {
@@ -185,12 +170,11 @@ func TestAgentGroupController_Get_InternalError(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
 
 	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/"+uid.String(), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/g1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -204,10 +188,10 @@ func TestAgentGroupController_Create(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	uid := uuid.New()
+	name := "g1"
 	body := agentgroupv1.AgentGroup{
-		UID:        uid,
-		Name:       "g1",
+		UID:        uuid.New(),
+		Name:       name,
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{
 			IdentifyingAttributes:    map[string]string{},
@@ -232,7 +216,7 @@ func TestAgentGroupController_Create(t *testing.T) {
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusCreated, recorder.Code)
-	assert.Equal(t, "/api/v1/agentgroups/"+uid.String(), recorder.Header().Get("Location"))
+	assert.Equal(t, "/api/v1/agentgroups/"+name, recorder.Header().Get("Location"))
 }
 
 func TestAgentGroupController_Create_InvalidBody(t *testing.T) {
@@ -329,41 +313,6 @@ func TestAgentGroupController_Update(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 }
 
-func TestAgentGroupController_Update_InvalidUUID(t *testing.T) {
-	t.Parallel()
-	ctrlBase := testutil.NewBase(t).ForController()
-	usecase := usecasemock.NewMockUsecase(t)
-	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
-	ctrlBase.SetupRouter(controller)
-	router := ctrlBase.Router
-	group := &agentgroupv1.AgentGroup{
-		UID:        uuid.Nil,
-		Name:       "g1",
-		Attributes: agentgroupv1.Attributes{},
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    map[string]string{},
-			NonIdentifyingAttributes: map[string]string{},
-		},
-		CreatedAt: time.Now(),
-		CreatedBy: "",
-		DeletedAt: nil,
-		DeletedBy: nil,
-	}
-	jsonBody, err := json.Marshal(group)
-	require.NoError(t, err)
-
-	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(
-		t.Context(),
-		http.MethodPut,
-		"/api/v1/agentgroups/not-a-uuid",
-		strings.NewReader(string(jsonBody)),
-	)
-	require.NoError(t, err)
-	router.ServeHTTP(recorder, req)
-	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-}
-
 func TestAgentGroupController_Update_InvalidBody(t *testing.T) {
 	t.Parallel()
 	ctrlBase := testutil.NewBase(t).ForController()
@@ -371,12 +320,11 @@ func TestAgentGroupController_Update_InvalidBody(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentgroups/"+uid.String(),
+		"/api/v1/agentgroups/something",
 		strings.NewReader("invalid"),
 	)
 	require.NoError(t, err)
@@ -391,10 +339,10 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
+	name := "g1"
 	group := &agentgroupv1.AgentGroup{
-		UID:        uid,
-		Name:       "g1",
+		UID:        uuid.New(),
+		Name:       name,
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{
 			IdentifyingAttributes:    map[string]string{},
@@ -414,7 +362,7 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentgroups/"+uid.String(),
+		"/api/v1/agentgroups/"+name,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -440,20 +388,6 @@ func TestAgentGroupController_Delete(t *testing.T) {
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
 }
 
-func TestAgentGroupController_Delete_InvalidUUID(t *testing.T) {
-	t.Parallel()
-	ctrlBase := testutil.NewBase(t).ForController()
-	usecase := usecasemock.NewMockUsecase(t)
-	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
-	ctrlBase.SetupRouter(controller)
-	router := ctrlBase.Router
-	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/not-a-uuid", nil)
-	require.NoError(t, err)
-	router.ServeHTTP(recorder, req)
-	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-}
-
 func TestAgentGroupController_Delete_NotFound(t *testing.T) {
 	t.Parallel()
 	ctrlBase := testutil.NewBase(t).ForController()
@@ -461,12 +395,11 @@ func TestAgentGroupController_Delete_NotFound(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
 
 	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/"+uid.String(), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/something", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -479,12 +412,11 @@ func TestAgentGroupController_Delete_InternalError(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
 
 	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/"+uid.String(), nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/something", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
