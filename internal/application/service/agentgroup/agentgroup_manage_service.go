@@ -4,8 +4,10 @@ package agentgroup
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
+	k8sclock "k8s.io/utils/clock"
 
 	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
@@ -20,32 +22,29 @@ var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
 
 // ManageService implements port.AgentGroupManageUsecase. You can inject repository or other dependencies as needed.
 type ManageService struct {
-	persistence domainport.AgentGroupPersistencePort
-	clock       clock.Clock
+	agentgroupUsecase domainport.AgentGroupUsecase
+	clock             clock.Clock
+	logger            *slog.Logger
 }
 
-// NewManageService returns a new ManageService.
-func NewManageService(persistence domainport.AgentGroupPersistencePort) *ManageService {
+// NewManageService returns a new ManageService
+func NewManageService(
+	agentgroupUsecase domainport.AgentGroupUsecase,
+	logger *slog.Logger,
+) *ManageService {
 	return &ManageService{
-		persistence: persistence,
-		clock:       clock.NewRealClock(),
-	}
-}
-
-// NewManageServiceWithClock returns a new ManageService with custom clock (for testing).
-func NewManageServiceWithClock(persistence domainport.AgentGroupPersistencePort, clk clock.Clock) *ManageService {
-	return &ManageService{
-		persistence: persistence,
-		clock:       clk,
+		agentgroupUsecase: agentgroupUsecase,
+		clock:             k8sclock.RealClock{},
+		logger:            logger,
 	}
 }
 
 // GetAgentGroup returns an agent group by its UUID.
 func (s *ManageService) GetAgentGroup(
 	ctx context.Context,
-	id uuid.UUID,
+	name string,
 ) (*v1agentgroup.AgentGroup, error) {
-	agentGroup, err := s.persistence.GetAgentGroup(ctx, id)
+	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -61,7 +60,7 @@ func (s *ManageService) ListAgentGroups(
 	*model.ListResponse[*v1agentgroup.AgentGroup],
 	error,
 ) {
-	domainResp, err := s.persistence.ListAgentGroups(ctx, options)
+	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("list agent groups: %w", err)
 	}
@@ -90,7 +89,7 @@ func (s *ManageService) CreateAgentGroup(
 
 	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand, requestedBy)
 
-	err = s.persistence.PutAgentGroup(ctx, domainAgentGroup)
+	err = s.agentgroupUsecase.SaveAgentGroup(ctx, createCommand.Name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
@@ -101,13 +100,12 @@ func (s *ManageService) CreateAgentGroup(
 // UpdateAgentGroup updates an existing agent group.
 func (s *ManageService) UpdateAgentGroup(
 	ctx context.Context,
-	uid uuid.UUID,
+	name string,
 	apiAgentGroup *v1agentgroup.AgentGroup,
 ) (*v1agentgroup.AgentGroup, error) {
 	domainAgentGroup := toDomainModelAgentGroupFromAPI(apiAgentGroup)
-	domainAgentGroup.UID = uid
 
-	err := s.persistence.PutAgentGroup(ctx, domainAgentGroup)
+	err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
@@ -118,23 +116,17 @@ func (s *ManageService) UpdateAgentGroup(
 // DeleteAgentGroup marks an agent group as deleted.
 func (s *ManageService) DeleteAgentGroup(
 	ctx context.Context,
-	id uuid.UUID,
-	deletedBy string,
+	name string,
 ) error {
-	agentGroup, err := s.persistence.GetAgentGroup(ctx, id)
+	deletedBy, err := security.GetUser(ctx)
+	if err != nil {
+		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+		deletedBy = security.NewAnonymousUser()
+	}
+	deletedAt := s.clock.Now()
+	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, name, deletedAt, deletedBy.String())
 	if err != nil {
 		return fmt.Errorf("get agent group for delete: %w", err)
-	}
-
-	if agentGroup.IsDeleted() {
-		return nil
-	}
-
-	agentGroup.MarkDeleted(s.clock.Now(), deletedBy)
-
-	err = s.persistence.PutAgentGroup(ctx, agentGroup)
-	if err != nil {
-		return fmt.Errorf("put agent group for delete: %w", err)
 	}
 
 	return nil

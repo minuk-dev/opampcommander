@@ -109,16 +109,16 @@ func (_c *MockUsecase_CreateAgentGroup_Call) RunAndReturn(run func(ctx context.C
 }
 
 // DeleteAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, name string, deletedBy string) error {
-	ret := _mock.Called(ctx, name, deletedBy)
+func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, name string) error {
+	ret := _mock.Called(ctx, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentGroup")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = returnFunc(ctx, name, deletedBy)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -133,12 +133,11 @@ type MockUsecase_DeleteAgentGroup_Call struct {
 // DeleteAgentGroup is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-//   - deletedBy string
-func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, name interface{}, deletedBy interface{}) *MockUsecase_DeleteAgentGroup_Call {
-	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup", ctx, name, deletedBy)}
+func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, name interface{}) *MockUsecase_DeleteAgentGroup_Call {
+	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup", ctx, name)}
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, name string, deletedBy string)) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -148,14 +147,9 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, n
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
 		run(
 			arg0,
 			arg1,
-			arg2,
 		)
 	})
 	return _c
@@ -166,7 +160,7 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Return(err error) *MockUsecase_Dele
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string, deletedBy string) error) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string) error) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }

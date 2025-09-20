@@ -45,7 +45,7 @@ type AgentGroupManageUsecase interface {
 		name string,
 		agentGroup *v1agentgroup.AgentGroup,
 	) (*v1agentgroup.AgentGroup, error)
-	DeleteAgentGroup(ctx context.Context, name string, deletedBy string) error
+	DeleteAgentGroup(ctx context.Context, name string) error
 }
 
 // CreateAgentGroupCommand is a command to create an agent group.

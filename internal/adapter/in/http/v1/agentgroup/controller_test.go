@@ -379,7 +379,7 @@ func TestAgentGroupController_Delete(t *testing.T) {
 	router := ctrlBase.Router
 	uid := uuid.New()
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/"+uid.String(), nil)
@@ -396,7 +396,7 @@ func TestAgentGroupController_Delete_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
+	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/something", nil)
@@ -413,7 +413,7 @@ func TestAgentGroupController_Delete_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything).Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/something", nil)

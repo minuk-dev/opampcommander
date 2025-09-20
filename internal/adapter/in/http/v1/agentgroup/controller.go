@@ -233,9 +233,8 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Router /api/v1/agentgroups/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
 	name := ctx.Param("name")
-	deletedBy := ctx.Query("deletedBy")
 
-	err := c.agentGroupUsecase.DeleteAgentGroup(ctx, name, deletedBy)
+	err := c.agentGroupUsecase.DeleteAgentGroup(ctx, name)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
