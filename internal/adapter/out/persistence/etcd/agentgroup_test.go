@@ -59,17 +59,17 @@ func TestAgentGroupEtcdAdapter_PutAndGet(t *testing.T) {
 	)
 
 	// when
-	err := adapter.PutAgentGroup(ctx, agentGroup)
+	err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
 	require.NoError(t, err)
 
 	// then (direct etcd check)
-	getResp, err := client.Get(ctx, "agentgroups/"+agentGroup.UID.String())
+	getResp, err := client.Get(ctx, "agentgroups/"+agentGroup.Name)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), getResp.Count)
 	assert.NotEmpty(t, getResp.Kvs[0].Value)
 
 	// load via adapter
-	loaded, err := adapter.GetAgentGroup(ctx, agentGroup.UID)
+	loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Name)
 	require.NoError(t, err)
 	assert.Equal(t, agentGroup.UID, loaded.UID)
 	assert.Equal(t, agentGroup.Name, loaded.Name)
@@ -84,7 +84,7 @@ func TestAgentGroupEtcdAdapter_Get_NotFound(t *testing.T) {
 	client, adapter := setupAgentGroupEtcdAdapter(t)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
-	nonExist := uuid.New()
+	nonExist := "non-exist-group"
 	// when
 	got, err := adapter.GetAgentGroup(ctx, nonExist)
 	// then
@@ -107,7 +107,8 @@ func TestAgentGroupEtcdAdapter_List(t *testing.T) {
 			time.Now(),
 			"tester",
 		)
-		require.NoError(t, adapter.PutAgentGroup(ctx, agentGroup))
+		name := agentGroup.Name
+		require.NoError(t, adapter.PutAgentGroup(ctx, name, agentGroup))
 	}
 
 	// when
@@ -132,7 +133,8 @@ func TestAgentGroupEtcdAdapter_List_Pagination(t *testing.T) {
 			time.Now(),
 			"tester",
 		)
-		require.NoError(t, adapter.PutAgentGroup(ctx, agentGroup))
+		name := agentGroup.Name
+		require.NoError(t, adapter.PutAgentGroup(ctx, name, agentGroup))
 	}
 
 	// page 1

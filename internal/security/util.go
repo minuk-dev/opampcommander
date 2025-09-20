@@ -48,6 +48,15 @@ func GetUser(ctx context.Context) (*User, error) {
 	return u, nil
 }
 
+// NewAnonymousUser creates a new anonymous user.
+// Some operations needs an user (e.g., for audit logging) even if the user is not authenticated.
+func NewAnonymousUser() *User {
+	return &User{
+		Authenticated: false,
+		Email:         nil,
+	}
+}
+
 // NewAuthJWTMiddleware creates a new Gin middleware for JWT authentication.
 func NewAuthJWTMiddleware(
 	service *Service,

@@ -117,6 +117,17 @@ definitions:
       uid:
         type: string
     type: object
+  AgentGroupCreateRequest:
+    properties:
+      attributes:
+        $ref: '#/definitions/api_v1_agentgroup.Attributes'
+      name:
+        type: string
+      selector:
+        $ref: '#/definitions/api_v1_agentgroup.AgentSelector'
+    required:
+    - name
+    type: object
   AgentPackageStatus:
     properties:
       name:
@@ -301,7 +312,7 @@ paths:
         name: agentGroup
         required: true
         schema:
-          $ref: '#/definitions/AgentGroup'
+          $ref: '#/definitions/AgentGroupCreateRequest'
       produces:
       - application/json
       responses:

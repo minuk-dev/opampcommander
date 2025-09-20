@@ -82,7 +82,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/AgentGroup"
+                            "$ref": "#/definitions/AgentGroupCreateRequest"
                         }
                     }
                 ],
@@ -1010,6 +1010,23 @@ const docTemplate = `{
                 },
                 "uid": {
                     "type": "string"
+                }
+            }
+        },
+        "AgentGroupCreateRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/api_v1_agentgroup.Attributes"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "selector": {
+                    "$ref": "#/definitions/api_v1_agentgroup.AgentSelector"
                 }
             }
         },
