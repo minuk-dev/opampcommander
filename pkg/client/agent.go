@@ -29,7 +29,7 @@ func NewAgentService(service *service) *AgentService {
 
 // GetAgent retrieves an agent by its ID.
 func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*agentv1.Agent, error) {
-	return getResource[agentv1.Agent](ctx, s.service, GetAgentURL, id)
+	return getResource[agentv1.Agent](ctx, s.service, GetAgentURL, id.String())
 }
 
 // ListAgents lists all agents.

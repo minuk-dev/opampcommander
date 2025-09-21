@@ -36,9 +36,9 @@ func NewAgentGroupService(service *service) *AgentGroupService {
 // GetAgentGroup retrieves an agent group by its ID.
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
-	id uuid.UUID,
+	name string,
 ) (*agentgroupv1.AgentGroup, error) {
-	return getResource[agentgroupv1.AgentGroup](ctx, s.service, GetAgentGroupURL, id)
+	return getResource[agentgroupv1.AgentGroup](ctx, s.service, GetAgentGroupURL, name)
 }
 
 // ListAgentGroups lists all agent groups.

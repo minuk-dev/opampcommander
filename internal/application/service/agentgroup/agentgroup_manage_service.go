@@ -27,7 +27,7 @@ type ManageService struct {
 	logger            *slog.Logger
 }
 
-// NewManageService returns a new ManageService
+// NewManageService returns a new ManageService.
 func NewManageService(
 	agentgroupUsecase domainport.AgentGroupUsecase,
 	logger *slog.Logger,
@@ -121,9 +121,12 @@ func (s *ManageService) DeleteAgentGroup(
 	deletedBy, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
 		deletedBy = security.NewAnonymousUser()
 	}
+
 	deletedAt := s.clock.Now()
+
 	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, name, deletedAt, deletedBy.String())
 	if err != nil {
 		return fmt.Errorf("get agent group for delete: %w", err)

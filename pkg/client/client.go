@@ -98,12 +98,12 @@ func (c *Client) SetVerbose(verbose bool) {
 	c.common.Resty.SetDebug(verbose)
 }
 
-func getResource[T any](ctx context.Context, c *service, url string, id uuid.UUID) (*T, error) {
+func getResource[T any](ctx context.Context, c *service, url string, id string) (*T, error) {
 	var result T
 
 	res, err := c.Resty.R().
 		SetContext(ctx).
-		SetPathParam("id", id.String()).
+		SetPathParam("id", id).
 		SetResult(&result).
 		Get(url)
 	if err != nil {

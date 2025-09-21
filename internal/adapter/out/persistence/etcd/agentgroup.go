@@ -1,4 +1,3 @@
-//nolint:dupl
 package etcd
 
 import (
@@ -65,6 +64,8 @@ func (a *AgentGroupEtcdAdapter) ListAgentGroups(
 }
 
 // PutAgentGroup implements port.AgentGroupPersistencePort.
+//
+//nolint:godox,revive
 func (a *AgentGroupEtcdAdapter) PutAgentGroup(
 	ctx context.Context, name string, agentGroup *agentgroup.AgentGroup,
 ) error {

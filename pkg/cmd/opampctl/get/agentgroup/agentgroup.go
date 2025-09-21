@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -93,34 +93,20 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// ShortItemForCLI is a struct that represents an agent item for display.
-type ShortItemForCLI struct {
-	InstanceUID uuid.UUID `short:"Instance UID" text:"instanceUid"`
-}
-
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client)
+	agentgroups, err := clientutil.ListAgentGroupFully(cmd.Context(), opt.client)
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	switch formatType := formatter.FormatType(opt.formatType); formatType {
-	case formatter.SHORT, formatter.TEXT:
-		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ShortItemForCLI {
-			return ShortItemForCLI{
-				InstanceUID: agent.InstanceUID,
-			}
-		})
-		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
-	case formatter.JSON, formatter.YAML:
-		err = formatter.Format(cmd.OutOrStdout(), agents, formatType)
-	default:
-		return fmt.Errorf("unsupported format type: %s, %w", opt.formatType, ErrCommandExecutionFailed)
-	}
+	displayedAgents := lo.Map(agentgroups, func(agentgroup v1agentgroup.AgentGroup, _ int) formattedAgentGroup {
+		return toFormattedAgentGroup(agentgroup)
+	})
 
+	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format agents: %w", err)
+		return fmt.Errorf("failed to format agentgroup: %w", err)
 	}
 
 	return nil
@@ -128,51 +114,75 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves the agent information for the given agent UIDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
-	type AgentWithErr struct {
-		Agent *v1agent.Agent
-		Err   error
+	type AgentGroupWithErr struct {
+		AgentGroup *v1agentgroup.AgentGroup
+		Err        error
 	}
 
-	agentWithErrs := lo.Map(names, func(id string, _ int) AgentWithErr {
-		instanceUID, _ := uuid.Parse(id)
-		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), instanceUID)
+	agentGroupsWithErr := lo.Map(names, func(name string, _ int) AgentGroupWithErr {
+		agent, err := opt.client.AgentGroupService.GetAgentGroup(cmd.Context(), name)
 
-		return AgentWithErr{
-			Agent: agent,
-			Err:   err,
+		return AgentGroupWithErr{
+			AgentGroup: agent,
+			Err:        err,
 		}
 	})
 
-	agents := lo.Filter(agentWithErrs, func(a AgentWithErr, _ int) bool {
+	agentGroups := lo.Filter(agentGroupsWithErr, func(a AgentGroupWithErr, _ int) bool {
 		return a.Err == nil
 	})
-	if len(agents) == 0 {
+	if len(agentGroupsWithErr) == 0 {
 		cmd.Println("No agents found or all specified agents could not be retrieved.")
 
 		return nil
 	}
 
-	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ShortItemForCLI {
-		return ShortItemForCLI{
-			InstanceUID: a.Agent.InstanceUID,
-		}
+	displayedAgentGroups := lo.Map(agentGroups, func(a AgentGroupWithErr, _ int) formattedAgentGroup {
+		return toFormattedAgentGroup(*a.AgentGroup)
 	})
 
-	err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayedAgentGroups, formatter.FormatType(opt.formatType))
 	if err != nil {
 		return fmt.Errorf("failed to format agents: %w", err)
 	}
 
-	errs := lo.Filter(agentWithErrs, func(a AgentWithErr, _ int) bool {
+	errs := lo.Filter(agentGroupsWithErr, func(a AgentGroupWithErr, _ int) bool {
 		return a.Err != nil
 	})
 	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(a AgentWithErr, _ int) string {
-			return fmt.Sprintf("failed to get agent %s: %v", a.Agent.InstanceUID, a.Err)
+		errMessages := lo.Map(errs, func(a AgentGroupWithErr, _ int) string {
+			return a.Err.Error()
 		})
 
 		cmd.PrintErrf("Some agents could not be retrieved: %s", strings.Join(errMessages, ", "))
 	}
 
 	return nil
+}
+
+//nolint:lll
+type formattedAgentGroup struct {
+	UID                              string            `json:"uid"                              short:"uid"                 text:"uid"                 yaml:"uid"`
+	Name                             string            `json:"name"                             short:"name"                text:"name"                yaml:"name"`
+	Attributes                       map[string]string `json:"attributes"                       short:"-"                   text:"-"                   yaml:"attributes"`
+	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"                   text:"-"                   yaml:"identifyingAttributesSelector"`
+	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"                   text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
+	CreatedAt                        time.Time         `json:"createdAt"                        short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
+	CreatedBy                        string            `json:"createdBy"                        short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
+	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
+}
+
+func toFormattedAgentGroup(agentGroup v1agentgroup.AgentGroup) formattedAgentGroup {
+	return formattedAgentGroup{
+		UID:                              agentGroup.UID.String(),
+		Name:                             agentGroup.Name,
+		Attributes:                       agentGroup.Attributes,
+		IdentifyingAttributesSelector:    agentGroup.Selector.IdentifyingAttributes,
+		NonIdentifyingAttributesSelector: agentGroup.Selector.NonIdentifyingAttributes,
+		CreatedAt:                        agentGroup.CreatedAt,
+		CreatedBy:                        agentGroup.CreatedBy,
+		DeletedAt:                        agentGroup.DeletedAt,
+		DeletedBy:                        agentGroup.DeletedBy,
+	}
 }
