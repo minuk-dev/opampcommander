@@ -70,6 +70,7 @@ func (a *AgentGroupEtcdAdapter) PutAgentGroup(
 	ctx context.Context, name string, agentGroup *agentgroup.AgentGroup,
 ) error {
 	// TODO: name should be used to save the agent group with the given name.
+	// TODO: https://github.com/minuk-dev/opampcommander/issues/145
 	// Because some update operations may change the name of the agent group.
 	return a.common.put(ctx, agentGroup)
 }
