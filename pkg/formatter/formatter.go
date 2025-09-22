@@ -91,7 +91,7 @@ func FormatShort(w io.Writer, data any) error {
 	return formatCustomTags(w, data, "short")
 }
 
-//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113,exhaustive
+//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113,exhaustive,cyclop
 func formatCustomTags(w io.Writer, data any, tag string) error {
 	v := reflect.ValueOf(data)
 
