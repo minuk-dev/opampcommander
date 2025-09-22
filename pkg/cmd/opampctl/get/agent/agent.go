@@ -66,6 +66,7 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create authenticated client: %w", err)
 	}
+	fmt.Printf("Prepared client for endpoint: %s\n", client.Endpoint)
 
 	opt.client = client
 
@@ -75,6 +76,7 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 // Run runs the command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
+		fmt.Printf("Listing all agents...\n")
 		err := opt.List(cmd)
 		if err != nil {
 			return fmt.Errorf("list failed: %w", err)
@@ -100,10 +102,12 @@ type ShortItemForCLI struct {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
+	fmt.Printf("Retrieving agents...\n")
 	agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client)
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
+	fmt.Printf("Total agents retrieved: %d\n", len(agents))
 
 	switch formatType := formatter.FormatType(opt.formatType); formatType {
 	case formatter.SHORT, formatter.TEXT:

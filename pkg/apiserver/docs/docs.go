@@ -110,7 +110,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/agentgroups/{uid}": {
+        "/api/v1/agentgroups/{name}": {
             "get": {
                 "description": "Retrieve an agent group by its ID.",
                 "consumes": [
@@ -126,8 +126,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent Group ID",
-                        "name": "uid",
+                        "description": "Agent Group Name",
+                        "name": "name",
                         "in": "path",
                         "required": true
                     }
@@ -177,8 +177,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent Group ID",
-                        "name": "uid",
+                        "description": "Agent Group Name",
+                        "name": "name",
                         "in": "path",
                         "required": true
                     },
@@ -232,7 +232,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "uid",
+                        "name": "name",
                         "in": "path",
                         "required": true
                     }

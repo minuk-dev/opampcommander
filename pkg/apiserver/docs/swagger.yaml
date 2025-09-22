@@ -333,13 +333,13 @@ paths:
       summary: Create Agent Group
       tags:
       - agentgroup
-  /api/v1/agentgroups/{uid}:
+  /api/v1/agentgroups/{name}:
     delete:
       description: Mark an agent group as deleted.
       parameters:
       - description: Agent Group ID
         in: path
-        name: uid
+        name: name
         required: true
         type: string
       responses:
@@ -368,9 +368,9 @@ paths:
       - application/json
       description: Retrieve an agent group by its ID.
       parameters:
-      - description: Agent Group ID
+      - description: Agent Group Name
         in: path
-        name: uid
+        name: name
         required: true
         type: string
       produces:
@@ -403,9 +403,9 @@ paths:
       - application/json
       description: Update an existing agent group.
       parameters:
-      - description: Agent Group ID
+      - description: Agent Group Name
         in: path
-        name: uid
+        name: name
         required: true
         type: string
       - description: Updated Agent Group
