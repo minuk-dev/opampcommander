@@ -75,6 +75,7 @@ func TestAgentGroupController_List(t *testing.T) {
 			},
 			Items: groups,
 		}, nil)
+
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups", nil)
 		require.NoError(t, err)

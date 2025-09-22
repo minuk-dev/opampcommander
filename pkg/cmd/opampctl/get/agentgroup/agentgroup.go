@@ -162,15 +162,15 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 
 //nolint:lll
 type formattedAgentGroup struct {
-	UID                              string            `json:"uid"                              short:"uid"                 text:"uid"                 yaml:"uid"`
-	Name                             string            `json:"name"                             short:"name"                text:"name"                yaml:"name"`
-	Attributes                       map[string]string `json:"attributes"                       short:"-"                   text:"-"                   yaml:"attributes"`
-	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"                   text:"-"                   yaml:"identifyingAttributesSelector"`
-	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"                   text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
-	CreatedAt                        time.Time         `json:"createdAt"                        short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
-	CreatedBy                        string            `json:"createdBy"                        short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
-	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"-" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"-" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
+	UID                              string            `json:"uid"                              short:"uid"       text:"uid"                 yaml:"uid"`
+	Name                             string            `json:"name"                             short:"name"      text:"name"                yaml:"name"`
+	Attributes                       map[string]string `json:"attributes"                       short:"-"         text:"-"                   yaml:"attributes"`
+	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"         text:"-"                   yaml:"identifyingAttributesSelector"`
+	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"         text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
+	CreatedAt                        time.Time         `json:"createdAt"                        short:"createdAt" text:"createdAt"           yaml:"createdAt"`
+	CreatedBy                        string            `json:"createdBy"                        short:"createdBy" text:"createdBy"           yaml:"createdBy"`
+	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"-"         text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"-"         text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func toFormattedAgentGroup(agentGroup v1agentgroup.AgentGroup) formattedAgentGroup {
