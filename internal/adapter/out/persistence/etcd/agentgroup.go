@@ -1,11 +1,9 @@
-//nolint:dupl
 package etcd
 
 import (
 	"context"
 	"log/slog"
 
-	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd/entity"
@@ -36,7 +34,7 @@ func NewAgentGroupEtcdAdapter(
 	}
 
 	keyFunc := func(domain *agentgroup.AgentGroup) string {
-		return domain.UID.String()
+		return domain.Name
 	}
 
 	return &AgentGroupEtcdAdapter{
@@ -53,9 +51,9 @@ func NewAgentGroupEtcdAdapter(
 
 // GetAgentGroup implements port.AgentGroupPersistencePort.
 func (a *AgentGroupEtcdAdapter) GetAgentGroup(
-	ctx context.Context, id uuid.UUID,
+	ctx context.Context, name string,
 ) (*agentgroup.AgentGroup, error) {
-	return a.common.get(ctx, id.String())
+	return a.common.get(ctx, name)
 }
 
 // ListAgentGroups implements port.AgentGroupPersistencePort.
@@ -66,8 +64,13 @@ func (a *AgentGroupEtcdAdapter) ListAgentGroups(
 }
 
 // PutAgentGroup implements port.AgentGroupPersistencePort.
+//
+//nolint:godox,revive
 func (a *AgentGroupEtcdAdapter) PutAgentGroup(
-	ctx context.Context, agentGroup *agentgroup.AgentGroup,
+	ctx context.Context, name string, agentGroup *agentgroup.AgentGroup,
 ) error {
+	// TODO: name should be used to save the agent group with the given name.
+	// TODO: https://github.com/minuk-dev/opampcommander/issues/145
+	// Because some update operations may change the name of the agent group.
 	return a.common.put(ctx, agentGroup)
 }

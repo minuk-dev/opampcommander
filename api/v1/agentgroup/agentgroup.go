@@ -24,6 +24,13 @@ type AgentGroup struct {
 	DeletedBy  *string       `json:"deletedBy,omitempty"`
 } // @name AgentGroup
 
+// CreateRequest represents a request to create an agent group.
+type CreateRequest struct {
+	Name       string        `binding:"required" json:"name"`
+	Attributes Attributes    `json:"attributes"`
+	Selector   AgentSelector `json:"selector"`
+} // @name AgentGroupCreateRequest
+
 // Attributes represents a map of attributes for the agent group.
 // @name AgentGroupAttributes.
 type Attributes map[string]string

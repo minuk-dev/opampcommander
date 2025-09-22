@@ -3,6 +3,7 @@ package port
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -32,14 +33,14 @@ type AgentUsecase interface {
 
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
-	// GetAgentGroup retrieves an agent group by its ID.
-	GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error)
+	// GetAgentGroup retrieves an agent group by its name
+	GetAgentGroup(ctx context.Context, name string) (*agentgroup.AgentGroup, error)
 	// SaveAgentGroup saves the agent group.
 	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)
 	// SaveAgentGroup saves the agent group.
-	SaveAgentGroup(ctx context.Context, agentGroup *agentgroup.AgentGroup) error
+	SaveAgentGroup(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup) error
 	// DeleteAgentGroup deletes the agent group by its ID.
-	DeleteAgentGroup(ctx context.Context, id uuid.UUID, deletedBy string) error
+	DeleteAgentGroup(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
 }
 
 // AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.
