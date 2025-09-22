@@ -74,7 +74,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/AgentGroupCreateRequest"
+                            "$ref": "#/definitions/AgentGroup"
                         }
                     }
                 ],
@@ -102,7 +102,7 @@
                 }
             }
         },
-        "/api/v1/agentgroups/{name}": {
+        "/api/v1/agentgroups/{uid}": {
             "get": {
                 "description": "Retrieve an agent group by its ID.",
                 "consumes": [
@@ -118,8 +118,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent Group Name",
-                        "name": "name",
+                        "description": "Agent Group ID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -169,8 +169,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent Group Name",
-                        "name": "name",
+                        "description": "Agent Group ID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     },
@@ -224,7 +224,7 @@
                     {
                         "type": "string",
                         "description": "Agent Group ID",
-                        "name": "name",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -1002,23 +1002,6 @@
                 },
                 "uid": {
                     "type": "string"
-                }
-            }
-        },
-        "AgentGroupCreateRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "attributes": {
-                    "$ref": "#/definitions/api_v1_agentgroup.Attributes"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "selector": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentSelector"
                 }
             }
         },

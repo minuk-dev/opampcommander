@@ -4,13 +4,9 @@ package agentgroup
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
-	k8sclock "k8s.io/utils/clock"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -24,29 +20,32 @@ var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
 
 // ManageService implements port.AgentGroupManageUsecase. You can inject repository or other dependencies as needed.
 type ManageService struct {
-	agentgroupUsecase domainport.AgentGroupUsecase
-	clock             clock.Clock
-	logger            *slog.Logger
+	persistence domainport.AgentGroupPersistencePort
+	clock       clock.Clock
 }
 
 // NewManageService returns a new ManageService.
-func NewManageService(
-	agentgroupUsecase domainport.AgentGroupUsecase,
-	logger *slog.Logger,
-) *ManageService {
+func NewManageService(persistence domainport.AgentGroupPersistencePort) *ManageService {
 	return &ManageService{
-		agentgroupUsecase: agentgroupUsecase,
-		clock:             k8sclock.RealClock{},
-		logger:            logger,
+		persistence: persistence,
+		clock:       clock.NewRealClock(),
+	}
+}
+
+// NewManageServiceWithClock returns a new ManageService with custom clock (for testing).
+func NewManageServiceWithClock(persistence domainport.AgentGroupPersistencePort, clk clock.Clock) *ManageService {
+	return &ManageService{
+		persistence: persistence,
+		clock:       clk,
 	}
 }
 
 // GetAgentGroup returns an agent group by its UUID.
 func (s *ManageService) GetAgentGroup(
 	ctx context.Context,
-	name string,
+	id uuid.UUID,
 ) (*v1agentgroup.AgentGroup, error) {
-	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	agentGroup, err := s.persistence.GetAgentGroup(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -58,21 +57,25 @@ func (s *ManageService) GetAgentGroup(
 func (s *ManageService) ListAgentGroups(
 	ctx context.Context,
 	options *model.ListOptions,
-) (*v1agentgroup.ListResponse, error) {
-	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, options)
+) (
+	*model.ListResponse[*v1agentgroup.AgentGroup],
+	error,
+) {
+	domainResp, err := s.persistence.ListAgentGroups(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("list agent groups: %w", err)
 	}
 
-	return v1agentgroup.NewListResponse(
-		lo.Map(domainResp.Items, func(agentGroup *domainagentgroup.AgentGroup, _ int) v1agentgroup.AgentGroup {
-			return *toAPIModelAgentGroup(agentGroup)
-		}),
-		v1.ListMeta{
-			Continue:           domainResp.Continue,
-			RemainingItemCount: domainResp.RemainingItemCount,
-		},
-	), nil
+	apiItems := make([]*v1agentgroup.AgentGroup, 0, len(domainResp.Items))
+	for _, agentGroup := range domainResp.Items {
+		apiItems = append(apiItems, toAPIModelAgentGroup(agentGroup))
+	}
+
+	return &model.ListResponse[*v1agentgroup.AgentGroup]{
+		RemainingItemCount: domainResp.RemainingItemCount,
+		Continue:           domainResp.Continue,
+		Items:              apiItems,
+	}, nil
 }
 
 // CreateAgentGroup creates a new agent group.
@@ -87,7 +90,7 @@ func (s *ManageService) CreateAgentGroup(
 
 	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand, requestedBy)
 
-	err = s.agentgroupUsecase.SaveAgentGroup(ctx, createCommand.Name, domainAgentGroup)
+	err = s.persistence.PutAgentGroup(ctx, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
@@ -98,12 +101,13 @@ func (s *ManageService) CreateAgentGroup(
 // UpdateAgentGroup updates an existing agent group.
 func (s *ManageService) UpdateAgentGroup(
 	ctx context.Context,
-	name string,
+	uid uuid.UUID,
 	apiAgentGroup *v1agentgroup.AgentGroup,
 ) (*v1agentgroup.AgentGroup, error) {
 	domainAgentGroup := toDomainModelAgentGroupFromAPI(apiAgentGroup)
+	domainAgentGroup.UID = uid
 
-	err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
+	err := s.persistence.PutAgentGroup(ctx, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
@@ -114,20 +118,23 @@ func (s *ManageService) UpdateAgentGroup(
 // DeleteAgentGroup marks an agent group as deleted.
 func (s *ManageService) DeleteAgentGroup(
 	ctx context.Context,
-	name string,
+	id uuid.UUID,
+	deletedBy string,
 ) error {
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
-	deletedAt := s.clock.Now()
-
-	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, name, deletedAt, deletedBy.String())
+	agentGroup, err := s.persistence.GetAgentGroup(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get agent group for delete: %w", err)
+	}
+
+	if agentGroup.IsDeleted() {
+		return nil
+	}
+
+	agentGroup.MarkDeleted(s.clock.Now(), deletedBy)
+
+	err = s.persistence.PutAgentGroup(ctx, agentGroup)
+	if err != nil {
+		return fmt.Errorf("put agent group for delete: %w", err)
 	}
 
 	return nil
