@@ -13,8 +13,10 @@ prebuilt-doc:
 build-dev: prebuilt-doc
 	goreleaser build --snapshot --clean --single-target
 
-generate:
+prebuilt-mock:
 	mockery
+
+generate: prebuilt-doc prebuilt-mock
 
 dev: prebuilt-doc
 	go run ./cmd/apiserver/main.go $(ARGS)

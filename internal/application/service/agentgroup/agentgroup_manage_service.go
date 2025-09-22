@@ -7,8 +7,10 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	k8sclock "k8s.io/utils/clock"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -56,25 +58,21 @@ func (s *ManageService) GetAgentGroup(
 func (s *ManageService) ListAgentGroups(
 	ctx context.Context,
 	options *model.ListOptions,
-) (
-	*model.ListResponse[*v1agentgroup.AgentGroup],
-	error,
-) {
+) (*v1agentgroup.ListResponse, error) {
 	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("list agent groups: %w", err)
 	}
 
-	apiItems := make([]*v1agentgroup.AgentGroup, 0, len(domainResp.Items))
-	for _, agentGroup := range domainResp.Items {
-		apiItems = append(apiItems, toAPIModelAgentGroup(agentGroup))
-	}
-
-	return &model.ListResponse[*v1agentgroup.AgentGroup]{
-		RemainingItemCount: domainResp.RemainingItemCount,
-		Continue:           domainResp.Continue,
-		Items:              apiItems,
-	}, nil
+	return v1agentgroup.NewListResponse(
+		lo.Map(domainResp.Items, func(agentGroup *domainagentgroup.AgentGroup, _ int) v1agentgroup.AgentGroup {
+			return *toAPIModelAgentGroup(agentGroup)
+		}),
+		v1.ListMeta{
+			Continue:           domainResp.Continue,
+			RemainingItemCount: domainResp.RemainingItemCount,
+		},
+	), nil
 }
 
 // CreateAgentGroup creates a new agent group.

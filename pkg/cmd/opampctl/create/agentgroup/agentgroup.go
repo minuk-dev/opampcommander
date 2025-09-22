@@ -55,11 +55,11 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringToStringVar(&options.identifyingAttributesSelector, "identifying-attributes-selector",
 		nil, "Identifying attributes selector for the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.identifyingAttributesSelector, "is",
-		nil, "Identifying attributes selector for the agent group (key=value) (is same as --identifying-attributes-selector)")
+		nil, "same as --identifying-attributes-selector")
 	cmd.Flags().StringToStringVar(&options.nonIdentifyingAttributeSelector, "non-identifying-attributes-selector",
 		nil, "NonIdentifying attributes selector for the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.nonIdentifyingAttributeSelector, "ns",
-		nil, "NonIdentifying attributes selector for the agent group (key=value) (ns same as --non-identifying-attributes-selector)")
+		nil, "same as --non-identifying-attributes-selector")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
 
 	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec

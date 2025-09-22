@@ -38,7 +38,7 @@ type AgentManageUsecase interface {
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
 type AgentGroupManageUsecase interface {
 	GetAgentGroup(ctx context.Context, name string) (*v1agentgroup.AgentGroup, error)
-	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*v1agentgroup.AgentGroup], error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*v1agentgroup.ListResponse, error)
 	CreateAgentGroup(ctx context.Context, createCommand *CreateAgentGroupCommand) (*v1agentgroup.AgentGroup, error)
 	UpdateAgentGroup(
 		ctx context.Context,

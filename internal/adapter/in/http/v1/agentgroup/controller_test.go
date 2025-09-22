@@ -15,10 +15,10 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/goleak"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup/usecasemock"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -38,7 +38,7 @@ func TestAgentGroupController_List(t *testing.T) {
 
 		uid1 := uuid.New()
 		uid2 := uuid.New()
-		groups := []*agentgroupv1.AgentGroup{
+		groups := []agentgroupv1.AgentGroup{
 			{
 				UID:        uid1,
 				Name:       "g1",
@@ -66,20 +66,23 @@ func TestAgentGroupController_List(t *testing.T) {
 				DeletedBy: nil,
 			},
 		}
-		usecase.EXPECT().ListAgentGroups(mock.Anything, mock.Anything).Return(&model.ListResponse[*agentgroupv1.AgentGroup]{
-			Items:              groups,
-			RemainingItemCount: 0,
-			Continue:           "",
+		usecase.EXPECT().ListAgentGroups(mock.Anything, mock.Anything).Return(&agentgroupv1.ListResponse{
+			Kind:       "AgentGroup",
+			APIVersion: "v1",
+			Metadata: v1.ListMeta{
+				Continue:           "",
+				RemainingItemCount: 0,
+			},
+			Items: groups,
 		}, nil)
-
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups", nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "Items.#").Int())
-		assert.Equal(t, uid1.String(), gjson.Get(recorder.Body.String(), "Items.0.uid").String())
-		assert.Equal(t, uid2.String(), gjson.Get(recorder.Body.String(), "Items.1.uid").String())
+		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "items.#").Int())
+		assert.Equal(t, uid1.String(), gjson.Get(recorder.Body.String(), "items.0.uid").String())
+		assert.Equal(t, uid2.String(), gjson.Get(recorder.Body.String(), "items.1.uid").String())
 	})
 
 	t.Run("List AgentGroups - invalid limit", func(t *testing.T) {

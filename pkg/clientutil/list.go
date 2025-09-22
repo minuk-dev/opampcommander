@@ -23,26 +23,22 @@ func ListAgentFully(ctx context.Context, cli *client.Client) ([]v1agent.Agent, e
 	continueToken := ""
 
 	for {
-		fmt.Printf("Fetching agents with continue token: '%s'\n", continueToken)
 		opts := []client.ListOption{
 			client.WithLimit(ChunkSize),
 		}
 		if continueToken != "" {
 			opts = append(opts, client.WithContinueToken(continueToken))
 		}
-		fmt.Printf("List options: limit=%d, continueToken='%s'\n", ChunkSize, continueToken)
 		// List agents with the current continue token
 		resp, err := cli.AgentService.ListAgents(ctx, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agents: %w", err)
 		}
-		fmt.Printf("Received %d agents, continue token: '%s'\n", len(resp.Items), resp.Metadata.Continue)
 
 		// Iterate over each agent in the response
 		if len(resp.Items) == 0 {
 			return agents, nil // No agents found, exit the loop
 		}
-		fmt.Printf("Appending %d agents to the list\n", len(resp.Items))
 
 		agents = append(agents, resp.Items...)
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration

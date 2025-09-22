@@ -234,23 +234,23 @@ func (_c *MockUsecase_GetAgentGroup_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // ListAgentGroups provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+func (_mock *MockUsecase) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*agentgroup.ListResponse, error) {
 	ret := _mock.Called(ctx, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAgentGroups")
 	}
 
-	var r0 *model.ListResponse[*agentgroup.AgentGroup]
+	var r0 *agentgroup.ListResponse
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*agentgroup.ListResponse, error)); ok {
 		return returnFunc(ctx, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *model.ListResponse[*agentgroup.AgentGroup]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *agentgroup.ListResponse); ok {
 		r0 = returnFunc(ctx, options)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.ListResponse[*agentgroup.AgentGroup])
+			r0 = ret.Get(0).(*agentgroup.ListResponse)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.ListOptions) error); ok {
@@ -291,12 +291,12 @@ func (_c *MockUsecase_ListAgentGroups_Call) Run(run func(ctx context.Context, op
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentGroups_Call) Return(listResponse *model.ListResponse[*agentgroup.AgentGroup], err error) *MockUsecase_ListAgentGroups_Call {
-	_c.Call.Return(listResponse, err)
+func (_c *MockUsecase_ListAgentGroups_Call) Return(v *agentgroup.ListResponse, err error) *MockUsecase_ListAgentGroups_Call {
+	_c.Call.Return(v, err)
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentGroups_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)) *MockUsecase_ListAgentGroups_Call {
+func (_c *MockUsecase_ListAgentGroups_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*agentgroup.ListResponse, error)) *MockUsecase_ListAgentGroups_Call {
 	_c.Call.Return(run)
 	return _c
 }

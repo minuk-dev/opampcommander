@@ -101,6 +101,7 @@ func NewAuthJWTMiddleware(
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"error": "unauthorized",
 				})
+				return
 			}
 
 			user = &User{

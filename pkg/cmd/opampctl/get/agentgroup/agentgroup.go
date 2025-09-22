@@ -169,8 +169,8 @@ type formattedAgentGroup struct {
 	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"                   text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
 	CreatedAt                        time.Time         `json:"createdAt"                        short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
 	CreatedBy                        string            `json:"createdBy"                        short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
-	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
+	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"-" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"-" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func toFormattedAgentGroup(agentGroup v1agentgroup.AgentGroup) formattedAgentGroup {

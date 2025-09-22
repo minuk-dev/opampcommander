@@ -193,7 +193,6 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Router /api/v1/agentgroups/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	name := ctx.Param("name")
-
 	var req agentgroupv1.AgentGroup
 
 	err := ctx.ShouldBindJSON(&req)
