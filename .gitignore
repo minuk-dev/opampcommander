@@ -4,3 +4,4 @@ dist/
 scripts/etcd**
 **.code-workspace
 .vscode/**
+**/*.etcd
