@@ -10,13 +10,13 @@ const (
 	// ListAgentGroupURL is the path to list all agent groups.
 	ListAgentGroupURL = "/api/v1/agentgroups"
 	// GetAgentGroupURL is the path to get an agent group by ID.
-	GetAgentGroupURL = "/api/v1/agentgroups/:id"
+	GetAgentGroupURL = "/api/v1/agentgroups/{id}"
 	// CreateAgentGroupURL is the path to create a new agent group.
 	CreateAgentGroupURL = "/api/v1/agentgroups"
 	// UpdateAgentGroupURL is the path to update an existing agent group.
-	UpdateAgentGroupURL = "/api/v1/agentgroups/:id"
+	UpdateAgentGroupURL = "/api/v1/agentgroups/{id}"
 	// DeleteAgentGroupURL is the path to delete an agent group.
-	DeleteAgentGroupURL = "/api/v1/agentgroups/:id"
+	DeleteAgentGroupURL = "/api/v1/agentgroups/{id}"
 )
 
 // AgentGroupService provides methods to interact with agent groups.

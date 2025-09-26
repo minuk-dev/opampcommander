@@ -12,7 +12,7 @@ const (
 	// ListAgentURL is the path to list all agents.
 	ListAgentURL = "/api/v1/agents"
 	// GetAgentURL is the path to get an agent by ID.
-	GetAgentURL = "/api/v1/agents/:id"
+	GetAgentURL = "/api/v1/agents/{id}"
 )
 
 // AgentService provides methods to interact with agents.
