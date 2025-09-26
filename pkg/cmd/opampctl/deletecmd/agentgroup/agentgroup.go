@@ -95,10 +95,10 @@ func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
 		return r.name, r.err != nil
 	})
 
-	cmd.Printf("Successfully deleted %s agentgroup(s):\n", strings.Join(successfullyDeleted, ", "))
+	cmd.Printf("Successfully deleted %d agentgroup(s): %s\n", len(successfullyDeleted), strings.Join(successfullyDeleted, ", "))
 
 	if len(failedToDelete) > 0 {
-		cmd.PrintErrf("Failed to delete %s agentgroup(s):\n", strings.Join(failedToDelete, ", "))
+		cmd.PrintErrf("Failed to delete %d agentgroup(s): %s\n", len(failedToDelete), strings.Join(failedToDelete, ", "))
 	}
 
 	return nil
