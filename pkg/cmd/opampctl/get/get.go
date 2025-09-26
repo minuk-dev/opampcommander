@@ -18,7 +18,6 @@ type CommandOptions struct {
 // NewCommand creates a new get command.
 // It contains subcommands for getting resources.
 func NewCommand(options CommandOptions) *cobra.Command {
-	//exhaustruct:ignore
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "get",
