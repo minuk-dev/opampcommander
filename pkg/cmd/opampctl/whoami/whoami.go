@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -76,16 +75,32 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to get info from server: %w", err)
 	}
 
-	err = formatter.FormatText(cmd.OutOrStdout(), struct {
-		User *config.User
-		Info *v1auth.InfoResponse
-	}{
-		User: currentUser,
-		Info: info,
-	})
+	data := shortItemForCLI{
+		Name:          currentUser.Name,
+		AuthType:      currentUser.Auth.Type,
+		Email:         switchIfNil(info.Email, "N/A"),
+		Authenticated: info.Authenticated,
+	}
+
+	err = formatter.FormatText(cmd.OutOrStdout(), data)
 	if err != nil {
 		return fmt.Errorf("failed to format output: %w", err)
 	}
 
 	return nil
+}
+
+type shortItemForCLI struct {
+	Name          string `json:"name"          short:"NAME"      text:"NAME"          yaml:"name"`
+	AuthType      string `json:"authType"      short:"AUTH_TYPE" text:"AUTH_TYPE"     yaml:"authType"`
+	Email         string `json:"email"         short:"EMAIL"     text:"EMAIL"         yaml:"email"`
+	Authenticated bool   `json:"authenticated" short:"AUTH"      text:"AUTHENTICATED" yaml:"authenticated"`
+}
+
+func switchIfNil[T any](value *T, defaultValue T) T {
+	if value == nil {
+		return defaultValue
+	}
+
+	return *value
 }
