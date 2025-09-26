@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/go-resty/resty/v2"
-	uuid "github.com/google/uuid"
 
 	apiv1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1version "github.com/minuk-dev/opampcommander/api/v1/version"
@@ -217,10 +216,10 @@ func updateResource[Resource any](
 	return &result, nil
 }
 
-func deleteResource(ctx context.Context, service *service, url string, id uuid.UUID) error {
+func deleteResource(ctx context.Context, service *service, url string, name string) error {
 	res, err := service.Resty.R().
 		SetContext(ctx).
-		SetPathParam("id", id.String()).
+		SetPathParam("id", name).
 		Delete(url)
 	if err != nil {
 		return fmt.Errorf("failed to delete resource(restyError): %w", err)

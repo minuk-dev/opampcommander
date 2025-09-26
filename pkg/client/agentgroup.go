@@ -3,8 +3,6 @@ package client
 import (
 	"context"
 
-	"github.com/google/uuid"
-
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 )
 
@@ -89,6 +87,6 @@ func (s *AgentGroupService) UpdateAgentGroup(
 }
 
 // DeleteAgentGroup deletes an agent group by its ID.
-func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, id uuid.UUID) error {
-	return deleteResource(ctx, s.service, DeleteAgentGroupURL, id)
+func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, name string) error {
+	return deleteResource(ctx, s.service, DeleteAgentGroupURL, name)
 }
