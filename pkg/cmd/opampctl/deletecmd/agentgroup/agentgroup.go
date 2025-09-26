@@ -2,15 +2,17 @@
 package agentgroup
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/samber/lo"
+	"github.com/spf13/cobra"
 
 	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
-	"github.com/samber/lo"
-	"github.com/spf13/cobra"
 )
 
 const (
@@ -18,6 +20,12 @@ const (
 	MinToComplete = 3
 )
 
+var (
+	// ErrAgentGroupNameRequired is returned when the target agentgroup name is not provided.
+	ErrAgentGroupNameRequired = errors.New("agentgroup name is required")
+)
+
+// CommandOptions contains the options for the 'opampctl delete agentgroup' command.
 type CommandOptions struct {
 	*config.GlobalConfig
 
@@ -53,35 +61,52 @@ func NewCommand(options CommandOptions) *cobra.Command {
 // Prepare prepares the internal state before running the command.
 func (o *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("agentgroup name is required")
+		return ErrAgentGroupNameRequired
 	}
-	if len(args) > 1 {
-		return fmt.Errorf("only one agentgroup name can be provided")
-	}
+
 	client, err := clientutil.NewClient(o.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create authenticated client: %w", err)
 	}
 
 	o.client = client
+
 	return nil
 }
 
 // Run runs the command.
-func (o *CommandOptions) Run(cmd *cobra.Command, args []string) error {
-	name := args[0]
-	err := o.client.AgentGroupService.DeleteAgentGroup(cmd.Context(), name)
-	if err != nil {
-		return fmt.Errorf("failed to delete agentgroup %q: %w", name, err)
+func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
+	type deleteResult struct {
+		name string
+		err  error
 	}
 
-	cmd.Printf("AgentGroup %q deleted successfully\n", name)
+	results := lo.Map(names, func(name string, _ int) deleteResult {
+		return deleteResult{
+			name: name,
+			err:  o.client.AgentGroupService.DeleteAgentGroup(cmd.Context(), name),
+		}
+	})
+
+	successfullyDeleted := lo.FilterMap(results, func(r deleteResult, _ int) (string, bool) {
+		return r.name, r.err == nil
+	})
+	failedToDelete := lo.FilterMap(results, func(r deleteResult, _ int) (string, bool) {
+		return r.name, r.err != nil
+	})
+
+	cmd.Printf("Successfully deleted %s agentgroup(s):\n", strings.Join(successfullyDeleted, ", "))
+
+	if len(failedToDelete) > 0 {
+		cmd.PrintErrf("Failed to delete %s agentgroup(s):\n", strings.Join(failedToDelete, ", "))
+	}
+
 	return nil
 }
 
 // ValidArgsFunction provides dynamic completion for agentgroup names.
 func (o *CommandOptions) ValidArgsFunction(
-	cmd *cobra.Command, args []string, toComplete string,
+	cmd *cobra.Command, _ []string, toComplete string,
 ) ([]string, cobra.ShellCompDirective) {
 	// unfortunately, we don't use o.client because this function is called without Prepare.
 	client, err := clientutil.NewClient(o.GlobalConfig)

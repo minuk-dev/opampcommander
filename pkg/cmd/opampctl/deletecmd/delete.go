@@ -1,12 +1,15 @@
-// Package delete implements the 'opampctl delete' command.
-package delete
+// Package deletecmd implements the 'opampctl delete' command.
+// the package name is deletecmd to avoid conflict with the predeclared delete identifier.
+package deletecmd
 
 import (
-	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/delete/agentgroup"
-	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 	"github.com/spf13/cobra"
+
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentgroup"
+	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
+// CommandOptions contains the options for the 'opampctl delete' command.
 type CommandOptions struct {
 	// GlobalConfig contains global configuration options.
 	*config.GlobalConfig
