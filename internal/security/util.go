@@ -48,6 +48,15 @@ func GetUser(ctx context.Context) (*User, error) {
 	return u, nil
 }
 
+// NewAnonymousUser creates a new anonymous user.
+// Some operations needs an user (e.g., for audit logging) even if the user is not authenticated.
+func NewAnonymousUser() *User {
+	return &User{
+		Authenticated: false,
+		Email:         nil,
+	}
+}
+
 // NewAuthJWTMiddleware creates a new Gin middleware for JWT authentication.
 func NewAuthJWTMiddleware(
 	service *Service,
@@ -78,20 +87,15 @@ func NewAuthJWTMiddleware(
 			Email:         nil,
 		}
 		// Extract the JWT token from the request header
-		tokenString := ctx.GetHeader("Authorization")
-		if strings.HasPrefix(tokenString, "Bearer ") {
-			tokenString = strings.TrimPrefix(tokenString, "Bearer ")
-		} else {
-			// If the token does not start with "Bearer ", it is not a valid JWT token
-			tokenString = ""
-		}
-
-		if tokenString != "" {
+		tokenString, found := strings.CutPrefix(ctx.GetHeader("Authorization"), "Bearer ")
+		if found {
 			claims, err := service.ValidateToken(tokenString)
 			if err != nil {
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"error": "unauthorized",
 				})
+
+				return
 			}
 
 			user = &User{

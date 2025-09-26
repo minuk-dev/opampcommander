@@ -91,7 +91,7 @@ func FormatShort(w io.Writer, data any) error {
 	return formatCustomTags(w, data, "short")
 }
 
-//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113,exhaustive
+//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113,exhaustive,cyclop
 func formatCustomTags(w io.Writer, data any, tag string) error {
 	v := reflect.ValueOf(data)
 
@@ -100,7 +100,7 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 	switch v.Kind() {
 	case reflect.Slice:
 		if v.Len() == 0 {
-			return errors.New("no data to display")
+			return nil // Nothing to format
 		}
 
 		slice = v
@@ -125,7 +125,7 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 
 	for i := 0; i < elemType.NumField(); i++ {
 		field := elemType.Field(i)
-		if field.Name == "Name" || field.Name == "ID" || field.Tag.Get(tag) != "" {
+		if field.Name == "Name" || field.Name == "ID" || (field.Tag.Get(tag) != "" && field.Tag.Get(tag) != "-") {
 			fieldIndexes = append(fieldIndexes, i)
 			fieldNames = append(fieldNames, field.Name)
 		}

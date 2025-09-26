@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	v1connection "github.com/minuk-dev/opampcommander/api/v1/connection"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
@@ -68,6 +69,35 @@ func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1connectio
 		}
 
 		connections = append(connections, resp.Items...)
+
+		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
+	}
+}
+
+// ListAgentGroupFully lists all agent groups and applies the provided function to each agent group.
+// It continues to fetch agent groups until there are no more agent groups to fetch.
+func ListAgentGroupFully(ctx context.Context, cli *client.Client) ([]v1agentgroup.AgentGroup, error) {
+	var agentGroups []v1agentgroup.AgentGroup
+	// Initialize the continue token to an empty string
+	continueToken := ""
+
+	for {
+		// List agent groups with the current continue token
+		resp, err := cli.AgentGroupService.ListAgentGroups(
+			ctx,
+			client.WithContinueToken(continueToken),
+			client.WithLimit(ChunkSize),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list agent groups: %w", err)
+		}
+
+		// Iterate over each agent group in the response
+		if len(resp.Items) == 0 {
+			return agentGroups, nil // No agent groups found, exit the loop
+		}
+
+		agentGroups = append(agentGroups, resp.Items...)
 
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
 	}

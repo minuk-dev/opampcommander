@@ -30,7 +30,7 @@ func NewConnectionService(service *service) *ConnectionService {
 
 // GetConnection retrieves a connection by its ID.
 func (s *ConnectionService) GetConnection(ctx context.Context, id uuid.UUID) (*connectionv1.Connection, error) {
-	return getResource[connectionv1.Connection](ctx, s.service, GetConnectionPath, id)
+	return getResource[connectionv1.Connection](ctx, s.service, GetConnectionPath, id.String())
 }
 
 // ListConnections lists all connections.

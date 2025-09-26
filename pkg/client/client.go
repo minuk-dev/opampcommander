@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	"github.com/go-resty/resty/v2"
-	uuid "github.com/google/uuid"
 
 	apiv1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1version "github.com/minuk-dev/opampcommander/api/v1/version"
@@ -20,6 +19,7 @@ type Client struct {
 	common   service
 
 	AgentService      *AgentService
+	AgentGroupService *AgentGroupService
 	ConnectionService *ConnectionService
 	AuthService       *AuthService
 }
@@ -41,6 +41,7 @@ func New(endpoint string, opt ...Option) *Client {
 		AgentService:      nil,
 		ConnectionService: nil,
 		AuthService:       nil,
+		AgentGroupService: nil,
 	}
 
 	for _, o := range opt {
@@ -50,6 +51,7 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AgentService = NewAgentService(&service)
 	client.ConnectionService = NewConnectionService(&service)
 	client.AuthService = NewAuthService(&service)
+	client.AgentGroupService = NewAgentGroupService(&service)
 
 	return client
 }
@@ -95,13 +97,12 @@ func (c *Client) SetVerbose(verbose bool) {
 	c.common.Resty.SetDebug(verbose)
 }
 
-// Generic function for GET requests.
-func getResource[T any](ctx context.Context, c *service, url string, id uuid.UUID) (*T, error) {
+func getResource[T any](ctx context.Context, c *service, url string, id string) (*T, error) {
 	var result T
 
 	res, err := c.Resty.R().
 		SetContext(ctx).
-		SetPathParam("id", id.String()).
+		SetPathParam("id", id).
 		SetResult(&result).
 		Get(url)
 	if err != nil {
@@ -159,4 +160,77 @@ func listResources[T any](
 	}
 
 	return &listResponse, nil
+}
+
+func createResource[Request any, Response any](
+	ctx context.Context,
+	service *service,
+	url string,
+	request *Request,
+) (*Response, error) {
+	var result Response
+
+	res, err := service.Resty.R().
+		SetContext(ctx).
+		SetBody(request).
+		SetResult(&result).
+		Post(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resource(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to create resource(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return &result, nil
+}
+
+func updateResource[Resource any](
+	ctx context.Context,
+	service *service,
+	url string,
+	resource *Resource,
+) (*Resource, error) {
+	var result Resource
+
+	res, err := service.Resty.R().
+		SetContext(ctx).
+		SetBody(resource).
+		SetResult(&result).
+		Put(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update resource(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to update resource(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return &result, nil
+}
+
+func deleteResource(ctx context.Context, service *service, url string, name string) error {
+	res, err := service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("id", name).
+		Delete(url)
+	if err != nil {
+		return fmt.Errorf("failed to delete resource(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("failed to delete resource(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return nil
 }

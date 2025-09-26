@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -45,7 +44,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentgroups/:uid",
+			Path:        "/api/v1/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Get",
 			HandlerFunc: c.Get,
 		},
@@ -57,13 +56,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/agentgroups/:uid",
+			Path:        "/api/v1/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/agentgroups/:uid",
+			Path:        "/api/v1/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Delete",
 			HandlerFunc: c.Delete,
 		},
@@ -114,23 +113,15 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} AgentGroup
-// @Param uid path string true "Agent Group ID"
+// @Param name path string true "Agent Group Name"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{uid} [get].
+// @Router /api/v1/agentgroups/{name} [get].
 func (c *Controller) Get(ctx *gin.Context) {
-	id := ctx.Param("uid")
+	name := ctx.Param("name")
 
-	uuid, err := uuid.Parse(id)
-	if err != nil {
-		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
-
-		return
-	}
-
-	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx, uuid)
+	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx, name)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
@@ -154,13 +145,13 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Description Create a new agent group.
 // @Accept json
 // @Produce json
-// @Param agentGroup body AgentGroup true "Agent Group to create"
+// @Param agentGroup body AgentGroupCreateRequest true "Agent Group to create"
 // @Success 201 {object} AgentGroup
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
-	var req agentgroupv1.AgentGroup
+	var req agentgroupv1.CreateRequest
 
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
@@ -182,7 +173,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/agentgroups/"+created.UID.String())
+	ctx.Header("Location", "/api/v1/agentgroups/"+created.Name)
 	ctx.JSON(http.StatusCreated, created)
 }
 
@@ -193,27 +184,19 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Description Update an existing agent group.
 // @Accept json
 // @Produce json
-// @Param uid path string true "Agent Group ID"
+// @Param name path string true "Agent Group Name"
 // @Param agentGroup body AgentGroup true "Updated Agent Group"
 // @Success 200 {object} AgentGroup
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{uid} [put].
+// @Router /api/v1/agentgroups/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
-	id := ctx.Param("uid")
-
-	uid, err := uuid.Parse(id)
-	if err != nil {
-		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
-
-		return
-	}
+	name := ctx.Param("name")
 
 	var req agentgroupv1.AgentGroup
 
-	err = ctx.ShouldBindJSON(&req)
+	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
 		c.logger.Error("failed to bind request", slog.String("error", err.Error()))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -221,7 +204,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx, uid, &req)
+	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx, name, &req)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
@@ -243,26 +226,16 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Summary Delete Agent Group
 // @Tags agentgroup
 // @Description Mark an agent group as deleted.
-// @Param uid path string true "Agent Group ID"
+// @Param name path string true "Agent Group ID"
 // @Success 204 "No Content"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{uid} [delete].
+// @Router /api/v1/agentgroups/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
-	id := ctx.Param("uid")
+	name := ctx.Param("name")
 
-	uid, err := uuid.Parse(id)
-	if err != nil {
-		c.logger.Error("failed to parse agent group ID", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid agent group ID"})
-
-		return
-	}
-
-	deletedBy := ctx.Query("deletedBy")
-
-	err = c.agentGroupUsecase.DeleteAgentGroup(ctx, uid, deletedBy)
+	err := c.agentGroupUsecase.DeleteAgentGroup(ctx, name)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})

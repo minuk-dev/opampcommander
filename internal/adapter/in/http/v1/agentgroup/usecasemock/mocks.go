@@ -7,7 +7,6 @@ package usecasemock
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -110,16 +109,16 @@ func (_c *MockUsecase_CreateAgentGroup_Call) RunAndReturn(run func(ctx context.C
 }
 
 // DeleteAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, id uuid.UUID, deletedBy string) error {
-	ret := _mock.Called(ctx, id, deletedBy)
+func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, name string) error {
+	ret := _mock.Called(ctx, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentGroup")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) error); ok {
-		r0 = returnFunc(ctx, id, deletedBy)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = returnFunc(ctx, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -133,30 +132,24 @@ type MockUsecase_DeleteAgentGroup_Call struct {
 
 // DeleteAgentGroup is a helper method to define mock.On call
 //   - ctx context.Context
-//   - id uuid.UUID
-//   - deletedBy string
-func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, id interface{}, deletedBy interface{}) *MockUsecase_DeleteAgentGroup_Call {
-	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup", ctx, id, deletedBy)}
+//   - name string
+func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, name interface{}) *MockUsecase_DeleteAgentGroup_Call {
+	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup", ctx, name)}
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, id uuid.UUID, deletedBy string)) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 uuid.UUID
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(uuid.UUID)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
 			arg1,
-			arg2,
 		)
 	})
 	return _c
@@ -167,14 +160,14 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Return(err error) *MockUsecase_Dele
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID, deletedBy string) error) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string) error) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetAgentGroup(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error) {
-	ret := _mock.Called(ctx, id)
+func (_mock *MockUsecase) GetAgentGroup(ctx context.Context, name string) (*agentgroup.AgentGroup, error) {
+	ret := _mock.Called(ctx, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAgentGroup")
@@ -182,18 +175,18 @@ func (_mock *MockUsecase) GetAgentGroup(ctx context.Context, id uuid.UUID) (*age
 
 	var r0 *agentgroup.AgentGroup
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*agentgroup.AgentGroup, error)); ok {
-		return returnFunc(ctx, id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*agentgroup.AgentGroup, error)); ok {
+		return returnFunc(ctx, name)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) *agentgroup.AgentGroup); ok {
-		r0 = returnFunc(ctx, id)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *agentgroup.AgentGroup); ok {
+		r0 = returnFunc(ctx, name)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*agentgroup.AgentGroup)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
-		r1 = returnFunc(ctx, id)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -207,20 +200,20 @@ type MockUsecase_GetAgentGroup_Call struct {
 
 // GetAgentGroup is a helper method to define mock.On call
 //   - ctx context.Context
-//   - id uuid.UUID
-func (_e *MockUsecase_Expecter) GetAgentGroup(ctx interface{}, id interface{}) *MockUsecase_GetAgentGroup_Call {
-	return &MockUsecase_GetAgentGroup_Call{Call: _e.mock.On("GetAgentGroup", ctx, id)}
+//   - name string
+func (_e *MockUsecase_Expecter) GetAgentGroup(ctx interface{}, name interface{}) *MockUsecase_GetAgentGroup_Call {
+	return &MockUsecase_GetAgentGroup_Call{Call: _e.mock.On("GetAgentGroup", ctx, name)}
 }
 
-func (_c *MockUsecase_GetAgentGroup_Call) Run(run func(ctx context.Context, id uuid.UUID)) *MockUsecase_GetAgentGroup_Call {
+func (_c *MockUsecase_GetAgentGroup_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_GetAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 uuid.UUID
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(uuid.UUID)
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
@@ -235,29 +228,29 @@ func (_c *MockUsecase_GetAgentGroup_Call) Return(agentGroup *agentgroup.AgentGro
 	return _c
 }
 
-func (_c *MockUsecase_GetAgentGroup_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID) (*agentgroup.AgentGroup, error)) *MockUsecase_GetAgentGroup_Call {
+func (_c *MockUsecase_GetAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string) (*agentgroup.AgentGroup, error)) *MockUsecase_GetAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListAgentGroups provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+func (_mock *MockUsecase) ListAgentGroups(ctx context.Context, options *model.ListOptions) (*agentgroup.ListResponse, error) {
 	ret := _mock.Called(ctx, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAgentGroups")
 	}
 
-	var r0 *model.ListResponse[*agentgroup.AgentGroup]
+	var r0 *agentgroup.ListResponse
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*agentgroup.ListResponse, error)); ok {
 		return returnFunc(ctx, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *model.ListResponse[*agentgroup.AgentGroup]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *agentgroup.ListResponse); ok {
 		r0 = returnFunc(ctx, options)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.ListResponse[*agentgroup.AgentGroup])
+			r0 = ret.Get(0).(*agentgroup.ListResponse)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.ListOptions) error); ok {
@@ -298,19 +291,19 @@ func (_c *MockUsecase_ListAgentGroups_Call) Run(run func(ctx context.Context, op
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentGroups_Call) Return(listResponse *model.ListResponse[*agentgroup.AgentGroup], err error) *MockUsecase_ListAgentGroups_Call {
-	_c.Call.Return(listResponse, err)
+func (_c *MockUsecase_ListAgentGroups_Call) Return(v *agentgroup.ListResponse, err error) *MockUsecase_ListAgentGroups_Call {
+	_c.Call.Return(v, err)
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentGroups_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)) *MockUsecase_ListAgentGroups_Call {
+func (_c *MockUsecase_ListAgentGroups_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*agentgroup.ListResponse, error)) *MockUsecase_ListAgentGroups_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // UpdateAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) UpdateAgentGroup(ctx context.Context, uid uuid.UUID, agentGroup *agentgroup.AgentGroup) (*agentgroup.AgentGroup, error) {
-	ret := _mock.Called(ctx, uid, agentGroup)
+func (_mock *MockUsecase) UpdateAgentGroup(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup) (*agentgroup.AgentGroup, error) {
+	ret := _mock.Called(ctx, name, agentGroup)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateAgentGroup")
@@ -318,18 +311,18 @@ func (_mock *MockUsecase) UpdateAgentGroup(ctx context.Context, uid uuid.UUID, a
 
 	var r0 *agentgroup.AgentGroup
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *agentgroup.AgentGroup) (*agentgroup.AgentGroup, error)); ok {
-		return returnFunc(ctx, uid, agentGroup)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *agentgroup.AgentGroup) (*agentgroup.AgentGroup, error)); ok {
+		return returnFunc(ctx, name, agentGroup)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *agentgroup.AgentGroup) *agentgroup.AgentGroup); ok {
-		r0 = returnFunc(ctx, uid, agentGroup)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *agentgroup.AgentGroup) *agentgroup.AgentGroup); ok {
+		r0 = returnFunc(ctx, name, agentGroup)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*agentgroup.AgentGroup)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, *agentgroup.AgentGroup) error); ok {
-		r1 = returnFunc(ctx, uid, agentGroup)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *agentgroup.AgentGroup) error); ok {
+		r1 = returnFunc(ctx, name, agentGroup)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -343,21 +336,21 @@ type MockUsecase_UpdateAgentGroup_Call struct {
 
 // UpdateAgentGroup is a helper method to define mock.On call
 //   - ctx context.Context
-//   - uid uuid.UUID
+//   - name string
 //   - agentGroup *agentgroup.AgentGroup
-func (_e *MockUsecase_Expecter) UpdateAgentGroup(ctx interface{}, uid interface{}, agentGroup interface{}) *MockUsecase_UpdateAgentGroup_Call {
-	return &MockUsecase_UpdateAgentGroup_Call{Call: _e.mock.On("UpdateAgentGroup", ctx, uid, agentGroup)}
+func (_e *MockUsecase_Expecter) UpdateAgentGroup(ctx interface{}, name interface{}, agentGroup interface{}) *MockUsecase_UpdateAgentGroup_Call {
+	return &MockUsecase_UpdateAgentGroup_Call{Call: _e.mock.On("UpdateAgentGroup", ctx, name, agentGroup)}
 }
 
-func (_c *MockUsecase_UpdateAgentGroup_Call) Run(run func(ctx context.Context, uid uuid.UUID, agentGroup *agentgroup.AgentGroup)) *MockUsecase_UpdateAgentGroup_Call {
+func (_c *MockUsecase_UpdateAgentGroup_Call) Run(run func(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup)) *MockUsecase_UpdateAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 uuid.UUID
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(uuid.UUID)
+			arg1 = args[1].(string)
 		}
 		var arg2 *agentgroup.AgentGroup
 		if args[2] != nil {
@@ -377,7 +370,7 @@ func (_c *MockUsecase_UpdateAgentGroup_Call) Return(agentGroup1 *agentgroup.Agen
 	return _c
 }
 
-func (_c *MockUsecase_UpdateAgentGroup_Call) RunAndReturn(run func(ctx context.Context, uid uuid.UUID, agentGroup *agentgroup.AgentGroup) (*agentgroup.AgentGroup, error)) *MockUsecase_UpdateAgentGroup_Call {
+func (_c *MockUsecase_UpdateAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup) (*agentgroup.AgentGroup, error)) *MockUsecase_UpdateAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }
