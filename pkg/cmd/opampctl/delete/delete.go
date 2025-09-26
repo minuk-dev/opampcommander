@@ -2,6 +2,7 @@
 package delete
 
 import (
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/delete/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 	"github.com/spf13/cobra"
 )
@@ -17,6 +18,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		Use:   "delete",
 		Short: "delete",
 	}
+
+	cmd.AddCommand(agentgroup.NewCommand(agentgroup.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
 
 	return cmd
 }
