@@ -35,20 +35,20 @@ type Service struct {
 }
 
 // New creates a new observability Service based on the provided settings.
-// It provides observability service and logger as dependencies.
+// It provides observability service and its fields such as meter provider, trace provider, and logger for easy access.
 func New(
 	settings *config.ObservabilitySettings,
 	lifecycle fx.Lifecycle,
-) (*Service, *slog.Logger, error) {
+) (*Service, metricapi.MeterProvider, traceapi.TracerProvider, *slog.Logger, error) {
 	logger, err := newLogger(settings)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create logger: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	if settings == nil {
 		// If no settings are provided, return a default Service instance.
 		//exhaustruct:ignore
-		return &Service{}, logger, nil
+		return &Service{}, nil, nil, logger, nil
 	}
 
 	service := &Service{
@@ -74,7 +74,7 @@ func New(
 		}
 	}
 
-	return service, logger, nil
+	return service, service.meterProvider, service.traceProvider, service.logger, nil
 }
 
 // Middleware returns a Gin middleware function that applies OpenTelemetry instrumentation.
