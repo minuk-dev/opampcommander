@@ -1,0 +1,43 @@
+address: localhost:8080
+database:
+  type: "etcd"
+  endpoints:
+  - "localhost:2379"
+metric:
+  enabled: true
+  type: prometheus
+  endpoint: http://localhost:9090/metrics
+log:
+  level: info
+  format: text
+trace:
+  enabled: true
+  endpoint: "localhost:4317"
+  protocol: grpc
+  sampler: always
+  insecure: true
+auth:
+  enabled: true
+  admin:
+    username: "admin"
+    password: "admin"
+  jwt:
+    issuer: "opampcommander"
+    expire: 5m
+    secret: "your_jwt_secret"
+    audience:
+    - "opampcommander"
+  type: "oauth2"
+  oauth2:
+    provider: github
+    clientId: "your_client_id"
+    clientSecret: "your_client_secret"
+    redirectUri: "http://localhost:8080/auth/callback"
+    state: # to prevent CSRF attacks
+      mode: jwt
+      jwt:
+        issuer: "opampcommander"
+        expire: 5m
+        secret: "your_jwt_secret"
+        audience:
+        - "opampcommander"

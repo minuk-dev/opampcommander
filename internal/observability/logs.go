@@ -1,4 +1,4 @@
-package apiserver
+package observability
 
 import (
 	"log/slog"
@@ -13,8 +13,7 @@ type UnsupportedLogFormatError struct {
 	LogFormat config.LogFormat
 }
 
-// NewLogger creates a new logger instance with default settings.
-func NewLogger(settings *config.ObservabilitySettings) (*slog.Logger, error) {
+func newLogger(settings *config.ObservabilitySettings) (*slog.Logger, error) {
 	logWriter := os.Stdout
 	logSettings := settings.Log
 

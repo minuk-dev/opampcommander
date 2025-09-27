@@ -63,6 +63,51 @@ const (
 type TraceSettings struct {
 	// Enabled indicates whether tracing is enabled.
 	Enabled bool
+	// Protocol specifies the protocol for tracing.
+	Protocol TraceProtocol
+	// Compression specifies the compression type for tracing.
+	Compression bool
+	// CompressionAlgorithm specifies the compression algorithm for tracing.
+	CompressionAlgorithm TraceCompressionAlgorithm
+	// Insecure indicates whether to use insecure connection for tracing.
+	Insecure bool
+	// Headers specifies the headers to be sent with tracing requests.
+	Headers map[string]string
 	// Endpoint specifies the endpoint for tracing.
 	Endpoint string
+	// Sampler
+	Sampler TraceSampler
+	// SamplerRatio is used when the Sampler is set to TraceSamplerProbability.
+	// It should be a value between 0.0 and 1.0.
+	SamplerRatio float64
 }
+
+// TraceProtocol represents the protocol used for tracing.
+type TraceProtocol string
+
+const (
+	// TraceProtocolHTTP represents the HTTP protocol for tracing.
+	TraceProtocolHTTP TraceProtocol = "http"
+	// TraceProtocolGRPC represents the gRPC protocol for tracing.
+	TraceProtocolGRPC TraceProtocol = "grpc"
+)
+
+// TraceCompression represents the compression type used for tracing.
+type TraceCompressionAlgorithm string
+
+const (
+	// TraceCompressionAlgorithmGzip represents the gzip compression algorithm.
+	TraceCompressionAlgorithmGzip TraceCompressionAlgorithm = "gzip"
+)
+
+// TraceSampler represents the sampling strategy for tracing.
+type TraceSampler string
+
+const (
+	// TraceSamplerAlways samples all traces.
+	TraceSamplerAlways TraceSampler = "always"
+	// TraceSamplerNever samples no traces.
+	TraceSamplerNever TraceSampler = "never"
+	// TraceSamplerProbability samples a percentage of traces based on probability.
+	TraceSamplerProbability TraceSampler = "probability"
+)
