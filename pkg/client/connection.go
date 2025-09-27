@@ -13,7 +13,7 @@ const (
 	// ListConnectionsPath is the path to list all connections.
 	ListConnectionsPath = "/api/v1/connections"
 	// GetConnectionPath is the path to get a connection by ID.
-	GetConnectionPath = "/api/v1/connections/:id"
+	GetConnectionPath = "/api/v1/connections/{id}"
 )
 
 // ConnectionService provides methods to interact with connection resources.
