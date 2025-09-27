@@ -38,8 +38,15 @@ type CommandOption struct {
 		Format  string `mapstructure:"format"`
 	} `mapstructure:"log"`
 	Trace struct {
-		Enabled  bool   `mapstructure:"enabled"`
-		Endpoint string `mapstructure:"endpoint"`
+		Enabled              bool              `mapstructure:"enabled"`
+		Protocol             string            `mapstructure:"protocol"`
+		Compression          bool              `mapstructure:"compression"`
+		CompressionAlgorithm string            `mapstructure:"compressionAlgorithm"`
+		Insecure             bool              `mapstructure:"insecure"`
+		Headers              map[string]string `mapstructure:"headers"`
+		Endpoint             string            `mapstructure:"endpoint"`
+		Sampler              string            `mapstructure:"sampler"`
+		SamplerRatio         float64           `mapstructure:"samplerRatio"`
 	} `mapstructure:"trace"`
 	Auth struct {
 		Enabled bool `mapstructure:"enabled"`
@@ -128,6 +135,13 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("log.format", "text", "log format (json, text)")
 	cmd.Flags().Bool("trace.enabled", false, "enable tracing")
 	cmd.Flags().String("trace.endpoint", "grpc://localhost:4317", "tracing endpoint (for OpenTelemetry, Jaeger, etc.)")
+	cmd.Flags().String("trace.protocol", "grpc", "tracing protocol (grpc, http/protobuf, http/json)")
+	cmd.Flags().Bool("trace.compression", false, "enable compression for tracing")
+	cmd.Flags().String("trace.compressionAlgorithm", "gzip", "compression algorithm for tracing (gzip)")
+	cmd.Flags().Bool("trace.insecure", false, "use insecure connection for tracing")
+	cmd.Flags().StringToString("trace.headers", nil, "headers to be sent with tracing requests")
+	cmd.Flags().String("trace.sampler", "always", "tracing sampler (always, never, probability)")
+	cmd.Flags().Float64("trace.samplerRatio", 1.0, "sampling ratio for traceidratio and parentbased_traceidratio samplers")
 	cmd.Flags().Bool("auth.enabled", false, "enable authentication")
 	cmd.Flags().String("auth.admin.username", "admin", "admin username")
 	cmd.Flags().String("auth.admin.password", "admin", "admin password")
@@ -228,8 +242,15 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				Format:  appconfig.LogFormat(opt.Log.Format),
 			},
 			Trace: appconfig.TraceSettings{
-				Enabled:  opt.Trace.Enabled,
-				Endpoint: opt.Trace.Endpoint,
+				Enabled:              opt.Trace.Enabled,
+				Protocol:             appconfig.TraceProtocol(opt.Trace.Protocol),
+				Compression:          opt.Trace.Compression,
+				CompressionAlgorithm: appconfig.TraceCompressionAlgorithm(opt.Trace.CompressionAlgorithm),
+				Insecure:             opt.Trace.Insecure,
+				Headers:              opt.Trace.Headers,
+				Sampler:              appconfig.TraceSampler(opt.Trace.Sampler),
+				SamplerRatio:         opt.Trace.SamplerRatio,
+				Endpoint:             opt.Trace.Endpoint,
 			},
 		},
 	})

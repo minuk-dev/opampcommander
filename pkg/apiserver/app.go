@@ -45,8 +45,6 @@ func New(settings config.ServerSettings) *Server {
 		fx.Provide(
 			// executor for runners
 			fx.Annotate(NewExecutor, fx.ParamTags("", `group:"runners"`)),
-			// logger
-			NewLogger,
 			// security,
 			security.New,
 			observability.New,
