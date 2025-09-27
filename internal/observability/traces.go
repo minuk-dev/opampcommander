@@ -28,7 +28,7 @@ var (
 func newTraceProvider(
 	lifecycle fx.Lifecycle,
 	traceConfig config.TraceSettings,
-	_ *slog.Logger,
+	logger *slog.Logger,
 ) (traceapi.TracerProvider, error) {
 	var sampler sdktrace.Sampler
 	switch traceConfig.Sampler {
@@ -43,19 +43,26 @@ func newTraceProvider(
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
+
+	exporter, err := newTraceExporter(traceCtx, traceConfig)
+	if err != nil {
+		cancel()
+
+		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
+	}
+
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,
-		OnStop: func(context.Context) error {
+		OnStop: func(ctx context.Context) error {
+			err := exporter.Shutdown(ctx)
+			if err != nil {
+				logger.Warn("failed to shutdown trace exporter", slog.String("error", err.Error()))
+			}
 			cancel()
 
 			return nil
 		},
 	})
-
-	exporter, err := newTraceExporter(traceCtx, traceConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
-	}
 
 	bsp := sdktrace.NewSimpleSpanProcessor(exporter)
 	traceProvider := sdktrace.NewTracerProvider(

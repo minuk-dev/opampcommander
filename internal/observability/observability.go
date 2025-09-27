@@ -36,6 +36,8 @@ type Service struct {
 
 // New creates a new observability Service based on the provided settings.
 // It provides observability service and its fields such as meter provider, trace provider, and logger for easy access.
+//
+//nolint:ireturn
 func New(
 	settings *config.ObservabilitySettings,
 	lifecycle fx.Lifecycle,
