@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
+	"go.opentelemetry.io/otel"
 	otelpromethues "go.opentelemetry.io/otel/exporters/prometheus"
 	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -96,7 +97,10 @@ func New(
 	}
 
 	if settings.Trace.Enabled {
-		return nil, ErrNoImplementation
+		service.traceProvider, err = newTraceProvider(service.serviceName, settings.Trace.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize trace provider: %w", err)
+		}
 	}
 
 	return service, nil
@@ -197,6 +201,10 @@ func createPrometheusServer(url *url.URL, handler http.Handler) *http.Server {
 		ReadTimeout:       DefaultPrometheusReadTimeout,
 		ReadHeaderTimeout: DefaultPrometheusReadHeaderTimeout,
 	}
+}
+
+func newTraceProvider(serviceName string, endpoint string) (traceapi.TracerProvider, error) {
+	return otel.GetTracerProvider(), nil
 }
 
 func setupLifecycleHooks(lifecycle fx.Lifecycle, server *http.Server, logger *slog.Logger) {
