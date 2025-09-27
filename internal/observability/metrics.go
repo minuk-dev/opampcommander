@@ -10,9 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	otelpromethues "go.opentelemetry.io/otel/exporters/prometheus"
+	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/fx"
 )
@@ -24,6 +27,38 @@ const (
 	// DefaultPrometheusReadHeaderTimeout is the default timeout for reading Prometheus headers.
 	DefaultPrometheusReadHeaderTimeout = 10 * time.Second
 )
+
+func newMeterProvider(
+	lifecycle fx.Lifecycle,
+	settings config.MetricSettings,
+	logger *slog.Logger,
+) (metricapi.MeterProvider, error) {
+	var meterProvider metricapi.MeterProvider
+	var err error
+	switch settings.Type {
+	case config.MetricTypePrometheus:
+		// Initialize Prometheus metrics
+		meterProvider, err = newPrometheusMetricProvider(settings.Endpoint, lifecycle, logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize Prometheus metrics: %w", err)
+		}
+	case config.MetricTypeOTel:
+		return nil, fmt.Errorf("%w: %s", ErrNoImplementation, settings.Type)
+	default:
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedObservabilityType, settings.Type)
+	}
+
+	// collect runtime metrics
+	err = runtime.Start(
+		runtime.WithMeterProvider(meterProvider),
+	)
+	if err != nil {
+		// If runtime metrics cannot be started, we log the error but do not return it.
+		logger.Warn("failed to start golang runtime metrics", slog.String("error", err.Error()))
+	}
+
+	return meterProvider, nil
+}
 
 func newPrometheusMetricProvider(
 	endpoint string,

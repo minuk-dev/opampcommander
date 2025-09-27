@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -16,6 +17,7 @@ import (
 func newTraceProvider(
 	lifecycle fx.Lifecycle,
 	traceConfig config.TraceSettings,
+	_ *slog.Logger,
 ) (traceapi.TracerProvider, error) {
 	var sampler sdktrace.Sampler
 	switch traceConfig.Sampler {

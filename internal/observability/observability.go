@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	metricapi "go.opentelemetry.io/otel/metric"
 	traceapi "go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
@@ -60,33 +59,18 @@ func New(
 	}
 
 	if settings.Metric.Enabled {
-		switch settings.Metric.Type {
-		case config.MetricTypePrometheus:
-			// Initialize Prometheus metrics
-			service.meterProvider, err = newPrometheusMetricProvider(settings.Metric.Endpoint, lifecycle, service.logger)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to initialize Prometheus metrics: %w", err)
-			}
-		case config.MetricTypeOTel:
-			return nil, nil, fmt.Errorf("%w: %s", ErrNoImplementation, settings.Metric.Type)
-		default:
-			return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedObservabilityType, settings.Metric.Type)
-		}
-
-		// collect runtime metrics
-		err = runtime.Start(
-			runtime.WithMeterProvider(service.meterProvider),
-		)
+		service.meterProvider, err = newMeterProvider(lifecycle, settings.Metric, logger)
 		if err != nil {
-			// If runtime metrics cannot be started, we log the error but do not return it.
-			logger.Warn("failed to start golang runtime metrics", slog.String("error", err.Error()))
+			logger.Warn("failed to initialize meter provider", slog.String("error", err.Error()))
+			// If meter provider cannot be initialized, we log the error but do not return it.
 		}
 	}
 
 	if settings.Trace.Enabled {
-		service.traceProvider, err = newTraceProvider(lifecycle, settings.Trace)
+		service.traceProvider, err = newTraceProvider(lifecycle, settings.Trace, logger)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to initialize trace provider: %w", err)
+			logger.Warn("failed to initialize trace provider", slog.String("error", err.Error()))
+			// If trace provider cannot be initialized, we log the error but do not return it.
 		}
 	}
 
