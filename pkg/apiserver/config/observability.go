@@ -92,7 +92,7 @@ const (
 	TraceProtocolGRPC TraceProtocol = "grpc"
 )
 
-// TraceCompression represents the compression type used for tracing.
+// TraceCompressionAlgorithm represents the compression algorithm used for tracing.
 type TraceCompressionAlgorithm string
 
 const (

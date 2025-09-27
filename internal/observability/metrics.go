@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
@@ -18,6 +17,8 @@ import (
 	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 const (
@@ -28,13 +29,17 @@ const (
 	DefaultPrometheusReadHeaderTimeout = 10 * time.Second
 )
 
+//nolint:ireturn
 func newMeterProvider(
 	lifecycle fx.Lifecycle,
 	settings config.MetricSettings,
 	logger *slog.Logger,
 ) (metricapi.MeterProvider, error) {
-	var meterProvider metricapi.MeterProvider
-	var err error
+	var (
+		meterProvider metricapi.MeterProvider
+		err           error
+	)
+
 	switch settings.Type {
 	case config.MetricTypePrometheus:
 		// Initialize Prometheus metrics
