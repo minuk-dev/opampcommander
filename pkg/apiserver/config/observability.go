@@ -75,7 +75,8 @@ type TraceSettings struct {
 	Headers map[string]string
 	// Endpoint specifies the endpoint for tracing.
 	Endpoint string
-	// Sampler
+	// Sampler specifies the sampling strategy for tracing.
+	// Possible values are defined in the TraceSampler type (e.g., always, never, probability).
 	Sampler TraceSampler
 	// SamplerRatio is used when the Sampler is set to TraceSamplerProbability.
 	// It should be a value between 0.0 and 1.0.
