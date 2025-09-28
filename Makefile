@@ -18,11 +18,8 @@ prebuilt-mock:
 
 generate: prebuilt-doc prebuilt-mock
 
-dev: prebuilt-doc
-	go run ./cmd/apiserver/main.go $(ARGS)
-
-run-dev-server: dev
-	./scripts/etcd/etcd && ./dist/apiserver_$(GOOS)_$(GOARCH)/apiserver
+run-dev-server: build-dev
+	./scripts/etcd/etcd & go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
 
 build: prebuilt-doc
 	goreleaser build
