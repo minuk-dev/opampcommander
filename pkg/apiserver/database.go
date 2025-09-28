@@ -27,6 +27,7 @@ func NewEtcdClient(
 	settings *config.ServerSettings,
 	meterProvider metricapi.MeterProvider,
 	traceProvider traceapi.TracerProvider,
+	textMapPropagator otelpropagation.TextMapPropagator,
 	lifecycle fx.Lifecycle,
 ) (*clientv3.Client, error) {
 	observabilityDialOpt := opentelemetry.DialOption(opentelemetry.Options{
@@ -38,7 +39,7 @@ func NewEtcdClient(
 		},
 		TraceOptions: experimental.TraceOptions{
 			TracerProvider:    traceProvider,
-			TextMapPropagator: otelpropagation.TraceContext{},
+			TextMapPropagator: textMapPropagator,
 		},
 	})
 	//exhaustruct:ignore
