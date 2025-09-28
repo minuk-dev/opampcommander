@@ -8,7 +8,8 @@ import (
 	traceapi "go.opentelemetry.io/otel/trace"
 )
 
-var (
+//nolint:lll
+const (
 	// It's very week constraint.
 	// If it has any problem, we should use own tracer key logic.
 	// ref. https://github.com/open-telemetry/opentelemetry-go-contrib/blob/91447f2ff738d1909cfd85258df3e5624d7c2502/instrumentation/github.com/gin-gonic/gin/otelgin/gin.go#L24
@@ -28,12 +29,15 @@ var (
 
 // GetTracer retrieves the tracer from the Gin context.
 // It returns an error if the context is nil, not a Gin context, or does not contain a valid tracer.
+//
+//nolint:ireturn
 func GetTracer(ctx context.Context) (traceapi.Tracer, error) {
 	if ctx == nil {
 		return nil, ErrNilContext
 	}
-	ginCtx := ctx.(*gin.Context)
-	if ginCtx == nil {
+
+	ginCtx, ok := ctx.(*gin.Context)
+	if !ok {
 		return nil, ErrNoGinContext
 	}
 
