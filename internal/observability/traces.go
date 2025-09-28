@@ -64,7 +64,7 @@ func newTraceProvider(
 		},
 	})
 
-	bsp := sdktrace.NewSimpleSpanProcessor(exporter)
+	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	traceProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sampler),
 		sdktrace.WithSpanProcessor(bsp),
