@@ -72,7 +72,7 @@ func New(
 	}
 
 	if settings.Trace.Enabled {
-		service.traceProvider, err = newTraceProvider(lifecycle, settings.Trace, logger)
+		service.traceProvider, err = newTraceProvider(service.serviceName, lifecycle, settings.Trace, logger)
 		if err != nil {
 			logger.Warn("failed to initialize trace provider", slog.String("error", err.Error()))
 			// If trace provider cannot be initialized, we log the error but do not return it.

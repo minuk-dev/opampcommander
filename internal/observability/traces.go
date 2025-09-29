@@ -8,7 +8,9 @@ import (
 
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	traceapi "go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 
@@ -26,6 +28,7 @@ var (
 
 //nolint:ireturn
 func newTraceProvider(
+	serviceName string,
 	lifecycle fx.Lifecycle,
 	traceConfig config.TraceSettings,
 	logger *slog.Logger,
@@ -43,6 +46,16 @@ func newTraceProvider(
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
+	resource, err := resource.New(
+		traceCtx,
+		resource.WithAttributes(
+			semconv.ServiceName(serviceName),
+		),
+	)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
 
 	exporter, err := newTraceExporter(traceCtx, traceConfig)
 	if err != nil {
@@ -66,6 +79,7 @@ func newTraceProvider(
 
 	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	traceProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(resource),
 		sdktrace.WithSampler(sampler),
 		sdktrace.WithSpanProcessor(bsp),
 	)
