@@ -38,7 +38,6 @@ type Service struct {
 
 // Result is the result type returned by the New function.
 type Result struct {
-	//nolint:ireturn
 	fx.Out
 
 	Service           *Service
