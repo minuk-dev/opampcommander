@@ -20,6 +20,7 @@ type OpAMPUsecase interface {
 	OnMessage(ctx context.Context, conn opamptypes.Connection, message *protobufs.AgentToServer) *protobufs.ServerToAgent
 	OnConnectionClose(conn opamptypes.Connection)
 	OnReadMessageError(conn opamptypes.Connection, mt int, msgByte []byte, err error)
+	OnMessageResponseError(conn opamptypes.Connection, message *protobufs.ServerToAgent, err error)
 }
 
 // AdminUsecase is a use case that handles admin operations.
