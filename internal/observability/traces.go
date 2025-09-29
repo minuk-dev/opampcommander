@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	traceapi "go.opentelemetry.io/otel/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -24,12 +26,9 @@ var (
 	ErrInvalidTraceSampler = errors.New("invalid trace sampler")
 )
 
-//nolint:ireturn
-func newTraceProvider(
-	lifecycle fx.Lifecycle,
-	traceConfig config.TraceSettings,
-	logger *slog.Logger,
-) (traceapi.TracerProvider, error) {
+func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig config.TraceSettings,
+	logger *slog.Logger) (
+	*sdktrace.TracerProvider, error) {
 	var sampler sdktrace.Sampler
 	switch traceConfig.Sampler {
 	case config.TraceSamplerAlways:
@@ -43,6 +42,18 @@ func newTraceProvider(
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
+
+	resource, err := resource.New(
+		traceCtx,
+		resource.WithAttributes(
+			semconv.ServiceName(serviceName),
+		),
+	)
+	if err != nil {
+		cancel()
+
+		return nil, fmt.Errorf("failed to create resource: %w", err)
+	}
 
 	exporter, err := newTraceExporter(traceCtx, traceConfig)
 	if err != nil {
@@ -58,6 +69,7 @@ func newTraceProvider(
 			if err != nil {
 				logger.Warn("failed to shutdown trace exporter", slog.String("error", err.Error()))
 			}
+
 			cancel()
 
 			return nil
@@ -66,6 +78,7 @@ func newTraceProvider(
 
 	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	traceProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(resource),
 		sdktrace.WithSampler(sampler),
 		sdktrace.WithSpanProcessor(bsp),
 	)
@@ -73,11 +86,10 @@ func newTraceProvider(
 	return traceProvider, nil
 }
 
-//nolint:ireturn
 func newTraceExporter(
 	traceCtx context.Context,
 	traceConfig config.TraceSettings,
-) (sdktrace.SpanExporter, error) {
+) (*otlptrace.Exporter, error) {
 	switch traceConfig.Protocol {
 	case config.TraceProtocolHTTP:
 		return newHTTPTraceExporter(traceCtx, traceConfig)
@@ -88,11 +100,10 @@ func newTraceExporter(
 	}
 }
 
-//nolint:ireturn
 func newHTTPTraceExporter(
 	traceCtx context.Context,
 	traceConfig config.TraceSettings,
-) (sdktrace.SpanExporter, error) {
+) (*otlptrace.Exporter, error) {
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(traceConfig.Endpoint),
 	}
@@ -123,11 +134,10 @@ func newHTTPTraceExporter(
 	return exporter, nil
 }
 
-//nolint:ireturn
 func newGRPCTraceExporter(
 	traceCtx context.Context,
 	traceConfig config.TraceSettings,
-) (sdktrace.SpanExporter, error) {
+) (*otlptrace.Exporter, error) {
 	opts := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(traceConfig.Endpoint),
 	}

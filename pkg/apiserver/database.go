@@ -6,7 +6,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	metricapi "go.opentelemetry.io/otel/metric"
+	otelpropagation "go.opentelemetry.io/otel/propagation"
+	traceapi "go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
+	"google.golang.org/grpc"
+	experimental "google.golang.org/grpc/experimental/opentelemetry"
+	"google.golang.org/grpc/stats/opentelemetry"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
@@ -17,10 +23,31 @@ type Controller interface {
 }
 
 // NewEtcdClient creates a new etcd client with the given settings.
-func NewEtcdClient(settings *config.ServerSettings, lifecycle fx.Lifecycle) (*clientv3.Client, error) {
+func NewEtcdClient(
+	settings *config.ServerSettings,
+	meterProvider metricapi.MeterProvider,
+	traceProvider traceapi.TracerProvider,
+	textMapPropagator otelpropagation.TextMapPropagator,
+	lifecycle fx.Lifecycle,
+) (*clientv3.Client, error) {
+	observabilityDialOpt := opentelemetry.DialOption(opentelemetry.Options{
+		MetricsOptions: opentelemetry.MetricsOptions{
+			MeterProvider:         meterProvider,
+			Metrics:               opentelemetry.DefaultMetrics(),
+			MethodAttributeFilter: nil,
+			OptionalLabels:        nil,
+		},
+		TraceOptions: experimental.TraceOptions{
+			TracerProvider:    traceProvider,
+			TextMapPropagator: textMapPropagator,
+		},
+	})
 	//exhaustruct:ignore
 	etcdConfig := clientv3.Config{
 		Endpoints: settings.DatabaseSettings.Endpoints,
+		DialOptions: []grpc.DialOption{
+			observabilityDialOpt,
+		},
 	}
 
 	etcdClient, err := clientv3.New(etcdConfig)

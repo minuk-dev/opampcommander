@@ -85,7 +85,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.agentUsecase.ListAgents(ctx, &model.ListOptions{
+	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), &model.ListOptions{
 		Limit:    limit,
 		Continue: continueToken,
 	})
@@ -123,7 +123,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agent, err := c.agentUsecase.GetAgent(ctx, instanceUID)
+	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), instanceUID)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			c.logger.Error("agent not found", "instanceUID", instanceUID.String())
@@ -176,7 +176,7 @@ func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
 
 	command := model.NewUpdateAgentConfigCommand(instanceUID, request.RemoteConfig)
 
-	err = c.agentUsecase.SendCommand(ctx, instanceUID, command)
+	err = c.agentUsecase.SendCommand(ctx.Request.Context(), instanceUID, command)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save command"})
 

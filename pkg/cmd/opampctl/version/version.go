@@ -42,6 +42,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			err = options.Run(cmd, args)
 			if err != nil {
 				return err

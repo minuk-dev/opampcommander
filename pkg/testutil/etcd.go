@@ -45,7 +45,7 @@ type UnsupportedPlatformError struct {
 	Arch string
 }
 
-// UnsupportedPlatformError implements the error interface for UnsupportedPlatformError.
+// Error returns the error message for UnsupportedPlatformError.
 func (e *UnsupportedPlatformError) Error() string {
 	return fmt.Sprintf("unsupported platform: %s/%s", e.OS, e.Arch)
 }

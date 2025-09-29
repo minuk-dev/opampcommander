@@ -91,7 +91,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.agentGroupUsecase.ListAgentGroups(ctx, &model.ListOptions{
+	response, err := c.agentGroupUsecase.ListAgentGroups(ctx.Request.Context(), &model.ListOptions{
 		Limit:    limit,
 		Continue: continueToken,
 	})
@@ -121,7 +121,7 @@ func (c *Controller) List(ctx *gin.Context) {
 func (c *Controller) Get(ctx *gin.Context) {
 	name := ctx.Param("name")
 
-	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx, name)
+	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), name)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
@@ -161,7 +161,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx, &CreateAgentGroupCommand{
+	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &CreateAgentGroupCommand{
 		Name:       req.Name,
 		Attributes: req.Attributes,
 		Selector:   req.Selector,
@@ -204,7 +204,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx, name, &req)
+	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx.Request.Context(), name, &req)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
@@ -235,7 +235,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 func (c *Controller) Delete(ctx *gin.Context) {
 	name := ctx.Param("name")
 
-	err := c.agentGroupUsecase.DeleteAgentGroup(ctx, name)
+	err := c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), name)
 	if err != nil {
 		if errors.Is(err, domainport.ErrResourceNotExist) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
