@@ -29,6 +29,7 @@ linters:
         - empty
         - anon
         - Option$
+        - Provider$ # Provider is commonly used
     depguard:
       rules:
         main:
