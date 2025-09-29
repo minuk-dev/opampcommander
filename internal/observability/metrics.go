@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	otelpromethues "go.opentelemetry.io/otel/exporters/prometheus"
-	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.uber.org/fx"
 
@@ -29,14 +28,13 @@ const (
 	DefaultPrometheusReadHeaderTimeout = 10 * time.Second
 )
 
-//nolint:ireturn
 func newMeterProvider(
 	lifecycle fx.Lifecycle,
 	settings config.MetricSettings,
 	logger *slog.Logger,
-) (metricapi.MeterProvider, error) {
+) (*metric.MeterProvider, error) {
 	var (
-		meterProvider metricapi.MeterProvider
+		meterProvider *metric.MeterProvider
 		err           error
 	)
 
@@ -102,8 +100,10 @@ func setupMetricsLifecycleHooks(lifecycle fx.Lifecycle, server *http.Server, log
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error {
 			httpWg.Add(1)
+
 			go func() {
 				defer httpWg.Done()
+
 				err := server.ListenAndServe()
 				if err != nil && !errors.Is(err, http.ErrServerClosed) {
 					logger.Warn("Failed to start Prometheus metrics server", slog.String("error", err.Error()))
@@ -117,6 +117,7 @@ func setupMetricsLifecycleHooks(lifecycle fx.Lifecycle, server *http.Server, log
 			if err != nil {
 				return fmt.Errorf("failed to shutdown Prometheus metrics server: %w", err)
 			}
+
 			httpWg.Wait()
 
 			return nil
@@ -157,11 +158,13 @@ func createPrometheusServer(url *url.URL, handler http.Handler) *http.Server {
 
 				return
 			}
+
 			if req.URL.Path != url.Path {
 				http.NotFound(writer, req)
 
 				return
 			}
+
 			handler.ServeHTTP(writer, req)
 		}),
 		ReadTimeout:       DefaultPrometheusReadTimeout,

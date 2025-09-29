@@ -31,12 +31,14 @@ func NewExecutor(
 		OnStart: func(context.Context) error {
 			for _, runner := range runners {
 				executor.wg.Add(1)
-				go func(r helper.Runner) {
+
+				go func(runner helper.Runner) {
 					defer executor.wg.Done()
-					err := r.Run(executorCtx)
+
+					err := runner.Run(executorCtx)
 					if err != nil {
 						logger.Error("Runner error",
-							slog.String("runner", r.Name()),
+							slog.String("runner", runner.Name()),
 							slog.String("error", err.Error()),
 						)
 					}

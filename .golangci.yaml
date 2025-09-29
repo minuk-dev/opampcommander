@@ -29,6 +29,7 @@ linters:
         - empty
         - anon
         - Option$
+        - Provider$ # Provider is commonly used
     depguard:
       rules:
         main:
@@ -67,6 +68,9 @@ linters:
             - github.com/swaggo/files
             - github.com/swaggo/gin-swagger
             # observability
+            - google.golang.org/grpc # etcd client dependency
+            - google.golang.org/grpc/stats/opentelemetry # etcd metrics
+            - google.golang.org/grpc/experimental/opentelemetry # etcd trace
             - github.com/samber/slog-gin
             - go.opentelemetry.io/otel
             - go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin
