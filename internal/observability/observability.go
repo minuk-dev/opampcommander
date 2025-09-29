@@ -53,16 +53,16 @@ type Result struct {
 func New(
 	settings *config.ObservabilitySettings,
 	lifecycle fx.Lifecycle,
-) (*Result, error) {
+) (Result, error) {
 	logger, err := newLogger(settings)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %w", err)
+		return Result{}, fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	if settings == nil {
 		// If no settings are provided, return a default Service instance.
 		//exhaustruct:ignore
-		return &Result{
+		return Result{
 			Service: &Service{},
 		}, nil
 	}
@@ -93,7 +93,7 @@ func New(
 		service.textMapPropagator = propagation.TraceContext{}
 	}
 
-	return &Result{
+	return Result{
 		Out: fx.Out{},
 
 		Service:           service,
