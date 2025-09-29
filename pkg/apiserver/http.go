@@ -47,13 +47,16 @@ func NewHTTPServer(
 		OnStart: func(ctx context.Context) error {
 			//exhaustruct:ignore
 			listenConfig := &net.ListenConfig{}
+
 			listener, err := listenConfig.Listen(ctx, "tcp", srv.Addr)
 			if err != nil {
 				return fmt.Errorf("failed to listen: %w", err)
 			}
+
 			logger.Info("HTTP server listening",
 				slog.String("addr", settings.Address),
 			)
+
 			go func() {
 				err := srv.Serve(listener)
 				if err != nil && !errors.Is(err, http.ErrServerClosed) {

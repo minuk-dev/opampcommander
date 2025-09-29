@@ -36,23 +36,35 @@ type Service struct {
 	logger            *slog.Logger
 }
 
+// Result is the result type returned by the New function.
+type Result struct {
+	//nolint:ireturn
+	fx.Out
+
+	Service           *Service
+	MeterProvider     metricapi.MeterProvider
+	TracerProvider    traceapi.TracerProvider
+	Logger            *slog.Logger
+	TextMapPropagator propagation.TextMapPropagator
+}
+
 // New creates a new observability Service based on the provided settings.
 // It provides observability service and its fields such as meter provider, trace provider, and logger for easy access.
-//
-
 func New(
 	settings *config.ObservabilitySettings,
 	lifecycle fx.Lifecycle,
-) (*Service, metricapi.MeterProvider, traceapi.TracerProvider, *slog.Logger, propagation.TextMapPropagator, error) {
+) (*Result, error) {
 	logger, err := newLogger(settings)
 	if err != nil {
-		return nil, nil, nil, nil, nil, fmt.Errorf("failed to create logger: %w", err)
+		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	if settings == nil {
 		// If no settings are provided, return a default Service instance.
 		//exhaustruct:ignore
-		return &Service{}, nil, nil, logger, nil, nil
+		return &Result{
+			Service: &Service{},
+		}, nil
 	}
 
 	service := &Service{
@@ -81,7 +93,15 @@ func New(
 		service.textMapPropagator = propagation.TraceContext{}
 	}
 
-	return service, service.meterProvider, service.traceProvider, service.logger, service.textMapPropagator, nil
+	return &Result{
+		Out: fx.Out{},
+
+		Service:           service,
+		MeterProvider:     service.meterProvider,
+		TracerProvider:    service.traceProvider,
+		Logger:            logger,
+		TextMapPropagator: service.textMapPropagator,
+	}, nil
 }
 
 // Middleware returns a Gin middleware function that applies OpenTelemetry instrumentation.
