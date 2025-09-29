@@ -9,8 +9,15 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const (
-	userContextKey = "user"
+type userContextKeyType struct {
+	key string
+}
+
+var (
+	//nolint:gochecknoglobals
+	userContextKey = userContextKeyType{
+		key: "user",
+	}
 )
 
 var (
@@ -18,27 +25,24 @@ var (
 	ErrNilContext = errors.New("nil context")
 	// ErrInvalidContext is returned when the context is not a valid Gin context.
 	ErrInvalidContext = errors.New("invalid context")
-	// ErrNoUserInContext is returned when there is no user in the context.
-	ErrNoUserInContext = errors.New("no user in context")
 	// ErrInvalidUserInContext is returned when the user in the context is not valid.
 	ErrInvalidUserInContext = errors.New("invalid user in context")
 )
 
 // GetUser retrieves the user from the Gin context.
+//
+//nolint:contextcheck
 func GetUser(ctx context.Context) (*User, error) {
 	if ctx == nil {
 		return nil, ErrNilContext
 	}
 
 	ginContext, ok := ctx.(*gin.Context)
-	if !ok || ginContext == nil {
-		return nil, ErrInvalidContext
+	if ok {
+		ctx = ginContext.Request.Context()
 	}
 
-	user, exists := ginContext.Get(userContextKey)
-	if !exists {
-		return nil, ErrNoUserInContext
-	}
+	user := ctx.Value(userContextKey)
 
 	u, ok := user.(*User)
 	if !ok {
@@ -126,7 +130,9 @@ func saveUser(ctx *gin.Context, user *User) {
 		return
 	}
 
-	ctx.Set(userContextKey, user)
+	ctx.Request = ctx.Request.WithContext(
+		context.WithValue(ctx.Request.Context(), userContextKey, user),
+	)
 }
 
 func hasAnyPrefix(path string, prefixes []string) bool {

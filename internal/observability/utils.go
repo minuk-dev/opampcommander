@@ -30,7 +30,7 @@ var (
 // GetTracer retrieves the tracer from the Gin context.
 // It returns an error if the context is nil, not a Gin context, or does not contain a valid tracer.
 //
-//nolint:ireturn
+
 func GetTracer(ctx context.Context) (traceapi.Tracer, error) {
 	if ctx == nil {
 		return nil, ErrNilContext

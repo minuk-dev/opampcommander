@@ -29,7 +29,6 @@ const (
 	DefaultPrometheusReadHeaderTimeout = 10 * time.Second
 )
 
-//nolint:ireturn
 func newMeterProvider(
 	lifecycle fx.Lifecycle,
 	settings config.MetricSettings,

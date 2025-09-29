@@ -39,7 +39,7 @@ type Service struct {
 // New creates a new observability Service based on the provided settings.
 // It provides observability service and its fields such as meter provider, trace provider, and logger for easy access.
 //
-//nolint:ireturn
+
 func New(
 	settings *config.ObservabilitySettings,
 	lifecycle fx.Lifecycle,
@@ -77,6 +77,7 @@ func New(
 			logger.Warn("failed to initialize trace provider", slog.String("error", err.Error()))
 			// If trace provider cannot be initialized, we log the error but do not return it.
 		}
+
 		service.textMapPropagator = propagation.TraceContext{}
 	}
 
@@ -100,6 +101,7 @@ func (service *Service) Middleware() gin.HandlerFunc {
 	if service.traceProvider != nil {
 		opts = append(opts, otelgin.WithTracerProvider(service.traceProvider))
 	}
+
 	if service.textMapPropagator != nil {
 		opts = append(opts, otelgin.WithPropagators(service.textMapPropagator))
 	}

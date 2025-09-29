@@ -73,7 +73,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.adminUsecase.ListConnections(ctx, &model.ListOptions{
+	response, err := c.adminUsecase.ListConnections(ctx.Request.Context(), &model.ListOptions{
 		Limit:    limit,
 		Continue: continueToken,
 	})

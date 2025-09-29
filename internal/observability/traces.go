@@ -26,7 +26,6 @@ var (
 	ErrInvalidTraceSampler = errors.New("invalid trace sampler")
 )
 
-//nolint:ireturn
 func newTraceProvider(
 	serviceName string,
 	lifecycle fx.Lifecycle,
@@ -46,6 +45,7 @@ func newTraceProvider(
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
+
 	resource, err := resource.New(
 		traceCtx,
 		resource.WithAttributes(
@@ -54,6 +54,7 @@ func newTraceProvider(
 	)
 	if err != nil {
 		cancel()
+
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
@@ -87,7 +88,6 @@ func newTraceProvider(
 	return traceProvider, nil
 }
 
-//nolint:ireturn
 func newTraceExporter(
 	traceCtx context.Context,
 	traceConfig config.TraceSettings,
@@ -102,7 +102,6 @@ func newTraceExporter(
 	}
 }
 
-//nolint:ireturn
 func newHTTPTraceExporter(
 	traceCtx context.Context,
 	traceConfig config.TraceSettings,
@@ -137,7 +136,6 @@ func newHTTPTraceExporter(
 	return exporter, nil
 }
 
-//nolint:ireturn
 func newGRPCTraceExporter(
 	traceCtx context.Context,
 	traceConfig config.TraceSettings,
