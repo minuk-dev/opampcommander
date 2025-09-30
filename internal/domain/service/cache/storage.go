@@ -97,7 +97,7 @@ func (s *inMemoryItemStore[T]) Keys() []string {
 	return keys
 }
 
-func newInMemoryItemStore[T any](items map[string]T) *inMemoryItemStore[T] {
+func NewInMemoryItemStore[T any](items map[string]T) *inMemoryItemStore[T] {
 	return &inMemoryItemStore[T]{
 		items: items,
 	}
@@ -225,7 +225,7 @@ func (s *storage[T]) Replace(list map[string]T, _ string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.itemStore = newInMemoryItemStore(list)
+	s.itemStore = NewInMemoryItemStore(list)
 
 	s.index.reset()
 
