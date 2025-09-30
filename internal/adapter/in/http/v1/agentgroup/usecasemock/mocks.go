@@ -7,6 +7,7 @@ package usecasemock
 import (
 	"context"
 
+	"github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -297,6 +298,80 @@ func (_c *MockUsecase_ListAgentGroups_Call) Return(v *agentgroup.ListResponse, e
 }
 
 func (_c *MockUsecase_ListAgentGroups_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*agentgroup.ListResponse, error)) *MockUsecase_ListAgentGroups_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListAgentsByAgentGroup provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) ListAgentsByAgentGroup(ctx context.Context, agentGroupName string, options *model.ListOptions) (*agent.ListResponse, error) {
+	ret := _mock.Called(ctx, agentGroupName, options)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListAgentsByAgentGroup")
+	}
+
+	var r0 *agent.ListResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) (*agent.ListResponse, error)); ok {
+		return returnFunc(ctx, agentGroupName, options)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) *agent.ListResponse); ok {
+		r0 = returnFunc(ctx, agentGroupName, options)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*agent.ListResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *model.ListOptions) error); ok {
+		r1 = returnFunc(ctx, agentGroupName, options)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_ListAgentsByAgentGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListAgentsByAgentGroup'
+type MockUsecase_ListAgentsByAgentGroup_Call struct {
+	*mock.Call
+}
+
+// ListAgentsByAgentGroup is a helper method to define mock.On call
+//   - ctx context.Context
+//   - agentGroupName string
+//   - options *model.ListOptions
+func (_e *MockUsecase_Expecter) ListAgentsByAgentGroup(ctx interface{}, agentGroupName interface{}, options interface{}) *MockUsecase_ListAgentsByAgentGroup_Call {
+	return &MockUsecase_ListAgentsByAgentGroup_Call{Call: _e.mock.On("ListAgentsByAgentGroup", ctx, agentGroupName, options)}
+}
+
+func (_c *MockUsecase_ListAgentsByAgentGroup_Call) Run(run func(ctx context.Context, agentGroupName string, options *model.ListOptions)) *MockUsecase_ListAgentsByAgentGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 *model.ListOptions
+		if args[2] != nil {
+			arg2 = args[2].(*model.ListOptions)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_ListAgentsByAgentGroup_Call) Return(v *agent.ListResponse, err error) *MockUsecase_ListAgentsByAgentGroup_Call {
+	_c.Call.Return(v, err)
+	return _c
+}
+
+func (_c *MockUsecase_ListAgentsByAgentGroup_Call) RunAndReturn(run func(ctx context.Context, agentGroupName string, options *model.ListOptions) (*agent.ListResponse, error)) *MockUsecase_ListAgentsByAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }
