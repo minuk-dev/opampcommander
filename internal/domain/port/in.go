@@ -24,6 +24,8 @@ type AgentUsecase interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
 	// GetOrCreateAgent retrieves an agent by its instance UID or creates a new one if it does not exist.
 	GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error)
+	// ListAgentsBySelector lists agents by the given selector.
+	ListAgentsBySelector(ctx context.Context, selector model.AgentSelector, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 	// SaveAgent saves the agent.
 	SaveAgent(ctx context.Context, agent *model.Agent) error
 	// ListAgents lists all agents.

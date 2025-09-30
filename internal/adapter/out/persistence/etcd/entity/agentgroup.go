@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
@@ -34,7 +35,7 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 		UID:        uuid.MustParse(e.UID),
 		Name:       e.Name,
 		Attributes: e.Attributes,
-		Selector: agentgroup.AgentSelector{
+		Selector: model.AgentSelector{
 			IdentifyingAttributes:    e.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: e.Selector.NonIdentifyingAttributes,
 		},

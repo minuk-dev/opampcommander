@@ -1,17 +1,17 @@
-package agent
+// Package mapper provides functions to map between api and domain models.
+package mapper
 
 import (
-	"github.com/samber/lo"
-
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/samber/lo"
 )
 
 // Mapper is a struct that provides methods to map between domain models and API models.
 type Mapper struct{}
 
-// NewMapper creates a new instance of Mapper.
-func NewMapper() *Mapper {
+// New creates a new instance of Mapper.
+func New() *Mapper {
 	return &Mapper{}
 }
 

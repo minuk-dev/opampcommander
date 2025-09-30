@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 const (
@@ -30,7 +31,7 @@ type AgentGroup struct {
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
-	Selector AgentSelector
+	Selector model.AgentSelector
 	// CreatedAt is the timestamp when the agent group was created.
 	CreatedAt time.Time
 	// CreatedBy is the identifier of the user or system that created the agent group.
@@ -39,14 +40,6 @@ type AgentGroup struct {
 	DeletedAt *time.Time
 	// DeletedBy is the identifier of the user or system that deleted the agent group. It
 	DeletedBy *string
-}
-
-// AgentSelector defines the criteria for selecting agents to be included in the agent group.
-type AgentSelector struct {
-	// IdentifyingAttributes is a map of identifying attributes used to select agents.
-	IdentifyingAttributes map[string]string
-	// NonIdentifyingAttributes is a map of non-identifying attributes used to select agents.
-	NonIdentifyingAttributes map[string]string
 }
 
 // IsDeleted returns true if the agent group is marked as deleted.
@@ -73,7 +66,7 @@ func New(
 		UID:        uuid.New(),
 		Name:       name,
 		Attributes: attributes,
-		Selector: AgentSelector{
+		Selector: model.AgentSelector{
 			IdentifyingAttributes:    nil,
 			NonIdentifyingAttributes: nil,
 		},
