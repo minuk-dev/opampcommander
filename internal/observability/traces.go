@@ -61,13 +61,18 @@ func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig co
 
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
+	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,
 		OnStop: func(ctx context.Context) error {
-			err := exporter.Shutdown(ctx)
-			if err != nil {
-				logger.Warn("failed to shutdown trace exporter", slog.String("error", err.Error()))
+			bspErr := bsp.Shutdown(ctx)
+			if bspErr != nil {
+				logger.Warn("failed to shutdown batch span processor", slog.String("error", bspErr.Error()))
+			}
+			expErr := exporter.Shutdown(ctx)
+			if expErr != nil {
+				logger.Warn("failed to shutdown trace exporter", slog.String("error", expErr.Error()))
 			}
 
 			cancel()
@@ -76,7 +81,6 @@ func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig co
 		},
 	})
 
-	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	traceProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(resource),
 		sdktrace.WithSampler(sampler),
