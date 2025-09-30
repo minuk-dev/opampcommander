@@ -10,6 +10,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	"github.com/minuk-dev/opampcommander/internal/application/mapper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -24,7 +25,7 @@ type Service struct {
 	commandUsecase domainport.CommandUsecase
 
 	// mapper
-	mapper *Mapper
+	mapper *mapper.Mapper
 }
 
 // New creates a new instance of the Service struct.
@@ -36,7 +37,7 @@ func New(
 		agentUsecase:   agentUsecase,
 		commandUsecase: commandUsecase,
 
-		mapper: NewMapper(),
+		mapper: mapper.New(),
 	}
 }
 
