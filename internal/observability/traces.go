@@ -29,16 +29,9 @@ var (
 func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig config.TraceSettings,
 	logger *slog.Logger) (
 	*sdktrace.TracerProvider, error) {
-	var sampler sdktrace.Sampler
-	switch traceConfig.Sampler {
-	case config.TraceSamplerAlways:
-		sampler = sdktrace.AlwaysSample()
-	case config.TraceSamplerNever:
-		sampler = sdktrace.NeverSample()
-	case config.TraceSamplerProbability:
-		sampler = sdktrace.TraceIDRatioBased(traceConfig.SamplerRatio)
-	default:
-		return nil, ErrInvalidTraceSampler
+	sampler, err := toSampler(traceConfig.Sampler, traceConfig.SamplerRatio)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create trace sampler: %w", err)
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
@@ -62,12 +55,19 @@ func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig co
 		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
+	bsp := sdktrace.NewBatchSpanProcessor(exporter)
+
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,
 		OnStop: func(ctx context.Context) error {
-			err := exporter.Shutdown(ctx)
-			if err != nil {
-				logger.Warn("failed to shutdown trace exporter", slog.String("error", err.Error()))
+			bspErr := bsp.Shutdown(ctx)
+			if bspErr != nil {
+				logger.Warn("failed to shutdown batch span processor", slog.String("error", bspErr.Error()))
+			}
+
+			expErr := exporter.Shutdown(ctx)
+			if expErr != nil {
+				logger.Warn("failed to shutdown trace exporter", slog.String("error", expErr.Error()))
 			}
 
 			cancel()
@@ -76,7 +76,6 @@ func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig co
 		},
 	})
 
-	bsp := sdktrace.NewBatchSpanProcessor(exporter)
 	traceProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(resource),
 		sdktrace.WithSampler(sampler),
@@ -164,4 +163,18 @@ func newGRPCTraceExporter(
 	}
 
 	return exporter, nil
+}
+
+//nolint:ireturn
+func toSampler(samplerType config.TraceSampler, ratio float64) (sdktrace.Sampler, error) {
+	switch samplerType {
+	case config.TraceSamplerAlways:
+		return sdktrace.AlwaysSample(), nil
+	case config.TraceSamplerNever:
+		return sdktrace.NeverSample(), nil
+	case config.TraceSamplerProbability:
+		return sdktrace.TraceIDRatioBased(ratio), nil
+	default:
+		return nil, ErrInvalidTraceSampler
+	}
 }
