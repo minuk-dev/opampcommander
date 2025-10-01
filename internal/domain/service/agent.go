@@ -10,7 +10,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
-	"github.com/minuk-dev/opampcommander/internal/domain/service/cache"
 )
 
 var _ port.AgentUsecase = (*AgentService)(nil)
@@ -18,26 +17,14 @@ var _ port.AgentUsecase = (*AgentService)(nil)
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
-	agentIndexer         port.Indexer[*model.Agent]
 }
 
 // NewAgentService creates a new instance of AgentService.
 func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
 ) *AgentService {
-	storage := cache.NewInMemoryItemStore(map[string]*model.Agent{})
-	identifyingAttributesIndexKeyFunc := func(obj *model.Agent) (string, error) {
-		if obj.InstanceUID == uuid.Nil {
-			return "", fmt.Errorf("instance UID is nil")
-		}
-		return obj.InstanceUID.String(), nil
-	}
-	NonIdentifyingAttributesIndexKeyFunc := func(obj *model.Agent) (string, error) {
-		return "", nil
-	}
 	return &AgentService{
 		agentPersistencePort: agentPersistencePort,
-		agentIndexer:         cache.NewIndexer[*model.Agent](stroage, keyFunc),
 	}
 }
 
