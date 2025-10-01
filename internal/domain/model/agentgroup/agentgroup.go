@@ -9,21 +9,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
-const (
-	// Version1 is the initial version of the agent group.
-	Version1 = "1"
-)
-
-// Version represents the version of the agent group.
-type Version string
-
 // Attributes represents a map of attributes for the agent group.
 type Attributes map[string]string
 
 // AgentGroup represents a group of agents with their associated metadata.
 type AgentGroup struct {
-	// Version is the version of the agent group.
-	Version Version
 	// UID is the unique identifier for the agent group.
 	UID uuid.UUID
 	// Name is the name of the agent group.
@@ -62,7 +52,6 @@ func New(
 	createdBy string,
 ) *AgentGroup {
 	return &AgentGroup{
-		Version:    Version1,
 		UID:        uuid.New(),
 		Name:       name,
 		Attributes: attributes,
