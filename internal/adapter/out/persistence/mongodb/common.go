@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,27 +19,29 @@ import (
 type ToEntityFunc[Domain any] func(domain *Domain) (Entity[Domain], error)
 
 // KeyFunc is a function that generates a unique key for a given domain model.
-type KeyFunc[Domain any] func(domain *Domain) string
+type KeyFunc[Domain any, KeyType any] func(domain *Domain) KeyType
 
 // Entity is a generic interface that defines a method to convert an entity to its corresponding domain model.
 type Entity[Domain any] interface {
 	ToDomain() *Domain
 }
 
-type commonAdapter[Domain any] struct {
+type commonAdapter[Domain any, KeyType any] struct {
 	collection            *mongo.Collection
 	CreateEmptyEntityFunc func() Entity[Domain]
 	ToEntityFunc          ToEntityFunc[Domain]
-	KeyFunc               KeyFunc[Domain]
+	KeyFunc               KeyFunc[Domain, KeyType]
+	keyFieldName          string
 }
 
-func newCommonAdapter[Domain any](
+func newCommonAdapter[Domain any, KeyType any](
 	collection *mongo.Collection,
+	keyFieldName string,
 	toEntityFunc ToEntityFunc[Domain],
 	newEmptyEntityFunc func() Entity[Domain],
-	keyFunc KeyFunc[Domain],
-) commonAdapter[Domain] {
-	return commonAdapter[Domain]{
+	keyFunc KeyFunc[Domain, KeyType],
+) commonAdapter[Domain, KeyType] {
+	return commonAdapter[Domain, KeyType]{
 		collection:            collection,
 		CreateEmptyEntityFunc: newEmptyEntityFunc,
 		ToEntityFunc:          toEntityFunc,
@@ -46,8 +49,8 @@ func newCommonAdapter[Domain any](
 	}
 }
 
-func (a *commonAdapter[Domain]) get(ctx context.Context, resourceId string) (*Domain, error) {
-	result := a.collection.FindOne(ctx, filterByResourceId(resourceId))
+func (a *commonAdapter[Domain, KeyType]) get(ctx context.Context, key KeyType) (*Domain, error) {
+	result := a.collection.FindOne(ctx, a.filterByKey(key))
 	err := result.Err()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
@@ -66,7 +69,7 @@ func (a *commonAdapter[Domain]) get(ctx context.Context, resourceId string) (*Do
 	return domain, nil
 }
 
-func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.ListOptions) (*domainmodel.ListResponse[*Domain], error) {
+func (a *commonAdapter[Domain, KeyType]) list(ctx context.Context, options *domainmodel.ListOptions) (*domainmodel.ListResponse[*Domain], error) {
 	var count int64
 	var continueToken string
 	var domains []*Domain
@@ -86,6 +89,7 @@ func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.L
 
 		defer cursor.Close(ctx)
 
+		var lastEntity *Entity[Domain] = nil
 		for cursor.Next(ctx) {
 			var entity = a.CreateEmptyEntityFunc()
 			err := cursor.Decode(&entity)
@@ -93,14 +97,15 @@ func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.L
 				fErr = fmt.Errorf("failed to decode resource from mongodb: %w", err)
 				return
 			}
-
+			lastEntity = &entity
 			domain := entity.ToDomain()
 			domains = append(domains, domain)
 		}
 
-		if len(domains) > 0 {
-			lastDomain := domains[len(domains)-1]
-			continueToken = a.KeyFunc(lastDomain)
+		if lastEntity != nil {
+			idField := reflect.ValueOf(*lastEntity).Elem().FieldByName("ID")
+			idFieldValue := idField.Interface().(primitive.ObjectID)
+			continueToken = idFieldValue.String()
 		}
 	})
 	wg.Go(func() {
@@ -124,14 +129,14 @@ func (a *commonAdapter[Domain]) list(ctx context.Context, options *domainmodel.L
 	}, nil
 }
 
-func (a *commonAdapter[Domain]) put(ctx context.Context, domain *Domain) error {
+func (a *commonAdapter[Domain, KeyType]) put(ctx context.Context, domain *Domain) error {
 	entity, err := a.ToEntityFunc(domain)
 	if err != nil {
 		return fmt.Errorf("failed to convert domain model to entity: %w", err)
 	}
 
 	_, err = a.collection.ReplaceOne(ctx,
-		filterByResourceId(a.KeyFunc(domain)),
+		a.filterByKey(a.KeyFunc(domain)),
 		entity,
 		options.Replace().SetUpsert(true),
 	)
@@ -142,12 +147,12 @@ func (a *commonAdapter[Domain]) put(ctx context.Context, domain *Domain) error {
 	return nil
 }
 
-func filterById(id primitive.ObjectID) bson.M {
-	return filterByField("_id", id)
+func (a *commonAdapter[Domain, KeyType]) filterByKey(key KeyType) bson.M {
+	return filterByField(a.keyFieldName, key)
 }
 
-func filterByResourceId(resourceId string) bson.M {
-	return filterByField("resourceId", resourceId)
+func filterById(id primitive.ObjectID) bson.M {
+	return filterByField("_id", id)
 }
 
 func filterByField(field string, value any) bson.M {

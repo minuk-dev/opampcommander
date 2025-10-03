@@ -19,8 +19,4 @@ type EntityCommon struct {
 	// It is used as the primary key in the database.
 	// IT is used internally and as a continueToken for pagination.
 	ID *primitive.ObjectID `bson:"_id,omitempty"`
-
-	// Name is the unique name of the entity.
-	// It is used as a human-readable identifier for the entity.
-	Name string `bson:"name"`
 }

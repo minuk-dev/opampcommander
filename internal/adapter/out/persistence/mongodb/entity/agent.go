@@ -8,7 +8,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/samber/lo"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 const (
@@ -18,8 +17,7 @@ const (
 
 // Agent is a struct that represents the MongoDB entity for an Agent.
 type Agent struct {
-	Version int                `bson:"version"`
-	ID      primitive.ObjectID `bson:"_id"`
+	EntityCommon `bson:",inline"`
 
 	InstanceUID         uuid.UUID                 `bson:"instance_uid"`
 	Capabilities        *AgentCapabilities        `bson:"capabilities,omitempty"`
@@ -280,7 +278,6 @@ func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
 // AgentFromDomain converts domain model to persistence model.
 func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 	return &Agent{
-		Version:             VersionV1,
 		InstanceUID:         agent.InstanceUID,
 		Capabilities:        AgentCapabilitiesFromDomain(agent.Capabilities),
 		Description:         AgentDescriptionFromDomain(agent.Description),
