@@ -15,41 +15,28 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-// ToEntityFunc is a function that converts a domain model to its corresponding entity representation.
-type ToEntityFunc[Domain any] func(domain *Domain) (Entity[Domain], error)
-
 // KeyFunc is a function that generates a unique key for a given domain model.
-type KeyFunc[Domain any, KeyType any] func(domain *Domain) KeyType
+type KeyFunc[Entity any, KeyType any] func(domain *Entity) KeyType
 
-// Entity is a generic interface that defines a method to convert an entity to its corresponding domain model.
-type Entity[Domain any] interface {
-	ToDomain() *Domain
+type commonEntityAdapter[Entity any, KeyType any] struct {
+	collection   *mongo.Collection
+	KeyFunc      KeyFunc[Entity, KeyType]
+	keyFieldName string
 }
 
-type commonAdapter[Domain any, KeyType any] struct {
-	collection            *mongo.Collection
-	CreateEmptyEntityFunc func() Entity[Domain]
-	ToEntityFunc          ToEntityFunc[Domain]
-	KeyFunc               KeyFunc[Domain, KeyType]
-	keyFieldName          string
-}
-
-func newCommonAdapter[Domain any, KeyType any](
+func newCommonAdapter[Entity any, KeyType any](
 	collection *mongo.Collection,
 	keyFieldName string,
-	toEntityFunc ToEntityFunc[Domain],
-	newEmptyEntityFunc func() Entity[Domain],
-	keyFunc KeyFunc[Domain, KeyType],
-) commonAdapter[Domain, KeyType] {
-	return commonAdapter[Domain, KeyType]{
-		collection:            collection,
-		CreateEmptyEntityFunc: newEmptyEntityFunc,
-		ToEntityFunc:          toEntityFunc,
-		KeyFunc:               keyFunc,
+	keyFunc KeyFunc[Entity, KeyType],
+) commonEntityAdapter[Entity, KeyType] {
+	return commonEntityAdapter[Entity, KeyType]{
+		collection:   collection,
+		keyFieldName: keyFieldName,
+		KeyFunc:      keyFunc,
 	}
 }
 
-func (a *commonAdapter[Domain, KeyType]) get(ctx context.Context, key KeyType) (*Domain, error) {
+func (a *commonEntityAdapter[Entity, KeyType]) get(ctx context.Context, key KeyType) (*Entity, error) {
 	result := a.collection.FindOne(ctx, a.filterByKey(key))
 	err := result.Err()
 	if err != nil {
@@ -59,21 +46,23 @@ func (a *commonAdapter[Domain, KeyType]) get(ctx context.Context, key KeyType) (
 		return nil, fmt.Errorf("failed to get resource from mongodb: %w", err)
 	}
 
-	var entity = a.CreateEmptyEntityFunc()
+	var entity Entity
 	err = result.Decode(&entity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode resource from mongodb: %w", err)
 	}
 
-	domain := entity.ToDomain()
-	return domain, nil
+	return &entity, nil
 }
 
-func (a *commonAdapter[Domain, KeyType]) list(ctx context.Context, options *domainmodel.ListOptions) (*domainmodel.ListResponse[*Domain], error) {
+func (a *commonEntityAdapter[Entity, KeyType]) list(ctx context.Context, options *domainmodel.ListOptions) (*domainmodel.ListResponse[*Entity], error) {
 	var count int64
 	var continueToken string
-	var domains []*Domain
+	var entities []*Entity
 	var wg sync.WaitGroup
+	if options == nil {
+		options = &domainmodel.ListOptions{}
+	}
 
 	var fErr error
 	var lErr error
@@ -89,24 +78,19 @@ func (a *commonAdapter[Domain, KeyType]) list(ctx context.Context, options *doma
 
 		defer cursor.Close(ctx)
 
-		var lastEntity *Entity[Domain] = nil
-		for cursor.Next(ctx) {
-			var entity = a.CreateEmptyEntityFunc()
-			err := cursor.Decode(&entity)
-			if err != nil {
-				fErr = fmt.Errorf("failed to decode resource from mongodb: %w", err)
-				return
-			}
-			lastEntity = &entity
-			domain := entity.ToDomain()
-			domains = append(domains, domain)
+		err = cursor.All(ctx, &entities)
+		if err != nil {
+			fErr = fmt.Errorf("failed to decode resources from mongodb: %w", err)
+			return
+		}
+		if len(entities) == 0 {
+			return
 		}
 
-		if lastEntity != nil {
-			idField := reflect.ValueOf(*lastEntity).Elem().FieldByName("ID")
-			idFieldValue := idField.Interface().(primitive.ObjectID)
-			continueToken = idFieldValue.String()
-		}
+		lastEntity := entities[len(entities)-1]
+		idField := reflect.ValueOf(lastEntity).Elem().FieldByName("ID")
+		idFieldValue := idField.Interface().(*primitive.ObjectID)
+		continueToken = idFieldValue.String()
 	})
 	wg.Go(func() {
 		cnt, err := a.collection.CountDocuments(ctx, withContinueToken(options.Continue))
@@ -122,21 +106,16 @@ func (a *commonAdapter[Domain, KeyType]) list(ctx context.Context, options *doma
 		return nil, fmt.Errorf("list operation failed: %v %v", fErr, lErr)
 	}
 
-	return &domainmodel.ListResponse[*Domain]{
-		Items:              domains,
+	return &domainmodel.ListResponse[*Entity]{
+		Items:              entities,
 		Continue:           continueToken,
-		RemainingItemCount: count - int64(len(domains)),
+		RemainingItemCount: count - int64(len(entities)),
 	}, nil
 }
 
-func (a *commonAdapter[Domain, KeyType]) put(ctx context.Context, domain *Domain) error {
-	entity, err := a.ToEntityFunc(domain)
-	if err != nil {
-		return fmt.Errorf("failed to convert domain model to entity: %w", err)
-	}
-
-	_, err = a.collection.ReplaceOne(ctx,
-		a.filterByKey(a.KeyFunc(domain)),
+func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *Entity) error {
+	_, err := a.collection.ReplaceOne(ctx,
+		a.filterByKey(a.KeyFunc(entity)),
 		entity,
 		options.Replace().SetUpsert(true),
 	)
@@ -147,12 +126,8 @@ func (a *commonAdapter[Domain, KeyType]) put(ctx context.Context, domain *Domain
 	return nil
 }
 
-func (a *commonAdapter[Domain, KeyType]) filterByKey(key KeyType) bson.M {
+func (a *commonEntityAdapter[Domain, KeyType]) filterByKey(key KeyType) bson.M {
 	return filterByField(a.keyFieldName, key)
-}
-
-func filterById(id primitive.ObjectID) bson.M {
-	return filterByField("_id", id)
 }
 
 func filterByField(field string, value any) bson.M {

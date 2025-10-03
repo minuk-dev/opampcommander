@@ -7,6 +7,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -19,7 +20,7 @@ const (
 // AgentGroupMongoAdapter is a struct that implements the AgentGroupPersistencePort interface.
 type AgentGroupMongoAdapter struct {
 	collection *mongo.Collection
-	common     commonAdapter[agentgroup.AgentGroup, string]
+	common     commonEntityAdapter[entity.AgentGroup, string]
 }
 
 // NewAgentGroupEtcdAdapter creates a new instance of AgentGroupEtcdAdapter.
@@ -27,26 +28,15 @@ func NewAgentGroupEtcdAdapter(
 	mongoDatabase *mongo.Database,
 ) *AgentGroupMongoAdapter {
 	collection := mongoDatabase.Collection(agentGroupCollectionName)
-	ToEntityFunc := func(domain *agentgroup.AgentGroup) (Entity[agentgroup.AgentGroup], error) {
-		return entity.AgentGroupFromDomain(domain), nil
-	}
-
-	CreateNewEmptyEntityFunc := func() Entity[agentgroup.AgentGroup] {
-		//exhaustruct:ignore
-		return &entity.AgentGroup{}
-	}
-
-	keyFunc := func(domain *agentgroup.AgentGroup) string {
-		return domain.Name
+	keyFunc := func(en *entity.AgentGroup) string {
+		return en.Name
 	}
 
 	return &AgentGroupMongoAdapter{
 		collection: collection,
 		common: newCommonAdapter(
 			collection,
-			"Name",
-			ToEntityFunc,
-			CreateNewEmptyEntityFunc,
+			entity.AgentGroupKeyFieldName,
 			keyFunc,
 		),
 	}
@@ -56,14 +46,29 @@ func NewAgentGroupEtcdAdapter(
 func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	ctx context.Context, name string,
 ) (*agentgroup.AgentGroup, error) {
-	return a.common.get(ctx, name)
+	entity, err := a.common.get(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return entity.ToDomain(), nil
 }
 
 // ListAgentGroups implements port.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) ListAgentGroups(
 	ctx context.Context, options *model.ListOptions,
 ) (*model.ListResponse[*agentgroup.AgentGroup], error) {
-	return a.common.list(ctx, options)
+	resp, err := a.common.list(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.ListResponse[*agentgroup.AgentGroup]{
+		Items: lo.Map(resp.Items, func(item *entity.AgentGroup, _ int) *agentgroup.AgentGroup {
+			return item.ToDomain()
+		}),
+		Continue:           resp.Continue,
+		RemainingItemCount: resp.RemainingItemCount,
+	}, nil
 }
 
 // PutAgentGroup implements port.AgentGroupPersistencePort.
@@ -75,5 +80,10 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	// TODO: name should be used to save the agent group with the given name.
 	// TODO: https://github.com/minuk-dev/opampcommander/issues/145
 	// Because some update operations may change the name of the agent group.
-	return a.common.put(ctx, agentGroup)
+	entity := entity.AgentGroupFromDomain(agentGroup)
+	err := a.common.put(ctx, entity)
+	if err != nil {
+		return err
+	}
+	return nil
 }

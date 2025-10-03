@@ -8,6 +8,10 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
+const (
+	AgentGroupKeyFieldName string = "name"
+)
+
 // AgentGroup is the etcd entity representation of the AgentGroup domain model.
 type AgentGroup struct {
 	EntityCommon `bson:",inline"`

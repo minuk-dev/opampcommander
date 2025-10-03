@@ -15,11 +15,13 @@ const (
 	VersionV1 = 1
 )
 
+const AgentKeyFieldName string = "instanceUid"
+
 // Agent is a struct that represents the MongoDB entity for an Agent.
 type Agent struct {
 	EntityCommon `bson:",inline"`
 
-	InstanceUID         uuid.UUID                 `bson:"instance_uid"`
+	InstanceUID         uuid.UUID                 `bson:"instanceUid"`
 	Capabilities        *AgentCapabilities        `bson:"capabilities,omitempty"`
 	Description         *AgentDescription         `bson:"description,omitempty"`
 	EffectiveConfig     *AgentEffectiveConfig     `bson:"effectiveConfig,omitempty"`
