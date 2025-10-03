@@ -19,7 +19,7 @@ const (
 // AgentGroupMongoAdapter is a struct that implements the AgentGroupPersistencePort interface.
 type AgentGroupMongoAdapter struct {
 	collection *mongo.Collection
-	common     commonAdapter[agentgroup.AgentGroup]
+	common     commonAdapter[agentgroup.AgentGroup, string]
 }
 
 // NewAgentGroupEtcdAdapter creates a new instance of AgentGroupEtcdAdapter.
@@ -44,6 +44,7 @@ func NewAgentGroupEtcdAdapter(
 		collection: collection,
 		common: newCommonAdapter(
 			collection,
+			"Name",
 			ToEntityFunc,
 			CreateNewEmptyEntityFunc,
 			keyFunc,

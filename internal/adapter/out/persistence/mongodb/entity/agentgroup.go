@@ -13,6 +13,7 @@ type AgentGroup struct {
 	EntityCommon `bson:",inline"`
 
 	UID        uuid.UUID         `bson:"uid"`
+	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes"`
 	Selector   AgentSelector     `bson:"selector"`
 	CreatedAt  time.Time         `bson:"createdAt"`
@@ -50,8 +51,8 @@ func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 		EntityCommon: EntityCommon{
 			Version: Version1,
 			ID:      nil, // ID will be set by MongoDB
-			Name:    agentgroup.Name,
 		},
+		Name:       agentgroup.Name,
 		UID:        agentgroup.UID,
 		Attributes: agentgroup.Attributes,
 		Selector: AgentSelector{

@@ -11,7 +11,6 @@ import (
 	k8sclock "k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/api/v1/agent"
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/application/mapper"
@@ -97,7 +96,7 @@ func (s *ManageService) ListAgentsByAgentGroup(
 	}
 
 	return v1agent.NewListResponse(
-		lo.Map(domainResp.Items, func(agent *model.Agent, _ int) agent.Agent {
+		lo.Map(domainResp.Items, func(agent *model.Agent, _ int) v1agent.Agent {
 			return *s.agentMapper.MapAgentToAPI(agent)
 		}),
 		v1.ListMeta{
@@ -190,7 +189,6 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	requestedBy *security.User,
 ) *domainagentgroup.AgentGroup {
 	return &domainagentgroup.AgentGroup{
-		Version:    domainagentgroup.Version1,
 		UID:        uuid.New(),
 		Name:       cmd.Name,
 		Attributes: domainagentgroup.Attributes(cmd.Attributes),
@@ -211,7 +209,6 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 	}
 
 	return &domainagentgroup.AgentGroup{
-		Version:    domainagentgroup.Version1,
 		UID:        api.UID,
 		Name:       api.Name,
 		Attributes: domainagentgroup.Attributes(api.Attributes),
