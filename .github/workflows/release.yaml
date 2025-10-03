@@ -23,7 +23,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.24
+          go-version: 1.25
       - name: Set flags based on ref type
         run: |
           if [[ "${{ github.ref }}" != refs/tags/v* ]]; then
