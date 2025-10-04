@@ -113,7 +113,7 @@ definitions:
       name:
         type: string
       selector:
-        $ref: '#/definitions/api_v1_agentgroup.AgentSelector'
+        $ref: '#/definitions/agentgroup.AgentSelector'
       uid:
         type: string
     type: object
@@ -124,7 +124,7 @@ definitions:
       name:
         type: string
       selector:
-        $ref: '#/definitions/api_v1_agentgroup.AgentSelector'
+        $ref: '#/definitions/agentgroup.AgentSelector'
     required:
     - name
     type: object
@@ -247,7 +247,7 @@ definitions:
       platform:
         type: string
     type: object
-  api_v1_agentgroup.AgentSelector:
+  agentgroup.AgentSelector:
     properties:
       identifyingAttributes:
         additionalProperties:
