@@ -66,9 +66,13 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(ctx context.Context, options
 
 	var fErr error
 	var lErr error
+	continueTokenObjectID, err := primitive.ObjectIDFromHex(options.Continue)
+	if err != nil && options.Continue != "" {
+		return nil, fmt.Errorf("invalid continue token: %w", err)
+	}
 	wg.Go(func() {
 		cursor, err := a.collection.Find(ctx,
-			withContinueToken(options.Continue),
+			withContinueToken(continueTokenObjectID),
 			withLimit(options.Limit),
 		)
 		if err != nil {
@@ -90,10 +94,10 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(ctx context.Context, options
 		lastEntity := entities[len(entities)-1]
 		idField := reflect.ValueOf(lastEntity).Elem().FieldByName("ID")
 		idFieldValue := idField.Interface().(*primitive.ObjectID)
-		continueToken = idFieldValue.String()
+		continueToken = idFieldValue.Hex()
 	})
 	wg.Go(func() {
-		cnt, err := a.collection.CountDocuments(ctx, withContinueToken(options.Continue))
+		cnt, err := a.collection.CountDocuments(ctx, withContinueToken(continueTokenObjectID))
 		if err != nil {
 			lErr = fmt.Errorf("failed to count resources in mongodb: %w", err)
 			return
@@ -134,17 +138,11 @@ func filterByField(field string, value any) bson.M {
 	return bson.M{field: value}
 }
 
-func withContinueToken(continueToken string) bson.M {
-	if continueToken == "" {
-		return bson.M{}
+func withContinueToken(continueToken primitive.ObjectID) bson.M {
+	if continueToken == primitive.NilObjectID {
+		return nil
 	}
-
-	objectID, err := primitive.ObjectIDFromHex(continueToken)
-	if err != nil {
-		panic(fmt.Sprintf("invalid continue token: %v", err))
-	}
-
-	return bson.M{"_id": bson.M{"$gt": objectID}}
+	return bson.M{"_id": bson.M{"$gt": continueToken}}
 }
 
 func withLimit(limit int64) *options.FindOptions {
