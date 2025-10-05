@@ -25,8 +25,8 @@ type AgentGroupMongoAdapter struct {
 	common     commonEntityAdapter[entity.AgentGroup, string]
 }
 
-// NewAgentGroupEtcdAdapter creates a new instance of AgentGroupEtcdAdapter.
-func NewAgentGroupEtcdAdapter(
+// NewAgentGroupRepository creates a new instance of AgentGroupMongoAdapter.
+func NewAgentGroupRepository(
 	mongoDatabase *mongo.Database,
 	logger *slog.Logger,
 ) *AgentGroupMongoAdapter {

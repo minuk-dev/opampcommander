@@ -123,8 +123,8 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&opt.configFilename, "config", "",
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
 	cmd.Flags().String("address", "localhost:8080", "server address")
-	cmd.Flags().String("database.type", "etcd", "etcd")
-	cmd.Flags().StringSlice("database.endpoints", []string{"localhost:2379"}, "etcd host")
+	cmd.Flags().String("database.type", "mongodb", "database type (etcd, mongodb)")
+	cmd.Flags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
 	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")

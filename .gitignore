@@ -5,3 +5,5 @@ scripts/etcd**
 **.code-workspace
 .vscode/**
 **/*.etcd
+**/*.mongodb
+default.mongodb/

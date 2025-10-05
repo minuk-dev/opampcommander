@@ -21,6 +21,27 @@ opampctl config init
 
 ## Development
 
+### Database Setup
+This project uses MongoDB as its database. The Makefile provides convenient commands to manage MongoDB:
+
+```sh
+# Start MongoDB (data persisted in ./default.mongodb)
+make start-mongodb
+
+# Stop MongoDB (data is preserved)
+make stop-mongodb
+
+# Clean MongoDB data (WARNING: removes all data)
+make clean-mongodb-data
+
+# Run dev server (automatically starts MongoDB)
+make run-dev-server
+```
+
+MongoDB data is stored in `./default.mongodb` directory and persists across container restarts.
+
+### Development Commands
+
 ```sh
 # run opampcommander's apiserver with default settings
 make dev
