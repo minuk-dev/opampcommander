@@ -28,7 +28,7 @@ var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
 type ManageService struct {
 	agentgroupUsecase domainport.AgentGroupUsecase
 	agentUsecase      domainport.AgentUsecase
-	agentMapper       mapper.Mapper
+	agentMapper       *mapper.Mapper
 	clock             clock.Clock
 	logger            *slog.Logger
 }
@@ -36,10 +36,13 @@ type ManageService struct {
 // NewManageService returns a new ManageService.
 func NewManageService(
 	agentgroupUsecase domainport.AgentGroupUsecase,
+	agentUsecase domainport.AgentUsecase,
 	logger *slog.Logger,
 ) *ManageService {
 	return &ManageService{
 		agentgroupUsecase: agentgroupUsecase,
+		agentUsecase:      agentUsecase,
+		agentMapper:       mapper.New(),
 		clock:             k8sclock.RealClock{},
 		logger:            logger,
 	}

@@ -4,17 +4,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
 const (
+	// AgentGroupKeyFieldName is the field name used as the key for AgentGroup entities in MongoDB.
 	AgentGroupKeyFieldName string = "name"
 )
 
 // AgentGroup is the etcd entity representation of the AgentGroup domain model.
 type AgentGroup struct {
-	EntityCommon `bson:",inline"`
+	Common `bson:",inline"`
 
 	UID        uuid.UUID         `bson:"uid"`
 	Name       string            `bson:"name"`
@@ -52,8 +54,8 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 // AgentGroupFromDomain converts the AgentGroup domain model to the entity representation.
 func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 	return &AgentGroup{
-		EntityCommon: EntityCommon{
-			Version: Version1,
+		Common: Common{
+			Version: VersionV1,
 			ID:      nil, // ID will be set by MongoDB
 		},
 		Name:       agentgroup.Name,

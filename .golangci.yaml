@@ -52,6 +52,8 @@ linters:
             - github.com/open-telemetry/opamp-go/server
             # Database
             - go.etcd.io/etcd/client/v3
+            - go.mongodb.org/mongo-driver/mongo
+            - go.mongodb.org/mongo-driver/bson
             # Utils
             - github.com/samber/lo
             - k8s.io/utils/clock
@@ -96,8 +98,10 @@ linters:
             - gotest.tools/icmd
             - go.uber.org/goleak
             - go.etcd.io/etcd/client/v3
+            - go.mongodb.org/mongo-driver/mongo
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/etcd
+            - github.com/testcontainers/testcontainers-go/modules/mongodb
             - github.com/testcontainers/testcontainers-go/wait
 formatters:
   enable:

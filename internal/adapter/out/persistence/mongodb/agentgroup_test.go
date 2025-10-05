@@ -1,4 +1,4 @@
-package mongodb
+package mongodb_test
 
 import (
 	"testing"
@@ -12,13 +12,16 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *AgentGroupMongoAdapter) {
+func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *mongodb.AgentGroupMongoAdapter) {
 	t.Helper()
+	base := testutil.NewBase(t)
 	ctx := t.Context()
 	mongoDBContainer, err := mongoTestContainer.Run(
 		ctx,
@@ -33,7 +36,7 @@ func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *AgentGroupMongoA
 	require.NoError(t, err)
 
 	database := client.Database("testdb_agentgroup")
-	agentGroupAdapter := NewAgentGroupEtcdAdapter(database)
+	agentGroupAdapter := mongodb.NewAgentGroupEtcdAdapter(database, base.Logger)
 
 	return client, agentGroupAdapter
 }
@@ -110,7 +113,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, 0, len(resp.Items))
+		assert.Empty(t, resp.Items)
 	})
 
 	t.Run("Single agent group in list", func(t *testing.T) {
@@ -138,7 +141,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, 1, len(resp.Items))
+		assert.Len(t, resp.Items, 1)
 		assert.Equal(t, agentGroup.UID, resp.Items[0].UID)
 		assert.Equal(t, agentGroup.Name, resp.Items[0].Name)
 	})
@@ -154,14 +157,14 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 
 		// given - create multiple groups
 		agentGroups := make([]*agentgroup.AgentGroup, 3)
-		for i := 0; i < 3; i++ {
+		for idx := range 3 {
 			agentGroup := agentgroup.New(
 				"group-"+uuid.NewString()[:8],
 				agentgroup.OfAttributes(map[string]string{"idx": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
-			agentGroups[i] = agentGroup
+			agentGroups[idx] = agentGroup
 			err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
 			require.NoError(t, err)
 		}
@@ -172,7 +175,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, 3, len(resp.Items))
+		assert.Len(t, resp.Items, 3)
 
 		// Check that all our agent groups are in the list
 		foundUIDs := make(map[uuid.UUID]bool)
@@ -195,7 +198,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		})
 
 		// given - create 5 groups
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			agentGroup := agentgroup.New(
 				"group-"+uuid.NewString()[:8],
 				agentgroup.OfAttributes(map[string]string{"i": uuid.NewString()}),
@@ -227,6 +230,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 			for _, item := range resp1.Items {
 				page1UIDs[item.UID] = true
 			}
+
 			for _, item := range resp2.Items {
 				assert.False(t, page1UIDs[item.UID], "UID %s should not appear in both pages", item.UID)
 			}

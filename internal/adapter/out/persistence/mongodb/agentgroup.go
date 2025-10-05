@@ -2,13 +2,15 @@ package mongodb
 
 import (
 	"context"
+	"log/slog"
+
+	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
-	"github.com/samber/lo"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var _ port.AgentGroupPersistencePort = (*AgentGroupMongoAdapter)(nil)
@@ -26,6 +28,7 @@ type AgentGroupMongoAdapter struct {
 // NewAgentGroupEtcdAdapter creates a new instance of AgentGroupEtcdAdapter.
 func NewAgentGroupEtcdAdapter(
 	mongoDatabase *mongo.Database,
+	logger *slog.Logger,
 ) *AgentGroupMongoAdapter {
 	collection := mongoDatabase.Collection(agentGroupCollectionName)
 	keyFunc := func(en *entity.AgentGroup) string {
@@ -35,6 +38,7 @@ func NewAgentGroupEtcdAdapter(
 	return &AgentGroupMongoAdapter{
 		collection: collection,
 		common: newCommonAdapter(
+			logger,
 			collection,
 			entity.AgentGroupKeyFieldName,
 			keyFunc,
@@ -50,6 +54,7 @@ func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	if err != nil {
 		return nil, err
 	}
+
 	return entity.ToDomain(), nil
 }
 
@@ -81,9 +86,11 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	// TODO: https://github.com/minuk-dev/opampcommander/issues/145
 	// Because some update operations may change the name of the agent group.
 	entity := entity.AgentGroupFromDomain(agentGroup)
+
 	err := a.common.put(ctx, entity)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }

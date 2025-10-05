@@ -48,6 +48,7 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 // AgentGroupFromDomain converts the AgentGroup domain model to the entity representation.
 func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 	return &AgentGroup{
+		Version:    VersionV1,
 		UID:        agentgroup.UID.String(),
 		Name:       agentgroup.Name,
 		Attributes: agentgroup.Attributes,

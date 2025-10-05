@@ -4,22 +4,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
+
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
-	"github.com/samber/lo"
 )
 
 const (
-	// VersionV1 represents the first version of the Agent entity.
-	VersionV1 = 1
+	// AgentKeyFieldName is the field name used as the key for Agent entities in MongoDB.
+	AgentKeyFieldName string = "instanceUid"
 )
-
-const AgentKeyFieldName string = "instanceUid"
 
 // Agent is a struct that represents the MongoDB entity for an Agent.
 type Agent struct {
-	EntityCommon `bson:",inline"`
+	Common `bson:",inline"`
 
 	InstanceUID         uuid.UUID                 `bson:"instanceUid"`
 	Capabilities        *AgentCapabilities        `bson:"capabilities,omitempty"`
@@ -280,6 +279,10 @@ func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
 // AgentFromDomain converts domain model to persistence model.
 func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 	return &Agent{
+		Common: Common{
+			Version: VersionV1,
+			ID:      nil, // ID will be set by MongoDB
+		},
 		InstanceUID:         agent.InstanceUID,
 		Capabilities:        AgentCapabilitiesFromDomain(agent.Capabilities),
 		Description:         AgentDescriptionFromDomain(agent.Description),

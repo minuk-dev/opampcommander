@@ -1,4 +1,4 @@
-package mongodb
+package mongodb_test
 
 import (
 	"testing"
@@ -11,9 +11,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 const (
@@ -25,6 +27,7 @@ const (
 func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
+	base := testutil.NewBase(t)
 	ctx := t.Context()
 	mongoDBContainer, err := mongoTestContainer.Run(
 		ctx,
@@ -43,7 +46,7 @@ func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 	})
 
 	database := client.Database("testdb")
-	agentRepository := NewAgentRepository(database)
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 	t.Run("Happy case", func(t *testing.T) {
 		t.Parallel()
@@ -92,6 +95,7 @@ func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
+	base := testutil.NewBase(t)
 
 	t.Run("Empty list when no agents exist", func(t *testing.T) {
 		t.Parallel()
@@ -113,7 +117,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		})
 
 		database := client.Database("testdb_empty")
-		agentRepository := NewAgentRepository(database)
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// when
 		listResponse, err := agentRepository.ListAgents(ctx, nil)
@@ -121,7 +125,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, listResponse)
-		assert.Equal(t, 0, len(listResponse.Items))
+		assert.Empty(t, listResponse.Items)
 	})
 
 	t.Run("Single agent in list", func(t *testing.T) {
@@ -144,7 +148,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		})
 
 		database := client.Database("testdb_single")
-		agentRepository := NewAgentRepository(database)
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		instanceUID := uuid.New()
 		agent := &model.Agent{
@@ -168,7 +172,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, listResponse)
-		assert.Equal(t, 1, len(listResponse.Items))
+		assert.Len(t, listResponse.Items, 1)
 		assert.Equal(t, instanceUID, listResponse.Items[0].InstanceUID)
 	})
 
@@ -192,11 +196,12 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		})
 
 		database := client.Database("testdb_multiple")
-		agentRepository := NewAgentRepository(database)
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// Create multiple agents
 		agents := make([]*model.Agent, 3)
-		for i := 0; i < 3; i++ {
+
+		for idx := range 3 {
 			instanceUID := uuid.New()
 			agent := &model.Agent{
 				InstanceUID:         instanceUID,
@@ -210,7 +215,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 				AvailableComponents: nil,
 				ReportFullState:     false,
 			}
-			agents[i] = agent
+			agents[idx] = agent
 			err = agentRepository.PutAgent(ctx, agent)
 			require.NoError(t, err)
 		}
@@ -221,7 +226,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		// then
 		require.NoError(t, err)
 		assert.NotNil(t, listResponse)
-		assert.Equal(t, 3, len(listResponse.Items))
+		assert.Len(t, listResponse.Items, 3)
 
 		// Check that all our agents are in the list
 		foundUIDs := make(map[uuid.UUID]bool)
@@ -254,10 +259,10 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		})
 
 		database := client.Database("testdb_pagination")
-		agentRepository := NewAgentRepository(database)
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// Create 5 agents
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			instanceUID := uuid.New()
 			agent := &model.Agent{
 				InstanceUID:         instanceUID,
@@ -277,7 +282,8 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 
 		// when - list with limit of 3
 		listOptions := &model.ListOptions{
-			Limit: 3,
+			Limit:    3,
+			Continue: "",
 		}
 		listResponse, err := agentRepository.ListAgents(ctx, listOptions)
 
@@ -296,6 +302,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
+	base := testutil.NewBase(t)
 
 	t.Run("Happy case", func(t *testing.T) {
 		t.Parallel()
@@ -317,7 +324,7 @@ func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 		})
 
 		database := client.Database("testdb")
-		agentRepository := NewAgentRepository(database)
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		instanceUID := uuid.New()
 		agent := &model.Agent{
@@ -349,6 +356,7 @@ func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
+	base := testutil.NewBase(t)
 	ctx := t.Context()
 	mongoDBContainer, err := mongoTestContainer.Run(
 		ctx,
@@ -367,7 +375,7 @@ func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 	})
 
 	database := client.Database("testdb")
-	agentRepository := NewAgentRepository(database)
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 	instanceUID := uuid.New()
 	// when

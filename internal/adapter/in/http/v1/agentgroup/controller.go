@@ -152,7 +152,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {array} Agent
-// @Param name path string true "Agent Group Name"
+// @Param name path string true "Agent Group Name".
 func (c *Controller) ListAgentsByAgentGroup(gCtx *gin.Context) {
 	limit, err := ginutil.GetQueryInt64(gCtx, "limit", 0)
 	if err != nil {
