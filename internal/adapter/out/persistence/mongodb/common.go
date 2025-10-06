@@ -73,11 +73,13 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	options *domainmodel.ListOptions,
 ) (*domainmodel.ListResponse[*Entity], error) {
 	var (
-		count         int64
-		continueToken string
-		entities      []*Entity
-		queryWg       sync.WaitGroup
+		// To prevent shadowing in goroutines, we use retval suffix.
+		countRetval         int64
+		continueTokenRetval string
+		entitiesRetval      []*Entity
 	)
+
+	var queryWg sync.WaitGroup
 
 	if options == nil {
 		//exhaustruct:ignore
@@ -102,12 +104,15 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 			return
 		}
 
-		continueToken, err = getContinueTokenFromEntities(entities)
+		continueToken, err := getContinueTokenFromEntities(entities)
 		if err != nil {
 			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
 
 			return
 		}
+
+		entitiesRetval = entities
+		continueTokenRetval = continueToken
 	})
 	queryWg.Go(func() {
 		cnt, err := a.collection.CountDocuments(ctx, withContinueToken(continueTokenObjectID))
@@ -117,7 +122,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 			return
 		}
 
-		count = cnt
+		countRetval = cnt
 	})
 	queryWg.Wait()
 
@@ -126,9 +131,9 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	}
 
 	return &domainmodel.ListResponse[*Entity]{
-		Items:              entities,
-		Continue:           continueToken,
-		RemainingItemCount: count - int64(len(entities)),
+		Items:              entitiesRetval,
+		Continue:           continueTokenRetval,
+		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
 	}, nil
 }
 
@@ -188,7 +193,7 @@ func getContinueTokenFromEntities[Entity any](entities []*Entity) (string, error
 	}
 
 	lastEntity := entities[len(entities)-1]
-	idField := reflect.ValueOf(lastEntity).Elem().FieldByName("_id")
+	idField := reflect.ValueOf(lastEntity).Elem().FieldByName("ID")
 
 	idFieldValue, ok := idField.Interface().(*primitive.ObjectID)
 	if !ok {

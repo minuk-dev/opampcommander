@@ -40,6 +40,17 @@ run-dev-server: build-dev start-mongodb
 	@sleep 2
 	go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
 
+debug-server: start-mongodb
+	@echo "Starting debug server with delve..."
+	@echo "MongoDB should be running. Connect your debugger to localhost:2345"
+	@sleep 2
+	dlv debug ./cmd/apiserver/main.go --headless --listen=:2345 --api-version=2 --accept-multiclient -- --config ./configs/apiserver/dev.yaml
+
+debug-server-console: start-mongodb
+	@echo "Starting debug server in console mode..."
+	@sleep 2
+	dlv debug ./cmd/apiserver/main.go -- --config ./configs/apiserver/dev.yaml
+
 build: prebuilt-doc
 	goreleaser build
 
