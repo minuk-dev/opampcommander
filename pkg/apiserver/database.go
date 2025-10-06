@@ -6,11 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	metricapi "go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -21,11 +19,9 @@ type Controller interface {
 	RoutesInfo() gin.RoutesInfo
 }
 
-// NewMongoDBClient creates a new MongoDB client with the given settings.
+// NewMongoDBClient creates a new MongoDB client with OpenTelemetry instrumentation.
 func NewMongoDBClient(
 	settings *config.ServerSettings,
-	_ metricapi.MeterProvider,
-	traceProvider trace.TracerProvider,
 	lifecycle fx.Lifecycle,
 ) (*mongo.Client, error) {
 	const defaultTimeout = 10 * time.Second
@@ -45,19 +41,10 @@ func NewMongoDBClient(
 		uri = "mongodb://localhost:27017"
 	}
 
-	tracer := traceProvider.Tracer("mongodb")
-
-	// Setup command monitoring for observability
-	cmdMonitor := &event.CommandMonitor{
-		Started: func(ctx context.Context, evt *event.CommandStartedEvent) {
-			_, span := tracer.Start(ctx, "mongodb."+evt.CommandName)
-			defer span.End()
-		},
-		Succeeded: func(_ context.Context, _ *event.CommandSucceededEvent) {},
-		Failed:    func(_ context.Context, _ *event.CommandFailedEvent) {},
-	}
-
-	clientOptions := options.Client().ApplyURI(uri).SetMonitor(cmdMonitor)
+	// Use OpenTelemetry MongoDB instrumentation
+	clientOptions := options.Client().
+		ApplyURI(uri).
+		SetMonitor(otelmongo.NewMonitor())
 
 	mongoClient, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
