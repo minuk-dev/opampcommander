@@ -22,10 +22,10 @@ opampctl config init
 ## Development
 
 ### Database Setup
-This project uses MongoDB as its database. The Makefile provides convenient commands to manage MongoDB:
+This project uses MongoDB 4.4 as its database (for Raspberry Pi compatibility). The Makefile provides convenient commands to manage MongoDB:
 
 ```sh
-# Start MongoDB (data persisted in ./default.mongodb)
+# Start MongoDB 4.4 (data persisted in ./default.mongodb)
 make start-mongodb
 
 # Stop MongoDB (data is preserved)
@@ -39,6 +39,8 @@ make run-dev-server
 ```
 
 MongoDB data is stored in `./default.mongodb` directory and persists across container restarts.
+
+**Note:** MongoDB 4.4 is used to ensure compatibility with Raspberry Pi ARM architecture.
 
 ### Development Commands
 

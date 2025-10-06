@@ -36,7 +36,7 @@ func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *mongodb.AgentGro
 	require.NoError(t, err)
 
 	database := client.Database("testdb_agentgroup")
-	agentGroupAdapter := mongodb.NewAgentGroupEtcdAdapter(database, base.Logger)
+	agentGroupAdapter := mongodb.NewAgentGroupRepository(database, base.Logger)
 
 	return client, agentGroupAdapter
 }

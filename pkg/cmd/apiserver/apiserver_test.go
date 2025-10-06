@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/mongodb"
 	"go.uber.org/goleak"
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/apiserver"
@@ -22,10 +24,30 @@ func TestMain(m *testing.M) {
 }
 
 func TestCommand(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
 
-	etcd := base.UseEtcd(nil)
+	ctx := context.Background()
+
+	// Start MongoDB container
+	mongodbContainer, err := mongodb.Run(ctx, "mongo:4.4")
+	if err != nil {
+		t.Fatalf("failed to start mongodb container: %v", err)
+	}
+
+	defer func() {
+		err := testcontainers.TerminateContainer(mongodbContainer)
+		if err != nil {
+			t.Logf("failed to terminate mongodb container: %v", err)
+		}
+	}()
+
+	mongoDBURI, err := mongodbContainer.ConnectionString(ctx)
+	if err != nil {
+		t.Fatalf("failed to get mongodb connection string: %v", err)
+	}
+
 	//exhaustruct:ignore
 	client := &http.Client{}
 
@@ -39,7 +61,8 @@ func TestCommand(t *testing.T) {
 
 	cmd.SetArgs([]string{
 		"--address", fmt.Sprintf("%s:%d", "localhost", port),
-		"--database.endpoints", *etcd.Endpoint,
+		"--database.type", "mongodb",
+		"--database.endpoints", mongoDBURI,
 	})
 
 	ctx, cancel := context.WithCancel(t.Context())

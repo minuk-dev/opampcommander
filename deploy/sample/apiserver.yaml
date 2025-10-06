@@ -81,9 +81,9 @@ data:
   config.yaml: |
     address: localhost:8080
     database:
-      type: "etcd"
+      type: "mongodb"
       endpoints:
-      - "etcd.opampcommander.svc.cluster.local.:2379"
+      - "mongodb://mongodb.opampcommander.svc.cluster.local:27017"
     metric:
       enabled: true
       type: prometheus

@@ -28,7 +28,9 @@ func GetFreeTCPPort() (int, error) {
 
 		listener, err = net.ListenTCP("tcp", tcpAddr)
 		if err == nil {
-			defer closeSilently(listener)
+			defer func() {
+				_ = listener.Close()
+			}()
 
 			tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 			if !ok {

@@ -13,8 +13,6 @@ type DatabaseSettings struct {
 type DatabaseType string
 
 const (
-	// DatabaseTypeEtcd represents an etcd database.
-	DatabaseTypeEtcd DatabaseType = "etcd"
 	// DatabaseTypeMongoDB represents a MongoDB database.
 	DatabaseTypeMongoDB DatabaseType = "mongodb"
 )

@@ -23,8 +23,8 @@ start-mongodb:
 	@docker run -d --name mongodb-dev \
 		-p 27017:27017 \
 		-v $(PWD)/default.mongodb:/data/db \
-		mongo:latest || docker start mongodb-dev
-	@echo "MongoDB started with data persisted in ./default.mongodb"
+		mongo:4.4 || docker start mongodb-dev
+	@echo "MongoDB 4.4 started with data persisted in ./default.mongodb"
 
 stop-mongodb:
 	@docker stop mongodb-dev || true

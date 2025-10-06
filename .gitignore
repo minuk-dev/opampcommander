@@ -1,9 +1,7 @@
 # Added by goreleaser init:
 dist/
 # Prevent mistake
-scripts/etcd**
 **.code-workspace
 .vscode/**
-**/*.etcd
 **/*.mongodb
 default.mongodb/
