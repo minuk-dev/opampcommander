@@ -1,6 +1,6 @@
 address: localhost:8080
 database:
-  type: "etcd"
+  type: "mongodb"
   endpoints:
   - "localhost:2379"
 metric:

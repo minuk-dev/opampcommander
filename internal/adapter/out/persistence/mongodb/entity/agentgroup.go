@@ -14,7 +14,7 @@ const (
 	AgentGroupKeyFieldName string = "name"
 )
 
-// AgentGroup is the etcd entity representation of the AgentGroup domain model.
+// AgentGroup is the mongo entity representation of the AgentGroup domain model.
 type AgentGroup struct {
 	Common `bson:",inline"`
 
