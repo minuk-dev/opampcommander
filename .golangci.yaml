@@ -11,6 +11,10 @@ linters:
         linters:
           - funlen
   settings:
+    gomoddirectives:
+      replace-local: true
+      replace-allow-list:
+        - go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo
     funlen:
       ignore-comments: true
     cyclop:
@@ -51,9 +55,10 @@ linters:
             - github.com/open-telemetry/opamp-go/protobufs
             - github.com/open-telemetry/opamp-go/server
             # Database
-            - go.mongodb.org/mongo-driver/mongo
-            - go.mongodb.org/mongo-driver/bson
-            - go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo
+            - go.mongodb.org/mongo-driver/v2/mongo
+            - go.mongodb.org/mongo-driver/v2/bson
+            - go.mongodb.org/mongo-driver/v2/event
+            - go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo
             # Utils
             - github.com/samber/lo
             - k8s.io/utils/clock
@@ -94,8 +99,8 @@ linters:
             - github.com/tidwall/gjson
             - gotest.tools/icmd
             - go.uber.org/goleak
-            - go.mongodb.org/mongo-driver/mongo
-            - go.mongodb.org/mongo-driver/bson
+            - go.mongodb.org/mongo-driver/v2/mongo
+            - go.mongodb.org/mongo-driver/v2/bson
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/mongodb
             - github.com/testcontainers/testcontainers-go/wait

@@ -3,9 +3,9 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/v2/event"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo"
@@ -28,16 +28,6 @@ func NewMongoDBClient(
 	traceProvider traceapi.TracerProvider,
 	lifecycle fx.Lifecycle,
 ) (*mongo.Client, error) {
-	const defaultTimeout = 10 * time.Second
-
-	timeout := settings.DatabaseSettings.ConnectTimeout
-	if timeout == 0 {
-		timeout = defaultTimeout
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
 	var uri string
 	if len(settings.DatabaseSettings.Endpoints) > 0 {
 		uri = settings.DatabaseSettings.Endpoints[0]
@@ -45,21 +35,10 @@ func NewMongoDBClient(
 		uri = "mongodb://localhost:27017"
 	}
 
-	monitor := otelmongo.NewMonitor(
-		otelmongo.WithMeterProvider(meterProvider),
-		otelmongo.WithTracerProvider(traceProvider),
-	)
-	meterCtx, meterCancel := context.WithCancel(NoInheritContext(ctx))
-
-	poolMonitor, err := otelmongo.NewPoolMonitor(
-		meterCtx,
-		"apiserver-mongo-pool",
-		otelmongo.WithPoolMeterProvider(meterProvider),
-	)
+	monitor, poolMonitor, err := getObservabilityForMongo(meterProvider, traceProvider, lifecycle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create mongo pool monitor: %w", err)
+		return nil, fmt.Errorf("failed to set observability to mongo client: %w", err)
 	}
-
 	// Use OpenTelemetry MongoDB instrumentation
 	clientOptions := options.Client().
 		ApplyURI(uri).
@@ -71,15 +50,22 @@ func NewMongoDBClient(
 		return nil, fmt.Errorf("mongo client init failed: %w", err)
 	}
 
-	err = mongoClient.Ping(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("mongo client ping failed: %w", err)
-	}
-
 	lifecycle.Append(fx.Hook{
-		OnStart: func(context.Context) error { return nil },
+		OnStart: func(ctx context.Context) error {
+			var cancel context.CancelFunc
+			if settings.DatabaseSettings.ConnectTimeout > 0 {
+				ctx, cancel = context.WithTimeout(ctx, settings.DatabaseSettings.ConnectTimeout)
+				defer cancel()
+			}
+
+			err := mongoClient.Ping(ctx, nil)
+			if err != nil {
+				return fmt.Errorf("mongo client ping failed: %w", err)
+			}
+
+			return nil
+		},
 		OnStop: func(ctx context.Context) error {
-			meterCancel()
 			err := mongoClient.Disconnect(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to disconnect mongo client: %w", err)
@@ -102,4 +88,35 @@ func NewMongoDatabase(
 	databaseName := "opampcommander"
 
 	return client.Database(databaseName)
+}
+
+func getObservabilityForMongo(
+	meterProvider metricapi.MeterProvider,
+	traceProvider traceapi.TracerProvider,
+	lifecycle fx.Lifecycle,
+) (*event.CommandMonitor, *event.PoolMonitor, error) {
+	monitor := otelmongo.NewMonitor(
+		otelmongo.WithMeterProvider(meterProvider),
+		otelmongo.WithTracerProvider(traceProvider),
+	)
+	meterCtx, meterCancel := context.WithCancel(context.Background())
+	lifecycle.Append(fx.Hook{
+		OnStart: nil,
+		OnStop: func(context.Context) error {
+			meterCancel()
+
+			return nil
+		},
+	})
+
+	poolMonitor, err := otelmongo.NewPoolMonitor(
+		meterCtx,
+		"apiserver-mongo-pool",
+		otelmongo.WithPoolMeterProvider(meterProvider),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create mongo pool monitor: %w", err)
+	}
+
+	return monitor, poolMonitor, nil
 }

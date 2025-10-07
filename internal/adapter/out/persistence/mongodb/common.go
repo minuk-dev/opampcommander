@@ -67,6 +67,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) get(ctx context.Context, key KeyT
 	return &entity, nil
 }
 
+//nolint:funlen // Reason: unavoidable.
 func (a *commonEntityAdapter[Entity, KeyType]) list(
 	ctx context.Context,
 	options *domainmodel.ListOptions,
