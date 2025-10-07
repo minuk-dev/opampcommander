@@ -1006,7 +1006,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "selector": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentSelector"
+                    "$ref": "#/definitions/agentgroup.AgentSelector"
                 },
                 "uid": {
                     "type": "string"
@@ -1026,7 +1026,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "selector": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentSelector"
+                    "$ref": "#/definitions/agentgroup.AgentSelector"
                 }
             }
         },
@@ -1202,7 +1202,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api_v1_agentgroup.AgentSelector": {
+        "agentgroup.AgentSelector": {
             "type": "object",
             "properties": {
                 "identifyingAttributes": {

@@ -6,23 +6,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-)
 
-const (
-	// Version1 is the initial version of the agent group.
-	Version1 = "1"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
-
-// Version represents the version of the agent group.
-type Version string
 
 // Attributes represents a map of attributes for the agent group.
 type Attributes map[string]string
 
 // AgentGroup represents a group of agents with their associated metadata.
 type AgentGroup struct {
-	// Version is the version of the agent group.
-	Version Version
 	// UID is the unique identifier for the agent group.
 	UID uuid.UUID
 	// Name is the name of the agent group.
@@ -30,7 +22,7 @@ type AgentGroup struct {
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
-	Selector AgentSelector
+	Selector model.AgentSelector
 	// CreatedAt is the timestamp when the agent group was created.
 	CreatedAt time.Time
 	// CreatedBy is the identifier of the user or system that created the agent group.
@@ -39,14 +31,6 @@ type AgentGroup struct {
 	DeletedAt *time.Time
 	// DeletedBy is the identifier of the user or system that deleted the agent group. It
 	DeletedBy *string
-}
-
-// AgentSelector defines the criteria for selecting agents to be included in the agent group.
-type AgentSelector struct {
-	// IdentifyingAttributes is a map of identifying attributes used to select agents.
-	IdentifyingAttributes map[string]string
-	// NonIdentifyingAttributes is a map of non-identifying attributes used to select agents.
-	NonIdentifyingAttributes map[string]string
 }
 
 // IsDeleted returns true if the agent group is marked as deleted.
@@ -69,11 +53,10 @@ func New(
 	createdBy string,
 ) *AgentGroup {
 	return &AgentGroup{
-		Version:    Version1,
 		UID:        uuid.New(),
 		Name:       name,
 		Attributes: attributes,
-		Selector: AgentSelector{
+		Selector: model.AgentSelector{
 			IdentifyingAttributes:    nil,
 			NonIdentifyingAttributes: nil,
 		},

@@ -23,8 +23,10 @@ type CommandOption struct {
 	// flags
 	Address  string `mapstructure:"address"`
 	Database struct {
-		Type      string   `mapstructure:"type"`
-		Endpoints []string `mapstructure:"endpoints"`
+		Type           string        `mapstructure:"type"`
+		Endpoints      []string      `mapstructure:"endpoints"`
+		ConnectTimeout time.Duration `mapstructure:"connectTimeout"`
+		DatabaseName   string        `mapstructure:"databaseName"`
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
 	Metric      struct {
@@ -88,7 +90,7 @@ type CommandOption struct {
 
 // NewCommand creates a new apiserver command.
 //
-//nolint:funlen
+//nolint:funlen,mnd
 func NewCommand(opt CommandOption) *cobra.Command {
 	if opt.viper == nil {
 		opt.viper = viper.New()
@@ -123,8 +125,10 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&opt.configFilename, "config", "",
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
 	cmd.Flags().String("address", "localhost:8080", "server address")
-	cmd.Flags().String("database.type", "etcd", "etcd")
-	cmd.Flags().StringSlice("database.endpoints", []string{"localhost:2379"}, "etcd host")
+	cmd.Flags().String("database.type", "mongodb", "database type (mongodb)")
+	cmd.Flags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
+	cmd.Flags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
+	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
 	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
@@ -202,8 +206,10 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address: opt.Address,
 		DatabaseSettings: appconfig.DatabaseSettings{
-			Type:      appconfig.DatabaseType(opt.Database.Type),
-			Endpoints: opt.Database.Endpoints,
+			Type:           appconfig.DatabaseType(opt.Database.Type),
+			Endpoints:      opt.Database.Endpoints,
+			ConnectTimeout: opt.Database.ConnectTimeout,
+			DatabaseName:   opt.Database.DatabaseName,
 		},
 		AuthSettings: appconfig.AuthSettings{
 			AdminSettings: appconfig.AdminSettings{

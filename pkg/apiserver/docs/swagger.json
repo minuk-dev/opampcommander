@@ -998,7 +998,7 @@
                     "type": "string"
                 },
                 "selector": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentSelector"
+                    "$ref": "#/definitions/agentgroup.AgentSelector"
                 },
                 "uid": {
                     "type": "string"
@@ -1018,7 +1018,7 @@
                     "type": "string"
                 },
                 "selector": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentSelector"
+                    "$ref": "#/definitions/agentgroup.AgentSelector"
                 }
             }
         },
@@ -1194,7 +1194,7 @@
                 }
             }
         },
-        "api_v1_agentgroup.AgentSelector": {
+        "agentgroup.AgentSelector": {
             "type": "object",
             "properties": {
                 "identifyingAttributes": {

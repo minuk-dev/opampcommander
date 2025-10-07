@@ -44,6 +44,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
+			Path:        "/api/v1/agentgroups/:name/agents",
+			Handler:     "http.v1.agentgroup.GetAgentByAgentGroup",
+			HandlerFunc: c.ListAgentsByAgentGroup,
+		},
+		{
+			Method:      http.MethodGet,
 			Path:        "/api/v1/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Get",
 			HandlerFunc: c.Get,
@@ -136,6 +142,47 @@ func (c *Controller) Get(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, agentGroup)
+}
+
+// ListAgentsByAgentGroup retrieves agents belonging to a specific agent group.
+//
+// @Summary List Agents by Agent Group
+// @Tags agentgroup
+// @Description Retrieve agents belonging to a specific agent group.
+// @Accept json
+// @Produce json
+// @Success 200 {array} Agent
+// @Param name path string true "Agent Group Name".
+func (c *Controller) ListAgentsByAgentGroup(gCtx *gin.Context) {
+	limit, err := ginutil.GetQueryInt64(gCtx, "limit", 0)
+	if err != nil {
+		c.logger.Error("failed to get limit from query", slog.String("error", err.Error()))
+		gCtx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit"})
+
+		return
+	}
+
+	continueToken := gCtx.Query("continue")
+	name := gCtx.Param("name")
+
+	agent, err := c.agentGroupUsecase.ListAgentsByAgentGroup(gCtx.Request.Context(), name, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
+	if err != nil {
+		if errors.Is(err, domainport.ErrResourceNotExist) {
+			gCtx.JSON(http.StatusNotFound, gin.H{"error": "agent group not found"})
+
+			return
+		}
+
+		c.logger.Error("failed to get agents by agent group", slog.String("error", err.Error()))
+		gCtx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		return
+	}
+
+	gCtx.JSON(http.StatusOK, agent)
 }
 
 // Create creates a new agent group.

@@ -1,4 +1,4 @@
 resources:
-  - etcd.yaml
+  - mongodb.yaml
   - apiserver.yaml
   - otel-collector.yaml

@@ -5,20 +5,27 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
 
-// AgentGroup is the etcd entity representation of the AgentGroup domain model.
+const (
+	// AgentGroupKeyFieldName is the field name used as the key for AgentGroup entities in MongoDB.
+	AgentGroupKeyFieldName string = "name"
+)
+
+// AgentGroup is the mongo entity representation of the AgentGroup domain model.
 type AgentGroup struct {
-	Version    string            `json:"version"`
-	UID        string            `json:"uid"`
-	Name       string            `json:"name"`
-	Attributes map[string]string `json:"attributes"`
-	Selector   AgentSelector     `json:"selector"`
-	CreatedAt  time.Time         `json:"createdAt"`
-	CreatedBy  string            `json:"createdBy"`
-	DeletedAt  *time.Time        `json:"deletedAt,omitempty"`
-	DeletedBy  *string           `json:"deletedBy,omitempty"`
+	Common `bson:",inline"`
+
+	UID        uuid.UUID         `bson:"uid"`
+	Name       string            `bson:"name"`
+	Attributes map[string]string `bson:"attributes"`
+	Selector   AgentSelector     `bson:"selector"`
+	CreatedAt  time.Time         `bson:"createdAt"`
+	CreatedBy  string            `bson:"createdBy"`
+	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
+	DeletedBy  *string           `bson:"deletedBy,omitempty"`
 }
 
 // AgentSelector defines the criteria for selecting agents to be included in the agent group.
@@ -30,11 +37,10 @@ type AgentSelector struct {
 // ToDomain converts the AgentGroup entity to the domain model.
 func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 	return &agentgroup.AgentGroup{
-		Version:    agentgroup.Version(e.Version),
-		UID:        uuid.MustParse(e.UID),
+		UID:        e.UID,
 		Name:       e.Name,
 		Attributes: e.Attributes,
-		Selector: agentgroup.AgentSelector{
+		Selector: model.AgentSelector{
 			IdentifyingAttributes:    e.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: e.Selector.NonIdentifyingAttributes,
 		},
@@ -48,9 +54,12 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 // AgentGroupFromDomain converts the AgentGroup domain model to the entity representation.
 func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 	return &AgentGroup{
-		Version:    string(agentgroup.Version),
-		UID:        agentgroup.UID.String(),
+		Common: Common{
+			Version: VersionV1,
+			ID:      nil, // ID will be set by MongoDB
+		},
 		Name:       agentgroup.Name,
+		UID:        agentgroup.UID,
 		Attributes: agentgroup.Attributes,
 		Selector: AgentSelector{
 			IdentifyingAttributes:    agentgroup.Selector.IdentifyingAttributes,

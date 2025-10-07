@@ -12,43 +12,41 @@ import (
 )
 
 const (
-	// VersionV1 is a magic number for version 1.
-	// This is used to identify the version of the agent.
-	VersionV1 = 1
+	// AgentKeyFieldName is the field name used as the key for Agent entities in MongoDB.
+	AgentKeyFieldName string = "instanceUid"
 )
 
-// Agent is a struct to manage agent information.
+// Agent is a struct that represents the MongoDB entity for an Agent.
 type Agent struct {
-	// Magic Number of version
-	Version int `json:"version"`
+	Common `bson:",inline"`
 
-	InstanceUID         uuid.UUID                 `json:"instanceUid"`
-	Capabilities        *AgentCapabilities        `json:"capabilities"`
-	Description         *AgentDescription         `json:"description"`
-	EffectiveConfig     *AgentEffectiveConfig     `json:"effectiveConfig"`
-	PackageStatuses     *AgentPackageStatuses     `json:"packageStatuses"`
-	ComponentHealth     *AgentComponentHealth     `json:"componentHealth"`
-	RemoteConfig        *AgentRemoteConfig        `json:"remoteConfig"`
-	CustomCapabilities  *AgentCustomCapabilities  `json:"customCapabilities"`
-	AvailableComponents *AgentAvailableComponents `json:"availableComponents"`
+	InstanceUID         uuid.UUID                 `bson:"instanceUid"`
+	Capabilities        *AgentCapabilities        `bson:"capabilities,omitempty"`
+	Description         *AgentDescription         `bson:"description,omitempty"`
+	EffectiveConfig     *AgentEffectiveConfig     `bson:"effectiveConfig,omitempty"`
+	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
+	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
+	RemoteConfig        *AgentRemoteConfig        `bson:"remoteConfig,omitempty"`
+	CustomCapabilities  *AgentCustomCapabilities  `bson:"customCapabilities,omitempty"`
+	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
 
-	ReportFullState bool `json:"reportFullState"`
+	ReportFullState bool `bson:"reportFullState"`
 }
 
 // AgentDescription is a struct to manage agent description.
 type AgentDescription struct {
-	IdentifyingAttributes    map[string]string `json:"identifyingAttributes"`
-	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`
+	IdentifyingAttributes    map[string]string `bson:"identifyingAttributes,omitempty"`
+	NonIdentifyingAttributes map[string]string `bson:"nonIdentifyingAttributes,omitempty"`
 }
 
 // AgentComponentHealth is a struct to manage component health.
 type AgentComponentHealth struct {
-	Healthy             bool                            `json:"healthy"`
-	StartTimeUnixMilli  int64                           `json:"startTimeUnixMilli"`
-	LastError           string                          `json:"lastError"`
-	Status              string                          `json:"status"`
-	StatusTimeUnixMilli int64                           `json:"statusTimeUnixMilli"`
-	ComponentHealthMap  map[string]AgentComponentHealth `json:"componentHealthMap"`
+	Healthy             bool                            `bson:"healthy"`
+	StartTimeUnixMilli  int64                           `bson:"startTimeUnixMilli"`
+	LastError           string                          `bson:"lastError"`
+	Status              string                          `bson:"status"`
+	StatusTimeUnixMilli int64                           `bson:"statusTimeUnixMilli"`
+	ComponentHealthMap  map[string]AgentComponentHealth `bson:"componentHealthMap,omitempty"`
 }
 
 // AgentCapabilities is a bitmask of capabilities that the Agent supports.
@@ -56,31 +54,31 @@ type AgentCapabilities uint64
 
 // AgentEffectiveConfig is a struct to manage effective config.
 type AgentEffectiveConfig struct {
-	ConfigMap AgentConfigMap `json:"configMap"`
+	ConfigMap AgentConfigMap `bson:"configMap"`
 }
 
 // AgentConfigMap is a struct to manage config map.
 type AgentConfigMap struct {
-	ConfigMap map[string]AgentConfigFile `json:"configMap"`
+	ConfigMap map[string]AgentConfigFile `bson:"configMap,omitempty"`
 }
 
 // AgentConfigFile is a struct to manage config file.
 type AgentConfigFile struct {
-	Body        []byte `json:"body"`
-	ContentType string `json:"contentType"`
+	Body        []byte `bson:"body"`
+	ContentType string `bson:"contentType"`
 }
 
 // AgentRemoteConfig is a struct to manage remote config.
 type AgentRemoteConfig struct {
-	RemoteConfigStatuses    []AgentRemoteConfigSub `json:"remoteConfigStatuses"`
-	LastErrorMessage        string                 `json:"lastErrorMessage"`
-	LastModifiedAtUnixMilli int64                  `json:"lastModifiedAtUnixMilli"`
+	RemoteConfigStatuses    []AgentRemoteConfigSub `bson:"remoteConfigStatuses"`
+	LastErrorMessage        string                 `bson:"lastErrorMessage"`
+	LastModifiedAtUnixMilli int64                  `bson:"lastModifiedAtUnixMilli"`
 }
 
 // AgentRemoteConfigSub is a struct to manage remote config status with key.
 type AgentRemoteConfigSub struct {
-	Key   []byte                      `json:"key"`
-	Value AgentRemoteConfigStatusEnum `json:"value"`
+	Key   []byte                      `bson:"key"`
+	Value AgentRemoteConfigStatusEnum `bson:"value"`
 }
 
 // AgentRemoteConfigStatusEnum is an enum that represents the status of the remote config.
@@ -88,19 +86,19 @@ type AgentRemoteConfigStatusEnum int32
 
 // AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
-	Packages                     map[string]AgentPackageStatus `json:"packages"`
-	ServerProvidedAllPackgesHash []byte                        `json:"serverProvidedAllPackgesHash"`
-	ErrorMessage                 string                        `json:"errorMessage"`
+	Packages                     map[string]AgentPackageStatus `bson:"packages"`
+	ServerProvidedAllPackgesHash []byte                        `bson:"serverProvidedAllPackgesHash"`
+	ErrorMessage                 string                        `bson:"errorMessage"`
 }
 
 // AgentPackageStatus is a status of a package.
 type AgentPackageStatus struct {
-	Name                 string                 `json:"name"`
-	AgentHasVersion      string                 `json:"agentHasVersion"`
-	AgentHasHash         []byte                 `json:"agentHasHash"`
-	ServerOfferedVersion string                 `json:"serverOfferedVersion"`
-	Status               AgentPackageStatusEnum `json:"status"`
-	ErrorMessage         string                 `json:"errorMessage"`
+	Name                 string                 `bson:"name"`
+	AgentHasVersion      string                 `bson:"agentHasVersion"`
+	AgentHasHash         []byte                 `bson:"agentHasHash"`
+	ServerOfferedVersion string                 `bson:"serverOfferedVersion"`
+	Status               AgentPackageStatusEnum `bson:"status"`
+	ErrorMessage         string                 `bson:"errorMessage"`
 }
 
 // AgentPackageStatusEnum is an enum that represents the status of a package.
@@ -108,19 +106,19 @@ type AgentPackageStatusEnum int32
 
 // AgentCustomCapabilities is a custom capabilities of the agent.
 type AgentCustomCapabilities struct {
-	Capabilities []string `json:"capabilities"`
+	Capabilities []string `bson:"capabilities"`
 }
 
 // AgentAvailableComponents is a map of available components.
 type AgentAvailableComponents struct {
-	Components map[string]ComponentDetails `json:"components"`
-	Hash       []byte                      `json:"hash"`
+	Components map[string]ComponentDetails `bson:"components"`
+	Hash       []byte                      `bson:"hash"`
 }
 
 // ComponentDetails is a details of a component.
 type ComponentDetails struct {
-	Metadata        map[string]string           `json:"metadata"`
-	SubComponentMap map[string]ComponentDetails `json:"subComponentMap"`
+	Metadata        map[string]string           `bson:"metadata"`
+	SubComponentMap map[string]ComponentDetails `bson:"subComponentMap"`
 }
 
 // ToDomain converts the Agent to domain model.
@@ -281,7 +279,10 @@ func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
 // AgentFromDomain converts domain model to persistence model.
 func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 	return &Agent{
-		Version:             VersionV1,
+		Common: Common{
+			Version: VersionV1,
+			ID:      nil, // ID will be set by MongoDB
+		},
 		InstanceUID:         agent.InstanceUID,
 		Capabilities:        AgentCapabilitiesFromDomain(agent.Capabilities),
 		Description:         AgentDescriptionFromDomain(agent.Description),

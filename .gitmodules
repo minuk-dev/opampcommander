@@ -1,0 +1,6 @@
+[submodule "otelmongo"]
+	path = otelmongo
+	url = git@github.com:minuk-dev/opentelemetry-go-contrib.git
+[submodule "opentelemetry-go-contrib"]
+	path = opentelemetry-go-contrib
+	url = git@github.com:minuk-dev/opentelemetry-go-contrib.git

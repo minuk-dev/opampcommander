@@ -15,7 +15,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
-	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/etcd"
+	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	adminApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/admin"
 	agentApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agent"
@@ -115,10 +115,11 @@ func NewOutPortModule() fx.Option {
 	return fx.Module(
 		"outport",
 		fx.Provide(
-			NewEtcdClient,
-			fx.Annotate(etcd.NewAgentEtcdAdapter, fx.As(new(domainport.AgentPersistencePort))),
-			fx.Annotate(etcd.NewAgentGroupEtcdAdapter, fx.As(new(domainport.AgentGroupPersistencePort))),
-			fx.Annotate(etcd.NewCommandEtcdAdapter, fx.As(new(domainport.CommandPersistencePort))),
+			NewMongoDBClient,
+			NewMongoDatabase,
+			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(domainport.AgentPersistencePort))),
+			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(domainport.AgentGroupPersistencePort))),
+			fx.Annotate(mongodb.NewCommandRepository, fx.As(new(domainport.CommandPersistencePort))),
 		),
 	)
 }
