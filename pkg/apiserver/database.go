@@ -81,11 +81,14 @@ func NewMongoDBClient(
 // NewMongoDatabase creates a new MongoDB database from the client.
 func NewMongoDatabase(
 	client *mongo.Client,
-	_ *config.ServerSettings,
+	settings *config.ServerSettings,
 ) *mongo.Database {
+	databaseName := settings.DatabaseSettings.DatabaseName
 	// Use a default database name if not specified
 	// You can extract database name from connection string or use a default
-	databaseName := "opampcommander"
+	if settings.DatabaseSettings.DatabaseName == "" {
+		databaseName = "opampcommander"
+	}
 
 	return client.Database(databaseName)
 }

@@ -7,6 +7,7 @@ type DatabaseSettings struct {
 	Type           DatabaseType
 	Endpoints      []string
 	ConnectTimeout time.Duration
+	DatabaseName   string
 }
 
 // DatabaseType represents the type of database to be used.
