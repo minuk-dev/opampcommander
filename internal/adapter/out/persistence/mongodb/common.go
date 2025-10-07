@@ -8,10 +8,9 @@ import (
 	"reflect"
 	"sync"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -91,7 +90,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 		lErr error
 	)
 
-	continueTokenObjectID, err := primitive.ObjectIDFromHex(options.Continue)
+	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
 	if err != nil && options.Continue != "" {
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
@@ -157,7 +156,7 @@ func listWithContinueTokenAndLimit[Entity any](
 	continueToken string,
 	limit int64,
 ) ([]*Entity, error) {
-	continueTokenObjectID, err := primitive.ObjectIDFromHex(continueToken)
+	continueTokenObjectID, err := bson.ObjectIDFromHex(continueToken)
 	if err != nil && continueToken != "" {
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
@@ -195,7 +194,7 @@ func getContinueTokenFromEntities[Entity any](entities []*Entity) (string, error
 	lastEntity := entities[len(entities)-1]
 	idField := reflect.ValueOf(lastEntity).Elem().FieldByName("ID")
 
-	idFieldValue, ok := idField.Interface().(*primitive.ObjectID)
+	idFieldValue, ok := idField.Interface().(*bson.ObjectID)
 	if !ok {
 		return "", ErrIDFieldNotExist
 	}
@@ -211,18 +210,20 @@ func filterByField(field string, value any) bson.M {
 	return bson.M{field: value}
 }
 
-func withContinueToken(continueToken primitive.ObjectID) bson.M {
-	if continueToken == primitive.NilObjectID {
+func withContinueToken(continueToken bson.ObjectID) bson.M {
+	if continueToken == bson.NilObjectID {
 		return nil
 	}
 
 	return bson.M{"_id": bson.M{"$gt": continueToken}}
 }
 
-func withLimit(limit int64) *options.FindOptions {
+func withLimit(limit int64) *options.FindOptionsBuilder {
 	if limit <= 0 {
 		return nil
 	}
+
+	options.Find().SetLimit(limit)
 
 	return options.Find().SetLimit(limit)
 }

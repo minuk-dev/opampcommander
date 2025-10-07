@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -38,7 +38,7 @@ func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		err := client.Disconnect(ctx)
@@ -109,7 +109,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 		require.NoError(t, err)
 
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			err := client.Disconnect(ctx)
@@ -140,7 +140,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 		require.NoError(t, err)
 
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			err := client.Disconnect(ctx)
@@ -188,7 +188,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 		require.NoError(t, err)
 
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			err := client.Disconnect(ctx)
@@ -251,7 +251,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 		require.NoError(t, err)
 
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			err := client.Disconnect(ctx)
@@ -316,7 +316,7 @@ func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 		require.NoError(t, err)
 
-		client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			err := client.Disconnect(ctx)
@@ -367,7 +367,7 @@ func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		err := client.Disconnect(ctx)

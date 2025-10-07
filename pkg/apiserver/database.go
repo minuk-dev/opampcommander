@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo"
+	metricapi "go.opentelemetry.io/otel/metric"
+	traceapi "go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -22,6 +24,8 @@ type Controller interface {
 // NewMongoDBClient creates a new MongoDB client with OpenTelemetry instrumentation.
 func NewMongoDBClient(
 	settings *config.ServerSettings,
+	meterProvider metricapi.MeterProvider,
+	traceProvider traceapi.TracerProvider,
 	lifecycle fx.Lifecycle,
 ) (*mongo.Client, error) {
 	const defaultTimeout = 10 * time.Second
@@ -41,12 +45,28 @@ func NewMongoDBClient(
 		uri = "mongodb://localhost:27017"
 	}
 
+	monitor := otelmongo.NewMonitor(
+		otelmongo.WithMeterProvider(meterProvider),
+		otelmongo.WithTracerProvider(traceProvider),
+	)
+	meterCtx, meterCancel := context.WithCancel(NoInheritContext(ctx))
+
+	poolMonitor, err := otelmongo.NewPoolMonitor(
+		meterCtx,
+		"apiserver-mongo-pool",
+		otelmongo.WithPoolMeterProvider(meterProvider),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mongo pool monitor: %w", err)
+	}
+
 	// Use OpenTelemetry MongoDB instrumentation
 	clientOptions := options.Client().
 		ApplyURI(uri).
-		SetMonitor(otelmongo.NewMonitor())
+		SetMonitor(monitor).
+		SetPoolMonitor(poolMonitor)
 
-	mongoClient, err := mongo.Connect(ctx, clientOptions)
+	mongoClient, err := mongo.Connect(clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("mongo client init failed: %w", err)
 	}
@@ -59,6 +79,7 @@ func NewMongoDBClient(
 	lifecycle.Append(fx.Hook{
 		OnStart: func(context.Context) error { return nil },
 		OnStop: func(ctx context.Context) error {
+			meterCancel()
 			err := mongoClient.Disconnect(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to disconnect mongo client: %w", err)

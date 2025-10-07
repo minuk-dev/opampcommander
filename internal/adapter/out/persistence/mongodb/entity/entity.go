@@ -1,7 +1,7 @@
 // Package entity contains common entity definitions for MongoDB persistence.
 package entity
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import "go.mongodb.org/mongo-driver/v2/bson"
 
 const (
 	// VersionV1 is the initial version of the agent group.
@@ -20,5 +20,5 @@ type Common struct {
 	// ID is the unique identifier of the entity.
 	// It is used as the primary key in the database.
 	// IT is used internally and as a continueToken for pagination.
-	ID *primitive.ObjectID `bson:"_id,omitempty"`
+	ID *bson.ObjectID `bson:"_id,omitempty"`
 }

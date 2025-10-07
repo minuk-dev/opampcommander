@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -32,7 +32,7 @@ func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *mongodb.AgentGro
 	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
 	require.NoError(t, err)
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoDBURI))
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
 	require.NoError(t, err)
 
 	database := client.Database("testdb_agentgroup")
