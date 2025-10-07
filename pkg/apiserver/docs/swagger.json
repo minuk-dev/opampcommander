@@ -1,1 +1,1221 @@
-{"swagger":"2.0","info":{"description":"This is the API server for OpAMP Commander, providing endpoints for managing OpAMP agents.","title":"OpAMP Commander API Server","termsOfService":"http://swagger.io/terms/","contact":{},"version":"1.0"},"paths":{"/api/v1/agentgroups":{"get":{"description":"Retrieves a list of agent groups with pagination options.","tags":["agentgroup"],"summary":"List Agent Groups","parameters":[{"type":"integer","description":"Maximum number of agent groups to return","name":"limit","in":"query"},{"type":"string","description":"Token to continue listing agent groups","name":"continue","in":"query"}],"responses":{"200":{"description":"OK","schema":{"type":"array","items":{"$ref":"#/definitions/AgentGroup"}}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}},"post":{"description":"Create a new agent group.","consumes":["application/json"],"produces":["application/json"],"tags":["agentgroup"],"summary":"Create Agent Group","parameters":[{"description":"Agent Group to create","name":"agentGroup","in":"body","required":true,"schema":{"$ref":"#/definitions/AgentGroupCreateRequest"}}],"responses":{"201":{"description":"Created","schema":{"$ref":"#/definitions/AgentGroup"}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/agentgroups/{name}":{"get":{"description":"Retrieve an agent group by its ID.","consumes":["application/json"],"produces":["application/json"],"tags":["agentgroup"],"summary":"Get Agent Group","parameters":[{"type":"string","description":"Agent Group Name","name":"name","in":"path","required":true}],"responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/AgentGroup"}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"404":{"description":"Not Found","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}},"put":{"description":"Update an existing agent group.","consumes":["application/json"],"produces":["application/json"],"tags":["agentgroup"],"summary":"Update Agent Group","parameters":[{"type":"string","description":"Agent Group Name","name":"name","in":"path","required":true},{"description":"Updated Agent Group","name":"agentGroup","in":"body","required":true,"schema":{"$ref":"#/definitions/AgentGroup"}}],"responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/AgentGroup"}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"404":{"description":"Not Found","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}},"delete":{"description":"Mark an agent group as deleted.","tags":["agentgroup"],"summary":"Delete Agent Group","parameters":[{"type":"string","description":"Agent Group ID","name":"name","in":"path","required":true}],"responses":{"204":{"description":"No Content"},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"404":{"description":"Not Found","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/agents":{"get":{"description":"Retrieve a list of agents.","consumes":["application/json"],"produces":["application/json"],"tags":["agent"],"summary":"List Agents","parameters":[{"type":"integer","description":"Maximum number of agents to return","name":"limit","in":"query"},{"type":"string","description":"Token to continue listing agents","name":"continue","in":"query"}],"responses":{"200":{"description":"OK","schema":{"type":"array","items":{"$ref":"#/definitions/Agent"}}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/agents/{id}":{"get":{"description":"Retrieve an agent by its instance UID.","consumes":["application/json"],"produces":["application/json"],"tags":["agent"],"summary":"Get Agent","parameters":[{"type":"string","description":"Instance UID of the agent","name":"id","in":"path","required":true}],"responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/Agent"}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"404":{"description":"Not Found","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/agents/{id}/update-agent-config":{"post":{"description":"Create a new command to update the agent configuration.","consumes":["application/json"],"produces":["application/json"],"tags":["agent"],"summary":"Update Agent Configuration","parameters":[{"type":"string","description":"Instance UID of the agent","name":"id","in":"path","required":true},{"description":"Request body containing the remote configuration","name":"request","in":"body","required":true,"schema":{"$ref":"#/definitions/UpdateAgentConfigRequest"}}],"responses":{"201":{"description":"Created","schema":{"$ref":"#/definitions/AgentCommand"}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/auth/basic":{"get":{"description":"Authenticate using basic auth credentials.","consumes":["application/json"],"produces":["application/json"],"tags":["auth","basic"],"summary":"Basic Authentication","responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/AuthnTokenResponse"}},"401":{"description":"Unauthorized","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/auth/github":{"get":{"description":"Returns the GitHub OAuth2 authentication URL.","consumes":["application/json"],"produces":["application/json"],"tags":["auth","github"],"summary":"GitHub OAuth2 Authentication","responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/OAuth2AuthCodeURLResponse"}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/auth/github/device":{"get":{"description":"Initiates device authorization for GitHub OAuth2.","consumes":["application/json"],"produces":["application/json"],"tags":["auth","github"],"summary":"GitHub Device Authentication","responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/DeviceAuthnTokenResponse"}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/auth/github/device/exchange":{"get":{"description":"Exchanges a device code for an authentication token.","consumes":["application/json"],"produces":["application/json"],"tags":["auth","github"],"summary":"GitHub Device Code Exchange","parameters":[{"type":"string","description":"Device code to exchange","name":"device_code","in":"query","required":true},{"type":"string","description":"Optional expiry time in RFC3339 format","name":"expiry","in":"query"}],"responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/AuthnTokenResponse"}},"400":{"description":"Bad Request","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/auth/info":{"get":{"description":"Get Authentication Info.","produces":["application/json"],"tags":["auth","basic"],"summary":"Info","responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/InfoResponse"}},"401":{"description":"Unauthorized","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/commands":{"get":{"description":"Retrieve a list of commands.","consumes":["application/json"],"produces":["application/json"],"tags":["command"],"summary":"List Commands","responses":{"200":{"description":"OK","schema":{"type":"array","items":{"$ref":"#/definitions/CommandAudit"}}},"500":{"description":"Failed to list commands","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/commands/{id}":{"get":{"description":"Retrieve a command by its ID.","consumes":["application/json"],"produces":["application/json"],"tags":["command"],"summary":"Get Command","parameters":[{"type":"string","description":"Command ID","name":"id","in":"path","required":true}],"responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/CommandAudit"}},"400":{"description":"Invalid command ID","schema":{"type":"object","additionalProperties":true}},"500":{"description":"Failed to get command","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/connections":{"get":{"description":"Retrieve a list of all connections.","consumes":["application/json"],"produces":["application/json"],"tags":["connection"],"summary":"List Connections","responses":{"200":{"description":"OK","schema":{"type":"array","items":{"$ref":"#/definitions/Connection"}}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/ping":{"get":{"description":"Ping the server to check if it is alive.","consumes":["application/json"],"produces":["application/json"],"tags":["ping"],"summary":"Ping","responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/PingResponse"}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/api/v1/version":{"get":{"description":"Retrieve the server version information.","consumes":["application/json"],"tags":["version"],"summary":"Get Server Version","responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/VersionInfo"}}}}},"/auth/github":{"get":{"description":"Redirects to GitHub for OAuth2 authentication.","consumes":["application/json"],"produces":["application/json"],"tags":["auth","github"],"summary":"GitHub OAuth2 Authentication","responses":{"302":{"description":"Found"},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}},"/auth/github/callback":{"get":{"description":"Exchanges the code received from GitHub for an authentication token.","consumes":["application/json"],"produces":["application/json"],"tags":["auth","github"],"summary":"GitHub OAuth2 Callback","parameters":[{"type":"string","description":"State parameter to prevent CSRF attacks","name":"state","in":"query","required":true},{"type":"string","description":"Code received from GitHub after authentication","name":"code","in":"query","required":true}],"responses":{"200":{"description":"OK","schema":{"$ref":"#/definitions/AuthnTokenResponse"}},"500":{"description":"Internal Server Error","schema":{"type":"object","additionalProperties":true}}}}}},"definitions":{"Agent":{"type":"object","properties":{"availableComponents":{"$ref":"#/definitions/AgentAvailableComponents"},"capabilities":{"description":"Capabilities is a bitmask representing the capabilities of the agent.\nIt is used to determine what features the agent supports.\nIf nil, it means the capabilities are unspecified.","type":"integer"},"componentHealth":{"description":"ComponentHealth is the health status of the agent's components.","allOf":[{"$ref":"#/definitions/AgentComponentHealth"}]},"customCapabilities":{"description":"CustomCapabilities is a map of custom capabilities for the agent.","allOf":[{"$ref":"#/definitions/AgentCustomCapabilities"}]},"description":{"description":"Description is a human-readable description of the agent.","allOf":[{"$ref":"#/definitions/AgentDescription"}]},"effectiveConfig":{"description":"EffectiveConfig is the effective configuration of the agent.\nIt is used to determine the current configuration of the agent.","allOf":[{"$ref":"#/definitions/AgentEffectiveConfig"}]},"instanceUid":{"description":"InstanceUID is a unique identifier for the agent instance.","type":"string"},"isManaged":{"description":"IsManaged indicates whether the agent is managed by the server.\nIf true, the server manages the agent and can send commands to it.","type":"boolean"},"packageStatuses":{"description":"PackageStatuses is a map of package statuses for the agent.","allOf":[{"$ref":"#/definitions/AgentPackageStatuses"}]},"remoteConfig":{"description":"RemoteConfig is the remote configuration of the agent.\nIt is used to determine the current remote configuration of the agent.","allOf":[{"$ref":"#/definitions/AgentRemoteConfig"}]}}},"AgentAvailableComponents":{"type":"object"},"AgentCommand":{"type":"object","properties":{"data":{"type":"object","additionalProperties":{}},"id":{"type":"string"},"kind":{"type":"string"},"targetInstanceUid":{"type":"string"}}},"AgentComponentHealth":{"type":"object"},"AgentConfigFile":{"type":"object","properties":{"body":{"type":"string"},"contentType":{"type":"string"}}},"AgentConfigMap":{"type":"object","properties":{"configMap":{"type":"object","additionalProperties":{"$ref":"#/definitions/AgentConfigFile"}}}},"AgentCustomCapabilities":{"type":"object"},"AgentDescription":{"type":"object","properties":{"identifyingAttributes":{"description":"IdentifyingAttributes are attributes that uniquely identify the agent.","type":"object","additionalProperties":{"type":"string"}},"nonIdentifyingAttributes":{"description":"NonIdentifyingAttributes are attributes that do not uniquely identify the agent.","type":"object","additionalProperties":{"type":"string"}}}},"AgentEffectiveConfig":{"type":"object","properties":{"configMap":{"$ref":"#/definitions/AgentConfigMap"}}},"AgentGroup":{"type":"object","properties":{"attributes":{"$ref":"#/definitions/api_v1_agentgroup.Attributes"},"createdAt":{"type":"string"},"createdBy":{"type":"string"},"deletedAt":{"type":"string"},"deletedBy":{"type":"string"},"name":{"type":"string"},"selector":{"$ref":"#/definitions/agentgroup.AgentSelector"},"uid":{"type":"string"}}},"AgentGroupCreateRequest":{"type":"object","required":["name"],"properties":{"attributes":{"$ref":"#/definitions/api_v1_agentgroup.Attributes"},"name":{"type":"string"},"selector":{"$ref":"#/definitions/agentgroup.AgentSelector"}}},"AgentPackageStatus":{"type":"object","properties":{"name":{"description":"Name is the name of the package.","type":"string"}}},"AgentPackageStatuses":{"type":"object","properties":{"errorMessage":{"type":"string"},"packages":{"type":"object","additionalProperties":{"$ref":"#/definitions/AgentPackageStatus"}},"serverProvidedAllPackagesHash":{"type":"string"}}},"AgentRemoteConfig":{"type":"object"},"AuthnTokenResponse":{"type":"object","properties":{"token":{"description":"Token is the authentication token.","type":"string"}}},"CommandAudit":{"type":"object","properties":{"data":{"type":"object","additionalProperties":{}},"id":{"type":"string"},"kind":{"type":"string"},"targetInstanceUid":{"type":"string"}}},"Connection":{"type":"object","properties":{"alive":{"type":"boolean"},"id":{"type":"string"},"instanceUid":{"type":"string"},"lastCommunicatedAt":{"type":"string"}}},"DeviceAuthnTokenResponse":{"type":"object","properties":{"deviceCode":{"description":"DeviceCode","type":"string"},"expiry":{"description":"Expiry is when the device code and user code expire","type":"string"},"interval":{"description":"Interval is the duration in seconds that Poll should wait between requests","type":"integer"},"userCode":{"description":"UserCode is the code the user should enter at the verification uri","type":"string"},"verificationUri":{"description":"VerificationURI is where user should enter the user code","type":"string"},"verificationUriComplete":{"description":"VerificationURIComplete (if populated) includes the user code in the verification URI.\nThis is typically shown to the user in non-textual form, such as a QR code.","type":"string"}}},"InfoResponse":{"type":"object","properties":{"authenticated":{"type":"boolean"},"email":{"type":"string"}}},"OAuth2AuthCodeURLResponse":{"type":"object","properties":{"url":{"description":"URL is the OAuth2 authorization URL.","type":"string"}}},"PingResponse":{"type":"object","properties":{"message":{"description":"Message is the response message.","type":"string"}}},"UpdateAgentConfigRequest":{"type":"object","required":["remoteConfig"],"properties":{"remoteConfig":{}}},"VersionInfo":{"type":"object","properties":{"buildDate":{"type":"string"},"compiler":{"type":"string"},"gitCommit":{"type":"string"},"gitTreeState":{"type":"string"},"gitVersion":{"type":"string"},"goVersion":{"type":"string"},"major":{"type":"string"},"minor":{"type":"string"},"platform":{"type":"string"}}},"agentgroup.AgentSelector":{"type":"object","properties":{"identifyingAttributes":{"type":"object","additionalProperties":{"type":"string"}},"nonIdentifyingAttributes":{"type":"object","additionalProperties":{"type":"string"}}}},"api_v1_agentgroup.Attributes":{"type":"object","additionalProperties":{"type":"string"}}}}
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "This is the API server for OpAMP Commander, providing endpoints for managing OpAMP agents.",
+        "title": "OpAMP Commander API Server",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {},
+        "version": "1.0"
+    },
+    "paths": {
+        "/api/v1/agentgroups": {
+            "get": {
+                "description": "Retrieves a list of agent groups with pagination options.",
+                "tags": [
+                    "agentgroup"
+                ],
+                "summary": "List Agent Groups",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of agent groups to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agent groups",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AgentGroup"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new agent group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentgroup"
+                ],
+                "summary": "Create Agent Group",
+                "parameters": [
+                    {
+                        "description": "Agent Group to create",
+                        "name": "agentGroup",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AgentGroupCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/AgentGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agentgroups/{name}": {
+            "get": {
+                "description": "Retrieve an agent group by its ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentgroup"
+                ],
+                "summary": "Get Agent Group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent Group Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing agent group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentgroup"
+                ],
+                "summary": "Update Agent Group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent Group Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated Agent Group",
+                        "name": "agentGroup",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AgentGroup"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Mark an agent group as deleted.",
+                "tags": [
+                    "agentgroup"
+                ],
+                "summary": "Delete Agent Group",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent Group ID",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agents": {
+            "get": {
+                "description": "Retrieve a list of agents.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "List Agents",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of agents to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agents",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Agent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agents/{id}": {
+            "get": {
+                "description": "Retrieve an agent by its instance UID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Get Agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UID of the agent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Agent"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agents/{id}/update-agent-config": {
+            "post": {
+                "description": "Create a new command to update the agent configuration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Update Agent Configuration",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UID of the agent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body containing the remote configuration",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateAgentConfigRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/AgentCommand"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/basic": {
+            "get": {
+                "description": "Authenticate using basic auth credentials.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "basic"
+                ],
+                "summary": "Basic Authentication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/github": {
+            "get": {
+                "description": "Returns the GitHub OAuth2 authentication URL.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Authentication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/OAuth2AuthCodeURLResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/github/device": {
+            "get": {
+                "description": "Initiates device authorization for GitHub OAuth2.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub Device Authentication",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/DeviceAuthnTokenResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/github/device/exchange": {
+            "get": {
+                "description": "Exchanges a device code for an authentication token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub Device Code Exchange",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Device code to exchange",
+                        "name": "device_code",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Optional expiry time in RFC3339 format",
+                        "name": "expiry",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/info": {
+            "get": {
+                "description": "Get Authentication Info.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "basic"
+                ],
+                "summary": "Info",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/InfoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/commands": {
+            "get": {
+                "description": "Retrieve a list of commands.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "command"
+                ],
+                "summary": "List Commands",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CommandAudit"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to list commands",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/commands/{id}": {
+            "get": {
+                "description": "Retrieve a command by its ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "command"
+                ],
+                "summary": "Get Command",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Command ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CommandAudit"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid command ID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to get command",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/connections": {
+            "get": {
+                "description": "Retrieve a list of all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connection"
+                ],
+                "summary": "List Connections",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Connection"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ping": {
+            "get": {
+                "description": "Ping the server to check if it is alive.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ping"
+                ],
+                "summary": "Ping",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PingResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/version": {
+            "get": {
+                "description": "Retrieve the server version information.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "version"
+                ],
+                "summary": "Get Server Version",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/VersionInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/github": {
+            "get": {
+                "description": "Redirects to GitHub for OAuth2 authentication.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Authentication",
+                "responses": {
+                    "302": {
+                        "description": "Found"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/github/callback": {
+            "get": {
+                "description": "Exchanges the code received from GitHub for an authentication token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Callback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "State parameter to prevent CSRF attacks",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Code received from GitHub after authentication",
+                        "name": "code",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "Agent": {
+            "type": "object",
+            "properties": {
+                "availableComponents": {
+                    "$ref": "#/definitions/AgentAvailableComponents"
+                },
+                "capabilities": {
+                    "description": "Capabilities is a bitmask representing the capabilities of the agent.\nIt is used to determine what features the agent supports.\nIf nil, it means the capabilities are unspecified.",
+                    "type": "integer"
+                },
+                "componentHealth": {
+                    "description": "ComponentHealth is the health status of the agent's components.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentComponentHealth"
+                        }
+                    ]
+                },
+                "customCapabilities": {
+                    "description": "CustomCapabilities is a map of custom capabilities for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentCustomCapabilities"
+                        }
+                    ]
+                },
+                "description": {
+                    "description": "Description is a human-readable description of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentDescription"
+                        }
+                    ]
+                },
+                "effectiveConfig": {
+                    "description": "EffectiveConfig is the effective configuration of the agent.\nIt is used to determine the current configuration of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentEffectiveConfig"
+                        }
+                    ]
+                },
+                "instanceUid": {
+                    "description": "InstanceUID is a unique identifier for the agent instance.",
+                    "type": "string"
+                },
+                "isManaged": {
+                    "description": "IsManaged indicates whether the agent is managed by the server.\nIf true, the server manages the agent and can send commands to it.",
+                    "type": "boolean"
+                },
+                "packageStatuses": {
+                    "description": "PackageStatuses is a map of package statuses for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentPackageStatuses"
+                        }
+                    ]
+                },
+                "remoteConfig": {
+                    "description": "RemoteConfig is the remote configuration of the agent.\nIt is used to determine the current remote configuration of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentRemoteConfig"
+                        }
+                    ]
+                }
+            }
+        },
+        "AgentAvailableComponents": {
+            "type": "object"
+        },
+        "AgentCommand": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "targetInstanceUid": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentComponentHealth": {
+            "type": "object"
+        },
+        "AgentConfigFile": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "contentType": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentConfigMap": {
+            "type": "object",
+            "properties": {
+                "configMap": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/AgentConfigFile"
+                    }
+                }
+            }
+        },
+        "AgentCustomCapabilities": {
+            "type": "object"
+        },
+        "AgentDescription": {
+            "type": "object",
+            "properties": {
+                "identifyingAttributes": {
+                    "description": "IdentifyingAttributes are attributes that uniquely identify the agent.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "nonIdentifyingAttributes": {
+                    "description": "NonIdentifyingAttributes are attributes that do not uniquely identify the agent.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "AgentEffectiveConfig": {
+            "type": "object",
+            "properties": {
+                "configMap": {
+                    "$ref": "#/definitions/AgentConfigMap"
+                }
+            }
+        },
+        "AgentGroup": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/api_v1_agentgroup.Attributes"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "type": "string"
+                },
+                "deletedBy": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "selector": {
+                    "$ref": "#/definitions/agentgroup.AgentSelector"
+                },
+                "uid": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentGroupCreateRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/api_v1_agentgroup.Attributes"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "selector": {
+                    "$ref": "#/definitions/agentgroup.AgentSelector"
+                }
+            }
+        },
+        "AgentPackageStatus": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name is the name of the package.",
+                    "type": "string"
+                }
+            }
+        },
+        "AgentPackageStatuses": {
+            "type": "object",
+            "properties": {
+                "errorMessage": {
+                    "type": "string"
+                },
+                "packages": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/AgentPackageStatus"
+                    }
+                },
+                "serverProvidedAllPackagesHash": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentRemoteConfig": {
+            "type": "object"
+        },
+        "AuthnTokenResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "description": "Token is the authentication token.",
+                    "type": "string"
+                }
+            }
+        },
+        "CommandAudit": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "targetInstanceUid": {
+                    "type": "string"
+                }
+            }
+        },
+        "Connection": {
+            "type": "object",
+            "properties": {
+                "alive": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "instanceUid": {
+                    "type": "string"
+                },
+                "lastCommunicatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "DeviceAuthnTokenResponse": {
+            "type": "object",
+            "properties": {
+                "deviceCode": {
+                    "description": "DeviceCode",
+                    "type": "string"
+                },
+                "expiry": {
+                    "description": "Expiry is when the device code and user code expire",
+                    "type": "string"
+                },
+                "interval": {
+                    "description": "Interval is the duration in seconds that Poll should wait between requests",
+                    "type": "integer"
+                },
+                "userCode": {
+                    "description": "UserCode is the code the user should enter at the verification uri",
+                    "type": "string"
+                },
+                "verificationUri": {
+                    "description": "VerificationURI is where user should enter the user code",
+                    "type": "string"
+                },
+                "verificationUriComplete": {
+                    "description": "VerificationURIComplete (if populated) includes the user code in the verification URI.\nThis is typically shown to the user in non-textual form, such as a QR code.",
+                    "type": "string"
+                }
+            }
+        },
+        "InfoResponse": {
+            "type": "object",
+            "properties": {
+                "authenticated": {
+                    "type": "boolean"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "OAuth2AuthCodeURLResponse": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "description": "URL is the OAuth2 authorization URL.",
+                    "type": "string"
+                }
+            }
+        },
+        "PingResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "description": "Message is the response message.",
+                    "type": "string"
+                }
+            }
+        },
+        "UpdateAgentConfigRequest": {
+            "type": "object",
+            "required": [
+                "remoteConfig"
+            ],
+            "properties": {
+                "remoteConfig": {}
+            }
+        },
+        "VersionInfo": {
+            "type": "object",
+            "properties": {
+                "buildDate": {
+                    "type": "string"
+                },
+                "compiler": {
+                    "type": "string"
+                },
+                "gitCommit": {
+                    "type": "string"
+                },
+                "gitTreeState": {
+                    "type": "string"
+                },
+                "gitVersion": {
+                    "type": "string"
+                },
+                "goVersion": {
+                    "type": "string"
+                },
+                "major": {
+                    "type": "string"
+                },
+                "minor": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                }
+            }
+        },
+        "agentgroup.AgentSelector": {
+            "type": "object",
+            "properties": {
+                "identifyingAttributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "nonIdentifyingAttributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "api_v1_agentgroup.Attributes": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        }
+    }
+}
