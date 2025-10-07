@@ -3,6 +3,8 @@ database:
   type: "mongodb"
   endpoints:
   - "mongodb://localhost:27017"
+  connectTimeout: 10s
+  databaseName: "opampcommander"
 metric:
   enabled: true
   type: prometheus

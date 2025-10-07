@@ -90,7 +90,7 @@ type CommandOption struct {
 
 // NewCommand creates a new apiserver command.
 //
-//nolint:funlen
+//nolint:funlen,mnd
 func NewCommand(opt CommandOption) *cobra.Command {
 	if opt.viper == nil {
 		opt.viper = viper.New()

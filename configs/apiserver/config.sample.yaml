@@ -2,7 +2,9 @@ address: localhost:8080
 database:
   type: "mongodb"
   endpoints:
-  - "localhost:2379"
+  - "mongodb://localhost:27017"
+  connectTimeout: 10s
+  databaseName: "opampcommander"
 metric:
   enabled: true
   type: prometheus
