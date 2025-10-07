@@ -19,30 +19,30 @@ func New() *Mapper {
 // MapAgentToAPI maps a domain model Agent to an API model Agent.
 func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 	return &v1agent.Agent{
-		InstanceUID:  agent.InstanceUID,
-		IsManaged:    agent.IsManaged(),
-		Capabilities: v1agent.Capabilities(switchIfNil(agent.Capabilities, 0)),
+		InstanceUID:  agent.Metadata.InstanceUID,
+		IsManaged:    agent.Spec.RemoteConfig.IsManaged(),
+		Capabilities: v1agent.Capabilities(agent.Metadata.Capabilities),
 		Description: v1agent.Description{
-			IdentifyingAttributes:    agent.Description.IdentifyingAttributes,
-			NonIdentifyingAttributes: agent.Description.NonIdentifyingAttributes,
+			IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
+			NonIdentifyingAttributes: agent.Metadata.Description.NonIdentifyingAttributes,
 		},
 		EffectiveConfig: v1agent.EffectiveConfig{
 			ConfigMap: v1agent.ConfigMap{
-				ConfigMap: lo.MapValues(agent.EffectiveConfig.ConfigMap.ConfigMap,
+				ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
 					func(value model.AgentConfigFile, _ string) v1agent.ConfigFile {
 						return mapper.mapConfigFileToAPI(value)
 					}),
 			},
 		},
 		PackageStatuses: v1agent.PackageStatuses{
-			Packages: lo.MapValues(agent.PackageStatuses.Packages,
+			Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
 				func(value model.AgentPackageStatus, _ string) v1agent.PackageStatus {
 					return v1agent.PackageStatus{
 						Name: value.Name,
 					}
 				}),
-			ServerProvidedAllPackagesHash: string(agent.PackageStatuses.ServerProvidedAllPackgesHash),
-			ErrorMessage:                  agent.PackageStatuses.ErrorMessage,
+			ServerProvidedAllPackagesHash: string(agent.Status.PackageStatuses.ServerProvidedAllPackgesHash),
+			ErrorMessage:                  agent.Status.PackageStatuses.ErrorMessage,
 		},
 		ComponentHealth:     v1agent.ComponentHealth{},
 		RemoteConfig:        v1agent.RemoteConfig{},
@@ -77,12 +77,4 @@ func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1age
 			ContentType: configFile.ContentType,
 		}
 	}
-}
-
-func switchIfNil[T any](value *T, defaultValue T) T {
-	if value == nil {
-		return defaultValue
-	}
-
-	return *value
 }

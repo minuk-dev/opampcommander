@@ -114,6 +114,12 @@ func (r *RemoteConfig) ApplyRemoteConfig(command Command) error {
 	return nil
 }
 
+// IsManaged returns whether the agent is managed by the server.
+// An agent is considered managed if it has any remote config commands.
+func (r *RemoteConfig) IsManaged() bool {
+	return len(r.RemoteConfigCommands) > 0
+}
+
 func (r *RemoteConfig) updateLastModifiedAt() {
 	r.LastModifiedAt = time.Now()
 }
