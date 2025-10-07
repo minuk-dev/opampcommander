@@ -24,6 +24,7 @@ type Agent struct {
 // You can optionally pass AgentOption functions to customize the agent.
 func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	agent := &Agent{
+		//exhaustruct:ignore
 		Metadata: AgentMetadata{
 			InstanceUID: instanceUID,
 		},
@@ -36,13 +37,16 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 					ConfigMap: make(map[string]AgentConfigFile),
 				},
 			},
+			//exhaustruct:ignore
 			PackageStatuses: AgentPackageStatuses{
 				Packages: make(map[string]AgentPackageStatus),
 			},
+			//exhaustruct:ignore
 			ComponentHealth: AgentComponentHealth{
 				StartTime:          time.Now(),
 				ComponentHealthMap: make(map[string]AgentComponentHealth),
 			},
+			//exhaustruct:ignore
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
@@ -133,6 +137,7 @@ func WithRemoteConfigStatus(remoteConfigStatus *AgentRemoteConfigStatus) AgentOp
 			if remoteConfigStatus.ErrorMessage != "" {
 				a.Spec.RemoteConfig.SetLastErrorMessage(remoteConfigStatus.ErrorMessage)
 			}
+
 			a.Spec.RemoteConfig.SetStatus(
 				vo.Hash(remoteConfigStatus.LastRemoteConfigHash),
 				remoteConfigStatus.Status,
@@ -177,7 +182,8 @@ type AgentStatus struct {
 	ComponentHealth     AgentComponentHealth
 	AvailableComponents AgentAvailableComponents
 
-	// TODO: LastCommunicationTime is the last time the agent communicated with the server.
+	// LastCommunicationTime is the last time the agent communicated with the server.
+	// TODO(minuk-dev): Implement LastCommunicationTime
 }
 
 type AgentCommands struct {
@@ -188,6 +194,7 @@ type AgentCommands struct {
 func (ac *AgentCommands) Clear() []AgentCommand {
 	commands := ac.Commands
 	ac.Commands = []AgentCommand{}
+
 	return commands
 }
 
@@ -208,6 +215,7 @@ func (ac *AgentCommands) HasReportFullStateCommand() bool {
 			return true
 		}
 	}
+
 	return false
 }
 

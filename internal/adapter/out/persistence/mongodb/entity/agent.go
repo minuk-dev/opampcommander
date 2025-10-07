@@ -165,9 +165,11 @@ func (a *Agent) ToDomain() *domainmodel.Agent {
 	if desc := a.Metadata.Description.ToDomain(); desc != nil {
 		agent.Metadata.Description = *desc
 	}
+
 	if caps := a.Metadata.Capabilities.ToDomain(); caps != nil {
 		agent.Metadata.Capabilities = *caps
 	}
+
 	if customCaps := a.Metadata.CustomCapabilities.ToDomain(); customCaps != nil {
 		agent.Metadata.CustomCapabilities = *customCaps
 	}
@@ -176,12 +178,15 @@ func (a *Agent) ToDomain() *domainmodel.Agent {
 	if effConfig := a.Status.EffectiveConfig.ToDomain(); effConfig != nil {
 		agent.Status.EffectiveConfig = *effConfig
 	}
+
 	if pkgStatuses := a.Status.PackageStatuses.ToDomain(); pkgStatuses != nil {
 		agent.Status.PackageStatuses = *pkgStatuses
 	}
+
 	if health := a.Status.ComponentHealth.ToDomain(); health != nil {
 		agent.Status.ComponentHealth = *health
 	}
+
 	if availComps := a.Status.AvailableComponents.ToDomain(); availComps != nil {
 		agent.Status.AvailableComponents = *availComps
 	}

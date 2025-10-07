@@ -14,43 +14,43 @@ import (
 // This is useful for creating an agent with initial state when it first connects.
 func newAgentFromAgentToServer(instanceUID uuid.UUID, agentToServer *protobufs.AgentToServer) *model.Agent {
 	capabilities := agentToServer.GetCapabilities()
-	
+
 	// Build options based on what's present in the message
 	opts := []model.AgentOption{}
-	
+
 	if desc := descToDomain(agentToServer.GetAgentDescription()); desc != nil {
 		opts = append(opts, model.WithDescription(desc))
 	}
-	
+
 	if capabilities != 0 {
 		caps := modelagent.Capabilities(capabilities)
 		opts = append(opts, model.WithCapabilities(&caps))
 	}
-	
+
 	if effConfig := effectiveConfigToDomain(agentToServer.GetEffectiveConfig()); effConfig != nil {
 		opts = append(opts, model.WithEffectiveConfig(effConfig))
 	}
-	
+
 	if health := healthToDomain(agentToServer.GetHealth()); health != nil {
 		opts = append(opts, model.WithComponentHealth(health))
 	}
-	
+
 	if rcStatus := remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus()); rcStatus != nil {
 		opts = append(opts, model.WithRemoteConfigStatus(rcStatus))
 	}
-	
+
 	if pkgStatuses := packageStatusToDomain(agentToServer.GetPackageStatuses()); pkgStatuses != nil {
 		opts = append(opts, model.WithPackageStatuses(pkgStatuses))
 	}
-	
+
 	if customCaps := customCapabilitiesToDomain(agentToServer.GetCustomCapabilities()); customCaps != nil {
 		opts = append(opts, model.WithCustomCapabilities(customCaps))
 	}
-	
+
 	if availComps := availableComponentsToDomain(agentToServer.GetAvailableComponents()); availComps != nil {
 		opts = append(opts, model.WithAvailableComponents(availComps))
 	}
-	
+
 	return model.NewAgent(instanceUID, opts...)
 }
 
