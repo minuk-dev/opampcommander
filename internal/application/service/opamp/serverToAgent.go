@@ -8,7 +8,7 @@ import (
 )
 
 // createServerToAgent creates a ServerToAgent message from the agent.
-func (s *Service) createServerToAgent(agent *model.Agent) (*protobufs.ServerToAgent, error) {
+func (s *Service) createServerToAgent(agent *model.Agent) *protobufs.ServerToAgent {
 	var flags uint64
 
 	// Request ReportFullState if:
@@ -27,7 +27,7 @@ func (s *Service) createServerToAgent(agent *model.Agent) (*protobufs.ServerToAg
 	return &protobufs.ServerToAgent{
 		InstanceUid: instanceUID[:],
 		Flags:       flags,
-	}, nil
+	}
 }
 
 // createFallbackServerToAgent creates a fallback ServerToAgent message.

@@ -200,7 +200,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		}
 
 		for _, agent := range agents {
-			assert.True(t, foundUIDs[agent.Metadata.InstanceUID], "Agent %s should be present in the list", agent.Metadata.InstanceUID)
+			assert.True(t, foundUIDs[agent.Metadata.InstanceUID])
 		}
 	})
 
@@ -341,5 +341,8 @@ func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 
 	// then
 	assert.Equal(t, originalAgent.Metadata.InstanceUID, loadedAgent.Metadata.InstanceUID)
-	assert.Equal(t, originalAgent.Status.EffectiveConfig.ConfigMap.ConfigMap, loadedAgent.Status.EffectiveConfig.ConfigMap.ConfigMap)
+	assert.Equal(t,
+		originalAgent.Status.EffectiveConfig.ConfigMap.ConfigMap,
+		loadedAgent.Status.EffectiveConfig.ConfigMap.ConfigMap,
+	)
 }

@@ -2,6 +2,7 @@ package model_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -12,8 +13,9 @@ import (
 
 func TestNewAgent(t *testing.T) {
 	t.Parallel()
-
 	t.Run("Create agent with default values", func(t *testing.T) {
+		t.Parallel()
+
 		instanceUID := uuid.New()
 		a := model.NewAgent(instanceUID)
 
@@ -27,8 +29,9 @@ func TestNewAgent(t *testing.T) {
 	})
 
 	t.Run("Create agent with description option", func(t *testing.T) {
+		t.Parallel()
+
 		instanceUID := uuid.New()
-		//exhaustruct:ignore
 		description := &agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
@@ -46,6 +49,8 @@ func TestNewAgent(t *testing.T) {
 	})
 
 	t.Run("Create agent with capabilities option", func(t *testing.T) {
+		t.Parallel()
+
 		instanceUID := uuid.New()
 		capabilities := agent.Capabilities(agent.AgentCapabilityReportsStatus | agent.AgentCapabilityAcceptsRemoteConfig)
 
@@ -56,8 +61,9 @@ func TestNewAgent(t *testing.T) {
 	})
 
 	t.Run("Create agent with multiple options", func(t *testing.T) {
+		t.Parallel()
+
 		instanceUID := uuid.New()
-		//exhaustruct:ignore
 		description := &agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
@@ -83,8 +89,10 @@ func TestNewAgent(t *testing.T) {
 }
 
 func TestAgentMetadata_IsComplete(t *testing.T) {
+	t.Parallel()
 	t.Run("Empty metadata is not complete", func(t *testing.T) {
-		//exhaustruct:ignore
+		t.Parallel()
+
 		metadata := model.AgentMetadata{
 			InstanceUID: uuid.New(),
 		}
@@ -93,10 +101,10 @@ func TestAgentMetadata_IsComplete(t *testing.T) {
 	})
 
 	t.Run("Metadata with only description is not complete", func(t *testing.T) {
-		//exhaustruct:ignore
+		t.Parallel()
+
 		metadata := model.AgentMetadata{
 			InstanceUID: uuid.New(),
-			//exhaustruct:ignore
 			Description: agent.Description{
 				IdentifyingAttributes: map[string]string{
 					"service.name": "test",
@@ -108,7 +116,8 @@ func TestAgentMetadata_IsComplete(t *testing.T) {
 	})
 
 	t.Run("Metadata with only capabilities is not complete", func(t *testing.T) {
-		//exhaustruct:ignore
+		t.Parallel()
+
 		metadata := model.AgentMetadata{
 			InstanceUID:  uuid.New(),
 			Capabilities: agent.Capabilities(agent.AgentCapabilityReportsStatus),
@@ -118,10 +127,10 @@ func TestAgentMetadata_IsComplete(t *testing.T) {
 	})
 
 	t.Run("Metadata with description and capabilities is complete", func(t *testing.T) {
-		//exhaustruct:ignore
+		t.Parallel()
+
 		metadata := model.AgentMetadata{
 			InstanceUID: uuid.New(),
-			//exhaustruct:ignore
 			Description: agent.Description{
 				IdentifyingAttributes: map[string]string{
 					"service.name": "test",
@@ -134,10 +143,10 @@ func TestAgentMetadata_IsComplete(t *testing.T) {
 	})
 
 	t.Run("Metadata with non-identifying attributes and capabilities is complete", func(t *testing.T) {
-		//exhaustruct:ignore
+		t.Parallel()
+
 		metadata := model.AgentMetadata{
 			InstanceUID: uuid.New(),
-			//exhaustruct:ignore
 			Description: agent.Description{
 				NonIdentifyingAttributes: map[string]string{
 					"os.type": "linux",
@@ -151,10 +160,11 @@ func TestAgentMetadata_IsComplete(t *testing.T) {
 }
 
 func TestAgentCommands_HasReportFullStateCommand(t *testing.T) {
+	t.Parallel()
 	t.Run("Empty commands returns false", func(t *testing.T) {
+		t.Parallel()
+
 		commands := model.AgentCommands{
-			//exhaustruct:ignore
-			//exhaustruct:ignore
 			Commands: []model.AgentCommand{},
 		}
 
@@ -162,14 +172,15 @@ func TestAgentCommands_HasReportFullStateCommand(t *testing.T) {
 	})
 
 	t.Run("Commands with ReportFullState returns true", func(t *testing.T) {
+		t.Parallel()
+
 		commands := model.AgentCommands{
-			//exhaustruct:ignore
-			//exhaustruct:ignore
-			//exhaustruct:ignore
 			Commands: []model.AgentCommand{
 				{
 					CommandID:       uuid.New(),
 					ReportFullState: true,
+					CreatedAt:       time.Now(),
+					CreatedBy:       "test",
 				},
 			},
 		}
@@ -178,14 +189,15 @@ func TestAgentCommands_HasReportFullStateCommand(t *testing.T) {
 	})
 
 	t.Run("Commands without ReportFullState returns false", func(t *testing.T) {
+		t.Parallel()
+
 		commands := model.AgentCommands{
-			//exhaustruct:ignore
-			//exhaustruct:ignore
-			//exhaustruct:ignore
 			Commands: []model.AgentCommand{
 				{
 					CommandID:       uuid.New(),
 					ReportFullState: false,
+					CreatedAt:       time.Now(),
+					CreatedBy:       "test",
 				},
 			},
 		}

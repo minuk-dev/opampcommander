@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
@@ -54,10 +55,10 @@ type AgentCommands struct {
 
 // AgentCommand represents a command to be sent to an agent.
 type AgentCommand struct {
-	CommandID       uuid.UUID `bson:"commandId"`
-	ReportFullState bool      `bson:"reportFullState"`
-	CreatedAt       int64     `bson:"createdAt"`
-	CreatedBy       string    `bson:"createdBy"`
+	CommandID       uuid.UUID     `bson:"commandId"`
+	ReportFullState bool          `bson:"reportFullState"`
+	CreatedAt       bson.DateTime `bson:"createdAt"`
+	CreatedBy       string        `bson:"createdBy"`
 }
 
 // AgentDescription is a struct to manage agent description.
@@ -150,48 +151,66 @@ type ComponentDetails struct {
 
 // ToDomain converts the Agent to domain model.
 func (a *Agent) ToDomain() *domainmodel.Agent {
-	agent := &domainmodel.Agent{
-		Metadata: domainmodel.AgentMetadata{
-			InstanceUID: a.Metadata.InstanceUID,
-		},
-		Spec: domainmodel.AgentSpec{
-			RemoteConfig: a.Spec.RemoteConfig.ToDomain(),
-		},
-		Status:   domainmodel.AgentStatus{},
+	return &domainmodel.Agent{
+		Metadata: a.Metadata.ToDmain(),
+		Spec:     a.Spec.ToDomain(),
+		Status:   a.Status.ToDomain(),
 		Commands: a.Commands.ToDomain(),
 	}
+}
 
-	// Handle nil pointers for Metadata
-	if desc := a.Metadata.Description.ToDomain(); desc != nil {
-		agent.Metadata.Description = *desc
+// ToDmain converts the AgentMetadata to domain model.
+func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
+	return domainmodel.AgentMetadata{
+		InstanceUID: metadata.InstanceUID,
+		Description: switchIfNil(
+			metadata.Description.ToDomain(),
+			//exhaustruct:ignore
+			agent.Description{},
+		),
+		Capabilities: switchIfNil(
+			metadata.Capabilities.ToDomain(),
+			agent.Capabilities(0),
+		),
+		CustomCapabilities: switchIfNil(
+			metadata.CustomCapabilities.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentCustomCapabilities{},
+		),
 	}
+}
 
-	if caps := a.Metadata.Capabilities.ToDomain(); caps != nil {
-		agent.Metadata.Capabilities = *caps
+// ToDomain converts the AgentSpec to domain model.
+func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
+	return domainmodel.AgentSpec{
+		RemoteConfig: spec.RemoteConfig.ToDomain(),
 	}
+}
 
-	if customCaps := a.Metadata.CustomCapabilities.ToDomain(); customCaps != nil {
-		agent.Metadata.CustomCapabilities = *customCaps
+// ToDomain converts the AgentStatus to domain model.
+func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
+	return domainmodel.AgentStatus{
+		EffectiveConfig: switchIfNil(
+			status.EffectiveConfig.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentEffectiveConfig{},
+		),
+		PackageStatuses: switchIfNil(
+			status.PackageStatuses.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentPackageStatuses{},
+		),
+		ComponentHealth: switchIfNil(
+			status.ComponentHealth.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentComponentHealth{},
+		),
+		AvailableComponents: switchIfNil(
+			status.AvailableComponents.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentAvailableComponents{},
+		),
 	}
-
-	// Handle nil pointers for Status
-	if effConfig := a.Status.EffectiveConfig.ToDomain(); effConfig != nil {
-		agent.Status.EffectiveConfig = *effConfig
-	}
-
-	if pkgStatuses := a.Status.PackageStatuses.ToDomain(); pkgStatuses != nil {
-		agent.Status.PackageStatuses = *pkgStatuses
-	}
-
-	if health := a.Status.ComponentHealth.ToDomain(); health != nil {
-		agent.Status.ComponentHealth = *health
-	}
-
-	if availComps := a.Status.AvailableComponents.ToDomain(); availComps != nil {
-		agent.Status.AvailableComponents = *availComps
-	}
-
-	return agent
 }
 
 // ToDomain converts the AgentCommands to domain model.
@@ -207,7 +226,7 @@ func (ac *AgentCommands) ToDomain() domainmodel.AgentCommands {
 		commands = append(commands, domainmodel.AgentCommand{
 			CommandID:       cmd.CommandID,
 			ReportFullState: cmd.ReportFullState,
-			CreatedAt:       time.UnixMilli(cmd.CreatedAt),
+			CreatedAt:       cmd.CreatedAt.Time(),
 			CreatedBy:       cmd.CreatedBy,
 		})
 	}
@@ -382,19 +401,19 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 }
 
 // AgentCommandsFromDomain converts domain model to persistence model.
-func AgentCommandsFromDomain(ac *domainmodel.AgentCommands) AgentCommands {
-	if ac == nil {
+func AgentCommandsFromDomain(domain *domainmodel.AgentCommands) AgentCommands {
+	if domain == nil {
 		return AgentCommands{
 			Commands: []AgentCommand{},
 		}
 	}
 
-	commands := make([]AgentCommand, 0, len(ac.Commands))
-	for _, cmd := range ac.Commands {
+	commands := make([]AgentCommand, 0, len(domain.Commands))
+	for _, cmd := range domain.Commands {
 		commands = append(commands, AgentCommand{
 			CommandID:       cmd.CommandID,
 			ReportFullState: cmd.ReportFullState,
-			CreatedAt:       cmd.CreatedAt.UnixMilli(),
+			CreatedAt:       bson.NewDateTimeFromTime(cmd.CreatedAt),
 			CreatedBy:       cmd.CreatedBy,
 		})
 	}

@@ -168,12 +168,7 @@ func (s *Service) OnMessage(
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
 	}
 
-	response, err := s.createServerToAgent(agent)
-	if err != nil {
-		logger.Error("failed to create serverToAgent", slog.String("error", err.Error()))
-
-		return s.createFallbackServerToAgent(instanceUID)
-	}
+	response := s.createServerToAgent(agent)
 
 	logger.Info("end successfully")
 

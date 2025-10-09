@@ -10,6 +10,8 @@ linters:
       - path: _test\.go
         linters:
           - funlen
+          - varnamelen
+          - exhaustruct
   settings:
     gomoddirectives:
       replace-local: true
