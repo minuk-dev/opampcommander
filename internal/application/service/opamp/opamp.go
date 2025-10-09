@@ -168,7 +168,7 @@ func (s *Service) OnMessage(
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
 	}
 
-	response := s.createServerToAgent(agent)
+	response := s.fetchServerToAgent(agent)
 
 	logger.Info("end successfully")
 

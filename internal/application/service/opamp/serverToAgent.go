@@ -7,8 +7,8 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
-// createServerToAgent creates a ServerToAgent message from the agent.
-func (s *Service) createServerToAgent(agent *model.Agent) *protobufs.ServerToAgent {
+// fetchServerToAgent creates a ServerToAgent message from the agent.
+func (s *Service) fetchServerToAgent(agent *model.Agent) *protobufs.ServerToAgent {
 	var flags uint64
 
 	// Request ReportFullState if:
