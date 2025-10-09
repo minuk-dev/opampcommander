@@ -163,21 +163,12 @@ func (s *Service) OnMessage(
 		logger.Error("failed to report agent", slog.String("error", err.Error()))
 	}
 
-	if !agent.IsManaged() {
-		agent.SetReportFullState(true)
-	}
-
 	err = s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
 	}
 
-	response, err := s.createServerToAgent(agent)
-	if err != nil {
-		logger.Error("failed to create serverToAgent", slog.String("error", err.Error()))
-
-		return s.createFallbackServerToAgent(instanceUID)
-	}
+	response := s.fetchServerToAgent(agent)
 
 	logger.Info("end successfully")
 

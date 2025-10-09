@@ -33,7 +33,7 @@ func NewAgentRepository(
 ) *AgentRepository {
 	collection := mongoDatabase.Collection(agentCollectionName)
 	keyFunc := func(domain *entity.Agent) uuid.UUID {
-		return domain.InstanceUID
+		return domain.Metadata.InstanceUID
 	}
 
 	return &AgentRepository{

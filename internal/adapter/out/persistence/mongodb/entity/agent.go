@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
@@ -13,24 +14,51 @@ import (
 
 const (
 	// AgentKeyFieldName is the field name used as the key for Agent entities in MongoDB.
-	AgentKeyFieldName string = "instanceUid"
+	AgentKeyFieldName string = "metadata.instanceUid"
 )
 
 // Agent is a struct that represents the MongoDB entity for an Agent.
 type Agent struct {
 	Common `bson:",inline"`
 
-	InstanceUID         uuid.UUID                 `bson:"instanceUid"`
-	Capabilities        *AgentCapabilities        `bson:"capabilities,omitempty"`
-	Description         *AgentDescription         `bson:"description,omitempty"`
+	Metadata AgentMetadata `bson:"metadata"`
+	Spec     AgentSpec     `bson:"spec"`
+	Status   AgentStatus   `bson:"status"`
+	Commands AgentCommands `bson:"commands"`
+}
+
+// AgentMetadata represents the metadata of an agent.
+type AgentMetadata struct {
+	InstanceUID        uuid.UUID                `bson:"instanceUid"`
+	Capabilities       *AgentCapabilities       `bson:"capabilities,omitempty"`
+	Description        *AgentDescription        `bson:"description,omitempty"`
+	CustomCapabilities *AgentCustomCapabilities `bson:"customCapabilities,omitempty"`
+}
+
+// AgentSpec represents the desired specification of an agent.
+type AgentSpec struct {
+	RemoteConfig *AgentRemoteConfig `bson:"remoteConfig,omitempty"`
+}
+
+// AgentStatus represents the current status of an agent.
+type AgentStatus struct {
 	EffectiveConfig     *AgentEffectiveConfig     `bson:"effectiveConfig,omitempty"`
 	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
 	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
-	RemoteConfig        *AgentRemoteConfig        `bson:"remoteConfig,omitempty"`
-	CustomCapabilities  *AgentCustomCapabilities  `bson:"customCapabilities,omitempty"`
 	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
+}
 
-	ReportFullState bool `bson:"reportFullState"`
+// AgentCommands represents the commands to be sent to an agent.
+type AgentCommands struct {
+	Commands []AgentCommand `bson:"commands"`
+}
+
+// AgentCommand represents a command to be sent to an agent.
+type AgentCommand struct {
+	CommandID       uuid.UUID     `bson:"commandId"`
+	ReportFullState bool          `bson:"reportFullState"`
+	CreatedAt       bson.DateTime `bson:"createdAt"`
+	CreatedBy       string        `bson:"createdBy"`
 }
 
 // AgentDescription is a struct to manage agent description.
@@ -124,17 +152,87 @@ type ComponentDetails struct {
 // ToDomain converts the Agent to domain model.
 func (a *Agent) ToDomain() *domainmodel.Agent {
 	return &domainmodel.Agent{
-		InstanceUID:         a.InstanceUID,
-		Capabilities:        a.Capabilities.ToDomain(),
-		Description:         a.Description.ToDomain(),
-		EffectiveConfig:     a.EffectiveConfig.ToDomain(),
-		PackageStatuses:     a.PackageStatuses.ToDomain(),
-		ComponentHealth:     a.ComponentHealth.ToDomain(),
-		RemoteConfig:        a.RemoteConfig.ToDomain(),
-		CustomCapabilities:  a.CustomCapabilities.ToDomain(),
-		AvailableComponents: a.AvailableComponents.ToDomain(),
+		Metadata: a.Metadata.ToDmain(),
+		Spec:     a.Spec.ToDomain(),
+		Status:   a.Status.ToDomain(),
+		Commands: a.Commands.ToDomain(),
+	}
+}
 
-		ReportFullState: a.ReportFullState,
+// ToDmain converts the AgentMetadata to domain model.
+func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
+	return domainmodel.AgentMetadata{
+		InstanceUID: metadata.InstanceUID,
+		Description: switchIfNil(
+			metadata.Description.ToDomain(),
+			//exhaustruct:ignore
+			agent.Description{},
+		),
+		Capabilities: switchIfNil(
+			metadata.Capabilities.ToDomain(),
+			agent.Capabilities(0),
+		),
+		CustomCapabilities: switchIfNil(
+			metadata.CustomCapabilities.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentCustomCapabilities{},
+		),
+	}
+}
+
+// ToDomain converts the AgentSpec to domain model.
+func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
+	return domainmodel.AgentSpec{
+		RemoteConfig: spec.RemoteConfig.ToDomain(),
+	}
+}
+
+// ToDomain converts the AgentStatus to domain model.
+func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
+	return domainmodel.AgentStatus{
+		EffectiveConfig: switchIfNil(
+			status.EffectiveConfig.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentEffectiveConfig{},
+		),
+		PackageStatuses: switchIfNil(
+			status.PackageStatuses.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentPackageStatuses{},
+		),
+		ComponentHealth: switchIfNil(
+			status.ComponentHealth.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentComponentHealth{},
+		),
+		AvailableComponents: switchIfNil(
+			status.AvailableComponents.ToDomain(),
+			//exhaustruct:ignore
+			domainmodel.AgentAvailableComponents{},
+		),
+	}
+}
+
+// ToDomain converts the AgentCommands to domain model.
+func (ac *AgentCommands) ToDomain() domainmodel.AgentCommands {
+	if ac == nil {
+		return domainmodel.AgentCommands{
+			Commands: []domainmodel.AgentCommand{},
+		}
+	}
+
+	commands := make([]domainmodel.AgentCommand, 0, len(ac.Commands))
+	for _, cmd := range ac.Commands {
+		commands = append(commands, domainmodel.AgentCommand{
+			CommandID:       cmd.CommandID,
+			ReportFullState: cmd.ReportFullState,
+			CreatedAt:       cmd.CreatedAt.Time(),
+			CreatedBy:       cmd.CreatedBy,
+		})
+	}
+
+	return domainmodel.AgentCommands{
+		Commands: commands,
 	}
 }
 
@@ -283,17 +381,45 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			Version: VersionV1,
 			ID:      nil, // ID will be set by MongoDB
 		},
-		InstanceUID:         agent.InstanceUID,
-		Capabilities:        AgentCapabilitiesFromDomain(agent.Capabilities),
-		Description:         AgentDescriptionFromDomain(agent.Description),
-		EffectiveConfig:     AgentEffectiveConfigFromDomain(agent.EffectiveConfig),
-		PackageStatuses:     AgentPackageStatusesFromDomain(agent.PackageStatuses),
-		ComponentHealth:     AgentComponentHealthFromDomain(agent.ComponentHealth),
-		RemoteConfig:        AgentRemoteConfigFromDomain(agent.RemoteConfig),
-		CustomCapabilities:  AgentCustomCapabilitiesFromDomain(agent.CustomCapabilities),
-		AvailableComponents: AgentAvailableComponentsFromDomain(agent.AvailableComponents),
+		Metadata: AgentMetadata{
+			InstanceUID:        agent.Metadata.InstanceUID,
+			Capabilities:       AgentCapabilitiesFromDomain(&agent.Metadata.Capabilities),
+			Description:        AgentDescriptionFromDomain(&agent.Metadata.Description),
+			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),
+		},
+		Spec: AgentSpec{
+			RemoteConfig: AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
+		},
+		Status: AgentStatus{
+			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
+			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
+			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
+			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
+		},
+		Commands: AgentCommandsFromDomain(&agent.Commands),
+	}
+}
 
-		ReportFullState: agent.ReportFullState,
+// AgentCommandsFromDomain converts domain model to persistence model.
+func AgentCommandsFromDomain(domain *domainmodel.AgentCommands) AgentCommands {
+	if domain == nil {
+		return AgentCommands{
+			Commands: []AgentCommand{},
+		}
+	}
+
+	commands := make([]AgentCommand, 0, len(domain.Commands))
+	for _, cmd := range domain.Commands {
+		commands = append(commands, AgentCommand{
+			CommandID:       cmd.CommandID,
+			ReportFullState: cmd.ReportFullState,
+			CreatedAt:       bson.NewDateTimeFromTime(cmd.CreatedAt),
+			CreatedBy:       cmd.CreatedBy,
+		})
+	}
+
+	return AgentCommands{
+		Commands: commands,
 	}
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -39,23 +38,12 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*mo
 }
 
 // GetOrCreateAgent retrieves an agent by its instance UID.
+// If the agent doesn't exist, it creates a new one with default values.
 func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
 	agent, err := s.GetAgent(ctx, instanceUID)
 	if err != nil {
 		if errors.Is(err, port.ErrResourceNotExist) {
-			agent = &model.Agent{
-				InstanceUID:         instanceUID,
-				Capabilities:        nil,
-				Description:         nil,
-				EffectiveConfig:     nil,
-				PackageStatuses:     nil,
-				ComponentHealth:     nil,
-				RemoteConfig:        remoteconfig.New(),
-				CustomCapabilities:  nil,
-				AvailableComponents: nil,
-
-				ReportFullState: false,
-			}
+			agent = model.NewAgent(instanceUID)
 		} else {
 			return nil, fmt.Errorf("failed to get agent: %w", err)
 		}
