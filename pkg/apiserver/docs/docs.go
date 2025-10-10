@@ -1007,9 +1007,6 @@ const docTemplate = `{
                 },
                 "selector": {
                     "$ref": "#/definitions/agentgroup.AgentSelector"
-                },
-                "uid": {
-                    "type": "string"
                 }
             }
         },
