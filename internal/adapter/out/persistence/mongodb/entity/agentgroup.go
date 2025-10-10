@@ -3,8 +3,6 @@ package entity
 import (
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 )
@@ -18,7 +16,6 @@ const (
 type AgentGroup struct {
 	Common `bson:",inline"`
 
-	UID        uuid.UUID         `bson:"uid"`
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes"`
 	Selector   AgentSelector     `bson:"selector"`
@@ -37,7 +34,6 @@ type AgentSelector struct {
 // ToDomain converts the AgentGroup entity to the domain model.
 func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 	return &agentgroup.AgentGroup{
-		UID:        e.UID,
 		Name:       e.Name,
 		Attributes: e.Attributes,
 		Selector: model.AgentSelector{
@@ -59,7 +55,6 @@ func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 			ID:      nil, // ID will be set by MongoDB
 		},
 		Name:       agentgroup.Name,
-		UID:        agentgroup.UID,
 		Attributes: agentgroup.Attributes,
 		Selector: AgentSelector{
 			IdentifyingAttributes:    agentgroup.Selector.IdentifyingAttributes,

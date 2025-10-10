@@ -63,8 +63,44 @@ type AgentCommand struct {
 
 // AgentDescription is a struct to manage agent description.
 type AgentDescription struct {
-	IdentifyingAttributes    map[string]string `bson:"identifyingAttributes,omitempty"`
-	NonIdentifyingAttributes map[string]string `bson:"nonIdentifyingAttributes,omitempty"`
+	IdentifyingAttributes    KeyValuePairs `bson:"identifyingAttributes,omitempty"`
+	NonIdentifyingAttributes KeyValuePairs `bson:"nonIdentifyingAttributes,omitempty"`
+}
+
+// KeyValuePair is a struct to manage key-value pairs.
+type KeyValuePair struct {
+	Key   string `bson:"key"`
+	Value string `bson:"value"`
+}
+
+// KeyValuePairs is a slice of KeyValuePair.
+type KeyValuePairs []KeyValuePair
+
+// ToMap converts KeyValuePairs to a map.
+func (kvs KeyValuePairs) ToMap() map[string]string {
+	m := make(map[string]string, len(kvs))
+	for _, kv := range kvs {
+		m[kv.Key] = kv.Value
+	}
+
+	return m
+}
+
+// MapToKeyValuePairs converts a map to KeyValuePairs.
+func MapToKeyValuePairs(input map[string]string) KeyValuePairs {
+	if input == nil {
+		return nil
+	}
+
+	kvs := make(KeyValuePairs, 0, len(input))
+	for k, v := range input {
+		kvs = append(kvs, KeyValuePair{
+			Key:   k,
+			Value: v,
+		})
+	}
+
+	return kvs
 }
 
 // AgentComponentHealth is a struct to manage component health.
@@ -252,8 +288,8 @@ func (ad *AgentDescription) ToDomain() *agent.Description {
 	}
 
 	return &agent.Description{
-		IdentifyingAttributes:    ad.IdentifyingAttributes,
-		NonIdentifyingAttributes: ad.NonIdentifyingAttributes,
+		IdentifyingAttributes:    ad.IdentifyingAttributes.ToMap(),
+		NonIdentifyingAttributes: ad.NonIdentifyingAttributes.ToMap(),
 	}
 }
 
@@ -439,8 +475,8 @@ func AgentDescriptionFromDomain(ads *agent.Description) *AgentDescription {
 	}
 
 	return &AgentDescription{
-		IdentifyingAttributes:    ads.IdentifyingAttributes,
-		NonIdentifyingAttributes: ads.NonIdentifyingAttributes,
+		IdentifyingAttributes:    MapToKeyValuePairs(ads.IdentifyingAttributes),
+		NonIdentifyingAttributes: MapToKeyValuePairs(ads.NonIdentifyingAttributes),
 	}
 }
 

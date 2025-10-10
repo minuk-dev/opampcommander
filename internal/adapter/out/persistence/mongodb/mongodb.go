@@ -11,19 +11,68 @@ import (
 	"go.uber.org/fx"
 )
 
-func InitialMongoDBCollection(
+//nolint:gochecknoglobals // These are constants for collection names and indexes.
+var (
+	collections = []string{
+		agentCollectionName,
+		agentGroupCollectionName,
+	}
+
+	indexes = []collectionAndIndexes{
+		{
+			collectionName: agentCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.instanceUid", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.description.identifyingAttributes.key", Value: 1},
+						{Key: "metadata.description.identifyingAttributes.value", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.description.nonIdentifyingAttributes.key", Value: 1},
+						{Key: "metadata.description.nonIdentifyingAttributes.value", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: agentGroupCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "name", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+	}
+)
+
+// EnsureSchema ensures that the necessary collections and indexes exist in the MongoDB database.
+func EnsureSchema(
 	database *mongo.Database,
 	lifecycle fx.Lifecycle,
 ) error {
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			collections := []string{
-				agentCollectionName,
-				agentGroupCollectionName,
-			}
 			err := createNonExistingCollections(ctx, database, collections)
 			if err != nil {
 				return fmt.Errorf("failed to create non-existing collections: %w", err)
+			}
+
+			err = createIndexes(ctx, database, indexes)
+			if err != nil {
+				return fmt.Errorf("failed to create indexes: %w", err)
 			}
 
 			return nil
@@ -58,51 +107,22 @@ func createNonExistingCollections(
 	return nil
 }
 
-func createNonExistingIndexes(
+type collectionAndIndexes struct {
+	collectionName string
+	indexes        []mongo.IndexModel
+}
+
+func createIndexes(
 	ctx context.Context,
 	database *mongo.Database,
-	collectionName string,
-	indexes []mongo.IndexModel,
+	indexes []collectionAndIndexes,
 ) error {
-	collection := database.Collection(collectionName)
+	for _, ci := range indexes {
+		collection := database.Collection(ci.collectionName)
 
-	existingIndexesCursor, err := collection.Indexes().List(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list existing indexes: %w", err)
-	}
-	defer existingIndexesCursor.Close(ctx)
-
-	existingIndexes := make(map[string]struct{})
-	for existingIndexesCursor.Next(ctx) {
-		var indexInfo bson.M
-		if err := existingIndexesCursor.Decode(&indexInfo); err != nil {
-			return fmt.Errorf("failed to decode index info: %w", err)
-		}
-		if name, ok := indexInfo["name"].(string); ok {
-			existingIndexes[name] = struct{}{}
-		}
-	}
-
-	var indexesToCreate []mongo.IndexModel
-	for _, index := range indexes {
-		indexName, err := index.Options.Name, error(nil)
-		if indexName == nil {
-			indexName, err = mongo.IndexName(index.Keys)
-			if err != nil {
-				return fmt.Errorf("failed to generate index name: %w", err)
-			}
-			index.Options.Name = &indexName
-		}
-
-		if _, exists := existingIndexes[*indexName]; !exists {
-			indexesToCreate = append(indexesToCreate, index)
-		}
-	}
-
-	if len(indexesToCreate) > 0 {
-		_, err := collection.Indexes().CreateMany(ctx, indexesToCreate)
+		_, err := collection.Indexes().CreateMany(ctx, ci.indexes)
 		if err != nil {
-			return fmt.Errorf("failed to create indexes: %w", err)
+			return fmt.Errorf("failed to create indexes for collection %s: %w", ci.collectionName, err)
 		}
 	}
 

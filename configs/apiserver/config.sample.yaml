@@ -5,6 +5,7 @@ database:
   - "mongodb://localhost:27017"
   connectTimeout: 10s
   databaseName: "opampcommander"
+  ddlAuto: true
 metric:
   enabled: true
   type: prometheus

@@ -13,6 +13,7 @@ import (
 	traceapi "go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
@@ -82,7 +83,8 @@ func NewMongoDBClient(
 func NewMongoDatabase(
 	client *mongo.Client,
 	settings *config.ServerSettings,
-) *mongo.Database {
+	lifecycle fx.Lifecycle,
+) (*mongo.Database, error) {
 	databaseName := settings.DatabaseSettings.DatabaseName
 	// Use a default database name if not specified
 	// You can extract database name from connection string or use a default
@@ -90,7 +92,15 @@ func NewMongoDatabase(
 		databaseName = "opampcommander"
 	}
 
-	return client.Database(databaseName)
+	database := client.Database(databaseName)
+	if settings.DatabaseSettings.DDLAuto {
+		err := mongodb.EnsureSchema(database, lifecycle)
+		if err != nil {
+			return nil, fmt.Errorf("failed to ensure mongo schema: %w", err)
+		}
+	}
+
+	return database, nil
 }
 
 func getObservabilityForMongo(
