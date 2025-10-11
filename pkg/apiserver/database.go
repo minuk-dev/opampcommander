@@ -3,7 +3,6 @@ package apiserver
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/event"
@@ -28,7 +27,6 @@ func NewMongoDBClient(
 	settings *config.ServerSettings,
 	meterProvider metricapi.MeterProvider,
 	traceProvider traceapi.TracerProvider,
-	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 ) (*mongo.Client, error) {
 	var uri string

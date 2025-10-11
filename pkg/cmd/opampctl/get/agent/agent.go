@@ -102,8 +102,10 @@ type ShortItemForCLI struct {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	var agents []v1agent.Agent
-	var err error
+	var (
+		agents []v1agent.Agent
+		err    error
+	)
 
 	if opt.byAgentGroup == "" {
 		agents, err = clientutil.ListAgentFully(cmd.Context(), opt.client)
