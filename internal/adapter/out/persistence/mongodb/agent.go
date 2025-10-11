@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
@@ -23,6 +25,7 @@ const (
 // AgentRepository is a struct that implements the AgentPersistencePort interface.
 type AgentRepository struct {
 	collection *mongo.Collection
+	logger     *slog.Logger
 	common     commonEntityAdapter[entity.Agent, uuid.UUID]
 }
 
@@ -38,6 +41,7 @@ func NewAgentRepository(
 
 	return &AgentRepository{
 		collection: collection,
+		logger:     logger,
 		common: newCommonAdapter(
 			logger,
 			collection,
@@ -86,4 +90,98 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *model.Agent) erro
 	}
 
 	return nil
+}
+
+// ListAgentsBySelector implements port.AgentPersistencePort.
+func (a *AgentRepository) ListAgentsBySelector(
+	ctx context.Context,
+	selector model.AgentSelector,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	var (
+		// To prevent shadowing in goroutines, we use retval suffix.
+		countRetval         int64
+		continueTokenRetval string
+		entitiesRetval      []*entity.Agent
+	)
+
+	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
+	if err != nil && options.Continue != "" {
+		return nil, fmt.Errorf("invalid continue token: %w", err)
+	}
+
+	filter := bson.M{
+		"$and": []bson.M{
+			{
+				entity.IdentifyingAttributesFieldName: bson.M{
+					"$all": selector.IdentifyingAttributes,
+				},
+			},
+			{
+				entity.NonIdentifyingAttributesFieldName: bson.M{
+					"$all": selector.NonIdentifyingAttributes,
+				},
+			},
+			withContinueToken(continueTokenObjectID),
+		},
+	}
+
+	var queryWg sync.WaitGroup
+
+	var (
+		fErr error
+		lErr error
+	)
+
+	queryWg.Go(func() {
+		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+		if err != nil {
+			fErr = fmt.Errorf("failed to find agents by selector from mongodb: %w", err)
+			return
+		}
+		defer func() {
+			closeErr := cursor.Close(ctx)
+			if closeErr != nil {
+				a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+			}
+		}()
+
+		var entities []*entity.Agent
+		if err = cursor.All(ctx, &entities); err != nil {
+			fErr = fmt.Errorf("failed to decode agents by selector from mongodb: %w", err)
+			return
+		}
+
+		continueToken, err := getContinueTokenFromEntities(entities)
+		if err != nil {
+			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
+			return
+		}
+
+		entitiesRetval = entities
+		continueTokenRetval = continueToken
+	})
+
+	queryWg.Go(func() {
+		cnt, err := a.collection.CountDocuments(ctx, filter)
+		if err != nil {
+			lErr = fmt.Errorf("failed to count agents by selector in mongodb: %w", err)
+			return
+		}
+
+		countRetval = cnt
+	})
+
+	queryWg.Wait()
+	if fErr != nil || lErr != nil {
+		return nil, fmt.Errorf("list by selector operation failed: %w %w", fErr, lErr)
+	}
+
+	return &model.ListResponse[*model.Agent]{
+		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *model.Agent {
+			return item.ToDomain()
+		}),
+		Continue:           continueTokenRetval,
+		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
+	}, nil
 }

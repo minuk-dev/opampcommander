@@ -18,6 +18,12 @@ type AgentPersistencePort interface {
 	PutAgent(ctx context.Context, agent *model.Agent) error
 	// ListAgents retrieves a list of agents with pagination options.
 	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
+	// ListAgentsBySelector retrieves a list of agents matching the given selector with pagination options.
+	ListAgentsBySelector(
+		ctx context.Context,
+		selector model.AgentSelector,
+		options *model.ListOptions,
+	) (*model.ListResponse[*model.Agent], error)
 }
 
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.

@@ -15,6 +15,13 @@ import (
 const (
 	// AgentKeyFieldName is the field name used as the key for Agent entities in MongoDB.
 	AgentKeyFieldName string = "metadata.instanceUid"
+
+	// IdentifyingAttributesFieldName is the field name for identifying attributes in MongoDB.
+	// It is indexed for efficient querying.
+	IdentifyingAttributesFieldName string = "metadata.description.identifyingAttributes"
+	// NonIdentifyingAttributesFieldName is the field name for non-identifying attributes in MongoDB.
+	// It is indexed for efficient querying.
+	NonIdentifyingAttributesFieldName string = "metadata.description.nonIdentifyingAttributes"
 )
 
 // Agent is a struct that represents the MongoDB entity for an Agent.

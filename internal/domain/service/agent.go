@@ -101,5 +101,5 @@ func (s *AgentService) ListAgentsBySelector(
 	model.AgentSelector,
 	*model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	panic("unimplemented")
+	s.agentPersistencePort.ListAgents()
 }
