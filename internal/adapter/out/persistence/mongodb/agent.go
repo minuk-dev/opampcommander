@@ -93,6 +93,8 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *model.Agent) erro
 }
 
 // ListAgentsBySelector implements port.AgentPersistencePort.
+//
+//nolint:funlen // Reason: unavoidable.
 func (a *AgentRepository) ListAgentsBySelector(
 	ctx context.Context,
 	selector model.AgentSelector,
@@ -137,8 +139,10 @@ func (a *AgentRepository) ListAgentsBySelector(
 		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
 		if err != nil {
 			fErr = fmt.Errorf("failed to find agents by selector from mongodb: %w", err)
+
 			return
 		}
+
 		defer func() {
 			closeErr := cursor.Close(ctx)
 			if closeErr != nil {
@@ -147,14 +151,18 @@ func (a *AgentRepository) ListAgentsBySelector(
 		}()
 
 		var entities []*entity.Agent
-		if err = cursor.All(ctx, &entities); err != nil {
+
+		err = cursor.All(ctx, &entities)
+		if err != nil {
 			fErr = fmt.Errorf("failed to decode agents by selector from mongodb: %w", err)
+
 			return
 		}
 
 		continueToken, err := getContinueTokenFromEntities(entities)
 		if err != nil {
 			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
+
 			return
 		}
 
@@ -166,6 +174,7 @@ func (a *AgentRepository) ListAgentsBySelector(
 		cnt, err := a.collection.CountDocuments(ctx, filter)
 		if err != nil {
 			lErr = fmt.Errorf("failed to count agents by selector in mongodb: %w", err)
+
 			return
 		}
 
@@ -173,6 +182,7 @@ func (a *AgentRepository) ListAgentsBySelector(
 	})
 
 	queryWg.Wait()
+
 	if fErr != nil || lErr != nil {
 		return nil, fmt.Errorf("list by selector operation failed: %w %w", fErr, lErr)
 	}
