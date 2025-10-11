@@ -64,4 +64,31 @@ release:
 	goreleaser release --rm-dist
 
 docker:
-	goreleaser 
+	goreleaser
+
+docker-image:
+	@if [ -z "$(TAG)" ]; then \
+		echo "Error: TAG is required"; \
+		echo "Usage: make docker-test TAG=<tag>"; \
+		echo "Example: make docker-test TAG=test-v1.0.0"; \
+		exit 1; \
+	fi
+	@echo "Building Docker images with tag: $(TAG)"
+	@echo "==========================================="
+	@GORELEASER_CURRENT_TAG=$(TAG) goreleaser release --snapshot --clean --skip=publish
+	@echo ""
+	@echo "==========================================="
+	@echo "Docker images built successfully!"
+	@echo ""
+	@echo "To push the images, run the following commands:"
+	@echo ""
+	@echo "docker push minukdev/opampcommander:$(TAG)-amd64"
+	@echo "docker push minukdev/opampcommander:$(TAG)-arm64"
+	@echo ""
+	@echo "To create and push the manifest:"
+	@echo ""
+	@echo "docker manifest create minukdev/opampcommander:$(TAG) \\"
+	@echo "  minukdev/opampcommander:$(TAG)-amd64 \\"
+	@echo "  minukdev/opampcommander:$(TAG)-arm64"
+	@echo ""
+	@echo "docker manifest push minukdev/opampcommander:$(TAG)" 
