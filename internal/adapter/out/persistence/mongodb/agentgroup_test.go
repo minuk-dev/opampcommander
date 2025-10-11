@@ -70,7 +70,6 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, agentGroup.UID, loaded.UID)
 		assert.Equal(t, agentGroup.Name, loaded.Name)
 		assert.Equal(t, agentGroup.Attributes, loaded.Attributes)
 		assert.False(t, loaded.IsDeleted())
@@ -142,7 +141,6 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Len(t, resp.Items, 1)
-		assert.Equal(t, agentGroup.UID, resp.Items[0].UID)
 		assert.Equal(t, agentGroup.Name, resp.Items[0].Name)
 	})
 
@@ -178,13 +176,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		assert.Len(t, resp.Items, 3)
 
 		// Check that all our agent groups are in the list
-		foundUIDs := make(map[uuid.UUID]bool)
+		foundUIDs := make(map[string]bool)
 		for _, item := range resp.Items {
-			foundUIDs[item.UID] = true
+			foundUIDs[item.Name] = true
 		}
 
 		for _, agentGroup := range agentGroups {
-			assert.True(t, foundUIDs[agentGroup.UID], "AgentGroup %s should be present in the list", agentGroup.UID)
+			assert.True(t, foundUIDs[agentGroup.Name], "AgentGroup %s should be present in the list", agentGroup.Name)
 		}
 	})
 
@@ -214,11 +212,6 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		require.NoError(t, err)
 		assert.LessOrEqual(t, len(resp1.Items), 2)
 
-		// All returned agent groups should have valid UUIDs
-		for _, item := range resp1.Items {
-			assert.NotEqual(t, uuid.Nil, item.UID)
-		}
-
 		// when - list next page if continue token exists
 		if resp1.Continue != "" {
 			resp2, err := adapter.ListAgentGroups(ctx, &model.ListOptions{Limit: 2, Continue: resp1.Continue})
@@ -226,13 +219,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 			assert.LessOrEqual(t, len(resp2.Items), 2)
 
 			// Ensure no duplicate UIDs between pages
-			page1UIDs := make(map[uuid.UUID]bool)
+			page1UIDs := make(map[string]bool)
 			for _, item := range resp1.Items {
-				page1UIDs[item.UID] = true
+				page1UIDs[item.Name] = true
 			}
 
 			for _, item := range resp2.Items {
-				assert.False(t, page1UIDs[item.UID], "UID %s should not appear in both pages", item.UID)
+				assert.False(t, page1UIDs[item.Name], "Name %s should not appear in both pages", item.Name)
 			}
 		}
 	})
@@ -268,7 +261,6 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		// Verify agent group was saved
 		got, err := adapter.GetAgentGroup(ctx, agentGroup.Name)
 		require.NoError(t, err)
-		assert.Equal(t, agentGroup.UID, got.UID)
 		assert.Equal(t, agentGroup.Name, got.Name)
 		assert.Equal(t, agentGroup.Attributes, got.Attributes)
 		assert.Equal(t, agentGroup.CreatedBy, got.CreatedBy)
@@ -300,14 +292,12 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 			time.Now(),
 			"updater",
 		)
-		updatedGroup.UID = originalGroup.UID // Keep same UID
 		err = adapter.PutAgentGroup(ctx, updatedGroup.Name, updatedGroup)
 		require.NoError(t, err)
 
 		// then
 		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Name)
 		require.NoError(t, err)
-		assert.Equal(t, updatedGroup.UID, got.UID)
 		assert.Equal(t, updatedGroup.Name, got.Name)
 		assert.Equal(t, updatedGroup.Attributes, got.Attributes)
 	})
@@ -393,7 +383,6 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 	require.NoError(t, err)
 
 	// then
-	assert.Equal(t, originalGroup.UID, loadedGroup.UID)
 	assert.Equal(t, originalGroup.Name, loadedGroup.Name)
 	assert.Equal(t, originalGroup.Attributes, loadedGroup.Attributes)
 	assert.Equal(t, originalGroup.CreatedBy, loadedGroup.CreatedBy)

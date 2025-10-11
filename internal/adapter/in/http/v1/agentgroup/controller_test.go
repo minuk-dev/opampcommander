@@ -36,11 +36,8 @@ func TestAgentGroupController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		uid1 := uuid.New()
-		uid2 := uuid.New()
 		groups := []agentgroupv1.AgentGroup{
 			{
-				UID:        uid1,
 				Name:       "g1",
 				Attributes: agentgroupv1.Attributes{},
 				Selector: agentgroupv1.AgentSelector{
@@ -53,7 +50,6 @@ func TestAgentGroupController_List(t *testing.T) {
 				DeletedBy: nil,
 			},
 			{
-				UID:        uid2,
 				Name:       "g2",
 				Attributes: agentgroupv1.Attributes{},
 				Selector: agentgroupv1.AgentSelector{
@@ -82,8 +78,6 @@ func TestAgentGroupController_List(t *testing.T) {
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "items.#").Int())
-		assert.Equal(t, uid1.String(), gjson.Get(recorder.Body.String(), "items.0.uid").String())
-		assert.Equal(t, uid2.String(), gjson.Get(recorder.Body.String(), "items.1.uid").String())
 	})
 
 	t.Run("List AgentGroups - invalid limit", func(t *testing.T) {
@@ -126,9 +120,7 @@ func TestAgentGroupController_Get(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	uid := uuid.New()
 	agentGroup := &agentgroupv1.AgentGroup{
-		UID:        uid,
 		Name:       "g1",
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{
@@ -147,7 +139,6 @@ func TestAgentGroupController_Get(t *testing.T) {
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusOK, recorder.Code)
-	assert.Equal(t, uid.String(), gjson.Get(recorder.Body.String(), "uid").String())
 }
 
 func TestAgentGroupController_Get_NotFound(t *testing.T) {
@@ -194,7 +185,6 @@ func TestAgentGroupController_Create(t *testing.T) {
 
 	name := "g1"
 	body := agentgroupv1.AgentGroup{
-		UID:        uuid.New(),
 		Name:       name,
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{
@@ -249,9 +239,7 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	uid := uuid.New()
 	payload := agentgroupv1.AgentGroup{
-		UID:        uid,
 		Name:       "g1",
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{
@@ -289,7 +277,6 @@ func TestAgentGroupController_Update(t *testing.T) {
 	router := ctrlBase.Router
 	uid := uuid.New()
 	group := &agentgroupv1.AgentGroup{
-		UID:        uid,
 		Name:       "g1",
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{
@@ -345,7 +332,6 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 	router := ctrlBase.Router
 	name := "g1"
 	group := &agentgroupv1.AgentGroup{
-		UID:        uuid.New(),
 		Name:       name,
 		Attributes: agentgroupv1.Attributes{},
 		Selector: agentgroupv1.AgentSelector{

@@ -162,7 +162,6 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 
 //nolint:lll
 type formattedAgentGroup struct {
-	UID                              string            `json:"uid"                              short:"uid"       text:"uid"                 yaml:"uid"`
 	Name                             string            `json:"name"                             short:"name"      text:"name"                yaml:"name"`
 	Attributes                       map[string]string `json:"attributes"                       short:"-"         text:"-"                   yaml:"attributes"`
 	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"         text:"-"                   yaml:"identifyingAttributesSelector"`
@@ -175,7 +174,6 @@ type formattedAgentGroup struct {
 
 func toFormattedAgentGroup(agentGroup v1agentgroup.AgentGroup) formattedAgentGroup {
 	return formattedAgentGroup{
-		UID:                              agentGroup.UID.String(),
 		Name:                             agentGroup.Name,
 		Attributes:                       agentGroup.Attributes,
 		IdentifyingAttributesSelector:    agentGroup.Selector.IdentifyingAttributes,

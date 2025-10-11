@@ -8,6 +8,8 @@ type DatabaseSettings struct {
 	Endpoints      []string
 	ConnectTimeout time.Duration
 	DatabaseName   string
+
+	DDLAuto bool
 }
 
 // DatabaseType represents the type of database to be used.

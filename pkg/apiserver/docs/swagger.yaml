@@ -114,8 +114,6 @@ definitions:
         type: string
       selector:
         $ref: '#/definitions/agentgroup.AgentSelector'
-      uid:
-        type: string
     type: object
   AgentGroupCreateRequest:
     properties:

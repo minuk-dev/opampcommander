@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	k8sclock "k8s.io/utils/clock"
 
@@ -173,7 +172,6 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 	}
 
 	return &v1agentgroup.AgentGroup{
-		UID:        domain.UID,
 		Name:       domain.Name,
 		Attributes: v1agentgroup.Attributes(domain.Attributes),
 		Selector: v1agentgroup.AgentSelector{
@@ -192,7 +190,6 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	requestedBy *security.User,
 ) *domainagentgroup.AgentGroup {
 	return &domainagentgroup.AgentGroup{
-		UID:        uuid.New(),
 		Name:       cmd.Name,
 		Attributes: domainagentgroup.Attributes(cmd.Attributes),
 		Selector: model.AgentSelector{
@@ -212,7 +209,6 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 	}
 
 	return &domainagentgroup.AgentGroup{
-		UID:        api.UID,
 		Name:       api.Name,
 		Attributes: domainagentgroup.Attributes(api.Attributes),
 		Selector: model.AgentSelector{

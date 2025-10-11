@@ -3,8 +3,6 @@ package agentgroup
 
 import (
 	"time"
-
-	"github.com/google/uuid"
 )
 
 const (
@@ -14,7 +12,6 @@ const (
 
 // AgentGroup represents a struct that represents an agent group.
 type AgentGroup struct {
-	UID        uuid.UUID     `json:"uid"`
 	Name       string        `json:"name"`
 	Attributes Attributes    `json:"attributes"`
 	Selector   AgentSelector `json:"selector"`

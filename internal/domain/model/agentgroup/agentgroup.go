@@ -5,8 +5,6 @@ import (
 	"maps"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -15,8 +13,6 @@ type Attributes map[string]string
 
 // AgentGroup represents a group of agents with their associated metadata.
 type AgentGroup struct {
-	// UID is the unique identifier for the agent group.
-	UID uuid.UUID
 	// Name is the name of the agent group.
 	Name string
 	// Attributes is a map of attributes associated with the agent group.
@@ -53,7 +49,6 @@ func New(
 	createdBy string,
 ) *AgentGroup {
 	return &AgentGroup{
-		UID:        uuid.New(),
 		Name:       name,
 		Attributes: attributes,
 		Selector: model.AgentSelector{
