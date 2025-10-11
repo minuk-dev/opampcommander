@@ -13,6 +13,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -345,4 +346,413 @@ func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 		originalAgent.Status.EffectiveConfig.ConfigMap.ConfigMap,
 		loadedAgent.Status.EffectiveConfig.ConfigMap.ConfigMap,
 	)
+}
+
+//nolint:maintidx // comprehensive integration test with multiple scenarios
+func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("Empty list when no agents match selector", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_empty")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create an agent with different attributes
+		instanceUID := uuid.New()
+		agent := model.NewAgent(instanceUID, model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "other-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "windows",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - search for non-existent selector
+		selector := model.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Find agents with matching identifying attributes", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_identifying")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create agents with matching identifying attributes
+		matchingAgent1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent1)
+		require.NoError(t, err)
+
+		matchingAgent2 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "darwin",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent2)
+		require.NoError(t, err)
+
+		// Create agent with different identifying attributes
+		nonMatchingAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "other-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, nonMatchingAgent)
+		require.NoError(t, err)
+
+		// when
+		selector := model.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+
+		foundUIDs := make(map[uuid.UUID]bool)
+		for _, item := range listResponse.Items {
+			foundUIDs[item.Metadata.InstanceUID] = true
+		}
+
+		assert.True(t, foundUIDs[matchingAgent1.Metadata.InstanceUID])
+		assert.True(t, foundUIDs[matchingAgent2.Metadata.InstanceUID])
+		assert.False(t, foundUIDs[nonMatchingAgent.Metadata.InstanceUID])
+	})
+
+	t.Run("Find agents with matching non-identifying attributes", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_non_identifying")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create agents with matching non-identifying attributes
+		matchingAgent1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-a",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent1)
+		require.NoError(t, err)
+
+		matchingAgent2 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-b",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent2)
+		require.NoError(t, err)
+
+		// Create agent with different non-identifying attributes
+		nonMatchingAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-c",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "windows",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, nonMatchingAgent)
+		require.NoError(t, err)
+
+		// when
+		selector := model.AgentSelector{
+			IdentifyingAttributes: map[string]string{},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+
+		foundUIDs := make(map[uuid.UUID]bool)
+		for _, item := range listResponse.Items {
+			foundUIDs[item.Metadata.InstanceUID] = true
+		}
+
+		assert.True(t, foundUIDs[matchingAgent1.Metadata.InstanceUID])
+		assert.True(t, foundUIDs[matchingAgent2.Metadata.InstanceUID])
+		assert.False(t, foundUIDs[nonMatchingAgent.Metadata.InstanceUID])
+	})
+
+	t.Run("Find agents with matching both identifying and non-identifying attributes", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_both")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create agent that matches both attributes
+		matchingAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "test-service",
+				"service.namespace": "production",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "linux",
+				"host.name": "server-01",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent)
+		require.NoError(t, err)
+
+		// Create agent that only matches identifying attributes
+		partialMatch1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "test-service",
+				"service.namespace": "production",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "windows",
+				"host.name": "server-02",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, partialMatch1)
+		require.NoError(t, err)
+
+		// Create agent that only matches non-identifying attributes
+		partialMatch2 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "other-service",
+				"service.namespace": "staging",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "linux",
+				"host.name": "server-01",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, partialMatch2)
+		require.NoError(t, err)
+
+		// when
+		selector := model.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "test-service",
+				"service.namespace": "production",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "linux",
+				"host.name": "server-01",
+			},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, matchingAgent.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+
+	t.Run("List with pagination options", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_pagination")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create 5 agents with same selector
+		for range 5 {
+			agent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+				IdentifyingAttributes: map[string]string{
+					"service.name": "test-service",
+				},
+				NonIdentifyingAttributes: map[string]string{
+					"os.type": "linux",
+				},
+			}))
+			err = agentRepository.PutAgent(ctx, agent)
+			require.NoError(t, err)
+		}
+
+		// when - list with limit of 3
+		selector := model.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+		listOptions := &model.ListOptions{
+			Limit:    3,
+			Continue: "",
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, listOptions)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.LessOrEqual(t, len(listResponse.Items), 3)
+		assert.Equal(t, int64(2), listResponse.RemainingItemCount)
+
+		// All returned agents should have valid UUIDs and match the selector
+		for _, item := range listResponse.Items {
+			assert.NotEqual(t, uuid.Nil, item.Metadata.InstanceUID)
+			assert.Equal(t, "test-service", item.Metadata.Description.IdentifyingAttributes["service.name"])
+			assert.Equal(t, "linux", item.Metadata.Description.NonIdentifyingAttributes["os.type"])
+		}
+	})
+
+	t.Run("Invalid continue token", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_invalid_token")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// when
+		selector := model.AgentSelector{
+			IdentifyingAttributes:    map[string]string{},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+		listOptions := &model.ListOptions{
+			Limit:    10,
+			Continue: "invalid-token",
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, listOptions)
+
+		// then
+		require.Error(t, err)
+		assert.Nil(t, listResponse)
+		assert.Contains(t, err.Error(), "invalid continue token")
+	})
 }

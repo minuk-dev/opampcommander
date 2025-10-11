@@ -107,26 +107,54 @@ func (a *AgentRepository) ListAgentsBySelector(
 		entitiesRetval      []*entity.Agent
 	)
 
+	if options == nil {
+		//exhaustruct:ignore
+		options = &model.ListOptions{}
+	}
+
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
 	if err != nil && options.Continue != "" {
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	filter := bson.M{
-		"$and": []bson.M{
-			{
-				entity.IdentifyingAttributesFieldName: bson.M{
-					"$all": selector.IdentifyingAttributes,
+	// Build filter conditions for identifying attributes
+	identifyingConditions := make([]bson.M, 0, len(selector.IdentifyingAttributes))
+	for key, value := range selector.IdentifyingAttributes {
+		identifyingConditions = append(identifyingConditions, bson.M{
+			entity.IdentifyingAttributesFieldName: bson.M{
+				"$elemMatch": bson.M{
+					"key":   key,
+					"value": value,
 				},
 			},
-			{
-				entity.NonIdentifyingAttributesFieldName: bson.M{
-					"$all": selector.NonIdentifyingAttributes,
-				},
-			},
-			withContinueToken(continueTokenObjectID),
-		},
+		})
 	}
+
+	// Build filter conditions for non-identifying attributes
+	nonIdentifyingConditions := make([]bson.M, 0, len(selector.NonIdentifyingAttributes))
+	for key, value := range selector.NonIdentifyingAttributes {
+		nonIdentifyingConditions = append(nonIdentifyingConditions, bson.M{
+			entity.NonIdentifyingAttributesFieldName: bson.M{
+				"$elemMatch": bson.M{
+					"key":   key,
+					"value": value,
+				},
+			},
+		})
+	}
+
+	// Combine all conditions
+	allConditions := make([]bson.M, 0, len(identifyingConditions)+len(nonIdentifyingConditions)+1)
+	allConditions = append(allConditions, identifyingConditions...)
+	allConditions = append(allConditions, nonIdentifyingConditions...)
+
+	// Add continue token condition if present
+	continueTokenFilter := withContinueToken(continueTokenObjectID)
+	if continueTokenFilter != nil {
+		allConditions = append(allConditions, continueTokenFilter)
+	}
+
+	filter := buildFilter(allConditions)
 
 	var queryWg sync.WaitGroup
 
@@ -194,4 +222,16 @@ func (a *AgentRepository) ListAgentsBySelector(
 		Continue:           continueTokenRetval,
 		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
 	}, nil
+}
+
+// buildFilter builds a MongoDB filter from a list of conditions.
+func buildFilter(conditions []bson.M) bson.M {
+	switch len(conditions) {
+	case 0:
+		return bson.M{}
+	case 1:
+		return conditions[0]
+	default:
+		return bson.M{"$and": conditions}
+	}
 }
