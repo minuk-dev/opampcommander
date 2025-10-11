@@ -2,13 +2,18 @@ package client
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
+	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 )
 
 const (
 	// ListAgentGroupURL is the path to list all agent groups.
 	ListAgentGroupURL = "/api/v1/agentgroups"
+	// ListAgentsByAgentGroupURL is the path to list all agents in an agent group.
+	ListAgentsByAgentGroupURL = "/api/v1/agentgroups/{name}/agents"
 	// GetAgentGroupURL is the path to get an agent group by ID.
 	GetAgentGroupURL = "/api/v1/agentgroups/{id}"
 	// CreateAgentGroupURL is the path to create a new agent group.
@@ -58,6 +63,52 @@ func (s *AgentGroupService) ListAgentGroups(
 			continueToken: listSettings.continueToken,
 		},
 	)
+}
+
+// ListAgentsByAgentGroup lists agents belonging to a specific agent group.
+func (s *AgentGroupService) ListAgentsByAgentGroup(
+	ctx context.Context,
+	name string,
+	opts ...ListOption,
+) (*agentv1.ListResponse, error) {
+	var listSettings ListSettings
+	for _, opt := range opts {
+		opt.Apply(&listSettings)
+	}
+
+	var listResponse agentv1.ListResponse
+
+	req := s.service.Resty.R().
+		SetContext(ctx).
+		SetResult(&listResponse)
+
+	if listSettings.limit != nil {
+		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
+	}
+
+	if listSettings.continueToken != nil {
+		req.SetQueryParam("continue", *listSettings.continueToken)
+	}
+
+	req.SetPathParam("name", name)
+
+	res, err := req.Get(ListAgentsByAgentGroupURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resources(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to list resources(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	if res.Result() == nil {
+		return nil, fmt.Errorf("failed to list resources: %w", ErrEmptyResponse)
+	}
+
+	return &listResponse, nil
 }
 
 // CreateAgentGroup creates a new agent group.
