@@ -130,7 +130,7 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
 	cmd.Flags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
-	cmd.Flags().String("database.ddlAuto", "false", "automatically create database schema")
+	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
 	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
