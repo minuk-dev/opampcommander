@@ -35,8 +35,14 @@ func NewAgentRepository(
 	logger *slog.Logger,
 ) *AgentRepository {
 	collection := mongoDatabase.Collection(agentCollectionName)
-	keyFunc := func(domain *entity.Agent) uuid.UUID {
-		return domain.Metadata.InstanceUID
+	keyFunc := func(entity *entity.Agent) uuid.UUID {
+		return uuid.UUID(entity.Metadata.InstanceUID.Data)
+	}
+	keyQueryFunc := func(key uuid.UUID) any {
+		return bson.Binary{
+			Subtype: bson.TypeBinaryUUID,
+			Data:    key[:],
+		}
 	}
 
 	return &AgentRepository{
@@ -47,6 +53,7 @@ func NewAgentRepository(
 			collection,
 			entity.AgentKeyFieldName,
 			keyFunc,
+			keyQueryFunc,
 		),
 	}
 }

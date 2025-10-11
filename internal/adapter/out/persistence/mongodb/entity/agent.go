@@ -36,7 +36,7 @@ type Agent struct {
 
 // AgentMetadata represents the metadata of an agent.
 type AgentMetadata struct {
-	InstanceUID        uuid.UUID                `bson:"instanceUid"`
+	InstanceUID        bson.Binary              `bson:"instanceUid"`
 	Capabilities       *AgentCapabilities       `bson:"capabilities,omitempty"`
 	Description        *AgentDescription        `bson:"description,omitempty"`
 	CustomCapabilities *AgentCustomCapabilities `bson:"customCapabilities,omitempty"`
@@ -205,7 +205,7 @@ func (a *Agent) ToDomain() *domainmodel.Agent {
 // ToDmain converts the AgentMetadata to domain model.
 func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
 	return domainmodel.AgentMetadata{
-		InstanceUID: metadata.InstanceUID,
+		InstanceUID: uuid.UUID(metadata.InstanceUID.Data),
 		Description: switchIfNil(
 			metadata.Description.ToDomain(),
 			//exhaustruct:ignore
@@ -425,7 +425,10 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			ID:      nil, // ID will be set by MongoDB
 		},
 		Metadata: AgentMetadata{
-			InstanceUID:        agent.Metadata.InstanceUID,
+			InstanceUID: bson.Binary{
+				Subtype: bson.TypeBinaryUUID,
+				Data:    agent.Metadata.InstanceUID[:],
+			},
 			Capabilities:       AgentCapabilitiesFromDomain(&agent.Metadata.Capabilities),
 			Description:        AgentDescriptionFromDomain(&agent.Metadata.Description),
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),

@@ -28,6 +28,7 @@ type commonEntityAdapter[Entity any, KeyType any] struct {
 	logger       *slog.Logger
 	collection   *mongo.Collection
 	KeyFunc      KeyFunc[Entity, KeyType]
+	KeyQueryFunc func(key KeyType) any
 	keyFieldName string
 }
 
@@ -36,12 +37,14 @@ func newCommonAdapter[Entity any, KeyType any](
 	collection *mongo.Collection,
 	keyFieldName string,
 	keyFunc KeyFunc[Entity, KeyType],
+	keyQueryFunc func(key KeyType) any,
 ) commonEntityAdapter[Entity, KeyType] {
 	return commonEntityAdapter[Entity, KeyType]{
 		logger:       logger,
 		collection:   collection,
 		keyFieldName: keyFieldName,
 		KeyFunc:      keyFunc,
+		KeyQueryFunc: keyQueryFunc,
 	}
 }
 
@@ -200,11 +203,7 @@ func getContinueTokenFromEntities[Entity any](entities []*Entity) (string, error
 }
 
 func (a *commonEntityAdapter[Domain, KeyType]) filterByKey(key KeyType) bson.M {
-	return filterByField(a.keyFieldName, key)
-}
-
-func filterByField(field string, value any) bson.M {
-	return bson.M{field: value}
+	return bson.M{a.keyFieldName: a.KeyQueryFunc(key)}
 }
 
 func withContinueToken(continueToken bson.ObjectID) bson.M {

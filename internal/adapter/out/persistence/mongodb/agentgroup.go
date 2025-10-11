@@ -34,6 +34,9 @@ func NewAgentGroupRepository(
 	keyFunc := func(en *entity.AgentGroup) string {
 		return en.Name
 	}
+	keyQueryFunc := func(key string) any {
+		return key
+	}
 
 	return &AgentGroupMongoAdapter{
 		collection: collection,
@@ -42,6 +45,7 @@ func NewAgentGroupRepository(
 			collection,
 			entity.AgentGroupKeyFieldName,
 			keyFunc,
+			keyQueryFunc,
 		),
 	}
 }
