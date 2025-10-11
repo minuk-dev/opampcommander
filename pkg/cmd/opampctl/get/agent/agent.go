@@ -27,7 +27,8 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType   string
+	byAgentGroup string
 
 	// internal
 	client *client.Client
@@ -54,6 +55,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().StringVar(&options.byAgentGroup, "agentgroup", "", "Filter agents by agent group name")
 
 	return cmd
 }
@@ -100,9 +102,21 @@ type ShortItemForCLI struct {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client)
-	if err != nil {
-		return fmt.Errorf("failed to list agents: %w", err)
+	var (
+		agents []v1agent.Agent
+		err    error
+	)
+
+	if opt.byAgentGroup == "" {
+		agents, err = clientutil.ListAgentFully(cmd.Context(), opt.client)
+		if err != nil {
+			return fmt.Errorf("failed to list agents: %w", err)
+		}
+	} else {
+		agents, err = clientutil.ListAgentFullyByAgentGroup(cmd.Context(), opt.client, opt.byAgentGroup)
+		if err != nil {
+			return fmt.Errorf("failed to list agents by agent group: %w", err)
+		}
 	}
 
 	switch formatType := formatter.FormatType(opt.formatType); formatType {

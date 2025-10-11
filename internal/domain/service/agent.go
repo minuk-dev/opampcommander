@@ -97,9 +97,14 @@ func (s *AgentService) UpdateAgentConfig(ctx context.Context, instanceUID uuid.U
 
 // ListAgentsBySelector implements port.AgentUsecase.
 func (s *AgentService) ListAgentsBySelector(
-	context.Context,
-	model.AgentSelector,
-	*model.ListOptions,
+	ctx context.Context,
+	selector model.AgentSelector,
+	options *model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	panic("unimplemented")
+	resp, err := s.agentPersistencePort.ListAgentsBySelector(ctx, selector, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents by selector: %w", err)
+	}
+
+	return resp, nil
 }

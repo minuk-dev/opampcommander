@@ -97,7 +97,8 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	}
 
 	queryWg.Go(func() {
-		entities, err := listWithContinueTokenAndLimit[Entity](ctx, a.logger, a.collection, options.Continue, options.Limit)
+		entities, err := listWithContinueTokenAndLimit[Entity](ctx,
+			a.logger, a.collection, continueTokenObjectID, options.Limit)
 		if err != nil {
 			fErr = fmt.Errorf("failed to list resources from mongodb: %w", err)
 
@@ -154,14 +155,9 @@ func listWithContinueTokenAndLimit[Entity any](
 	ctx context.Context,
 	logger *slog.Logger,
 	collection *mongo.Collection,
-	continueToken string,
+	continueTokenObjectID bson.ObjectID,
 	limit int64,
 ) ([]*Entity, error) {
-	continueTokenObjectID, err := bson.ObjectIDFromHex(continueToken)
-	if err != nil && continueToken != "" {
-		return nil, fmt.Errorf("invalid continue token: %w", err)
-	}
-
 	cursor, err := collection.Find(ctx,
 		withContinueToken(continueTokenObjectID),
 		withLimit(limit),

@@ -2,7 +2,7 @@ address: localhost:8080
 database:
   type: "mongodb"
   endpoints:
-  - "mongodb://localhost:27017"
+  - "mongodb://<user>:<password>@localhost:27017"
   connectTimeout: 10s
   databaseName: "opampcommander"
   ddlAuto: true
