@@ -1,4 +1,4 @@
-package helper
+package lifecycle
 
 import (
 	"context"
@@ -7,6 +7,16 @@ import (
 
 	"go.uber.org/fx"
 )
+
+// Runner is an interface that defines a runner that can be started with a context.
+type Runner interface {
+	// Name returns the name of the runner.
+	// It's only for debugging & logging purposes.
+	Name() string
+
+	// Run starts the runner with the given context.
+	Run(ctx context.Context) error
+}
 
 // Executor is a struct that schedules and manages the execution of runners.
 // It uses a WaitGroup to wait for all runners to finish before stopping.

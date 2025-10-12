@@ -6,16 +6,21 @@ database:
   connectTimeout: 10s
   databaseName: "opampcommander"
   ddlAuto: true
-metric:
-  enabled: true
-  type: prometheus
-  endpoint: http://localhost:9090/metrics
-log:
-  level: "info"
-  format: "json"
-trace:
-  enabled: false
-  endpoint: "localhost:4317"
+management:
+  address: localhost:9090
+  metric:
+    enabled: true
+    type: prometheus
+    prometheus:
+      path: /metrics
+    opentelemetry: # unused when type is prometheus
+      endpoint: "localhost:4317"
+  log:
+    level: "info"
+    format: "json"
+  trace:
+    enabled: false
+    endpoint: "localhost:4317"
 auth:
   enabled: true
   admin:

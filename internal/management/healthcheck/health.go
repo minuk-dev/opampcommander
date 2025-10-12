@@ -1,9 +1,11 @@
-package observability
+package healthcheck
 
 import (
 	"context"
 	"encoding/json"
 	"net/http"
+
+	"github.com/minuk-dev/opampcommander/internal/management"
 )
 
 // HealthIndicator is an interface that defines the methods for checking the health and readiness of the service.
@@ -35,7 +37,7 @@ type HealthHelper struct {
 }
 
 var (
-	_ ManagementHTTPHandler = (*HealthHelper)(nil)
+	_ management.ManagementHTTPHandler = (*HealthHelper)(nil)
 )
 
 // NewHealthHelper creates a new HealthService instance.
@@ -80,8 +82,8 @@ func (s *HealthHelper) Health(ctx context.Context) (bool, map[string]string) {
 }
 
 // RoutesInfo implements helper.Controller.
-func (c *HealthHelper) RoutesInfos() ManagementRoutesInfo {
-	return ManagementRoutesInfo{
+func (c *HealthHelper) RoutesInfos() management.ManagementRoutesInfo {
+	return management.ManagementRoutesInfo{
 		{
 			Method:  http.MethodGet,
 			Path:    "/healthz",

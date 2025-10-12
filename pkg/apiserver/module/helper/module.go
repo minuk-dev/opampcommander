@@ -1,19 +1,17 @@
 package helper
 
 import (
-	"context"
-	"fmt"
 	"log/slog"
 
-	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 	"go.uber.org/fx/fxevent"
 
 	internalhelper "github.com/minuk-dev/opampcommander/internal/helper"
-	"github.com/minuk-dev/opampcommander/internal/observability"
+	"github.com/minuk-dev/opampcommander/internal/management/healthcheck"
+	"github.com/minuk-dev/opampcommander/internal/management/observability"
 	"github.com/minuk-dev/opampcommander/internal/security"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper/lifecycle"
+	helpermanagement "github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper/management"
 )
 
 // NewModule creates a new module for helper services.
@@ -21,76 +19,42 @@ func NewModule() fx.Option {
 	return fx.Module(
 		"helper",
 		fx.Provide(
-			// executor for runners
-			fx.Annotate(NewExecutor,
+			// Lifecycle management
+			fx.Annotate(lifecycle.NewExecutor,
 				fx.ParamTags(``, `group:"runners"`)),
-			// security,
+
+			// Security
 			security.New,
-			// ShutdownListener must be provided before observability.New
+
+			// Observability - ShutdownListener must be provided before observability.New
 			internalhelper.NewShutdownListener,
 			observability.New,
-			exposeObservabilityComponents,
+			helpermanagement.ExposeObservabilityComponents,
 			fx.Annotate(
-				func(svc *observability.Service) observability.ManagementHTTPHandler {
-					return svc
-				},
+				helpermanagement.AsManagementHTTPHandler,
 				fx.ResultTags(`group:"management_http_handlers"`),
 			),
-			fx.Annotate(observability.NewHealthHelper,
+
+			// Health checks
+			fx.Annotate(healthcheck.NewHealthHelper,
 				fx.ParamTags(`group:"health_indicators"`)),
 			fx.Annotate(
-				func(helper *observability.HealthHelper) observability.ManagementHTTPHandler {
-					return helper
-				},
+				helpermanagement.AsHealthManagementHTTPHandler,
 				fx.ResultTags(`group:"management_http_handlers"`),
 			),
-			fx.Annotate(NewManagementHTTPServer,
+
+			// Management HTTP server
+			fx.Annotate(helpermanagement.NewManagementHTTPServer,
 				fx.ParamTags(``, `group:"management_http_handlers"`)),
 		),
-		// invoke
-		fx.Invoke(func(*Executor) {}),
-		fx.Invoke(func(*ManagementHTTPServer) {}),
-		fx.Invoke(invokeShutdownListener),
+		// Lifecycle hooks
+		fx.Invoke(func(*lifecycle.Executor) {}),
+		fx.Invoke(func(*helpermanagement.ManagementHTTPServer) {}),
+		fx.Invoke(lifecycle.RegisterShutdownListener),
+		
+		// Logger
 		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
-			return &fxevent.SlogLogger{
-				Logger: logger,
-			}
+			return &fxevent.SlogLogger{Logger: logger}
 		}),
 	)
-}
-
-func invokeShutdownListener(
-	shutdownlistener *internalhelper.ShutdownListener,
-	lifecycle fx.Lifecycle,
-) {
-	lifecycle.Append(fx.Hook{
-		OnStart: nil,
-		OnStop: func(ctx context.Context) error {
-			err := shutdownlistener.Shutdown(ctx)
-			if err != nil {
-				return fmt.Errorf("error during shutdown: %w", err)
-			}
-			return nil
-		},
-	})
-}
-
-type observabilityComponentResult struct {
-	fx.Out
-
-	MeterProvider     metric.MeterProvider
-	Logger            *slog.Logger
-	TraceProvider     trace.TracerProvider
-	TextMapPropagator propagation.TextMapPropagator
-}
-
-func exposeObservabilityComponents(
-	service *observability.Service,
-) observabilityComponentResult {
-	return observabilityComponentResult{
-		MeterProvider:     service.MeterProvider,
-		Logger:            service.Logger,
-		TraceProvider:     service.TraceProvider,
-		TextMapPropagator: service.TextMapPropagator,
-	}
 }

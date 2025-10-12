@@ -1,4 +1,4 @@
-package observability
+package management
 
 import (
 	"net/http"

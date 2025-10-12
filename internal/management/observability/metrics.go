@@ -11,23 +11,24 @@ import (
 	otelpromethues "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 
+	"github.com/minuk-dev/opampcommander/internal/management"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 func newMeterProvider(
 	settings config.MetricSettings,
 	logger *slog.Logger,
-) (*metric.MeterProvider, ManagementRoutesInfo, error) {
+) (*metric.MeterProvider, management.ManagementRoutesInfo, error) {
 	var (
 		meterProvider *metric.MeterProvider
-		routesInfo    ManagementRoutesInfo
+		routesInfo    management.ManagementRoutesInfo
 		err           error
 	)
 
 	switch settings.Type {
 	case config.MetricTypePrometheus:
 		// Initialize Prometheus metrics
-		var managementRoutesInfo ManagementRoutesInfo
+		var managementRoutesInfo management.ManagementRoutesInfo
 		meterProvider, managementRoutesInfo, err = newPrometheusMetricProvider(settings.MetricSettingsForPrometheus.Path, logger)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to initialize Prometheus metrics: %w", err)
@@ -54,7 +55,7 @@ func newMeterProvider(
 func newPrometheusMetricProvider(
 	path string,
 	logger *slog.Logger,
-) (*metric.MeterProvider, ManagementRoutesInfo, error) {
+) (*metric.MeterProvider, management.ManagementRoutesInfo, error) {
 	registry := prometheus.NewRegistry()
 	handler := createPrometheusHandler(registry)
 
@@ -69,8 +70,8 @@ func newPrometheusMetricProvider(
 		metric.WithReader(exporter),
 	)
 
-	return provider, ManagementRoutesInfo{
-		ManagementRouteInfo{
+	return provider, management.ManagementRoutesInfo{
+		management.ManagementRouteInfo{
 			Method:  http.MethodGet,
 			Path:    path,
 			Handler: handler,

@@ -16,7 +16,7 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/internal/observability"
+	"github.com/minuk-dev/opampcommander/internal/management/observability"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"

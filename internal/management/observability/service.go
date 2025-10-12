@@ -13,6 +13,7 @@ import (
 	traceapi "go.opentelemetry.io/otel/trace"
 
 	"github.com/minuk-dev/opampcommander/internal/helper"
+	"github.com/minuk-dev/opampcommander/internal/management"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
@@ -28,14 +29,14 @@ var (
 )
 
 var (
-	_ ManagementHTTPHandler = (*Service)(nil)
+	_ management.ManagementHTTPHandler = (*Service)(nil)
 )
 
 // Service provides observability features such as metrics and tracing.
 type Service struct {
 	serviceName string // observability service name
 
-	routeInfos ManagementRoutesInfo // some observability types may provide management routes
+	routeInfos management.ManagementRoutesInfo // some observability types may provide management routes
 
 	MeterProvider     metricapi.MeterProvider
 	TraceProvider     traceapi.TracerProvider
@@ -61,6 +62,7 @@ func New(
 		}, nil
 	}
 
+	//exhaustruct:ignore
 	service := &Service{
 		serviceName:       settings.ServiceName,
 		MeterProvider:     nil,
@@ -103,7 +105,7 @@ func New(
 	return service, nil
 }
 
-func (service *Service) RoutesInfos() ManagementRoutesInfo {
+func (service *Service) RoutesInfos() management.ManagementRoutesInfo {
 	return service.routeInfos
 }
 

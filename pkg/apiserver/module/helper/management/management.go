@@ -1,4 +1,4 @@
-package helper
+package management
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minuk-dev/opampcommander/internal/observability"
+	"github.com/minuk-dev/opampcommander/internal/management"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"go.uber.org/fx"
 )
@@ -28,7 +28,7 @@ type ManagementHTTPServer struct {
 
 func NewManagementHTTPServer(
 	settings *config.ManagementSettings,
-	handers []observability.ManagementHTTPHandler,
+	handers []management.ManagementHTTPHandler,
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
 ) *ManagementHTTPServer {
@@ -46,8 +46,9 @@ func NewManagementHTTPServer(
 	}
 
 	server := &http.Server{
-		Addr:    settings.Address,
-		Handler: mux,
+		Addr:              settings.Address,
+		Handler:           mux,
+		ReadHeaderTimeout: DefaultPrometheusReadHeaderTimeout,
 	}
 
 	setupMetricsLifecycleHooks(lifecycle, server, logger)
