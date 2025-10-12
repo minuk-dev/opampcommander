@@ -149,14 +149,22 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("management.log.level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().String("management.log.format", "text", "log format (json, text)")
 	cmd.Flags().Bool("management.trace.enabled", false, "enable tracing")
-	cmd.Flags().String("management.trace.endpoint", "grpc://localhost:4317", "tracing endpoint (for OpenTelemetry, Jaeger, etc.)")
+	cmd.Flags().String(
+		"management.trace.endpoint",
+		"grpc://localhost:4317",
+		"tracing endpoint (for OpenTelemetry, Jaeger, etc.)",
+	)
 	cmd.Flags().String("management.trace.protocol", "grpc", "tracing protocol (grpc, http/protobuf, http/json)")
 	cmd.Flags().Bool("management.trace.compression", false, "enable compression for tracing")
 	cmd.Flags().String("management.trace.compressionAlgorithm", "gzip", "compression algorithm for tracing (gzip)")
 	cmd.Flags().Bool("management.trace.insecure", false, "use insecure connection for tracing")
 	cmd.Flags().StringToString("management.trace.headers", nil, "headers to be sent with tracing requests")
 	cmd.Flags().String("management.trace.sampler", "always", "tracing sampler (always, never, probability)")
-	cmd.Flags().Float64("management.trace.samplerRatio", 1.0, "sampling ratio for traceidratio and parentbased_traceidratio samplers")
+	cmd.Flags().Float64(
+		"management.trace.samplerRatio",
+		1.0,
+		"sampling ratio for traceidratio and parentbased_traceidratio samplers",
+	)
 	cmd.Flags().Bool("auth.enabled", false, "enable authentication")
 	cmd.Flags().String("auth.admin.username", "admin", "admin username")
 	cmd.Flags().String("auth.admin.password", "admin", "admin password")
@@ -213,6 +221,8 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 }
 
 // Prepare prepares the command.
+//
+//nolint:funlen // Configuration parsing requires many steps
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address: opt.Address,

@@ -1,3 +1,4 @@
+// Package lifecycle provides application lifecycle management.
 package lifecycle
 
 import (

@@ -44,14 +44,14 @@ func NewModule() fx.Option {
 			),
 
 			// Management HTTP server
-			fx.Annotate(helpermanagement.NewManagementHTTPServer,
+			fx.Annotate(helpermanagement.NewHTTPServer,
 				fx.ParamTags(``, `group:"management_http_handlers"`)),
 		),
 		// Lifecycle hooks
 		fx.Invoke(func(*lifecycle.Executor) {}),
-		fx.Invoke(func(*helpermanagement.ManagementHTTPServer) {}),
+		fx.Invoke(func(*helpermanagement.HTTPServer) {}),
 		fx.Invoke(lifecycle.RegisterShutdownListener),
-		
+
 		// Logger
 		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
 			return &fxevent.SlogLogger{Logger: logger}

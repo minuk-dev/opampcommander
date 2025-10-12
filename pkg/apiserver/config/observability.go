@@ -2,6 +2,7 @@ package config
 
 import "log/slog"
 
+// ManagementSettings holds the settings for the management server.
 type ManagementSettings struct {
 	// Address is the address to bind the management server to.
 	// e.g. ":9090" or "localhost:9090"
@@ -37,6 +38,7 @@ type MetricSettings struct {
 	MetricSettingsForOpenTelemetry MetricsSettingsForOpenTelemetry
 }
 
+// MetricSettingsForPrometheus holds the settings for Prometheus metrics.
 type MetricSettingsForPrometheus struct {
 	// Path specifies the path for metrics exposure.
 	// This is the endpoint to expose metrics.
@@ -44,6 +46,7 @@ type MetricSettingsForPrometheus struct {
 	Path string
 }
 
+// MetricsSettingsForOpenTelemetry holds the settings for OpenTelemetry metrics.
 type MetricsSettingsForOpenTelemetry struct {
 	// Endpoint specifies the endpoint for metrics collection.
 	// This is the endpoint to send metrics to.

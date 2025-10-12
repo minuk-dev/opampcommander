@@ -1,3 +1,4 @@
+// Package management provides management HTTP server functionality.
 package management
 
 import (
@@ -9,9 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/fx"
+
 	"github.com/minuk-dev/opampcommander/internal/management"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	"go.uber.org/fx"
 )
 
 const (
@@ -22,16 +24,19 @@ const (
 	DefaultPrometheusReadHeaderTimeout = 10 * time.Second
 )
 
-type ManagementHTTPServer struct {
+// HTTPServer provides an HTTP server for management endpoints.
+type HTTPServer struct {
 	server *http.Server
+	// NewManagementHTTPServer creates a new management HTTP server.
 }
 
-func NewManagementHTTPServer(
+// NewHTTPServer creates a new management HTTP server.
+func NewHTTPServer(
 	settings *config.ManagementSettings,
-	handers []management.ManagementHTTPHandler,
+	handers []management.HTTPHandler,
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
-) *ManagementHTTPServer {
+) *HTTPServer {
 	mux := http.NewServeMux()
 
 	for _, handler := range handers {
@@ -45,6 +50,7 @@ func NewManagementHTTPServer(
 		}
 	}
 
+	//exhaustruct:ignore
 	server := &http.Server{
 		Addr:              settings.Address,
 		Handler:           mux,
@@ -53,7 +59,7 @@ func NewManagementHTTPServer(
 
 	setupMetricsLifecycleHooks(lifecycle, server, logger)
 
-	return &ManagementHTTPServer{
+	return &HTTPServer{
 		server: server,
 	}
 }

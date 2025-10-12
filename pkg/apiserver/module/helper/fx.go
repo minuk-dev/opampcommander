@@ -1,8 +1,9 @@
 package helper
 
 import (
-	"github.com/minuk-dev/opampcommander/internal/management/healthcheck"
 	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/internal/management/healthcheck"
 )
 
 // AsController is a helper function to annotate a function as a controller.

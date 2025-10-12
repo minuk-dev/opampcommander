@@ -18,21 +18,26 @@ import (
 func newMeterProvider(
 	settings config.MetricSettings,
 	logger *slog.Logger,
-) (*metric.MeterProvider, management.ManagementRoutesInfo, error) {
+) (*metric.MeterProvider, management.RoutesInfo, error) {
 	var (
 		meterProvider *metric.MeterProvider
-		routesInfo    management.ManagementRoutesInfo
+		routesInfo    management.RoutesInfo
 		err           error
 	)
 
 	switch settings.Type {
 	case config.MetricTypePrometheus:
 		// Initialize Prometheus metrics
-		var managementRoutesInfo management.ManagementRoutesInfo
-		meterProvider, managementRoutesInfo, err = newPrometheusMetricProvider(settings.MetricSettingsForPrometheus.Path, logger)
+		var managementRoutesInfo management.RoutesInfo
+
+		meterProvider, managementRoutesInfo, err = newPrometheusMetricProvider(
+			settings.MetricSettingsForPrometheus.Path,
+			logger,
+		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to initialize Prometheus metrics: %w", err)
 		}
+
 		routesInfo = append(routesInfo, managementRoutesInfo...)
 	case config.MetricTypeOTel:
 		return nil, nil, fmt.Errorf("%w: %s", ErrNoImplementation, settings.Type)
@@ -54,8 +59,8 @@ func newMeterProvider(
 
 func newPrometheusMetricProvider(
 	path string,
-	logger *slog.Logger,
-) (*metric.MeterProvider, management.ManagementRoutesInfo, error) {
+	_ *slog.Logger,
+) (*metric.MeterProvider, management.RoutesInfo, error) {
 	registry := prometheus.NewRegistry()
 	handler := createPrometheusHandler(registry)
 
@@ -70,8 +75,8 @@ func newPrometheusMetricProvider(
 		metric.WithReader(exporter),
 	)
 
-	return provider, management.ManagementRoutesInfo{
-		management.ManagementRouteInfo{
+	return provider, management.RoutesInfo{
+		management.RouteInfo{
 			Method:  http.MethodGet,
 			Path:    path,
 			Handler: handler,

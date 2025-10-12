@@ -1,3 +1,4 @@
+// Package healthcheck provides health and readiness check functionality.
 package healthcheck
 
 import (
@@ -37,7 +38,7 @@ type HealthHelper struct {
 }
 
 var (
-	_ management.ManagementHTTPHandler = (*HealthHelper)(nil)
+	_ management.HTTPHandler = (*HealthHelper)(nil)
 )
 
 // NewHealthHelper creates a new HealthService instance.
@@ -50,11 +51,11 @@ func NewHealthHelper(
 }
 
 // Readiness checks the readiness of all registered health indicators.
-func (s *HealthHelper) Readiness(ctx context.Context) (bool, map[string]string) {
+func (h *HealthHelper) Readiness(ctx context.Context) (bool, map[string]string) {
 	reasons := make(map[string]string)
 	ready := true
 
-	for _, indicator := range s.indicators {
+	for _, indicator := range h.indicators {
 		indicatorReady := indicator.Readiness(ctx)
 		if !indicatorReady.Ready {
 			ready = false
@@ -66,11 +67,11 @@ func (s *HealthHelper) Readiness(ctx context.Context) (bool, map[string]string) 
 }
 
 // Health checks the health of all registered health indicators.
-func (s *HealthHelper) Health(ctx context.Context) (bool, map[string]string) {
+func (h *HealthHelper) Health(ctx context.Context) (bool, map[string]string) {
 	reasons := make(map[string]string)
 	healthy := true
 
-	for _, indicator := range s.indicators {
+	for _, indicator := range h.indicators {
 		indicatorHealth := indicator.Health(ctx)
 		if !indicatorHealth.Healthy {
 			healthy = false
@@ -81,18 +82,18 @@ func (s *HealthHelper) Health(ctx context.Context) (bool, map[string]string) {
 	return healthy, reasons
 }
 
-// RoutesInfo implements helper.Controller.
-func (c *HealthHelper) RoutesInfos() management.ManagementRoutesInfo {
-	return management.ManagementRoutesInfo{
+// RoutesInfos returns the management routes for health checks.
+func (h *HealthHelper) RoutesInfos() management.RoutesInfo {
+	return management.RoutesInfo{
 		{
 			Method:  http.MethodGet,
 			Path:    "/healthz",
-			Handler: http.HandlerFunc(c.IsHealth),
+			Handler: http.HandlerFunc(h.IsHealth),
 		},
 		{
 			Method:  http.MethodGet,
 			Path:    "/readyz",
-			Handler: http.HandlerFunc(c.IsReady),
+			Handler: http.HandlerFunc(h.IsReady),
 		},
 	}
 }
@@ -107,19 +108,20 @@ func (c *HealthHelper) RoutesInfos() management.ManagementRoutesInfo {
 // @Success 200 {string} string "OK"
 // @Failure 503 {string} string "Service Unavailable"
 // @Router /readyz [get].
-func (c *HealthHelper) IsReady(w http.ResponseWriter, req *http.Request) {
+func (h *HealthHelper) IsReady(writer http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
-	ready, reasons := c.Readiness(ctx)
+	ready, reasons := h.Readiness(ctx)
 	if ready {
-		w.WriteHeader(http.StatusOK)
+		writer.WriteHeader(http.StatusOK)
 	} else {
-		w.WriteHeader(http.StatusServiceUnavailable)
+		writer.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	err := json.NewEncoder(w).Encode(reasons)
+	err := json.NewEncoder(writer).Encode(reasons)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
+
 		return
 	}
 }
@@ -134,19 +136,20 @@ func (c *HealthHelper) IsReady(w http.ResponseWriter, req *http.Request) {
 // @Success 200 {string} string "OK"
 // @Failure 503 {string} string "Service Unavailable"
 // @Router /healthz [get].
-func (c *HealthHelper) IsHealth(w http.ResponseWriter, req *http.Request) {
+func (h *HealthHelper) IsHealth(writer http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
-	healthy, reasons := c.Health(ctx)
+	healthy, reasons := h.Health(ctx)
 	if healthy {
-		w.WriteHeader(http.StatusOK)
+		writer.WriteHeader(http.StatusOK)
 	} else {
-		w.WriteHeader(http.StatusServiceUnavailable)
+		writer.WriteHeader(http.StatusServiceUnavailable)
 	}
 
-	err := json.NewEncoder(w).Encode(reasons)
+	err := json.NewEncoder(writer).Encode(reasons)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
+
 		return
 	}
 }

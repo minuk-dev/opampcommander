@@ -3,6 +3,7 @@ package helper
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper/lifecycle"
 )
 

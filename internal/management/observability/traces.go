@@ -30,7 +30,7 @@ func newTraceProvider(
 	serviceName string,
 	shutdownlistener *helper.ShutdownListener,
 	traceConfig config.TraceSettings,
-	logger *slog.Logger,
+	_ *slog.Logger,
 ) (*sdktrace.TracerProvider, error) {
 	sampler, err := toSampler(traceConfig.Sampler, traceConfig.SamplerRatio)
 	if err != nil {
@@ -38,6 +38,7 @@ func newTraceProvider(
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
+
 	resource, err := resource.New(
 		traceCtx,
 		resource.WithAttributes(
@@ -69,6 +70,7 @@ func newTraceProvider(
 	shutdownlistener.Register(traceProvider)
 	shutdownlistener.RegisterFunc(func(context.Context) error {
 		cancel()
+
 		return nil
 	})
 
@@ -155,7 +157,7 @@ func newGRPCTraceExporter(
 	return exporter, nil
 }
 
-//nolint:ireturn
+//nolint:ireturn // Sampler is an interface that needs to be returned
 func toSampler(samplerType config.TraceSampler, ratio float64) (sdktrace.Sampler, error) {
 	switch samplerType {
 	case config.TraceSamplerAlways:

@@ -13,8 +13,8 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/management/observability"
 )
 
-// observabilityComponentResult exposes observability components to the DI container.
-type observabilityComponentResult struct {
+// ObservabilityComponentResult exposes observability components to the DI container.
+type ObservabilityComponentResult struct {
 	fx.Out
 
 	MeterProvider     metric.MeterProvider
@@ -26,9 +26,9 @@ type observabilityComponentResult struct {
 // ExposeObservabilityComponents extracts and exposes observability components from the service.
 func ExposeObservabilityComponents(
 	service *observability.Service,
-) observabilityComponentResult {
+) ObservabilityComponentResult {
 	//exhaustruct:ignore
-	return observabilityComponentResult{
+	return ObservabilityComponentResult{
 		MeterProvider:     service.MeterProvider,
 		Logger:            service.Logger,
 		TraceProvider:     service.TraceProvider,
@@ -37,11 +37,15 @@ func ExposeObservabilityComponents(
 }
 
 // AsManagementHTTPHandler converts observability.Service to ManagementHTTPHandler.
-func AsManagementHTTPHandler(svc *observability.Service) management.ManagementHTTPHandler {
+//
+//nolint:ireturn // This is a factory function that returns an interface by design.
+func AsManagementHTTPHandler(svc *observability.Service) management.HTTPHandler {
 	return svc
 }
 
 // AsHealthManagementHTTPHandler converts healthcheck.HealthHelper to ManagementHTTPHandler.
-func AsHealthManagementHTTPHandler(helper *healthcheck.HealthHelper) management.ManagementHTTPHandler {
+//
+//nolint:ireturn // This is a factory function that returns an interface by design.
+func AsHealthManagementHTTPHandler(helper *healthcheck.HealthHelper) management.HTTPHandler {
 	return helper
 }

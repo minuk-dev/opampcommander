@@ -21,6 +21,7 @@ func RegisterShutdownListener(
 			if err != nil {
 				return fmt.Errorf("error during shutdown: %w", err)
 			}
+
 			return nil
 		},
 	})

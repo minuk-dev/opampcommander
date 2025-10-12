@@ -29,14 +29,14 @@ var (
 )
 
 var (
-	_ management.ManagementHTTPHandler = (*Service)(nil)
+	_ management.HTTPHandler = (*Service)(nil)
 )
 
 // Service provides observability features such as metrics and tracing.
 type Service struct {
 	serviceName string // observability service name
 
-	routeInfos management.ManagementRoutesInfo // some observability types may provide management routes
+	routeInfos management.RoutesInfo // some observability types may provide management routes
 
 	MeterProvider     metricapi.MeterProvider
 	TraceProvider     traceapi.TracerProvider
@@ -105,7 +105,8 @@ func New(
 	return service, nil
 }
 
-func (service *Service) RoutesInfos() management.ManagementRoutesInfo {
+// RoutesInfos returns the management routes provided by this service.
+func (service *Service) RoutesInfos() management.RoutesInfo {
 	return service.routeInfos
 }
 

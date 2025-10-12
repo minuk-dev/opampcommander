@@ -1,31 +1,38 @@
+// Package management provides core management interfaces and types.
 package management
 
 import (
 	"net/http"
 )
 
-type ManagementRouteInfo struct {
+// RouteInfo defines a single management route configuration.
+type RouteInfo struct {
 	Method  string
 	Path    string
 	Handler http.Handler
 }
 
-type ManagementRoutesInfo []ManagementRouteInfo
+// RoutesInfo is a collection of management routes.
+type RoutesInfo []RouteInfo
 
-type ManagementHTTPHandler interface {
-	RoutesInfos() ManagementRoutesInfo
+// HTTPHandler is an interface for components that provide management HTTP routes.
+type HTTPHandler interface {
+	RoutesInfos() RoutesInfo
 }
 
-type ManagementRoutesInfoWrapper struct {
-	routesInfo ManagementRoutesInfo
+// RoutesInfoWrapper wraps ManagementRoutesInfo to implement ManagementHTTPHandler.
+type RoutesInfoWrapper struct {
+	routesInfo RoutesInfo
 }
 
-func NewManagementRoutesInfoWrapper(routesInfo ManagementRoutesInfo) *ManagementRoutesInfoWrapper {
-	return &ManagementRoutesInfoWrapper{
+// NewRoutesInfoWrapper creates a new ManagementRoutesInfoWrapper.
+func NewRoutesInfoWrapper(routesInfo RoutesInfo) *RoutesInfoWrapper {
+	return &RoutesInfoWrapper{
 		routesInfo: routesInfo,
 	}
 }
 
-func (w *ManagementRoutesInfoWrapper) RoutesInfos() ManagementRoutesInfo {
+// RoutesInfos returns the wrapped management routes.
+func (w *RoutesInfoWrapper) RoutesInfos() RoutesInfo {
 	return w.routesInfo
 }
