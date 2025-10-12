@@ -1,4 +1,4 @@
-package apiserver
+package helper
 
 import (
 	"context"
@@ -6,8 +6,6 @@ import (
 	"sync"
 
 	"go.uber.org/fx"
-
-	"github.com/minuk-dev/opampcommander/internal/helper"
 )
 
 // Executor is a struct that schedules and manages the execution of runners.
@@ -19,7 +17,7 @@ type Executor struct {
 // NewExecutor creates a new Executor instance.
 func NewExecutor(
 	lifecycle fx.Lifecycle,
-	runners []helper.Runner,
+	runners []Runner,
 	logger *slog.Logger,
 ) *Executor {
 	executor := &Executor{
@@ -32,7 +30,7 @@ func NewExecutor(
 			for _, runner := range runners {
 				executor.wg.Add(1)
 
-				go func(runner helper.Runner) {
+				go func(runner Runner) {
 					defer executor.wg.Done()
 
 					err := runner.Run(executorCtx)

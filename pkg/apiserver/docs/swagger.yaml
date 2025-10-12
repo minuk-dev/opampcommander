@@ -823,4 +823,42 @@ paths:
       tags:
       - auth
       - github
+  /healthz:
+    get:
+      consumes:
+      - application/json
+      description: Check if the service is healthy
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      summary: Liveness Check
+      tags:
+      - Health
+  /readyz:
+    get:
+      consumes:
+      - application/json
+      description: Check if the service is ready
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "503":
+          description: Service Unavailable
+          schema:
+            type: string
+      summary: Readiness Check
+      tags:
+      - Health
 swagger: "2.0"

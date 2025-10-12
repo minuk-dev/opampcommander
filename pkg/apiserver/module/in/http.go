@@ -1,4 +1,5 @@
-package apiserver
+// Package in provides in module for the apiserver.
+package in
 
 import (
 	"context"
@@ -19,6 +20,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
 const (
@@ -78,7 +80,7 @@ func NewHTTPServer(
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.
 func NewEngine(
-	controllers []Controller,
+	controllers []helper.Controller,
 	securityService *security.Service,
 	observabilityService *observability.Service,
 	logger *slog.Logger,
