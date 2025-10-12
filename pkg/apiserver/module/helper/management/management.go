@@ -27,19 +27,18 @@ const (
 // HTTPServer provides an HTTP server for management endpoints.
 type HTTPServer struct {
 	server *http.Server
-	// NewManagementHTTPServer creates a new management HTTP server.
 }
 
 // NewHTTPServer creates a new management HTTP server.
 func NewHTTPServer(
 	settings *config.ManagementSettings,
-	handers []management.HTTPHandler,
+	handlers []management.HTTPHandler,
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
 ) *HTTPServer {
 	mux := http.NewServeMux()
 
-	for _, handler := range handers {
+	for _, handler := range handlers {
 		routes := handler.RoutesInfos()
 		for _, route := range routes {
 			mux.Handle(route.Path, route.Handler)

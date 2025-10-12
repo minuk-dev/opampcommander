@@ -31,8 +31,8 @@ type CommandOption struct {
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
 	Management  struct {
-		Addresss string `mapstructure:"address"`
-		Metric   struct {
+		Address string `mapstructure:"address"`
+		Metric  struct {
 			Enabled    bool   `mapstructure:"enabled"`
 			Type       string `mapstructure:"type"`
 			Prometheus struct {
@@ -258,7 +258,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			},
 		},
 		ManagementSettings: appconfig.ManagementSettings{
-			Address: opt.Management.Addresss,
+			Address: opt.Management.Address,
 			ObservabilitySettings: appconfig.ObservabilitySettings{
 				ServiceName: opt.ServiceName,
 				Metric: appconfig.MetricSettings{
