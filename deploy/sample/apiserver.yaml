@@ -36,6 +36,18 @@ spec:
         - name: config-volume
           mountPath: /etc/opampcommander
           readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
         env:
         - name: AUTH_ADMIN_USERNAME
           valueFrom:
@@ -84,6 +96,7 @@ data:
       type: "mongodb"
       endpoints:
       - "mongodb://mongodb.opampcommander.svc.cluster.local:27017"
+      database: "opampcommander"
     metric:
       enabled: true
       type: prometheus
@@ -157,3 +170,10 @@ spec:
   - host: apiserver.opampcommander.local
     http:
       paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: apiserver
+              port:
+                number: 8080
