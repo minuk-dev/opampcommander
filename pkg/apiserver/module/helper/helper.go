@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
+	"github.com/minuk-dev/opampcommander/internal/observability"
 	"go.uber.org/fx"
 )
 
@@ -23,12 +24,6 @@ type Runner interface {
 	Run(ctx context.Context) error
 }
 
-// HealthIndicator is an interface that defines the methods for checking the health and readiness of the service.
-type HealthIndicator interface {
-	IsReady(ctx context.Context) bool
-	IsHealth(ctx context.Context) bool
-}
-
 // AsController is a helper function to annotate a function as a controller.
 func AsController(f any) any {
 	return fx.Annotate(
@@ -42,7 +37,7 @@ func AsController(f any) any {
 func AsHealthIndicator(f any) any {
 	return fx.Annotate(
 		f,
-		fx.As(new(HealthIndicator)),
+		fx.As(new(observability.HealthIndicator)),
 		fx.ResultTags(`group:"health_indicators"`),
 	)
 }

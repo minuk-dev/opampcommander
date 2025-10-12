@@ -2,23 +2,28 @@ address: localhost:8080
 database:
   type: "mongodb"
   endpoints:
-  - "mongodb://<user>:<password>@localhost:27017"
+  - "mongodb://localhost:27017"
   connectTimeout: 10s
   databaseName: "opampcommander"
   ddlAuto: true
-metric:
-  enabled: true
-  type: prometheus
-  endpoint: http://localhost:9090/metrics
-log:
-  level: info
-  format: text
-trace:
-  enabled: true
-  endpoint: "localhost:4317"
-  protocol: grpc
-  sampler: always
-  insecure: true
+management:
+  address: localhost:9090
+  metric:
+    enabled: true
+    type: prometheus
+    prometheus:
+      path: /metrics
+    opentelemetry: # unused when type is prometheus
+      endpoint: "localhost:4317"
+  log:
+    level: info
+    format: text
+  trace:
+    enabled: true
+    endpoint: "localhost:4317"
+    protocol: grpc
+    sampler: always
+    insecure: true
 auth:
   enabled: true
   admin:

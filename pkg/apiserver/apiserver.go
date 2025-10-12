@@ -89,6 +89,7 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		fx.Provide(helper.ValueFunc(settings)),
 		fx.Provide(helper.PointerFunc(settings.DatabaseSettings)),
 		fx.Provide(helper.PointerFunc(settings.AuthSettings)),
-		fx.Provide(helper.PointerFunc(settings.ObservabilitySettings)),
+		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
+		fx.Provide(helper.PointerFunc(settings.ManagementSettings.ObservabilitySettings)),
 	)
 }

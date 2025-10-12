@@ -2,6 +2,15 @@ package config
 
 import "log/slog"
 
+type ManagementSettings struct {
+	// Address is the address to bind the management server to.
+	// e.g. ":9090" or "localhost:9090"
+	Address string
+
+	// ObservabilitySettings holds the settings for observability features.
+	ObservabilitySettings ObservabilitySettings
+}
+
 // ObservabilitySettings holds the settings for observability features.
 type ObservabilitySettings struct {
 	// ServiceName is the name of the service for which observability is configured.
@@ -21,9 +30,23 @@ type MetricSettings struct {
 	// Type specifies the type of metrics to be used.
 	Type MetricType
 
+	// MetricsSettingsForPrometheus holds the settings specific to Prometheus metrics.
+	MetricSettingsForPrometheus MetricSettingsForPrometheus
+
+	// MetricsSettingsForOpenTelemetry holds the settings specific to OpenTelemetry metrics.
+	MetricSettingsForOpenTelemetry MetricsSettingsForOpenTelemetry
+}
+
+type MetricSettingsForPrometheus struct {
+	// Path specifies the path for metrics exposure.
+	// This is the endpoint to expose metrics.
+	// It should start with a '/' character.
+	Path string
+}
+
+type MetricsSettingsForOpenTelemetry struct {
 	// Endpoint specifies the endpoint for metrics collection.
-	// When using Prometheus, this is the endpoint to expose metrics.
-	// When using OpenTelemetry, this is the endpoint to send metrics to.
+	// This is the endpoint to send metrics to.
 	// It should be a valid URL or URI.
 	Endpoint string
 }

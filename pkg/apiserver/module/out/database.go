@@ -15,7 +15,6 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
 // NewMongoDBClient creates a new MongoDB client with OpenTelemetry instrumentation.
@@ -73,33 +72,6 @@ func NewMongoDBClient(
 	})
 
 	return mongoClient, nil
-}
-
-// EnsureSchema ensures that the necessary collections and indexes exist in the MongoDB database.
-var _ helper.HealthIndicator = (*MongoDBHealthIndicator)(nil)
-
-// MongoDBHealthIndicator is a health indicator for MongoDB.
-type MongoDBHealthIndicator struct {
-	client *mongo.Client
-}
-
-// NewMongoDBHealthIndicator creates a new MongoDBHealthIndicator.
-func NewMongoDBHealthIndicator(client *mongo.Client) *MongoDBHealthIndicator {
-	return &MongoDBHealthIndicator{
-		client: client,
-	}
-}
-
-// IsReady checks if the MongoDB client can successfully ping the database.
-func (m *MongoDBHealthIndicator) IsReady(ctx context.Context) bool {
-	err := m.client.Ping(ctx, nil)
-
-	return err == nil // if mongo is down, it's not ready
-}
-
-// IsHealth always returns true because even if MongoDB is down, the application can still be considered healthy.
-func (m *MongoDBHealthIndicator) IsHealth(context.Context) bool {
-	return true // even if mongo is down, the application is still healthy
 }
 
 // NewMongoDatabase creates a new MongoDB database from the client.
