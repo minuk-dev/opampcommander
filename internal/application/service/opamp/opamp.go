@@ -11,19 +11,14 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
-	"github.com/minuk-dev/opampcommander/internal/helper"
 )
 
 const (
 	// DefaultOnConnectionCloseTimeout is the default timeout for closing a connection.
 	DefaultOnConnectionCloseTimeout = 5 * time.Second
 )
-
-var _ applicationport.OpAMPUsecase = (*Service)(nil)
-var _ helper.Runner = (*Service)(nil)
 
 // Service is a struct that implements the OpAMPUsecase interface.
 type Service struct {

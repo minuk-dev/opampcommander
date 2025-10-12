@@ -12,8 +12,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
-	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
@@ -26,9 +26,12 @@ var (
 	ErrInvalidTraceSampler = errors.New("invalid trace sampler")
 )
 
-func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig config.TraceSettings,
-	logger *slog.Logger) (
-	*sdktrace.TracerProvider, error) {
+func newTraceProvider(
+	serviceName string,
+	shutdownlistener *helper.ShutdownListener,
+	traceConfig config.TraceSettings,
+	_ *slog.Logger,
+) (*sdktrace.TracerProvider, error) {
 	sampler, err := toSampler(traceConfig.Sampler, traceConfig.SamplerRatio)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create trace sampler: %w", err)
@@ -56,31 +59,20 @@ func newTraceProvider(serviceName string, lifecycle fx.Lifecycle, traceConfig co
 	}
 
 	bsp := sdktrace.NewBatchSpanProcessor(exporter)
-
-	lifecycle.Append(fx.Hook{
-		OnStart: nil,
-		OnStop: func(ctx context.Context) error {
-			bspErr := bsp.Shutdown(ctx)
-			if bspErr != nil {
-				logger.Warn("failed to shutdown batch span processor", slog.String("error", bspErr.Error()))
-			}
-
-			expErr := exporter.Shutdown(ctx)
-			if expErr != nil {
-				logger.Warn("failed to shutdown trace exporter", slog.String("error", expErr.Error()))
-			}
-
-			cancel()
-
-			return nil
-		},
-	})
-
 	traceProvider := sdktrace.NewTracerProvider(
 		sdktrace.WithResource(resource),
 		sdktrace.WithSampler(sampler),
 		sdktrace.WithSpanProcessor(bsp),
 	)
+
+	shutdownlistener.Register(bsp)
+	shutdownlistener.Register(exporter)
+	shutdownlistener.Register(traceProvider)
+	shutdownlistener.RegisterFunc(func(context.Context) error {
+		cancel()
+
+		return nil
+	})
 
 	return traceProvider, nil
 }
@@ -165,7 +157,7 @@ func newGRPCTraceExporter(
 	return exporter, nil
 }
 
-//nolint:ireturn
+//nolint:ireturn // Sampler is an interface that needs to be returned
 func toSampler(samplerType config.TraceSampler, ratio float64) (sdktrace.Sampler, error) {
 	switch samplerType {
 	case config.TraceSamplerAlways:

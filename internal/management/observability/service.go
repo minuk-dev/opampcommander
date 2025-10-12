@@ -11,8 +11,9 @@ import (
 	metricapi "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	traceapi "go.opentelemetry.io/otel/trace"
-	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/helper"
+	"github.com/minuk-dev/opampcommander/internal/management"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
@@ -27,85 +28,91 @@ var (
 	ErrInvalidPrometheusEndpoint = errors.New("invalid Prometheus endpoint URL")
 )
 
+var (
+	_ management.HTTPHandler = (*Service)(nil)
+)
+
 // Service provides observability features such as metrics and tracing.
 type Service struct {
-	serviceName       string // observability service name
-	meterProvider     metricapi.MeterProvider
-	traceProvider     traceapi.TracerProvider
-	textMapPropagator propagation.TextMapPropagator
-	logger            *slog.Logger
-}
+	serviceName string // observability service name
 
-// Result is the result type returned by the New function.
-type Result struct {
-	fx.Out
+	routeInfos management.RoutesInfo // some observability types may provide management routes
 
-	Service           *Service
 	MeterProvider     metricapi.MeterProvider
-	TracerProvider    traceapi.TracerProvider
-	Logger            *slog.Logger
+	TraceProvider     traceapi.TracerProvider
 	TextMapPropagator propagation.TextMapPropagator
+	Logger            *slog.Logger
 }
 
 // New creates a new observability Service based on the provided settings.
-// It provides observability service and its fields such as meter provider, trace provider, and logger for easy access.
 func New(
 	settings *config.ObservabilitySettings,
-	lifecycle fx.Lifecycle,
-) (Result, error) {
+	shutdownlistner *helper.ShutdownListener,
+) (*Service, error) {
 	logger, err := newLogger(settings)
 	if err != nil {
-		return Result{}, fmt.Errorf("failed to create logger: %w", err)
+		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 
 	if settings == nil {
 		// If no settings are provided, return a default Service instance.
 		//exhaustruct:ignore
-		return Result{
-			Service: &Service{},
+		return &Service{
+			Logger: logger,
 		}, nil
 	}
 
+	//exhaustruct:ignore
 	service := &Service{
 		serviceName:       settings.ServiceName,
-		meterProvider:     nil,
-		traceProvider:     nil,
-		textMapPropagator: nil,
-		logger:            logger,
+		MeterProvider:     nil,
+		TraceProvider:     nil,
+		TextMapPropagator: nil,
+		Logger:            logger,
 	}
 
 	if settings.Metric.Enabled {
-		service.meterProvider, err = newMeterProvider(lifecycle, settings.Metric, logger)
+		meterProvider, managementRoutesInfo, err := newMeterProvider(
+			settings.Metric,
+			logger,
+		)
 		if err != nil {
-			logger.Warn("failed to initialize meter provider", slog.String("error", err.Error()))
+			logger.Warn("failed to initialize meter provider",
+				slog.String("error", err.Error()),
+			)
 			// If meter provider cannot be initialized, we log the error but do not return it.
 		}
+
+		service.MeterProvider = meterProvider
+		service.routeInfos = append(service.routeInfos, managementRoutesInfo...)
 	}
 
 	if settings.Trace.Enabled {
-		service.traceProvider, err = newTraceProvider(service.serviceName, lifecycle, settings.Trace, logger)
+		service.TraceProvider, err = newTraceProvider(
+			service.serviceName,
+			shutdownlistner,
+			settings.Trace,
+			logger,
+		)
 		if err != nil {
 			logger.Warn("failed to initialize trace provider", slog.String("error", err.Error()))
 			// If trace provider cannot be initialized, we log the error but do not return it.
 		}
 
-		service.textMapPropagator = propagation.TraceContext{}
+		service.TextMapPropagator = propagation.TraceContext{}
 	}
 
-	return Result{
-		Out: fx.Out{},
+	return service, nil
+}
 
-		Service:           service,
-		MeterProvider:     service.meterProvider,
-		TracerProvider:    service.traceProvider,
-		Logger:            logger,
-		TextMapPropagator: service.textMapPropagator,
-	}, nil
+// RoutesInfos returns the management routes provided by this service.
+func (service *Service) RoutesInfos() management.RoutesInfo {
+	return service.routeInfos
 }
 
 // Middleware returns a Gin middleware function that applies OpenTelemetry instrumentation.
 func (service *Service) Middleware() gin.HandlerFunc {
-	if service.meterProvider == nil {
+	if service.MeterProvider == nil {
 		return func(ctx *gin.Context) {
 			ctx.Next()
 		}
@@ -113,16 +120,16 @@ func (service *Service) Middleware() gin.HandlerFunc {
 
 	var opts []otelgin.Option
 
-	if service.meterProvider != nil {
-		opts = append(opts, otelgin.WithMeterProvider(service.meterProvider))
+	if service.MeterProvider != nil {
+		opts = append(opts, otelgin.WithMeterProvider(service.MeterProvider))
 	}
 
-	if service.traceProvider != nil {
-		opts = append(opts, otelgin.WithTracerProvider(service.traceProvider))
+	if service.TraceProvider != nil {
+		opts = append(opts, otelgin.WithTracerProvider(service.TraceProvider))
 	}
 
-	if service.textMapPropagator != nil {
-		opts = append(opts, otelgin.WithPropagators(service.textMapPropagator))
+	if service.TextMapPropagator != nil {
+		opts = append(opts, otelgin.WithPropagators(service.TextMapPropagator))
 	}
 
 	return otelgin.Middleware(service.serviceName, opts...)

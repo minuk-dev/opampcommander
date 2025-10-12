@@ -1,10 +1,10 @@
-package apiserver
+// Package out provides out module for the apiserver.
+package out
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/v2/event"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -16,11 +16,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
-
-// Controller is an interface that defines the methods for handling HTTP requests.
-type Controller interface {
-	RoutesInfo() gin.RoutesInfo
-}
 
 // NewMongoDBClient creates a new MongoDB client with OpenTelemetry instrumentation.
 func NewMongoDBClient(

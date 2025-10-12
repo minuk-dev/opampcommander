@@ -30,27 +30,35 @@ type CommandOption struct {
 		DDLAuto        bool          `mapstructure:"ddlAuto"`
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
-	Metric      struct {
-		Enabled  bool   `mapstructure:"enabled"`
-		Type     string `mapstructure:"type"`
-		Endpoint string `mapstructure:"endpoint"`
-	}
-	Log struct {
-		Enabled bool   `mapstructure:"enabled"`
-		Level   string `mapstructure:"level"`
-		Format  string `mapstructure:"format"`
-	} `mapstructure:"log"`
-	Trace struct {
-		Enabled              bool              `mapstructure:"enabled"`
-		Protocol             string            `mapstructure:"protocol"`
-		Compression          bool              `mapstructure:"compression"`
-		CompressionAlgorithm string            `mapstructure:"compressionAlgorithm"`
-		Insecure             bool              `mapstructure:"insecure"`
-		Headers              map[string]string `mapstructure:"headers"`
-		Endpoint             string            `mapstructure:"endpoint"`
-		Sampler              string            `mapstructure:"sampler"`
-		SamplerRatio         float64           `mapstructure:"samplerRatio"`
-	} `mapstructure:"trace"`
+	Management  struct {
+		Address string `mapstructure:"address"`
+		Metric  struct {
+			Enabled    bool   `mapstructure:"enabled"`
+			Type       string `mapstructure:"type"`
+			Prometheus struct {
+				Path string `mapstructure:"path"`
+			} `mapstructure:"prometheus"`
+			OpenTelemetry struct {
+				Endpoint string `mapstructure:"endpoint"`
+			} `mapstructure:"openTelemetry"`
+		}
+		Log struct {
+			Enabled bool   `mapstructure:"enabled"`
+			Level   string `mapstructure:"level"`
+			Format  string `mapstructure:"format"`
+		} `mapstructure:"log"`
+		Trace struct {
+			Enabled              bool              `mapstructure:"enabled"`
+			Protocol             string            `mapstructure:"protocol"`
+			Compression          bool              `mapstructure:"compression"`
+			CompressionAlgorithm string            `mapstructure:"compressionAlgorithm"`
+			Insecure             bool              `mapstructure:"insecure"`
+			Headers              map[string]string `mapstructure:"headers"`
+			Endpoint             string            `mapstructure:"endpoint"`
+			Sampler              string            `mapstructure:"sampler"`
+			SamplerRatio         float64           `mapstructure:"samplerRatio"`
+		} `mapstructure:"trace"`
+	} `mapstructure:"management"`
 	Auth struct {
 		Enabled bool `mapstructure:"enabled"`
 		Admin   struct {
@@ -132,22 +140,31 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
 	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
-	cmd.Flags().Bool("metric.enabled", false, "enable metrics")
-	cmd.Flags().String("metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
-	cmd.Flags().String("metric.endpoint", "http://localhost:8081/metrics",
-		"metric endpoint (for prometheus, opentelemetry)")
-	cmd.Flags().Bool("log.enabled", true, "enable logging")
-	cmd.Flags().String("log.level", "info", "log level (debug, info, warn, error)")
-	cmd.Flags().String("log.format", "text", "log format (json, text)")
-	cmd.Flags().Bool("trace.enabled", false, "enable tracing")
-	cmd.Flags().String("trace.endpoint", "grpc://localhost:4317", "tracing endpoint (for OpenTelemetry, Jaeger, etc.)")
-	cmd.Flags().String("trace.protocol", "grpc", "tracing protocol (grpc, http/protobuf, http/json)")
-	cmd.Flags().Bool("trace.compression", false, "enable compression for tracing")
-	cmd.Flags().String("trace.compressionAlgorithm", "gzip", "compression algorithm for tracing (gzip)")
-	cmd.Flags().Bool("trace.insecure", false, "use insecure connection for tracing")
-	cmd.Flags().StringToString("trace.headers", nil, "headers to be sent with tracing requests")
-	cmd.Flags().String("trace.sampler", "always", "tracing sampler (always, never, probability)")
-	cmd.Flags().Float64("trace.samplerRatio", 1.0, "sampling ratio for traceidratio and parentbased_traceidratio samplers")
+	cmd.Flags().String("management.address", "localhost:9090", "management server address")
+	cmd.Flags().Bool("management.metric.enabled", false, "enable metrics")
+	cmd.Flags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
+	cmd.Flags().String("management.metric.prometheus.path", "/metrics", "Prometheus metrics path")
+	cmd.Flags().String("management.metric.openTelemetry.endpoint", "localhost:4317", "OpenTelemetry metrics endpoint")
+	cmd.Flags().Bool("management.log.enabled", true, "enable logging")
+	cmd.Flags().String("management.log.level", "info", "log level (debug, info, warn, error)")
+	cmd.Flags().String("management.log.format", "text", "log format (json, text)")
+	cmd.Flags().Bool("management.trace.enabled", false, "enable tracing")
+	cmd.Flags().String(
+		"management.trace.endpoint",
+		"grpc://localhost:4317",
+		"tracing endpoint (for OpenTelemetry, Jaeger, etc.)",
+	)
+	cmd.Flags().String("management.trace.protocol", "grpc", "tracing protocol (grpc, http/protobuf, http/json)")
+	cmd.Flags().Bool("management.trace.compression", false, "enable compression for tracing")
+	cmd.Flags().String("management.trace.compressionAlgorithm", "gzip", "compression algorithm for tracing (gzip)")
+	cmd.Flags().Bool("management.trace.insecure", false, "use insecure connection for tracing")
+	cmd.Flags().StringToString("management.trace.headers", nil, "headers to be sent with tracing requests")
+	cmd.Flags().String("management.trace.sampler", "always", "tracing sampler (always, never, probability)")
+	cmd.Flags().Float64(
+		"management.trace.samplerRatio",
+		1.0,
+		"sampling ratio for traceidratio and parentbased_traceidratio samplers",
+	)
 	cmd.Flags().Bool("auth.enabled", false, "enable authentication")
 	cmd.Flags().String("auth.admin.username", "admin", "admin username")
 	cmd.Flags().String("auth.admin.password", "admin", "admin password")
@@ -204,6 +221,8 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 }
 
 // Prepare prepares the command.
+//
+//nolint:funlen // Configuration parsing requires many steps
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address: opt.Address,
@@ -238,28 +257,36 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				},
 			},
 		},
-		ObservabilitySettings: appconfig.ObservabilitySettings{
-			ServiceName: opt.ServiceName,
-			Metric: appconfig.MetricSettings{
-				Enabled:  opt.Metric.Enabled,
-				Type:     appconfig.MetricType(opt.Metric.Type),
-				Endpoint: opt.Metric.Endpoint,
-			},
-			Log: appconfig.LogSettings{
-				Enabled: opt.Log.Enabled,
-				Level:   toSlogLevel(opt.Log.Level),
-				Format:  appconfig.LogFormat(opt.Log.Format),
-			},
-			Trace: appconfig.TraceSettings{
-				Enabled:              opt.Trace.Enabled,
-				Protocol:             appconfig.TraceProtocol(opt.Trace.Protocol),
-				Compression:          opt.Trace.Compression,
-				CompressionAlgorithm: appconfig.TraceCompressionAlgorithm(opt.Trace.CompressionAlgorithm),
-				Insecure:             opt.Trace.Insecure,
-				Headers:              opt.Trace.Headers,
-				Sampler:              appconfig.TraceSampler(opt.Trace.Sampler),
-				SamplerRatio:         opt.Trace.SamplerRatio,
-				Endpoint:             opt.Trace.Endpoint,
+		ManagementSettings: appconfig.ManagementSettings{
+			Address: opt.Management.Address,
+			ObservabilitySettings: appconfig.ObservabilitySettings{
+				ServiceName: opt.ServiceName,
+				Metric: appconfig.MetricSettings{
+					Enabled: opt.Management.Metric.Enabled,
+					Type:    appconfig.MetricType(opt.Management.Metric.Type),
+					MetricSettingsForPrometheus: appconfig.MetricSettingsForPrometheus{
+						Path: opt.Management.Metric.Prometheus.Path,
+					},
+					MetricSettingsForOpenTelemetry: appconfig.MetricsSettingsForOpenTelemetry{
+						Endpoint: opt.Management.Metric.OpenTelemetry.Endpoint,
+					},
+				},
+				Log: appconfig.LogSettings{
+					Enabled: opt.Management.Log.Enabled,
+					Level:   toSlogLevel(opt.Management.Log.Level),
+					Format:  appconfig.LogFormat(opt.Management.Log.Format),
+				},
+				Trace: appconfig.TraceSettings{
+					Enabled:              opt.Management.Trace.Enabled,
+					Protocol:             appconfig.TraceProtocol(opt.Management.Trace.Protocol),
+					Compression:          opt.Management.Trace.Compression,
+					CompressionAlgorithm: appconfig.TraceCompressionAlgorithm(opt.Management.Trace.CompressionAlgorithm),
+					Insecure:             opt.Management.Trace.Insecure,
+					Headers:              opt.Management.Trace.Headers,
+					Sampler:              appconfig.TraceSampler(opt.Management.Trace.Sampler),
+					SamplerRatio:         opt.Management.Trace.SamplerRatio,
+					Endpoint:             opt.Management.Trace.Endpoint,
+				},
 			},
 		},
 	})

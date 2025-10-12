@@ -85,6 +85,12 @@ linters:
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code
+        internal:
+          files:
+            - "internal/**"
+          deny:
+            - pkg: go.uber.org/fx
+              desc: Do not use fx in internal packages.
         test:
           files:
             - "**/*_test.go"
