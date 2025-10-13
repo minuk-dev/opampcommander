@@ -5,9 +5,18 @@ import (
 	"encoding/json"
 )
 
+// ServerID is a unique identifier for an API server instance.
+type ServerID string
+
+// String returns the string representation of the ServerID.
+func (s ServerID) String() string {
+	return string(s)
+}
+
 // ServerSettings is a struct that holds the server settings.
 type ServerSettings struct {
 	Address            string
+	ServerID           ServerID
 	DatabaseSettings   DatabaseSettings
 	AuthSettings       AuthSettings
 	ManagementSettings ManagementSettings

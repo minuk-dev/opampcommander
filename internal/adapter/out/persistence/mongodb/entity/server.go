@@ -29,7 +29,7 @@ func (s *Server) ToDomainModel() *domainmodel.Server {
 	}
 }
 
-// ToEntity converts a domain model to a Server entity.
+// ToServerEntity converts a domain model to a Server entity.
 func ToServerEntity(server *domainmodel.Server) *Server {
 	return &Server{
 		ID:              nil,

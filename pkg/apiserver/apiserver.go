@@ -91,5 +91,7 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		fx.Provide(helper.PointerFunc(settings.AuthSettings)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings.ObservabilitySettings)),
+		// serverID provider with explicit type
+		fx.Provide(func() config.ServerID { return settings.ServerID }),
 	)
 }

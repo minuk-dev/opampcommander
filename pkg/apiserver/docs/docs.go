@@ -743,6 +743,39 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/servers": {
+            "get": {
+                "description": "Retrieve a list of all alive servers.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "server"
+                ],
+                "summary": "List Servers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Server"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/version": {
             "get": {
                 "description": "Retrieve the server version information.",
@@ -1212,6 +1245,20 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "description": "Message is the response message.",
+                    "type": "string"
+                }
+            }
+        },
+        "Server": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "lastHeartbeatAt": {
                     "type": "string"
                 }
             }

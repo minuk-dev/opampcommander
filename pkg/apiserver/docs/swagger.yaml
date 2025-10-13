@@ -218,6 +218,15 @@ definitions:
         description: Message is the response message.
         type: string
     type: object
+  Server:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      lastHeartbeatAt:
+        type: string
+    type: object
   UpdateAgentConfigRequest:
     properties:
       remoteConfig: {}
@@ -759,6 +768,28 @@ paths:
       summary: Ping
       tags:
       - ping
+  /api/v1/servers:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all alive servers.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Server'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Servers
+      tags:
+      - server
   /api/v1/version:
     get:
       consumes:

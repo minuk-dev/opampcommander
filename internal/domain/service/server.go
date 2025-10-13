@@ -7,10 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 var (
@@ -60,27 +59,23 @@ func WithHeartbeatTimeout(timeout time.Duration) ServerServiceOption {
 // NewServerService creates a new instance of the ServerService.
 func NewServerService(
 	logger *slog.Logger,
+	serverID config.ServerID,
 	serverPersistencePort port.ServerPersistencePort,
 	opts ...ServerServiceOption,
 ) *ServerService {
-	s := &ServerService{
+	service := &ServerService{
 		logger:                logger,
-		id:                    generateServerID(),
+		id:                    serverID.String(),
 		heartbeatInterval:     DefaultHeartbeatInterval,
 		heartbeatTimeout:      DefaultHeartbeatTimeout,
 		serverPersistencePort: serverPersistencePort,
 	}
 
 	for _, opt := range opts {
-		opt(s)
+		opt(service)
 	}
 
-	return s
-}
-
-// generateServerID generates a unique server ID.
-func generateServerID() string {
-	return uuid.New().String()
+	return service
 }
 
 // ID returns the ID of the server.
@@ -109,7 +104,7 @@ func (s *ServerService) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		case <-ticker.C:
 			err := s.sendHeartbeat(ctx)
 			if err != nil {
@@ -117,6 +112,46 @@ func (s *ServerService) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+// CurrentServer implements port.ServerUsecase.
+func (s *ServerService) CurrentServer(ctx context.Context) (*model.Server, error) {
+	server, err := s.serverPersistencePort.GetServer(ctx, s.id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current server: %w", err)
+	}
+
+	return server, nil
+}
+
+// GetServer implements port.ServerUsecase.
+func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
+	server, err := s.serverPersistencePort.GetServer(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get server: %w", err)
+	}
+
+	return server, nil
+}
+
+// ListServers implements port.ServerUsecase.
+func (s *ServerService) ListServers(ctx context.Context) ([]*model.Server, error) {
+	servers, err := s.serverPersistencePort.ListServers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	// Filter out dead servers
+	now := time.Now()
+	aliveServers := make([]*model.Server, 0)
+
+	for _, server := range servers {
+		if server.IsAlive(now, s.heartbeatTimeout) {
+			aliveServers = append(aliveServers, server)
+		}
+	}
+
+	return aliveServers, nil
 }
 
 // registerServer registers the server in the database.
@@ -169,44 +204,4 @@ func (s *ServerService) sendHeartbeat(ctx context.Context) error {
 	s.logger.Debug("heartbeat sent", slog.String("serverID", s.id))
 
 	return nil
-}
-
-// CurrentServer implements port.ServerUsecase.
-func (s *ServerService) CurrentServer(ctx context.Context) (*model.Server, error) {
-	server, err := s.serverPersistencePort.GetServer(ctx, s.id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current server: %w", err)
-	}
-
-	return server, nil
-}
-
-// GetServer implements port.ServerUsecase.
-func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
-	server, err := s.serverPersistencePort.GetServer(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get server: %w", err)
-	}
-
-	return server, nil
-}
-
-// ListServers implements port.ServerUsecase.
-func (s *ServerService) ListServers(ctx context.Context) ([]*model.Server, error) {
-	servers, err := s.serverPersistencePort.ListServers(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list servers: %w", err)
-	}
-
-	// Filter out dead servers
-	now := time.Now()
-	aliveServers := make([]*model.Server, 0)
-
-	for _, server := range servers {
-		if server.IsAlive(now, s.heartbeatTimeout) {
-			aliveServers = append(aliveServers, server)
-		}
-	}
-
-	return aliveServers, nil
 }

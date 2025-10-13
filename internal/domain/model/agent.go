@@ -241,6 +241,7 @@ type AgentSpec struct {
 	RemoteConfig remoteconfig.RemoteConfig
 }
 
+// AgentRemoteConfig contains metadata about the remote configuration.
 type AgentRemoteConfig struct {
 	LastModifiedAt time.Time
 	LastModifiedBy string

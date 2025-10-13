@@ -7,8 +7,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
+	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 const serverCollectionName = "servers"
