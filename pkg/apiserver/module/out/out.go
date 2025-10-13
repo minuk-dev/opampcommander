@@ -19,6 +19,7 @@ func New() fx.Option {
 			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(domainport.AgentPersistencePort))),
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(domainport.AgentGroupPersistencePort))),
 			fx.Annotate(mongodb.NewCommandRepository, fx.As(new(domainport.CommandPersistencePort))),
+			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(domainport.ServerPersistencePort))),
 		),
 	)
 }

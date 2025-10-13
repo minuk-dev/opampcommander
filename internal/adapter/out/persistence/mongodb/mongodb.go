@@ -16,6 +16,7 @@ var (
 	collections = []string{
 		agentCollectionName,
 		agentGroupCollectionName,
+		serverCollectionName,
 	}
 
 	indexes = []collectionAndIndexes{
@@ -50,6 +51,17 @@ var (
 				{
 					Keys: bson.D{
 						{Key: "name", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: serverCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "serverId", Value: 1},
 					},
 					Options: nil,
 				},

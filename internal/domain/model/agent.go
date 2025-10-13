@@ -183,6 +183,9 @@ type AgentStatus struct {
 	PackageStatuses     AgentPackageStatuses
 	ComponentHealth     AgentComponentHealth
 	AvailableComponents AgentAvailableComponents
+
+	LastCommunicatedAt time.Time
+	LastCommunicatedTo Server
 }
 
 // AgentCommands is a list of commands to be sent to the agent.
@@ -236,6 +239,11 @@ type AgentCommand struct {
 // AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
 	RemoteConfig remoteconfig.RemoteConfig
+}
+
+type AgentRemoteConfig struct {
+	LastModifiedAt time.Time
+	LastModifiedBy string
 }
 
 // AgentComponentHealth is a domain model to control opamp agent component health.
