@@ -156,14 +156,19 @@ func startMongoDB(t *testing.T) (testcontainers.Container, string) {
 func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), string) {
 	t.Helper()
 
+	hostname, _ := os.Hostname()
+	serverID := fmt.Sprintf("%s-test-%d", hostname, port)
+
 	//exhaustruct:ignore
 	settings := config.ServerSettings{
-		Address: fmt.Sprintf("0.0.0.0:%d", port),
+		Address:  fmt.Sprintf("0.0.0.0:%d", port),
+		ServerID: config.ServerID(serverID),
 		DatabaseSettings: config.DatabaseSettings{
 			Type:           config.DatabaseTypeMongoDB,
 			Endpoints:      []string{mongoURI},
 			ConnectTimeout: 10 * time.Second,
 			DatabaseName:   dbName,
+			DDLAuto:        true,
 		},
 		//exhaustruct:ignore
 		AuthSettings: config.AuthSettings{
@@ -173,6 +178,16 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 				Issuer:     "e2e-test",
 				Expiration: 24 * time.Hour,
 				Audience:   []string{"test"},
+			},
+		},
+		//exhaustruct:ignore
+		ManagementSettings: config.ManagementSettings{
+			//exhaustruct:ignore
+			ObservabilitySettings: config.ObservabilitySettings{
+				//exhaustruct:ignore
+				Log: config.LogSettings{
+					Format: config.LogFormatText,
+				},
 			},
 		},
 	}

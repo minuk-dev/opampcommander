@@ -22,6 +22,7 @@ type CommandOption struct {
 
 	// flags
 	Address  string `mapstructure:"address"`
+	ServerID string `mapstructure:"serverId"`
 	Database struct {
 		Type           string        `mapstructure:"type"`
 		Endpoints      []string      `mapstructure:"endpoints"`
@@ -134,6 +135,7 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&opt.configFilename, "config", "",
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
 	cmd.Flags().String("address", "localhost:8080", "server address")
+	cmd.Flags().String("serverId", "", "server ID (default is hostname, can be overridden by SERVER_ID env var)")
 	cmd.Flags().String("database.type", "mongodb", "database type (mongodb)")
 	cmd.Flags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
 	cmd.Flags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
@@ -209,12 +211,23 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 
 	// Use environment variables
 	// e.g. LOG_LEVEL=debug will set log.level to debug
+	// SERVER_ID env var can override serverId
 	opt.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace '.' with '_' for environment variables
 	opt.viper.AutomaticEnv()                                   // read in environment variables that match
 
 	err = opt.viper.Unmarshal(opt)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// If serverID is not set, use hostname as default
+	if opt.ServerID == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			return fmt.Errorf("failed to get hostname: %w", err)
+		}
+
+		opt.ServerID = hostname
 	}
 
 	return nil
@@ -225,7 +238,8 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 //nolint:funlen // Configuration parsing requires many steps
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
-		Address: opt.Address,
+		Address:  opt.Address,
+		ServerID: appconfig.ServerID(opt.ServerID),
 		DatabaseSettings: appconfig.DatabaseSettings{
 			Type:           appconfig.DatabaseType(opt.Database.Type),
 			Endpoints:      opt.Database.Endpoints,

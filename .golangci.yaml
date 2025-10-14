@@ -36,6 +36,8 @@ linters:
         - anon
         - Option$
         - Provider$ # Provider is commonly used
+        - '.+/management\.HTTPHandler$'
+        - '.+/trace\.Sampler$'
     depguard:
       rules:
         main:

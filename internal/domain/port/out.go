@@ -46,6 +46,16 @@ type CommandPersistencePort interface {
 	SaveCommand(ctx context.Context, command *model.Command) error
 }
 
+// ServerPersistencePort is an interface that defines the methods for server persistence.
+type ServerPersistencePort interface {
+	// GetServer retrieves a server by its ID.
+	GetServer(ctx context.Context, id string) (*model.Server, error)
+	// PutServer saves or updates a server.
+	PutServer(ctx context.Context, server *model.Server) error
+	// ListServers retrieves a list of all servers.
+	ListServers(ctx context.Context) ([]*model.Server, error)
+}
+
 var (
 	// ErrResourceNotExist is an error that indicates that the resource does not exist.
 	ErrResourceNotExist = errors.New("resource does not exist")

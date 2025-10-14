@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
@@ -35,6 +36,7 @@ func New() fx.Option {
 			agent.NewController, helper.AsController(helper.Identity[*agent.Controller]),
 			agentgroup.NewController, helper.AsController(helper.Identity[*agentgroup.Controller]),
 			command.NewController, helper.AsController(helper.Identity[*command.Controller]),
+			server.NewController, helper.AsController(helper.Identity[*server.Controller]),
 			github.NewController, helper.AsController(helper.Identity[*github.Controller]),
 			basic.NewController, helper.AsController(helper.Identity[*basic.Controller]),
 		),

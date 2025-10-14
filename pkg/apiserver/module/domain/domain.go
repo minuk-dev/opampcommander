@@ -6,6 +6,7 @@ import (
 
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
 // New creates a new module for domain services.
@@ -18,6 +19,12 @@ func New() fx.Option {
 			fx.As(new(domainport.AgentGroupUsecase)),
 			fx.As(new(domainport.AgentGroupRelatedUsecase)),
 		),
+		domainservice.NewServerService,
+		fx.Annotate(
+			helper.Identity[*domainservice.ServerService],
+			fx.As(new(domainport.ServerUsecase)),
+		),
+		helper.AsRunner(helper.Identity[*domainservice.ServerService]),
 	}
 
 	return fx.Module(

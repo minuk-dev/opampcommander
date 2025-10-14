@@ -65,6 +65,17 @@ type UpdateAgentConfigUsecase interface {
 	UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error
 }
 
+// ServerUsecase is an interface that defines the methods for server use cases.
+type ServerUsecase interface {
+	// GetServer retrieves a server by its ID.
+	GetServer(ctx context.Context, id string) (*model.Server, error)
+	// ListServers lists all servers.
+	// The number of servers is expected to be small, so no pagination is needed.
+	ListServers(ctx context.Context) ([]*model.Server, error)
+	// CurrentServer returns the current server.
+	CurrentServer(ctx context.Context) (*model.Server, error)
+}
+
 // ConnectionUsecase is an interface that defines the methods for connection use cases.
 type ConnectionUsecase interface {
 	// GetConnectionByInstanceUID returns the connection for the given instance UID.
