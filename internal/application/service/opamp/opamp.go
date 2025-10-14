@@ -25,6 +25,7 @@ type Service struct {
 	logger         *slog.Logger
 	agentUsecase   domainport.AgentUsecase
 	commandUsecase domainport.CommandUsecase
+	serverUsecase  domainport.ServerUsecase
 
 	backgroundLoopCh chan backgroundCallbackFn
 
@@ -39,6 +40,7 @@ func New(
 	agentUsecase domainport.AgentUsecase,
 	commandUsecase domainport.CommandUsecase,
 	connectionUsecase domainport.ConnectionUsecase,
+	serverUsecase domainport.ServerUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -46,6 +48,7 @@ func New(
 		agentUsecase:      agentUsecase,
 		commandUsecase:    commandUsecase,
 		connectionUsecase: connectionUsecase,
+		serverUsecase:     serverUsecase,
 		backgroundLoopCh:  make(chan backgroundCallbackFn),
 
 		OnConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
@@ -156,6 +159,16 @@ func (s *Service) OnMessage(
 	err = s.report(agent, message)
 	if err != nil {
 		logger.Error("failed to report agent", slog.String("error", err.Error()))
+	}
+
+	// Update communication info
+	agent.Status.LastCommunicatedAt = time.Now()
+
+	currentServer, err := s.serverUsecase.CurrentServer(ctx)
+	if err != nil {
+		logger.Warn("failed to get current server", slog.String("error", err.Error()))
+	} else {
+		agent.Status.LastCommunicatedTo = *currentServer
 	}
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)

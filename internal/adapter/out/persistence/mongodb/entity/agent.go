@@ -53,6 +53,8 @@ type AgentStatus struct {
 	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
 	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
 	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
+	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
+	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
 }
 
 // AgentCommands represents the commands to be sent to an agent.
@@ -232,6 +234,11 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 
 // ToDomain converts the AgentStatus to domain model.
 func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
+	var lastCommunicatedTo domainmodel.Server
+	if status.LastCommunicatedTo != nil {
+		lastCommunicatedTo = *status.LastCommunicatedTo.ToDomainModel()
+	}
+
 	return domainmodel.AgentStatus{
 		EffectiveConfig: switchIfNil(
 			status.EffectiveConfig.ToDomain(),
@@ -253,6 +260,8 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 			//exhaustruct:ignore
 			domainmodel.AgentAvailableComponents{},
 		),
+		LastCommunicatedAt: status.LastCommunicatedAt.Time(),
+		LastCommunicatedTo: lastCommunicatedTo,
 	}
 }
 
@@ -441,6 +450,8 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
 			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
 			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
+			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastCommunicatedAt),
+			LastCommunicatedTo:  ToServerEntity(&agent.Status.LastCommunicatedTo),
 		},
 		Commands: AgentCommandsFromDomain(&agent.Commands),
 	}
