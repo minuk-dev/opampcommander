@@ -13,6 +13,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 
 // Service is a struct that implements the OpAMPUsecase interface.
 type Service struct {
+	clock          clock.Clock
 	logger         *slog.Logger
 	agentUsecase   domainport.AgentUsecase
 	commandUsecase domainport.CommandUsecase
@@ -44,6 +46,7 @@ func New(
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
+		clock:             clock.NewRealClock(),
 		logger:            logger,
 		agentUsecase:      agentUsecase,
 		commandUsecase:    commandUsecase,
@@ -156,19 +159,14 @@ func (s *Service) OnMessage(
 		return s.createFallbackServerToAgent(instanceUID)
 	}
 
-	err = s.report(agent, message)
-	if err != nil {
-		logger.Error("failed to report agent", slog.String("error", err.Error()))
-	}
-
-	// Update communication info
-	agent.Status.LastCommunicatedAt = time.Now()
-
 	currentServer, err := s.serverUsecase.CurrentServer(ctx)
 	if err != nil {
 		logger.Warn("failed to get current server", slog.String("error", err.Error()))
-	} else {
-		agent.Status.LastCommunicatedTo = *currentServer
+	}
+
+	err = s.report(agent, message, currentServer)
+	if err != nil {
+		logger.Error("failed to report agent", slog.String("error", err.Error()))
 	}
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)

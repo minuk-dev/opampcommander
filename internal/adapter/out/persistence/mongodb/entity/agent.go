@@ -234,11 +234,6 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 
 // ToDomain converts the AgentStatus to domain model.
 func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
-	var lastCommunicatedTo domainmodel.Server
-	if status.LastCommunicatedTo != nil {
-		lastCommunicatedTo = *status.LastCommunicatedTo.ToDomainModel()
-	}
-
 	return domainmodel.AgentStatus{
 		EffectiveConfig: switchIfNil(
 			status.EffectiveConfig.ToDomain(),
@@ -261,7 +256,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 			domainmodel.AgentAvailableComponents{},
 		),
 		LastCommunicatedAt: status.LastCommunicatedAt.Time(),
-		LastCommunicatedTo: lastCommunicatedTo,
+		LastCommunicatedTo: status.LastCommunicatedTo.ToDomainModel(),
 	}
 }
 
@@ -451,7 +446,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
 			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
 			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastCommunicatedAt),
-			LastCommunicatedTo:  ToServerEntity(&agent.Status.LastCommunicatedTo),
+			LastCommunicatedTo:  ToServerEntity(agent.Status.LastCommunicatedTo),
 		},
 		Commands: AgentCommandsFromDomain(&agent.Commands),
 	}

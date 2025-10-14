@@ -37,15 +37,11 @@ func ExposeObservabilityComponents(
 }
 
 // AsManagementHTTPHandler converts observability.Service to ManagementHTTPHandler.
-//
-//nolint:ireturn // This is a factory function that returns an interface by design.
 func AsManagementHTTPHandler(svc *observability.Service) management.HTTPHandler {
 	return svc
 }
 
 // AsHealthManagementHTTPHandler converts healthcheck.HealthHelper to ManagementHTTPHandler.
-//
-//nolint:ireturn // This is a factory function that returns an interface by design.
 func AsHealthManagementHTTPHandler(helper *healthcheck.HealthHelper) management.HTTPHandler {
 	return helper
 }

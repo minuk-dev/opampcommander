@@ -50,6 +50,8 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
+			LastCommunicatedAt: time.Time{},
+			LastCommunicatedTo: nil,
 		},
 		Commands: AgentCommands{
 			Commands: []AgentCommand{},
@@ -185,7 +187,7 @@ type AgentStatus struct {
 	AvailableComponents AgentAvailableComponents
 
 	LastCommunicatedAt time.Time
-	LastCommunicatedTo Server
+	LastCommunicatedTo *Server
 }
 
 // AgentCommands is a list of commands to be sent to the agent.
@@ -239,12 +241,6 @@ type AgentCommand struct {
 // AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
 	RemoteConfig remoteconfig.RemoteConfig
-}
-
-// AgentRemoteConfig contains metadata about the remote configuration.
-type AgentRemoteConfig struct {
-	LastModifiedAt time.Time
-	LastModifiedBy string
 }
 
 // AgentComponentHealth is a domain model to control opamp agent component health.
@@ -461,4 +457,13 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 // SetReportFullState is a method to set the report full state of the agent.
 func (a *Agent) SetReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
 	a.Commands.SendReportFullState(reportFullState, requestedAt, requestedBy)
+}
+
+// MarkAsCommunicated updates the last communicated time and server of the agent.
+func (a *Agent) MarkAsCommunicated(by *Server, at time.Time) {
+	if by != nil {
+		a.Status.LastCommunicatedTo = by
+	}
+
+	a.Status.LastCommunicatedAt = at
 }

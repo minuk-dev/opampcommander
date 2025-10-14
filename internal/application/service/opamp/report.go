@@ -9,7 +9,14 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 )
 
-func (s *Service) report(agent *model.Agent, agentToServer *protobufs.AgentToServer) error {
+func (s *Service) report(
+	agent *model.Agent,
+	agentToServer *protobufs.AgentToServer,
+	by *model.Server,
+) error {
+	// Update communication info
+	agent.MarkAsCommunicated(by, s.clock.Now())
+
 	err := agent.ReportDescription(descToDomain(agentToServer.GetAgentDescription()))
 	if err != nil {
 		return fmt.Errorf("failed to report description: %w", err)

@@ -157,7 +157,6 @@ func newGRPCTraceExporter(
 	return exporter, nil
 }
 
-//nolint:ireturn // Sampler is an interface that needs to be returned
 func toSampler(samplerType config.TraceSampler, ratio float64) (sdktrace.Sampler, error) {
 	switch samplerType {
 	case config.TraceSamplerAlways:
