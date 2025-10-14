@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/open-telemetry/opamp-go v0.22.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/samber/lo v1.51.0
+	github.com/samber/lo v1.52.0
 	github.com/samber/slog-gin v1.17.2
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.1
