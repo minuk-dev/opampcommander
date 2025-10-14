@@ -38,10 +38,6 @@ make clean-mongodb-data
 make run-dev-server
 ```
 
-MongoDB data is stored in `./default.mongodb` directory and persists across container restarts.
-
-**Note:** MongoDB 4.4 is used to ensure compatibility with Raspberry Pi ARM architecture.
-
 ### Development Commands
 
 ```sh
