@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 
 	configCmd "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/config"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/context"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
@@ -45,6 +46,7 @@ func NewCommand(options CommandOption) *cobra.Command {
 	cmd.AddCommand(deletecmd.NewCommand(deletecmd.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(create.NewCommand(create.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(configCmd.NewCommand(configCmd.CommandOptions{GlobalConfig: options.globalConfig}))
+	cmd.AddCommand(context.NewCommand(context.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(whoami.NewCommand(whoami.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(version.NewCommand(version.CommandOptions{GlobalConfig: options.globalConfig}))
 
