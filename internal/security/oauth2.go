@@ -12,6 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-github/v72/github"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 )
 
@@ -28,6 +29,9 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 		return "", fmt.Errorf("invalid state: %w", err)
 	}
 
+	// Use context with custom HTTP client for tracing
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
 	token, err := s.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		return "", fmt.Errorf("failed to exchange OAuth2 code for token: %w", err)
@@ -43,6 +47,14 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
 		return "", ErrOAuth2ClientCreationFailed
+	}
+
+	// Wrap the GitHub client's transport with otelhttp for tracing GitHub API calls
+	if s.tracerProvider != nil && authClient.Transport != nil {
+		authClient.Transport = otelhttp.NewTransport(
+			authClient.Transport,
+			otelhttp.WithTracerProvider(s.tracerProvider),
+		)
 	}
 
 	client := github.NewClient(authClient)
@@ -76,6 +88,9 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 // DeviceAuth initiates the OAuth2 device authorization flow.
 // It returns a device authorization response that contains the user code and verification URL.
 func (s *Service) DeviceAuth(ctx context.Context) (*oauth2.DeviceAuthResponse, error) {
+	// Use context with custom HTTP client for tracing
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
 	deviceAuthRes, err := s.oauth2Config.DeviceAuth(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initiate device authorization: %w", err)
@@ -92,6 +107,9 @@ func (s *Service) ExchangeDeviceAuth(
 	deviceCode string,
 	expiry time.Time,
 ) (string, error) {
+	// Use context with custom HTTP client for tracing
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
 	token, err := s.oauth2Config.DeviceAccessToken(ctx,
 		//exhaustruct:ignore
 		&oauth2.DeviceAuthResponse{
@@ -112,6 +130,14 @@ func (s *Service) ExchangeDeviceAuth(
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
 		return "", ErrOAuth2ClientCreationFailed
+	}
+
+	// Wrap the GitHub client's transport with otelhttp for tracing GitHub API calls
+	if s.tracerProvider != nil && authClient.Transport != nil {
+		authClient.Transport = otelhttp.NewTransport(
+			authClient.Transport,
+			otelhttp.WithTracerProvider(s.tracerProvider),
+		)
 	}
 
 	client := github.NewClient(authClient)
