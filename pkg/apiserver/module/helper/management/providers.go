@@ -2,7 +2,9 @@ package management
 
 import (
 	"log/slog"
+	"net/http"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -44,4 +46,20 @@ func AsManagementHTTPHandler(svc *observability.Service) management.HTTPHandler 
 // AsHealthManagementHTTPHandler converts healthcheck.HealthHelper to ManagementHTTPHandler.
 func AsHealthManagementHTTPHandler(helper *healthcheck.HealthHelper) management.HTTPHandler {
 	return helper
+}
+
+// NewTracedHTTPClient creates an HTTP client with OpenTelemetry tracing instrumentation.
+// If TracerProvider is nil, it returns the standard http.DefaultClient.
+func NewTracedHTTPClient(tracerProvider trace.TracerProvider) *http.Client {
+	if tracerProvider == nil {
+		return http.DefaultClient
+	}
+
+	//exhaustruct:ignore
+	return &http.Client{
+		Transport: otelhttp.NewTransport(
+			http.DefaultTransport,
+			otelhttp.WithTracerProvider(tracerProvider),
+		),
+	}
 }

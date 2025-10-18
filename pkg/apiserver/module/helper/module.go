@@ -23,9 +23,6 @@ func NewModule() fx.Option {
 			fx.Annotate(lifecycle.NewExecutor,
 				fx.ParamTags(``, `group:"runners"`)),
 
-			// Security
-			security.New,
-
 			// Observability - ShutdownListener must be provided before observability.New
 			internalhelper.NewShutdownListener,
 			observability.New,
@@ -34,6 +31,12 @@ func NewModule() fx.Option {
 				helpermanagement.AsManagementHTTPHandler,
 				fx.ResultTags(`group:"management_http_handlers"`),
 			),
+
+			// HTTP Client with tracing - must be provided after observability
+			helpermanagement.NewTracedHTTPClient,
+
+			// Security
+			security.New,
 
 			// Health checks
 			fx.Annotate(healthcheck.NewHealthHelper,
