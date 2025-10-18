@@ -12,7 +12,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-github/v72/github"
 	"github.com/samber/lo"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"golang.org/x/oauth2"
 )
 
@@ -47,14 +46,6 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
 		return "", ErrOAuth2ClientCreationFailed
-	}
-
-	// Wrap the GitHub client's transport with otelhttp for tracing GitHub API calls
-	if s.tracerProvider != nil && authClient.Transport != nil {
-		authClient.Transport = otelhttp.NewTransport(
-			authClient.Transport,
-			otelhttp.WithTracerProvider(s.tracerProvider),
-		)
 	}
 
 	client := github.NewClient(authClient)
@@ -130,14 +121,6 @@ func (s *Service) ExchangeDeviceAuth(
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
 		return "", ErrOAuth2ClientCreationFailed
-	}
-
-	// Wrap the GitHub client's transport with otelhttp for tracing GitHub API calls
-	if s.tracerProvider != nil && authClient.Transport != nil {
-		authClient.Transport = otelhttp.NewTransport(
-			authClient.Transport,
-			otelhttp.WithTracerProvider(s.tracerProvider),
-		)
 	}
 
 	client := github.NewClient(authClient)

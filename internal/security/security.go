@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 	oauth2github "golang.org/x/oauth2/github"
 
@@ -53,7 +51,6 @@ type Service struct {
 	oauthStateSettings config.JWTSettings
 	adminSettings      config.AdminSettings
 	tokenSettings      config.JWTSettings
-	tracerProvider     trace.TracerProvider
 	httpClient         *http.Client
 }
 
@@ -69,21 +66,8 @@ type OPAMPClaims struct {
 func New(
 	logger *slog.Logger,
 	settings *config.AuthSettings,
-	tracerProvider trace.TracerProvider,
+	httpClient *http.Client,
 ) *Service {
-	// Create an HTTP client with OpenTelemetry instrumentation for tracing OAuth calls
-	var httpClient *http.Client
-	if tracerProvider != nil {
-		httpClient = &http.Client{
-			Transport: otelhttp.NewTransport(
-				http.DefaultTransport,
-				otelhttp.WithTracerProvider(tracerProvider),
-			),
-		}
-	} else {
-		httpClient = http.DefaultClient
-	}
-
 	return &Service{
 		logger: logger,
 		oauth2Config: &oauth2.Config{
@@ -96,7 +80,6 @@ func New(
 		oauthStateSettings: settings.JWTSettings,
 		adminSettings:      settings.AdminSettings,
 		tokenSettings:      settings.JWTSettings,
-		tracerProvider:     tracerProvider,
 		httpClient:         httpClient,
 	}
 }
