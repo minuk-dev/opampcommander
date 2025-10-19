@@ -171,6 +171,13 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 		return nil
 	}
 
+	var agentConfig *v1agentgroup.AgentConfig
+	if domain.AgentConfig != nil {
+		agentConfig = &v1agentgroup.AgentConfig{
+			Value: domain.AgentConfig.Value,
+		}
+	}
+
 	return &v1agentgroup.AgentGroup{
 		Name:       domain.Name,
 		Attributes: v1agentgroup.Attributes(domain.Attributes),
@@ -178,10 +185,11 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 			IdentifyingAttributes:    domain.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: domain.Selector.NonIdentifyingAttributes,
 		},
-		CreatedAt: domain.CreatedAt,
-		CreatedBy: domain.CreatedBy,
-		DeletedAt: domain.DeletedAt,
-		DeletedBy: domain.DeletedBy,
+		AgentConfig: agentConfig,
+		CreatedAt:   domain.CreatedAt,
+		CreatedBy:   domain.CreatedBy,
+		DeletedAt:   domain.DeletedAt,
+		DeletedBy:   domain.DeletedBy,
 	}
 }
 
@@ -189,6 +197,13 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	cmd *port.CreateAgentGroupCommand,
 	requestedBy *security.User,
 ) *domainagentgroup.AgentGroup {
+	var agentConfig *domainagentgroup.AgentConfig
+	if cmd.AgentConfig != nil {
+		agentConfig = &domainagentgroup.AgentConfig{
+			Value: cmd.AgentConfig.Value,
+		}
+	}
+
 	return &domainagentgroup.AgentGroup{
 		Name:       cmd.Name,
 		Attributes: domainagentgroup.Attributes(cmd.Attributes),
@@ -196,16 +211,24 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 			IdentifyingAttributes:    cmd.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: cmd.Selector.NonIdentifyingAttributes,
 		},
-		CreatedAt: s.clock.Now(),
-		CreatedBy: requestedBy.String(),
-		DeletedAt: nil,
-		DeletedBy: nil,
+		AgentConfig: agentConfig,
+		CreatedAt:   s.clock.Now(),
+		CreatedBy:   requestedBy.String(),
+		DeletedAt:   nil,
+		DeletedBy:   nil,
 	}
 }
 
 func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgroup.AgentGroup {
 	if api == nil {
 		return nil
+	}
+
+	var agentConfig *domainagentgroup.AgentConfig
+	if api.AgentConfig != nil {
+		agentConfig = &domainagentgroup.AgentConfig{
+			Value: api.AgentConfig.Value,
+		}
 	}
 
 	return &domainagentgroup.AgentGroup{
@@ -215,9 +238,10 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 			IdentifyingAttributes:    api.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: api.Selector.NonIdentifyingAttributes,
 		},
-		CreatedAt: api.CreatedAt,
-		CreatedBy: api.CreatedBy,
-		DeletedAt: api.DeletedAt,
-		DeletedBy: api.DeletedBy,
+		AgentConfig: agentConfig,
+		CreatedAt:   api.CreatedAt,
+		CreatedBy:   api.CreatedBy,
+		DeletedAt:   api.DeletedAt,
+		DeletedBy:   api.DeletedBy,
 	}
 }

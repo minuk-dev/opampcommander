@@ -56,9 +56,10 @@ type AgentGroupManageUsecase interface {
 
 // CreateAgentGroupCommand is a command to create an agent group.
 type CreateAgentGroupCommand struct {
-	Name       string
-	Attributes v1agentgroup.Attributes
-	Selector   v1agentgroup.AgentSelector
+	Name        string
+	Attributes  v1agentgroup.Attributes
+	Selector    v1agentgroup.AgentSelector
+	AgentConfig *v1agentgroup.AgentConfig
 }
 
 // CommandLookUpUsecase is a use case that handles command operations.

@@ -12,20 +12,22 @@ const (
 
 // AgentGroup represents a struct that represents an agent group.
 type AgentGroup struct {
-	Name       string        `json:"name"`
-	Attributes Attributes    `json:"attributes"`
-	Selector   AgentSelector `json:"selector"`
-	CreatedAt  time.Time     `json:"createdAt"`
-	CreatedBy  string        `json:"createdBy"`
-	DeletedAt  *time.Time    `json:"deletedAt,omitempty"`
-	DeletedBy  *string       `json:"deletedBy,omitempty"`
+	Name        string        `json:"name"`
+	Attributes  Attributes    `json:"attributes"`
+	Selector    AgentSelector `json:"selector"`
+	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`
+	CreatedAt   time.Time     `json:"createdAt"`
+	CreatedBy   string        `json:"createdBy"`
+	DeletedAt   *time.Time    `json:"deletedAt,omitempty"`
+	DeletedBy   *string       `json:"deletedBy,omitempty"`
 } // @name AgentGroup
 
 // CreateRequest represents a request to create an agent group.
 type CreateRequest struct {
-	Name       string        `binding:"required" json:"name"`
-	Attributes Attributes    `json:"attributes"`
-	Selector   AgentSelector `json:"selector"`
+	Name        string        `binding:"required" json:"name"`
+	Attributes  Attributes    `json:"attributes"`
+	Selector    AgentSelector `json:"selector"`
+	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`
 } // @name AgentGroupCreateRequest
 
 // Attributes represents a map of attributes for the agent group.
@@ -37,4 +39,10 @@ type Attributes map[string]string
 type AgentSelector struct {
 	IdentifyingAttributes    map[string]string `json:"identifyingAttributes"`
 	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`
+}
+
+// AgentConfig represents the remote configuration for agents in the group.
+// @name AgentGroupAgentConfig.
+type AgentConfig struct {
+	Value string `json:"value"`
 }

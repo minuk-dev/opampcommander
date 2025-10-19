@@ -209,9 +209,10 @@ func (c *Controller) Create(ctx *gin.Context) {
 	}
 
 	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &CreateAgentGroupCommand{
-		Name:       req.Name,
-		Attributes: req.Attributes,
-		Selector:   req.Selector,
+		Name:        req.Name,
+		Attributes:  req.Attributes,
+		Selector:    req.Selector,
+		AgentConfig: req.AgentConfig,
 	})
 	if err != nil {
 		c.logger.Error("failed to create agent group", slog.String("error", err.Error()))

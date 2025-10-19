@@ -28,6 +28,7 @@ type Service struct {
 	agentUsecase   domainport.AgentUsecase
 	commandUsecase domainport.CommandUsecase
 	serverUsecase  domainport.ServerUsecase
+	agentGroupUsecase domainport.AgentGroupUsecase
 
 	backgroundLoopCh chan backgroundCallbackFn
 
@@ -43,6 +44,7 @@ func New(
 	commandUsecase domainport.CommandUsecase,
 	connectionUsecase domainport.ConnectionUsecase,
 	serverUsecase domainport.ServerUsecase,
+	agentGroupUsecase domainport.AgentGroupUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -52,6 +54,7 @@ func New(
 		commandUsecase:    commandUsecase,
 		connectionUsecase: connectionUsecase,
 		serverUsecase:     serverUsecase,
+		agentGroupUsecase: agentGroupUsecase,
 		backgroundLoopCh:  make(chan backgroundCallbackFn),
 
 		OnConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
@@ -174,7 +177,7 @@ func (s *Service) OnMessage(
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
 	}
 
-	response := s.fetchServerToAgent(agent)
+	response := s.fetchServerToAgent(ctx, agent)
 
 	logger.Info("end successfully")
 
