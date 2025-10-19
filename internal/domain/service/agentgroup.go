@@ -132,6 +132,7 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 
 	// Filter groups that match the agent
 	var matchingGroups []*agentgroup.AgentGroup
+
 	for _, group := range allGroups.Items {
 		if group.IsDeleted() {
 			continue

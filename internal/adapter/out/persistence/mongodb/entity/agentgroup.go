@@ -75,8 +75,8 @@ func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 			Version: VersionV1,
 			ID:      nil, // ID will be set by MongoDB
 		},
-		Name:        agentgroup.Name,
-		Attributes:  agentgroup.Attributes,
+		Name:       agentgroup.Name,
+		Attributes: agentgroup.Attributes,
 		Selector: AgentSelector{
 			IdentifyingAttributes:    agentgroup.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: agentgroup.Selector.NonIdentifyingAttributes,

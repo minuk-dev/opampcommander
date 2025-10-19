@@ -38,6 +38,22 @@ const (
 	StatusFailed   Status = Status(int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
 )
 
+// String returns the string representation of the status.
+func (s Status) String() string {
+	switch s {
+	case StatusUnset:
+		return "UNSET"
+	case StatusApplied:
+		return "APPLIED"
+	case StatusApplying:
+		return "APPLYING"
+	case StatusFailed:
+		return "FAILED"
+	default:
+		return fmt.Sprintf("UNKNOWN(%d)", int32(s))
+	}
+}
+
 // New creates a new RemoteConfig instance.
 func New() RemoteConfig {
 	return RemoteConfig{

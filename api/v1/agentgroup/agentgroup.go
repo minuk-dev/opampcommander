@@ -24,7 +24,7 @@ type AgentGroup struct {
 
 // CreateRequest represents a request to create an agent group.
 type CreateRequest struct {
-	Name        string        `binding:"required" json:"name"`
+	Name        string        `binding:"required"           json:"name"`
 	Attributes  Attributes    `json:"attributes"`
 	Selector    AgentSelector `json:"selector"`
 	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`

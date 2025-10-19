@@ -9,6 +9,8 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
@@ -54,6 +56,7 @@ func (s *Service) buildRemoteConfig(ctx context.Context, agentModel *model.Agent
 	agentGroups, err := s.agentGroupUsecase.GetAgentGroupsForAgent(ctx, agentModel)
 	if err != nil {
 		logger.Error("failed to get agent groups for agent", slog.String("error", err.Error()))
+
 		return nil
 	}
 
@@ -61,21 +64,52 @@ func (s *Service) buildRemoteConfig(ctx context.Context, agentModel *model.Agent
 	// In case of multiple groups, we prioritize the first one
 	for _, group := range agentGroups {
 		if group.AgentConfig != nil && group.AgentConfig.Value != "" {
-			logger.Info("applying remote config from agent group",
+			configBytes := []byte(group.AgentConfig.Value)
+
+			// Compute hash of the configuration
+			configHash, err := vo.NewHash(configBytes)
+			if err != nil {
+				logger.Error("failed to compute config hash", slog.String("error", err.Error()))
+
+				return nil
+			}
+
+			// Check if agent already has this config applied
+			currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
+			if currentStatus == remoteconfig.StatusApplied {
+				// Agent already has this config applied, don't send config body again
+				// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed
+				// since it was last requested (i.e. AgentConfigRequest.last_remote_config_hash field is equal
+				// to AgentConfigResponse.config_hash field)."
+				logger.Debug("agent already has the latest config applied",
+					slog.String("agentGroupName", group.Name),
+					slog.String("configHash", string(configHash)),
+				)
+
+				return &protobufs.AgentRemoteConfig{
+					Config:     nil, // Don't send config body if agent already has it
+					ConfigHash: configHash.Bytes(),
+				}
+			}
+
+			logger.Info("sending remote config from agent group",
 				slog.String("agentGroupName", group.Name),
+				slog.String("configHash", string(configHash)),
+				slog.String("currentStatus", currentStatus.String()),
 			)
 
 			// Build the AgentRemoteConfig message
 			configMap := &protobufs.AgentConfigMap{
 				ConfigMap: map[string]*protobufs.AgentConfigFile{
 					"config": {
-						Body: []byte(group.AgentConfig.Value),
+						Body: configBytes,
 					},
 				},
 			}
 
 			return &protobufs.AgentRemoteConfig{
-				Config: configMap,
+				Config:     configMap,
+				ConfigHash: configHash.Bytes(),
 			}
 		}
 	}

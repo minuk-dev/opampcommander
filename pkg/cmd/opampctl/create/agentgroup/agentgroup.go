@@ -90,6 +90,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			IdentifyingAttributes:    opt.identifyingAttributesSelector,
 			NonIdentifyingAttributes: opt.nonIdentifyingAttributeSelector,
 		},
+		AgentConfig: nil,
 	}
 
 	agentGroup, err := agentGroupService.CreateAgentGroup(cmd.Context(), createRequest)

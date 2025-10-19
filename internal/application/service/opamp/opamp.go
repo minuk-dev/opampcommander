@@ -23,11 +23,11 @@ const (
 
 // Service is a struct that implements the OpAMPUsecase interface.
 type Service struct {
-	clock          clock.Clock
-	logger         *slog.Logger
-	agentUsecase   domainport.AgentUsecase
-	commandUsecase domainport.CommandUsecase
-	serverUsecase  domainport.ServerUsecase
+	clock             clock.Clock
+	logger            *slog.Logger
+	agentUsecase      domainport.AgentUsecase
+	commandUsecase    domainport.CommandUsecase
+	serverUsecase     domainport.ServerUsecase
 	agentGroupUsecase domainport.AgentGroupUsecase
 
 	backgroundLoopCh chan backgroundCallbackFn
