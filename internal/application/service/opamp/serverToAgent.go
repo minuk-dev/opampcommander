@@ -128,8 +128,3 @@ func (s *Service) createFallbackServerToAgent(
 		InstanceUid: instanceUID[:],
 	}
 }
-
-// hasCapability checks if the agent has a specific capability.
-func hasCapability(capabilities agent.Capabilities, capability agent.Capability) bool {
-	return capabilities&agent.Capabilities(capability) != 0
-}

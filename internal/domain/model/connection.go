@@ -71,7 +71,8 @@ func (conn *Connection) IDString() string {
 
 // ConvertConnIDToString converts the connection ID to a string.
 func ConvertConnIDToString(id any) string {
-	raw := fmt.Sprintf("%+v", id)
+	// Use pointer address to avoid race condition with internal fields
+	raw := fmt.Sprintf("%p", id)
 	hash := sha256.New()
 	result := hash.Sum([]byte(raw))
 

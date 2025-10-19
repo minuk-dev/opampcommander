@@ -68,15 +68,20 @@ func New(
 	settings *config.AuthSettings,
 	httpClient *http.Client,
 ) *Service {
-	return &Service{
-		logger: logger,
-		oauth2Config: &oauth2.Config{
+	var oauth2Cfg *oauth2.Config
+	if settings.OAuthSettings != nil {
+		oauth2Cfg = &oauth2.Config{
 			ClientID:     settings.OAuthSettings.ClientID,
 			ClientSecret: settings.OAuthSettings.Secret,
 			RedirectURL:  settings.OAuthSettings.CallbackURL,
 			Scopes:       []string{"user:email"},
 			Endpoint:     oauth2github.Endpoint,
-		},
+		}
+	}
+
+	return &Service{
+		logger:             logger,
+		oauth2Config:       oauth2Cfg,
 		oauthStateSettings: settings.JWTSettings,
 		adminSettings:      settings.AdminSettings,
 		tokenSettings:      settings.JWTSettings,

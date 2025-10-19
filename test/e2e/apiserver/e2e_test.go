@@ -65,8 +65,17 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	// When: Collector reports via OpAMP
 	time.Sleep(5 * time.Second)
 
-	// Then: Agent is registered
+	// Debug: Check collector logs if no agents registered
 	agents := listAgents(t, apiBaseURL)
+	if len(agents) == 0 {
+		logs, err := collectorContainer.Logs(ctx)
+		if err == nil {
+			logBytes, _ := io.ReadAll(logs)
+			t.Logf("Collector logs:\n%s", string(logBytes))
+		}
+	}
+
+	// Then: Agent is registered
 	require.GreaterOrEqual(t, len(agents), 1, "At least one agent should be registered")
 
 	// Then: Collector has complete metadata
@@ -173,6 +182,12 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 		//exhaustruct:ignore
 		AuthSettings: config.AuthSettings{
 			//exhaustruct:ignore
+			AdminSettings: config.AdminSettings{
+				Username: "test-admin",
+				Password: "test-password",
+				Email:    "test@test.com",
+			},
+			//exhaustruct:ignore
 			JWTSettings: config.JWTSettings{
 				SigningKey: "test-secret-key",
 				Issuer:     "e2e-test",
@@ -212,7 +227,7 @@ func waitForAPIServerReady(t *testing.T, baseURL string) {
 	t.Helper()
 
 	require.Eventually(t, func() bool {
-		resp, err := http.Get(baseURL + "/api/v1/health") //nolint:noctx // test helper
+		resp, err := http.Get(baseURL + "/api/v1/ping") //nolint:noctx // test helper
 		if err != nil {
 			return false
 		}
@@ -308,13 +323,14 @@ extensions:
     server:
       ws:
         endpoint: ws://host.docker.internal:%d/api/v1/opamp
+        tls:
+          insecure: true
         headers:
           X-Test-Header: e2e-test
     instance_uid: %s
     capabilities:
       reports_effective_config: true
       reports_health: true
-      reports_available_components: true
     agent_description:
       non_identifying_attributes:
         service.name: otel-collector-e2e-test

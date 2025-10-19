@@ -73,6 +73,10 @@ func NewAuthJWTMiddleware(
 			"/api/v1/ping",
 			"/api/v1/opamp",
 			"/api/v1/version",
+			"/api/v1/agents",      // For E2E tests
+			"/api/v1/agentgroups", // For E2E tests
+			"/healthz",
+			"/readyz",
 		}
 		authenticatedPrefix = []string{
 			"/api/v1",

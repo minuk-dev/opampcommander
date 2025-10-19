@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,11 @@ const (
 	// DefaultHTTPReadTimeout is the default timeout for reading HTTP requests.
 	// It should be set to a reasonable value to avoid security issues.
 	DefaultHTTPReadTimeout = 30 * time.Second
+)
+
+var (
+	//nolint:gochecknoglobals // Swagger global variable is initialized once to prevent race conditions
+	swaggerOnce sync.Once
 )
 
 // NewHTTPServer creates a new HTTP server instance.
@@ -93,7 +99,10 @@ func NewEngine(
 	// swagger
 	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
 
-	docs.SwaggerInfo.BasePath = "/"
+	// Initialize swagger info only once to avoid race conditions in tests
+	swaggerOnce.Do(func() {
+		docs.SwaggerInfo.BasePath = "/"
+	})
 
 	for _, controller := range controllers {
 		routeInfo := controller.RoutesInfo()
