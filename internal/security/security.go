@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -50,6 +51,7 @@ type Service struct {
 	oauthStateSettings config.JWTSettings
 	adminSettings      config.AdminSettings
 	tokenSettings      config.JWTSettings
+	httpClient         *http.Client
 }
 
 // OPAMPClaims defines the custom claims for the JWT token used for opampcommander's authentication.
@@ -64,6 +66,7 @@ type OPAMPClaims struct {
 func New(
 	logger *slog.Logger,
 	settings *config.AuthSettings,
+	httpClient *http.Client,
 ) *Service {
 	return &Service{
 		logger: logger,
@@ -77,6 +80,7 @@ func New(
 		oauthStateSettings: settings.JWTSettings,
 		adminSettings:      settings.AdminSettings,
 		tokenSettings:      settings.JWTSettings,
+		httpClient:         httpClient,
 	}
 }
 

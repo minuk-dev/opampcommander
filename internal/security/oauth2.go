@@ -28,6 +28,9 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 		return "", fmt.Errorf("invalid state: %w", err)
 	}
 
+	// Use context with custom HTTP client for tracing
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
 	token, err := s.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		return "", fmt.Errorf("failed to exchange OAuth2 code for token: %w", err)
@@ -76,6 +79,9 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 // DeviceAuth initiates the OAuth2 device authorization flow.
 // It returns a device authorization response that contains the user code and verification URL.
 func (s *Service) DeviceAuth(ctx context.Context) (*oauth2.DeviceAuthResponse, error) {
+	// Use context with custom HTTP client for tracing
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
 	deviceAuthRes, err := s.oauth2Config.DeviceAuth(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initiate device authorization: %w", err)
@@ -92,6 +98,9 @@ func (s *Service) ExchangeDeviceAuth(
 	deviceCode string,
 	expiry time.Time,
 ) (string, error) {
+	// Use context with custom HTTP client for tracing
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
+
 	token, err := s.oauth2Config.DeviceAccessToken(ctx,
 		//exhaustruct:ignore
 		&oauth2.DeviceAuthResponse{
