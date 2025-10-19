@@ -1078,6 +1078,9 @@ const docTemplate = `{
         "AgentGroup": {
             "type": "object",
             "properties": {
+                "agentConfig": {
+                    "$ref": "#/definitions/api_v1_agentgroup.AgentConfig"
+                },
                 "attributes": {
                     "$ref": "#/definitions/api_v1_agentgroup.Attributes"
                 },
@@ -1107,6 +1110,9 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
+                "agentConfig": {
+                    "$ref": "#/definitions/api_v1_agentgroup.AgentConfig"
+                },
                 "attributes": {
                     "$ref": "#/definitions/api_v1_agentgroup.Attributes"
                 },
@@ -1318,6 +1324,14 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "api_v1_agentgroup.AgentConfig": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string"
                 }
             }
         },

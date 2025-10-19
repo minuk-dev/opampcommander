@@ -75,9 +75,7 @@ func (s *Service) buildRemoteConfig(ctx context.Context, agentModel *model.Agent
 			}
 
 			return &protobufs.AgentRemoteConfig{
-				Config: &protobufs.AgentConfigMap_ConfigMap{
-					ConfigMap: configMap,
-				},
+				Config: configMap,
 			}
 		}
 	}
