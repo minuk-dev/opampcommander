@@ -189,10 +189,10 @@ func TestBuildRemoteConfig_ConfigAlreadyApplied(t *testing.T) {
 
 	// Then: Should return hash only, no config body
 	require.NotNil(t, result, "Should return remote config")
-	assert.Nil(t, result.Config, "Should NOT include config body when already applied")
-	assert.NotNil(t, result.ConfigHash, "Should include config hash")
-	assert.NotEmpty(t, result.ConfigHash, "Config hash should not be empty")
-	assert.Equal(t, configHash.Bytes(), result.ConfigHash, "Hash should match")
+	assert.Nil(t, result.GetConfig(), "Should NOT include config body when already applied")
+	assert.NotNil(t, result.GetConfigHash(), "Should include config hash")
+	assert.NotEmpty(t, result.GetConfigHash(), "Config hash should not be empty")
+	assert.Equal(t, configHash.Bytes(), result.GetConfigHash(), "Hash should match")
 }
 
 func TestBuildRemoteConfig_EmptyConfigValue(t *testing.T) {
