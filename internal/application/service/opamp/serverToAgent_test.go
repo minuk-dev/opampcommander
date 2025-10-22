@@ -30,7 +30,10 @@ func (m *mockAgentGroupUsecase) GetAgentGroup(_ context.Context, _ string) (*age
 }
 
 //nolint:nilnil // Mock method returns nil for both values when not implemented
-func (m *mockAgentGroupUsecase) ListAgentGroups(_ context.Context, _ *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+func (m *mockAgentGroupUsecase) ListAgentGroups(
+	_ context.Context,
+	_ *model.ListOptions,
+) (*model.ListResponse[*agentgroup.AgentGroup], error) {
 	return nil, nil
 }
 
@@ -42,7 +45,7 @@ func (m *mockAgentGroupUsecase) DeleteAgentGroup(_ context.Context, _ string, _ 
 	return nil
 }
 
-func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(ctx context.Context, ag *model.Agent) ([]*agentgroup.AgentGroup, error) {
+func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(_ context.Context, ag *model.Agent) ([]*agentgroup.AgentGroup, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

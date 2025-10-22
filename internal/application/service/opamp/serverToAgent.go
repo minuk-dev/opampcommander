@@ -2,13 +2,17 @@ package opamp
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
@@ -30,7 +34,10 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	agentModel.Commands.Clear()
 
 	// Build RemoteConfig if applicable
-	remoteConfig := s.buildRemoteConfig(ctx, agentModel)
+	remoteConfig, err := s.buildRemoteConfig(ctx, agentModel)
+	if err != nil {
+
+	}
 
 	//exhaustruct:ignore
 	return &protobufs.ServerToAgent{
@@ -41,80 +48,71 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 }
 
 // buildRemoteConfig builds the remote configuration for the agent based on its agent groups.
-func (s *Service) buildRemoteConfig(ctx context.Context, agentModel *model.Agent) *protobufs.AgentRemoteConfig {
-	logger := s.logger.With(
-		slog.String("method", "buildRemoteConfig"),
-		slog.String("instanceUID", agentModel.Metadata.InstanceUID.String()),
-	)
-
+func (s *Service) buildRemoteConfig(
+	ctx context.Context,
+	agentModel *model.Agent,
+) (*protobufs.AgentRemoteConfig, error) {
 	// Check if agent supports RemoteConfig
 	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig) {
-		return nil
+		return nil, nil
 	}
 
 	// Get agent groups for this agent
 	agentGroups, err := s.agentGroupUsecase.GetAgentGroupsForAgent(ctx, agentModel)
 	if err != nil {
-		logger.Error("failed to get agent groups for agent", slog.String("error", err.Error()))
-
-		return nil
+		return nil, fmt.Errorf("failed to get agent groups for agent: %w", err)
 	}
 
-	// Find the first agent group with a non-nil AgentConfig
-	// In case of multiple groups, we prioritize the first one
-	for _, group := range agentGroups {
-		if group.AgentConfig != nil && group.AgentConfig.Value != "" {
-			configBytes := []byte(group.AgentConfig.Value)
+	agentGroupsWithRemoteConfigs := lo.Filter(agentGroups, func(group *agentgroup.AgentGroup, _ int) bool {
+		return group.AgentConfig != nil && group.AgentConfig.Value != ""
+	})
 
-			// Compute hash of the configuration
-			configHash, err := vo.NewHash(configBytes)
-			if err != nil {
-				logger.Error("failed to compute config hash", slog.String("error", err.Error()))
+	if len(agentGroupsWithRemoteConfigs) == 0 {
+		// No agent groups with remote config found
+		return nil, nil
+	}
 
-				return nil
-			}
+	sort.Slice(agentGroupsWithRemoteConfigs, func(i, j int) bool {
+		return agentGroupsWithRemoteConfigs[i].Priority > agentGroupsWithRemoteConfigs[j].Priority
+	})
 
-			// Check if agent already has this config applied
-			currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
-			if currentStatus == remoteconfig.StatusApplied {
-				// Agent already has this config applied, don't send config body again
-				// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed
-				// since it was last requested (i.e. AgentConfigRequest.last_remote_config_hash field is equal
-				// to AgentConfigResponse.config_hash field)."
-				logger.Debug("agent already has the latest config applied",
-					slog.String("agentGroupName", group.Name),
-					slog.String("configHash", string(configHash)),
-				)
+	winnerGroup := agentGroupsWithRemoteConfigs[0]
+	s.logger.Info("applying remote config from agent group",
+		slog.String("agentGroupName", winnerGroup.Name),
+		slog.Int("priority", winnerGroup.Priority),
+	)
 
-				return &protobufs.AgentRemoteConfig{
-					Config:     nil, // Don't send config body if agent already has it
-					ConfigHash: configHash.Bytes(),
-				}
-			}
+	configBytes := []byte(winnerGroup.AgentConfig.Value)
 
-			logger.Info("sending remote config from agent group",
-				slog.String("agentGroupName", group.Name),
-				slog.String("configHash", string(configHash)),
-				slog.String("currentStatus", currentStatus.String()),
-			)
+	// Compute hash of the configuration
+	configHash, err := vo.NewHash(configBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute config hash: %w", err)
+	}
 
-			// Build the AgentRemoteConfig message
-			configMap := &protobufs.AgentConfigMap{
-				ConfigMap: map[string]*protobufs.AgentConfigFile{
-					"config": {
-						Body: configBytes,
-					},
+	// Check if agent already has this config applied
+	currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
+	if currentStatus == remoteconfig.StatusApplied {
+		// Agent already has this config applied, don't send config body again
+		// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed
+		// since it was last requested (i.e. AgentConfigRequest.last_remote_config_hash field is equal
+		// to AgentConfigResponse.config_hash field)."
+		return &protobufs.AgentRemoteConfig{
+			Config:     nil, // Don't send config body if agent already has it
+			ConfigHash: configHash.Bytes(),
+		}, nil
+	}
+
+	return &protobufs.AgentRemoteConfig{
+		Config: &protobufs.AgentConfigMap{
+			ConfigMap: map[string]*protobufs.AgentConfigFile{
+				"opampcommander": {
+					Body: configBytes,
 				},
-			}
-
-			return &protobufs.AgentRemoteConfig{
-				Config:     configMap,
-				ConfigHash: configHash.Bytes(),
-			}
-		}
-	}
-
-	return nil
+			},
+		},
+		ConfigHash: configHash.Bytes(),
+	}, nil
 }
 
 // createFallbackServerToAgent creates a fallback ServerToAgent message.
