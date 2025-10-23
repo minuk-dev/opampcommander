@@ -45,7 +45,7 @@ func (m *mockAgentGroupUsecase) DeleteAgentGroup(_ context.Context, _ string, _ 
 	return nil
 }
 
-func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(_ context.Context, ag *model.Agent) ([]*agentgroup.AgentGroup, error) {
+func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(_ context.Context, _ *model.Agent) ([]*agentgroup.AgentGroup, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -69,9 +69,10 @@ func TestBuildRemoteConfig_NoCapability(t *testing.T) {
 	agentModel.Metadata.Capabilities = 0 // No capabilities
 
 	// When: Build remote config
-	result := service.buildRemoteConfig(context.Background(), agentModel)
+	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return nil
+	require.NoError(t, err)
 	assert.Nil(t, result, "Should not send config to agent without capability")
 }
 
@@ -89,9 +90,10 @@ func TestBuildRemoteConfig_WithCapability_NoGroups(t *testing.T) {
 	agentModel.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
 
 	// When: Build remote config
-	result := service.buildRemoteConfig(context.Background(), agentModel)
+	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return nil
+	require.NoError(t, err)
 	assert.Nil(t, result, "Should not send config when no groups exist")
 }
 
@@ -122,9 +124,10 @@ func TestBuildRemoteConfig_WithCapability_WithConfig(t *testing.T) {
 	agentModel.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
 
 	// When: Build remote config
-	result := service.buildRemoteConfig(context.Background(), agentModel)
+	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return config with hash
+	assert.NoError(t, err)
 	require.NotNil(t, result, "Should return remote config")
 	assert.NotNil(t, result.GetConfig(), "Should include config body")
 	assert.NotNil(t, result.GetConfigHash(), "Should include config hash")
@@ -188,9 +191,10 @@ func TestBuildRemoteConfig_ConfigAlreadyApplied(t *testing.T) {
 	require.Equal(t, remoteconfig.StatusApplied, currentStatus, "Status should be set to Applied")
 
 	// When: Build remote config
-	result := service.buildRemoteConfig(context.Background(), agentModel)
+	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return hash only, no config body
+	require.NoError(t, err)
 	require.NotNil(t, result, "Should return remote config")
 	assert.Nil(t, result.GetConfig(), "Should NOT include config body when already applied")
 	assert.NotNil(t, result.GetConfigHash(), "Should include config hash")
@@ -221,8 +225,9 @@ func TestBuildRemoteConfig_EmptyConfigValue(t *testing.T) {
 	agentModel.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
 
 	// When: Build remote config
-	result := service.buildRemoteConfig(context.Background(), agentModel)
+	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return nil
+	assert.NoError(t, err)
 	assert.Nil(t, result, "Should not send config when value is empty")
 }

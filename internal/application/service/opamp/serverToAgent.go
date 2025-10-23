@@ -36,7 +36,8 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	// Build RemoteConfig if applicable
 	remoteConfig, err := s.buildRemoteConfig(ctx, agentModel)
 	if err != nil {
-
+		s.logger.Error("failed to build remote config for agent", slog.String("instanceUID", instanceUID.String()), slog.Error(err))
+		return s.createFallbackServerToAgent(instanceUID)
 	}
 
 	//exhaustruct:ignore
