@@ -45,7 +45,10 @@ func (m *mockAgentGroupUsecase) DeleteAgentGroup(_ context.Context, _ string, _ 
 	return nil
 }
 
-func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(_ context.Context, _ *model.Agent) ([]*agentgroup.AgentGroup, error) {
+func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(
+	_ context.Context,
+	_ *model.Agent,
+) ([]*agentgroup.AgentGroup, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -127,7 +130,7 @@ func TestBuildRemoteConfig_WithCapability_WithConfig(t *testing.T) {
 	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return config with hash
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, result, "Should return remote config")
 	assert.NotNil(t, result.GetConfig(), "Should include config body")
 	assert.NotNil(t, result.GetConfigHash(), "Should include config hash")
@@ -228,6 +231,6 @@ func TestBuildRemoteConfig_EmptyConfigValue(t *testing.T) {
 	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
 	// Then: Should return nil
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Nil(t, result, "Should not send config when value is empty")
 }

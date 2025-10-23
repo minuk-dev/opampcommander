@@ -63,6 +63,7 @@ func New(
 	return &AgentGroup{
 		Name:       name,
 		Attributes: attributes,
+		Priority:   0,
 		Selector: model.AgentSelector{
 			IdentifyingAttributes:    nil,
 			NonIdentifyingAttributes: nil,

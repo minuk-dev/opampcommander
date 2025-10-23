@@ -58,6 +58,7 @@ type AgentGroupManageUsecase interface {
 type CreateAgentGroupCommand struct {
 	Name        string
 	Attributes  v1agentgroup.Attributes
+	Priority    int
 	Selector    v1agentgroup.AgentSelector
 	AgentConfig *v1agentgroup.AgentConfig
 }

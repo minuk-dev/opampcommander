@@ -36,7 +36,10 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	// Build RemoteConfig if applicable
 	remoteConfig, err := s.buildRemoteConfig(ctx, agentModel)
 	if err != nil {
-		s.logger.Error("failed to build remote config for agent", slog.String("instanceUID", instanceUID.String()), slog.Error(err))
+		s.logger.Error("failed to build remote config for agent",
+			slog.String("instanceUID", instanceUID.String()),
+			slog.String("error", err.Error()))
+
 		return s.createFallbackServerToAgent(instanceUID)
 	}
 
@@ -55,6 +58,7 @@ func (s *Service) buildRemoteConfig(
 ) (*protobufs.AgentRemoteConfig, error) {
 	// Check if agent supports RemoteConfig
 	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig) {
+		//nolint:nilnil // Agent does not support remote config
 		return nil, nil
 	}
 
@@ -69,7 +73,7 @@ func (s *Service) buildRemoteConfig(
 	})
 
 	if len(agentGroupsWithRemoteConfigs) == 0 {
-		// No agent groups with remote config found
+		//nolint:nilnil // Agent does not support remote config
 		return nil, nil
 	}
 

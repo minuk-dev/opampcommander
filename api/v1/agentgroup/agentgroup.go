@@ -14,6 +14,7 @@ const (
 type AgentGroup struct {
 	Name        string        `json:"name"`
 	Attributes  Attributes    `json:"attributes"`
+	Priority    int           `json:"priority"`
 	Selector    AgentSelector `json:"selector"`
 	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`
 	CreatedAt   time.Time     `json:"createdAt"`
@@ -25,6 +26,7 @@ type AgentGroup struct {
 // CreateRequest represents a request to create an agent group.
 type CreateRequest struct {
 	Name        string        `binding:"required"           json:"name"`
+	Priority    int           `json:"priority"`
 	Attributes  Attributes    `json:"attributes"`
 	Selector    AgentSelector `json:"selector"`
 	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`

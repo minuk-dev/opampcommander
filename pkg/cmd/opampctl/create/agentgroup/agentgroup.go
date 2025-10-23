@@ -21,6 +21,7 @@ type CommandOptions struct {
 	// Flags
 	name                            string
 	attributes                      map[string]string
+	priority                        int
 	identifyingAttributesSelector   map[string]string
 	nonIdentifyingAttributeSelector map[string]string
 	formatType                      string
@@ -56,6 +57,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		nil, "Identifying attributes selector for the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.identifyingAttributesSelector, "is",
 		nil, "same as --identifying-attributes-selector")
+	cmd.Flags().IntVarP(&options.priority, "priority", "p", 0,
+		"Priority of the agent group. Higher priority agent groups are applied first.")
 	cmd.Flags().StringToStringVar(&options.nonIdentifyingAttributeSelector, "non-identifying-attributes-selector",
 		nil, "NonIdentifying attributes selector for the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.nonIdentifyingAttributeSelector, "ns",
@@ -86,6 +89,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	createRequest := &agentgroupv1.CreateRequest{
 		Name:       opt.name,
 		Attributes: opt.attributes,
+		Priority:   opt.priority,
 		Selector: agentgroupv1.AgentSelector{
 			IdentifyingAttributes:    opt.identifyingAttributesSelector,
 			NonIdentifyingAttributes: opt.nonIdentifyingAttributeSelector,

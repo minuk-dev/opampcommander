@@ -17,6 +17,7 @@ type AgentGroup struct {
 	Common `bson:",inline"`
 
 	Name        string            `bson:"name"`
+	Priority    int               `bson:"priority"`
 	Attributes  map[string]string `bson:"attributes"`
 	Selector    AgentSelector     `bson:"selector"`
 	AgentConfig *AgentConfig      `bson:"agentConfig,omitempty"`
@@ -49,6 +50,7 @@ func (e *AgentGroup) ToDomain() *agentgroup.AgentGroup {
 	return &agentgroup.AgentGroup{
 		Name:       e.Name,
 		Attributes: e.Attributes,
+		Priority:   e.Priority,
 		Selector: model.AgentSelector{
 			IdentifyingAttributes:    e.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: e.Selector.NonIdentifyingAttributes,
@@ -77,6 +79,7 @@ func AgentGroupFromDomain(agentgroup *agentgroup.AgentGroup) *AgentGroup {
 		},
 		Name:       agentgroup.Name,
 		Attributes: agentgroup.Attributes,
+		Priority:   agentgroup.Priority,
 		Selector: AgentSelector{
 			IdentifyingAttributes:    agentgroup.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: agentgroup.Selector.NonIdentifyingAttributes,

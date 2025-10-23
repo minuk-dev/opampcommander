@@ -181,6 +181,7 @@ func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.Age
 	return &v1agentgroup.AgentGroup{
 		Name:       domain.Name,
 		Attributes: v1agentgroup.Attributes(domain.Attributes),
+		Priority:   domain.Priority,
 		Selector: v1agentgroup.AgentSelector{
 			IdentifyingAttributes:    domain.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: domain.Selector.NonIdentifyingAttributes,
@@ -207,6 +208,7 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	return &domainagentgroup.AgentGroup{
 		Name:       cmd.Name,
 		Attributes: domainagentgroup.Attributes(cmd.Attributes),
+		Priority:   cmd.Priority,
 		Selector: model.AgentSelector{
 			IdentifyingAttributes:    cmd.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: cmd.Selector.NonIdentifyingAttributes,
@@ -233,6 +235,7 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgr
 
 	return &domainagentgroup.AgentGroup{
 		Name:       api.Name,
+		Priority:   api.Priority,
 		Attributes: domainagentgroup.Attributes(api.Attributes),
 		Selector: model.AgentSelector{
 			IdentifyingAttributes:    api.Selector.IdentifyingAttributes,

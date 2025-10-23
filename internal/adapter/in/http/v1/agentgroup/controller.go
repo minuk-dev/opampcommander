@@ -210,6 +210,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 
 	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &CreateAgentGroupCommand{
 		Name:        req.Name,
+		Priority:    req.Priority,
 		Attributes:  req.Attributes,
 		Selector:    req.Selector,
 		AgentConfig: req.AgentConfig,
