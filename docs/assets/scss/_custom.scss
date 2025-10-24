@@ -177,3 +177,32 @@ body:not([data-bs-theme]) {
 .td-content code.language-http .highlight .nf {
   font-weight: bold;
 }
+
+/* Fix search result links */
+.td-offline-search-results a {
+  cursor: pointer !important;
+  text-decoration: none;
+}
+
+.td-offline-search-results a:hover {
+  text-decoration: underline;
+  color: #0d6efd;
+}
+
+/* Search result highlighting */
+.td-offline-search-results mark {
+  background-color: #fff3cd;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+body[data-bs-theme="dark"] .td-offline-search-results mark {
+  background-color: #664d03;
+  color: #fff;
+}
+
+/* Search result relevance badge */
+.td-offline-search-results .badge {
+  font-size: 0.7em;
+  vertical-align: middle;
+}

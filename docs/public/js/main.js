@@ -6459,7 +6459,7 @@ limitations under the License.
       }
 
       const searchQuery = $targetSearchInput.val();
-      if (searchQuery === '') {
+      if (searchQuery === '' || searchQuery.length < 2) {
         return;
       }
 
@@ -6468,18 +6468,30 @@ limitations under the License.
           const tokens = lunr.tokenizer(searchQuery.toLowerCase());
           tokens.forEach((token) => {
             const queryString = token.toString();
+            // Exact match gets highest priority
             q.term(queryString, {
               boost: 100,
             });
-            q.term(queryString, {
-              wildcard:
-                lunr.Query.wildcard.LEADING | lunr.Query.wildcard.TRAILING,
-              boost: 10,
-            });
-            q.term(queryString, {
-              editDistance: 2,
-            });
+            // Wildcard match for partial matches
+            if (queryString.length > 2) {
+              q.term(queryString, {
+                wildcard:
+                  lunr.Query.wildcard.LEADING | lunr.Query.wildcard.TRAILING,
+                boost: 10,
+              });
+            }
+            // Fuzzy match only for longer terms
+            if (queryString.length > 4) {
+              q.term(queryString, {
+                editDistance: 1,
+                boost: 1,
+              });
+            }
           });
+        })
+        .filter((result) => {
+          // Filter out results with very low relevance scores
+          return result.score > 0.5;
         })
         .slice(0, $targetSearchInput.data('offline-search-max-results'));
 
@@ -6514,32 +6526,61 @@ limitations under the License.
 
       if (results.length === 0) {
         $searchResultBody.append(
-          $('<p>').text(`No results found for query "${searchQuery}"`)
+          $('<div>')
+            .addClass('text-center py-4')
+            .append(
+              $('<p>').addClass('mb-2').html(`<strong>No results found for "${searchQuery}"</strong>`)
+            )
+            .append(
+              $('<small>').addClass('text-muted').text('Try using different keywords or check spelling')
+            )
         );
       } else {
         results.forEach((r) => {
           const doc = resultDetails.get(r.ref);
-          const href =
-            $searchInput.data('offline-search-base-href') +
-            r.ref.replace(/^\//, '');
+          
+          // Fix: Use the ref directly as href, ensuring it starts with /
+          let href = r.ref;
+          if (!href.startsWith('/')) {
+            href = '/' + href;
+          }
 
           const $entry = $('<div>').addClass('mt-4');
 
+          // Show relevance score for debugging (optional)
+          const relevancePercent = Math.round(r.score * 100);
           $entry.append(
-            $('<small>').addClass('d-block text-body-secondary').text(r.ref)
+            $('<small>')
+              .addClass('d-block text-body-secondary')
+              .html(`${r.ref} <span class="badge bg-secondary ms-2">${relevancePercent}%</span>`)
           );
 
           $entry.append(
             $('<a>')
-              .addClass('d-block')
+              .addClass('d-block fw-bold')
               .css({
                 fontSize: '1.2rem',
+                cursor: 'pointer',
               })
               .attr('href', href)
               .text(doc.title)
+              .on('click', function(e) {
+                // Ensure navigation works
+                window.location.href = href;
+              })
           );
 
-          $entry.append($('<p>').text(doc.excerpt));
+          // Highlight matching text in excerpt
+          let excerpt = doc.excerpt || '';
+          const searchTerms = searchQuery.toLowerCase().split(/\s+/);
+          searchTerms.forEach(term => {
+            if (term.length > 2) {
+              const regex = new RegExp(`(${term})`, 'gi');
+              excerpt = excerpt.replace(regex, '<mark>$1</mark>');
+            }
+          });
+
+          $entry.append($('<p>').html(excerpt));
 
           $searchResultBody.append($entry);
         });
@@ -6557,6 +6598,7 @@ limitations under the License.
         html: true,
         customClass: 'td-offline-search-results',
         placement: 'bottom',
+        trigger: 'manual',
       });
       popover.show();
     };

@@ -39,13 +39,20 @@ disableKinds = ["taxonomy"]
     lineNos = false
     noClasses = false
 
+# Output formats for search
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+  section = ["HTML", "RSS"]
+
 # Site parameters
 [params]
   description = "OpAMP Commander Documentation"
   copyright = "OpAMP Commander"
   
-  # Enable offline search
+  # Enable offline search with Lunr.js
   offlineSearch = true
+  offlineSearchSummaryLength = 200
+  offlineSearchMaxResults = 25
   
   # Enable Mermaid diagrams
   mermaid.enable = true
