@@ -59,8 +59,6 @@ func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(
 func TestBuildRemoteConfig_NoCapability(t *testing.T) {
 	t.Parallel()
 
-	t.Parallel()
-
 	// Given: Agent without AcceptsRemoteConfig capability
 	logger := slog.Default()
 	service := &Service{
