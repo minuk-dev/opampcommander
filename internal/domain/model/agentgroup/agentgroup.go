@@ -15,10 +15,15 @@ type Attributes map[string]string
 type AgentGroup struct {
 	// Name is the name of the agent group.
 	Name string
+	// Priority is the priority of the agent group.
+	// When multiple agent groups match an agent, the one with the highest priority is applied.
+	Priority int
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
 	Selector model.AgentSelector
+	// AgentConfig is the remote configuration to be applied to agents in this group.
+	AgentConfig *AgentConfig
 	// CreatedAt is the timestamp when the agent group was created.
 	CreatedAt time.Time
 	// CreatedBy is the identifier of the user or system that created the agent group.
@@ -27,6 +32,13 @@ type AgentGroup struct {
 	DeletedAt *time.Time
 	// DeletedBy is the identifier of the user or system that deleted the agent group. It
 	DeletedBy *string
+}
+
+// AgentConfig represents the remote configuration for agents in the group.
+type AgentConfig struct {
+	// Value is the configuration content in string format.
+	// This can be used directly or as a reference to a configuration.
+	Value string
 }
 
 // IsDeleted returns true if the agent group is marked as deleted.
@@ -51,14 +63,16 @@ func New(
 	return &AgentGroup{
 		Name:       name,
 		Attributes: attributes,
+		Priority:   0,
 		Selector: model.AgentSelector{
 			IdentifyingAttributes:    nil,
 			NonIdentifyingAttributes: nil,
 		},
-		CreatedAt: createdAt,
-		CreatedBy: createdBy,
-		DeletedAt: nil,
-		DeletedBy: nil,
+		AgentConfig: nil,
+		CreatedAt:   createdAt,
+		CreatedBy:   createdBy,
+		DeletedAt:   nil,
+		DeletedBy:   nil,
 	}
 }
 

@@ -1070,6 +1070,9 @@
         "AgentGroup": {
             "type": "object",
             "properties": {
+                "agentConfig": {
+                    "$ref": "#/definitions/api_v1_agentgroup.AgentConfig"
+                },
                 "attributes": {
                     "$ref": "#/definitions/api_v1_agentgroup.Attributes"
                 },
@@ -1099,6 +1102,9 @@
                 "name"
             ],
             "properties": {
+                "agentConfig": {
+                    "$ref": "#/definitions/api_v1_agentgroup.AgentConfig"
+                },
                 "attributes": {
                     "$ref": "#/definitions/api_v1_agentgroup.Attributes"
                 },
@@ -1310,6 +1316,14 @@
                     "additionalProperties": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "api_v1_agentgroup.AgentConfig": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string"
                 }
             }
         },

@@ -22,6 +22,10 @@ type Server struct {
 
 // ToDomainModel converts the Server entity to a domain model.
 func (s *Server) ToDomainModel() *domainmodel.Server {
+	if s == nil {
+		return nil
+	}
+
 	return &domainmodel.Server{
 		ID:              s.ServerID,
 		LastHeartbeatAt: s.LastHeartbeatAt,
@@ -31,6 +35,10 @@ func (s *Server) ToDomainModel() *domainmodel.Server {
 
 // ToServerEntity converts a domain model to a Server entity.
 func ToServerEntity(server *domainmodel.Server) *Server {
+	if server == nil {
+		return nil
+	}
+
 	return &Server{
 		ID:              nil,
 		ServerID:        server.ID,

@@ -118,3 +118,51 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 
 	return listResp, nil
 }
+
+// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.
+func (s *AgentGroupService) GetAgentGroupsForAgent(
+	ctx context.Context,
+	agent *model.Agent,
+) ([]*agentgroup.AgentGroup, error) {
+	// Get all agent groups
+	allGroups, err := s.persistencePort.ListAgentGroups(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agent groups: %w", err)
+	}
+
+	// Filter groups that match the agent
+	var matchingGroups []*agentgroup.AgentGroup
+
+	for _, group := range allGroups.Items {
+		if group.IsDeleted() {
+			continue
+		}
+
+		if matchesSelector(agent, group.Selector) {
+			matchingGroups = append(matchingGroups, group)
+		}
+	}
+
+	return matchingGroups, nil
+}
+
+// matchesSelector checks if an agent matches the given selector.
+func matchesSelector(agent *model.Agent, selector model.AgentSelector) bool {
+	// Check identifying attributes
+	for key, value := range selector.IdentifyingAttributes {
+		agentValue, ok := agent.Metadata.Description.IdentifyingAttributes[key]
+		if !ok || agentValue != value {
+			return false
+		}
+	}
+
+	// Check non-identifying attributes
+	for key, value := range selector.NonIdentifyingAttributes {
+		agentValue, ok := agent.Metadata.Description.NonIdentifyingAttributes[key]
+		if !ok || agentValue != value {
+			return false
+		}
+	}
+
+	return true
+}

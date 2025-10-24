@@ -47,6 +47,8 @@ type AgentGroupUsecase interface {
 	SaveAgentGroup(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup) error
 	// DeleteAgentGroup deletes the agent group by its ID.
 	DeleteAgentGroup(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
+	// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.
+	GetAgentGroupsForAgent(ctx context.Context, agent *model.Agent) ([]*agentgroup.AgentGroup, error)
 }
 
 // AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.
