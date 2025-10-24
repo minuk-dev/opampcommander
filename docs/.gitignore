@@ -1,0 +1,13 @@
+# Hugo build artifacts
+public/
+resources/_gen/
+
+# Hugo cache
+.hugo_build.lock
+
+# Node
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db

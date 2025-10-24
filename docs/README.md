@@ -1,51 +1,58 @@
 # OpAMP Commander Documentation
 
-이 디렉토리는 OpAMP Commander의 공식 문서를 포함합니다.
+This directory contains the official documentation for OpAMP Commander.
 
-## 로컬 개발
+## Automatic Deployment
 
-문서 사이트를 로컬에서 실행하려면:
+Documentation is automatically deployed to GitHub Pages when changes are pushed to the `main` branch. The deployment workflow builds the documentation using Hugo and publishes it to GitHub Pages.
 
-### 사전 요구사항
+View the live documentation at: `https://minuk-dev.github.io/opampcommander/`
 
-- [Hugo Extended](https://gohugo.io/installation/) v0.110.0 이상
-- Node.js 및 npm (선택사항, PostCSS 처리용)
+## Local Development
 
-### 실행
+To run the documentation site locally:
+
+### Prerequisites
+
+- [Hugo Extended](https://gohugo.io/installation/) v0.110.0 or later
+- Node.js and npm (optional, for PostCSS processing)
+
+### Running Locally
 
 ```bash
-# 개발 서버 시작
+# Start development server
 hugo server -D
 
-# 또는 npm을 사용하여
+# Or using npm
 npm install
 npm run dev
 ```
 
-문서 사이트는 `http://localhost:1313`에서 확인할 수 있습니다.
+The documentation site will be available at `http://localhost:1313`.
 
-## 빌드
+## Building
 
-프로덕션 빌드를 생성하려면:
+To create a production build:
 
 ```bash
+npm install
 hugo --minify
 ```
 
-빌드된 파일은 `public/` 디렉토리에 생성됩니다.
+Built files will be generated in the `public/` directory.
 
-## 문서 작성
+## Writing Documentation
 
-새로운 문서 페이지를 추가하려면 `content/ko/docs/` 디렉토리에 마크다운 파일을 생성하세요.
+To add a new documentation page, create a markdown file in the `content/en/docs/` directory.
 
 ```bash
-hugo new content/ko/docs/your-section/your-page.md
+hugo new content/en/docs/your-section/your-page.md
 ```
 
-## 테마
+## Theme
 
-이 문서는 [Docsy](https://www.docsy.dev/) 테마를 사용합니다.
+This documentation uses the [Docsy](https://www.docsy.dev/) theme.
 
-## 기여
+## Contributing
 
-문서 개선에 기여해주세요! Pull Request를 환영합니다.
+We welcome contributions to improve the documentation! Please submit a Pull Request.
