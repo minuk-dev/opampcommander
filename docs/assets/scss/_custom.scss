@@ -1,0 +1,55 @@
+:root {
+  --td-sidebar-tree-root-padding-top: 2rem;
+}
+
+/* Fix navbar covering content - adjust scroll padding */
+html {
+  scroll-padding-top: 5rem;
+}
+
+.td-navbar {
+  position: sticky;
+  z-index: 1030;
+}
+
+/* Add proper spacing below navbar */
+.td-main {
+  padding-top: 0;
+}
+
+.td-content {
+  padding-top: 2rem;
+  margin-top: 1rem;
+}
+
+.td-content > h1:first-child {
+  padding-top: 0.5rem;
+  margin-top: 0;
+}
+
+/* Improve sidebar visibility */
+.td-sidebar {
+  padding-top: 1.5rem;
+  position: sticky;
+  top: 4rem;
+  height: calc(100vh - 4rem);
+}
+
+.td-sidebar-nav {
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+}
+
+/* Better menu item visibility */
+.td-sidebar-nav .td-sidebar-link {
+  padding: 0.375rem 0.5rem;
+}
+
+.td-sidebar-nav .td-sidebar-nav-active-item {
+  font-weight: 600;
+}
+
+/* Adjust for cover blocks on home page */
+.td-cover-block {
+  padding-top: 0;
+}

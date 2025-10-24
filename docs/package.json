@@ -1,0 +1,16 @@
+{
+  "name": "opampcommander-docs",
+  "version": "1.0.0",
+  "description": "OpAMP Commander Documentation",
+  "scripts": {
+    "dev": "hugo server -D",
+    "build": "hugo --minify",
+    "serve": "hugo server"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "postcss-cli": "^11.0.0"
+  }
+}
