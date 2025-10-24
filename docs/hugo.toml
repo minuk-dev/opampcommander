@@ -8,9 +8,9 @@ defaultContentLanguageInSubdir = false
 
 # Highlight settings
 pygmentsCodeFences = true
-pygmentsUseClasses = false
+pygmentsUseClasses = true
 pygmentsUseClassic = false
-pygmentsStyle = "tango"
+pygmentsStyle = "monokai"
 
 # Content
 contentDir = "content"
@@ -35,7 +35,9 @@ disableKinds = ["taxonomy"]
     [markup.goldmark.renderer]
       unsafe = true
   [markup.highlight]
-    style = "tango"
+    style = "monokai"
+    lineNos = false
+    noClasses = false
 
 # Site parameters
 [params]
@@ -44,6 +46,9 @@ disableKinds = ["taxonomy"]
   
   # Enable offline search
   offlineSearch = true
+  
+  # Enable Mermaid diagrams
+  mermaid.enable = true
   
   # UI customization
   [params.ui]
@@ -65,12 +70,12 @@ disableKinds = ["taxonomy"]
   [params.links]
     [[params.links.user]]
       name = "GitHub"
-      url = "https://github.com/opampcommander/opampcommander"
+      url = "https://github.com/minuk-dev/opampcommander"
       icon = "fab fa-github"
       desc = "Development takes place here!"
     [[params.links.user]]
       name = "Email"
-      url = "mailto:info@opampcommander.io"
+      url = "mailto:minuk.dev@gmail.com"
       icon = "fa fa-envelope"
       desc = "Discuss development issues around the project"
 
@@ -84,7 +89,7 @@ disableKinds = ["taxonomy"]
   [[menu.main]]
     name = "GitHub"
     weight = 50
-    url = "https://github.com/opampcommander/opampcommander"
+    url = "https://github.com/minuk-dev/opampcommander"
 
 # Language configuration
 [languages]

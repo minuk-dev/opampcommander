@@ -3,7 +3,7 @@
   <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
     <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link rel="alternate" type="application/rss&#43;xml" href="//localhost:1313/en/docs/examples/index.xml">
+<link rel="alternate" type="application/rss&#43;xml" href="//localhost:1313/en/docs/cli/index.xml">
 <meta name="robots" content="noindex, nofollow">
 
 
@@ -18,21 +18,21 @@
 <link rel="icon" type="image/png" href="/favicons/android-144x144.png" sizes="144x144">
 <link rel="icon" type="image/png" href="/favicons/android-192x192.png" sizes="192x192">
 
-<title>Examples | OpAMP Commander</title>
-<meta name="description" content="Explore OpAMP Commander usage examples.">
-<meta property="og:url" content="//localhost:1313/en/docs/examples/">
+<title>CLI Reference | OpAMP Commander</title>
+<meta name="description" content="Learn how to use the opampctl command line tool.">
+<meta property="og:url" content="//localhost:1313/en/docs/cli/">
   <meta property="og:site_name" content="OpAMP Commander">
-  <meta property="og:title" content="Examples">
-  <meta property="og:description" content="Explore OpAMP Commander usage examples.">
+  <meta property="og:title" content="CLI Reference">
+  <meta property="og:description" content="Learn how to use the opampctl command line tool.">
   <meta property="og:locale" content="en">
   <meta property="og:type" content="website">
 
-  <meta itemprop="name" content="Examples">
-  <meta itemprop="description" content="Explore OpAMP Commander usage examples.">
-  <meta itemprop="wordCount" content="152">
+  <meta itemprop="name" content="CLI Reference">
+  <meta itemprop="description" content="Learn how to use the opampctl command line tool.">
+  <meta itemprop="wordCount" content="729">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Examples">
-  <meta name="twitter:description" content="Explore OpAMP Commander usage examples.">
+  <meta name="twitter:title" content="CLI Reference">
+  <meta name="twitter:description" content="Learn how to use the opampctl command line tool.">
 <link href="/scss/main.css" rel="stylesheet">
 <script
   src="https://code.jquery.com/jquery-3.7.1.min.js"
@@ -55,7 +55,7 @@
         <a class="nav-link" href="/en/docs/"><span>Documentation</span></a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="https://github.com/opampcommander/opampcommander" target="_blank" rel="noopener"><span>GitHub</span></a>
+        <a class="nav-link" href="https://github.com/minuk-dev/opampcommander" target="_blank" rel="noopener"><span>GitHub</span></a>
       </li>
       <li class="td-light-dark-menu nav-item dropdown">
         <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
@@ -178,9 +178,9 @@
   <input type="checkbox" id="m-endocsapi-check"/>
   <label for="m-endocsapi-check"><a href="/en/docs/api/" title="API Reference" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsapi"><span class="">API</span></a></label>
   
-</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-endocsexamples-li">
-  <input type="checkbox" id="m-endocsexamples-check" checked/>
-  <label for="m-endocsexamples-check"><a href="/en/docs/examples/" class="align-left ps-0  active td-sidebar-link td-sidebar-link__section" id="m-endocsexamples"><span class="td-sidebar-nav-active-item">Examples</span></a></label>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child active-path" id="m-endocscli-li">
+  <input type="checkbox" id="m-endocscli-check" checked/>
+  <label for="m-endocscli-check"><a href="/en/docs/cli/" title="CLI Reference" class="align-left ps-0  active td-sidebar-link td-sidebar-link__section" id="m-endocscli"><span class="td-sidebar-nav-active-item">CLI</span></a></label>
   
 </li>
   </ul>
@@ -200,17 +200,60 @@
             <div class="td-toc">
         <nav id="TableOfContents">
   <ul>
-    <li><a href="#basic-agent-connection">Basic Agent Connection</a>
+    <li><a href="#installation">Installation</a></li>
+    <li><a href="#configuration">Configuration</a>
       <ul>
-        <li><a href="#go-agent-example">Go Agent Example</a></li>
+        <li><a href="#configuration-file">Configuration File</a></li>
+        <li><a href="#configuration-commands">Configuration Commands</a></li>
       </ul>
     </li>
-    <li><a href="#configuration-update-example">Configuration Update Example</a>
+    <li><a href="#context-management">Context Management</a>
       <ul>
-        <li><a href="#curl-example">cURL Example</a></li>
+        <li><a href="#list-contexts">List Contexts</a></li>
+        <li><a href="#use-context">Use Context</a></li>
       </ul>
     </li>
-    <li><a href="#docker-compose-example">Docker Compose Example</a></li>
+    <li><a href="#authentication">Authentication</a>
+      <ul>
+        <li><a href="#check-authentication-status">Check Authentication Status</a></li>
+      </ul>
+    </li>
+    <li><a href="#agent-management">Agent Management</a>
+      <ul>
+        <li><a href="#list-agents">List Agents</a></li>
+        <li><a href="#get-agent-details">Get Agent Details</a></li>
+      </ul>
+    </li>
+    <li><a href="#agent-group-management">Agent Group Management</a>
+      <ul>
+        <li><a href="#list-agent-groups">List Agent Groups</a></li>
+        <li><a href="#get-agent-group-details">Get Agent Group Details</a></li>
+        <li><a href="#create-agent-group">Create Agent Group</a></li>
+        <li><a href="#delete-agent-group">Delete Agent Group</a></li>
+      </ul>
+    </li>
+    <li><a href="#connection-management">Connection Management</a>
+      <ul>
+        <li><a href="#list-active-connections">List Active Connections</a></li>
+      </ul>
+    </li>
+    <li><a href="#global-flags">Global Flags</a></li>
+    <li><a href="#version">Version</a></li>
+    <li><a href="#examples">Examples</a>
+      <ul>
+        <li><a href="#complete-workflow-example">Complete Workflow Example</a></li>
+        <li><a href="#working-with-multiple-environments">Working with Multiple Environments</a></li>
+        <li><a href="#using-different-output-formats">Using Different Output Formats</a></li>
+      </ul>
+    </li>
+    <li><a href="#troubleshooting">Troubleshooting</a>
+      <ul>
+        <li><a href="#configuration-file-not-found">Configuration File Not Found</a></li>
+        <li><a href="#authentication-errors">Authentication Errors</a></li>
+        <li><a href="#connection-issues">Connection Issues</a></li>
+      </ul>
+    </li>
+    <li><a href="#exit-codes">Exit Codes</a></li>
   </ul>
 </nav>
       </div>
@@ -229,90 +272,244 @@
   <li class="breadcrumb-item">
     <a href="/en/docs/">Documentation</a></li>
   <li class="breadcrumb-item active" aria-current="page">
-    Examples</li>
+    CLI</li>
   </ol>
 </nav>
 <div class="td-content">
-	<h1>Examples</h1>
-  <div class="lead">Explore OpAMP Commander usage examples.</div>
+	<h1>CLI Reference</h1>
+  <div class="lead">Learn how to use the opampctl command line tool.</div>
 	<header class="article-meta">
 		
 </header>
-	<h2 id="basic-agent-connection">Basic Agent Connection</h2>
-<p>Example of connecting a simple OpAMP agent to OpAMP Commander.</p>
-<h3 id="go-agent-example">Go Agent Example</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">package</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">main</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline"></span><span style="color:#204a87;font-weight:bold">import</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000;font-weight:bold">(</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#4e9a06">&#34;context&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#4e9a06">&#34;github.com/open-telemetry/opamp-go/client&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#4e9a06">&#34;log&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline"></span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline"></span><span style="color:#204a87;font-weight:bold">func</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">main</span><span style="color:#000;font-weight:bold">()</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#8f5902;font-style:italic">// Create OpAMP client</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#000">opampClient</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#ce5c00;font-weight:bold">:=</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">client</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">NewWebSocket</span><span style="color:#000;font-weight:bold">(</span><span style="color:#204a87;font-weight:bold">nil</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#8f5902;font-style:italic">// Connect to server</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#000">err</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#ce5c00;font-weight:bold">:=</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">opampClient</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">Start</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">context</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">Background</span><span style="color:#000;font-weight:bold">(),</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">client</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">StartSettings</span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">        </span><span style="color:#000">OpAMPServerURL</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;ws://localhost:4320/v1/opamp&#34;</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">        </span><span style="color:#000">InstanceUid</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#4e9a06">&#34;agent-001&#34;</span><span style="color:#000;font-weight:bold">,</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#000;font-weight:bold">})</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">if</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">err</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#ce5c00;font-weight:bold">!=</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#204a87;font-weight:bold">nil</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000;font-weight:bold">{</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">        </span><span style="color:#000">log</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">Fatal</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">err</span><span style="color:#000;font-weight:bold">)</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">defer</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">opampClient</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">Stop</span><span style="color:#000;font-weight:bold">(</span><span style="color:#000">context</span><span style="color:#000;font-weight:bold">.</span><span style="color:#000">Background</span><span style="color:#000;font-weight:bold">())</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#8f5902;font-style:italic">// Keep program running</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">select</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000;font-weight:bold">{}</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline"></span><span style="color:#000;font-weight:bold">}</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span></code></pre></div><h2 id="configuration-update-example">Configuration Update Example</h2>
-<p>Example of updating agent configuration using the REST API.</p>
-<h3 id="curl-example">cURL Example</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>curl -X PUT <span style="color:#4e9a06">\
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06"></span>  http://localhost:8080/api/v1/agents/agent-001/config <span style="color:#4e9a06">\
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06"></span>  -H <span style="color:#4e9a06">&#39;Content-Type: application/json&#39;</span> <span style="color:#4e9a06">\
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06"></span>  -H <span style="color:#4e9a06">&#39;Authorization: Bearer YOUR_TOKEN&#39;</span> <span style="color:#4e9a06">\
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06"></span>  -d <span style="color:#4e9a06">&#39;{
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">    &#34;config&#34;: {
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">      &#34;receivers&#34;: {
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">        &#34;otlp&#34;: {
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">          &#34;protocols&#34;: {
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">            &#34;grpc&#34;: {
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">              &#34;endpoint&#34;: &#34;0.0.0.0:4317&#34;
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">            }
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">          }
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">        }
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">      }
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">    }
-</span></span></span><span style="display:flex;"><span><span style="color:#4e9a06">  }&#39;</span>
-</span></span></code></pre></div><h2 id="docker-compose-example">Docker Compose Example</h2>
-<p>Example of running OpAMP Commander with MongoDB.</p>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">version</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#39;3.8&#39;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline"></span><span style="color:#204a87;font-weight:bold">services</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">opampcommander</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">image</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">opampcommander:latest</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">ports</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#4e9a06">&#34;8080:8080&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#4e9a06">&#34;4320:4320&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">environment</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#000">MONGODB_URI=mongodb://mongodb:27017</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#000">MONGODB_DATABASE=opampcommander</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">depends_on</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#000">mongodb</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">mongodb</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">image</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#000">mongo:7</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">ports</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#4e9a06">&#34;27017:27017&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">volumes</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">      </span>- <span style="color:#000">mongodb_data:/data/db</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline"></span><span style="color:#204a87;font-weight:bold">volumes</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">mongodb_data</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span></code></pre></div>
+	<p><code>opampctl</code> is a command-line interface for interacting with the OpAMP Commander server. It provides commands for managing agents, agent groups, and configurations.</p>
+<h2 id="installation">Installation</h2>
+<p>Install <code>opampctl</code> using Go:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">go install github.com/minuk-dev/opampcommander/cmd/opampctl@latest
+</span></span></code></pre></div><p>Or build from source:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">git clone https://github.com/minuk-dev/opampcommander.git
+</span></span><span class="line"><span class="cl"><span class="nb">cd</span> opampcommander
+</span></span><span class="line"><span class="cl">go build -o opampctl ./cmd/opampctl
+</span></span></code></pre></div><h2 id="configuration">Configuration</h2>
+<p>Before using <code>opampctl</code>, you need to initialize the configuration:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl config init
+</span></span></code></pre></div><p>This creates a configuration file at <code>~/.config/opampcommander/opampctl/config.yaml</code>.</p>
+<h3 id="configuration-file">Configuration File</h3>
+<p>The configuration file stores server connection details and authentication information:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">contexts</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">production</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">server</span><span class="p">:</span><span class="w"> </span><span class="l">https://opamp.example.com</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">token</span><span class="p">:</span><span class="w"> </span><span class="l">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span>- <span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l">staging</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">server</span><span class="p">:</span><span class="w"> </span><span class="l">https://opamp-staging.example.com</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">token</span><span class="p">:</span><span class="w"> </span><span class="l">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">currentContext</span><span class="p">:</span><span class="w"> </span><span class="l">production</span><span class="w">
+</span></span></span></code></pre></div><h3 id="configuration-commands">Configuration Commands</h3>
+<h4 id="initialize-configuration">Initialize Configuration</h4>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl config init
+</span></span></code></pre></div><p>Creates a default configuration file.</p>
+<h4 id="view-configuration">View Configuration</h4>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl config view
+</span></span></code></pre></div><p>Displays the current configuration.</p>
+<h2 id="context-management">Context Management</h2>
+<p>Contexts allow you to switch between different OpAMP Commander servers.</p>
+<h3 id="list-contexts">List Contexts</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl context ls
+</span></span></code></pre></div><p>Shows all available contexts and highlights the current one.</p>
+<h3 id="use-context">Use Context</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl context use &lt;context-name&gt;
+</span></span></code></pre></div><p>Switch to a different context.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl context use staging
+</span></span></code></pre></div><h2 id="authentication">Authentication</h2>
+<h3 id="check-authentication-status">Check Authentication Status</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl whoami
+</span></span></code></pre></div><p>Displays information about the currently authenticated user or service account.</p>
+<h2 id="agent-management">Agent Management</h2>
+<h3 id="list-agents">List Agents</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agent
+</span></span><span class="line"><span class="cl">opampctl get agents
+</span></span></code></pre></div><p>Lists all agents connected to the OpAMP Commander server.</p>
+<p><strong>Options:</strong></p>
+<ul>
+<li><code>--limit &lt;n&gt;</code>: Limit the number of results</li>
+<li><code>--continue &lt;token&gt;</code>: Continue from a previous pagination token</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agent --limit <span class="m">20</span>
+</span></span></code></pre></div><p><strong>Output:</strong></p>
+<pre tabindex="0"><code>INSTANCE UID              SERVICE NAME    STATUS    LAST SEEN
+agent-001                 my-service      active    2024-01-01T00:00:00Z
+agent-002                 other-service   active    2024-01-01T00:05:00Z
+</code></pre><h3 id="get-agent-details">Get Agent Details</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agent &lt;instance-uid&gt;
+</span></span></code></pre></div><p>Displays detailed information about a specific agent.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agent agent-001
+</span></span></code></pre></div><p><strong>Output:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">instanceUid</span><span class="p">:</span><span class="w"> </span><span class="l">agent-001</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">description</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">identifyingAttributes</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">service.name</span><span class="p">:</span><span class="w"> </span><span class="l">my-service</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">service.instance.id</span><span class="p">:</span><span class="w"> </span><span class="l">instance-1</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">nonIdentifyingAttributes</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">host.name</span><span class="p">:</span><span class="w"> </span><span class="l">server-1</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">capabilities</span><span class="p">:</span><span class="w"> </span><span class="m">15</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">isManaged</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w"></span><span class="nt">effectiveConfig</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">configMap</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">collector.yaml</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">body</span><span class="p">:</span><span class="w"> </span><span class="p">|</span><span class="sd">
+</span></span></span><span class="line"><span class="cl"><span class="sd">        receivers:
+</span></span></span><span class="line"><span class="cl"><span class="sd">          otlp:
+</span></span></span><span class="line"><span class="cl"><span class="sd">            protocols:
+</span></span></span><span class="line"><span class="cl"><span class="sd">              grpc:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">      </span><span class="nt">contentType</span><span class="p">:</span><span class="w"> </span><span class="l">text/yaml</span><span class="w">
+</span></span></span></code></pre></div><h2 id="agent-group-management">Agent Group Management</h2>
+<h3 id="list-agent-groups">List Agent Groups</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agentgroup
+</span></span><span class="line"><span class="cl">opampctl get agentgroups
+</span></span></code></pre></div><p>Lists all agent groups.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agentgroup
+</span></span></code></pre></div><p><strong>Output:</strong></p>
+<pre tabindex="0"><code>NAME          DESCRIPTION              CREATED
+production    Production agents        2024-01-01T00:00:00Z
+staging       Staging agents           2024-01-01T00:05:00Z
+</code></pre><h3 id="get-agent-group-details">Get Agent Group Details</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agentgroup &lt;name&gt;
+</span></span></code></pre></div><p>Displays detailed information about a specific agent group.</p>
+<h3 id="create-agent-group">Create Agent Group</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl create agentgroup &lt;name&gt; <span class="o">[</span>flags<span class="o">]</span>
+</span></span></code></pre></div><p>Creates a new agent group.</p>
+<p><strong>Flags:</strong></p>
+<ul>
+<li><code>--description &lt;text&gt;</code>: Description of the agent group</li>
+<li><code>--label &lt;key=value&gt;</code>: Add labels (can be specified multiple times)</li>
+<li><code>--config-file &lt;path&gt;</code>: Path to configuration file</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl create agentgroup production <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  --description <span class="s2">&#34;Production environment agents&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  --label <span class="nv">env</span><span class="o">=</span>production <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  --label <span class="nv">tier</span><span class="o">=</span>critical <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  --config-file ./collector-config.yaml
+</span></span></code></pre></div><h3 id="delete-agent-group">Delete Agent Group</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl delete agentgroup &lt;name&gt;
+</span></span></code></pre></div><p>Deletes an agent group.</p>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl delete agentgroup staging
+</span></span></code></pre></div><h2 id="connection-management">Connection Management</h2>
+<h3 id="list-active-connections">List Active Connections</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get connection
+</span></span><span class="line"><span class="cl">opampctl get connections
+</span></span></code></pre></div><p>Lists all active agent connections to the server.</p>
+<p><strong>Output:</strong></p>
+<pre tabindex="0"><code>INSTANCE UID    REMOTE ADDRESS         CONNECTED AT              LAST HEARTBEAT
+agent-001       192.168.1.100:54321    2024-01-01T00:00:00Z     2024-01-01T00:05:00Z
+agent-002       192.168.1.101:54322    2024-01-01T00:01:00Z     2024-01-01T00:06:00Z
+</code></pre><h2 id="global-flags">Global Flags</h2>
+<p>The following flags are available for all commands:</p>
+<ul>
+<li><code>--config &lt;path&gt;</code>: Path to configuration file (default: <code>~/.config/opampcommander/opampctl/config.yaml</code>)</li>
+<li><code>--context &lt;name&gt;</code>: Use a specific context</li>
+<li><code>--server &lt;url&gt;</code>: OpAMP Commander server URL (overrides context)</li>
+<li><code>--token &lt;token&gt;</code>: Authentication token (overrides context)</li>
+<li><code>--output &lt;format&gt;</code>: Output format (json, yaml, table) - default: table</li>
+<li><code>--verbose</code>: Enable verbose output</li>
+<li><code>--help</code>: Display help information</li>
+</ul>
+<h2 id="version">Version</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl version
+</span></span></code></pre></div><p>Displays the version information for <code>opampctl</code>.</p>
+<p><strong>Output:</strong></p>
+<pre tabindex="0"><code>opampctl version: v1.0.0
+commit: abc123def456
+build date: 2024-01-01T00:00:00Z
+</code></pre><h2 id="examples">Examples</h2>
+<h3 id="complete-workflow-example">Complete Workflow Example</h3>
+<ol>
+<li>Initialize configuration:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl config init
+</span></span></code></pre></div><ol start="2">
+<li>Check authentication:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl whoami
+</span></span></code></pre></div><ol start="3">
+<li>List all agents:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agents
+</span></span></code></pre></div><ol start="4">
+<li>Create a new agent group:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl create agentgroup dev <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  --description <span class="s2">&#34;Development environment&#34;</span> <span class="se">\
+</span></span></span><span class="line"><span class="cl"><span class="se"></span>  --label <span class="nv">env</span><span class="o">=</span>dev
+</span></span></code></pre></div><ol start="5">
+<li>View agent group details:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get agentgroup dev
+</span></span></code></pre></div><ol start="6">
+<li>List active connections:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl get connections
+</span></span></code></pre></div><h3 id="working-with-multiple-environments">Working with Multiple Environments</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># Switch to staging environment</span>
+</span></span><span class="line"><span class="cl">opampctl context use staging
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># List agents in staging</span>
+</span></span><span class="line"><span class="cl">opampctl get agents
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Switch back to production</span>
+</span></span><span class="line"><span class="cl">opampctl context use production
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># List agents in production</span>
+</span></span><span class="line"><span class="cl">opampctl get agents
+</span></span></code></pre></div><h3 id="using-different-output-formats">Using Different Output Formats</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl"><span class="c1"># JSON output</span>
+</span></span><span class="line"><span class="cl">opampctl get agent agent-001 --output json
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># YAML output</span>
+</span></span><span class="line"><span class="cl">opampctl get agent agent-001 --output yaml
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># Table output (default)</span>
+</span></span><span class="line"><span class="cl">opampctl get agent agent-001
+</span></span></code></pre></div><h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="configuration-file-not-found">Configuration File Not Found</h3>
+<p>If you see an error about the configuration file not found:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl config init
+</span></span></code></pre></div><h3 id="authentication-errors">Authentication Errors</h3>
+<p>If you encounter authentication errors:</p>
+<ol>
+<li>Check your token is valid:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl whoami
+</span></span></code></pre></div><ol start="2">
+<li>Verify your server URL is correct:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-bash" data-lang="bash"><span class="line"><span class="cl">opampctl config view
+</span></span></code></pre></div><ol start="3">
+<li>Re-authenticate if necessary using the API authentication endpoints.</li>
+</ol>
+<h3 id="connection-issues">Connection Issues</h3>
+<p>If you can&rsquo;t connect to the server:</p>
+<ol>
+<li>Verify the server is running and accessible</li>
+<li>Check your network connectivity</li>
+<li>Ensure the server URL in your configuration is correct</li>
+<li>Try using the <code>--server</code> flag to override the configuration</li>
+</ol>
+<h2 id="exit-codes">Exit Codes</h2>
+<ul>
+<li><code>0</code>: Success</li>
+<li><code>1</code>: General error</li>
+<li><code>2</code>: Configuration error</li>
+<li><code>3</code>: Authentication error</li>
+<li><code>4</code>: Connection error</li>
+<li><code>5</code>: Resource not found</li>
+</ul>
+
 	<div class="section-index">
     
     
@@ -385,13 +582,13 @@
         <ul class="td-footer__links-list">
   
   <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
-    <a target="_blank" rel="noopener" href="https://github.com/opampcommander/opampcommander" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/minuk-dev/opampcommander" aria-label="GitHub">
       <i class="fab fa-github"></i>
     </a>
   </li>
   
   <li class="td-footer__links-item" data-bs-toggle="tooltip" title="Email" aria-label="Email">
-    <a target="_blank" rel="noopener" href="mailto:info@opampcommander.io" aria-label="Email">
+    <a target="_blank" rel="noopener" href="mailto:minuk.dev@gmail.com" aria-label="Email">
       <i class="fa fa-envelope"></i>
     </a>
   </li>

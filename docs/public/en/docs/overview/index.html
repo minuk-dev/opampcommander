@@ -29,7 +29,8 @@
 
   <meta itemprop="name" content="Overview">
   <meta itemprop="description" content="An overview of OpAMP Commander and its capabilities.">
-  <meta itemprop="wordCount" content="258">
+  <meta itemprop="dateModified" content="2025-10-25T01:08:17+09:00">
+  <meta itemprop="wordCount" content="428">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Overview">
   <meta name="twitter:description" content="An overview of OpAMP Commander and its capabilities.">
@@ -55,7 +56,7 @@
         <a class="nav-link" href="/en/docs/"><span>Documentation</span></a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="https://github.com/opampcommander/opampcommander" target="_blank" rel="noopener"><span>GitHub</span></a>
+        <a class="nav-link" href="https://github.com/minuk-dev/opampcommander" target="_blank" rel="noopener"><span>GitHub</span></a>
       </li>
       <li class="td-light-dark-menu nav-item dropdown">
         <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
@@ -178,9 +179,9 @@
   <input type="checkbox" id="m-endocsapi-check"/>
   <label for="m-endocsapi-check"><a href="/en/docs/api/" title="API Reference" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsapi"><span class="">API</span></a></label>
   
-</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsexamples-li">
-  <input type="checkbox" id="m-endocsexamples-check"/>
-  <label for="m-endocsexamples-check"><a href="/en/docs/examples/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsexamples"><span class="">Examples</span></a></label>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocscli-li">
+  <input type="checkbox" id="m-endocscli-check"/>
+  <label for="m-endocscli-check"><a href="/en/docs/cli/" title="CLI Reference" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocscli"><span class="">CLI</span></a></label>
   
 </li>
   </ul>
@@ -210,7 +211,14 @@
         <li><a href="#security">Security</a></li>
       </ul>
     </li>
-    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#architecture">Architecture</a>
+      <ul>
+        <li><a href="#system-overview">System Overview</a></li>
+        <li><a href="#component-interactions">Component Interactions</a></li>
+        <li><a href="#key-features-1">Key Features</a></li>
+        <li><a href="#technology-stack">Technology Stack</a></li>
+      </ul>
+    </li>
     <li><a href="#use-cases">Use Cases</a>
       <ul>
         <li><a href="#infrastructure-monitoring">Infrastructure Monitoring</a></li>
@@ -261,13 +269,75 @@
 <h3 id="security">Security</h3>
 <p>Built-in authentication and authorization ensure secure communication between the server and agents. Support for TLS/SSL encryption and JWT-based authentication.</p>
 <h2 id="architecture">Architecture</h2>
-<p>OpAMP Commander consists of several key components:</p>
+<p>OpAMP Commander follows a modern, layered architecture designed for scalability and maintainability.</p>
+<h3 id="system-overview">System Overview</h3>
+<pre class="mermaid">graph TB
+    subgraph Clients
+        CLI[opampctl CLI]
+        Agent[OpAMP Agents&lt;br/&gt;OpenTelemetry Collectors]
+        WebUI[Web UI&lt;br/&gt;Planned]
+    end
+
+    subgraph &#34;OpAMP Commander Server&#34;
+        Server[OpAMP Commander&lt;br/&gt;API Server]
+    end
+
+    subgraph Storage
+        DB[(MongoDB&lt;br/&gt;Database)]
+    end
+
+    CLI --&gt;|HTTP/REST&lt;br/&gt;Management API| Server
+    Agent --&gt;|WebSocket/gRPC&lt;br/&gt;OpAMP Protocol| Server
+    WebUI -.-&gt;|HTTP/REST| Server
+    Server --&gt;|Persist Data| DB
+
+    style Server fill:#4a90e2,stroke:#333,stroke-width:2px,color:#fff
+    style DB fill:#6c757d,stroke:#333,stroke-width:2px,color:#fff
+    style CLI fill:#28a745,stroke:#333,stroke-width:2px,color:#fff
+    style Agent fill:#ffc107,stroke:#333,stroke-width:2px,color:#000
+    style WebUI fill:#17a2b8,stroke:#333,stroke-width:2px,color:#fff</pre>
+<h3 id="component-interactions">Component Interactions</h3>
+<p><strong>Agent Registration &amp; Management:</strong></p>
+<pre class="mermaid">sequenceDiagram
+    participant Agent as OpAMP Agent
+    participant Server as OpAMP Commander
+    participant DB as MongoDB
+
+    Agent-&gt;&gt;Server: Connect via WebSocket
+    Server-&gt;&gt;DB: Store Agent Info
+    Server-&gt;&gt;Agent: Send Configuration
+    Agent-&gt;&gt;Server: Report Status
+    Server-&gt;&gt;DB: Update Agent State</pre>
+<p><strong>Configuration Management via CLI:</strong></p>
+<pre class="mermaid">sequenceDiagram
+    participant Admin as Administrator
+    participant CLI as opampctl
+    participant Server as OpAMP Commander
+    participant Agent as OpAMP Agent
+
+    Admin-&gt;&gt;CLI: opampctl create agentgroup
+    CLI-&gt;&gt;Server: POST /api/v1/agentgroups
+    Server-&gt;&gt;CLI: Group Created
+    
+    Admin-&gt;&gt;CLI: opampctl update config
+    CLI-&gt;&gt;Server: PUT /api/v1/agents/{id}/update-agent-config
+    Server-&gt;&gt;Agent: Push New Configuration
+    Agent-&gt;&gt;Server: Acknowledge
+    Server-&gt;&gt;CLI: Update Successful</pre>
+<h3 id="key-features-1">Key Features</h3>
 <ul>
-<li><strong>OpAMP Server</strong>: Implements the OpAMP protocol for agent communication</li>
-<li><strong>REST API</strong>: Provides programmatic access for automation and integration</li>
-<li><strong>Web UI</strong>: User-friendly interface for management and monitoring</li>
-<li><strong>Database</strong>: Persistent storage for agent configurations and state</li>
-<li><strong>Message Broker</strong>: Handles asynchronous communication and events</li>
+<li><strong>REST API</strong>: Full-featured HTTP API for programmatic management</li>
+<li><strong>OpAMP Protocol</strong>: Native support for OpenTelemetry Agent Management Protocol</li>
+<li><strong>Agent Groups</strong>: Manage multiple agents with shared configurations</li>
+<li><strong>Authentication</strong>: JWT tokens, OAuth2 (GitHub), Basic Auth</li>
+<li><strong>Scalability</strong>: Stateless design enabling horizontal scaling</li>
+</ul>
+<h3 id="technology-stack">Technology Stack</h3>
+<ul>
+<li><strong>Backend</strong>: Go 1.21+, Gin web framework</li>
+<li><strong>Database</strong>: MongoDB 4.4+ for persistence</li>
+<li><strong>Protocol</strong>: OpAMP over WebSocket/gRPC</li>
+<li><strong>Observability</strong>: Prometheus metrics, structured logging</li>
 </ul>
 <h2 id="use-cases">Use Cases</h2>
 <h3 id="infrastructure-monitoring">Infrastructure Monitoring</h3>
@@ -353,13 +423,13 @@
         <ul class="td-footer__links-list">
   
   <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
-    <a target="_blank" rel="noopener" href="https://github.com/opampcommander/opampcommander" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/minuk-dev/opampcommander" aria-label="GitHub">
       <i class="fab fa-github"></i>
     </a>
   </li>
   
   <li class="td-footer__links-item" data-bs-toggle="tooltip" title="Email" aria-label="Email">
-    <a target="_blank" rel="noopener" href="mailto:info@opampcommander.io" aria-label="Email">
+    <a target="_blank" rel="noopener" href="mailto:minuk.dev@gmail.com" aria-label="Email">
       <i class="fa fa-envelope"></i>
     </a>
   </li>
@@ -378,7 +448,63 @@
 </footer>
 
     </div>
-    <script src="/js/main.js"></script>
+    <script type="module" async>
+  import mermaid from "https:\/\/cdn.jsdelivr.net\/npm\/mermaid@latest\/dist\/mermaid.esm.min.mjs";
+
+  (function ($) {
+    if ($('.mermaid').length == 0) {
+      mermaid.initialize({ startOnLoad: false });
+      return;
+    }
+
+    var params = {"enable":true};
+
+    
+    
+    var norm = function (defaultConfig, params) {
+      var result = {};
+      for (const key in defaultConfig) {
+        const keyLower = key.toLowerCase();
+        if (defaultConfig.hasOwnProperty(key) && params.hasOwnProperty(keyLower)) {
+          if (typeof defaultConfig[key] === "object") {
+            result[key] = norm(defaultConfig[key], params[keyLower]);
+          } else {
+            result[key] = params[keyLower];
+          }
+        }
+      }
+      return result;
+    };
+
+    var settings = norm(mermaid.mermaidAPI.defaultConfig, params);
+    settings.startOnLoad = true;
+    if ($('html[data-bs-theme="dark"]').length) {
+      settings.theme = 'dark';
+    }
+    mermaid.initialize(settings);
+
+    
+    const lightDarkModeThemeChangeHandler = function (mutationsList, observer) {
+      for (const mutation of mutationsList) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-bs-theme') {
+          
+          
+          
+          location.reload();
+        }
+      }
+    };
+
+    const observer = new MutationObserver(lightDarkModeThemeChangeHandler);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-bs-theme']
+    });
+    
+
+  })(jQuery);
+</script>
+<script src="/js/main.js"></script>
 <script defer src="/js/click-to-copy.js" crossorigin="anonymous"></script>
 <script src='/js/tabpane-persist.js'></script>
 

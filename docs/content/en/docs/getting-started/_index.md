@@ -29,7 +29,7 @@ Before using OpAMP Commander, you'll need:
 ### Building from Source
 
 ```bash
-git clone https://github.com/opampcommander/opampcommander.git
+git clone https://github.com/minuk-dev/opampcommander.git
 cd opampcommander
 make build
 ```
@@ -54,4 +54,4 @@ By default, the server runs at `http://localhost:8080`.
 
 - Learn how to configure OpAMP Commander in the [Configuration Guide](/en/docs/configuration/)
 - Check out API usage in the [API Reference](/en/docs/api/)
-- Explore real-world use cases through [Examples](/en/docs/examples/)
+- Explore CLI commands in the [CLI Reference](/en/docs/cli/)

@@ -29,6 +29,7 @@
 
   <meta itemprop="name" content="Configuration">
   <meta itemprop="description" content="Learn how to configure OpAMP Commander.">
+  <meta itemprop="dateModified" content="2025-10-25T01:08:17+09:00">
   <meta itemprop="wordCount" content="84">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Configuration">
@@ -55,7 +56,7 @@
         <a class="nav-link" href="/en/docs/"><span>Documentation</span></a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="https://github.com/opampcommander/opampcommander" target="_blank" rel="noopener"><span>GitHub</span></a>
+        <a class="nav-link" href="https://github.com/minuk-dev/opampcommander" target="_blank" rel="noopener"><span>GitHub</span></a>
       </li>
       <li class="td-light-dark-menu nav-item dropdown">
         <svg xmlns="http://www.w3.org/2000/svg" class="d-none">
@@ -178,9 +179,9 @@
   <input type="checkbox" id="m-endocsapi-check"/>
   <label for="m-endocsapi-check"><a href="/en/docs/api/" title="API Reference" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsapi"><span class="">API</span></a></label>
   
-</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocsexamples-li">
-  <input type="checkbox" id="m-endocsexamples-check"/>
-  <label for="m-endocsexamples-check"><a href="/en/docs/examples/" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocsexamples"><span class="">Examples</span></a></label>
+</li><li class="td-sidebar-nav__section-title td-sidebar-nav__section without-child" id="m-endocscli-li">
+  <input type="checkbox" id="m-endocscli-check"/>
+  <label for="m-endocscli-check"><a href="/en/docs/cli/" title="CLI Reference" class="align-left ps-0  td-sidebar-link td-sidebar-link__section" id="m-endocscli"><span class="">CLI</span></a></label>
   
 </li>
   </ul>
@@ -244,20 +245,20 @@
 	<h2 id="basic-configuration">Basic Configuration</h2>
 <p>OpAMP Commander can be configured through a YAML file. The default configuration file is located at <code>configs/config.yaml</code>.</p>
 <h3 id="server-configuration">Server Configuration</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">server</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">http</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">address</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;:8080&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">grpc</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">address</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;:9090&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">server</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">http</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;:8080&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">grpc</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">address</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;:9090&#34;</span><span class="w">
 </span></span></span></code></pre></div><h3 id="opamp-configuration">OpAMP Configuration</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">opamp</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">server</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">endpoint</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;ws://localhost:4320/v1/opamp&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">opamp</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">server</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">endpoint</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;ws://localhost:4320/v1/opamp&#34;</span><span class="w">
 </span></span></span></code></pre></div><h3 id="database-configuration">Database Configuration</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">database</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">mongodb</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">uri</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;mongodb://localhost:27017&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">database</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;opampcommander&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">database</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">mongodb</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">uri</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;mongodb://localhost:27017&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">database</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;opampcommander&#34;</span><span class="w">
 </span></span></span></code></pre></div><h2 id="environment-variables">Environment Variables</h2>
 <p>Configuration values can also be provided via environment variables:</p>
 <ul>
@@ -268,14 +269,14 @@
 </ul>
 <h2 id="advanced-configuration">Advanced Configuration</h2>
 <h3 id="logging">Logging</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">logging</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">level</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;info&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">format</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;json&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">logging</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">level</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;info&#34;</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">format</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;json&#34;</span><span class="w">
 </span></span></span></code></pre></div><h3 id="authentication">Authentication</h3>
-<div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#204a87;font-weight:bold">auth</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">enabled</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#204a87;font-weight:bold">true</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">  </span><span style="color:#204a87;font-weight:bold">jwt</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline">
-</span></span></span><span style="display:flex;"><span><span style="color:#f8f8f8;text-decoration:underline">    </span><span style="color:#204a87;font-weight:bold">secret</span><span style="color:#000;font-weight:bold">:</span><span style="color:#f8f8f8;text-decoration:underline"> </span><span style="color:#4e9a06">&#34;your-secret-key&#34;</span><span style="color:#f8f8f8;text-decoration:underline">
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yaml" data-lang="yaml"><span class="line"><span class="cl"><span class="nt">auth</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">  </span><span class="nt">jwt</span><span class="p">:</span><span class="w">
+</span></span></span><span class="line"><span class="cl"><span class="w">    </span><span class="nt">secret</span><span class="p">:</span><span class="w"> </span><span class="s2">&#34;your-secret-key&#34;</span><span class="w">
 </span></span></span></code></pre></div>
 	<div class="section-index">
     
@@ -349,13 +350,13 @@
         <ul class="td-footer__links-list">
   
   <li class="td-footer__links-item" data-bs-toggle="tooltip" title="GitHub" aria-label="GitHub">
-    <a target="_blank" rel="noopener" href="https://github.com/opampcommander/opampcommander" aria-label="GitHub">
+    <a target="_blank" rel="noopener" href="https://github.com/minuk-dev/opampcommander" aria-label="GitHub">
       <i class="fab fa-github"></i>
     </a>
   </li>
   
   <li class="td-footer__links-item" data-bs-toggle="tooltip" title="Email" aria-label="Email">
-    <a target="_blank" rel="noopener" href="mailto:info@opampcommander.io" aria-label="Email">
+    <a target="_blank" rel="noopener" href="mailto:minuk.dev@gmail.com" aria-label="Email">
       <i class="fa fa-envelope"></i>
     </a>
   </li>

@@ -53,3 +53,127 @@ html {
 .td-cover-block {
   padding-top: 0;
 }
+
+/* Fix code block visibility in dark mode */
+body[data-bs-theme="dark"] {
+  .highlight pre,
+  pre code,
+  code {
+    background-color: #1e1e1e !important;
+    color: #d4d4d4 !important;
+  }
+  
+  .highlight {
+    background-color: #1e1e1e !important;
+  }
+  
+  /* Inline code */
+  code:not(.hljs) {
+    background-color: #2d2d2d !important;
+    color: #e6e6e6 !important;
+    border: 1px solid #3d3d3d;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
+  
+  /* Code blocks with language specification */
+  pre {
+    background-color: #1e1e1e !important;
+    border: 1px solid #3d3d3d;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  
+  pre code {
+    color: #d4d4d4 !important;
+    background-color: transparent !important;
+    padding: 0;
+    border: none;
+  }
+  
+  /* Syntax highlighting colors for dark theme (VS Code style) */
+  .highlight .c, .highlight .c1, .highlight .cm { color: #6a9955 !important; } /* Comment */
+  .highlight .k, .highlight .kd, .highlight .kn, .highlight .kr { color: #569cd6 !important; } /* Keyword */
+  .highlight .s, .highlight .s1, .highlight .s2, .highlight .sb, .highlight .sc { color: #ce9178 !important; } /* String */
+  .highlight .n, .highlight .na, .highlight .nb, .highlight .no { color: #9cdcfe !important; } /* Name */
+  .highlight .o, .highlight .ow { color: #d4d4d4 !important; } /* Operator */
+  .highlight .p { color: #d4d4d4 !important; } /* Punctuation */
+  .highlight .m, .highlight .mi, .highlight .mf, .highlight .mh { color: #b5cea8 !important; } /* Number */
+  .highlight .nc { color: #4ec9b0 !important; } /* Name.Class */
+  .highlight .nf { color: #dcdcaa !important; } /* Name.Function */
+  .highlight .nx { color: #9cdcfe !important; } /* Name.Other */
+  .highlight .nt { color: #569cd6 !important; } /* Name.Tag */
+  .highlight .err { color: #f48771 !important; } /* Error */
+  .highlight .cp { color: #9b9b9b !important; } /* Comment.Preproc */
+  
+  /* HTTP method colors */
+  .highlight .nv { color: #4fc1ff !important; } /* GET/POST/etc */
+  
+  /* Fix table styling in dark mode */
+  table {
+    background-color: transparent;
+  }
+  
+  td, th {
+    border-color: #3d3d3d !important;
+  }
+  
+  /* Fix blockquote in dark mode */
+  blockquote {
+    border-left-color: #569cd6 !important;
+    color: #d4d4d4 !important;
+  }
+}
+
+/* Fix code block visibility in light mode */
+body[data-bs-theme="light"],
+body:not([data-bs-theme]) {
+  .highlight pre,
+  pre code {
+    background-color: #f5f5f5 !important;
+    color: #333 !important;
+  }
+  
+  .highlight {
+    background-color: #f5f5f5 !important;
+  }
+  
+  code:not(.hljs) {
+    background-color: #f0f0f0 !important;
+    color: #333 !important;
+    border: 1px solid #e0e0e0;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
+  
+  pre {
+    background-color: #f5f5f5 !important;
+    border: 1px solid #e0e0e0;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  
+  pre code {
+    background-color: transparent !important;
+    padding: 0;
+    border: none;
+  }
+}
+
+/* Ensure code blocks are always readable */
+.td-content pre,
+.td-content code {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875em;
+}
+
+.td-content pre {
+  margin: 1em 0;
+}
+
+/* Fix for HTTP verb highlighting */
+.td-content code.language-http .highlight .nf {
+  font-weight: bold;
+}
