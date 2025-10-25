@@ -1,0 +1,208 @@
+:root {
+  --td-sidebar-tree-root-padding-top: 2rem;
+}
+
+/* Fix navbar covering content - adjust scroll padding */
+html {
+  scroll-padding-top: 5rem;
+}
+
+.td-navbar {
+  position: sticky;
+  z-index: 1030;
+}
+
+/* Add proper spacing below navbar */
+.td-main {
+  padding-top: 0;
+}
+
+.td-content {
+  padding-top: 2rem;
+  margin-top: 1rem;
+}
+
+.td-content > h1:first-child {
+  padding-top: 0.5rem;
+  margin-top: 0;
+}
+
+/* Improve sidebar visibility */
+.td-sidebar {
+  padding-top: 1.5rem;
+  position: sticky;
+  top: 4rem;
+  height: calc(100vh - 4rem);
+}
+
+.td-sidebar-nav {
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+}
+
+/* Better menu item visibility */
+.td-sidebar-nav .td-sidebar-link {
+  padding: 0.375rem 0.5rem;
+}
+
+.td-sidebar-nav .td-sidebar-nav-active-item {
+  font-weight: 600;
+}
+
+/* Adjust for cover blocks on home page */
+.td-cover-block {
+  padding-top: 0;
+}
+
+/* Fix code block visibility in dark mode */
+body[data-bs-theme="dark"] {
+  .highlight pre,
+  pre code,
+  code {
+    background-color: #1e1e1e !important;
+    color: #d4d4d4 !important;
+  }
+  
+  .highlight {
+    background-color: #1e1e1e !important;
+  }
+  
+  /* Inline code */
+  code:not(.hljs) {
+    background-color: #2d2d2d !important;
+    color: #e6e6e6 !important;
+    border: 1px solid #3d3d3d;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
+  
+  /* Code blocks with language specification */
+  pre {
+    background-color: #1e1e1e !important;
+    border: 1px solid #3d3d3d;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  
+  pre code {
+    color: #d4d4d4 !important;
+    background-color: transparent !important;
+    padding: 0;
+    border: none;
+  }
+  
+  /* Syntax highlighting colors for dark theme (VS Code style) */
+  .highlight .c, .highlight .c1, .highlight .cm { color: #6a9955 !important; } /* Comment */
+  .highlight .k, .highlight .kd, .highlight .kn, .highlight .kr { color: #569cd6 !important; } /* Keyword */
+  .highlight .s, .highlight .s1, .highlight .s2, .highlight .sb, .highlight .sc { color: #ce9178 !important; } /* String */
+  .highlight .n, .highlight .na, .highlight .nb, .highlight .no { color: #9cdcfe !important; } /* Name */
+  .highlight .o, .highlight .ow { color: #d4d4d4 !important; } /* Operator */
+  .highlight .p { color: #d4d4d4 !important; } /* Punctuation */
+  .highlight .m, .highlight .mi, .highlight .mf, .highlight .mh { color: #b5cea8 !important; } /* Number */
+  .highlight .nc { color: #4ec9b0 !important; } /* Name.Class */
+  .highlight .nf { color: #dcdcaa !important; } /* Name.Function */
+  .highlight .nx { color: #9cdcfe !important; } /* Name.Other */
+  .highlight .nt { color: #569cd6 !important; } /* Name.Tag */
+  .highlight .err { color: #f48771 !important; } /* Error */
+  .highlight .cp { color: #9b9b9b !important; } /* Comment.Preproc */
+  
+  /* HTTP method colors */
+  .highlight .nv { color: #4fc1ff !important; } /* GET/POST/etc */
+  
+  /* Fix table styling in dark mode */
+  table {
+    background-color: transparent;
+  }
+  
+  td, th {
+    border-color: #3d3d3d !important;
+  }
+  
+  /* Fix blockquote in dark mode */
+  blockquote {
+    border-left-color: #569cd6 !important;
+    color: #d4d4d4 !important;
+  }
+}
+
+/* Fix code block visibility in light mode */
+body[data-bs-theme="light"],
+body:not([data-bs-theme]) {
+  .highlight pre,
+  pre code {
+    background-color: #f5f5f5 !important;
+    color: #333 !important;
+  }
+  
+  .highlight {
+    background-color: #f5f5f5 !important;
+  }
+  
+  code:not(.hljs) {
+    background-color: #f0f0f0 !important;
+    color: #333 !important;
+    border: 1px solid #e0e0e0;
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+  }
+  
+  pre {
+    background-color: #f5f5f5 !important;
+    border: 1px solid #e0e0e0;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+  
+  pre code {
+    background-color: transparent !important;
+    padding: 0;
+    border: none;
+  }
+}
+
+/* Ensure code blocks are always readable */
+.td-content pre,
+.td-content code {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.875em;
+}
+
+.td-content pre {
+  margin: 1em 0;
+}
+
+/* Fix for HTTP verb highlighting */
+.td-content code.language-http .highlight .nf {
+  font-weight: bold;
+}
+
+/* Fix search result links */
+.td-offline-search-results a {
+  cursor: pointer !important;
+  text-decoration: none;
+}
+
+.td-offline-search-results a:hover {
+  text-decoration: underline;
+  color: #0d6efd;
+}
+
+/* Search result highlighting */
+.td-offline-search-results mark {
+  background-color: #fff3cd;
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+}
+
+body[data-bs-theme="dark"] .td-offline-search-results mark {
+  background-color: #664d03;
+  color: #fff;
+}
+
+/* Search result relevance badge */
+.td-offline-search-results .badge {
+  font-size: 0.7em;
+  vertical-align: middle;
+}
