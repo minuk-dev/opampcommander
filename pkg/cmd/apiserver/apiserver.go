@@ -31,7 +31,15 @@ type CommandOption struct {
 		DDLAuto        bool          `mapstructure:"ddlAuto"`
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
-	Management  struct {
+	Event       struct {
+		Type    string `mapstructure:"type"`
+		Enabled bool   `mapstructure:"enabled"`
+		NATS    struct {
+			Endpoint      string `mapstructure:"endpoint"`
+			SubjectPrefix string `mapstructure:"subjectPrefix"`
+		}
+	} `mapstructure:"event"`
+	Management struct {
 		Address string `mapstructure:"address"`
 		Metric  struct {
 			Enabled    bool   `mapstructure:"enabled"`
@@ -142,6 +150,10 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
 	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
+	cmd.Flags().String("event.type", "nats", "event protocol type (nats)")
+	cmd.Flags().Bool("event.enabled", false, "enable event communication")
+	cmd.Flags().String("event.nats.endpoint", "nats://localhost:4222", "NATS server endpoint")
+	cmd.Flags().String("event.nats.subjectPrefix", "test.opampcommander.", "NATS subject prefix")
 	cmd.Flags().String("management.address", "localhost:9090", "management server address")
 	cmd.Flags().Bool("management.metric.enabled", false, "enable metrics")
 	cmd.Flags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
@@ -269,6 +281,14 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 					SigningKey: opt.Auth.OAuth2.State.JWT.Secret,
 					Audience:   opt.Auth.OAuth2.State.JWT.Audience,
 				},
+			},
+		},
+		EventSettings: appconfig.EventSettings{
+			Enabled:      opt.Event.Enabled,
+			ProtocolType: appconfig.EventProtocolType(opt.Event.Type),
+			NATS: appconfig.NATSSettings{
+				Endpoint:      opt.Event.NATS.Endpoint,
+				SubjectPrefix: opt.Event.NATS.SubjectPrefix,
 			},
 		},
 		ManagementSettings: appconfig.ManagementSettings{

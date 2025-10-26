@@ -10,6 +10,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/binding"
 	"github.com/google/uuid"
 
+	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -25,11 +26,13 @@ var (
 	_ port.ServerEventSenderPort = (*EventSenderAdapter)(nil)
 )
 
+// EventSenderAdapter implements port.ServerEventSenderPort using NATS CloudEvents sender.
 type EventSenderAdapter struct {
 	sender *cenats.Sender
 	clock  clock.Clock
 }
 
+// NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
 	sender *cenats.Sender,
 ) *EventSenderAdapter {
@@ -43,7 +46,7 @@ func NewEventSenderAdapter(
 func (e *EventSenderAdapter) SendMessageToServer(
 	ctx context.Context,
 	serverID string,
-	message port.ServerMessage,
+	message serverevent.Message,
 ) error {
 	event := cloudevents.NewEvent()
 
@@ -55,7 +58,7 @@ func (e *EventSenderAdapter) SendMessageToServer(
 	event.SetSpecVersion(CloudEventMessageSpec)
 	event.SetTime(e.clock.Now())
 
-	err := event.SetData(CloudEventContentType, message.ServerMessageForServerToAgent)
+	err := event.SetData(CloudEventContentType, message.Payload)
 	if err != nil {
 		return fmt.Errorf("failed to set event data for server %s: %w", serverID, err)
 	}
@@ -72,9 +75,9 @@ func newSource(serverID string) string {
 	return "opampcommander/server/" + serverID
 }
 
-func eventTypeFromMessageType(messageType port.ServerMessageType) string {
+func eventTypeFromMessageType(messageType serverevent.MessageType) string {
 	switch messageType {
-	case port.ServerMessageTypeSendServerToAgent:
+	case serverevent.MessageTypeSendServerToAgent:
 		return "io.opampcommander.server.sendtosagent.v1"
 	default:
 		return "io.opampcommander.server.unknown.v1"

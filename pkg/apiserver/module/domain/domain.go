@@ -23,6 +23,7 @@ func New() fx.Option {
 		fx.Annotate(
 			helper.Identity[*domainservice.ServerService],
 			fx.As(new(domainport.ServerUsecase)),
+			fx.As(new(domainport.ServerMessageUsecase)),
 		),
 		helper.AsRunner(helper.Identity[*domainservice.ServerService]),
 	}

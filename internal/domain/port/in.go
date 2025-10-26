@@ -9,6 +9,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 )
 
 var (
@@ -69,6 +70,9 @@ type UpdateAgentConfigUsecase interface {
 
 // ServerUsecase is an interface that defines the methods for server use cases.
 type ServerUsecase interface {
+	// ServerUsecase should also implement ServerMessageUsecase
+	ServerMessageUsecase
+
 	// GetServer retrieves a server by its ID.
 	GetServer(ctx context.Context, id string) (*model.Server, error)
 	// ListServers lists all servers.
@@ -76,6 +80,16 @@ type ServerUsecase interface {
 	ListServers(ctx context.Context) ([]*model.Server, error)
 	// CurrentServer returns the current server.
 	CurrentServer(ctx context.Context) (*model.Server, error)
+}
+
+// ServerMessageUsecase is an interface that defines the methods for server message use cases.
+// Some usecases may require sending messages to other servers.
+// So, this interface defines as a separate interface.
+type ServerMessageUsecase interface {
+	// SendMessageToServerByServerID sends a message to the specified server.
+	SendMessageToServerByServerID(ctx context.Context, serverID string, message serverevent.Message) error
+	// SendMessageToServer sends a message to the specified server.
+	SendMessageToServer(ctx context.Context, server *model.Server, message serverevent.Message) error
 }
 
 // ConnectionUsecase is an interface that defines the methods for connection use cases.

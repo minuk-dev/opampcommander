@@ -9,6 +9,8 @@ import (
 	cenats "github.com/cloudevents/sdk-go/protocol/nats/v2"
 	"github.com/nats-io/nats.go"
 	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 const (
@@ -24,7 +26,7 @@ const (
 
 // NewEventSender creates a new NATS event sender and manages its lifecycle.
 func NewEventSender(
-	settings *EventSettings,
+	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
 ) (*cenats.Sender, error) {
 	endpoint := settings.NATS.Endpoint
@@ -56,7 +58,7 @@ func NewEventSender(
 
 // NewEventReceiver creates a new NATS event receiver and manages its lifecycle.
 func NewEventReceiver(
-	settings *EventSettings,
+	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
 ) (*cenats.Consumer, error) {
 	endpoint := settings.NATS.Endpoint

@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var (
@@ -36,24 +38,10 @@ type ServerService struct {
 	heartbeatInterval time.Duration
 	heartbeatTimeout  time.Duration
 
+	clock clock.Clock
+
 	serverPersistencePort port.ServerPersistencePort
-}
-
-// ServerServiceOption is a function that configures the ServerService.
-type ServerServiceOption func(*ServerService)
-
-// WithHeartbeatInterval sets the heartbeat interval.
-func WithHeartbeatInterval(interval time.Duration) ServerServiceOption {
-	return func(s *ServerService) {
-		s.heartbeatInterval = interval
-	}
-}
-
-// WithHeartbeatTimeout sets the heartbeat timeout.
-func WithHeartbeatTimeout(timeout time.Duration) ServerServiceOption {
-	return func(s *ServerService) {
-		s.heartbeatTimeout = timeout
-	}
+	serverEventSenderPort port.ServerEventSenderPort
 }
 
 // NewServerService creates a new instance of the ServerService.
@@ -61,18 +49,16 @@ func NewServerService(
 	logger *slog.Logger,
 	serverID config.ServerID,
 	serverPersistencePort port.ServerPersistencePort,
-	opts ...ServerServiceOption,
+	serverEventSenderPort port.ServerEventSenderPort,
 ) *ServerService {
 	service := &ServerService{
 		logger:                logger,
 		id:                    serverID.String(),
+		clock:                 clock.NewRealClock(),
 		heartbeatInterval:     DefaultHeartbeatInterval,
 		heartbeatTimeout:      DefaultHeartbeatTimeout,
 		serverPersistencePort: serverPersistencePort,
-	}
-
-	for _, opt := range opts {
-		opt(service)
+		serverEventSenderPort: serverEventSenderPort,
 	}
 
 	return service
@@ -142,7 +128,7 @@ func (s *ServerService) ListServers(ctx context.Context) ([]*model.Server, error
 	}
 
 	// Filter out dead servers
-	now := time.Now()
+	now := s.clock.Now()
 	aliveServers := make([]*model.Server, 0)
 
 	for _, server := range servers {
@@ -154,17 +140,9 @@ func (s *ServerService) ListServers(ctx context.Context) ([]*model.Server, error
 	return aliveServers, nil
 }
 
-// SendMessageToServer implements port.ServerUsecase.
-//
-//nolint:godox // wip in PR
-func (s *ServerService) SendMessageToServer(context.Context, string, port.ServerMessage) error {
-	// TODO: Implement the logic to send a message to the specified server.
-	panic("not implemented")
-}
-
 // registerServer registers the server in the database.
 func (s *ServerService) registerServer(ctx context.Context) error {
-	now := time.Now()
+	now := s.clock.Now()
 
 	// Check if server ID already exists and is alive
 	existingServer, err := s.serverPersistencePort.GetServer(ctx, s.id)
@@ -210,6 +188,42 @@ func (s *ServerService) sendHeartbeat(ctx context.Context) error {
 	}
 
 	s.logger.Debug("heartbeat sent", slog.String("serverID", s.id))
+
+	return nil
+}
+
+// SendMessageToServer implements port.ServerUsecase.
+func (s *ServerService) SendMessageToServerByServerID(
+	ctx context.Context,
+	serverID string,
+	message serverevent.Message,
+) error {
+	server, err := s.serverPersistencePort.GetServer(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("failed to get server: %w", err)
+	}
+
+	err = s.SendMessageToServer(ctx, server, message)
+	if err != nil {
+		return fmt.Errorf("failed to send message to server %s: %w", serverID, err)
+	}
+
+	return nil
+}
+
+func (s *ServerService) SendMessageToServer(
+	ctx context.Context,
+	server *model.Server,
+	message serverevent.Message,
+) error {
+	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+		return fmt.Errorf("%w: server ID %s is not alive", ErrServerNotAlive, server.ID)
+	}
+
+	err := s.serverEventSenderPort.SendMessageToServer(ctx, server.ID, message)
+	if err != nil {
+		return fmt.Errorf("failed to send message to server %s: %w", server.ID, err)
+	}
 
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/domain"
+	eventmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/event"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 	inmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/in"
 	outmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/out"
@@ -41,6 +42,7 @@ func New(settings config.ServerSettings) *Server {
 		outmodule.New(),
 		applicationmodule.New(),
 		domainmodule.New(),
+		eventmodule.New(),
 		NewConfigModule(&settings),
 
 		// base
@@ -91,6 +93,7 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		fx.Provide(helper.PointerFunc(settings.AuthSettings)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings.ObservabilitySettings)),
+		fx.Provide(helper.PointerFunc(settings.EventSettings)),
 		// serverID provider with explicit type
 		fx.Provide(func() config.ServerID { return settings.ServerID }),
 	)

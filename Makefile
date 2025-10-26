@@ -36,17 +36,42 @@ clean-mongodb-data:
 	@rm -rf ./default.mongodb
 	@echo "MongoDB container and data removed"
 
-run-dev-server: build-dev start-mongodb
+start-nats:
+	@docker run -d --name nats-dev \
+		-p 4222:4222 \
+		-p 8222:8222 \
+		nats:latest || docker start nats-dev
+	@echo "NATS server started on port 4222 (client) and 8222 (monitoring)"
+
+stop-nats:
+	@docker stop nats-dev || true
+	@echo "NATS server stopped"
+
+clean-nats:
+	@docker stop nats-dev || true
+	@docker rm nats-dev || true
+	@echo "NATS container removed"
+
+start-dev-services: start-mongodb start-nats
+	@echo "Development services (MongoDB and NATS) started"
+
+stop-dev-services: stop-mongodb stop-nats
+	@echo "Development services stopped"
+
+clean-dev-services: clean-mongodb-data clean-nats
+	@echo "Development services cleaned"
+
+run-dev-server: build-dev start-dev-services
 	@sleep 2
 	go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
 
-debug-server: start-mongodb
+debug-server: start-dev-services
 	@echo "Starting debug server with delve..."
-	@echo "MongoDB should be running. Connect your debugger to localhost:2345"
+	@echo "MongoDB and NATS should be running. Connect your debugger to localhost:2345"
 	@sleep 2
 	dlv debug ./cmd/apiserver/main.go --headless --listen=:2345 --api-version=2 --accept-multiclient -- --config ./configs/apiserver/dev.yaml
 
-debug-server-console: start-mongodb
+debug-server-console: start-dev-services
 	@echo "Starting debug server in console mode..."
 	@sleep 2
 	dlv debug ./cmd/apiserver/main.go -- --config ./configs/apiserver/dev.yaml
