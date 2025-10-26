@@ -26,6 +26,49 @@ type AgentPersistencePort interface {
 	) (*model.ListResponse[*model.Agent], error)
 }
 
+// ServerMessageType represents a message sent to a server.
+type ServerMessageType string
+
+// String returns the string representation of the ServerMessageType.
+func (s ServerMessageType) String() string {
+	return string(s)
+}
+
+const (
+	// ServerMessageTypeSendServerToAgent is a message type for sending ServerToAgent messages for specific agents.
+	ServerMessageTypeSendServerToAgent ServerMessageType = "SendServerToAgent"
+)
+
+// ServerMessage represents a message sent between servers.
+//
+//nolint:embeddedstructfieldcheck // for readability
+type ServerMessage struct {
+	// Source is the identifier of the message sender of server.
+	Source string
+	// Target is the identifier of the message recipient agent.
+	Target string
+	// Type is the type of the message.
+	Type ServerMessageType
+	// When Type is ServerMessageTypeSendServerToAgent, Payload is ServerToAgentMessage
+	*ServerMessageForServerToAgent
+}
+
+// ServerMessageForServerToAgent represents a message sent from the server to an agent.
+// It's encoded as json in the CloudEvent data field.
+type ServerMessageForServerToAgent struct {
+	// TargetAgentInstanceUIDs is the list of target agent instance UIDs.
+	// Do not send details message, the target server should fetch the details from the database
+	// because the message can be delayed or missed.
+	// All servers should check all agents status periodically to handle such cases.
+	TargetAgentInstanceUIDs []uuid.UUID `json:"targetAgentInstanceUids"`
+}
+
+// ServerEventSenderPort is an interface that defines the methods for sending events to servers.
+type ServerEventSenderPort interface {
+	// SendMessageToServer sends a message to the specified server.
+	SendMessageToServer(ctx context.Context, serverID string, message ServerMessage) error
+}
+
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.
 type AgentGroupPersistencePort interface {
 	// GetAgentGroup retrieves an agent group by its ID.

@@ -1099,6 +1099,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "priority": {
+                    "type": "integer"
+                },
                 "selector": {
                     "$ref": "#/definitions/agentgroup.AgentSelector"
                 }
@@ -1118,6 +1121,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
                 },
                 "selector": {
                     "$ref": "#/definitions/agentgroup.AgentSelector"
