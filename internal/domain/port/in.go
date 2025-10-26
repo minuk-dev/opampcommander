@@ -76,6 +76,39 @@ type ServerUsecase interface {
 	ListServers(ctx context.Context) ([]*model.Server, error)
 	// CurrentServer returns the current server.
 	CurrentServer(ctx context.Context) (*model.Server, error)
+	// SendMessageToServer sends a message to the specified server.
+	SendMessageToServer(ctx context.Context, serverID string, message ServerMessage) error
+}
+
+// ServerMessageType represents a message sent to a server.
+type ServerMessageType string
+
+const (
+	// ServerMessageTypeSendServerToAgent is a message type for sending ServerToAgent messages for specific agents.
+	ServerMessageTypeSendServerToAgent ServerMessageType = "SendServerToAgent"
+)
+
+// ServerMessage represents a message sent between servers.
+//
+//nolint:embeddedstructfieldcheck // for readability
+type ServerMessage struct {
+	// Source is the identifier of the message sender of server.
+	Source string
+	// Target is the identifier of the message recipient agent.
+	Target string
+	// Type is the type of the message.
+	Type ServerMessageType
+	// When Type is ServerMessageTypeSendServerToAgent, Payload is ServerToAgentMessage
+	*ServerMessageForServerToAgent
+}
+
+// ServerMessageForServerToAgent represents a message sent from the server to an agent.
+type ServerMessageForServerToAgent struct {
+	// TargetAgentInstanceUIDs is the list of target agent instance UIDs.
+	// Do not send details message, the target server should fetch the details from the database
+	// because the message can be delayed or missed.
+	// All servers should check all agents status periodically to handle such cases.
+	TargetAgentInstanceUIDs []uuid.UUID
 }
 
 // ConnectionUsecase is an interface that defines the methods for connection use cases.

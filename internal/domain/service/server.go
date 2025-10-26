@@ -154,6 +154,14 @@ func (s *ServerService) ListServers(ctx context.Context) ([]*model.Server, error
 	return aliveServers, nil
 }
 
+// SendMessageToServer implements port.ServerUsecase.
+//
+//nolint:godox // wip in PR
+func (s *ServerService) SendMessageToServer(context.Context, string, port.ServerMessage) error {
+	// TODO: Implement the logic to send a message to the specified server.
+	panic("not implemented")
+}
+
 // registerServer registers the server in the database.
 func (s *ServerService) registerServer(ctx context.Context) error {
 	now := time.Now()
