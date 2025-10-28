@@ -49,3 +49,9 @@ auth:
         secret: "your_jwt_secret"
         audience:
         - "opampcommander"
+event:
+  enabled: false  # Set to false for standalone mode (no inter-server communication)
+  type: "nats"
+  nats:
+    endpoint: "nats://localhost:4222"
+    subjectPrefix: "dev.opampcommander."

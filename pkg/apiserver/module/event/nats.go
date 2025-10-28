@@ -24,6 +24,20 @@ const (
 	EventSubjectSuffix = "events"
 )
 
+// NewEventSenderOptional creates a new NATS event sender only when events are enabled.
+func NewEventSenderOptional(
+	settings *config.EventSettings,
+	lifecycle fx.Lifecycle,
+) (*cenats.Sender, error) {
+	if !settings.Enabled {
+		// Return nil when events are disabled
+		// This is acceptable in fx.Provide context
+		return nil, nil //nolint:nilnil // Intentional: fx dependency injection allows nil values
+	}
+
+	return NewEventSender(settings, lifecycle)
+}
+
 // NewEventSender creates a new NATS event sender and manages its lifecycle.
 func NewEventSender(
 	settings *config.EventSettings,
@@ -54,6 +68,20 @@ func NewEventSender(
 	})
 
 	return sender, nil
+}
+
+// NewEventReceiverOptional creates a new NATS event receiver only when events are enabled.
+func NewEventReceiverOptional(
+	settings *config.EventSettings,
+	lifecycle fx.Lifecycle,
+) (*cenats.Consumer, error) {
+	if !settings.Enabled {
+		// Return nil when events are disabled
+		// This is acceptable in fx.Provide context
+		return nil, nil //nolint:nilnil // Intentional: fx dependency injection allows nil values
+	}
+
+	return NewEventReceiver(settings, lifecycle)
 }
 
 // NewEventReceiver creates a new NATS event receiver and manages its lifecycle.

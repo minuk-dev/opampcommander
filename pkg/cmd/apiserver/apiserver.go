@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -334,6 +335,12 @@ func (opt *CommandOption) Run(cmd *cobra.Command, _ []string) error {
 
 	err := opt.app.Run(ctx)
 	if err != nil {
+		visualizedStr, visualizedErr := fx.VisualizeError(err)
+		if visualizedErr != nil {
+			return fmt.Errorf("failed to visualize error of the server: %w", err)
+		}
+
+		cmd.PrintErr(visualizedStr)
 		return fmt.Errorf("failed to run the server: %w", err)
 	}
 

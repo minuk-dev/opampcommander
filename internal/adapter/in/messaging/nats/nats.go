@@ -36,6 +36,7 @@ type EventSenderAdapter struct {
 func NewEventSenderAdapter(
 	sender *cenats.Sender,
 ) *EventSenderAdapter {
+	// sender can be nil when events are disabled
 	return &EventSenderAdapter{
 		sender: sender,
 		clock:  clock.NewRealClock(),
