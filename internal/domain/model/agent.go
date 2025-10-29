@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -17,6 +18,18 @@ type Agent struct {
 	Spec     AgentSpec
 	Commands AgentCommands
 	Status   AgentStatus
+}
+
+func (a *Agent) IsConnected(ctx context.Context) bool {
+	panic("unimplemented")
+}
+
+func (a *Agent) HasPendingServerMessages() bool {
+	panic("unimplemented")
+}
+
+func (a *Agent) ConnectedServer() (*Server, error) {
+	panic("unimplemented")
 }
 
 // NewAgent creates a new agent with the given instance UID.

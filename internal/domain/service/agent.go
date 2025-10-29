@@ -17,9 +17,10 @@ var _ port.AgentUsecase = (*AgentService)(nil)
 
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
-	agentPersistencePort port.AgentPersistencePort
-	serverMessageUsecase port.ServerMessageUsecase
+	agentPersistencePort   port.AgentPersistencePort
+	serverMessageUsecase   port.ServerMessageUsecase
 	serverIdentityProvider port.ServerIdentityProvider
+	logger                 *slog.Logger
 }
 
 // NewAgentService creates a new instance of AgentService.
@@ -27,11 +28,13 @@ func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
 	serverMessageUsecase port.ServerMessageUsecase,
 	serverIdentityProvider port.ServerIdentityProvider,
+	logger *slog.Logger,
 ) *AgentService {
 	return &AgentService{
-		agentPersistencePort: agentPersistencePort,
-		serverMessageUsecase: serverMessageUsecase,
+		agentPersistencePort:   agentPersistencePort,
+		serverMessageUsecase:   serverMessageUsecase,
 		serverIdentityProvider: serverIdentityProvider,
+		logger:                 logger,
 	}
 }
 
@@ -67,20 +70,29 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
 	}
 
-	if agent.HasPendingServerMessages() && agent.IsConnected() {
+	if agent.HasPendingServerMessages() && agent.IsConnected(ctx) {
 		server, err := agent.ConnectedServer()
 		if err != nil {
 			s.logger.Warn("saved agent but failed to send server messages: cannot get connected server",
-				slog.String("agentInstanceUID", agent.InstanceUID.String()),
+				slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
 				slog.String("error", err.Error()),
 			)
 			return nil
 		}
 
-		currentServer := s.serverIdentityProvider.CurrentServerID()
+		currentServer, err := s.serverIdentityProvider.CurrentServer(ctx)
+		if err != nil {
+			s.logger.Warn("saved agent but failed to send server messages: cannot get current server",
+				slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
+				slog.String("error", err.Error()))
+
+			currentServer = &model.Server{
+				ID: "unknown",
+			}
+		}
 
 		s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
-			Source: currentServer,
+			Source: currentServer.ID,
 			Type:   serverevent.MessageTypeSendServerToAgent,
 			Payload: serverevent.MessagePayload{
 				MessageForServerToAgent: &serverevent.MessageForServerToAgent{

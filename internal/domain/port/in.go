@@ -98,6 +98,12 @@ type ServerMessageUsecase interface {
 	SendMessageToServer(ctx context.Context, server *model.Server, message serverevent.Message) error
 }
 
+// ServerReceiverUsecase is an interface that defines the methods for server receiver use cases.
+type ServerReceiverUsecase interface {
+	// ReceiveMessageFromServer processes a message received from a server.
+	ReceiveMessageFromServer() error
+}
+
 // ConnectionUsecase is an interface that defines the methods for connection use cases.
 type ConnectionUsecase interface {
 	// GetConnectionByInstanceUID returns the connection for the given instance UID.

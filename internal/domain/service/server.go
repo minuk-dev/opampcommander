@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -40,8 +41,9 @@ type ServerService struct {
 
 	clock clock.Clock
 
-	serverPersistencePort port.ServerPersistencePort
-	serverEventSenderPort port.ServerEventSenderPort
+	serverPersistencePort   port.ServerPersistencePort
+	serverEventSenderPort   port.ServerEventSenderPort
+	serverEventReceiverPort port.ServerEventReceiverPort
 }
 
 // NewServerService creates a new instance of the ServerService.
@@ -84,20 +86,22 @@ func (s *ServerService) Run(ctx context.Context) error {
 
 	s.logger.Info("server registered successfully", slog.String("serverID", s.id))
 
-	ticker := time.NewTicker(s.heartbeatInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("context cancelled: %w", ctx.Err())
-		case <-ticker.C:
-			err := s.sendHeartbeat(ctx)
-			if err != nil {
-				s.logger.Error("failed to send heartbeat", slog.String("error", err.Error()))
-			}
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		err := s.loopForHeartbeat(ctx)
+		if err != nil {
+			s.logger.Error("heartbeat loop exited with error", slog.String("error", err.Error()))
 		}
-	}
+	})
+	wg.Go(func() {
+		err := s.loopForReceivingMessages(ctx)
+		if err != nil {
+			s.logger.Error("message receiving loop exited with error", slog.String("error", err.Error()))
+		}
+	})
+
+	wg.Wait()
+	return nil
 }
 
 // CurrentServer implements port.ServerUsecase.
@@ -226,4 +230,35 @@ func (s *ServerService) SendMessageToServer(
 	}
 
 	return nil
+}
+
+func (s *ServerService) loopForHeartbeat(ctx context.Context) error {
+	ticker := time.NewTicker(s.heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
+		case <-ticker.C:
+			err := s.sendHeartbeat(ctx)
+			if err != nil {
+				s.logger.Error("failed to send heartbeat", slog.String("error", err.Error()))
+			}
+		}
+	}
+}
+
+func (s *ServerService) loopForReceivingMessages(ctx context.Context) error {
+	for {
+		serverEvent, err := s.serverEventReceiverPort.ReceiveMessageFromServer(ctx)
+		if errors.Is(err, context.Canceled) {
+			return err
+		} else if err != nil {
+			s.logger.Error("failed to receive message from server", slog.String("error", err.Error()))
+		}
+
+		// TODO: Handle the received server event
+		_ = serverEvent
+	}
 }

@@ -28,18 +28,21 @@ var (
 
 // EventSenderAdapter implements port.ServerEventSenderPort using NATS CloudEvents sender.
 type EventSenderAdapter struct {
-	sender *cenats.Sender
-	clock  clock.Clock
+	sender   *cenats.Sender
+	receiver *cenats.Receiver
+	clock    clock.Clock
 }
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
 	sender *cenats.Sender,
+	receiver *cenats.Receiver,
 ) *EventSenderAdapter {
 	// sender can be nil when events are disabled
 	return &EventSenderAdapter{
-		sender: sender,
-		clock:  clock.NewRealClock(),
+		sender:   sender,
+		receiver: receiver,
+		clock:    clock.NewRealClock(),
 	}
 }
 
@@ -70,6 +73,39 @@ func (e *EventSenderAdapter) SendMessageToServer(
 	}
 
 	return nil
+}
+
+// ReceiveMessageFromServer receives a message from a server.
+// This method can block until a message is available or the context is cancelled.
+func (e *EventSenderAdapter) ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error) {
+	msg, err := e.receiver.Receive(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to receive message from server: %w", err)
+	}
+
+	event, err := binding.ToEvent(ctx, msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert message to event: %w", err)
+	}
+
+	var payload serverevent.MessagePayload
+	err = event.DataAs(&payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract event data: %w", err)
+	}
+
+	message := &serverevent.Message{
+		Payload: payload,
+	}
+
+	switch event.Type() {
+	case "io.opampcommander.server.sendtosagent.v1":
+		message.Type = serverevent.MessageTypeSendServerToAgent
+	default:
+		return nil, fmt.Errorf("unknown event type: %s", event.Type())
+	}
+
+	return message, nil
 }
 
 func newSource(serverID string) string {
