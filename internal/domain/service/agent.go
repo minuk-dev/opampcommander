@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -16,14 +18,17 @@ var _ port.AgentUsecase = (*AgentService)(nil)
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
+	serverMessageUsecase port.ServerMessageUsecase
 }
 
 // NewAgentService creates a new instance of AgentService.
 func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
+	serverMessageUsecase port.ServerMessageUsecase,
 ) *AgentService {
 	return &AgentService{
 		agentPersistencePort: agentPersistencePort,
+		serverMessageUsecase: serverMessageUsecase,
 	}
 }
 
@@ -57,6 +62,31 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 	err := s.agentPersistencePort.PutAgent(ctx, agent)
 	if err != nil {
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
+	}
+
+	if agent.HasPendingServerMessages() && agent.IsConnected() {
+		server, err := agent.ConnectedServer()
+		if err != nil {
+			s.logger.Warn("saved agent but failed to send server messages: cannot get connected server",
+				slog.String("agentInstanceUID", agent.InstanceUID.String()),
+				slog.String("error", err.Error()),
+			)
+			return nil
+		}
+
+		currentServer := s.serverIdentityProvider.CurrentServerID()
+
+		s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
+			Source: currentServer,
+			Type:   serverevent.MessageTypeSendServerToAgent,
+			Payload: serverevent.MessagePayload{
+				MessageForServerToAgent: &serverevent.MessageForServerToAgent{
+					TargetAgentInstanceUIDs: []uuid.UUID{
+						agent.Metadata.InstanceUID,
+					},
+				},
+			},
+		})
 	}
 
 	return nil
