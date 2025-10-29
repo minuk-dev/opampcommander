@@ -19,16 +19,19 @@ var _ port.AgentUsecase = (*AgentService)(nil)
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
 	serverMessageUsecase port.ServerMessageUsecase
+	serverIdentityProvider port.ServerIdentityProvider
 }
 
 // NewAgentService creates a new instance of AgentService.
 func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
 	serverMessageUsecase port.ServerMessageUsecase,
+	serverIdentityProvider port.ServerIdentityProvider,
 ) *AgentService {
 	return &AgentService{
 		agentPersistencePort: agentPersistencePort,
 		serverMessageUsecase: serverMessageUsecase,
+		serverIdentityProvider: serverIdentityProvider,
 	}
 }
 

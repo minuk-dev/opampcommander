@@ -72,12 +72,18 @@ type UpdateAgentConfigUsecase interface {
 type ServerUsecase interface {
 	// ServerUsecase should also implement ServerMessageUsecase
 	ServerMessageUsecase
+	// ServerIdentityProvider
+	ServerIdentityProvider
 
 	// GetServer retrieves a server by its ID.
 	GetServer(ctx context.Context, id string) (*model.Server, error)
 	// ListServers lists all servers.
 	// The number of servers is expected to be small, so no pagination is needed.
 	ListServers(ctx context.Context) ([]*model.Server, error)
+}
+
+// ServerIdentityProvider is an interface that defines the methods for providing server identity.
+type ServerIdentityProvider interface {
 	// CurrentServer returns the current server.
 	CurrentServer(ctx context.Context) (*model.Server, error)
 }
