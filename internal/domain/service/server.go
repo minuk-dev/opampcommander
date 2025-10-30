@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
+
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -44,6 +47,8 @@ type ServerService struct {
 	serverPersistencePort   port.ServerPersistencePort
 	serverEventSenderPort   port.ServerEventSenderPort
 	serverEventReceiverPort port.ServerEventReceiverPort
+	connectionUsecase       port.ConnectionUsecase
+	agentUsecase            port.AgentUsecase
 }
 
 // NewServerService creates a new instance of the ServerService.
@@ -52,6 +57,8 @@ func NewServerService(
 	serverID config.ServerID,
 	serverPersistencePort port.ServerPersistencePort,
 	serverEventSenderPort port.ServerEventSenderPort,
+	connectionUsecase port.ConnectionUsecase,
+	agentUsecase port.AgentUsecase,
 ) *ServerService {
 	service := &ServerService{
 		logger:                logger,
@@ -61,6 +68,8 @@ func NewServerService(
 		heartbeatTimeout:      DefaultHeartbeatTimeout,
 		serverPersistencePort: serverPersistencePort,
 		serverEventSenderPort: serverEventSenderPort,
+		connectionUsecase:     connectionUsecase,
+		agentUsecase:          agentUsecase,
 	}
 
 	return service
@@ -256,9 +265,101 @@ func (s *ServerService) loopForReceivingMessages(ctx context.Context) error {
 			return err
 		} else if err != nil {
 			s.logger.Error("failed to receive message from server", slog.String("error", err.Error()))
+			continue
 		}
 
-		// TODO: Handle the received server event
-		_ = serverEvent
+		// Handle the received server event
+		err = s.handleServerEvent(ctx, serverEvent)
+		if err != nil {
+			s.logger.Error("failed to handle server event",
+				slog.String("error", err.Error()),
+				slog.String("eventType", serverEvent.Type.String()))
+		}
+	}
+}
+
+// handleServerEvent processes a received server event and takes appropriate action.
+func (s *ServerService) handleServerEvent(ctx context.Context, event *serverevent.Message) error {
+	switch event.Type {
+	case serverevent.MessageTypeSendServerToAgent:
+		return s.handleSendServerToAgentEvent(ctx, event)
+	default:
+		s.logger.Warn("unknown server event type", slog.String("eventType", event.Type.String()))
+		return nil
+	}
+}
+
+// handleSendServerToAgentEvent handles SendServerToAgent events by fetching agent details
+// and sending serverToAgent messages via WebSocket connections.
+func (s *ServerService) handleSendServerToAgentEvent(ctx context.Context, event *serverevent.Message) error {
+	if event.Payload.MessageForServerToAgent == nil {
+		return fmt.Errorf("MessageForServerToAgent payload is nil")
+	}
+
+	targetAgentUIDs := event.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs
+	if len(targetAgentUIDs) == 0 {
+		s.logger.Warn("no target agents specified in SendServerToAgent event")
+		return nil
+	}
+
+	s.logger.Info("handling SendServerToAgent event",
+		slog.Int("targetAgentCount", len(targetAgentUIDs)))
+
+	for _, instanceUID := range targetAgentUIDs {
+		err := s.sendServerToAgentForInstance(ctx, instanceUID)
+		if err != nil {
+			s.logger.Error("failed to send ServerToAgent message",
+				slog.String("instanceUID", instanceUID.String()),
+				slog.String("error", err.Error()))
+			// Continue processing other agents even if one fails
+			continue
+		}
+
+		s.logger.Info("successfully sent ServerToAgent message",
+			slog.String("instanceUID", instanceUID.String()))
+	}
+
+	return nil
+}
+
+// sendServerToAgentForInstance sends a serverToAgent message to a specific agent instance.
+func (s *ServerService) sendServerToAgentForInstance(ctx context.Context, instanceUID uuid.UUID) error {
+	// Get the agent to fetch current state and build the ServerToAgent message
+	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// Build the ServerToAgent message based on agent's current state
+	// This should include any pending commands, config updates, etc.
+	serverToAgentMessage := s.buildServerToAgentMessage(agent)
+
+	// Send the message via the connection service
+	err = s.connectionUsecase.SendServerToAgent(ctx, instanceUID, serverToAgentMessage)
+	if err != nil {
+		return fmt.Errorf("failed to send message via connection: %w", err)
+	}
+
+	return nil
+}
+
+// buildServerToAgentMessage builds a ServerToAgent message for the given agent.
+// This is a simplified version - you may want to use the opamp service's fetchServerToAgent instead.
+func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs.ServerToAgent {
+	var flags uint64
+
+	// Request ReportFullState if needed
+	if agent.Commands.HasReportFullStateCommand() || !agent.Metadata.IsComplete() {
+		flags |= uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState)
+	}
+
+	instanceUID := agent.Metadata.InstanceUID
+
+	//exhaustruct:ignore
+	return &protobufs.ServerToAgent{
+		InstanceUid: instanceUID[:],
+		Flags:       flags,
+		// Note: RemoteConfig building is omitted here for simplicity
+		// In production, you should fetch agent groups and build config properly
 	}
 }
