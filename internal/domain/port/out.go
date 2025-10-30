@@ -36,7 +36,7 @@ type ServerEventSenderPort interface {
 // ServerEventReceiverPort is an interface that defines the methods for receiving events from servers.
 type ServerEventReceiverPort interface {
 	// ReceiveMessageFromServer receives a message from a server.
-	ReceiveMessageFromServer(ctx context.Context) (serverevent.Message, error)
+	ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error)
 }
 
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.

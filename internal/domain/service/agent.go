@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -77,6 +78,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 				slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
 				slog.String("error", err.Error()),
 			)
+
 			return nil
 		}
 
@@ -87,12 +89,15 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 				slog.String("error", err.Error()))
 
 			currentServer = &model.Server{
-				ID: "unknown",
+				ID:              "unknown",
+				LastHeartbeatAt: time.Time{},
+				CreatedAt:       time.Time{},
 			}
 		}
 
-		s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
+		err = s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
 			Source: currentServer.ID,
+			Target: server.ID, // TODO: second parameter is already server.ID
 			Type:   serverevent.MessageTypeSendServerToAgent,
 			Payload: serverevent.MessagePayload{
 				MessageForServerToAgent: &serverevent.MessageForServerToAgent{
@@ -102,6 +107,13 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 				},
 			},
 		})
+		if err != nil {
+			return fmt.Errorf("failed to send server messages to server %s for agent %s: %w",
+				server.ID,
+				agent.Metadata.InstanceUID,
+				err,
+			)
+		}
 	}
 
 	return nil

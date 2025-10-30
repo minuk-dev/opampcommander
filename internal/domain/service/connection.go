@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
 
 	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -21,19 +23,21 @@ const (
 
 // Service is a struct that implements the ConnectionUsecase interface.
 type Service struct {
-	agentUsecase port.AgentUsecase
-	logger       *slog.Logger
-
+	agentUsecase  port.AgentUsecase
+	logger        *slog.Logger
+	wsRegistry    port.WebSocketRegistry
 	connectionMap *xsync.MultiMap[*model.Connection]
 }
 
 // NewConnectionService creates a new instance of the Service struct.
 func NewConnectionService(
 	agentUsecase port.AgentUsecase,
+	wsRegistry port.WebSocketRegistry,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		agentUsecase:  agentUsecase,
+		wsRegistry:    wsRegistry,
 		logger:        logger,
 		connectionMap: xsync.NewMultiMap[*model.Connection](),
 	}
@@ -42,6 +46,12 @@ func NewConnectionService(
 // DeleteConnection implements port.ConnectionUsecase.
 func (s *Service) DeleteConnection(_ context.Context, connection *model.Connection) error {
 	connID := connection.IDString()
+
+	// Remove from WebSocket registry if it's a WebSocket connection
+	if connection.Type == model.TypeWebSocket {
+		s.wsRegistry.Remove(connID)
+	}
+
 	s.connectionMap.Delete(connID)
 
 	return nil
@@ -127,4 +137,57 @@ func (s *Service) SaveConnection(_ context.Context, connection *model.Connection
 	s.connectionMap.Store(connID, connection, additionalIndexesOpts...)
 
 	return nil
+}
+
+// SendServerToAgent sends a ServerToAgent message to the agent via WebSocket connection.
+func (s *Service) SendServerToAgent(
+	ctx context.Context,
+	instanceUID uuid.UUID,
+	message *protobufs.ServerToAgent,
+) error {
+	// Get connection metadata
+	connection, err := s.GetConnectionByInstanceUID(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get connection for agent %s: %w", instanceUID, err)
+	}
+
+	if connection.Type != model.TypeWebSocket {
+		return &NotSupportedConnectionTypeError{ConnectionType: connection.Type}
+	}
+
+	// Get the actual WebSocket connection from the registry
+	wsConn, ok := s.wsRegistry.GetByInstanceUID(instanceUID.String())
+	if !ok {
+		return &ConnectionNotFoundError{InstanceUID: instanceUID}
+	}
+
+	err = wsConn.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send ServerToAgent message to agent %s: %w", instanceUID, err)
+	}
+
+	s.logger.Info("sent ServerToAgent message to agent via WebSocket",
+		slog.String("instanceUID", instanceUID.String()))
+
+	return nil
+}
+
+// NotSupportedConnectionTypeError is returned when an operation is attempted.
+type NotSupportedConnectionTypeError struct {
+	ConnectionType model.ConnectionType
+}
+
+// Error implements the error interface.
+func (e *NotSupportedConnectionTypeError) Error() string {
+	return fmt.Sprintf("connection type %s is not supported", e.ConnectionType.String())
+}
+
+// ConnectionNotFoundError is returned when a connection is not found for a given instance UID.
+type ConnectionNotFoundError struct {
+	InstanceUID uuid.UUID
+}
+
+// Error implements the error interface.
+func (e *ConnectionNotFoundError) Error() string {
+	return "connection not found for instance UID " + e.InstanceUID.String()
 }

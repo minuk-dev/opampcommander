@@ -1,5 +1,4 @@
-// Package out provides out module for the apiserver.
-package out
+package infrastructure
 
 import (
 	"context"
@@ -88,11 +87,20 @@ func NewMongoDatabase(
 	}
 
 	database := client.Database(databaseName)
+
 	if settings.DatabaseSettings.DDLAuto {
-		err := mongodb.EnsureSchema(database, lifecycle)
-		if err != nil {
-			return nil, fmt.Errorf("failed to ensure mongo schema: %w", err)
-		}
+		// Register schema initialization in lifecycle
+		lifecycle.Append(fx.Hook{
+			OnStart: func(ctx context.Context) error {
+				err := mongodb.EnsureSchema(ctx, database)
+				if err != nil {
+					return fmt.Errorf("failed to ensure mongo schema: %w", err)
+				}
+
+				return nil
+			},
+			OnStop: nil,
+		})
 	}
 
 	return database, nil

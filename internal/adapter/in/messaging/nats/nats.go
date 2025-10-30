@@ -20,23 +20,27 @@ const (
 	CloudEventMessageSpec = "1.0"
 	// CloudEventContentType is the CloudEvents content type used.
 	CloudEventContentType = "application/json"
+
+	sendToAgentEventType = "io.opampcommander.server.sendtosagent.v1"
+	unknownEventType     = "io.opampcommander.server.unknown.v1"
 )
 
 var (
-	_ port.ServerEventSenderPort = (*EventSenderAdapter)(nil)
+	_ port.ServerEventSenderPort   = (*EventSenderAdapter)(nil)
+	_ port.ServerEventReceiverPort = (*EventSenderAdapter)(nil)
 )
 
 // EventSenderAdapter implements port.ServerEventSenderPort using NATS CloudEvents sender.
 type EventSenderAdapter struct {
 	sender   *cenats.Sender
-	receiver *cenats.Receiver
+	receiver *cenats.Consumer
 	clock    clock.Clock
 }
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
 	sender *cenats.Sender,
-	receiver *cenats.Receiver,
+	receiver *cenats.Consumer,
 ) *EventSenderAdapter {
 	// sender can be nil when events are disabled
 	return &EventSenderAdapter{
@@ -89,20 +93,22 @@ func (e *EventSenderAdapter) ReceiveMessageFromServer(ctx context.Context) (*ser
 	}
 
 	var payload serverevent.MessagePayload
+
 	err = event.DataAs(&payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract event data: %w", err)
 	}
 
-	message := &serverevent.Message{
-		Payload: payload,
+	messageType, err := messsageTypeFromEventType(event.Type())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message type from event type: %w", err)
 	}
 
-	switch event.Type() {
-	case "io.opampcommander.server.sendtosagent.v1":
-		message.Type = serverevent.MessageTypeSendServerToAgent
-	default:
-		return nil, fmt.Errorf("unknown event type: %s", event.Type())
+	message := &serverevent.Message{
+		Source:  event.Source(),
+		Target:  "", // TODO: set target if needed
+		Type:    messageType,
+		Payload: payload,
 	}
 
 	return message, nil
@@ -115,8 +121,17 @@ func newSource(serverID string) string {
 func eventTypeFromMessageType(messageType serverevent.MessageType) string {
 	switch messageType {
 	case serverevent.MessageTypeSendServerToAgent:
-		return "io.opampcommander.server.sendtosagent.v1"
+		return sendToAgentEventType
 	default:
-		return "io.opampcommander.server.unknown.v1"
+		return unknownEventType
+	}
+}
+
+func messsageTypeFromEventType(eventType string) (serverevent.MessageType, error) {
+	switch eventType {
+	case sendToAgentEventType:
+		return serverevent.MessageTypeSendServerToAgent, nil
+	default:
+		return "", &UnknownMessageTypeError{MessageType: eventType}
 	}
 }

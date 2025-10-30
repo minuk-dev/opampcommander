@@ -24,6 +24,8 @@ linters:
     varnamelen:
       ignore-type-assert-ok: true # default: false, but it's common in Go
       ignore-map-index-ok: true # default: false, but it's common in Go
+      ignore-names:
+        - wg # sync.WaitGroup
     exhaustruct:
       exclude:
         - '.+/cobra\.Command$'
@@ -38,6 +40,7 @@ linters:
         - Provider$ # Provider is commonly used
         - '.+/management\.HTTPHandler$'
         - '.+/trace\.Sampler$'
+        - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
     depguard:
       rules:
         main:

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
@@ -116,6 +117,8 @@ type ConnectionUsecase interface {
 	SaveConnection(ctx context.Context, connection *model.Connection) error
 	// DeleteConnection deletes the connection.
 	DeleteConnection(ctx context.Context, connection *model.Connection) error
+	// SendServerToAgent sends a ServerToAgent message to the agent via WebSocket connection.
+	SendServerToAgent(ctx context.Context, instanceUID uuid.UUID, message *protobufs.ServerToAgent) error
 }
 
 // CommandUsecase is an interface that defines the methods for command use cases.

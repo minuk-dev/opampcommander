@@ -1,5 +1,4 @@
-// Package in provides in module for the apiserver.
-package in
+package infrastructure
 
 import (
 	"context"

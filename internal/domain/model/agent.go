@@ -20,18 +20,6 @@ type Agent struct {
 	Status   AgentStatus
 }
 
-func (a *Agent) IsConnected(ctx context.Context) bool {
-	panic("unimplemented")
-}
-
-func (a *Agent) HasPendingServerMessages() bool {
-	panic("unimplemented")
-}
-
-func (a *Agent) ConnectedServer() (*Server, error) {
-	panic("unimplemented")
-}
-
 // NewAgent creates a new agent with the given instance UID.
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
@@ -77,6 +65,21 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	}
 
 	return agent
+}
+
+// IsConnected checks if the agent is currently connected.
+func (a *Agent) IsConnected(ctx context.Context) bool {
+	panic("unimplemented")
+}
+
+// HasPendingServerMessages checks if there are any pending server messages for the agent.
+func (a *Agent) HasPendingServerMessages() bool {
+	panic("unimplemented")
+}
+
+// ConnectedServer returns the server the agent is currently connected to.
+func (a *Agent) ConnectedServer() (*Server, error) {
+	panic("unimplemented")
 }
 
 // AgentOption is a function that configures an Agent.

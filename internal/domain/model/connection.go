@@ -14,19 +14,35 @@ const (
 	OpAMPPollingInterval = 30 * time.Second
 )
 
-// Type represents the type of the connection.
-type Type int
+// ConnectionType represents the type of the connection.
+type ConnectionType int
 
 const (
 	// TypeUnknown is the unknown type.
-	TypeUnknown Type = iota
+	TypeUnknown ConnectionType = iota
 	// TypeHTTP is the HTTP type.
 	TypeHTTP
 	// TypeWebSocket is the WebSocket type.
 	TypeWebSocket
 )
 
+// String returns the string representation of the ConnectionType.
+func (ct ConnectionType) String() string {
+	switch ct {
+	case TypeHTTP:
+		return "HTTP"
+	case TypeWebSocket:
+		return "WebSocket"
+	case TypeUnknown:
+		fallthrough
+	default:
+		return "Unknown"
+	}
+}
+
 // Connection represents a connection to an agent.
+// This is a pure domain model containing only metadata about the connection.
+// The actual WebSocket connection object is managed separately by the WebSocketRegistry.
 type Connection struct {
 	// Key is the unique identifier for the connection.
 	// It should be unique across all connections to use as a key in a map.
@@ -34,7 +50,7 @@ type Connection struct {
 	ID any
 
 	// Type is the type of the connection.
-	Type Type
+	Type ConnectionType
 
 	// UID is the unique identifier for the connection.
 	// It is used to identify the connection in the database.
@@ -48,7 +64,7 @@ type Connection struct {
 }
 
 // NewConnection creates a new Connection instance with the given ID and type.
-func NewConnection(id any, typ Type) *Connection {
+func NewConnection(id any, typ ConnectionType) *Connection {
 	return &Connection{
 		ID:                 id,
 		Type:               typ,

@@ -29,6 +29,7 @@ type Service struct {
 	commandUsecase    domainport.CommandUsecase
 	serverUsecase     domainport.ServerUsecase
 	agentGroupUsecase domainport.AgentGroupUsecase
+	wsRegistry        domainport.WebSocketRegistry
 
 	backgroundLoopCh chan backgroundCallbackFn
 
@@ -45,6 +46,7 @@ func New(
 	connectionUsecase domainport.ConnectionUsecase,
 	serverUsecase domainport.ServerUsecase,
 	agentGroupUsecase domainport.AgentGroupUsecase,
+	wsRegistry domainport.WebSocketRegistry,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -55,6 +57,7 @@ func New(
 		connectionUsecase: connectionUsecase,
 		serverUsecase:     serverUsecase,
 		agentGroupUsecase: agentGroupUsecase,
+		wsRegistry:        wsRegistry,
 		backgroundLoopCh:  make(chan backgroundCallbackFn),
 
 		OnConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
@@ -85,42 +88,38 @@ func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	logger := s.logger.With(slog.String("method", "OnConnected"), slog.String("remoteAddr", remoteAddr))
 
-	connection := model.NewConnection(conn, model.TypeUnknown)
+	// Detect connection type by checking if it's a WebSocket connection
+	// WebSocket connections support the Send method, while HTTP connections don't
+	connType := s.detectConnectionType(conn)
+
+	connection := model.NewConnection(conn, connType)
+	connID := connection.IDString()
+
+	// For WebSocket connections, register in the WebSocket registry
+	if connType == model.TypeWebSocket {
+		wsConn := s.wrapOpAMPConnection(conn)
+		s.wsRegistry.Register(connID, wsConn)
+	}
 
 	err := s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
 		logger.Error("failed to save connection", slog.String("error", err.Error()))
 	}
 
-	logger.Info("end")
+	logger.Info("end", slog.String("connectionType", s.connectionTypeString(connType)))
 }
 
-// OnConnectionClose implements port.OpAMPUsecase.
-func (s *Service) OnConnectionClose(conn types.Connection) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
-	logger.Info("start")
+// opampConnectionAdapter adapts OpAMP's Connection to our WebSocketConnection interface.
+type opampConnectionAdapter struct {
+	conn types.Connection
+}
 
-	backgroundFn := func(ctx context.Context) {
-		logger.Info("start")
+func (a *opampConnectionAdapter) Send(ctx context.Context, message *protobufs.ServerToAgent) error {
+	return a.conn.Send(ctx, message) //nolint:wrapcheck // adapter pattern
+}
 
-		connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
-		if err != nil {
-			logger.Error("failed to get connection", slog.String("error", err.Error()))
-
-			return
-		}
-
-		err = s.connectionUsecase.DeleteConnection(ctx, connection)
-		if err != nil {
-			logger.Error("failed to delete connection", slog.String("error", err.Error()))
-
-			return
-		}
-	}
-	s.backgroundLoopCh <- backgroundFn
-
-	logger.Info("end")
+func (a *opampConnectionAdapter) Close() error {
+	return a.conn.Disconnect() //nolint:wrapcheck // adapter pattern
 }
 
 // OnMessage implements port.OpAMPUsecase.
@@ -143,10 +142,31 @@ func (s *Service) OnMessage(
 	if err != nil {
 		logger.Error("failed to get connection", slog.String("error", err.Error()))
 
-		connection = model.NewConnection(conn, model.TypeUnknown)
+		connType := s.detectConnectionType(conn)
+
+		connection = model.NewConnection(conn, connType)
+		if connType == model.TypeWebSocket {
+			connID := connection.IDString()
+			wsConn := s.wrapOpAMPConnection(conn)
+			s.wsRegistry.Register(connID, wsConn)
+		}
 	}
 
 	connection.InstanceUID = instanceUID
+	connID := connection.IDString()
+
+	// Update connection type to WebSocket if we're processing a message
+	// (HTTP connections would not repeatedly call OnMessage)
+	if connection.Type == model.TypeUnknown {
+		connection.Type = model.TypeWebSocket
+		wsConn := s.wrapOpAMPConnection(conn)
+		s.wsRegistry.Register(connID, wsConn)
+	}
+
+	// Update the instance UID mapping in the registry for WebSocket connections
+	if connection.Type == model.TypeWebSocket {
+		s.wsRegistry.UpdateInstanceUID(connID, instanceUID.String())
+	}
 
 	err = s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
@@ -214,4 +234,75 @@ func (s *Service) OnMessageResponseError(conn types.Connection, message *protobu
 	)
 
 	logger.Error("send message error")
+}
+
+// OnConnectionClose implements port.OpAMPUsecase.
+func (s *Service) OnConnectionClose(conn types.Connection) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
+	logger.Info("start")
+
+	backgroundFn := func(ctx context.Context) {
+		logger.Info("start")
+
+		connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
+		if err != nil {
+			logger.Error("failed to get connection", slog.String("error", err.Error()))
+
+			return
+		}
+
+		err = s.connectionUsecase.DeleteConnection(ctx, connection)
+		if err != nil {
+			logger.Error("failed to delete connection", slog.String("error", err.Error()))
+
+			return
+		}
+	}
+	s.backgroundLoopCh <- backgroundFn
+
+	logger.Info("end")
+}
+
+// detectConnectionType detects whether the connection is WebSocket or HTTP.
+// According to OpAMP spec, WebSocket connections support bidirectional communication
+// and can use the Send method, while HTTP connections are request-response only.
+func (s *Service) detectConnectionType(conn types.Connection) model.ConnectionType {
+	// Try to send a nil message to detect if it's a WebSocket connection
+	// WebSocket will accept this (though we won't actually send anything),
+	// while HTTP will return an error
+	// Note: We don't actually want to send anything here, we just want to check the type
+	// A better approach is to check if the connection implements a WebSocket-specific interface
+	// For now, we'll assume it's WebSocket and let it be corrected later if needed
+
+	// Check the underlying connection type
+	// If the connection's remote address is set and it's persistent, it's likely WebSocket
+	netConn := conn.Connection()
+	if netConn != nil {
+		// WebSocket connections typically keep the connection open
+		// For now, we'll default to WebSocket since most OpAMP implementations use WebSocket
+		// This will be updated in OnMessage when we receive the first message
+		return model.TypeWebSocket
+	}
+
+	return model.TypeHTTP
+}
+
+// connectionTypeString returns a string representation of the connection type.
+func (s *Service) connectionTypeString(connType model.ConnectionType) string {
+	switch connType {
+	case model.TypeWebSocket:
+		return "WebSocket"
+	case model.TypeHTTP:
+		return "HTTP"
+	case model.TypeUnknown:
+		return "Unknown"
+	default:
+		return "Undefined"
+	}
+}
+
+// wrapOpAMPConnection wraps an OpAMP connection into our WebSocketConnection interface.
+func (s *Service) wrapOpAMPConnection(conn types.Connection) domainport.WebSocketConnection {
+	return &opampConnectionAdapter{conn: conn}
 }

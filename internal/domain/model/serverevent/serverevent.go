@@ -17,8 +17,6 @@ const (
 )
 
 // Message represents a message sent between servers.
-//
-//nolint:embeddedstructfieldcheck // for readability
 type Message struct {
 	// Source is the identifier of the message sender of server.
 	Source string

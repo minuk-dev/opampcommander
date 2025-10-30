@@ -2,12 +2,6 @@ package config
 
 // EventSettings represents the event settings.
 type EventSettings struct {
-	// Enabled indicates whether event handling is enabled.
-	// When false, the server runs as a standalone instance without event communication.
-	// When true, the server participates in event communication with other servers.
-	// Default is false.
-	Enabled bool
-
 	// ProtocolType is the event protocol type.
 	ProtocolType EventProtocolType
 
@@ -24,7 +18,14 @@ type NATSSettings struct {
 // EventProtocolType represents the type of event protocol.
 type EventProtocolType string
 
+// String returns the string representation of the EventProtocolType.
+func (e EventProtocolType) String() string {
+	return string(e)
+}
+
 const (
+	// EventProtocolTypeInMemory represents the in-memory event protocol for standalone mode.
+	EventProtocolTypeInMemory EventProtocolType = "inmemory"
 	// EventProtocolTypeNATS represents the NATS event protocol.
 	EventProtocolTypeNATS EventProtocolType = "nats"
 	// TODO: Add kafka protocol support.

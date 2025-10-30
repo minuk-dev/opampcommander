@@ -8,7 +8,6 @@ import (
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.uber.org/fx"
 )
 
 //nolint:gochecknoglobals // These are constants for collection names and indexes.
@@ -71,26 +70,20 @@ var (
 )
 
 // EnsureSchema ensures that the necessary collections and indexes exist in the MongoDB database.
+// This function should be called during application startup.
 func EnsureSchema(
+	ctx context.Context,
 	database *mongo.Database,
-	lifecycle fx.Lifecycle,
 ) error {
-	lifecycle.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			err := createNonExistingCollections(ctx, database, collections)
-			if err != nil {
-				return fmt.Errorf("failed to create non-existing collections: %w", err)
-			}
+	err := createNonExistingCollections(ctx, database, collections)
+	if err != nil {
+		return fmt.Errorf("failed to create non-existing collections: %w", err)
+	}
 
-			err = createIndexes(ctx, database, indexes)
-			if err != nil {
-				return fmt.Errorf("failed to create indexes: %w", err)
-			}
-
-			return nil
-		},
-		OnStop: nil,
-	})
+	err = createIndexes(ctx, database, indexes)
+	if err != nil {
+		return fmt.Errorf("failed to create indexes: %w", err)
+	}
 
 	return nil
 }

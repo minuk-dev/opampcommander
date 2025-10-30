@@ -12,10 +12,8 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/domain"
-	eventmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/event"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
-	inmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/in"
-	outmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/out"
+	infrastructuremodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/infrastructure"
 )
 
 const (
@@ -37,17 +35,15 @@ type Server struct {
 // New creates a new instance of the Server struct.
 func New(settings config.ServerSettings) *Server {
 	app := fx.New(
-		// hexagonal architecture
-		inmodule.New(),
-		outmodule.New(),
-		applicationmodule.New(),
-		domainmodule.New(),
-		eventmodule.New(),
-		NewConfigModule(&settings),
+		// Hexagonal architecture layers
+		infrastructuremodule.New(), // All infrastructure: HTTP, DB, Messaging, WebSocket
+		applicationmodule.New(),    // Application services
+		domainmodule.New(),         // Domain services
+		NewConfigModule(&settings), // Configuration
 
-		// base
+		// Base utilities
 		helper.NewModule(),
-		// init
+		// Initialize HTTP server
 		fx.Invoke(func(*http.Server) {}),
 	)
 

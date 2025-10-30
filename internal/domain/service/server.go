@@ -57,19 +57,21 @@ func NewServerService(
 	serverID config.ServerID,
 	serverPersistencePort port.ServerPersistencePort,
 	serverEventSenderPort port.ServerEventSenderPort,
+	serverEventReceiverPort port.ServerEventReceiverPort,
 	connectionUsecase port.ConnectionUsecase,
 	agentUsecase port.AgentUsecase,
 ) *ServerService {
 	service := &ServerService{
-		logger:                logger,
-		id:                    serverID.String(),
-		clock:                 clock.NewRealClock(),
-		heartbeatInterval:     DefaultHeartbeatInterval,
-		heartbeatTimeout:      DefaultHeartbeatTimeout,
-		serverPersistencePort: serverPersistencePort,
-		serverEventSenderPort: serverEventSenderPort,
-		connectionUsecase:     connectionUsecase,
-		agentUsecase:          agentUsecase,
+		logger:                  logger,
+		id:                      serverID.String(),
+		clock:                   clock.NewRealClock(),
+		heartbeatInterval:       DefaultHeartbeatInterval,
+		heartbeatTimeout:        DefaultHeartbeatTimeout,
+		serverPersistencePort:   serverPersistencePort,
+		serverEventSenderPort:   serverEventSenderPort,
+		serverEventReceiverPort: serverEventReceiverPort,
+		connectionUsecase:       connectionUsecase,
+		agentUsecase:            agentUsecase,
 	}
 
 	return service
@@ -110,6 +112,7 @@ func (s *ServerService) Run(ctx context.Context) error {
 	})
 
 	wg.Wait()
+
 	return nil
 }
 
@@ -151,6 +154,43 @@ func (s *ServerService) ListServers(ctx context.Context) ([]*model.Server, error
 	}
 
 	return aliveServers, nil
+}
+
+// SendMessageToServerByServerID implements port.ServerUsecase.
+func (s *ServerService) SendMessageToServerByServerID(
+	ctx context.Context,
+	serverID string,
+	message serverevent.Message,
+) error {
+	server, err := s.serverPersistencePort.GetServer(ctx, serverID)
+	if err != nil {
+		return fmt.Errorf("failed to get server: %w", err)
+	}
+
+	err = s.SendMessageToServer(ctx, server, message)
+	if err != nil {
+		return fmt.Errorf("failed to send message to server %s: %w", serverID, err)
+	}
+
+	return nil
+}
+
+// SendMessageToServer sends a message to the specified server.
+func (s *ServerService) SendMessageToServer(
+	ctx context.Context,
+	server *model.Server,
+	message serverevent.Message,
+) error {
+	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+		return fmt.Errorf("%w: server ID %s is not alive", ErrServerNotAlive, server.ID)
+	}
+
+	err := s.serverEventSenderPort.SendMessageToServer(ctx, server.ID, message)
+	if err != nil {
+		return fmt.Errorf("failed to send message to server %s: %w", server.ID, err)
+	}
+
+	return nil
 }
 
 // registerServer registers the server in the database.
@@ -205,42 +245,6 @@ func (s *ServerService) sendHeartbeat(ctx context.Context) error {
 	return nil
 }
 
-// SendMessageToServer implements port.ServerUsecase.
-func (s *ServerService) SendMessageToServerByServerID(
-	ctx context.Context,
-	serverID string,
-	message serverevent.Message,
-) error {
-	server, err := s.serverPersistencePort.GetServer(ctx, serverID)
-	if err != nil {
-		return fmt.Errorf("failed to get server: %w", err)
-	}
-
-	err = s.SendMessageToServer(ctx, server, message)
-	if err != nil {
-		return fmt.Errorf("failed to send message to server %s: %w", serverID, err)
-	}
-
-	return nil
-}
-
-func (s *ServerService) SendMessageToServer(
-	ctx context.Context,
-	server *model.Server,
-	message serverevent.Message,
-) error {
-	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
-		return fmt.Errorf("%w: server ID %s is not alive", ErrServerNotAlive, server.ID)
-	}
-
-	err := s.serverEventSenderPort.SendMessageToServer(ctx, server.ID, message)
-	if err != nil {
-		return fmt.Errorf("failed to send message to server %s: %w", server.ID, err)
-	}
-
-	return nil
-}
-
 func (s *ServerService) loopForHeartbeat(ctx context.Context) error {
 	ticker := time.NewTicker(s.heartbeatInterval)
 	defer ticker.Stop()
@@ -262,9 +266,10 @@ func (s *ServerService) loopForReceivingMessages(ctx context.Context) error {
 	for {
 		serverEvent, err := s.serverEventReceiverPort.ReceiveMessageFromServer(ctx)
 		if errors.Is(err, context.Canceled) {
-			return err
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
 		} else if err != nil {
 			s.logger.Error("failed to receive message from server", slog.String("error", err.Error()))
+
 			continue
 		}
 
@@ -285,20 +290,27 @@ func (s *ServerService) handleServerEvent(ctx context.Context, event *servereven
 		return s.handleSendServerToAgentEvent(ctx, event)
 	default:
 		s.logger.Warn("unknown server event type", slog.String("eventType", event.Type.String()))
+
 		return nil
 	}
 }
+
+var (
+	// ErrEventPayloadNil is returned when the event payload is nil.
+	ErrEventPayloadNil = errors.New("event payload is nil")
+)
 
 // handleSendServerToAgentEvent handles SendServerToAgent events by fetching agent details
 // and sending serverToAgent messages via WebSocket connections.
 func (s *ServerService) handleSendServerToAgentEvent(ctx context.Context, event *serverevent.Message) error {
 	if event.Payload.MessageForServerToAgent == nil {
-		return fmt.Errorf("MessageForServerToAgent payload is nil")
+		return ErrEventPayloadNil
 	}
 
-	targetAgentUIDs := event.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs
+	targetAgentUIDs := event.Payload.TargetAgentInstanceUIDs
 	if len(targetAgentUIDs) == 0 {
 		s.logger.Warn("no target agents specified in SendServerToAgent event")
+
 		return nil
 	}
 

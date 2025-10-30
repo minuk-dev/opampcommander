@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/service"
 )
 
@@ -79,6 +81,50 @@ func (m *MockAgentPersistencePort) ListAgentsBySelector(
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
 }
 
+// MockServerMessageUsecase is a mock implementation of ServerMessageUsecase.
+type MockServerMessageUsecase struct {
+	mock.Mock
+}
+
+func (m *MockServerMessageUsecase) SendMessageToServerByServerID(
+	ctx context.Context,
+	serverID string,
+	message serverevent.Message,
+) error {
+	args := m.Called(ctx, serverID, message)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+func (m *MockServerMessageUsecase) SendMessageToServer(
+	ctx context.Context,
+	server *model.Server,
+	message serverevent.Message,
+) error {
+	args := m.Called(ctx, server, message)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+// MockServerIdentityProvider is a mock implementation of ServerIdentityProvider.
+type MockServerIdentityProvider struct {
+	mock.Mock
+}
+
+func (m *MockServerIdentityProvider) CurrentServer(ctx context.Context) (*model.Server, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	server, ok := args.Get(0).(*model.Server)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return server, args.Error(1) //nolint:wrapcheck // mock error
+}
+
 func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Parallel()
 
@@ -88,8 +134,16 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
+		mockServerMessage := new(MockServerMessageUsecase)
+		mockServerIdentity := new(MockServerIdentityProvider)
+		logger := slog.Default()
 
-		agentService := service.NewAgentService(mockAgentPersistence)
+		agentService := service.NewAgentService(
+			mockAgentPersistence,
+			mockServerMessage,
+			mockServerIdentity,
+			logger,
+		)
 
 		agent1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -150,8 +204,16 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
+		mockServerMessage := new(MockServerMessageUsecase)
+		mockServerIdentity := new(MockServerIdentityProvider)
+		logger := slog.Default()
 
-		agentService := service.NewAgentService(mockAgentPersistence)
+		agentService := service.NewAgentService(
+			mockAgentPersistence,
+			mockServerMessage,
+			mockServerIdentity,
+			logger,
+		)
 
 		expectedResponse := &model.ListResponse[*model.Agent]{
 			Items:              []*model.Agent{},
@@ -189,8 +251,16 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
+		mockServerMessage := new(MockServerMessageUsecase)
+		mockServerIdentity := new(MockServerIdentityProvider)
+		logger := slog.Default()
 
-		agentService := service.NewAgentService(mockAgentPersistence)
+		agentService := service.NewAgentService(
+			mockAgentPersistence,
+			mockServerMessage,
+			mockServerIdentity,
+			logger,
+		)
 
 		selector := model.AgentSelector{
 			IdentifyingAttributes: map[string]string{
@@ -222,8 +292,16 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
+		mockServerMessage := new(MockServerMessageUsecase)
+		mockServerIdentity := new(MockServerIdentityProvider)
+		logger := slog.Default()
 
-		agentService := service.NewAgentService(mockAgentPersistence)
+		agentService := service.NewAgentService(
+			mockAgentPersistence,
+			mockServerMessage,
+			mockServerIdentity,
+			logger,
+		)
 
 		agents := make([]*model.Agent, 3)
 		for idx := range 3 {
@@ -277,8 +355,16 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
+		mockServerMessage := new(MockServerMessageUsecase)
+		mockServerIdentity := new(MockServerIdentityProvider)
+		logger := slog.Default()
 
-		agentService := service.NewAgentService(mockAgentPersistence)
+		agentService := service.NewAgentService(
+			mockAgentPersistence,
+			mockServerMessage,
+			mockServerIdentity,
+			logger,
+		)
 
 		agent1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
