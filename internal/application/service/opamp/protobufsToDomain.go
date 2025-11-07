@@ -5,7 +5,6 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	modelagent "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/pkg/timeutil"
 )
 
@@ -27,7 +26,7 @@ func remoteConfigStatusToDomain(remoteConfigStatus *protobufs.RemoteConfigStatus
 
 	return &model.AgentRemoteConfigStatus{
 		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
-		Status:               remoteconfig.Status(remoteConfigStatus.GetStatus()),
+		Status:               model.RemoteConfigStatus(remoteConfigStatus.GetStatus()),
 		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
 	}
 }

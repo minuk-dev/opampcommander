@@ -42,7 +42,7 @@ func New(
 func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error {
 	command := model.NewUpdateAgentConfigCommand(targetInstanceUID, config)
 
-	err := s.commandUsecase.SaveCommand(ctx, command)
+	err := s.commandUsecase.SaveCommandAudit(ctx, command)
 	if err != nil {
 		return fmt.Errorf("failed to save command: %w", err)
 	}

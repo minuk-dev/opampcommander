@@ -5,3 +5,4 @@ dist/
 .vscode/**
 **/*.mongodb
 default.mongodb/
+docs/public

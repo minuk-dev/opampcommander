@@ -9,7 +9,6 @@ import (
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 )
 
 const (
@@ -368,14 +367,14 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 }
 
 // ToDomain converts the AgentRemoteConfig to domain model.
-func (arc *AgentRemoteConfig) ToDomain() remoteconfig.RemoteConfig {
-	remoteConfig := remoteconfig.New()
+func (arc *AgentRemoteConfig) ToDomain() domainmodel.RemoteConfig {
+	remoteConfig := domainmodel.NewRemoteConfig()
 	if arc == nil {
 		return remoteConfig
 	}
 
 	for _, sub := range arc.RemoteConfigStatuses {
-		remoteConfig.SetStatus(sub.Key, remoteconfig.Status(sub.Value))
+		remoteConfig.SetStatus(sub.Key, domainmodel.RemoteConfigStatus(sub.Value))
 	}
 
 	remoteConfig.SetLastErrorMessage(arc.LastErrorMessage)
@@ -564,22 +563,19 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 }
 
 // AgentRemoteConfigFromDomain converts domain model to persistence model.
-func AgentRemoteConfigFromDomain(arc remoteconfig.RemoteConfig) *AgentRemoteConfig {
-	statuses := arc.ListStatuses()
-	if len(statuses) == 0 {
+func AgentRemoteConfigFromDomain(arc domainmodel.RemoteConfig) *AgentRemoteConfig {
+	configData := arc.GetCurrentConfig()
+	if configData.Key.IsZero() {
 		return nil
 	}
 
-	remoteConfigStatuses := make([]AgentRemoteConfigSub, 0, len(statuses))
-	for _, status := range statuses {
-		remoteConfigStatuses = append(remoteConfigStatuses, AgentRemoteConfigSub{
-			Key:   status.Key,
-			Value: AgentRemoteConfigStatusEnum(status.Status),
-		})
-	}
-
 	return &AgentRemoteConfig{
-		RemoteConfigStatuses:    remoteConfigStatuses,
+		RemoteConfigStatuses: []AgentRemoteConfigSub{
+			{
+				Key:   configData.Key,
+				Value: AgentRemoteConfigStatusEnum(configData.Status),
+			},
+		},
 		LastErrorMessage:        arc.LastErrorMessage,
 		LastModifiedAtUnixMilli: arc.LastModifiedAt.UnixMilli(),
 	}

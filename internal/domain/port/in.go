@@ -128,7 +128,7 @@ type CommandUsecase interface {
 	// GetCommandByInstanceUID retrieves a command by its instance UID.
 	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error)
 	// SaveCommand saves the command.
-	SaveCommand(ctx context.Context, command *model.Command) error
+	SaveCommandAudit(ctx context.Context, command *model.Command) error
 	// ListCommands lists all commands.
 	ListCommands(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Command], error)
 }

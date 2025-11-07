@@ -52,8 +52,8 @@ func (s *CommandService) GetCommandByInstanceUID(ctx context.Context, instanceUI
 	return []*model.Command{command}, nil
 }
 
-// SaveCommand saves the command to the persistence layer.
-func (s *CommandService) SaveCommand(ctx context.Context, command *model.Command) error {
+// SaveCommandAudit saves the command to the persistence layer.
+func (s *CommandService) SaveCommandAudit(ctx context.Context, command *model.Command) error {
 	err := s.commandPersistencePort.SaveCommand(ctx, command)
 	if err != nil {
 		return fmt.Errorf("failed to save command: %w", err)

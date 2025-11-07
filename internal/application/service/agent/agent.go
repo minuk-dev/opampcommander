@@ -74,16 +74,15 @@ func (s *Service) ListAgents(
 
 // SendCommand implements port.AgentManageUsecase.
 func (s *Service) SendCommand(ctx context.Context, targetInstanceUID uuid.UUID, command *model.Command) error {
-	// apply command to agent
-	err := s.agentUsecase.UpdateAgentConfig(ctx, targetInstanceUID, command.Data)
-	if err != nil {
-		return fmt.Errorf("failed to update agent config: %w", err)
-	}
-
-	// save command for audit log
-	err = s.commandUsecase.SaveCommand(ctx, command)
+	// save command for audit log, first.
+	err := s.commandUsecase.SaveCommandAudit(ctx, command)
 	if err != nil {
 		return fmt.Errorf("failed to save command: %w", err)
+	}
+	// apply command to agent
+	err = s.agentUsecase.UpdateAgentConfig(ctx, targetInstanceUID, command.Data)
+	if err != nil {
+		return fmt.Errorf("failed to update agent config: %w", err)
 	}
 
 	return nil

@@ -13,7 +13,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
@@ -97,7 +96,7 @@ func (s *Service) buildRemoteConfig(
 
 	// Check if agent already has this config applied
 	currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
-	if currentStatus == remoteconfig.StatusApplied {
+	if currentStatus == model.RemoteConfigStatusApplied {
 		// Agent already has this config applied, don't send config body again
 		// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed
 		// since it was last requested (i.e. AgentConfigRequest.last_remote_config_hash field is equal
