@@ -18,22 +18,22 @@ const (
 type ConnectionType int
 
 const (
-	// TypeUnknown is the unknown type.
-	TypeUnknown ConnectionType = iota
-	// TypeHTTP is the HTTP type.
-	TypeHTTP
-	// TypeWebSocket is the WebSocket type.
-	TypeWebSocket
+	// ConnectionTypeUnknown is the unknown type.
+	ConnectionTypeUnknown ConnectionType = iota
+	// ConnectionTypeHTTP is the HTTP type.
+	ConnectionTypeHTTP
+	// ConnectionTypeWebSocket is the WebSocket type.
+	ConnectionTypeWebSocket
 )
 
 // String returns the string representation of the ConnectionType.
 func (ct ConnectionType) String() string {
 	switch ct {
-	case TypeHTTP:
+	case ConnectionTypeHTTP:
 		return "HTTP"
-	case TypeWebSocket:
+	case ConnectionTypeWebSocket:
 		return "WebSocket"
-	case TypeUnknown:
+	case ConnectionTypeUnknown:
 		fallthrough
 	default:
 		return "Unknown"
@@ -76,7 +76,7 @@ func NewConnection(id any, typ ConnectionType) *Connection {
 
 // IsAlive returns true if the connection is alive.
 func (conn *Connection) IsAlive(now time.Time) bool {
-	return conn.Type == TypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval
+	return conn.Type == ConnectionTypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval
 }
 
 // IDString returns a string value

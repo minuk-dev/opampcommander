@@ -51,8 +51,8 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
-			LastCommunicatedAt: time.Time{},
-			LastCommunicatedTo: nil,
+			LastReportedAt: time.Time{},
+			LastReportedTo: nil,
 		},
 		Commands: AgentCommands{
 			Commands: []AgentCommand{},
@@ -69,17 +69,17 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 
 // IsConnected checks if the agent is currently connected.
 func (a *Agent) IsConnected(ctx context.Context) bool {
-	panic("unimplemented")
+	return !a.Status.LastReportedAt.IsZero()
 }
 
 // HasPendingServerMessages checks if there are any pending server messages for the agent.
 func (a *Agent) HasPendingServerMessages() bool {
-	panic("unimplemented")
+	return len(a.Commands.Commands) > 0
 }
 
 // ConnectedServer returns the server the agent is currently connected to.
-func (a *Agent) ConnectedServer() (*Server, error) {
-	panic("unimplemented")
+func (a *Agent) ConnectedServerID() (*Server, error) {
+	return a.Status.LastReportedTo, nil
 }
 
 // AgentOption is a function that configures an Agent.
@@ -202,8 +202,10 @@ type AgentStatus struct {
 	ComponentHealth     AgentComponentHealth
 	AvailableComponents AgentAvailableComponents
 
-	LastCommunicatedAt time.Time
-	LastCommunicatedTo *Server
+	LastConnectionType ConnectionType
+	Connected          bool
+	LastReportedAt     time.Time
+	LastReportedTo     *Server
 }
 
 // AgentCommands is a list of commands to be sent to the agent.
@@ -475,11 +477,11 @@ func (a *Agent) SetReportFullState(reportFullState bool, requestedAt time.Time, 
 	a.Commands.SendReportFullState(reportFullState, requestedAt, requestedBy)
 }
 
-// MarkAsCommunicated updates the last communicated time and server of the agent.
-func (a *Agent) MarkAsCommunicated(by *Server, at time.Time) {
+// RecordLastReported updates the last communicated time and server of the agent.
+func (a *Agent) RecordLastReported(by *Server, at time.Time) {
 	if by != nil {
-		a.Status.LastCommunicatedTo = by
+		a.Status.LastReportedTo = by
 	}
 
-	a.Status.LastCommunicatedAt = at
+	a.Status.LastReportedAt = at
 }

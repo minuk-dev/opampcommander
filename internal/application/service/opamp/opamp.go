@@ -96,7 +96,7 @@ func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 	connID := connection.IDString()
 
 	// For WebSocket connections, register in the WebSocket registry
-	if connType == model.TypeWebSocket {
+	if connType == model.ConnectionTypeWebSocket {
 		wsConn := s.wrapOpAMPConnection(conn)
 		s.wsRegistry.Register(connID, wsConn)
 	}
@@ -145,7 +145,7 @@ func (s *Service) OnMessage(
 		connType := s.detectConnectionType(conn)
 
 		connection = model.NewConnection(conn, connType)
-		if connType == model.TypeWebSocket {
+		if connType == model.ConnectionTypeWebSocket {
 			connID := connection.IDString()
 			wsConn := s.wrapOpAMPConnection(conn)
 			s.wsRegistry.Register(connID, wsConn)
@@ -157,14 +157,14 @@ func (s *Service) OnMessage(
 
 	// Update connection type to WebSocket if we're processing a message
 	// (HTTP connections would not repeatedly call OnMessage)
-	if connection.Type == model.TypeUnknown {
-		connection.Type = model.TypeWebSocket
+	if connection.Type == model.ConnectionTypeUnknown {
+		connection.Type = model.ConnectionTypeWebSocket
 		wsConn := s.wrapOpAMPConnection(conn)
 		s.wsRegistry.Register(connID, wsConn)
 	}
 
 	// Update the instance UID mapping in the registry for WebSocket connections
-	if connection.Type == model.TypeWebSocket {
+	if connection.Type == model.ConnectionTypeWebSocket {
 		s.wsRegistry.UpdateInstanceUID(connID, instanceUID.String())
 	}
 
@@ -181,6 +181,10 @@ func (s *Service) OnMessage(
 
 		return s.createFallbackServerToAgent(instanceUID)
 	}
+
+	// Update agent connection status
+	agent.Status.LastConnectionType = connection.Type
+	agent.Status.Connected = true
 
 	currentServer, err := s.serverUsecase.CurrentServer(ctx)
 	if err != nil {
@@ -252,6 +256,20 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 			return
 		}
 
+		// Update agent connection status to disconnected
+		if !connection.IsAnonymous() {
+			agent, err := s.agentUsecase.GetAgent(ctx, connection.InstanceUID)
+			if err != nil {
+				logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
+			} else {
+				agent.Status.Connected = false
+				err = s.agentUsecase.SaveAgent(ctx, agent)
+				if err != nil {
+					logger.Error("failed to save agent connection status", slog.String("error", err.Error()))
+				}
+			}
+		}
+
 		err = s.connectionUsecase.DeleteConnection(ctx, connection)
 		if err != nil {
 			logger.Error("failed to delete connection", slog.String("error", err.Error()))
@@ -282,20 +300,20 @@ func (s *Service) detectConnectionType(conn types.Connection) model.ConnectionTy
 		// WebSocket connections typically keep the connection open
 		// For now, we'll default to WebSocket since most OpAMP implementations use WebSocket
 		// This will be updated in OnMessage when we receive the first message
-		return model.TypeWebSocket
+		return model.ConnectionTypeWebSocket
 	}
 
-	return model.TypeHTTP
+	return model.ConnectionTypeHTTP
 }
 
 // connectionTypeString returns a string representation of the connection type.
 func (s *Service) connectionTypeString(connType model.ConnectionType) string {
 	switch connType {
-	case model.TypeWebSocket:
+	case model.ConnectionTypeWebSocket:
 		return "WebSocket"
-	case model.TypeHTTP:
+	case model.ConnectionTypeHTTP:
 		return "HTTP"
-	case model.TypeUnknown:
+	case model.ConnectionTypeUnknown:
 		return "Unknown"
 	default:
 		return "Undefined"

@@ -72,7 +72,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 	}
 
 	if agent.HasPendingServerMessages() && agent.IsConnected(ctx) {
-		server, err := agent.ConnectedServer()
+		server, err := agent.ConnectedServerID()
 		if err != nil {
 			s.logger.Warn("saved agent but failed to send server messages: cannot get connected server",
 				slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),

@@ -48,7 +48,7 @@ func (s *Service) DeleteConnection(_ context.Context, connection *model.Connecti
 	connID := connection.IDString()
 
 	// Remove from WebSocket registry if it's a WebSocket connection
-	if connection.Type == model.TypeWebSocket {
+	if connection.Type == model.ConnectionTypeWebSocket {
 		s.wsRegistry.Remove(connID)
 	}
 
@@ -151,7 +151,7 @@ func (s *Service) SendServerToAgent(
 		return fmt.Errorf("failed to get connection for agent %s: %w", instanceUID, err)
 	}
 
-	if connection.Type != model.TypeWebSocket {
+	if connection.Type != model.ConnectionTypeWebSocket {
 		return &NotSupportedConnectionTypeError{ConnectionType: connection.Type}
 	}
 
