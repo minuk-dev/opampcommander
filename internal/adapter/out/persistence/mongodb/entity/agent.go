@@ -9,7 +9,7 @@ import (
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 const (
@@ -53,6 +53,7 @@ type AgentStatus struct {
 	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
 	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
 	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
+	Connected           bool                      `bson:"connected,omitempty"`
 	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
 	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
 }
@@ -64,10 +65,12 @@ type AgentCommands struct {
 
 // AgentCommand represents a command to be sent to an agent.
 type AgentCommand struct {
-	CommandID       uuid.UUID     `bson:"commandId"`
-	ReportFullState bool          `bson:"reportFullState"`
-	CreatedAt       bson.DateTime `bson:"createdAt"`
-	CreatedBy       string        `bson:"createdBy"`
+	CommandID               uuid.UUID     `bson:"commandId"`
+	ReportFullState         bool          `bson:"reportFullState"`
+	RemoteConfigUpdated     bool          `bson:"remoteConfigUpdated"`
+	RemoteConfigUpdatedHash bson.Binary   `bson:"remoteConfigUpdatedHash"`
+	CreatedAt               bson.DateTime `bson:"createdAt"`
+	CreatedBy               string        `bson:"createdBy"`
 }
 
 // AgentDescription is a struct to manage agent description.
@@ -255,8 +258,9 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 			//exhaustruct:ignore
 			domainmodel.AgentAvailableComponents{},
 		),
-		LastCommunicatedAt: status.LastCommunicatedAt.Time(),
-		LastCommunicatedTo: status.LastCommunicatedTo.ToDomainModel(),
+		Connected:      status.Connected,
+		LastReportedAt: status.LastCommunicatedAt.Time(),
+		LastReportedTo: status.LastCommunicatedTo.ToDomainModel(),
 	}
 }
 
@@ -271,10 +275,12 @@ func (ac *AgentCommands) ToDomain() domainmodel.AgentCommands {
 	commands := make([]domainmodel.AgentCommand, 0, len(ac.Commands))
 	for _, cmd := range ac.Commands {
 		commands = append(commands, domainmodel.AgentCommand{
-			CommandID:       cmd.CommandID,
-			ReportFullState: cmd.ReportFullState,
-			CreatedAt:       cmd.CreatedAt.Time(),
-			CreatedBy:       cmd.CreatedBy,
+			CommandID:               cmd.CommandID,
+			ReportFullState:         cmd.ReportFullState,
+			RemoteConfigUpdated:     cmd.RemoteConfigUpdated,
+			RemoteConfigUpdatedHash: vo.Hash(cmd.RemoteConfigUpdatedHash.Data),
+			CreatedAt:               cmd.CreatedAt.Time(),
+			CreatedBy:               cmd.CreatedBy,
 		})
 	}
 
@@ -364,14 +370,14 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 }
 
 // ToDomain converts the AgentRemoteConfig to domain model.
-func (arc *AgentRemoteConfig) ToDomain() remoteconfig.RemoteConfig {
-	remoteConfig := remoteconfig.New()
+func (arc *AgentRemoteConfig) ToDomain() domainmodel.RemoteConfig {
+	remoteConfig := domainmodel.NewRemoteConfig()
 	if arc == nil {
 		return remoteConfig
 	}
 
 	for _, sub := range arc.RemoteConfigStatuses {
-		remoteConfig.SetStatus(sub.Key, remoteconfig.Status(sub.Value))
+		remoteConfig.SetStatus(sub.Key, domainmodel.RemoteConfigStatus(sub.Value))
 	}
 
 	remoteConfig.SetLastErrorMessage(arc.LastErrorMessage)
@@ -445,8 +451,9 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
 			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
 			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
-			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastCommunicatedAt),
-			LastCommunicatedTo:  ToServerEntity(agent.Status.LastCommunicatedTo),
+			Connected:           agent.Status.Connected,
+			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
+			LastCommunicatedTo:  ToServerEntity(agent.Status.LastReportedTo),
 		},
 		Commands: AgentCommandsFromDomain(&agent.Commands),
 	}
@@ -463,10 +470,15 @@ func AgentCommandsFromDomain(domain *domainmodel.AgentCommands) AgentCommands {
 	commands := make([]AgentCommand, 0, len(domain.Commands))
 	for _, cmd := range domain.Commands {
 		commands = append(commands, AgentCommand{
-			CommandID:       cmd.CommandID,
-			ReportFullState: cmd.ReportFullState,
-			CreatedAt:       bson.NewDateTimeFromTime(cmd.CreatedAt),
-			CreatedBy:       cmd.CreatedBy,
+			CommandID:           cmd.CommandID,
+			ReportFullState:     cmd.ReportFullState,
+			RemoteConfigUpdated: cmd.RemoteConfigUpdated,
+			RemoteConfigUpdatedHash: bson.Binary{
+				Subtype: bson.TypeBinaryGeneric,
+				Data:    cmd.RemoteConfigUpdatedHash.Bytes(),
+			},
+			CreatedAt: bson.NewDateTimeFromTime(cmd.CreatedAt),
+			CreatedBy: cmd.CreatedBy,
 		})
 	}
 
@@ -558,22 +570,19 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 }
 
 // AgentRemoteConfigFromDomain converts domain model to persistence model.
-func AgentRemoteConfigFromDomain(arc remoteconfig.RemoteConfig) *AgentRemoteConfig {
-	statuses := arc.ListStatuses()
-	if len(statuses) == 0 {
+func AgentRemoteConfigFromDomain(arc domainmodel.RemoteConfig) *AgentRemoteConfig {
+	configData := arc.GetCurrentConfig()
+	if configData.Key.IsZero() {
 		return nil
 	}
 
-	remoteConfigStatuses := make([]AgentRemoteConfigSub, 0, len(statuses))
-	for _, status := range statuses {
-		remoteConfigStatuses = append(remoteConfigStatuses, AgentRemoteConfigSub{
-			Key:   status.Key,
-			Value: AgentRemoteConfigStatusEnum(status.Status),
-		})
-	}
-
 	return &AgentRemoteConfig{
-		RemoteConfigStatuses:    remoteConfigStatuses,
+		RemoteConfigStatuses: []AgentRemoteConfigSub{
+			{
+				Key:   configData.Key,
+				Value: AgentRemoteConfigStatusEnum(configData.Status),
+			},
+		},
 		LastErrorMessage:        arc.LastErrorMessage,
 		LastModifiedAtUnixMilli: arc.LastModifiedAt.UnixMilli(),
 	}

@@ -20,6 +20,7 @@ type ServerSettings struct {
 	DatabaseSettings   DatabaseSettings
 	AuthSettings       AuthSettings
 	ManagementSettings ManagementSettings
+	EventSettings      EventSettings
 }
 
 // String returns a JSON representation of the ServerSettings struct.

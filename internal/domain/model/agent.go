@@ -1,13 +1,15 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
+	"gopkg.in/yaml.v3"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
@@ -29,7 +31,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			InstanceUID: instanceUID,
 		},
 		Spec: AgentSpec{
-			RemoteConfig: remoteconfig.New(),
+			RemoteConfig: NewRemoteConfig(),
 		},
 		Status: AgentStatus{
 			EffectiveConfig: AgentEffectiveConfig{
@@ -50,8 +52,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
-			LastCommunicatedAt: time.Time{},
-			LastCommunicatedTo: nil,
+			Connected:      false,
+			LastReportedAt: time.Time{},
+			LastReportedTo: nil,
 		},
 		Commands: AgentCommands{
 			Commands: []AgentCommand{},
@@ -64,6 +67,21 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	}
 
 	return agent
+}
+
+// IsConnected checks if the agent is currently connected.
+func (a *Agent) IsConnected(_ context.Context) bool {
+	return !a.Status.LastReportedAt.IsZero()
+}
+
+// HasPendingServerMessages checks if there are any pending server messages for the agent.
+func (a *Agent) HasPendingServerMessages() bool {
+	return len(a.Commands.Commands) > 0
+}
+
+// ConnectedServerID returns the server the agent is currently connected to.
+func (a *Agent) ConnectedServerID() (*Server, error) {
+	return a.Status.LastReportedTo, nil
 }
 
 // AgentOption is a function that configures an Agent.
@@ -186,8 +204,9 @@ type AgentStatus struct {
 	ComponentHealth     AgentComponentHealth
 	AvailableComponents AgentAvailableComponents
 
-	LastCommunicatedAt time.Time
-	LastCommunicatedTo *Server
+	Connected      bool
+	LastReportedAt time.Time
+	LastReportedTo *Server
 }
 
 // AgentCommands is a list of commands to be sent to the agent.
@@ -206,10 +225,24 @@ func (ac *AgentCommands) Clear() []AgentCommand {
 // SendReportFullState adds a ReportFullState command to the commands list.
 func (ac *AgentCommands) SendReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
 	ac.Commands = append(ac.Commands, AgentCommand{
-		CommandID:       uuid.New(),
-		ReportFullState: reportFullState,
-		CreatedAt:       requestedAt,
-		CreatedBy:       requestedBy,
+		CommandID:               uuid.New(),
+		ReportFullState:         reportFullState,
+		RemoteConfigUpdated:     false,
+		RemoteConfigUpdatedHash: vo.Hash{},
+		CreatedAt:               requestedAt,
+		CreatedBy:               requestedBy,
+	})
+}
+
+// SendRemoteConfigUpdated adds a RemoteConfigUpdated command to the commands list.
+func (ac *AgentCommands) SendRemoteConfigUpdated(configHash vo.Hash, requestedAt time.Time, requestedBy string) {
+	ac.Commands = append(ac.Commands, AgentCommand{
+		CommandID:               uuid.New(),
+		ReportFullState:         false,
+		RemoteConfigUpdated:     true,
+		RemoteConfigUpdatedHash: configHash,
+		CreatedAt:               requestedAt,
+		CreatedBy:               requestedBy,
 	})
 }
 
@@ -232,6 +265,10 @@ type AgentCommand struct {
 	// If true, the agent should report all state information.
 	// More details, see https://github.com/open-telemetry/opamp-spec/blob/main/specification.md#servertoagentflags
 	ReportFullState bool
+	// RemoteConfigUpdated is a flag to indicate that remote config has been updated.
+	RemoteConfigUpdated bool
+	// RemoteConfigUpdatedHash is the hash of the updated remote config.
+	RemoteConfigUpdatedHash vo.Hash
 	// CreatedAt is the time the command was created.
 	CreatedAt time.Time
 	// CreatedBy is the user who created the command.
@@ -239,8 +276,9 @@ type AgentCommand struct {
 }
 
 // AgentSpec is a domain model to control opamp agent spec.
+// AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
-	RemoteConfig remoteconfig.RemoteConfig
+	RemoteConfig RemoteConfig
 }
 
 // AgentComponentHealth is a domain model to control opamp agent component health.
@@ -293,7 +331,7 @@ type AgentConfigFile struct {
 // AgentRemoteConfigStatus is the status of the remote configuration.
 type AgentRemoteConfigStatus struct {
 	LastRemoteConfigHash []byte
-	Status               remoteconfig.Status
+	Status               RemoteConfigStatus
 	ErrorMessage         string
 }
 
@@ -408,15 +446,18 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 
 // ApplyRemoteConfig is a method to apply the remote configuration to the agent.
 func (a *Agent) ApplyRemoteConfig(config any) error {
-	subconfig, err := remoteconfig.NewCommand(config)
+	configData, err := NewRemoteConfigData(config)
 	if err != nil {
-		return fmt.Errorf("failed to create remote config command: %w", err)
+		return fmt.Errorf("failed to create remote config data: %w", err)
 	}
 
-	err = a.Spec.RemoteConfig.ApplyRemoteConfig(subconfig)
+	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData)
 	if err != nil {
 		return fmt.Errorf("failed to apply remote config: %w", err)
 	}
+
+	// Add command to notify agent about config change
+	a.Commands.SendRemoteConfigUpdated(configData.Key, time.Now(), "system")
 
 	return nil
 }
@@ -459,11 +500,151 @@ func (a *Agent) SetReportFullState(reportFullState bool, requestedAt time.Time, 
 	a.Commands.SendReportFullState(reportFullState, requestedAt, requestedBy)
 }
 
-// MarkAsCommunicated updates the last communicated time and server of the agent.
-func (a *Agent) MarkAsCommunicated(by *Server, at time.Time) {
+// RecordLastReported updates the last communicated time and server of the agent.
+func (a *Agent) RecordLastReported(by *Server, at time.Time) {
 	if by != nil {
-		a.Status.LastCommunicatedTo = by
+		a.Status.LastReportedTo = by
 	}
 
-	a.Status.LastCommunicatedAt = at
+	a.Status.LastReportedAt = at
+}
+
+// RemoteConfig is a struct to manage remote config.
+type RemoteConfig struct {
+	ConfigData       RemoteConfigData
+	LastErrorMessage string
+	LastModifiedAt   time.Time
+}
+
+// RemoteConfigData is a struct to manage remote config data with status.
+type RemoteConfigData struct {
+	Key           vo.Hash
+	Status        RemoteConfigStatus
+	Config        []byte
+	LastUpdatedAt time.Time
+}
+
+// RemoteConfigStatus is generated from agentToServer of OpAMP.
+type RemoteConfigStatus int32
+
+// RemoteConfigStatus constants
+// To manage simply, we use opamp-go's protobufs' value.
+const (
+	RemoteConfigStatusUnset RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_UNSET))
+	RemoteConfigStatusApplied RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED))
+	RemoteConfigStatusApplying RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING))
+	RemoteConfigStatusFailed RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
+)
+
+// String returns the string representation of the status.
+func (s RemoteConfigStatus) String() string {
+	switch s {
+	case RemoteConfigStatusUnset:
+		return "UNSET"
+	case RemoteConfigStatusApplied:
+		return "APPLIED"
+	case RemoteConfigStatusApplying:
+		return "APPLYING"
+	case RemoteConfigStatusFailed:
+		return "FAILED"
+	default:
+		return fmt.Sprintf("UNKNOWN(%d)", int32(s))
+	}
+}
+
+// NewRemoteConfig creates a new RemoteConfig instance.
+func NewRemoteConfig() RemoteConfig {
+	return RemoteConfig{
+		ConfigData: RemoteConfigData{
+			Key:           vo.Hash{},
+			Status:        RemoteConfigStatusUnset,
+			Config:        []byte{},
+			LastUpdatedAt: time.Time{},
+		},
+		LastErrorMessage: "",
+		LastModifiedAt:   time.Now(),
+	}
+}
+
+// NewRemoteConfigData creates a new RemoteConfigData instance from config.
+func NewRemoteConfigData(config any) (RemoteConfigData, error) {
+	configBytes, err := yaml.Marshal(config)
+	if err != nil {
+		return RemoteConfigData{}, fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	hash, err := vo.NewHash(configBytes)
+	if err != nil {
+		return RemoteConfigData{}, fmt.Errorf("failed to create hash: %w", err)
+	}
+
+	return RemoteConfigData{
+		Key:           hash,
+		Status:        RemoteConfigStatusUnset,
+		Config:        configBytes,
+		LastUpdatedAt: time.Now(),
+	}, nil
+}
+
+// RemoteConfigStatusFromOpAMP converts OpAMP status to domain model.
+func RemoteConfigStatusFromOpAMP(status protobufs.RemoteConfigStatuses) RemoteConfigStatus {
+	return RemoteConfigStatus(status)
+}
+
+// SetStatus sets status with key.
+func (r *RemoteConfig) SetStatus(key vo.Hash, status RemoteConfigStatus) {
+	r.updateLastModifiedAt()
+
+	if r.ConfigData.Key.Equal(key) {
+		r.ConfigData.Status = status
+	}
+}
+
+// GetStatus gets status with key.
+func (r *RemoteConfig) GetStatus(key vo.Hash) RemoteConfigStatus {
+	if r.ConfigData.Key.Equal(key) {
+		return r.ConfigData.Status
+	}
+
+	return RemoteConfigStatusUnset
+}
+
+// GetCurrentConfig returns the current config data.
+func (r *RemoteConfig) GetCurrentConfig() RemoteConfigData {
+	return r.ConfigData
+}
+
+// SetLastErrorMessage sets last error message.
+func (r *RemoteConfig) SetLastErrorMessage(errorMessage string) {
+	r.updateLastModifiedAt()
+	r.LastErrorMessage = errorMessage
+}
+
+// ApplyRemoteConfig applies remote config.
+func (r *RemoteConfig) ApplyRemoteConfig(configData RemoteConfigData) error {
+	r.updateLastModifiedAt()
+	r.ConfigData = configData
+
+	return nil
+}
+
+// IsManaged returns whether the agent is managed by the server.
+// An agent is considered managed if it has remote config.
+func (r *RemoteConfig) IsManaged() bool {
+	return !r.ConfigData.Key.IsZero()
+}
+
+// UpdateLastCommunicationInfo updates the last communication info of the agent.
+func (a *Agent) UpdateLastCommunicationInfo(now time.Time) {
+	a.Status.Connected = true
+	a.Status.LastReportedAt = now
+}
+
+// caution: inject now instead of time.Now()
+func (r *RemoteConfig) updateLastModifiedAt() {
+	r.LastModifiedAt = time.Now()
 }

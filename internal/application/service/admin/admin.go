@@ -17,10 +17,11 @@ var _ applicationport.AdminUsecase = (*Service)(nil)
 
 // Service is a struct that implements the AdminUsecase interface.
 type Service struct {
-	logger            *slog.Logger
-	agentUsecase      domainport.AgentUsecase
-	commandUsecase    domainport.CommandUsecase
-	connectionUsecase domainport.ConnectionUsecase
+	logger                   *slog.Logger
+	agentUsecase             domainport.AgentUsecase
+	commandUsecase           domainport.CommandUsecase
+	connectionUsecase        domainport.ConnectionUsecase
+	agentNotificationUsecase domainport.AgentNotificationUsecase
 }
 
 // New creates a new instance of the Service struct.
@@ -28,13 +29,15 @@ func New(
 	agentUsecase domainport.AgentUsecase,
 	commandUsecase domainport.CommandUsecase,
 	connectionUsecase domainport.ConnectionUsecase,
+	agentNotificationUsecase domainport.AgentNotificationUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		logger:            logger,
-		agentUsecase:      agentUsecase,
-		commandUsecase:    commandUsecase,
-		connectionUsecase: connectionUsecase,
+		logger:                   logger,
+		agentUsecase:             agentUsecase,
+		commandUsecase:           commandUsecase,
+		connectionUsecase:        connectionUsecase,
+		agentNotificationUsecase: agentNotificationUsecase,
 	}
 }
 
@@ -42,7 +45,7 @@ func New(
 func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error {
 	command := model.NewUpdateAgentConfigCommand(targetInstanceUID, config)
 
-	err := s.commandUsecase.SaveCommand(ctx, command)
+	err := s.commandUsecase.SaveCommandAudit(ctx, command)
 	if err != nil {
 		return fmt.Errorf("failed to save command: %w", err)
 	}
@@ -50,6 +53,16 @@ func (s *Service) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUI
 	err = s.agentUsecase.UpdateAgentConfig(ctx, targetInstanceUID, config)
 	if err != nil {
 		return fmt.Errorf("failed to update agent config: %w", err)
+	}
+
+	agent, err := s.agentUsecase.GetAgent(ctx, targetInstanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get agent for notification: %w", err)
+	}
+
+	err = s.agentNotificationUsecase.NotifyAgentUpdated(ctx, agent)
+	if err != nil {
+		s.logger.Warn("failed to notify agent update", slog.String("error", err.Error()))
 	}
 
 	return nil

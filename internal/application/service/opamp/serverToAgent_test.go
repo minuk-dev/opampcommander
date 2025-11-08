@@ -14,7 +14,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
@@ -135,7 +134,7 @@ func TestBuildRemoteConfig_WithCapability_WithConfig(t *testing.T) {
 	assert.NotEmpty(t, result.GetConfigHash(), "Config hash should not be empty")
 
 	// Then: Config body should match
-	configFile := result.GetConfig().GetConfigMap()["config"]
+	configFile := result.GetConfig().GetConfigMap()["opampcommander"]
 	require.NotNil(t, configFile)
 	assert.Equal(t, []byte(testConfig), configFile.GetBody())
 }
@@ -172,24 +171,24 @@ func TestBuildRemoteConfig_ConfigAlreadyApplied(t *testing.T) {
 	configHash, err := vo.NewHash(configBytes)
 	require.NoError(t, err)
 
-	// Create a command with the same hash that server would send
-	cmd := remoteconfig.Command{
+	// Create a config data with the same hash that server would send
+	configData := model.RemoteConfigData{
 		Key:           configHash,
-		Status:        remoteconfig.StatusUnset,
+		Status:        model.RemoteConfigStatusUnset,
 		Config:        configBytes,
 		LastUpdatedAt: time.Now(),
 	}
 
-	// Apply the command
-	err = agentModel.Spec.RemoteConfig.ApplyRemoteConfig(cmd)
+	// Apply the config data
+	err = agentModel.Spec.RemoteConfig.ApplyRemoteConfig(configData)
 	require.NoError(t, err)
 
 	// Agent reports back that it applied the config
-	agentModel.Spec.RemoteConfig.SetStatus(configHash, remoteconfig.StatusApplied)
+	agentModel.Spec.RemoteConfig.SetStatus(configHash, model.RemoteConfigStatusApplied)
 
 	// Verify status was set
 	currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
-	require.Equal(t, remoteconfig.StatusApplied, currentStatus, "Status should be set to Applied")
+	require.Equal(t, model.RemoteConfigStatusApplied, currentStatus, "Status should be set to Applied")
 
 	// When: Build remote config
 	result, err := service.buildRemoteConfig(context.Background(), agentModel)

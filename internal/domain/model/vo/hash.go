@@ -35,3 +35,8 @@ func (h Hash) Bytes() []byte {
 func (h Hash) Equal(other Hash) bool {
 	return bytes.Equal(h, other)
 }
+
+// IsZero returns true if the hash is zero (empty).
+func (h Hash) IsZero() bool {
+	return len(h) == 0
+}

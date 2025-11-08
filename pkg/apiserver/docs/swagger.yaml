@@ -114,6 +114,8 @@ definitions:
         type: string
       name:
         type: string
+      priority:
+        type: integer
       selector:
         $ref: '#/definitions/agentgroup.AgentSelector'
     type: object
@@ -125,6 +127,8 @@ definitions:
         $ref: '#/definitions/api_v1_agentgroup.Attributes'
       name:
         type: string
+      priority:
+        type: integer
       selector:
         $ref: '#/definitions/agentgroup.AgentSelector'
     required:

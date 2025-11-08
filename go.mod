@@ -5,11 +5,13 @@ go 1.25.1
 replace go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo => ./opentelemetry-go-contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo
 
 require (
+	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-resty/resty/v2 v2.16.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-github/v72 v72.0.0
 	github.com/google/uuid v1.6.0
+	github.com/nats-io/nats.go v1.45.0
 	github.com/open-telemetry/opamp-go v0.22.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/samber/lo v1.52.0
@@ -92,6 +94,8 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/nats-io/nkeys v0.4.11 // indirect
+	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.4.1 // indirect
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
@@ -137,6 +141,7 @@ require (
 require (
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
+	github.com/cloudevents/sdk-go/protocol/nats/v2 v2.16.2
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect

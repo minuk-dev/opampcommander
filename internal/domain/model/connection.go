@@ -14,19 +14,35 @@ const (
 	OpAMPPollingInterval = 30 * time.Second
 )
 
-// Type represents the type of the connection.
-type Type int
+// ConnectionType represents the type of the connection.
+type ConnectionType int
 
 const (
-	// TypeUnknown is the unknown type.
-	TypeUnknown Type = iota
-	// TypeHTTP is the HTTP type.
-	TypeHTTP
-	// TypeWebSocket is the WebSocket type.
-	TypeWebSocket
+	// ConnectionTypeUnknown is the unknown type.
+	ConnectionTypeUnknown ConnectionType = iota
+	// ConnectionTypeHTTP is the HTTP type.
+	ConnectionTypeHTTP
+	// ConnectionTypeWebSocket is the WebSocket type.
+	ConnectionTypeWebSocket
 )
 
+// String returns the string representation of the ConnectionType.
+func (ct ConnectionType) String() string {
+	switch ct {
+	case ConnectionTypeHTTP:
+		return "HTTP"
+	case ConnectionTypeWebSocket:
+		return "WebSocket"
+	case ConnectionTypeUnknown:
+		fallthrough
+	default:
+		return "Unknown"
+	}
+}
+
 // Connection represents a connection to an agent.
+// This is a pure domain model containing only metadata about the connection.
+// The actual WebSocket connection object is managed separately by the WebSocketRegistry.
 type Connection struct {
 	// Key is the unique identifier for the connection.
 	// It should be unique across all connections to use as a key in a map.
@@ -34,7 +50,7 @@ type Connection struct {
 	ID any
 
 	// Type is the type of the connection.
-	Type Type
+	Type ConnectionType
 
 	// UID is the unique identifier for the connection.
 	// It is used to identify the connection in the database.
@@ -48,7 +64,7 @@ type Connection struct {
 }
 
 // NewConnection creates a new Connection instance with the given ID and type.
-func NewConnection(id any, typ Type) *Connection {
+func NewConnection(id any, typ ConnectionType) *Connection {
 	return &Connection{
 		ID:                 id,
 		Type:               typ,
@@ -60,7 +76,7 @@ func NewConnection(id any, typ Type) *Connection {
 
 // IsAlive returns true if the connection is alive.
 func (conn *Connection) IsAlive(now time.Time) bool {
-	return conn.Type == TypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval
+	return conn.Type == ConnectionTypeWebSocket || now.Sub(conn.LastCommunicatedAt) < 2*OpAMPPollingInterval
 }
 
 // IDString returns a string value
@@ -87,4 +103,9 @@ func (conn *Connection) IsAnonymous() bool {
 // IsManaged returns true if the connection is managed.
 func (conn *Connection) IsManaged() bool {
 	return !conn.IsAnonymous()
+}
+
+// SetInstanceUID sets the instance UID of the connection.
+func (conn *Connection) SetInstanceUID(instanceUID uuid.UUID) {
+	conn.InstanceUID = instanceUID
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -16,14 +17,17 @@ var _ port.AgentUsecase = (*AgentService)(nil)
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
+	logger               *slog.Logger
 }
 
 // NewAgentService creates a new instance of AgentService.
 func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
+	logger *slog.Logger,
 ) *AgentService {
 	return &AgentService{
 		agentPersistencePort: agentPersistencePort,
+		logger:               logger,
 	}
 }
 

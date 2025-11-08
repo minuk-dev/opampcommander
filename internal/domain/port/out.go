@@ -8,6 +8,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 )
 
 // AgentPersistencePort is an interface that defines the methods for agent persistence.
@@ -24,6 +25,18 @@ type AgentPersistencePort interface {
 		selector model.AgentSelector,
 		options *model.ListOptions,
 	) (*model.ListResponse[*model.Agent], error)
+}
+
+// ServerEventSenderPort is an interface that defines the methods for sending events to servers.
+type ServerEventSenderPort interface {
+	// SendMessageToServer sends a message to the specified server.
+	SendMessageToServer(ctx context.Context, serverID string, message serverevent.Message) error
+}
+
+// ServerEventReceiverPort is an interface that defines the methods for receiving events from servers.
+type ServerEventReceiverPort interface {
+	// ReceiveMessageFromServer receives a message from a server.
+	ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error)
 }
 
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.

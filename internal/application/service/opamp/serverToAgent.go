@@ -13,12 +13,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/remoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
-func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
+func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) (*protobufs.ServerToAgent, error) {
 	var flags uint64
 
 	// Request ReportFullState if:
@@ -40,7 +39,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 			slog.String("instanceUID", instanceUID.String()),
 			slog.String("error", err.Error()))
 
-		return s.createFallbackServerToAgent(instanceUID)
+		return nil, fmt.Errorf("failed to build remote config: %w", err)
 	}
 
 	//exhaustruct:ignore
@@ -48,7 +47,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		InstanceUid:  instanceUID[:],
 		Flags:        flags,
 		RemoteConfig: remoteConfig,
-	}
+	}, nil
 }
 
 // buildRemoteConfig builds the remote configuration for the agent based on its agent groups.
@@ -97,7 +96,7 @@ func (s *Service) buildRemoteConfig(
 
 	// Check if agent already has this config applied
 	currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
-	if currentStatus == remoteconfig.StatusApplied {
+	if currentStatus == model.RemoteConfigStatusApplied {
 		// Agent already has this config applied, don't send config body again
 		// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed
 		// since it was last requested (i.e. AgentConfigRequest.last_remote_config_hash field is equal

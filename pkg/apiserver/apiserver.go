@@ -13,8 +13,7 @@ import (
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/domain"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
-	inmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/in"
-	outmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/out"
+	infrastructuremodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/infrastructure"
 )
 
 const (
@@ -36,16 +35,15 @@ type Server struct {
 // New creates a new instance of the Server struct.
 func New(settings config.ServerSettings) *Server {
 	app := fx.New(
-		// hexagonal architecture
-		inmodule.New(),
-		outmodule.New(),
-		applicationmodule.New(),
-		domainmodule.New(),
-		NewConfigModule(&settings),
+		// Hexagonal architecture layers
+		infrastructuremodule.New(), // All infrastructure: HTTP, DB, Messaging, WebSocket
+		applicationmodule.New(),    // Application services
+		domainmodule.New(),         // Domain services
+		NewConfigModule(&settings), // Configuration
 
-		// base
+		// Base utilities
 		helper.NewModule(),
-		// init
+		// Initialize HTTP server
 		fx.Invoke(func(*http.Server) {}),
 	)
 
@@ -91,6 +89,7 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		fx.Provide(helper.PointerFunc(settings.AuthSettings)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings.ObservabilitySettings)),
+		fx.Provide(helper.PointerFunc(settings.EventSettings)),
 		// serverID provider with explicit type
 		fx.Provide(func() config.ServerID { return settings.ServerID }),
 	)

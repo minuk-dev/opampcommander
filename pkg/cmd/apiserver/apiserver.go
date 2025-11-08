@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -31,7 +32,14 @@ type CommandOption struct {
 		DDLAuto        bool          `mapstructure:"ddlAuto"`
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
-	Management  struct {
+	Event       struct {
+		Type string `mapstructure:"type"`
+		NATS struct {
+			Endpoint      string `mapstructure:"endpoint"`
+			SubjectPrefix string `mapstructure:"subjectPrefix"`
+		}
+	} `mapstructure:"event"`
+	Management struct {
 		Address string `mapstructure:"address"`
 		Metric  struct {
 			Enabled    bool   `mapstructure:"enabled"`
@@ -142,6 +150,10 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
 	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
+	cmd.Flags().String("event.type", "inmemory", "event protocol type (inmemory, nats)")
+	cmd.Flags().Bool("event.enabled", false, "enable event communication")
+	cmd.Flags().String("event.nats.endpoint", "nats://localhost:4222", "NATS server endpoint")
+	cmd.Flags().String("event.nats.subjectPrefix", "test.opampcommander.", "NATS subject prefix")
 	cmd.Flags().String("management.address", "localhost:9090", "management server address")
 	cmd.Flags().Bool("management.metric.enabled", false, "enable metrics")
 	cmd.Flags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
@@ -271,6 +283,13 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				},
 			},
 		},
+		EventSettings: appconfig.EventSettings{
+			ProtocolType: appconfig.EventProtocolType(opt.Event.Type),
+			NATS: appconfig.NATSSettings{
+				Endpoint:      opt.Event.NATS.Endpoint,
+				SubjectPrefix: opt.Event.NATS.SubjectPrefix,
+			},
+		},
 		ManagementSettings: appconfig.ManagementSettings{
 			Address: opt.Management.Address,
 			ObservabilitySettings: appconfig.ObservabilitySettings{
@@ -314,6 +333,13 @@ func (opt *CommandOption) Run(cmd *cobra.Command, _ []string) error {
 
 	err := opt.app.Run(ctx)
 	if err != nil {
+		visualizedStr, visualizedErr := fx.VisualizeError(err)
+		if visualizedErr != nil {
+			return fmt.Errorf("failed to visualize error of the server: %w", err)
+		}
+
+		cmd.PrintErr(visualizedStr)
+
 		return fmt.Errorf("failed to run the server: %w", err)
 	}
 

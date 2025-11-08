@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sort"
 
 	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -21,9 +24,8 @@ const (
 
 // Service is a struct that implements the ConnectionUsecase interface.
 type Service struct {
-	agentUsecase port.AgentUsecase
-	logger       *slog.Logger
-
+	agentUsecase  port.AgentUsecase
+	logger        *slog.Logger
 	connectionMap *xsync.MultiMap[*model.Connection]
 }
 
@@ -57,6 +59,22 @@ func (s *Service) GetConnectionByID(_ context.Context, id any) (*model.Connectio
 	}
 
 	return conn, nil
+}
+
+// GetOrCreateConnectionByID implements port.ConnectionUsecase.
+func (s *Service) GetOrCreateConnectionByID(_ context.Context, id any) (*model.Connection, error) {
+	connID := model.ConvertConnIDToString(id)
+
+	conn, ok := s.connectionMap.Load(connID)
+	if ok {
+		return conn, nil
+	}
+
+	connectionType := s.detectConnectionType(id)
+	// Create a new connection
+	newConn := model.NewConnection(id, connectionType)
+
+	return newConn, nil
 }
 
 // GetConnectionByInstanceUID implements port.ConnectionUsecase.
@@ -127,4 +145,80 @@ func (s *Service) SaveConnection(_ context.Context, connection *model.Connection
 	s.connectionMap.Store(connID, connection, additionalIndexesOpts...)
 
 	return nil
+}
+
+// SendServerToAgent sends a ServerToAgent message to the agent via WebSocket connection.
+func (s *Service) SendServerToAgent(
+	ctx context.Context,
+	instanceUID uuid.UUID,
+	message *protobufs.ServerToAgent,
+) error {
+	// Get connection metadata
+	connection, err := s.GetConnectionByInstanceUID(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get connection for agent %s: %w", instanceUID, err)
+	}
+
+	wsConn, ok := connection.ID.(types.Connection)
+	if !ok {
+		return &ConnectionNotFoundError{InstanceUID: instanceUID}
+	}
+
+	err = wsConn.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("failed to send ServerToAgent message to agent %s: %w", instanceUID, err)
+	}
+
+	s.logger.Info("sent ServerToAgent message to agent via WebSocket",
+		slog.String("instanceUID", instanceUID.String()))
+
+	return nil
+}
+
+// detectConnectionType detects whether the connection is WebSocket or HTTP.
+// According to OpAMP spec, WebSocket connections support bidirectional communication
+// and can use the Send method, while HTTP connections are request-response only.
+func (s *Service) detectConnectionType(id any) model.ConnectionType {
+	conn, ok := id.(types.Connection) // only types.Connection supports Send method
+	if !ok {
+		return model.ConnectionTypeUnknown
+	}
+	// Try to send a nil message to detect if it's a WebSocket connection
+	// WebSocket will accept this (though we won't actually send anything),
+	// while HTTP will return an error
+	// Note: We don't actually want to send anything here, we just want to check the type
+	// A better approach is to check if the connection implements a WebSocket-specific interface
+	// For now, we'll assume it's WebSocket and let it be corrected later if needed
+
+	// Check the underlying connection type
+	// If the connection's remote address is set and it's persistent, it's likely WebSocket
+	netConn := conn.Connection()
+	if netConn != nil {
+		// WebSocket connections typically keep the connection open
+		// For now, we'll default to WebSocket since most OpAMP implementations use WebSocket
+		// This will be updated in OnMessage when we receive the first message
+		return model.ConnectionTypeWebSocket
+	}
+
+	return model.ConnectionTypeHTTP
+}
+
+// NotSupportedConnectionTypeError is returned when an operation is attempted.
+type NotSupportedConnectionTypeError struct {
+	ConnectionType model.ConnectionType
+}
+
+// Error implements the error interface.
+func (e *NotSupportedConnectionTypeError) Error() string {
+	return fmt.Sprintf("connection type %s is not supported", e.ConnectionType.String())
+}
+
+// ConnectionNotFoundError is returned when a connection is not found for a given instance UID.
+type ConnectionNotFoundError struct {
+	InstanceUID uuid.UUID
+}
+
+// Error implements the error interface.
+func (e *ConnectionNotFoundError) Error() string {
+	return "connection not found for instance UID " + e.InstanceUID.String()
 }

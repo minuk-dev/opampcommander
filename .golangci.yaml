@@ -24,6 +24,9 @@ linters:
     varnamelen:
       ignore-type-assert-ok: true # default: false, but it's common in Go
       ignore-map-index-ok: true # default: false, but it's common in Go
+      ignore-names:
+        - wg # sync.WaitGroup
+        - id # common abbreviation
     exhaustruct:
       exclude:
         - '.+/cobra\.Command$'
@@ -38,6 +41,7 @@ linters:
         - Provider$ # Provider is commonly used
         - '.+/management\.HTTPHandler$'
         - '.+/trace\.Sampler$'
+        - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
     depguard:
       rules:
         main:
@@ -63,6 +67,10 @@ linters:
             - go.mongodb.org/mongo-driver/v2/bson
             - go.mongodb.org/mongo-driver/v2/event
             - go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo
+            # Eventing / Messaging
+            - github.com/cloudevents/sdk-go/protocol/nats/v2
+            - github.com/cloudevents/sdk-go/v2
+            - github.com/nats-io/nats.go
             # Utils
             - github.com/samber/lo
             - k8s.io/utils/clock
