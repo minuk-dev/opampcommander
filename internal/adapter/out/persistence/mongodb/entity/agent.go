@@ -53,7 +53,6 @@ type AgentStatus struct {
 	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
 	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
 	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
-	LastConnectionType  int                       `bson:"lastConnectionType,omitempty"`
 	Connected           bool                      `bson:"connected,omitempty"`
 	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
 	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
@@ -259,10 +258,9 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 			//exhaustruct:ignore
 			domainmodel.AgentAvailableComponents{},
 		),
-		LastConnectionType: domainmodel.ConnectionType(status.LastConnectionType),
-		Connected:          status.Connected,
-		LastReportedAt:     status.LastCommunicatedAt.Time(),
-		LastReportedTo:     status.LastCommunicatedTo.ToDomainModel(),
+		Connected:      status.Connected,
+		LastReportedAt: status.LastCommunicatedAt.Time(),
+		LastReportedTo: status.LastCommunicatedTo.ToDomainModel(),
 	}
 }
 
@@ -453,7 +451,6 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
 			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
 			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
-			LastConnectionType:  int(agent.Status.LastConnectionType),
 			Connected:           agent.Status.Connected,
 			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
 			LastCommunicatedTo:  ToServerEntity(agent.Status.LastReportedTo),

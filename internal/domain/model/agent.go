@@ -52,10 +52,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
-			LastConnectionType: ConnectionTypeUnknown,
-			Connected:          false,
-			LastReportedAt:     time.Time{},
-			LastReportedTo:     nil,
+			Connected:      false,
+			LastReportedAt: time.Time{},
+			LastReportedTo: nil,
 		},
 		Commands: AgentCommands{
 			Commands: []AgentCommand{},
@@ -205,10 +204,9 @@ type AgentStatus struct {
 	ComponentHealth     AgentComponentHealth
 	AvailableComponents AgentAvailableComponents
 
-	LastConnectionType ConnectionType
-	Connected          bool
-	LastReportedAt     time.Time
-	LastReportedTo     *Server
+	Connected      bool
+	LastReportedAt time.Time
+	LastReportedTo *Server
 }
 
 // AgentCommands is a list of commands to be sent to the agent.
@@ -640,15 +638,13 @@ func (r *RemoteConfig) IsManaged() bool {
 	return !r.ConfigData.Key.IsZero()
 }
 
-func (r *RemoteConfig) updateLastModifiedAt() {
-	r.LastModifiedAt = time.Now()
-}
-
-func (a *Agent) UpdateLastCommunicationInfo(
-	connectionType ConnectionType,
-	now time.Time,
-) {
-	a.Status.LastConnectionType = connectionType
+// UpdateLastCommunicationInfo updates the last communication info of the agent.
+func (a *Agent) UpdateLastCommunicationInfo(now time.Time) {
 	a.Status.Connected = true
 	a.Status.LastReportedAt = now
+}
+
+// caution: inject now instead of time.Now()
+func (r *RemoteConfig) updateLastModifiedAt() {
+	r.LastModifiedAt = time.Now()
 }

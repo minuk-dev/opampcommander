@@ -62,7 +62,7 @@ func (s *Service) GetConnectionByID(_ context.Context, id any) (*model.Connectio
 }
 
 // GetOrCreateConnectionByID implements port.ConnectionUsecase.
-func (s *Service) GetOrCreateConnectionByID(ctx context.Context, id any) (*model.Connection, error) {
+func (s *Service) GetOrCreateConnectionByID(_ context.Context, id any) (*model.Connection, error) {
 	connID := model.ConvertConnIDToString(id)
 
 	conn, ok := s.connectionMap.Load(connID)

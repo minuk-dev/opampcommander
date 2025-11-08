@@ -37,8 +37,6 @@ type Service struct {
 	onConnectionCloseTimeout time.Duration
 }
 
-type backgroundCallbackFn func(context.Context)
-
 // New creates a new instance of the OpAMP service.
 func New(
 	agentUsecase domainport.AgentUsecase,
@@ -76,7 +74,7 @@ func (s *Service) Run(ctx context.Context) error {
 
 			return fmt.Errorf("service loop exited: %w", ctx.Err())
 		case conn := <-s.closedConnectionCh:
-			bgCtx, cancel := context.WithTimeout(context.Background(), s.onConnectionCloseTimeout)
+			bgCtx, cancel := context.WithTimeout(ctx, s.onConnectionCloseTimeout)
 			defer cancel()
 
 			err := s.cleanUpConnection(bgCtx, conn)
@@ -93,17 +91,21 @@ func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 	logger := s.logger.With(slog.String("method", "OnConnected"), slog.String("remoteAddr", remoteAddr))
 
 	logger.Info("start")
+
 	connection, err := s.connectionUsecase.GetOrCreateConnectionByID(ctx, conn)
 	if err != nil {
 		logger.Error("failed to get or create connection", slog.String("error", err.Error()))
+
 		return
 	}
 
 	err = s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
 		logger.Error("failed to save connection", slog.String("error", err.Error()))
+
 		return
 	}
+
 	logger.Info("end successfully")
 }
 
@@ -116,7 +118,7 @@ func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 // [3] process the message and update agent state accordingly
 // [4] save the updated agent
 // [5] fetch ServerToAgent message to send back to the agent
-// [6] return the ServerToAgent message
+// [6] return the ServerToAgent message.
 func (s *Service) OnMessage(
 	ctx context.Context,
 	conn types.Connection,
@@ -131,17 +133,11 @@ func (s *Service) OnMessage(
 		slog.String("instanceUID", instanceUID.String()),
 	)
 	logger.Info("start")
-	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 
-	// Even if the connection is not found, we should still process the message
+	err := s.injectInstanceUIDToConnection(ctx, conn, instanceUID)
 	if err != nil {
-		logger.Error("failed to get connection", slog.String("error", err.Error()))
-	}
-
-	connection.SetInstanceUID(instanceUID)
-	err = s.connectionUsecase.SaveConnection(ctx, connection)
-	if err != nil {
-		logger.Error("failed to save connection with instanceUID", slog.String("error", err.Error()))
+		logger.Error("failed to inject instanceUID to connection", slog.String("error", err.Error()))
+		// even if injecting instanceUID fails, proceed to process the message
 	}
 
 	currentServer, err := s.serverUsecase.CurrentServer(ctx)
@@ -158,7 +154,7 @@ func (s *Service) OnMessage(
 	}
 
 	// Update agent connection status
-	agent.UpdateLastCommunicationInfo(connection.Type, s.clock.Now())
+	agent.UpdateLastCommunicationInfo(s.clock.Now())
 
 	err = s.report(agent, message, currentServer)
 	if err != nil {
@@ -177,6 +173,7 @@ func (s *Service) OnMessage(
 		// whan the ServerToAgent message cannot be created, return a fallback ServerToAgent message
 		return s.createFallbackServerToAgent(instanceUID)
 	}
+
 	logger.Info("end successfully")
 
 	return response
@@ -219,23 +216,10 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
 	logger.Info("start")
+
 	s.closedConnectionCh <- conn
 
 	logger.Info("end")
-}
-
-// connectionTypeString returns a string representation of the connection type.
-func (s *Service) connectionTypeString(connType model.ConnectionType) string {
-	switch connType {
-	case model.ConnectionTypeWebSocket:
-		return "WebSocket"
-	case model.ConnectionTypeHTTP:
-		return "HTTP"
-	case model.ConnectionTypeUnknown:
-		return "Unknown"
-	default:
-		return "Undefined"
-	}
 }
 
 func (s *Service) report(
@@ -296,6 +280,7 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	if err != nil {
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
+
 	logger := s.logger.With(
 		slog.String("method", "cleanUpConnection"),
 		slog.String("connectionID", connection.IDString()),
@@ -322,6 +307,32 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	err = s.connectionUsecase.DeleteConnection(ctx, connection)
 	if err != nil {
 		return fmt.Errorf("failed to delete connection: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) injectInstanceUIDToConnection(
+	ctx context.Context,
+	conn types.Connection,
+	instanceUID uuid.UUID,
+) error {
+	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
+	// Even if the connection is not found, we should still process the message
+	if err != nil {
+		return fmt.Errorf("failed to get connection: %w", err)
+	}
+
+	if connection.InstanceUID == instanceUID {
+		// already injected, skip as an optimization
+		return nil
+	}
+
+	connection.SetInstanceUID(instanceUID)
+
+	err = s.connectionUsecase.SaveConnection(ctx, connection)
+	if err != nil {
+		return fmt.Errorf("failed to save connection with instanceUID: %w", err)
 	}
 
 	return nil

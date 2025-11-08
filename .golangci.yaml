@@ -26,6 +26,7 @@ linters:
       ignore-map-index-ok: true # default: false, but it's common in Go
       ignore-names:
         - wg # sync.WaitGroup
+        - id # common abbreviation
     exhaustruct:
       exclude:
         - '.+/cobra\.Command$'

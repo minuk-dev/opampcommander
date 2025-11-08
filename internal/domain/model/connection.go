@@ -63,11 +63,6 @@ type Connection struct {
 	LastCommunicatedAt time.Time
 }
 
-// SetInstanceUID sets the instance UID of the connection.
-func (conn *Connection) SetInstanceUID(instanceUID uuid.UUID) {
-	conn.InstanceUID = instanceUID
-}
-
 // NewConnection creates a new Connection instance with the given ID and type.
 func NewConnection(id any, typ ConnectionType) *Connection {
 	return &Connection{
@@ -108,4 +103,9 @@ func (conn *Connection) IsAnonymous() bool {
 // IsManaged returns true if the connection is managed.
 func (conn *Connection) IsManaged() bool {
 	return !conn.IsAnonymous()
+}
+
+// SetInstanceUID sets the instance UID of the connection.
+func (conn *Connection) SetInstanceUID(instanceUID uuid.UUID) {
+	conn.InstanceUID = instanceUID
 }
