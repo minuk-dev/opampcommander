@@ -39,6 +39,12 @@ type AgentUsecase interface {
 	UpdateAgentConfigUsecase
 }
 
+// AgentNotificationUsecase is an interface for notifying servers about agent changes.
+type AgentNotificationUsecase interface {
+	// NotifyAgentUpdated notifies the connected server that the agent has pending messages.
+	NotifyAgentUpdated(ctx context.Context, agent *model.Agent) error
+}
+
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its name

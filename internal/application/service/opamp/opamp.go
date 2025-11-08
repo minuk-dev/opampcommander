@@ -31,6 +31,8 @@ type Service struct {
 	serverUsecase     domainport.ServerUsecase
 	agentGroupUsecase domainport.AgentGroupUsecase
 
+	agentNotificationUsecase domainport.AgentNotificationUsecase
+
 	closedConnectionCh chan types.Connection
 
 	connectionUsecase        domainport.ConnectionUsecase
@@ -44,17 +46,19 @@ func New(
 	connectionUsecase domainport.ConnectionUsecase,
 	serverUsecase domainport.ServerUsecase,
 	agentGroupUsecase domainport.AgentGroupUsecase,
+	agentNotificationUsecase domainport.AgentNotificationUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		clock:              clock.NewRealClock(),
-		logger:             logger,
-		agentUsecase:       agentUsecase,
-		commandUsecase:     commandUsecase,
-		connectionUsecase:  connectionUsecase,
-		serverUsecase:      serverUsecase,
-		agentGroupUsecase:  agentGroupUsecase,
-		closedConnectionCh: make(chan types.Connection, 1), // buffered channel
+		clock:                    clock.NewRealClock(),
+		logger:                   logger,
+		agentUsecase:             agentUsecase,
+		commandUsecase:           commandUsecase,
+		connectionUsecase:        connectionUsecase,
+		serverUsecase:            serverUsecase,
+		agentGroupUsecase:        agentGroupUsecase,
+		agentNotificationUsecase: agentNotificationUsecase,
+		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
 	}
@@ -164,6 +168,11 @@ func (s *Service) OnMessage(
 	err = s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
+	}
+
+	err = s.agentNotificationUsecase.NotifyAgentUpdated(ctx, agent)
+	if err != nil {
+		logger.Error("failed to notify agent update", slog.String("error", err.Error()))
 	}
 
 	response, err := s.fetchServerToAgent(ctx, agent)

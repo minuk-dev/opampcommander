@@ -172,6 +172,9 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 	settings := config.ServerSettings{
 		Address:  fmt.Sprintf("0.0.0.0:%d", port),
 		ServerID: config.ServerID(serverID),
+		EventSettings: config.EventSettings{
+			ProtocolType: config.EventProtocolTypeInMemory,
+		},
 		DatabaseSettings: config.DatabaseSettings{
 			Type:           config.DatabaseTypeMongoDB,
 			Endpoints:      []string{mongoURI},

@@ -135,14 +135,10 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
-		mockServerMessage := new(MockServerMessageUsecase)
-		mockServerIdentity := new(MockServerIdentityProvider)
 		logger := slog.Default()
 
 		agentService := service.NewAgentService(
 			mockAgentPersistence,
-			mockServerMessage,
-			mockServerIdentity,
 			logger,
 		)
 
@@ -205,14 +201,10 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
-		mockServerMessage := new(MockServerMessageUsecase)
-		mockServerIdentity := new(MockServerIdentityProvider)
 		logger := slog.Default()
 
 		agentService := service.NewAgentService(
 			mockAgentPersistence,
-			mockServerMessage,
-			mockServerIdentity,
 			logger,
 		)
 
@@ -252,14 +244,10 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
-		mockServerMessage := new(MockServerMessageUsecase)
-		mockServerIdentity := new(MockServerIdentityProvider)
 		logger := slog.Default()
 
 		agentService := service.NewAgentService(
 			mockAgentPersistence,
-			mockServerMessage,
-			mockServerIdentity,
 			logger,
 		)
 
@@ -293,14 +281,10 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
-		mockServerMessage := new(MockServerMessageUsecase)
-		mockServerIdentity := new(MockServerIdentityProvider)
 		logger := slog.Default()
 
 		agentService := service.NewAgentService(
 			mockAgentPersistence,
-			mockServerMessage,
-			mockServerIdentity,
 			logger,
 		)
 
@@ -356,14 +340,10 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		ctx := context.Background()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
-		mockServerMessage := new(MockServerMessageUsecase)
-		mockServerIdentity := new(MockServerIdentityProvider)
 		logger := slog.Default()
 
 		agentService := service.NewAgentService(
 			mockAgentPersistence,
-			mockServerMessage,
-			mockServerIdentity,
 			logger,
 		)
 
