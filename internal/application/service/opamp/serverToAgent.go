@@ -17,7 +17,7 @@ import (
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
-func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
+func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) (*protobufs.ServerToAgent, error) {
 	var flags uint64
 
 	// Request ReportFullState if:
@@ -39,7 +39,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 			slog.String("instanceUID", instanceUID.String()),
 			slog.String("error", err.Error()))
 
-		return s.createFallbackServerToAgent(instanceUID)
+		return nil, fmt.Errorf("failed to build remote config: %w", err)
 	}
 
 	//exhaustruct:ignore
@@ -47,7 +47,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		InstanceUid:  instanceUID[:],
 		Flags:        flags,
 		RemoteConfig: remoteConfig,
-	}
+	}, nil
 }
 
 // buildRemoteConfig builds the remote configuration for the agent based on its agent groups.

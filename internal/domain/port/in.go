@@ -109,6 +109,8 @@ type ServerReceiverUsecase interface {
 type ConnectionUsecase interface {
 	// GetConnectionByInstanceUID returns the connection for the given instance UID.
 	GetConnectionByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Connection, error)
+	// GetOrCreateConnectionByID returns the connection for the given ID or creates a new one if it does not exist.
+	GetOrCreateConnectionByID(ctx context.Context, id any) (*model.Connection, error)
 	// GetConnectionByID returns the connection for the given ID.
 	GetConnectionByID(ctx context.Context, id any) (*model.Connection, error)
 	// ListConnections returns the list of connections.

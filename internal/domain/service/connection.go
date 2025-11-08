@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -25,19 +26,16 @@ const (
 type Service struct {
 	agentUsecase  port.AgentUsecase
 	logger        *slog.Logger
-	wsRegistry    port.WebSocketRegistry
 	connectionMap *xsync.MultiMap[*model.Connection]
 }
 
 // NewConnectionService creates a new instance of the Service struct.
 func NewConnectionService(
 	agentUsecase port.AgentUsecase,
-	wsRegistry port.WebSocketRegistry,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		agentUsecase:  agentUsecase,
-		wsRegistry:    wsRegistry,
 		logger:        logger,
 		connectionMap: xsync.NewMultiMap[*model.Connection](),
 	}
@@ -46,12 +44,6 @@ func NewConnectionService(
 // DeleteConnection implements port.ConnectionUsecase.
 func (s *Service) DeleteConnection(_ context.Context, connection *model.Connection) error {
 	connID := connection.IDString()
-
-	// Remove from WebSocket registry if it's a WebSocket connection
-	if connection.Type == model.ConnectionTypeWebSocket {
-		s.wsRegistry.Remove(connID)
-	}
-
 	s.connectionMap.Delete(connID)
 
 	return nil
@@ -67,6 +59,22 @@ func (s *Service) GetConnectionByID(_ context.Context, id any) (*model.Connectio
 	}
 
 	return conn, nil
+}
+
+// GetOrCreateConnectionByID implements port.ConnectionUsecase.
+func (s *Service) GetOrCreateConnectionByID(ctx context.Context, id any) (*model.Connection, error) {
+	connID := model.ConvertConnIDToString(id)
+
+	conn, ok := s.connectionMap.Load(connID)
+	if ok {
+		return conn, nil
+	}
+
+	connectionType := s.detectConnectionType(id)
+	// Create a new connection
+	newConn := model.NewConnection(id, connectionType)
+
+	return newConn, nil
 }
 
 // GetConnectionByInstanceUID implements port.ConnectionUsecase.
@@ -151,12 +159,7 @@ func (s *Service) SendServerToAgent(
 		return fmt.Errorf("failed to get connection for agent %s: %w", instanceUID, err)
 	}
 
-	if connection.Type != model.ConnectionTypeWebSocket {
-		return &NotSupportedConnectionTypeError{ConnectionType: connection.Type}
-	}
-
-	// Get the actual WebSocket connection from the registry
-	wsConn, ok := s.wsRegistry.GetByInstanceUID(instanceUID.String())
+	wsConn, ok := connection.ID.(types.Connection)
 	if !ok {
 		return &ConnectionNotFoundError{InstanceUID: instanceUID}
 	}
@@ -170,6 +173,34 @@ func (s *Service) SendServerToAgent(
 		slog.String("instanceUID", instanceUID.String()))
 
 	return nil
+}
+
+// detectConnectionType detects whether the connection is WebSocket or HTTP.
+// According to OpAMP spec, WebSocket connections support bidirectional communication
+// and can use the Send method, while HTTP connections are request-response only.
+func (s *Service) detectConnectionType(id any) model.ConnectionType {
+	conn, ok := id.(types.Connection) // only types.Connection supports Send method
+	if !ok {
+		return model.ConnectionTypeUnknown
+	}
+	// Try to send a nil message to detect if it's a WebSocket connection
+	// WebSocket will accept this (though we won't actually send anything),
+	// while HTTP will return an error
+	// Note: We don't actually want to send anything here, we just want to check the type
+	// A better approach is to check if the connection implements a WebSocket-specific interface
+	// For now, we'll assume it's WebSocket and let it be corrected later if needed
+
+	// Check the underlying connection type
+	// If the connection's remote address is set and it's persistent, it's likely WebSocket
+	netConn := conn.Connection()
+	if netConn != nil {
+		// WebSocket connections typically keep the connection open
+		// For now, we'll default to WebSocket since most OpAMP implementations use WebSocket
+		// This will be updated in OnMessage when we receive the first message
+		return model.ConnectionTypeWebSocket
+	}
+
+	return model.ConnectionTypeHTTP
 }
 
 // NotSupportedConnectionTypeError is returned when an operation is attempted.

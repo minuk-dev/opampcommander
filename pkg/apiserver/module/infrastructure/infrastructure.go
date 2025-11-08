@@ -19,7 +19,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
-	"github.com/minuk-dev/opampcommander/internal/infrastructure/websocket"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
@@ -36,14 +35,6 @@ func New() fx.Option {
 
 		// Messaging (NATS or in-memory)
 		provideMessagingComponents(),
-
-		// WebSocket Registry
-		fx.Provide(
-			fx.Annotate(
-				websocket.NewRegistry,
-				fx.As(new(port.WebSocketRegistry)),
-			),
-		),
 	)
 }
 

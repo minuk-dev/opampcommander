@@ -643,3 +643,12 @@ func (r *RemoteConfig) IsManaged() bool {
 func (r *RemoteConfig) updateLastModifiedAt() {
 	r.LastModifiedAt = time.Now()
 }
+
+func (a *Agent) UpdateLastCommunicationInfo(
+	connectionType ConnectionType,
+	now time.Time,
+) {
+	a.Status.LastConnectionType = connectionType
+	a.Status.Connected = true
+	a.Status.LastReportedAt = now
+}

@@ -12,6 +12,7 @@ import (
 	"github.com/open-telemetry/opamp-go/server/types"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -29,12 +30,11 @@ type Service struct {
 	commandUsecase    domainport.CommandUsecase
 	serverUsecase     domainport.ServerUsecase
 	agentGroupUsecase domainport.AgentGroupUsecase
-	wsRegistry        domainport.WebSocketRegistry
 
-	backgroundLoopCh chan backgroundCallbackFn
+	closedConnectionCh chan types.Connection
 
 	connectionUsecase        domainport.ConnectionUsecase
-	OnConnectionCloseTimeout time.Duration
+	onConnectionCloseTimeout time.Duration
 }
 
 type backgroundCallbackFn func(context.Context)
@@ -46,21 +46,19 @@ func New(
 	connectionUsecase domainport.ConnectionUsecase,
 	serverUsecase domainport.ServerUsecase,
 	agentGroupUsecase domainport.AgentGroupUsecase,
-	wsRegistry domainport.WebSocketRegistry,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		clock:             clock.NewRealClock(),
-		logger:            logger,
-		agentUsecase:      agentUsecase,
-		commandUsecase:    commandUsecase,
-		connectionUsecase: connectionUsecase,
-		serverUsecase:     serverUsecase,
-		agentGroupUsecase: agentGroupUsecase,
-		wsRegistry:        wsRegistry,
-		backgroundLoopCh:  make(chan backgroundCallbackFn),
+		clock:              clock.NewRealClock(),
+		logger:             logger,
+		agentUsecase:       agentUsecase,
+		commandUsecase:     commandUsecase,
+		connectionUsecase:  connectionUsecase,
+		serverUsecase:      serverUsecase,
+		agentGroupUsecase:  agentGroupUsecase,
+		closedConnectionCh: make(chan types.Connection, 1), // buffered channel
 
-		OnConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
+		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
 	}
 }
 
@@ -77,8 +75,14 @@ func (s *Service) Run(ctx context.Context) error {
 			s.logger.Info("context done, exiting service loop")
 
 			return fmt.Errorf("service loop exited: %w", ctx.Err())
-		case action := <-s.backgroundLoopCh:
-			action(ctx)
+		case conn := <-s.closedConnectionCh:
+			bgCtx, cancel := context.WithTimeout(context.Background(), s.onConnectionCloseTimeout)
+			defer cancel()
+
+			err := s.cleanUpConnection(bgCtx, conn)
+			if err != nil {
+				s.logger.Error("failed to clean up connection", slog.String("error", err.Error()))
+			}
 		}
 	}
 }
@@ -88,41 +92,31 @@ func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	logger := s.logger.With(slog.String("method", "OnConnected"), slog.String("remoteAddr", remoteAddr))
 
-	// Detect connection type by checking if it's a WebSocket connection
-	// WebSocket connections support the Send method, while HTTP connections don't
-	connType := s.detectConnectionType(conn)
-
-	connection := model.NewConnection(conn, connType)
-	connID := connection.IDString()
-
-	// For WebSocket connections, register in the WebSocket registry
-	if connType == model.ConnectionTypeWebSocket {
-		wsConn := s.wrapOpAMPConnection(conn)
-		s.wsRegistry.Register(connID, wsConn)
+	logger.Info("start")
+	connection, err := s.connectionUsecase.GetOrCreateConnectionByID(ctx, conn)
+	if err != nil {
+		logger.Error("failed to get or create connection", slog.String("error", err.Error()))
+		return
 	}
 
-	err := s.connectionUsecase.SaveConnection(ctx, connection)
+	err = s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
 		logger.Error("failed to save connection", slog.String("error", err.Error()))
+		return
 	}
-
-	logger.Info("end", slog.String("connectionType", s.connectionTypeString(connType)))
-}
-
-// opampConnectionAdapter adapts OpAMP's Connection to our WebSocketConnection interface.
-type opampConnectionAdapter struct {
-	conn types.Connection
-}
-
-func (a *opampConnectionAdapter) Send(ctx context.Context, message *protobufs.ServerToAgent) error {
-	return a.conn.Send(ctx, message) //nolint:wrapcheck // adapter pattern
-}
-
-func (a *opampConnectionAdapter) Close() error {
-	return a.conn.Disconnect() //nolint:wrapcheck // adapter pattern
+	logger.Info("end successfully")
 }
 
 // OnMessage implements port.OpAMPUsecase.
+// [1] find domainmodel.Connection by types.Connection
+// [1-1] if not found, unexpected case because all connections should be created when OnConnected is called.
+// so, leave error log and skip connection processing.
+// [2] find domainmodel.Agent by instanceUID in message
+// [2-1] if not found, this is the first time the agent connects, so create a new agent with default values.
+// [3] process the message and update agent state accordingly
+// [4] save the updated agent
+// [5] fetch ServerToAgent message to send back to the agent
+// [6] return the ServerToAgent message
 func (s *Service) OnMessage(
 	ctx context.Context,
 	conn types.Connection,
@@ -136,60 +130,35 @@ func (s *Service) OnMessage(
 		slog.String("remoteAddr", remoteAddr),
 		slog.String("instanceUID", instanceUID.String()),
 	)
+	logger.Info("start")
 	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 
 	// Even if the connection is not found, we should still process the message
 	if err != nil {
 		logger.Error("failed to get connection", slog.String("error", err.Error()))
-
-		connType := s.detectConnectionType(conn)
-
-		connection = model.NewConnection(conn, connType)
-		if connType == model.ConnectionTypeWebSocket {
-			connID := connection.IDString()
-			wsConn := s.wrapOpAMPConnection(conn)
-			s.wsRegistry.Register(connID, wsConn)
-		}
 	}
 
-	connection.InstanceUID = instanceUID
-	connID := connection.IDString()
-
-	// Update connection type to WebSocket if we're processing a message
-	// (HTTP connections would not repeatedly call OnMessage)
-	if connection.Type == model.ConnectionTypeUnknown {
-		connection.Type = model.ConnectionTypeWebSocket
-		wsConn := s.wrapOpAMPConnection(conn)
-		s.wsRegistry.Register(connID, wsConn)
-	}
-
-	// Update the instance UID mapping in the registry for WebSocket connections
-	if connection.Type == model.ConnectionTypeWebSocket {
-		s.wsRegistry.UpdateInstanceUID(connID, instanceUID.String())
-	}
-
+	connection.SetInstanceUID(instanceUID)
 	err = s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
-		logger.Error("failed to save connection", slog.String("error", err.Error()))
+		logger.Error("failed to save connection with instanceUID", slog.String("error", err.Error()))
 	}
-
-	logger.Info("start")
-
-	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, instanceUID)
-	if err != nil {
-		logger.Error("failed to get agent", slog.String("error", err.Error()))
-
-		return s.createFallbackServerToAgent(instanceUID)
-	}
-
-	// Update agent connection status
-	agent.Status.LastConnectionType = connection.Type
-	agent.Status.Connected = true
 
 	currentServer, err := s.serverUsecase.CurrentServer(ctx)
 	if err != nil {
 		logger.Warn("failed to get current server", slog.String("error", err.Error()))
 	}
+
+	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, instanceUID)
+	if err != nil {
+		logger.Error("failed to get agent", slog.String("error", err.Error()))
+
+		// whan the agent cannot be retrieved, return a fallback ServerToAgent message
+		return s.createFallbackServerToAgent(instanceUID)
+	}
+
+	// Update agent connection status
+	agent.UpdateLastCommunicationInfo(connection.Type, s.clock.Now())
 
 	err = s.report(agent, message, currentServer)
 	if err != nil {
@@ -201,8 +170,13 @@ func (s *Service) OnMessage(
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
 	}
 
-	response := s.fetchServerToAgent(ctx, agent)
+	response, err := s.fetchServerToAgent(ctx, agent)
+	if err != nil {
+		logger.Error("failed to fetch ServerToAgent message", slog.String("error", err.Error()))
 
+		// whan the ServerToAgent message cannot be created, return a fallback ServerToAgent message
+		return s.createFallbackServerToAgent(instanceUID)
+	}
 	logger.Info("end successfully")
 
 	return response
@@ -245,66 +219,9 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
 	logger.Info("start")
-
-	backgroundFn := func(ctx context.Context) {
-		logger.Info("start")
-
-		connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
-		if err != nil {
-			logger.Error("failed to get connection", slog.String("error", err.Error()))
-
-			return
-		}
-
-		// Update agent connection status to disconnected
-		if !connection.IsAnonymous() {
-			agent, err := s.agentUsecase.GetAgent(ctx, connection.InstanceUID)
-			if err != nil {
-				logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
-			} else {
-				agent.Status.Connected = false
-
-				err = s.agentUsecase.SaveAgent(ctx, agent)
-				if err != nil {
-					logger.Error("failed to save agent connection status", slog.String("error", err.Error()))
-				}
-			}
-		}
-
-		err = s.connectionUsecase.DeleteConnection(ctx, connection)
-		if err != nil {
-			logger.Error("failed to delete connection", slog.String("error", err.Error()))
-
-			return
-		}
-	}
-	s.backgroundLoopCh <- backgroundFn
+	s.closedConnectionCh <- conn
 
 	logger.Info("end")
-}
-
-// detectConnectionType detects whether the connection is WebSocket or HTTP.
-// According to OpAMP spec, WebSocket connections support bidirectional communication
-// and can use the Send method, while HTTP connections are request-response only.
-func (s *Service) detectConnectionType(conn types.Connection) model.ConnectionType {
-	// Try to send a nil message to detect if it's a WebSocket connection
-	// WebSocket will accept this (though we won't actually send anything),
-	// while HTTP will return an error
-	// Note: We don't actually want to send anything here, we just want to check the type
-	// A better approach is to check if the connection implements a WebSocket-specific interface
-	// For now, we'll assume it's WebSocket and let it be corrected later if needed
-
-	// Check the underlying connection type
-	// If the connection's remote address is set and it's persistent, it's likely WebSocket
-	netConn := conn.Connection()
-	if netConn != nil {
-		// WebSocket connections typically keep the connection open
-		// For now, we'll default to WebSocket since most OpAMP implementations use WebSocket
-		// This will be updated in OnMessage when we receive the first message
-		return model.ConnectionTypeWebSocket
-	}
-
-	return model.ConnectionTypeHTTP
 }
 
 // connectionTypeString returns a string representation of the connection type.
@@ -321,7 +238,91 @@ func (s *Service) connectionTypeString(connType model.ConnectionType) string {
 	}
 }
 
-// wrapOpAMPConnection wraps an OpAMP connection into our WebSocketConnection interface.
-func (s *Service) wrapOpAMPConnection(conn types.Connection) domainport.WebSocketConnection {
-	return &opampConnectionAdapter{conn: conn}
+func (s *Service) report(
+	agent *model.Agent,
+	agentToServer *protobufs.AgentToServer,
+	by *model.Server,
+) error {
+	// Update communication info
+	agent.RecordLastReported(by, s.clock.Now())
+
+	err := agent.ReportDescription(descToDomain(agentToServer.GetAgentDescription()))
+	if err != nil {
+		return fmt.Errorf("failed to report description: %w", err)
+	}
+
+	err = agent.ReportComponentHealth(healthToDomain(agentToServer.GetHealth()))
+	if err != nil {
+		return fmt.Errorf("failed to report component health: %w", err)
+	}
+
+	capabilities := agentToServer.GetCapabilities()
+
+	err = agent.ReportCapabilities((*agentmodel.Capabilities)(&capabilities))
+	if err != nil {
+		return fmt.Errorf("failed to report capabilities: %w", err)
+	}
+
+	err = agent.ReportEffectiveConfig(effectiveConfigToDomain(agentToServer.GetEffectiveConfig()))
+	if err != nil {
+		return fmt.Errorf("failed to report effective config: %w", err)
+	}
+
+	err = agent.ReportRemoteConfigStatus(remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus()))
+	if err != nil {
+		return fmt.Errorf("failed to report remote config status: %w", err)
+	}
+
+	err = agent.ReportPackageStatuses(packageStatusToDomain(agentToServer.GetPackageStatuses()))
+	if err != nil {
+		return fmt.Errorf("failed to report package statuses: %w", err)
+	}
+
+	err = agent.ReportCustomCapabilities(customCapabilitiesToDomain(agentToServer.GetCustomCapabilities()))
+	if err != nil {
+		return fmt.Errorf("failed to report custom capabilities: %w", err)
+	}
+
+	err = agent.ReportAvailableComponents(availableComponentsToDomain(agentToServer.GetAvailableComponents()))
+	if err != nil {
+		return fmt.Errorf("failed to report available components: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) error {
+	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("failed to get connection by ID: %w", err)
+	}
+	logger := s.logger.With(
+		slog.String("method", "cleanUpConnection"),
+		slog.String("connectionID", connection.IDString()),
+	)
+	logger.Info("start cleaning up connection")
+
+	// Update agent connection status to disconnected
+	if !connection.IsAnonymous() {
+		agent, err := s.agentUsecase.GetAgent(ctx, connection.InstanceUID)
+		if err != nil {
+			logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
+			// even if getting agent fails, proceed to delete the connection
+		} else {
+			agent.Status.Connected = false
+
+			err = s.agentUsecase.SaveAgent(ctx, agent)
+			if err != nil {
+				logger.Error("failed to save agent connection status", slog.String("error", err.Error()))
+				// even if saving fails, proceed to delete the connection
+			}
+		}
+	}
+
+	err = s.connectionUsecase.DeleteConnection(ctx, connection)
+	if err != nil {
+		return fmt.Errorf("failed to delete connection: %w", err)
+	}
+
+	return nil
 }
