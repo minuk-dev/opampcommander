@@ -47,6 +47,7 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 			slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
 			slog.String("error", err.Error()),
 		)
+
 		return nil
 	}
 
