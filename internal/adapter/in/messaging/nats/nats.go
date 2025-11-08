@@ -106,7 +106,7 @@ func (e *EventSenderAdapter) ReceiveMessageFromServer(ctx context.Context) (*ser
 
 	message := &serverevent.Message{
 		Source:  event.Source(),
-		Target:  "", // TODO: set target if needed
+		Target:  "",
 		Type:    messageType,
 		Payload: payload,
 	}

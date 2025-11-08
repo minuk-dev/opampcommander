@@ -9,6 +9,7 @@ import (
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 const (
@@ -65,10 +66,12 @@ type AgentCommands struct {
 
 // AgentCommand represents a command to be sent to an agent.
 type AgentCommand struct {
-	CommandID       uuid.UUID     `bson:"commandId"`
-	ReportFullState bool          `bson:"reportFullState"`
-	CreatedAt       bson.DateTime `bson:"createdAt"`
-	CreatedBy       string        `bson:"createdBy"`
+	CommandID               uuid.UUID     `bson:"commandId"`
+	ReportFullState         bool          `bson:"reportFullState"`
+	RemoteConfigUpdated     bool          `bson:"remoteConfigUpdated"`
+	RemoteConfigUpdatedHash bson.Binary   `bson:"remoteConfigUpdatedHash"`
+	CreatedAt               bson.DateTime `bson:"createdAt"`
+	CreatedBy               string        `bson:"createdBy"`
 }
 
 // AgentDescription is a struct to manage agent description.
@@ -274,10 +277,12 @@ func (ac *AgentCommands) ToDomain() domainmodel.AgentCommands {
 	commands := make([]domainmodel.AgentCommand, 0, len(ac.Commands))
 	for _, cmd := range ac.Commands {
 		commands = append(commands, domainmodel.AgentCommand{
-			CommandID:       cmd.CommandID,
-			ReportFullState: cmd.ReportFullState,
-			CreatedAt:       cmd.CreatedAt.Time(),
-			CreatedBy:       cmd.CreatedBy,
+			CommandID:               cmd.CommandID,
+			ReportFullState:         cmd.ReportFullState,
+			RemoteConfigUpdated:     cmd.RemoteConfigUpdated,
+			RemoteConfigUpdatedHash: vo.Hash(cmd.RemoteConfigUpdatedHash.Data),
+			CreatedAt:               cmd.CreatedAt.Time(),
+			CreatedBy:               cmd.CreatedBy,
 		})
 	}
 
@@ -468,10 +473,15 @@ func AgentCommandsFromDomain(domain *domainmodel.AgentCommands) AgentCommands {
 	commands := make([]AgentCommand, 0, len(domain.Commands))
 	for _, cmd := range domain.Commands {
 		commands = append(commands, AgentCommand{
-			CommandID:       cmd.CommandID,
-			ReportFullState: cmd.ReportFullState,
-			CreatedAt:       bson.NewDateTimeFromTime(cmd.CreatedAt),
-			CreatedBy:       cmd.CreatedBy,
+			CommandID:           cmd.CommandID,
+			ReportFullState:     cmd.ReportFullState,
+			RemoteConfigUpdated: cmd.RemoteConfigUpdated,
+			RemoteConfigUpdatedHash: bson.Binary{
+				Subtype: bson.TypeBinaryGeneric,
+				Data:    cmd.RemoteConfigUpdatedHash.Bytes(),
+			},
+			CreatedAt: bson.NewDateTimeFromTime(cmd.CreatedAt),
+			CreatedBy: cmd.CreatedBy,
 		})
 	}
 

@@ -263,6 +263,7 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 				logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
 			} else {
 				agent.Status.Connected = false
+
 				err = s.agentUsecase.SaveAgent(ctx, agent)
 				if err != nil {
 					logger.Error("failed to save agent connection status", slog.String("error", err.Error()))

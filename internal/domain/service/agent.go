@@ -97,7 +97,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 
 		err = s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
 			Source: currentServer.ID,
-			Target: server.ID, // TODO: second parameter is already server.ID
+			Target: server.ID,
 			Type:   serverevent.MessageTypeSendServerToAgent,
 			Payload: serverevent.MessagePayload{
 				MessageForServerToAgent: &serverevent.MessageForServerToAgent{

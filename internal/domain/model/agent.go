@@ -52,8 +52,10 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
-			LastReportedAt: time.Time{},
-			LastReportedTo: nil,
+			LastConnectionType: ConnectionTypeUnknown,
+			Connected:          false,
+			LastReportedAt:     time.Time{},
+			LastReportedTo:     nil,
 		},
 		Commands: AgentCommands{
 			Commands: []AgentCommand{},
@@ -69,7 +71,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 }
 
 // IsConnected checks if the agent is currently connected.
-func (a *Agent) IsConnected(ctx context.Context) bool {
+func (a *Agent) IsConnected(_ context.Context) bool {
 	return !a.Status.LastReportedAt.IsZero()
 }
 
@@ -78,7 +80,7 @@ func (a *Agent) HasPendingServerMessages() bool {
 	return len(a.Commands.Commands) > 0
 }
 
-// ConnectedServer returns the server the agent is currently connected to.
+// ConnectedServerID returns the server the agent is currently connected to.
 func (a *Agent) ConnectedServerID() (*Server, error) {
 	return a.Status.LastReportedTo, nil
 }
@@ -225,10 +227,12 @@ func (ac *AgentCommands) Clear() []AgentCommand {
 // SendReportFullState adds a ReportFullState command to the commands list.
 func (ac *AgentCommands) SendReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
 	ac.Commands = append(ac.Commands, AgentCommand{
-		CommandID:       uuid.New(),
-		ReportFullState: reportFullState,
-		CreatedAt:       requestedAt,
-		CreatedBy:       requestedBy,
+		CommandID:               uuid.New(),
+		ReportFullState:         reportFullState,
+		RemoteConfigUpdated:     false,
+		RemoteConfigUpdatedHash: vo.Hash{},
+		CreatedAt:               requestedAt,
+		CreatedBy:               requestedBy,
 	})
 }
 
@@ -236,6 +240,7 @@ func (ac *AgentCommands) SendReportFullState(reportFullState bool, requestedAt t
 func (ac *AgentCommands) SendRemoteConfigUpdated(configHash vo.Hash, requestedAt time.Time, requestedBy string) {
 	ac.Commands = append(ac.Commands, AgentCommand{
 		CommandID:               uuid.New(),
+		ReportFullState:         false,
 		RemoteConfigUpdated:     true,
 		RemoteConfigUpdatedHash: configHash,
 		CreatedAt:               requestedAt,
@@ -527,10 +532,14 @@ type RemoteConfigStatus int32
 // RemoteConfigStatus constants
 // To manage simply, we use opamp-go's protobufs' value.
 const (
-	RemoteConfigStatusUnset    RemoteConfigStatus = RemoteConfigStatus(int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_UNSET))
-	RemoteConfigStatusApplied  RemoteConfigStatus = RemoteConfigStatus(int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED))
-	RemoteConfigStatusApplying RemoteConfigStatus = RemoteConfigStatus(int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING))
-	RemoteConfigStatusFailed   RemoteConfigStatus = RemoteConfigStatus(int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
+	RemoteConfigStatusUnset RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_UNSET))
+	RemoteConfigStatusApplied RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED))
+	RemoteConfigStatusApplying RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING))
+	RemoteConfigStatusFailed RemoteConfigStatus = RemoteConfigStatus(
+		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
 )
 
 // String returns the string representation of the status.
@@ -553,7 +562,10 @@ func (s RemoteConfigStatus) String() string {
 func NewRemoteConfig() RemoteConfig {
 	return RemoteConfig{
 		ConfigData: RemoteConfigData{
-			Status: RemoteConfigStatusUnset,
+			Key:           vo.Hash{},
+			Status:        RemoteConfigStatusUnset,
+			Config:        []byte{},
+			LastUpdatedAt: time.Time{},
 		},
 		LastErrorMessage: "",
 		LastModifiedAt:   time.Now(),
