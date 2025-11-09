@@ -89,11 +89,8 @@ func provideMessagingComponents() fx.Option {
 		// Provide the appropriate event sender/receiver adapters
 		fx.Provide(
 			fx.Annotate(
-				NewEventSenderAdapter,
+				NewEventhubAdapter,
 				fx.As(new(port.ServerEventSenderPort)),
-			),
-			fx.Annotate(
-				NewEventReceiverAdapter,
 				fx.As(new(port.ServerEventReceiverPort)),
 			),
 		),

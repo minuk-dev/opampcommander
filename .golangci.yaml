@@ -93,6 +93,7 @@ linters:
             - github.com/prometheus/client_golang/prometheus
             - go.opentelemetry.io/contrib/instrumentation/runtime
             - go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
+            - github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code

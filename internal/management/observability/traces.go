@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -73,6 +74,11 @@ func newTraceProvider(
 
 		return nil
 	})
+
+	//nolint:godox
+	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
+	// https://github.com/cloudevents/sdk-go/pull/1202
+	otel.SetTracerProvider(traceProvider)
 
 	return traceProvider, nil
 }

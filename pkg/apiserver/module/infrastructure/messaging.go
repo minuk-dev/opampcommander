@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -37,12 +38,13 @@ func (e *UnsupportedEventProtocolError) Error() string {
 	return "unsupported event protocol type: " + e.ProtocolType
 }
 
-// NewEventSenderAdapter creates the appropriate event sender adapter based on configuration.
+// NewEventhubAdapter creates the appropriate event sender adapter based on configuration.
 // Returns inmemory adapter for standalone mode, or NATS adapter for distributed mode.
 //
 //nolint:ireturn // Factory function that returns different implementations based on config.
-func NewEventSenderAdapter(
+func NewEventhubAdapter(
 	settings *config.EventSettings,
+	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 ) (port.ServerEventSenderPort, error) {
 	switch settings.ProtocolType {
@@ -60,42 +62,15 @@ func NewEventSenderAdapter(
 		}
 
 		// Use NATS adapter when events are enabled
-		return natsadapter.NewEventSenderAdapter(sender, receiver), nil
-	case config.EventProtocolTypeInMemory:
-		// Unknown protocol type, fall back to in-memory adapter
-		return inmemory.NewEventHubAdapter(), nil
-	default:
-		return nil, &UnsupportedEventProtocolError{ProtocolType: settings.ProtocolType.String()}
-	}
-}
-
-// NewEventReceiverAdapter creates the appropriate event receiver adapter based on configuration.
-// Returns inmemory adapter for standalone mode, or NATS adapter for distributed mode.
-//
-//nolint:ireturn // Factory function that returns different implementations based on config.
-func NewEventReceiverAdapter(
-	settings *config.EventSettings,
-	lifecycle fx.Lifecycle,
-) (port.ServerEventReceiverPort, error) {
-	switch settings.ProtocolType {
-	case config.EventProtocolTypeNATS:
-		// Create NATS sender
-		sender, err := createNATSSender(settings, lifecycle)
+		adapter, err := natsadapter.NewEventSenderAdapter(sender, receiver, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create NATS sender: %w", err)
+			return nil, fmt.Errorf("failed to create NATS event sender adapter: %w", err)
 		}
 
-		// Create NATS receiver
-		receiver, err := createNATSReceiver(settings, lifecycle)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create NATS receiver: %w", err)
-		}
-
-		// Use NATS adapter when events are enabled
-		return natsadapter.NewEventSenderAdapter(sender, receiver), nil
+		return adapter, nil
 	case config.EventProtocolTypeInMemory:
-		// Use in-memory adapter when events are disabled
-		return inmemory.NewEventHubAdapter(), nil
+		// Use in-memory adapter for standalone mode
+		return inmemory.NewEventHubAdapter(logger), nil
 	default:
 		return nil, &UnsupportedEventProtocolError{ProtocolType: settings.ProtocolType.String()}
 	}

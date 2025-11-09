@@ -4,10 +4,13 @@ package nats
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
+	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
 	cenats "github.com/cloudevents/sdk-go/protocol/nats/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/cloudevents/sdk-go/v2/client"
+	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
@@ -32,22 +35,44 @@ var (
 
 // EventSenderAdapter implements port.ServerEventSenderPort using NATS CloudEvents sender.
 type EventSenderAdapter struct {
-	sender   *cenats.Sender
-	receiver *cenats.Consumer
+	sender   cloudevents.Client
+	receiver cloudevents.Client
+	logger   *slog.Logger
 	clock    clock.Clock
 }
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	sender *cenats.Sender,
-	receiver *cenats.Consumer,
-) *EventSenderAdapter {
+	natsSender *cenats.Sender,
+	natsReceiver *cenats.Consumer,
+	logger *slog.Logger,
+) (*EventSenderAdapter, error) {
+	//nolint:godox
+	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
+	// https://github.com/cloudevents/sdk-go/pull/1202
+	otelService := observabilityClient.NewOTelObservabilityService()
+
+	var opts []client.Option
+
+	opts = append(opts, client.WithObservabilityService(otelService))
+
+	sender, err := cloudevents.NewClient(natsSender, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
+	}
+
+	receiver, err := cloudevents.NewClient(natsReceiver, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CloudEvents client for receiver: %w", err)
+	}
+
 	// sender can be nil when events are disabled
 	return &EventSenderAdapter{
 		sender:   sender,
 		receiver: receiver,
+		logger:   logger,
 		clock:    clock.NewRealClock(),
-	}
+	}, nil
 }
 
 // SendMessageToServer implements port.ServerEventSenderPort.
@@ -71,7 +96,7 @@ func (e *EventSenderAdapter) SendMessageToServer(
 		return fmt.Errorf("failed to set event data for server %s: %w", serverID, err)
 	}
 
-	err = e.sender.Send(ctx, binding.ToMessage(&event))
+	err = e.sender.Send(ctx, event)
 	if err != nil {
 		return fmt.Errorf("failed to send message to server %s: %w", serverID, err)
 	}
@@ -79,39 +104,56 @@ func (e *EventSenderAdapter) SendMessageToServer(
 	return nil
 }
 
-// ReceiveMessageFromServer receives a message from a server.
-// This method can block until a message is available or the context is cancelled.
-func (e *EventSenderAdapter) ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error) {
-	msg, err := e.receiver.Receive(ctx)
+// StartReceiver implements port.ServerEventReceiverPort.
+func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.ReceiveServerEventHandler) error {
+	err := e.receiver.StartReceiver(ctx, func(ctx context.Context, event event.Event) {
+		var payload serverevent.MessagePayload
+
+		err := event.DataAs(&payload)
+		if err != nil {
+			e.logger.Warn("failed to parse event data",
+				slog.String("eventID", event.ID()),
+				slog.String("eventType", event.Type()),
+				slog.String("error", err.Error()),
+			)
+
+			return
+		}
+
+		messageType, err := messageTypeFromEventType(event.Type())
+		if err != nil {
+			e.logger.Warn("unknown event type",
+				slog.String("eventID", event.ID()),
+				slog.String("eventType", event.Type()),
+				slog.String("error", err.Error()),
+			)
+
+			return
+		}
+
+		message := &serverevent.Message{
+			Source:  event.Source(),
+			Target:  "",
+			Type:    messageType,
+			Payload: payload,
+		}
+
+		err = handler(ctx, message)
+		if err != nil {
+			e.logger.Warn("failed to handle received message",
+				slog.String("eventID", event.ID()),
+				slog.String("eventType", event.Type()),
+				slog.String("error", err.Error()),
+			)
+
+			return
+		}
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to receive message from server: %w", err)
+		return fmt.Errorf("failed to start receiver: %w", err)
 	}
 
-	event, err := binding.ToEvent(ctx, msg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert message to event: %w", err)
-	}
-
-	var payload serverevent.MessagePayload
-
-	err = event.DataAs(&payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract event data: %w", err)
-	}
-
-	messageType, err := messsageTypeFromEventType(event.Type())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get message type from event type: %w", err)
-	}
-
-	message := &serverevent.Message{
-		Source:  event.Source(),
-		Target:  "",
-		Type:    messageType,
-		Payload: payload,
-	}
-
-	return message, nil
+	return nil
 }
 
 func newSource(serverID string) string {
@@ -127,7 +169,7 @@ func eventTypeFromMessageType(messageType serverevent.MessageType) string {
 	}
 }
 
-func messsageTypeFromEventType(eventType string) (serverevent.MessageType, error) {
+func messageTypeFromEventType(eventType string) (serverevent.MessageType, error) {
 	switch eventType {
 	case sendToAgentEventType:
 		return serverevent.MessageTypeSendServerToAgent, nil

@@ -4,6 +4,7 @@ package inmemory
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -19,12 +20,16 @@ var (
 // This adapter is used when event communication is disabled for standalone server mode.
 type EventSenderAdapter struct {
 	messageCh chan *serverevent.Message
+	logger    *slog.Logger
 }
 
 // NewEventHubAdapter creates a new EventSenderAdapter.
-func NewEventHubAdapter() *EventSenderAdapter {
+func NewEventHubAdapter(
+	logger *slog.Logger,
+) *EventSenderAdapter {
 	return &EventSenderAdapter{
 		messageCh: make(chan *serverevent.Message, 1),
+		logger:    logger,
 	}
 }
 
@@ -45,13 +50,20 @@ func (e *EventSenderAdapter) SendMessageToServer(
 	}
 }
 
-// ReceiveMessageFromServer implements port.ServerEventReceiverPort.
-// In standalone mode, this blocks forever as there are no messages to receive.
-func (e *EventSenderAdapter) ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error) {
-	select {
-	case msg := <-e.messageCh:
-		return msg, nil
-	case <-ctx.Done():
-		return nil, fmt.Errorf("context cancelled: %w", ctx.Err())
+// StartReceiver implements port.ServerEventReceiverPort.
+func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.ReceiveServerEventHandler) error {
+	for {
+		select {
+		case msg := <-e.messageCh:
+			err := handler(ctx, msg)
+			if err != nil {
+				e.logger.Warn("failed to handle received message",
+					slog.String("messageType", msg.Type.String()),
+					slog.String("error", err.Error()),
+				)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
+		}
 	}
 }

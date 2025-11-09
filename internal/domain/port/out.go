@@ -33,10 +33,14 @@ type ServerEventSenderPort interface {
 	SendMessageToServer(ctx context.Context, serverID string, message serverevent.Message) error
 }
 
+// ReceiveServerEventHandler is a function type for handling received server events.
+type ReceiveServerEventHandler func(ctx context.Context, message *serverevent.Message) error
+
 // ServerEventReceiverPort is an interface that defines the methods for receiving events from servers.
 type ServerEventReceiverPort interface {
-	// ReceiveMessageFromServer receives a message from a server.
-	ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error)
+	// StartReceiver starts receiving messages from servers using the provided handler.
+	// It's a blocking call.
+	StartReceiver(ctx context.Context, handler ReceiveServerEventHandler) error
 }
 
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.
