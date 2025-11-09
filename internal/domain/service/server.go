@@ -263,24 +263,17 @@ func (s *ServerService) loopForHeartbeat(ctx context.Context) error {
 }
 
 func (s *ServerService) loopForReceivingMessages(ctx context.Context) error {
-	for {
-		serverEvent, err := s.serverEventReceiverPort.ReceiveMessageFromServer(ctx)
-		if errors.Is(err, context.Canceled) {
-			return fmt.Errorf("context cancelled: %w", ctx.Err())
-		} else if err != nil {
-			s.logger.Error("failed to receive message from server", slog.String("error", err.Error()))
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-			continue
-		}
-
-		// Handle the received server event
-		err = s.handleServerEvent(ctx, serverEvent)
-		if err != nil {
-			s.logger.Error("failed to handle server event",
-				slog.String("error", err.Error()),
-				slog.String("eventType", serverEvent.Type.String()))
-		}
+	// StartReceiver is a blocking call.
+	// So, we don't need a loop here.
+	err := s.serverEventReceiverPort.StartReceiver(ctx, s.handleServerEvent)
+	if err != nil {
+		return fmt.Errorf("failed to start server event receiver: %w", err)
 	}
+
+	return nil
 }
 
 // handleServerEvent processes a received server event and takes appropriate action.

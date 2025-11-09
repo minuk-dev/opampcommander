@@ -10,8 +10,7 @@ import (
 )
 
 var (
-	_ port.ServerEventSenderPort   = (*EventSenderAdapter)(nil)
-	_ port.ServerEventReceiverPort = (*EventSenderAdapter)(nil)
+	_ port.ServerEventSenderPort = (*EventSenderAdapter)(nil)
 )
 
 // EventSenderAdapter implements port.ServerEventSenderPort and port.ServerEventReceiverPort
@@ -45,13 +44,17 @@ func (e *EventSenderAdapter) SendMessageToServer(
 	}
 }
 
-// ReceiveMessageFromServer implements port.ServerEventReceiverPort.
-// In standalone mode, this blocks forever as there are no messages to receive.
-func (e *EventSenderAdapter) ReceiveMessageFromServer(ctx context.Context) (*serverevent.Message, error) {
-	select {
-	case msg := <-e.messageCh:
-		return msg, nil
-	case <-ctx.Done():
-		return nil, fmt.Errorf("context cancelled: %w", ctx.Err())
+// StartReceiver implements port.ServerEventReceiverPort.
+func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.ReceiveServerEventHandler) error {
+	for {
+		select {
+		case msg := <-e.messageCh:
+			err := handler(ctx, msg)
+			if err != nil {
+				return fmt.Errorf("failed to handle received message: %w", err)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("context cancelled: %w", ctx.Err())
+		}
 	}
 }
