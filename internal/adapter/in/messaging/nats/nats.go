@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 
+	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
 	cenats "github.com/cloudevents/sdk-go/protocol/nats/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/client"
 	"github.com/cloudevents/sdk-go/v2/event"
 	"github.com/google/uuid"
 
@@ -45,12 +47,18 @@ func NewEventSenderAdapter(
 	natsReceiver *cenats.Consumer,
 	logger *slog.Logger,
 ) (*EventSenderAdapter, error) {
-	sender, err := cloudevents.NewClient(natsSedner)
+	otelService := observabilityClient.NewOTelObservabilityService()
+
+	var opts []client.Option
+
+	opts = append(opts, client.WithObservabilityService(otelService))
+
+	sender, err := cloudevents.NewClient(natsSedner, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
 	}
 
-	receiver, err := cloudevents.NewClient(natsReceiver)
+	receiver, err := cloudevents.NewClient(natsReceiver, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for receiver: %w", err)
 	}
