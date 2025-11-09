@@ -47,6 +47,9 @@ func NewEventSenderAdapter(
 	natsReceiver *cenats.Consumer,
 	logger *slog.Logger,
 ) (*EventSenderAdapter, error) {
+	//nolint:godox
+	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
+	// https://github.com/cloudevents/sdk-go/pull/1202
 	otelService := observabilityClient.NewOTelObservabilityService()
 
 	var opts []client.Option
