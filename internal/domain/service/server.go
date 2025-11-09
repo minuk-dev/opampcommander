@@ -263,9 +263,6 @@ func (s *ServerService) loopForHeartbeat(ctx context.Context) error {
 }
 
 func (s *ServerService) loopForReceivingMessages(ctx context.Context) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	// StartReceiver is a blocking call.
 	// So, we don't need a loop here.
 	err := s.serverEventReceiverPort.StartReceiver(ctx, s.handleServerEvent)

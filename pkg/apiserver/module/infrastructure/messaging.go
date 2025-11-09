@@ -69,8 +69,8 @@ func NewEventhubAdapter(
 
 		return adapter, nil
 	case config.EventProtocolTypeInMemory:
-		// Unknown protocol type, fall back to in-memory adapter
-		return inmemory.NewEventHubAdapter(), nil
+		// Use in-memory adapter for standalone mode
+		return inmemory.NewEventHubAdapter(logger), nil
 	default:
 		return nil, &UnsupportedEventProtocolError{ProtocolType: settings.ProtocolType.String()}
 	}

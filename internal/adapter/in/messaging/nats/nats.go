@@ -43,7 +43,7 @@ type EventSenderAdapter struct {
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	natsSedner *cenats.Sender,
+	natsSender *cenats.Sender,
 	natsReceiver *cenats.Consumer,
 	logger *slog.Logger,
 ) (*EventSenderAdapter, error) {
@@ -53,7 +53,7 @@ func NewEventSenderAdapter(
 
 	opts = append(opts, client.WithObservabilityService(otelService))
 
-	sender, err := cloudevents.NewClient(natsSedner, opts...)
+	sender, err := cloudevents.NewClient(natsSender, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
 	}
@@ -117,7 +117,7 @@ func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.Rec
 			return
 		}
 
-		messageType, err := messsageTypeFromEventType(event.Type())
+		messageType, err := messageTypeFromEventType(event.Type())
 		if err != nil {
 			e.logger.Warn("unknown event type",
 				slog.String("eventID", event.ID()),
@@ -166,7 +166,7 @@ func eventTypeFromMessageType(messageType serverevent.MessageType) string {
 	}
 }
 
-func messsageTypeFromEventType(eventType string) (serverevent.MessageType, error) {
+func messageTypeFromEventType(eventType string) (serverevent.MessageType, error) {
 	switch eventType {
 	case sendToAgentEventType:
 		return serverevent.MessageTypeSendServerToAgent, nil
