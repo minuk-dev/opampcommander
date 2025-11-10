@@ -48,12 +48,12 @@ func TestAgentControllerListAgent(t *testing.T) {
 		//exhaustruct:ignore
 		agents := []v1agent.Agent{
 			{
-				Metadata: v1agent.AgentMetadata{
+				Metadata: v1agent.Metadata{
 					InstanceUID: instanceUIDs[0],
 				},
 			},
 			{
-				Metadata: v1agent.AgentMetadata{
+				Metadata: v1agent.Metadata{
 					InstanceUID: instanceUIDs[1],
 				},
 			},
@@ -177,7 +177,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 			Return(
 				//exhaustruct:ignore
 				&v1agent.Agent{
-					Metadata: v1agent.AgentMetadata{
+					Metadata: v1agent.Metadata{
 						InstanceUID: instanceUID,
 					},
 				}, nil)

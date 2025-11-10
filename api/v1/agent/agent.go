@@ -18,17 +18,17 @@ type UpdateAgentConfigRequest struct {
 // It follows the Kubernetes-style resource structure with Metadata, Spec, and Status.
 type Agent struct {
 	// Metadata contains identifying information about the agent.
-	Metadata AgentMetadata `json:"metadata"`
+	Metadata Metadata `json:"metadata"`
 
 	// Spec contains the desired configuration for the agent.
-	Spec AgentSpec `json:"spec"`
+	Spec Spec `json:"spec"`
 
 	// Status contains the observed state of the agent.
-	Status AgentStatus `json:"status"`
+	Status Status `json:"status"`
 } // @name Agent
 
-// AgentMetadata contains identifying information about the agent.
-type AgentMetadata struct {
+// Metadata contains identifying information about the agent.
+type Metadata struct {
 	// InstanceUID is a unique identifier for the agent instance.
 	InstanceUID uuid.UUID `json:"instanceUid"`
 
@@ -42,14 +42,14 @@ type AgentMetadata struct {
 	CustomCapabilities CustomCapabilities `json:"customCapabilities"`
 } // @name AgentMetadata
 
-// AgentSpec contains the desired configuration for the agent.
-type AgentSpec struct {
+// Spec contains the desired configuration for the agent.
+type Spec struct {
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig RemoteConfig `json:"remoteConfig"`
 } // @name AgentSpec
 
-// AgentStatus contains the observed state of the agent.
-type AgentStatus struct {
+// Status contains the observed state of the agent.
+type Status struct {
 	// EffectiveConfig is the effective configuration of the agent.
 	EffectiveConfig EffectiveConfig `json:"effectiveConfig"`
 

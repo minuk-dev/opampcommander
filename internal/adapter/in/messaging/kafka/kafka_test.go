@@ -20,6 +20,7 @@ import (
 )
 
 func TestKafkaAdapter_SendAndReceive(t *testing.T) {
+	t.Parallel()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 
 	if testing.Short() {
@@ -30,7 +31,8 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 	defer cancel()
 
 	// Given: Kafka is running
-	kafkaContainer, broker := startKafkaContainer(t, ctx)
+	kafkaContainer, broker := startKafkaContainer(t)
+
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
 	// Given: Kafka sender and receiver are configured
@@ -45,9 +47,11 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 
 	// Given: Receiver is started
 	receivedMessages := make(chan *serverevent.Message, 10)
+
 	go func() {
-		_ = adapter.StartReceiver(ctx, func(ctx context.Context, msg *serverevent.Message) error {
+		_ = adapter.StartReceiver(ctx, func(_ context.Context, msg *serverevent.Message) error {
 			receivedMessages <- msg
+
 			return nil
 		})
 	}()
@@ -76,7 +80,7 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 	case received := <-receivedMessages:
 		assert.Equal(t, testMessage.Type, received.Type)
 		require.NotNil(t, received.Payload.MessageForServerToAgent)
-		assert.Equal(t, testAgentUID, received.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs[0])
+		assert.Equal(t, testAgentUID, received.Payload.TargetAgentInstanceUIDs[0])
 		assert.Contains(t, received.Source, "test-server-1")
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for message")
@@ -84,6 +88,7 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 }
 
 func TestKafkaAdapter_MultipleMessages(t *testing.T) {
+	t.Parallel()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 
 	if testing.Short() {
@@ -93,7 +98,8 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	kafkaContainer, broker := startKafkaContainer(t, ctx)
+	kafkaContainer, broker := startKafkaContainer(t)
+
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
 	topic := "test.opampcommander.multi"
@@ -105,9 +111,11 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 	require.NoError(t, err)
 
 	receivedMessages := make(chan *serverevent.Message, 10)
+
 	go func() {
-		_ = adapter.StartReceiver(ctx, func(ctx context.Context, msg *serverevent.Message) error {
+		_ = adapter.StartReceiver(ctx, func(_ context.Context, msg *serverevent.Message) error {
 			receivedMessages <- msg
+
 			return nil
 		})
 	}()
@@ -139,6 +147,7 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 		select {
 		case msg := <-receivedMessages:
 			assert.NotNil(t, msg)
+
 			receivedCount++
 		case <-timeout:
 			t.Fatalf("Timeout: received only %d out of %d messages", receivedCount, numMessages)
@@ -151,8 +160,9 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 // Helper functions
 
 //nolint:ireturn
-func startKafkaContainer(t *testing.T, ctx context.Context) (testcontainers.Container, string) {
+func startKafkaContainer(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
+	ctx := t.Context()
 
 	kafkaContainer, err := kafkaTestContainer.Run(ctx, "confluentinc/cp-kafka:7.5.0")
 	require.NoError(t, err)

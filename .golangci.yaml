@@ -119,6 +119,8 @@ linters:
             - github.com/tidwall/gjson
             - gotest.tools/icmd
             - go.uber.org/goleak
+            - github.com/IBM/sarama
+            - github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
             - go.mongodb.org/mongo-driver/v2/mongo
             - go.mongodb.org/mongo-driver/v2/bson
             - github.com/testcontainers/testcontainers-go

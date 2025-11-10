@@ -21,7 +21,7 @@ func New() *Mapper {
 // MapAgentToAPI maps a domain model Agent to an API model Agent.
 func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 	return &v1agent.Agent{
-		Metadata: v1agent.AgentMetadata{
+		Metadata: v1agent.Metadata{
 			InstanceUID: agent.Metadata.InstanceUID,
 			Description: v1agent.Description{
 				IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
@@ -30,10 +30,10 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 			Capabilities:       v1agent.Capabilities(agent.Metadata.Capabilities),
 			CustomCapabilities: mapper.mapCustomCapabilitiesToAPI(&agent.Metadata.CustomCapabilities),
 		},
-		Spec: v1agent.AgentSpec{
+		Spec: v1agent.Spec{
 			RemoteConfig: mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
 		},
-		Status: v1agent.AgentStatus{
+		Status: v1agent.Status{
 			EffectiveConfig: v1agent.EffectiveConfig{
 				ConfigMap: v1agent.ConfigMap{
 					ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
@@ -64,6 +64,7 @@ func (mapper *Mapper) formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
+
 	return t.Format(time.RFC3339)
 }
 
@@ -85,7 +86,7 @@ func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth
 
 func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1agent.RemoteConfig {
 	configMap := make(map[string]v1agent.ConfigFile)
-	
+
 	// If there's config data, add it to the config map
 	if len(remoteConfig.ConfigData.Config) > 0 {
 		configMap["remote_config.yaml"] = v1agent.ConfigFile{
@@ -116,7 +117,7 @@ func (mapper *Mapper) mapAvailableComponentsToAPI(
 			// Extract type and version from metadata if available
 			componentType := value.Metadata["type"]
 			version := value.Metadata["version"]
-			
+
 			return v1agent.ComponentDetails{
 				Type:    componentType,
 				Version: version,

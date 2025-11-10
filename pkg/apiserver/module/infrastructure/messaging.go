@@ -42,7 +42,7 @@ func NewEventhubAdapter(
 	settings *config.EventSettings,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
-) (port.ServerEventSenderPort, error) {
+) (port.EventHubPort, error) {
 	switch settings.ProtocolType {
 	case config.EventProtocolTypeKafka:
 		sender, err := createKafkaSender(settings, lifecycle)
@@ -75,7 +75,9 @@ func createKafkaSender(
 	brokers := settings.KafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
 	topic := settings.KafkaSettings.Topic
+
 	var opts []cekafka.SenderOptionFunc
+
 	sender, err := cekafka.NewSender(brokers, saramaConfig, topic, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka sender: %w", err)
@@ -108,7 +110,7 @@ func createKafkaReceiver(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Return.Errors = true
 	saramaConfig.Version = sarama.V2_6_0_0
-	
+
 	topic := settings.KafkaSettings.Topic
 	groupID := "opampcommander-consumer-group"
 

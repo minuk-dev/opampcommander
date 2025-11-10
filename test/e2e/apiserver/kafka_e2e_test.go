@@ -29,8 +29,8 @@ const (
 )
 
 // TestE2E_APIServer_KafkaDistributedMode tests distributed mode with Kafka messaging
-// Scenario: Two API servers communicate via Kafka, and an agent update on server1 
-// should be propagated to server2
+// Scenario: Two API servers communicate via Kafka, and an agent update on server1
+// should be propagated to server2.
 func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	t.Parallel()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
@@ -46,9 +46,11 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 
 	// Given: Infrastructure is set up (MongoDB + Kafka)
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
-	kafkaContainer, kafkaBroker := startKafka(t, ctx)
+	kafkaContainer, kafkaBroker := startKafka(t)
+
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
 	// Given: Two API servers in distributed mode
@@ -74,6 +76,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	collectorUID := uuid.New()
 	collectorCfg := createCollectorConfig(t, base.CacheDir, server1Port, collectorUID)
 	collectorContainer := startOTelCollector(t, collectorCfg)
+
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// When: Collector registers via OpAMP on server 1
@@ -128,7 +131,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	t.Log("Distributed mode test completed successfully")
 }
 
-// TestE2E_APIServer_KafkaFailover tests failover scenario in distributed mode
+// TestE2E_APIServer_KafkaFailover tests failover scenario in distributed mode.
 func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	t.Parallel()
 	testcontainers.SkipIfProviderIsNotHealthy(t)
@@ -144,13 +147,16 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// Given: Infrastructure setup
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
-	kafkaContainer, kafkaBroker := startKafka(t, ctx)
+	kafkaContainer, kafkaBroker := startKafka(t)
+
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
 	// Given: Primary server is running
 	primaryPort := base.GetFreeTCPPort()
+
 	stopPrimary, primaryURL := setupAPIServerWithKafka(
 		t, primaryPort, mongoURI, kafkaBroker, "opampcommander_kafka_failover", "primary",
 	)
@@ -162,6 +168,7 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	collectorUID := uuid.New()
 	collectorCfg := createCollectorConfig(t, base.CacheDir, primaryPort, collectorUID)
 	collectorContainer := startOTelCollector(t, collectorCfg)
+
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	time.Sleep(5 * time.Second)
@@ -173,6 +180,7 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// When: Secondary server starts (simulating failover scenario)
 	secondaryPort := base.GetFreeTCPPort()
+
 	stopSecondary, secondaryURL := setupAPIServerWithKafka(
 		t, secondaryPort, mongoURI, kafkaBroker, "opampcommander_kafka_failover", "secondary",
 	)
@@ -213,8 +221,9 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 // Helper functions
 
 //nolint:ireturn
-func startKafka(t *testing.T, ctx context.Context) (testcontainers.Container, string) {
+func startKafka(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
+	ctx := t.Context()
 
 	kafkaContainer, err := kafkaTestContainer.Run(ctx, kafkaImage)
 	require.NoError(t, err)
@@ -328,6 +337,7 @@ func updateAgentConfig(t *testing.T, baseURL string, agentUID uuid.UUID, updateR
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
+
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {

@@ -33,7 +33,7 @@ type CommandOption struct {
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
 	Event       struct {
-		Type  string   `mapstructure:"type"`
+		Type  string `mapstructure:"type"`
 		Kafka struct {
 			Brokers []string `mapstructure:"brokers"`
 			Topic   string   `mapstructure:"topic"`
