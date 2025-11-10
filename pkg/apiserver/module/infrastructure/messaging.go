@@ -4,28 +4,24 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
-	cenats "github.com/cloudevents/sdk-go/protocol/nats/v2"
-	"github.com/nats-io/nats.go"
+	"github.com/IBM/sarama"
+	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/inmemory"
-	natsadapter "github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/nats"
+	kafkaadapter "github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/kafka"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 const (
-	// DefaultSenderCloseTimeout is the default timeout for closing the NATS sender.
+	// DefaultSenderCloseTimeout is the default timeout for closing the Kafka sender.
 	DefaultSenderCloseTimeout = 10 * time.Second
 
-	// DefaultReceiverCloseTimeout is the default timeout for closing the NATS receiver.
+	// DefaultReceiverCloseTimeout is the default timeout for closing the Kafka receiver.
 	DefaultReceiverCloseTimeout = 10 * time.Second
-
-	// EventSubjectSuffix is the suffix for event subjects.
-	EventSubjectSuffix = "events"
 )
 
 // UnsupportedEventProtocolError is returned when an unsupported event protocol type is specified.
@@ -39,7 +35,7 @@ func (e *UnsupportedEventProtocolError) Error() string {
 }
 
 // NewEventhubAdapter creates the appropriate event sender adapter based on configuration.
-// Returns inmemory adapter for standalone mode, or NATS adapter for distributed mode.
+// Returns inmemory adapter for standalone mode, or Kafka adapter for distributed mode.
 //
 //nolint:ireturn // Factory function that returns different implementations based on config.
 func NewEventhubAdapter(
@@ -48,46 +44,41 @@ func NewEventhubAdapter(
 	lifecycle fx.Lifecycle,
 ) (port.ServerEventSenderPort, error) {
 	switch settings.ProtocolType {
-	case config.EventProtocolTypeNATS:
-		// Create NATS sender
-		sender, err := createNATSSender(settings, lifecycle)
+	case config.EventProtocolTypeKafka:
+		sender, err := createKafkaSender(settings, lifecycle)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create NATS sender: %w", err)
+			return nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 		}
 
-		// Create NATS receiver
-		receiver, err := createNATSReceiver(settings, lifecycle)
+		receiver, err := createKafkaReceiver(settings, lifecycle)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create NATS receiver: %w", err)
+			return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 		}
 
-		// Use NATS adapter when events are enabled
-		adapter, err := natsadapter.NewEventSenderAdapter(sender, receiver, logger)
+		adapter, err := kafkaadapter.NewEventSenderAdapter(sender, receiver, logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create NATS event sender adapter: %w", err)
+			return nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
 
 		return adapter, nil
 	case config.EventProtocolTypeInMemory:
-		// Use in-memory adapter for standalone mode
 		return inmemory.NewEventHubAdapter(logger), nil
 	default:
 		return nil, &UnsupportedEventProtocolError{ProtocolType: settings.ProtocolType.String()}
 	}
 }
 
-// createNATSSender creates a NATS sender with lifecycle management.
-func createNATSSender(
+func createKafkaSender(
 	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
-) (*cenats.Sender, error) {
-	endpoint := settings.NATS.Endpoint
-	subject := createEventSubject(settings.NATS.SubjectPrefix)
-	opts := []nats.Option{}
-
-	sender, err := cenats.NewSender(endpoint, subject, opts)
+) (*cekafka.Sender, error) {
+	brokers := settings.KafkaSettings.Brokers
+	saramaConfig := sarama.NewConfig()
+	topic := settings.KafkaSettings.Topic
+	var opts []cekafka.SenderOptionFunc
+	sender, err := cekafka.NewSender(brokers, saramaConfig, topic, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create NATS sender: %w", err)
+		return nil, fmt.Errorf("failed to create kafka sender: %w", err)
 	}
 
 	lifecycle.Append(fx.Hook{
@@ -98,7 +89,7 @@ func createNATSSender(
 
 			err := sender.Close(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to close NATS sender: %w", err)
+				return fmt.Errorf("failed to close Kafka sender: %w", err)
 			}
 
 			return nil
@@ -108,18 +99,22 @@ func createNATSSender(
 	return sender, nil
 }
 
-// createNATSReceiver creates a NATS receiver with lifecycle management.
-func createNATSReceiver(
+// createKafkaReceiver creates a Kafka receiver with lifecycle management.
+func createKafkaReceiver(
 	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
-) (*cenats.Consumer, error) {
-	endpoint := settings.NATS.Endpoint
-	subject := createEventSubject(settings.NATS.SubjectPrefix)
-	opts := []nats.Option{}
+) (*cekafka.Consumer, error) {
+	brokers := settings.KafkaSettings.Brokers
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Consumer.Return.Errors = true
+	saramaConfig.Version = sarama.V2_6_0_0
+	
+	topic := settings.KafkaSettings.Topic
+	groupID := "opampcommander-consumer-group"
 
-	consumer, err := cenats.NewConsumer(endpoint, subject, opts)
+	consumer, err := cekafka.NewConsumer(brokers, saramaConfig, groupID, topic)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create NATS receiver: %w", err)
+		return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 	}
 
 	lifecycle.Append(fx.Hook{
@@ -129,7 +124,7 @@ func createNATSReceiver(
 		OnStop: func(ctx context.Context) error {
 			err := consumer.Close(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to close NATS receiver: %w", err)
+				return fmt.Errorf("failed to close Kafka receiver: %w", err)
 			}
 
 			return nil
@@ -137,12 +132,4 @@ func createNATSReceiver(
 	})
 
 	return consumer, nil
-}
-
-func createEventSubject(subjectPrefix string) string {
-	if strings.HasSuffix(subjectPrefix, ".") {
-		return subjectPrefix + EventSubjectSuffix
-	}
-
-	return subjectPrefix + "." + EventSubjectSuffix
 }

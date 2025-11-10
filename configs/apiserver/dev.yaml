@@ -51,7 +51,8 @@ auth:
         - "opampcommander"
 event:
   enabled: false  # Set to false for standalone mode (no inter-server communication)
-  type: "inmemory"  # Use "inmemory" for standalone mode, "nats" for distributed mode
-  nats:
-    endpoint: "nats://localhost:4222"
-    subjectPrefix: "dev.opampcommander."
+  type: "inmemory"  # Use "inmemory" for standalone mode, "kafka" for distributed mode
+  kafka:
+    brokers:
+      - "localhost:9092"
+    topic: "dev.opampcommander.events"

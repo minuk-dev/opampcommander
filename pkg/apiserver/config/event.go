@@ -5,14 +5,16 @@ type EventSettings struct {
 	// ProtocolType is the event protocol type.
 	ProtocolType EventProtocolType
 
-	// NATS settings. Used when ProtocolType is EventProtocolTypeNATS.
-	NATS NATSSettings
+	// KafkaSettings represents the Kafka configuration.
+	KafkaSettings KafkaSettings
 }
 
-// NATSSettings represents the NATS event settings.
-type NATSSettings struct {
-	Endpoint      string
-	SubjectPrefix string // e.g. "prod.opampcommander."
+// KafkaSettings represents the Kafka event settings.
+type KafkaSettings struct {
+	// Brokers is the list of Kafka broker addresses.
+	Brokers []string
+	// Topic is the Kafka topic name for events.
+	Topic string
 }
 
 // EventProtocolType represents the type of event protocol.
@@ -26,8 +28,6 @@ func (e EventProtocolType) String() string {
 const (
 	// EventProtocolTypeInMemory represents the in-memory event protocol for standalone mode.
 	EventProtocolTypeInMemory EventProtocolType = "inmemory"
-	// EventProtocolTypeNATS represents the NATS event protocol.
-	EventProtocolTypeNATS EventProtocolType = "nats"
-	// TODO: Add kafka protocol support.
-	//nolint:godox // too far future
+	// EventProtocolTypeKafka represents the Kafka event protocol for distributed mode.
+	EventProtocolTypeKafka EventProtocolType = "kafka"
 )

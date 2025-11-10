@@ -1,5 +1,5 @@
-// Package nats implements NATS messaging adapters.
-package nats
+// Package kafka implements Kafka messaging adapters.
+package kafka
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
-	cenats "github.com/cloudevents/sdk-go/protocol/nats/v2"
+	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	"github.com/cloudevents/sdk-go/v2/event"
@@ -33,7 +33,7 @@ var (
 	_ port.ServerEventReceiverPort = (*EventSenderAdapter)(nil)
 )
 
-// EventSenderAdapter implements port.ServerEventSenderPort using NATS CloudEvents sender.
+// EventSenderAdapter implements port.ServerEventSenderPort using Kafka CloudEvents sender.
 type EventSenderAdapter struct {
 	sender   cloudevents.Client
 	receiver cloudevents.Client
@@ -43,8 +43,8 @@ type EventSenderAdapter struct {
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	natsSender *cenats.Sender,
-	natsReceiver *cenats.Consumer,
+	protocolSender *cekafka.Sender,
+	protocolConsumer *cekafka.Consumer,
 	logger *slog.Logger,
 ) (*EventSenderAdapter, error) {
 	//nolint:godox
@@ -56,12 +56,12 @@ func NewEventSenderAdapter(
 
 	opts = append(opts, client.WithObservabilityService(otelService))
 
-	sender, err := cloudevents.NewClient(natsSender, opts...)
+	sender, err := cloudevents.NewClient(protocolSender, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
 	}
 
-	receiver, err := cloudevents.NewClient(natsReceiver, opts...)
+	receiver, err := cloudevents.NewClient(protocolConsumer, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for receiver: %w", err)
 	}
