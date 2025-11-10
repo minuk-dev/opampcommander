@@ -21,34 +21,59 @@ opampctl config init
 
 ## Development
 
-### Database Setup
-This project uses MongoDB 4.4 as its database (for Raspberry Pi compatibility). The Makefile provides convenient commands to manage MongoDB:
+### Infrastructure Setup
+This project uses MongoDB 4.4 as its database (for Raspberry Pi compatibility) and Kafka for distributed messaging. The Makefile provides convenient commands:
 
 ```sh
 # Start MongoDB 4.4 (data persisted in ./default.mongodb)
 make start-mongodb
 
-# Stop MongoDB (data is preserved)
-make stop-mongodb
+# Start Kafka (for distributed mode)
+make start-kafka
 
-# Clean MongoDB data (WARNING: removes all data)
-make clean-mongodb-data
+# Start all development services (MongoDB + Kafka)
+make start-dev-services
 
-# Run dev server (automatically starts MongoDB)
-make run-dev-server
+# Stop services (data is preserved)
+make stop-dev-services
+
+# Clean all data (WARNING: removes all data)
+make clean-dev-services
 ```
 
 ### Development Commands
 
 ```sh
-# run opampcommander's apiserver with default settings
-make dev
+# Build and run apiserver with default settings
+make run-dev-server
 
-# run opampcommander's apiserver with args
+# Run standalone server (MongoDB only, no Kafka)
+make run-standalone
+
+# Run with custom arguments
 make ARGS="--log.level=warn --log.format=text --metric.enabled" dev
 
-# run opampcommander's apiserver with args and GIN_MODE=release
+# Run with GIN_MODE=release
 GIN_MODE=release make ARGS="--log.level=warn --log.format=text --metric.enabled" dev
+```
+
+### Testing
+
+```sh
+# Run unit tests
+make unittest
+
+# Run all tests including integration tests
+make test
+
+# Run E2E tests (requires Docker)
+make test-e2e
+
+# Run only Kafka E2E tests
+make test-e2e-kafka
+
+# Run only basic E2E tests
+make test-e2e-basic
 ```
 
 ## Release

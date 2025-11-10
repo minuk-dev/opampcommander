@@ -36,29 +36,33 @@ clean-mongodb-data:
 	@rm -rf ./default.mongodb
 	@echo "MongoDB container and data removed"
 
-start-nats:
-	@docker run -d --name nats-dev \
-		-p 4222:4222 \
-		-p 8222:8222 \
-		nats:latest || docker start nats-dev
-	@echo "NATS server started on port 4222 (client) and 8222 (monitoring)"
+start-kafka:
+	@docker run -d --name kafka-dev \
+		-p 9092:9092 \
+		-e KAFKA_BROKER_ID=1 \
+		-e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092 \
+		-e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+		-e KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181 \
+		-e KAFKA_AUTO_CREATE_TOPICS_ENABLE=true \
+		confluentinc/cp-kafka:7.5.0 || docker start kafka-dev
+	@echo "Kafka started on port 9092"
 
-stop-nats:
-	@docker stop nats-dev || true
-	@echo "NATS server stopped"
+stop-kafka:
+	@docker stop kafka-dev || true
+	@echo "Kafka stopped"
 
-clean-nats:
-	@docker stop nats-dev || true
-	@docker rm nats-dev || true
-	@echo "NATS container removed"
+clean-kafka:
+	@docker stop kafka-dev || true
+	@docker rm kafka-dev || true
+	@echo "Kafka container removed"
 
-start-dev-services: start-mongodb start-nats
-	@echo "Development services (MongoDB and NATS) started"
+start-dev-services: start-mongodb start-kafka
+	@echo "Development services (MongoDB and Kafka) started"
 
-stop-dev-services: stop-mongodb stop-nats
+stop-dev-services: stop-mongodb stop-kafka
 	@echo "Development services stopped"
 
-clean-dev-services: clean-mongodb-data clean-nats
+clean-dev-services: clean-mongodb-data clean-kafka
 	@echo "Development services cleaned"
 
 run-dev-server: build-dev start-dev-services
@@ -89,6 +93,19 @@ unittest:
 
 test:
 	go test -race ./... 
+
+test-e2e:
+	@echo "Running E2E tests (requires Docker)..."
+	@echo "This may take 10-15 minutes..."
+	go test ./test/e2e/... -v -timeout=20m
+
+test-e2e-kafka:
+	@echo "Running Kafka E2E tests only..."
+	go test ./test/e2e/apiserver -run TestE2E_APIServer_Kafka -v -timeout=15m
+
+test-e2e-basic:
+	@echo "Running basic E2E tests only..."
+	go test ./test/e2e/apiserver -run "TestE2E_APIServer_WithOTelCollector|TestE2E_APIServer_MultipleCollectors" -v -timeout=10m
 
 release:
 	goreleaser release --rm-dist
