@@ -123,7 +123,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	case formatter.SHORT, formatter.TEXT:
 		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ShortItemForCLI {
 			return ShortItemForCLI{
-				InstanceUID: agent.InstanceUID,
+				InstanceUID: agent.Metadata.InstanceUID,
 			}
 		})
 		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
@@ -168,7 +168,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 
 	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ShortItemForCLI {
 		return ShortItemForCLI{
-			InstanceUID: a.Agent.InstanceUID,
+			InstanceUID: a.Agent.Metadata.InstanceUID,
 		}
 	})
 
@@ -182,7 +182,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 	if len(errs) > 0 {
 		errMessages := lo.Map(errs, func(a AgentWithErr, _ int) string {
-			return fmt.Sprintf("failed to get agent %s: %v", a.Agent.InstanceUID, a.Err)
+			return fmt.Sprintf("failed to get agent %s: %v", a.Agent.Metadata.InstanceUID, a.Err)
 		})
 
 		cmd.PrintErrf("Some agents could not be retrieved: %s", strings.Join(errMessages, ", "))

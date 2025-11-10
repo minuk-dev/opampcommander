@@ -17,7 +17,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -85,14 +84,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	require.GreaterOrEqual(t, len(agents1), 1, "Agent should be registered on server 1")
 	agent1 := findAgentByUID(agents1, collectorUID)
 	require.NotNil(t, agent1, "Collector should be found on server 1")
-	t.Logf("Agent registered on server 1: %s", agent1.InstanceUID)
+	t.Logf("Agent registered on server 1: %s", agent1.Metadata.InstanceUID)
 
 	// Then: Agent should also be visible on server 2 (shared database)
 	agents2 := listAgents(t, server2URL)
 	require.GreaterOrEqual(t, len(agents2), 1, "Agent should be visible on server 2")
 	agent2 := findAgentByUID(agents2, collectorUID)
 	require.NotNil(t, agent2, "Collector should be found on server 2")
-	t.Logf("Agent visible on server 2: %s", agent2.InstanceUID)
+	t.Logf("Agent visible on server 2: %s", agent2.Metadata.InstanceUID)
 
 	// When: Server 2 updates the agent configuration
 	updateRequest := map[string]interface{}{
@@ -113,16 +112,16 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	updatedAgent2 := getAgentByID(t, server2URL, collectorUID)
 
 	// Verify config was updated
-	assert.NotNil(t, updatedAgent1.RemoteConfig, "Agent on server 1 should have remote config")
-	assert.NotNil(t, updatedAgent2.RemoteConfig, "Agent on server 2 should have remote config")
+	assert.NotNil(t, updatedAgent1.Spec.RemoteConfig, "Agent on server 1 should have remote config")
+	assert.NotNil(t, updatedAgent2.Spec.RemoteConfig, "Agent on server 2 should have remote config")
 
-	if updatedAgent1.RemoteConfig != nil && updatedAgent1.RemoteConfig.ConfigMap != nil {
-		assert.Equal(t, "test_value_from_server2", updatedAgent1.RemoteConfig.ConfigMap["test_key"],
+	if updatedAgent1.Spec.RemoteConfig.ConfigMap != nil {
+		assert.Equal(t, "test_value_from_server2", updatedAgent1.Spec.RemoteConfig.ConfigMap["test_key"],
 			"Config update should be visible on server 1")
 	}
 
-	if updatedAgent2.RemoteConfig != nil && updatedAgent2.RemoteConfig.ConfigMap != nil {
-		assert.Equal(t, "test_value_from_server2", updatedAgent2.RemoteConfig.ConfigMap["test_key"],
+	if updatedAgent2.Spec.RemoteConfig.ConfigMap != nil {
+		assert.Equal(t, "test_value_from_server2", updatedAgent2.Spec.RemoteConfig.ConfigMap["test_key"],
 			"Config update should be visible on server 2")
 	}
 
@@ -205,8 +204,8 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	primaryAgent := getAgentByID(t, primaryURL, collectorUID)
 	secondaryAgent := getAgentByID(t, secondaryURL, collectorUID)
 
-	assert.NotNil(t, primaryAgent.RemoteConfig, "Primary should have remote config")
-	assert.NotNil(t, secondaryAgent.RemoteConfig, "Secondary should have remote config")
+	assert.NotNil(t, primaryAgent.Spec.RemoteConfig, "Primary should have remote config")
+	assert.NotNil(t, secondaryAgent.Spec.RemoteConfig, "Secondary should have remote config")
 
 	t.Log("Failover test completed successfully")
 }

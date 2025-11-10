@@ -2,6 +2,8 @@
 package mapper
 
 import (
+	"time"
+
 	"github.com/samber/lo"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
@@ -19,35 +21,110 @@ func New() *Mapper {
 // MapAgentToAPI maps a domain model Agent to an API model Agent.
 func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 	return &v1agent.Agent{
-		InstanceUID:  agent.Metadata.InstanceUID,
-		IsManaged:    agent.Spec.RemoteConfig.IsManaged(),
-		Capabilities: v1agent.Capabilities(agent.Metadata.Capabilities),
-		Description: v1agent.Description{
-			IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
-			NonIdentifyingAttributes: agent.Metadata.Description.NonIdentifyingAttributes,
-		},
-		EffectiveConfig: v1agent.EffectiveConfig{
-			ConfigMap: v1agent.ConfigMap{
-				ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
-					func(value model.AgentConfigFile, _ string) v1agent.ConfigFile {
-						return mapper.mapConfigFileToAPI(value)
-					}),
+		Metadata: v1agent.AgentMetadata{
+			InstanceUID: agent.Metadata.InstanceUID,
+			Description: v1agent.Description{
+				IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
+				NonIdentifyingAttributes: agent.Metadata.Description.NonIdentifyingAttributes,
 			},
+			Capabilities:       v1agent.Capabilities(agent.Metadata.Capabilities),
+			CustomCapabilities: mapper.mapCustomCapabilitiesToAPI(&agent.Metadata.CustomCapabilities),
 		},
-		PackageStatuses: v1agent.PackageStatuses{
-			Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
-				func(value model.AgentPackageStatus, _ string) v1agent.PackageStatus {
-					return v1agent.PackageStatus{
-						Name: value.Name,
-					}
-				}),
-			ServerProvidedAllPackagesHash: string(agent.Status.PackageStatuses.ServerProvidedAllPackgesHash),
-			ErrorMessage:                  agent.Status.PackageStatuses.ErrorMessage,
+		Spec: v1agent.AgentSpec{
+			RemoteConfig: mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
 		},
-		ComponentHealth:     v1agent.ComponentHealth{},
-		RemoteConfig:        v1agent.RemoteConfig{},
-		CustomCapabilities:  v1agent.CustomCapabilities{},
-		AvailableComponents: v1agent.AvailableComponents{},
+		Status: v1agent.AgentStatus{
+			EffectiveConfig: v1agent.EffectiveConfig{
+				ConfigMap: v1agent.ConfigMap{
+					ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
+						func(value model.AgentConfigFile, _ string) v1agent.ConfigFile {
+							return mapper.mapConfigFileToAPI(value)
+						}),
+				},
+			},
+			PackageStatuses: v1agent.PackageStatuses{
+				Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
+					func(value model.AgentPackageStatus, _ string) v1agent.PackageStatus {
+						return v1agent.PackageStatus{
+							Name: value.Name,
+						}
+					}),
+				ServerProvidedAllPackagesHash: string(agent.Status.PackageStatuses.ServerProvidedAllPackgesHash),
+				ErrorMessage:                  agent.Status.PackageStatuses.ErrorMessage,
+			},
+			ComponentHealth:     mapper.mapComponentHealthToAPI(&agent.Status.ComponentHealth),
+			AvailableComponents: mapper.mapAvailableComponentsToAPI(&agent.Status.AvailableComponents),
+			Connected:           agent.Status.Connected,
+			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
+		},
+	}
+}
+
+func (mapper *Mapper) formatTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format(time.RFC3339)
+}
+
+func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth) v1agent.ComponentHealth {
+	componentsMap := make(map[string]string)
+	for name, comp := range health.ComponentHealthMap {
+		componentsMap[name] = comp.Status
+	}
+
+	return v1agent.ComponentHealth{
+		Healthy:       health.Healthy,
+		StartTimeUnix: health.StartTime.Unix(),
+		LastError:     health.LastError,
+		Status:        health.Status,
+		StatusTimeMS:  health.StatusTime.UnixMilli(),
+		ComponentsMap: componentsMap,
+	}
+}
+
+func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1agent.RemoteConfig {
+	configMap := make(map[string]v1agent.ConfigFile)
+	
+	// If there's config data, add it to the config map
+	if len(remoteConfig.ConfigData.Config) > 0 {
+		configMap["remote_config.yaml"] = v1agent.ConfigFile{
+			Body:        string(remoteConfig.ConfigData.Config),
+			ContentType: TextYAML,
+		}
+	}
+
+	return v1agent.RemoteConfig{
+		ConfigMap:  configMap,
+		ConfigHash: string(remoteConfig.ConfigData.Key),
+	}
+}
+
+func (mapper *Mapper) mapCustomCapabilitiesToAPI(
+	customCapabilities *model.AgentCustomCapabilities,
+) v1agent.CustomCapabilities {
+	return v1agent.CustomCapabilities{
+		Capabilities: customCapabilities.Capabilities,
+	}
+}
+
+func (mapper *Mapper) mapAvailableComponentsToAPI(
+	availableComponents *model.AgentAvailableComponents,
+) v1agent.AvailableComponents {
+	components := lo.MapValues(availableComponents.Components,
+		func(value model.ComponentDetails, _ string) v1agent.ComponentDetails {
+			// Extract type and version from metadata if available
+			componentType := value.Metadata["type"]
+			version := value.Metadata["version"]
+			
+			return v1agent.ComponentDetails{
+				Type:    componentType,
+				Version: version,
+			}
+		})
+
+	return v1agent.AvailableComponents{
+		Components: components,
 	}
 }
 

@@ -85,7 +85,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 
 	// Then: Agent is retrievable by ID
 	specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
-	assert.Equal(t, collectorUID, specificAgent.InstanceUID)
+	assert.Equal(t, collectorUID, specificAgent.Metadata.InstanceUID)
 }
 
 func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
@@ -284,7 +284,7 @@ func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1agent.Agent {
 
 func findAgentByUID(agents []v1agent.Agent, uid uuid.UUID) *v1agent.Agent {
 	for i := range agents {
-		if agents[i].InstanceUID == uid {
+		if agents[i].Metadata.InstanceUID == uid {
 			return &agents[i]
 		}
 	}
@@ -295,11 +295,11 @@ func findAgentByUID(agents []v1agent.Agent, uid uuid.UUID) *v1agent.Agent {
 func assertAgentMetadataComplete(t *testing.T, agent *v1agent.Agent) {
 	t.Helper()
 
-	hasDescription := len(agent.Description.IdentifyingAttributes) > 0 ||
-		len(agent.Description.NonIdentifyingAttributes) > 0
+	hasDescription := len(agent.Metadata.Description.IdentifyingAttributes) > 0 ||
+		len(agent.Metadata.Description.NonIdentifyingAttributes) > 0
 	assert.True(t, hasDescription, "Agent should have description")
 
-	hasCapabilities := agent.Capabilities != 0
+	hasCapabilities := agent.Metadata.Capabilities != 0
 	assert.True(t, hasCapabilities, "Agent should have capabilities")
 }
 

@@ -83,15 +83,18 @@ func provideDatabaseComponents() fx.Option {
 	)
 }
 
-// provideMessagingComponents provides messaging-related components (NATS/in-memory).
+// provideMessagingComponents provides messaging-related components (Kafka/in-memory).
 func provideMessagingComponents() fx.Option {
 	return fx.Options(
-		// Provide the appropriate event sender/receiver adapters
+		// Provide the event hub adapter
+		fx.Provide(NewEventhubAdapter),
+		// Provide as both sender and receiver ports
 		fx.Provide(
 			fx.Annotate(
-				NewEventhubAdapter,
-				fx.As(new(port.ServerEventSenderPort)),
-				fx.As(new(port.ServerEventReceiverPort)),
+				func(adapter port.ServerEventSenderPort) port.ServerEventReceiverPort {
+					// The adapter implements both interfaces
+					return adapter.(port.ServerEventReceiverPort)
+				},
 			),
 		),
 	)

@@ -15,25 +15,42 @@ type UpdateAgentConfigRequest struct {
 } // @name UpdateAgentConfigRequest
 
 // Agent represents an agent which is defined OpAMP protocol.
-// It is a value object that contains the instance UID and raw data.
+// It follows the Kubernetes-style resource structure with Metadata, Spec, and Status.
 type Agent struct {
+	// Metadata contains identifying information about the agent.
+	Metadata AgentMetadata `json:"metadata"`
+
+	// Spec contains the desired configuration for the agent.
+	Spec AgentSpec `json:"spec"`
+
+	// Status contains the observed state of the agent.
+	Status AgentStatus `json:"status"`
+} // @name Agent
+
+// AgentMetadata contains identifying information about the agent.
+type AgentMetadata struct {
 	// InstanceUID is a unique identifier for the agent instance.
 	InstanceUID uuid.UUID `json:"instanceUid"`
-
-	// IsManaged indicates whether the agent is managed by the server.
-	// If true, the server manages the agent and can send commands to it.
-	IsManaged bool `json:"isManaged"`
-
-	// Capabilities is a bitmask representing the capabilities of the agent.
-	// It is used to determine what features the agent supports.
-	// If nil, it means the capabilities are unspecified.
-	Capabilities Capabilities `json:"capabilities"`
 
 	// Description is a human-readable description of the agent.
 	Description Description `json:"description"`
 
+	// Capabilities is a bitmask representing the capabilities of the agent.
+	Capabilities Capabilities `json:"capabilities"`
+
+	// CustomCapabilities is a map of custom capabilities for the agent.
+	CustomCapabilities CustomCapabilities `json:"customCapabilities"`
+} // @name AgentMetadata
+
+// AgentSpec contains the desired configuration for the agent.
+type AgentSpec struct {
+	// RemoteConfig is the remote configuration of the agent.
+	RemoteConfig RemoteConfig `json:"remoteConfig"`
+} // @name AgentSpec
+
+// AgentStatus contains the observed state of the agent.
+type AgentStatus struct {
 	// EffectiveConfig is the effective configuration of the agent.
-	// It is used to determine the current configuration of the agent.
 	EffectiveConfig EffectiveConfig `json:"effectiveConfig"`
 
 	// PackageStatuses is a map of package statuses for the agent.
@@ -42,15 +59,15 @@ type Agent struct {
 	// ComponentHealth is the health status of the agent's components.
 	ComponentHealth ComponentHealth `json:"componentHealth"`
 
-	// RemoteConfig is the remote configuration of the agent.
-	// It is used to determine the current remote configuration of the agent.
-	RemoteConfig RemoteConfig `json:"remoteConfig"`
-
-	// CustomCapabilities is a map of custom capabilities for the agent.
-	CustomCapabilities CustomCapabilities `json:"customCapabilities"`
-
+	// AvailableComponents lists components available on the agent.
 	AvailableComponents AvailableComponents `json:"availableComponents"`
-} // @name Agent
+
+	// Connected indicates if the agent is currently connected.
+	Connected bool `json:"connected"`
+
+	// LastReportedAt is the timestamp when the agent last reported its status.
+	LastReportedAt string `json:"lastReportedAt,omitempty"`
+} // @name AgentStatus
 
 // Capabilities is a bitmask representing the capabilities of the agent.
 type Capabilities uint64
@@ -88,19 +105,35 @@ type PackageStatuses struct {
 
 // RemoteConfig represents the remote configuration of the agent.
 type RemoteConfig struct {
+	ConfigMap  map[string]ConfigFile `json:"configMap,omitempty"`
+	ConfigHash string                `json:"configHash,omitempty"`
 } // @name AgentRemoteConfig
 
 // ComponentHealth represents the health status of the agent's components.
 type ComponentHealth struct {
+	Healthy       bool              `json:"healthy"`
+	StartTimeUnix int64             `json:"startTimeUnix,omitempty"`
+	LastError     string            `json:"lastError,omitempty"`
+	Status        string            `json:"status,omitempty"`
+	StatusTimeMS  int64             `json:"statusTimeMs,omitempty"`
+	ComponentsMap map[string]string `json:"componentsMap,omitempty"`
 } // @name AgentComponentHealth
 
 // CustomCapabilities represents the custom capabilities of the agent.
 type CustomCapabilities struct {
+	Capabilities []string `json:"capabilities,omitempty"`
 } // @name AgentCustomCapabilities
 
 // AvailableComponents represents the available components of the agent.
 type AvailableComponents struct {
+	Components map[string]ComponentDetails `json:"components,omitempty"`
 } // @name AgentAvailableComponents
+
+// ComponentDetails represents details of an available component.
+type ComponentDetails struct {
+	Type    string `json:"type,omitempty"`
+	Version string `json:"version,omitempty"`
+} // @name ComponentDetails
 
 // PackageStatus represents the status of a package in the agent.
 type PackageStatus struct {

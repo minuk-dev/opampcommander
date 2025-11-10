@@ -48,10 +48,14 @@ func TestAgentControllerListAgent(t *testing.T) {
 		//exhaustruct:ignore
 		agents := []v1agent.Agent{
 			{
-				InstanceUID: instanceUIDs[0],
+				Metadata: v1agent.AgentMetadata{
+					InstanceUID: instanceUIDs[0],
+				},
 			},
 			{
-				InstanceUID: instanceUIDs[1],
+				Metadata: v1agent.AgentMetadata{
+					InstanceUID: instanceUIDs[1],
+				},
 			},
 		}
 		agentUsecase.EXPECT().
@@ -76,8 +80,8 @@ func TestAgentControllerListAgent(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
 		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "items.#").Int())
-		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "items.0.instanceUid").String())
-		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "items.1.instanceUid").String())
+		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "items.0.metadata.instanceUid").String())
+		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "items.1.metadata.instanceUid").String())
 	})
 
 	t.Run("List Agents - empty returns 200, empty", func(t *testing.T) {
@@ -173,7 +177,9 @@ func TestAgentControllerGetAgent(t *testing.T) {
 			Return(
 				//exhaustruct:ignore
 				&v1agent.Agent{
-					InstanceUID: instanceUID,
+					Metadata: v1agent.AgentMetadata{
+						InstanceUID: instanceUID,
+					},
 				}, nil)
 		// when
 		recorder := httptest.NewRecorder()
@@ -184,7 +190,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
 		t.Logf("response body: %s", recorder.Body.String())
-		assert.Equal(t, instanceUID.String(), gjson.Get(recorder.Body.String(), "instanceUid").String())
+		assert.Equal(t, instanceUID.String(), gjson.Get(recorder.Body.String(), "metadata.instanceUid").String())
 	})
 
 	t.Run("Get Agent - not found error returns 404", func(t *testing.T) {
