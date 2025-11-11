@@ -329,11 +329,10 @@ func updateAgentConfig(t *testing.T, baseURL string, agentUID uuid.UUID, updateR
 	require.NoError(t, err)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodPut, url, nil) //nolint:noctx
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(body)) //nolint:noctx
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)

@@ -74,6 +74,8 @@ func createKafkaSender(
 ) (*cekafka.Sender, error) {
 	brokers := settings.KafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
+	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
 	topic := settings.KafkaSettings.Topic
 
 	var opts []cekafka.SenderOptionFunc
