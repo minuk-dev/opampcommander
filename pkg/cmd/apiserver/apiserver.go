@@ -33,10 +33,10 @@ type CommandOption struct {
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
 	Event       struct {
-		Type string `mapstructure:"type"`
-		NATS struct {
-			Endpoint      string `mapstructure:"endpoint"`
-			SubjectPrefix string `mapstructure:"subjectPrefix"`
+		Type  string `mapstructure:"type"`
+		Kafka struct {
+			Brokers []string `mapstructure:"brokers"`
+			Topic   string   `mapstructure:"topic"`
 		}
 	} `mapstructure:"event"`
 	Management struct {
@@ -150,10 +150,10 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
 	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
-	cmd.Flags().String("event.type", "inmemory", "event protocol type (inmemory, nats)")
+	cmd.Flags().String("event.type", "inmemory", "event protocol type (inmemory, kafka)")
 	cmd.Flags().Bool("event.enabled", false, "enable event communication")
-	cmd.Flags().String("event.nats.endpoint", "nats://localhost:4222", "NATS server endpoint")
-	cmd.Flags().String("event.nats.subjectPrefix", "test.opampcommander.", "NATS subject prefix")
+	cmd.Flags().StringSlice("event.kafka.brokers", []string{"localhost:9092"}, "Kafka broker addresses")
+	cmd.Flags().String("event.kafka.topic", "opampcommander.events", "Kafka topic name")
 	cmd.Flags().String("management.address", "localhost:9090", "management server address")
 	cmd.Flags().Bool("management.metric.enabled", false, "enable metrics")
 	cmd.Flags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
@@ -285,9 +285,9 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 		},
 		EventSettings: appconfig.EventSettings{
 			ProtocolType: appconfig.EventProtocolType(opt.Event.Type),
-			NATS: appconfig.NATSSettings{
-				Endpoint:      opt.Event.NATS.Endpoint,
-				SubjectPrefix: opt.Event.NATS.SubjectPrefix,
+			KafkaSettings: appconfig.KafkaSettings{
+				Brokers: opt.Event.Kafka.Brokers,
+				Topic:   opt.Event.Kafka.Topic,
 			},
 		},
 		ManagementSettings: appconfig.ManagementSettings{

@@ -1,52 +1,25 @@
 definitions:
   Agent:
     properties:
-      availableComponents:
-        $ref: '#/definitions/AgentAvailableComponents'
-      capabilities:
-        description: |-
-          Capabilities is a bitmask representing the capabilities of the agent.
-          It is used to determine what features the agent supports.
-          If nil, it means the capabilities are unspecified.
-        type: integer
-      componentHealth:
+      metadata:
         allOf:
-        - $ref: '#/definitions/AgentComponentHealth'
-        description: ComponentHealth is the health status of the agent's components.
-      customCapabilities:
+        - $ref: '#/definitions/AgentMetadata'
+        description: Metadata contains identifying information about the agent.
+      spec:
         allOf:
-        - $ref: '#/definitions/AgentCustomCapabilities'
-        description: CustomCapabilities is a map of custom capabilities for the agent.
-      description:
+        - $ref: '#/definitions/AgentSpec'
+        description: Spec contains the desired configuration for the agent.
+      status:
         allOf:
-        - $ref: '#/definitions/AgentDescription'
-        description: Description is a human-readable description of the agent.
-      effectiveConfig:
-        allOf:
-        - $ref: '#/definitions/AgentEffectiveConfig'
-        description: |-
-          EffectiveConfig is the effective configuration of the agent.
-          It is used to determine the current configuration of the agent.
-      instanceUid:
-        description: InstanceUID is a unique identifier for the agent instance.
-        type: string
-      isManaged:
-        description: |-
-          IsManaged indicates whether the agent is managed by the server.
-          If true, the server manages the agent and can send commands to it.
-        type: boolean
-      packageStatuses:
-        allOf:
-        - $ref: '#/definitions/AgentPackageStatuses'
-        description: PackageStatuses is a map of package statuses for the agent.
-      remoteConfig:
-        allOf:
-        - $ref: '#/definitions/AgentRemoteConfig'
-        description: |-
-          RemoteConfig is the remote configuration of the agent.
-          It is used to determine the current remote configuration of the agent.
+        - $ref: '#/definitions/AgentStatus'
+        description: Status contains the observed state of the agent.
     type: object
   AgentAvailableComponents:
+    properties:
+      components:
+        additionalProperties:
+          $ref: '#/definitions/ComponentDetails'
+        type: object
     type: object
   AgentCommand:
     properties:
@@ -61,6 +34,21 @@ definitions:
         type: string
     type: object
   AgentComponentHealth:
+    properties:
+      componentsMap:
+        additionalProperties:
+          type: string
+        type: object
+      healthy:
+        type: boolean
+      lastError:
+        type: string
+      startTimeUnix:
+        type: integer
+      status:
+        type: string
+      statusTimeMs:
+        type: integer
     type: object
   AgentConfigFile:
     properties:
@@ -77,6 +65,11 @@ definitions:
         type: object
     type: object
   AgentCustomCapabilities:
+    properties:
+      capabilities:
+        items:
+          type: string
+        type: array
     type: object
   AgentDescription:
     properties:
@@ -134,6 +127,24 @@ definitions:
     required:
     - name
     type: object
+  AgentMetadata:
+    properties:
+      capabilities:
+        description: Capabilities is a bitmask representing the capabilities of the
+          agent.
+        type: integer
+      customCapabilities:
+        allOf:
+        - $ref: '#/definitions/AgentCustomCapabilities'
+        description: CustomCapabilities is a map of custom capabilities for the agent.
+      description:
+        allOf:
+        - $ref: '#/definitions/AgentDescription'
+        description: Description is a human-readable description of the agent.
+      instanceUid:
+        description: InstanceUID is a unique identifier for the agent instance.
+        type: string
+    type: object
   AgentPackageStatus:
     properties:
       name:
@@ -152,6 +163,46 @@ definitions:
         type: string
     type: object
   AgentRemoteConfig:
+    properties:
+      configHash:
+        type: string
+      configMap:
+        additionalProperties:
+          $ref: '#/definitions/AgentConfigFile'
+        type: object
+    type: object
+  AgentSpec:
+    properties:
+      remoteConfig:
+        allOf:
+        - $ref: '#/definitions/AgentRemoteConfig'
+        description: RemoteConfig is the remote configuration of the agent.
+    type: object
+  AgentStatus:
+    properties:
+      availableComponents:
+        allOf:
+        - $ref: '#/definitions/AgentAvailableComponents'
+        description: AvailableComponents lists components available on the agent.
+      componentHealth:
+        allOf:
+        - $ref: '#/definitions/AgentComponentHealth'
+        description: ComponentHealth is the health status of the agent's components.
+      connected:
+        description: Connected indicates if the agent is currently connected.
+        type: boolean
+      effectiveConfig:
+        allOf:
+        - $ref: '#/definitions/AgentEffectiveConfig'
+        description: EffectiveConfig is the effective configuration of the agent.
+      lastReportedAt:
+        description: LastReportedAt is the timestamp when the agent last reported
+          its status.
+        type: string
+      packageStatuses:
+        allOf:
+        - $ref: '#/definitions/AgentPackageStatuses'
+        description: PackageStatuses is a map of package statuses for the agent.
     type: object
   AuthnTokenResponse:
     properties:
@@ -169,6 +220,13 @@ definitions:
       kind:
         type: string
       targetInstanceUid:
+        type: string
+    type: object
+  ComponentDetails:
+    properties:
+      type:
+        type: string
+      version:
         type: string
     type: object
   Connection:

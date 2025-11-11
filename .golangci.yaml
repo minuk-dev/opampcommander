@@ -68,9 +68,9 @@ linters:
             - go.mongodb.org/mongo-driver/v2/event
             - go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo
             # Eventing / Messaging
-            - github.com/cloudevents/sdk-go/protocol/nats/v2
+            - github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
             - github.com/cloudevents/sdk-go/v2
-            - github.com/nats-io/nats.go
+            - github.com/IBM/sarama
             # Utils
             - github.com/samber/lo
             - k8s.io/utils/clock
@@ -119,6 +119,8 @@ linters:
             - github.com/tidwall/gjson
             - gotest.tools/icmd
             - go.uber.org/goleak
+            - github.com/IBM/sarama
+            - github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
             - go.mongodb.org/mongo-driver/v2/mongo
             - go.mongodb.org/mongo-driver/v2/bson
             - github.com/testcontainers/testcontainers-go

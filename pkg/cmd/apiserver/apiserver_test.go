@@ -63,6 +63,7 @@ func TestCommand(t *testing.T) {
 		"--address", fmt.Sprintf("%s:%d", "localhost", port),
 		"--database.type", "mongodb",
 		"--database.endpoints", mongoDBURI,
+		"--event.type", "inmemory",
 	})
 
 	ctx, cancel := context.WithCancel(t.Context())

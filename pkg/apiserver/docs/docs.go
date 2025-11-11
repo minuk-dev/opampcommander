@@ -934,73 +934,42 @@ const docTemplate = `{
         "Agent": {
             "type": "object",
             "properties": {
-                "availableComponents": {
-                    "$ref": "#/definitions/AgentAvailableComponents"
-                },
-                "capabilities": {
-                    "description": "Capabilities is a bitmask representing the capabilities of the agent.\nIt is used to determine what features the agent supports.\nIf nil, it means the capabilities are unspecified.",
-                    "type": "integer"
-                },
-                "componentHealth": {
-                    "description": "ComponentHealth is the health status of the agent's components.",
+                "metadata": {
+                    "description": "Metadata contains identifying information about the agent.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/AgentComponentHealth"
+                            "$ref": "#/definitions/AgentMetadata"
                         }
                     ]
                 },
-                "customCapabilities": {
-                    "description": "CustomCapabilities is a map of custom capabilities for the agent.",
+                "spec": {
+                    "description": "Spec contains the desired configuration for the agent.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/AgentCustomCapabilities"
+                            "$ref": "#/definitions/AgentSpec"
                         }
                     ]
                 },
-                "description": {
-                    "description": "Description is a human-readable description of the agent.",
+                "status": {
+                    "description": "Status contains the observed state of the agent.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/AgentDescription"
-                        }
-                    ]
-                },
-                "effectiveConfig": {
-                    "description": "EffectiveConfig is the effective configuration of the agent.\nIt is used to determine the current configuration of the agent.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/AgentEffectiveConfig"
-                        }
-                    ]
-                },
-                "instanceUid": {
-                    "description": "InstanceUID is a unique identifier for the agent instance.",
-                    "type": "string"
-                },
-                "isManaged": {
-                    "description": "IsManaged indicates whether the agent is managed by the server.\nIf true, the server manages the agent and can send commands to it.",
-                    "type": "boolean"
-                },
-                "packageStatuses": {
-                    "description": "PackageStatuses is a map of package statuses for the agent.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/AgentPackageStatuses"
-                        }
-                    ]
-                },
-                "remoteConfig": {
-                    "description": "RemoteConfig is the remote configuration of the agent.\nIt is used to determine the current remote configuration of the agent.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/AgentRemoteConfig"
+                            "$ref": "#/definitions/AgentStatus"
                         }
                     ]
                 }
             }
         },
         "AgentAvailableComponents": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "components": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ComponentDetails"
+                    }
+                }
+            }
         },
         "AgentCommand": {
             "type": "object",
@@ -1021,7 +990,30 @@ const docTemplate = `{
             }
         },
         "AgentComponentHealth": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "componentsMap": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "healthy": {
+                    "type": "boolean"
+                },
+                "lastError": {
+                    "type": "string"
+                },
+                "startTimeUnix": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "statusTimeMs": {
+                    "type": "integer"
+                }
+            }
         },
         "AgentConfigFile": {
             "type": "object",
@@ -1046,7 +1038,15 @@ const docTemplate = `{
             }
         },
         "AgentCustomCapabilities": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
         },
         "AgentDescription": {
             "type": "object",
@@ -1130,6 +1130,35 @@ const docTemplate = `{
                 }
             }
         },
+        "AgentMetadata": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "description": "Capabilities is a bitmask representing the capabilities of the agent.",
+                    "type": "integer"
+                },
+                "customCapabilities": {
+                    "description": "CustomCapabilities is a map of custom capabilities for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentCustomCapabilities"
+                        }
+                    ]
+                },
+                "description": {
+                    "description": "Description is a human-readable description of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentDescription"
+                        }
+                    ]
+                },
+                "instanceUid": {
+                    "description": "InstanceUID is a unique identifier for the agent instance.",
+                    "type": "string"
+                }
+            }
+        },
         "AgentPackageStatus": {
             "type": "object",
             "properties": {
@@ -1157,7 +1186,76 @@ const docTemplate = `{
             }
         },
         "AgentRemoteConfig": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "configHash": {
+                    "type": "string"
+                },
+                "configMap": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/AgentConfigFile"
+                    }
+                }
+            }
+        },
+        "AgentSpec": {
+            "type": "object",
+            "properties": {
+                "remoteConfig": {
+                    "description": "RemoteConfig is the remote configuration of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentRemoteConfig"
+                        }
+                    ]
+                }
+            }
+        },
+        "AgentStatus": {
+            "type": "object",
+            "properties": {
+                "availableComponents": {
+                    "description": "AvailableComponents lists components available on the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentAvailableComponents"
+                        }
+                    ]
+                },
+                "componentHealth": {
+                    "description": "ComponentHealth is the health status of the agent's components.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentComponentHealth"
+                        }
+                    ]
+                },
+                "connected": {
+                    "description": "Connected indicates if the agent is currently connected.",
+                    "type": "boolean"
+                },
+                "effectiveConfig": {
+                    "description": "EffectiveConfig is the effective configuration of the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentEffectiveConfig"
+                        }
+                    ]
+                },
+                "lastReportedAt": {
+                    "description": "LastReportedAt is the timestamp when the agent last reported its status.",
+                    "type": "string"
+                },
+                "packageStatuses": {
+                    "description": "PackageStatuses is a map of package statuses for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentPackageStatuses"
+                        }
+                    ]
+                }
+            }
         },
         "AuthnTokenResponse": {
             "type": "object",
@@ -1182,6 +1280,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "targetInstanceUid": {
+                    "type": "string"
+                }
+            }
+        },
+        "ComponentDetails": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }

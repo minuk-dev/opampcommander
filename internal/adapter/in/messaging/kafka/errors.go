@@ -1,4 +1,4 @@
-package nats
+package kafka
 
 // UnknownMessageTypeError is returned when the message type is unknown.
 type UnknownMessageTypeError struct {

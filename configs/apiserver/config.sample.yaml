@@ -50,8 +50,9 @@ event:
   # enabled: Set to false for standalone mode (single server instance)
   # Set to true for distributed mode (multiple server instances with inter-server communication)
   enabled: false
-  # type: Event protocol type - "inmemory" for standalone mode, "nats" for distributed mode
+  # type: Event protocol type - "inmemory" for standalone mode, "kafka" for distributed mode
   type: "inmemory"
-  nats:
-    endpoint: "nats://localhost:4222"
-    subjectPrefix: "prod.opampcommander."
+  kafka:
+    brokers:
+      - "localhost:9092"
+    topic: "prod.opampcommander.events"
