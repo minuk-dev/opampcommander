@@ -2,8 +2,6 @@ module github.com/minuk-dev/opampcommander
 
 go 1.25.1
 
-replace go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo => ./opentelemetry-go-contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo
-
 require (
 	github.com/cloudevents/sdk-go/observability/opentelemetry/v2 v2.16.2
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
