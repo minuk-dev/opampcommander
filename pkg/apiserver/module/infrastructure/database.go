@@ -8,7 +8,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo"
-	metricapi "go.opentelemetry.io/otel/metric"
 	traceapi "go.opentelemetry.io/otel/trace"
 	"go.uber.org/fx"
 
@@ -19,7 +18,7 @@ import (
 // NewMongoDBClient creates a new MongoDB client with OpenTelemetry instrumentation.
 func NewMongoDBClient(
 	settings *config.ServerSettings,
-	meterProvider metricapi.MeterProvider,
+	// meterProvider metricapi.MeterProvider,
 	traceProvider traceapi.TracerProvider,
 	lifecycle fx.Lifecycle,
 ) (*mongo.Client, error) {
@@ -30,15 +29,11 @@ func NewMongoDBClient(
 		uri = "mongodb://localhost:27017"
 	}
 
-	monitor, poolMonitor, err := getObservabilityForMongo(meterProvider, traceProvider, lifecycle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to set observability to mongo client: %w", err)
-	}
+	monitor := getObservabilityForMongo(traceProvider)
 	// Use OpenTelemetry MongoDB instrumentation
 	clientOptions := options.Client().
 		ApplyURI(uri).
-		SetMonitor(monitor).
-		SetPoolMonitor(poolMonitor)
+		SetMonitor(monitor)
 
 	mongoClient, err := mongo.Connect(clientOptions)
 	if err != nil {
@@ -107,32 +102,15 @@ func NewMongoDatabase(
 }
 
 func getObservabilityForMongo(
-	meterProvider metricapi.MeterProvider,
+	// meterProvider metricapi.MeterProvider,
 	traceProvider traceapi.TracerProvider,
-	lifecycle fx.Lifecycle,
-) (*event.CommandMonitor, *event.PoolMonitor, error) {
+) *event.CommandMonitor {
 	monitor := otelmongo.NewMonitor(
-		otelmongo.WithMeterProvider(meterProvider),
+		//nolint:godox // external issue
+		// TODO: Enable when https://github.com/open-telemetry/opentelemetry-go-contrib/pull/7983 merged
+		// otelmongo.WithMeterProvider(meterProvider),
 		otelmongo.WithTracerProvider(traceProvider),
 	)
-	meterCtx, meterCancel := context.WithCancel(context.Background())
-	lifecycle.Append(fx.Hook{
-		OnStart: nil,
-		OnStop: func(context.Context) error {
-			meterCancel()
 
-			return nil
-		},
-	})
-
-	poolMonitor, err := otelmongo.NewPoolMonitor(
-		meterCtx,
-		"apiserver-mongo-pool",
-		otelmongo.WithPoolMeterProvider(meterProvider),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create mongo pool monitor: %w", err)
-	}
-
-	return monitor, poolMonitor, nil
+	return monitor
 }
