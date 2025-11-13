@@ -51,7 +51,10 @@ jobs:
           name: goreleaser-assets
           path: |
             dist/*
-      - name: Find Docker images from GoReleaser's output
+      - name: Set up Docker Buildx
+        if: startsWith(github.ref, 'refs/heads/')
+        uses: docker/setup-buildx-action@v3
+      - name: Push Docker images and create multi-arch manifest
         if: startsWith(github.ref, 'refs/heads/')
         run: |
           jq -r '.[] | select(.type == "Docker Image") | .path' dist/artifacts.json > image_list.txt
@@ -60,3 +63,11 @@ jobs:
             echo "Pushing $image"
             docker push "$image"
           done < image_list.txt
+          
+          VERSION=$(jq -r '.version' dist/metadata.json)
+          AMD64_IMAGE="minukdev/opampcommander:${VERSION}-amd64"
+          ARM64_IMAGE="minukdev/opampcommander:${VERSION}-arm64"
+          MANIFEST_TAG="minukdev/opampcommander:${VERSION}"
+          
+          echo "Creating multi-arch manifest: $MANIFEST_TAG"
+          docker buildx imagetools create -t "$MANIFEST_TAG" "$AMD64_IMAGE" "$ARM64_IMAGE"
