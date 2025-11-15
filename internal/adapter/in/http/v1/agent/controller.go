@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
@@ -51,12 +50,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/agents/:id",
 			Handler:     "http.v1.agent.Get",
 			HandlerFunc: c.Get,
-		},
-		{
-			Method:      http.MethodPost,
-			Path:        "/api/v1/agents/:id/update-agent-config",
-			Handler:     "http.v1.agent.UpdateAgentConfig",
-			HandlerFunc: c.UpdateAgentConfig,
 		},
 	}
 }
@@ -139,58 +132,4 @@ func (c *Controller) Get(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, agent)
-}
-
-// UpdateAgentConfig creates a new command to update the agent configuration.
-//
-// @Summary  Update Agent Configuration
-// @Tags agent
-// @Description Create a new command to update the agent configuration.
-// @Accept  json
-// @Produce  json
-// @Param  id path string true "Instance UID of the agent"
-// @Param  request body UpdateAgentConfigRequest true "Request body containing the remote configuration"
-// @Success  201 {object} AgentCommand
-// @Failure  400 {object} map[string]any
-// @Failure  500 {object} map[string]any
-// @Router  /api/v1/agents/{id}/update-agent-config [post].
-func (c *Controller) UpdateAgentConfig(ctx *gin.Context) {
-	id := ctx.Param("id")
-
-	instanceUID, err := uuid.Parse(id)
-	if err != nil {
-		c.logger.Error("failed to parse id", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-
-		return
-	}
-
-	var request agentv1.UpdateAgentConfigRequest
-
-	err = ctx.ShouldBindJSON(&request)
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-
-		return
-	}
-
-	command := model.NewUpdateAgentConfigCommand(instanceUID, request.RemoteConfig)
-
-	err = c.agentUsecase.SendCommand(ctx.Request.Context(), instanceUID, command)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save command"})
-
-		return
-	}
-
-	ctx.JSON(http.StatusCreated, convertToAPIModel(command))
-}
-
-func convertToAPIModel(command *model.Command) *agentv1.Command {
-	return &agentv1.Command{
-		Kind:              string(command.Kind),
-		ID:                command.ID.String(),
-		TargetInstanceUID: command.TargetInstanceUID.String(),
-		Data:              command.Data,
-	}
 }

@@ -372,61 +372,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/agents/{id}/update-agent-config": {
-            "post": {
-                "description": "Create a new command to update the agent configuration.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent"
-                ],
-                "summary": "Update Agent Configuration",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Instance UID of the agent",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Request body containing the remote configuration",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/UpdateAgentConfigRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/AgentCommand"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/auth/basic": {
             "get": {
                 "description": "Authenticate using basic auth credentials.",
@@ -593,85 +538,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/commands": {
-            "get": {
-                "description": "Retrieve a list of commands.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "command"
-                ],
-                "summary": "List Commands",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CommandAudit"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Failed to list commands",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/commands/{id}": {
-            "get": {
-                "description": "Retrieve a command by its ID.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "command"
-                ],
-                "summary": "Get Command",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Command ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/CommandAudit"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid command ID",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Failed to get command",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -971,24 +837,6 @@ const docTemplate = `{
                 }
             }
         },
-        "AgentCommand": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "id": {
-                    "type": "string"
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "targetInstanceUid": {
-                    "type": "string"
-                }
-            }
-        },
         "AgentComponentHealth": {
             "type": "object",
             "properties": {
@@ -1266,24 +1114,6 @@ const docTemplate = `{
                 }
             }
         },
-        "CommandAudit": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "id": {
-                    "type": "string"
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "targetInstanceUid": {
-                    "type": "string"
-                }
-            }
-        },
         "ComponentDetails": {
             "type": "object",
             "properties": {
@@ -1382,15 +1212,6 @@ const docTemplate = `{
                 "lastHeartbeatAt": {
                     "type": "string"
                 }
-            }
-        },
-        "UpdateAgentConfigRequest": {
-            "type": "object",
-            "required": [
-                "remoteConfig"
-            ],
-            "properties": {
-                "remoteConfig": {}
             }
         },
         "VersionInfo": {
