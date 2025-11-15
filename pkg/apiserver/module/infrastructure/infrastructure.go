@@ -11,7 +11,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup"
-	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/command"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
@@ -54,7 +53,6 @@ func provideHTTPComponents() fx.Option {
 			connection.NewController, helper.AsController(helper.Identity[*connection.Controller]),
 			agent.NewController, helper.AsController(helper.Identity[*agent.Controller]),
 			agentgroup.NewController, helper.AsController(helper.Identity[*agentgroup.Controller]),
-			command.NewController, helper.AsController(helper.Identity[*command.Controller]),
 			server.NewController, helper.AsController(helper.Identity[*server.Controller]),
 			github.NewController, helper.AsController(helper.Identity[*github.Controller]),
 			basic.NewController, helper.AsController(helper.Identity[*basic.Controller]),
@@ -77,7 +75,6 @@ func provideDatabaseComponents() fx.Option {
 			helper.AsHealthIndicator(NewMongoDBHealthIndicator),
 			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(port.AgentPersistencePort))),
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(port.AgentGroupPersistencePort))),
-			fx.Annotate(mongodb.NewCommandRepository, fx.As(new(port.CommandPersistencePort))),
 			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(port.ServerPersistencePort))),
 		),
 	)

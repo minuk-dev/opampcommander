@@ -27,7 +27,6 @@ type Service struct {
 	clock             clock.Clock
 	logger            *slog.Logger
 	agentUsecase      domainport.AgentUsecase
-	commandUsecase    domainport.CommandUsecase
 	serverUsecase     domainport.ServerUsecase
 	agentGroupUsecase domainport.AgentGroupUsecase
 
@@ -42,7 +41,6 @@ type Service struct {
 // New creates a new instance of the OpAMP service.
 func New(
 	agentUsecase domainport.AgentUsecase,
-	commandUsecase domainport.CommandUsecase,
 	connectionUsecase domainport.ConnectionUsecase,
 	serverUsecase domainport.ServerUsecase,
 	agentGroupUsecase domainport.AgentGroupUsecase,
@@ -53,7 +51,6 @@ func New(
 		clock:                    clock.NewRealClock(),
 		logger:                   logger,
 		agentUsecase:             agentUsecase,
-		commandUsecase:           commandUsecase,
 		connectionUsecase:        connectionUsecase,
 		serverUsecase:            serverUsecase,
 		agentGroupUsecase:        agentGroupUsecase,

@@ -12,7 +12,6 @@ import (
 // New creates a new module for domain services.
 func New() fx.Option {
 	components := []any{
-		fx.Annotate(domainservice.NewCommandService, fx.As(new(domainport.CommandUsecase))),
 		fx.Annotate(domainservice.NewConnectionService, fx.As(new(domainport.ConnectionUsecase))),
 		fx.Annotate(domainservice.NewAgentService, fx.As(new(domainport.AgentUsecase))),
 		fx.Annotate(domainservice.NewAgentGroupService,

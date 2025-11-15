@@ -128,15 +128,3 @@ type ConnectionUsecase interface {
 	// SendServerToAgent sends a ServerToAgent message to the agent via WebSocket connection.
 	SendServerToAgent(ctx context.Context, instanceUID uuid.UUID, message *protobufs.ServerToAgent) error
 }
-
-// CommandUsecase is an interface that defines the methods for command use cases.
-type CommandUsecase interface {
-	// GetCommand retrieves a command by its ID.
-	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
-	// GetCommandByInstanceUID retrieves a command by its instance UID.
-	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error)
-	// SaveCommand saves the command.
-	SaveCommandAudit(ctx context.Context, command *model.Command) error
-	// ListCommands lists all commands.
-	ListCommands(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Command], error)
-}

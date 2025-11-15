@@ -25,7 +25,6 @@ type OpAMPUsecase interface {
 
 // AdminUsecase is a use case that handles admin operations.
 type AdminUsecase interface {
-	ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error
 	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Connection], error)
 }
 
@@ -33,7 +32,6 @@ type AdminUsecase interface {
 type AgentManageUsecase interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error)
 	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
-	SendCommand(ctx context.Context, targetInstanceUID uuid.UUID, command *model.Command) error
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
@@ -61,14 +59,4 @@ type CreateAgentGroupCommand struct {
 	Priority    int
 	Selector    v1agentgroup.AgentSelector
 	AgentConfig *v1agentgroup.AgentConfig
-}
-
-// CommandLookUpUsecase is a use case that handles command operations.
-type CommandLookUpUsecase interface {
-	// GetCommand retrieves a command by its ID.
-	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
-	// GetCommandByInstanceUID retrieves a command by its instance UID.
-	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) ([]*model.Command, error)
-	// ListCommands lists all commands.
-	ListCommands(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Command], error)
 }

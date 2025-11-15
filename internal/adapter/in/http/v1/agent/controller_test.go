@@ -1,10 +1,8 @@
 package agent_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -255,101 +253,6 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
 		require.NoError(t, err)
-		// then
-		router.ServeHTTP(recorder, req)
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
-	})
-}
-
-func TestAgentController_UpdateAgentConfig(t *testing.T) {
-	t.Parallel()
-
-	t.Run("Update Agent Config - happycase", func(t *testing.T) {
-		t.Parallel()
-
-		ctrlBase := testutil.NewBase(t).ForController()
-		agentUsecase := usecasemock.NewMockManageUsecase(t)
-		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
-		ctrlBase.SetupRouter(controller)
-		router := ctrlBase.Router
-
-		// given
-		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
-
-		agentUsecase.EXPECT().SendCommand(mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-		// when
-		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
-			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
-			strings.NewReader(requestBody))
-		require.NoError(t, err)
-
-		// then
-		router.ServeHTTP(recorder, req)
-		assert.Equal(t, http.StatusCreated, recorder.Code)
-	})
-
-	t.Run("Update Agent Config - 400 Bad Request when instanceUID is not uuid", func(t *testing.T) {
-		t.Parallel()
-		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := usecasemock.NewMockManageUsecase(t)
-		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
-		ctrlBase.SetupRouter(controller)
-		router := ctrlBase.Router
-		// when
-		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
-			"/api/v1/agents/not-a-uuid/update-agent-config",
-			strings.NewReader(`{"targetInstanceUid":"not-a-uuid","remoteConfig":{"key":"value"}}`))
-		require.NoError(t, err)
-		// then
-		router.ServeHTTP(recorder, req)
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-	})
-
-	t.Run("Update Agent Config - 400 Bad Request when invalid request body", func(t *testing.T) {
-		t.Parallel()
-
-		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := usecasemock.NewMockManageUsecase(t)
-		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
-		ctrlBase.SetupRouter(controller)
-		router := ctrlBase.Router
-
-		// when
-		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
-			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
-			strings.NewReader("invalid request body"))
-		require.NoError(t, err)
-
-		// then
-		router.ServeHTTP(recorder, req)
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-	})
-
-	t.Run("Update Agent Config - 500 Internal Server Error when usecase fails", func(t *testing.T) {
-		t.Parallel()
-
-		ctrlBase := testutil.NewBase(t).ForController()
-		agentManageUsecase := usecasemock.NewMockManageUsecase(t)
-		controller := agent.NewController(agentManageUsecase, ctrlBase.Logger)
-		ctrlBase.SetupRouter(controller)
-		router := ctrlBase.Router
-
-		// given
-		requestBody := `{"targetInstanceUid":"` + uuid.New().String() + `","remoteConfig":{"key":"value"}}`
-
-		agentManageUsecase.EXPECT().SendCommand(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
-
-		// when
-		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
-			fmt.Sprintf("/api/v1/agents/%s/update-agent-config", uuid.New().String()),
-			strings.NewReader(requestBody))
-		require.NoError(t, err)
-
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)

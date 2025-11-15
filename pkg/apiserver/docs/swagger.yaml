@@ -21,18 +21,6 @@ definitions:
           $ref: '#/definitions/ComponentDetails'
         type: object
     type: object
-  AgentCommand:
-    properties:
-      data:
-        additionalProperties: {}
-        type: object
-      id:
-        type: string
-      kind:
-        type: string
-      targetInstanceUid:
-        type: string
-    type: object
   AgentComponentHealth:
     properties:
       componentsMap:
@@ -210,18 +198,6 @@ definitions:
         description: Token is the authentication token.
         type: string
     type: object
-  CommandAudit:
-    properties:
-      data:
-        additionalProperties: {}
-        type: object
-      id:
-        type: string
-      kind:
-        type: string
-      targetInstanceUid:
-        type: string
-    type: object
   ComponentDetails:
     properties:
       type:
@@ -292,12 +268,6 @@ definitions:
         type: string
       lastHeartbeatAt:
         type: string
-    type: object
-  UpdateAgentConfigRequest:
-    properties:
-      remoteConfig: {}
-    required:
-    - remoteConfig
     type: object
   VersionInfo:
     properties:
@@ -589,43 +559,6 @@ paths:
       summary: Get Agent
       tags:
       - agent
-  /api/v1/agents/{id}/update-agent-config:
-    post:
-      consumes:
-      - application/json
-      description: Create a new command to update the agent configuration.
-      parameters:
-      - description: Instance UID of the agent
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Request body containing the remote configuration
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/UpdateAgentConfigRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/AgentCommand'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Update Agent Configuration
-      tags:
-      - agent
   /api/v1/auth/basic:
     get:
       consumes:
@@ -744,59 +677,6 @@ paths:
       tags:
       - auth
       - basic
-  /api/v1/commands:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a list of commands.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/CommandAudit'
-            type: array
-        "500":
-          description: Failed to list commands
-          schema:
-            additionalProperties: true
-            type: object
-      summary: List Commands
-      tags:
-      - command
-  /api/v1/commands/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a command by its ID.
-      parameters:
-      - description: Command ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CommandAudit'
-        "400":
-          description: Invalid command ID
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Failed to get command
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Get Command
-      tags:
-      - command
   /api/v1/connections:
     get:
       consumes:

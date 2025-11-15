@@ -59,18 +59,6 @@ type AgentGroupPersistencePort interface {
 	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)
 }
 
-// CommandPersistencePort is an interface that defines the methods for command persistence.
-type CommandPersistencePort interface {
-	// GetCommand retrieves a command by its ID.
-	GetCommand(ctx context.Context, commandID uuid.UUID) (*model.Command, error)
-	// GetCommandByInstanceUID retrieves a command by its instance UID.
-	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Command, error)
-	// SaveCommand saves the command.
-	SaveCommand(ctx context.Context, command *model.Command) error
-	// ListCommands retrieves a list of commands with pagination options.
-	ListCommands(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Command], error)
-}
-
 // ServerPersistencePort is an interface that defines the methods for server persistence.
 type ServerPersistencePort interface {
 	// GetServer retrieves a server by its ID.
