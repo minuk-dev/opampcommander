@@ -49,10 +49,3 @@ func ValueFunc[T any](a T) func() T {
 		return a
 	}
 }
-
-// Identity is a generic function that returns the input value.
-// It is a helper function to generate a function that returns the input value.
-// It is used to provide a function as a interface.
-func Identity[T any](a T) T {
-	return a
-}

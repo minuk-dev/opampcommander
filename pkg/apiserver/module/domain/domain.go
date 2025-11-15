@@ -20,17 +20,24 @@ func New() fx.Option {
 		),
 		domainservice.NewServerService,
 		fx.Annotate(
-			helper.Identity[*domainservice.ServerService],
+			Identity[*domainservice.ServerService],
 			fx.As(new(domainport.ServerIdentityProvider)),
 			fx.As(new(domainport.ServerUsecase)),
 			fx.As(new(domainport.ServerMessageUsecase)),
 		),
 		fx.Annotate(domainservice.NewAgentNotificationService, fx.As(new(domainport.AgentNotificationUsecase))),
-		helper.AsRunner(helper.Identity[*domainservice.ServerService]),
+		helper.AsRunner(Identity[*domainservice.ServerService]),
 	}
 
 	return fx.Module(
 		"domain",
 		fx.Provide(components...),
 	)
+}
+
+// Identity is a generic function that returns the input value.
+// It is a helper function to generate a function that returns the input value.
+// It is used to provide a function as a interface.
+func Identity[T any](a T) T {
+	return a
 }

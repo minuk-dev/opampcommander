@@ -13,6 +13,7 @@ import (
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/domain"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper/management"
 	infrastructuremodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/infrastructure"
 )
 
@@ -43,6 +44,7 @@ func New(settings config.ServerSettings) *Server {
 
 		// Base utilities
 		helper.NewModule(),
+		management.NewModule(),
 		// Initialize HTTP server
 		fx.Invoke(func(*http.Server) {}),
 	)
