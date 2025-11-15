@@ -19,17 +19,24 @@ func New() fx.Option {
 		// application
 		fx.Provide(
 			opampApplicationService.New,
-			fx.Annotate(helper.Identity[*opampApplicationService.Service], fx.As(new(port.OpAMPUsecase))),
-			helper.AsRunner(helper.Identity[*opampApplicationService.Service]), // for background processing
+			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(port.OpAMPUsecase))),
+			helper.AsRunner(Identity[*opampApplicationService.Service]), // for background processing
 
 			adminApplicationService.New,
-			fx.Annotate(helper.Identity[*adminApplicationService.Service], fx.As(new(port.AdminUsecase))),
+			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(port.AdminUsecase))),
 
 			agentApplicationService.New,
-			fx.Annotate(helper.Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
+			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
 
 			agentgroupApplicationService.NewManageService,
-			fx.Annotate(helper.Identity[*agentgroupApplicationService.ManageService], fx.As(new(port.AgentGroupManageUsecase))),
+			fx.Annotate(Identity[*agentgroupApplicationService.ManageService], fx.As(new(port.AgentGroupManageUsecase))),
 		),
 	)
+}
+
+// Identity is a generic function that returns the input value.
+// It is a helper function to generate a function that returns the input value.
+// It is used to provide a function as a interface.
+func Identity[T any](a T) T {
+	return a
 }

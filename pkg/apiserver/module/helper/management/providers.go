@@ -11,7 +11,6 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/management"
-	"github.com/minuk-dev/opampcommander/internal/management/healthcheck"
 	"github.com/minuk-dev/opampcommander/internal/management/observability"
 )
 
@@ -38,14 +37,13 @@ func ExposeObservabilityComponents(
 	}
 }
 
-// AsManagementHTTPHandler converts observability.Service to ManagementHTTPHandler.
-func AsManagementHTTPHandler(svc *observability.Service) management.HTTPHandler {
-	return svc
-}
-
-// AsHealthManagementHTTPHandler converts healthcheck.HealthHelper to ManagementHTTPHandler.
-func AsHealthManagementHTTPHandler(helper *healthcheck.HealthHelper) management.HTTPHandler {
-	return helper
+// AsManagementHTTPHandler annotates a constructor function to be provided as a management.HTTPHandler.
+func AsManagementHTTPHandler(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(management.HTTPHandler)),
+		fx.ResultTags(`group:"management_http_handlers"`),
+	)
 }
 
 // NewTracedHTTPClient creates an HTTP client with OpenTelemetry tracing instrumentation.
@@ -62,4 +60,11 @@ func NewTracedHTTPClient(tracerProvider trace.TracerProvider) *http.Client {
 			otelhttp.WithTracerProvider(tracerProvider),
 		),
 	}
+}
+
+// Identity is a generic function that returns the input value.
+// It is a helper function to generate a function that returns the input value.
+// It is used to provide a function as a interface.
+func Identity[T any](a T) T {
+	return a
 }

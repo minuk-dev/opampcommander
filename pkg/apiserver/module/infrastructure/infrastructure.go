@@ -47,15 +47,15 @@ func provideHTTPComponents() fx.Option {
 		),
 		// Controllers
 		fx.Provide(
-			ping.NewController, helper.AsController(helper.Identity[*ping.Controller]),
-			opamp.NewController, helper.AsController(helper.Identity[*opamp.Controller]),
-			version.NewController, helper.AsController(helper.Identity[*version.Controller]),
-			connection.NewController, helper.AsController(helper.Identity[*connection.Controller]),
-			agent.NewController, helper.AsController(helper.Identity[*agent.Controller]),
-			agentgroup.NewController, helper.AsController(helper.Identity[*agentgroup.Controller]),
-			server.NewController, helper.AsController(helper.Identity[*server.Controller]),
-			github.NewController, helper.AsController(helper.Identity[*github.Controller]),
-			basic.NewController, helper.AsController(helper.Identity[*basic.Controller]),
+			ping.NewController, helper.AsController(Identity[*ping.Controller]),
+			opamp.NewController, helper.AsController(Identity[*opamp.Controller]),
+			version.NewController, helper.AsController(Identity[*version.Controller]),
+			connection.NewController, helper.AsController(Identity[*connection.Controller]),
+			agent.NewController, helper.AsController(Identity[*agent.Controller]),
+			agentgroup.NewController, helper.AsController(Identity[*agentgroup.Controller]),
+			server.NewController, helper.AsController(Identity[*server.Controller]),
+			github.NewController, helper.AsController(Identity[*github.Controller]),
+			basic.NewController, helper.AsController(Identity[*basic.Controller]),
 		),
 		// OpAMP specific connection context
 		fx.Provide(
@@ -92,4 +92,11 @@ func provideMessagingComponents() fx.Option {
 			),
 		),
 	)
+}
+
+// Identity is a generic function that returns the input value.
+// It is a helper function to generate a function that returns the input value.
+// It is used to provide a function as a interface.
+func Identity[T any](a T) T {
+	return a
 }
