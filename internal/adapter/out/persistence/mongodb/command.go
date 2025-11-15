@@ -50,3 +50,11 @@ func (r *CommandRepository) GetCommandByInstanceUID(context.Context, uuid.UUID) 
 func (r *CommandRepository) SaveCommand(context.Context, *model.Command) error {
 	return ErrNotImplemented
 }
+
+// ListCommands retrieves a list of commands with pagination options.
+func (r *CommandRepository) ListCommands(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Command], error) {
+	return nil, ErrNotImplemented
+}

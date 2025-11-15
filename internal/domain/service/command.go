@@ -64,8 +64,13 @@ func (s *CommandService) SaveCommandAudit(ctx context.Context, command *model.Co
 
 // ListCommands implements port.CommandUsecase.
 func (s *CommandService) ListCommands(
-	context.Context,
-	*model.ListOptions,
+	ctx context.Context,
+	options *model.ListOptions,
 ) (*model.ListResponse[*model.Command], error) {
-	return nil, ErrNotImplemented
+	resp, err := s.commandPersistencePort.ListCommands(ctx, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list commands: %w", err)
+	}
+
+	return resp, nil
 }

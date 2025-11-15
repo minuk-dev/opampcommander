@@ -67,6 +67,8 @@ type CommandPersistencePort interface {
 	GetCommandByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*model.Command, error)
 	// SaveCommand saves the command.
 	SaveCommand(ctx context.Context, command *model.Command) error
+	// ListCommands retrieves a list of commands with pagination options.
+	ListCommands(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Command], error)
 }
 
 // ServerPersistencePort is an interface that defines the methods for server persistence.
