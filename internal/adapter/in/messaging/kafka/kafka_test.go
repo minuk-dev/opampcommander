@@ -178,6 +178,7 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 
 // Helper functions
 
+//nolint:ireturn
 func startKafkaContainer(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 
