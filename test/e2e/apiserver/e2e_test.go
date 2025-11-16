@@ -63,25 +63,28 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// When: Collector reports via OpAMP
-	time.Sleep(5 * time.Second)
+	assert.Eventually(t, func() bool {
+		agents := listAgents(t, apiBaseURL)
 
-	// Debug: Check collector logs if no agents registered
-	agents := listAgents(t, apiBaseURL)
-	if len(agents) == 0 {
-		logs, err := collectorContainer.Logs(ctx)
-		if err == nil {
-			logBytes, _ := io.ReadAll(logs)
-			t.Logf("Collector logs:\n%s", string(logBytes))
+		return len(agents) > 0
+	}, 1*time.Minute, 5*time.Second, "At least one agent should register within timeout")
+
+	assert.Eventually(t, func() bool {
+		// Then: Collector has complete metadata
+		agents := listAgents(t, apiBaseURL)
+		agent := findAgentByUID(agents, collectorUID)
+		require.NotNil(t, agent, "Collector should be registered")
+
+		hasDescription := len(agent.Metadata.Description.IdentifyingAttributes) > 0 ||
+			len(agent.Metadata.Description.NonIdentifyingAttributes) > 0
+		if !hasDescription {
+			return false // Agent does not have description yet
 		}
-	}
 
-	// Then: Agent is registered
-	require.GreaterOrEqual(t, len(agents), 1, "At least one agent should be registered")
+		hasCapabilities := agent.Metadata.Capabilities != 0
 
-	// Then: Collector has complete metadata
-	agent := findAgentByUID(agents, collectorUID)
-	require.NotNil(t, agent, "Collector should be registered")
-	assertAgentMetadataComplete(t, agent)
+		return hasCapabilities // Agent should have capabilities
+	}, 1*time.Minute, 5*time.Second, "Agent metadata should be complete within timeout")
 
 	// Then: Agent is retrievable by ID
 	specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
@@ -129,25 +132,25 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	}()
 
 	// When: All collectors report via OpAMP
-	time.Sleep(8 * time.Second)
+	assert.Eventually(t, func() bool {
+		agents := listAgents(t, apiBaseURL)
 
-	// Then: All agents are registered
-	agents := listAgents(t, apiBaseURL)
-	assert.GreaterOrEqual(t, len(agents), numCollectors, "All collectors should be registered")
-
-	// Then: Each collector is found
-	foundCount := 0
-
-	for _, uid := range collectorUIDs {
-		if findAgentByUID(agents, uid) != nil {
-			foundCount++
+		if len(agents) < numCollectors {
+			return false
 		}
-	}
 
-	assert.Equal(t, numCollectors, foundCount, "All collectors should be found")
+		foundCount := 0
+
+		for _, uid := range collectorUIDs {
+			if findAgentByUID(agents, uid) != nil {
+				foundCount++
+			}
+		}
+
+		return foundCount == numCollectors
+	}, 1*time.Minute, 5*time.Second, "All collectors should register within timeout")
+	time.Sleep(8 * time.Second)
 }
-
-// Helper functions for Given-When-Then pattern
 
 //nolint:ireturn
 func startMongoDB(t *testing.T) (testcontainers.Container, string) {
@@ -290,17 +293,6 @@ func findAgentByUID(agents []v1agent.Agent, uid uuid.UUID) *v1agent.Agent {
 	}
 
 	return nil
-}
-
-func assertAgentMetadataComplete(t *testing.T, agent *v1agent.Agent) {
-	t.Helper()
-
-	hasDescription := len(agent.Metadata.Description.IdentifyingAttributes) > 0 ||
-		len(agent.Metadata.Description.NonIdentifyingAttributes) > 0
-	assert.True(t, hasDescription, "Agent should have description")
-
-	hasCapabilities := agent.Metadata.Capabilities != 0
-	assert.True(t, hasCapabilities, "Agent should have capabilities")
 }
 
 func createCollectorConfig(t *testing.T, cacheDir string, opampPort int, instanceUID uuid.UUID) string {
