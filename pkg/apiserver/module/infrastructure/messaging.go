@@ -137,15 +137,19 @@ func createKafkaReceiver(
 		return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 	}
 
+	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
+
 	lifecycle.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
+		OnStart: func(context.Context) error {
 			// Start OpenInbound asynchronously to avoid blocking application startup
 			// OpenInbound may take time to establish connection to Kafka
 			go func() {
-				if err := consumer.OpenInbound(context.Background()); err != nil {
+				err := consumer.OpenInbound(lifecycleCtx)
+				if err != nil {
 					logger.Error("Kafka receiver OpenInbound error", "error", err)
 				}
 			}()
+
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
@@ -153,6 +157,8 @@ func createKafkaReceiver(
 			if err != nil {
 				return fmt.Errorf("failed to close Kafka receiver: %w", err)
 			}
+
+			defer lifecycleCancel()
 
 			return nil
 		},
