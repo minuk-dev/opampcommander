@@ -38,7 +38,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -135,7 +135,7 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -249,6 +249,9 @@ func setupAPIServerWithKafka(
 	hostname, _ := os.Hostname()
 	fullServerID := fmt.Sprintf("%s-%s-test-%d", hostname, serverID, port)
 
+	managementPort, err := testutil.GetFreeTCPPort()
+	require.NoError(t, err)
+
 	//exhaustruct:ignore
 	settings := config.ServerSettings{
 		Address:  fmt.Sprintf("0.0.0.0:%d", port),
@@ -285,6 +288,7 @@ func setupAPIServerWithKafka(
 		},
 		//exhaustruct:ignore
 		ManagementSettings: config.ManagementSettings{
+			Address: fmt.Sprintf(":%d", managementPort),
 			//exhaustruct:ignore
 			ObservabilitySettings: config.ObservabilitySettings{
 				//exhaustruct:ignore

@@ -27,7 +27,7 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 		t.Skip("Skipping Kafka integration test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	// Given: Kafka is running
@@ -105,7 +105,7 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 		t.Skip("Skipping Kafka integration test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	kafkaContainer, broker := startKafkaContainer(t)

@@ -38,7 +38,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -67,7 +67,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 		agents := listAgents(t, apiBaseURL)
 
 		return len(agents) > 0
-	}, 1*time.Minute, 5*time.Second, "At least one agent should register within timeout")
+	}, 30*time.Second, 1*time.Second, "At least one agent should register within timeout")
 
 	assert.Eventually(t, func() bool {
 		// Then: Collector has complete metadata
@@ -84,14 +84,14 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 		hasCapabilities := agent.Metadata.Capabilities != 0
 
 		return hasCapabilities // Agent should have capabilities
-	}, 1*time.Minute, 5*time.Second, "Agent metadata should be complete within timeout")
+	}, 30*time.Second, 1*time.Second, "Agent metadata should be complete within timeout")
 
 	// Then: Agent is retrievable by ID
 	assert.Eventually(t, func() bool {
 		specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
 
 		return specificAgent.Metadata.InstanceUID == collectorUID
-	}, 1*time.Minute, 5*time.Second, "Agent should be retrievable by ID within timeout")
+	}, 30*time.Second, 1*time.Second, "Agent should be retrievable by ID within timeout")
 }
 
 func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
@@ -151,7 +151,7 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 		}
 
 		return foundCount == numCollectors
-	}, 1*time.Minute, 5*time.Second, "All collectors should register within timeout")
+	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
 
 //nolint:ireturn
@@ -172,6 +172,9 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 
 	hostname, _ := os.Hostname()
 	serverID := fmt.Sprintf("%s-test-%d", hostname, port)
+
+	managementPort, err := testutil.GetFreeTCPPort()
+	require.NoError(t, err)
 
 	//exhaustruct:ignore
 	settings := config.ServerSettings{
@@ -205,6 +208,7 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 		},
 		//exhaustruct:ignore
 		ManagementSettings: config.ManagementSettings{
+			Address: fmt.Sprintf(":%d", managementPort),
 			//exhaustruct:ignore
 			ObservabilitySettings: config.ObservabilitySettings{
 				//exhaustruct:ignore
