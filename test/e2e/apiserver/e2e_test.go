@@ -87,8 +87,10 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	}, 1*time.Minute, 5*time.Second, "Agent metadata should be complete within timeout")
 
 	// Then: Agent is retrievable by ID
-	specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
-	assert.Equal(t, collectorUID, specificAgent.Metadata.InstanceUID)
+	assert.Eventually(t, func() bool {
+		specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
+		return specificAgent.Metadata.InstanceUID == collectorUID
+	}, 1*time.Minute, 5*time.Second, "Agent should be retrievable by ID within timeout")
 }
 
 func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
@@ -149,7 +151,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 
 		return foundCount == numCollectors
 	}, 1*time.Minute, 5*time.Second, "All collectors should register within timeout")
-	time.Sleep(8 * time.Second)
 }
 
 //nolint:ireturn

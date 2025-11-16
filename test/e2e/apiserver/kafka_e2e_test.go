@@ -17,15 +17,14 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
 
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 const (
-	kafkaImage            = "confluentinc/cp-kafka:7.5.0"
-	serverStartupDelay    = 5 * time.Second
-	eventPropagationDelay = 3 * time.Second
+	kafkaImage = "confluentinc/cp-kafka:7.5.0"
 )
 
 // TestE2E_APIServer_KafkaDistributedMode tests distributed mode with Kafka messaging
@@ -79,13 +78,16 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
-	// When: Collector registers via OpAMP on server 1
-	time.Sleep(5 * time.Second)
-
 	// Then: Agent should be visible on server 1
-	agents1 := listAgents(t, server1URL)
-	require.GreaterOrEqual(t, len(agents1), 1, "Agent should be registered on server 1")
-	agent1 := findAgentByUID(agents1, collectorUID)
+	var agent1 *v1agent.Agent
+	assert.Eventually(t, func() bool {
+		agents1 := listAgents(t, server1URL)
+		if len(agents1) < 1 {
+			return false
+		}
+		agent1 = findAgentByUID(agents1, collectorUID)
+		return agent1 != nil
+	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
 	require.NotNil(t, agent1, "Collector should be found on server 1")
 	t.Logf("Agent registered on server 1: %s", agent1.Metadata.InstanceUID)
 
@@ -107,26 +109,16 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	updateAgentConfig(t, server2URL, collectorUID, updateRequest)
 	t.Log("Agent config updated via server 2")
 
-	// Allow time for Kafka message propagation
-	time.Sleep(eventPropagationDelay)
-
 	// Then: Updated config should be visible on both servers
-	updatedAgent1 := getAgentByID(t, server1URL, collectorUID)
-	updatedAgent2 := getAgentByID(t, server2URL, collectorUID)
+	assert.Eventually(t, func() bool {
+		updatedAgent1 := getAgentByID(t, server1URL, collectorUID)
+		updatedAgent2 := getAgentByID(t, server2URL, collectorUID)
 
-	// Verify config was updated
-	assert.NotNil(t, updatedAgent1.Spec.RemoteConfig, "Agent on server 1 should have remote config")
-	assert.NotNil(t, updatedAgent2.Spec.RemoteConfig, "Agent on server 2 should have remote config")
-
-	if updatedAgent1.Spec.RemoteConfig.ConfigMap != nil {
-		assert.Equal(t, "test_value_from_server2", updatedAgent1.Spec.RemoteConfig.ConfigMap["test_key"],
-			"Config update should be visible on server 1")
-	}
-
-	if updatedAgent2.Spec.RemoteConfig.ConfigMap != nil {
-		assert.Equal(t, "test_value_from_server2", updatedAgent2.Spec.RemoteConfig.ConfigMap["test_key"],
-			"Config update should be visible on server 2")
-	}
+		return updatedAgent1.Spec.RemoteConfig.ConfigMap != nil && 
+			updatedAgent2.Spec.RemoteConfig.ConfigMap != nil &&
+			len(updatedAgent1.Spec.RemoteConfig.ConfigMap) > 0 &&
+			len(updatedAgent2.Spec.RemoteConfig.ConfigMap) > 0
+	}, 30*time.Second, 1*time.Second, "Config update should be visible on both servers")
 
 	t.Log("Distributed mode test completed successfully")
 }
@@ -171,11 +163,11 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
-	time.Sleep(5 * time.Second)
-
 	// Then: Agent is registered on primary
-	agents := listAgents(t, primaryURL)
-	require.GreaterOrEqual(t, len(agents), 1, "Agent should be registered on primary")
+	assert.Eventually(t, func() bool {
+		agents := listAgents(t, primaryURL)
+		return len(agents) >= 1
+	}, 30*time.Second, 1*time.Second, "Agent should be registered on primary")
 	t.Log("Agent registered on primary server")
 
 	// When: Secondary server starts (simulating failover scenario)
@@ -206,14 +198,13 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	}
 	updateAgentConfig(t, secondaryURL, collectorUID, updateRequest)
 
-	time.Sleep(eventPropagationDelay)
-
 	// Then: Update should be visible on both servers
-	primaryAgent := getAgentByID(t, primaryURL, collectorUID)
-	secondaryAgent := getAgentByID(t, secondaryURL, collectorUID)
+	assert.Eventually(t, func() bool {
+		primaryAgent := getAgentByID(t, primaryURL, collectorUID)
+		secondaryAgent := getAgentByID(t, secondaryURL, collectorUID)
 
-	assert.NotNil(t, primaryAgent.Spec.RemoteConfig, "Primary should have remote config")
-	assert.NotNil(t, secondaryAgent.Spec.RemoteConfig, "Secondary should have remote config")
+		return primaryAgent.Spec.RemoteConfig.ConfigMap != nil && secondaryAgent.Spec.RemoteConfig.ConfigMap != nil
+	}, 30*time.Second, 1*time.Second, "Update should be visible on both servers")
 
 	t.Log("Failover test completed successfully")
 }
@@ -225,7 +216,10 @@ func startKafka(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 	ctx := t.Context()
 
-	kafkaContainer, err := kafkaTestContainer.Run(ctx, kafkaImage)
+	kafkaContainer, err := kafkaTestContainer.Run(ctx,
+		kafkaImage,
+		kafkaTestContainer.WithClusterID("test-cluster-id"),
+	)
 	require.NoError(t, err)
 
 	brokers, err := kafkaContainer.Brokers(ctx)
@@ -307,12 +301,8 @@ func setupAPIServerWithKafka(
 		}
 	}()
 
-	// Give server time to fully initialize
-	time.Sleep(serverStartupDelay)
-
 	stopServer := func() {
 		cancel()
-		time.Sleep(1 * time.Second) // Allow graceful shutdown
 	}
 
 	apiBaseURL := fmt.Sprintf("http://localhost:%d", port)

@@ -64,9 +64,6 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 		})
 	}()
 
-	// Allow receiver to start
-	time.Sleep(2 * time.Second)
-
 	// When: Message is sent
 	testAgentUID := uuid.New()
 	testMessage := serverevent.Message{
@@ -80,19 +77,23 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 		},
 	}
 
+	// When: Message is sent
 	err = adapter.SendMessageToServer(ctx, "test-server-1", testMessage)
 	require.NoError(t, err)
 
 	// Then: Message should be received
-	select {
-	case received := <-receivedMessages:
-		assert.Equal(t, testMessage.Type, received.Type)
-		require.NotNil(t, received.Payload.MessageForServerToAgent)
-		assert.Equal(t, testAgentUID, received.Payload.TargetAgentInstanceUIDs[0])
-		assert.Contains(t, received.Source, "test-server-1")
-	case <-time.After(10 * time.Second):
-		t.Fatal("Timeout waiting for message")
-	}
+	assert.Eventually(t, func() bool {
+		select {
+		case received := <-receivedMessages:
+			assert.Equal(t, testMessage.Type, received.Type)
+			require.NotNil(t, received.Payload.MessageForServerToAgent)
+			assert.Equal(t, testAgentUID, received.Payload.TargetAgentInstanceUIDs[0])
+			assert.Contains(t, received.Source, "test-server-1")
+			return true
+		default:
+			return false
+		}
+	}, 30*time.Second, 100*time.Millisecond, "Message should be received")
 }
 
 func TestKafkaAdapter_MultipleMessages(t *testing.T) {
@@ -136,8 +137,6 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 		})
 	}()
 
-	time.Sleep(2 * time.Second)
-
 	// When: Multiple messages are sent
 	numMessages := 5
 	for range numMessages {
@@ -156,21 +155,22 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 	}
 
 	// Then: All messages should be received
-	receivedCount := 0
-	timeout := time.After(15 * time.Second)
-
-	for receivedCount < numMessages {
-		select {
-		case msg := <-receivedMessages:
-			assert.NotNil(t, msg)
-
-			receivedCount++
-		case <-timeout:
-			t.Fatalf("Timeout: received only %d out of %d messages", receivedCount, numMessages)
+	assert.Eventually(t, func() bool {
+		receivedCount := 0
+		for {
+			select {
+			case msg := <-receivedMessages:
+				if msg != nil {
+					receivedCount++
+				}
+				if receivedCount == numMessages {
+					return true
+				}
+			default:
+				return receivedCount == numMessages
+			}
 		}
-	}
-
-	assert.Equal(t, numMessages, receivedCount)
+	}, 30*time.Second, 100*time.Millisecond, "All messages should be received")
 }
 
 // Helper functions
