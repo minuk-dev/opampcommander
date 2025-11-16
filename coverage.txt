@@ -1,0 +1,6 @@
+mode: atomic
+github.com/minuk-dev/opampcommander/api/v1/command/command.go:23.76,30.2 1 0
+github.com/minuk-dev/opampcommander/api/v1/server/server.go:26.76,33.2 1 0
+github.com/minuk-dev/opampcommander/api/v1/connection/list.go:28.84,35.2 1 0
+github.com/minuk-dev/opampcommander/api/v1/agentgroup/list.go:9.84,16.2 1 0
+github.com/minuk-dev/opampcommander/api/v1/agent/list.go:9.74,16.2 1 0
