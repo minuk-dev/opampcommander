@@ -240,6 +240,7 @@ func startKafka(t *testing.T) (testcontainers.Container, string) {
 	return kafkaContainer, broker
 }
 
+//nolint:nestif
 func waitForKafkaReady(t *testing.T, broker string) {
 	t.Helper()
 
@@ -266,7 +267,7 @@ func waitForKafkaReady(t *testing.T, broker string) {
 					connected, err := brokers[0].Connected()
 					if err == nil && connected {
 						t.Logf("Kafka is ready after %d retries", i+1)
-						client.Close()
+						client.Close() //nolint:errcheck,gosec
 
 						return
 					}
@@ -279,7 +280,7 @@ func waitForKafkaReady(t *testing.T, broker string) {
 				}
 			}
 
-			client.Close()
+			client.Close() //nolint:errcheck,gosec
 		} else {
 			t.Logf("Kafka client creation attempt %d failed: %v", i+1, err)
 		}

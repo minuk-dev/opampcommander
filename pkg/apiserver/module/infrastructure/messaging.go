@@ -22,6 +22,15 @@ const (
 
 	// DefaultReceiverCloseTimeout is the default timeout for closing the Kafka receiver.
 	DefaultReceiverCloseTimeout = 10 * time.Second
+
+	// DefaultKafkaTimeout is the default timeout for Kafka operations.
+	DefaultKafkaTimeout = 30 * time.Second
+
+	// DefaultKafkaRetryMax is the default maximum number of retries for Kafka operations.
+	DefaultKafkaRetryMax = 10
+
+	// DefaultKafkaRetryBackoff is the default backoff duration between Kafka retries.
+	DefaultKafkaRetryBackoff = 2 * time.Second
 )
 
 // UnsupportedEventProtocolError is returned when an unsupported event protocol type is specified.
@@ -76,10 +85,9 @@ func createKafkaSender(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
-	saramaConfig.Metadata.Timeout = 30 * time.Second
-	saramaConfig.Metadata.Retry.Max = 10
-	saramaConfig.Metadata.Retry.Backoff = 2 * time.Second
-	saramaConfig.Admin.Timeout = 30 * time.Second
+	saramaConfig.Metadata.Timeout = DefaultKafkaTimeout
+	saramaConfig.Metadata.Retry.Max = DefaultKafkaRetryMax
+	saramaConfig.Metadata.Retry.Backoff = DefaultKafkaRetryBackoff
 	topic := settings.KafkaSettings.Topic
 
 	var opts []cekafka.SenderOptionFunc
@@ -116,10 +124,9 @@ func createKafkaReceiver(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Return.Errors = true
 	saramaConfig.Version = sarama.V2_6_0_0
-	saramaConfig.Metadata.Timeout = 30 * time.Second
-	saramaConfig.Metadata.Retry.Max = 10
-	saramaConfig.Metadata.Retry.Backoff = 2 * time.Second
-	saramaConfig.Admin.Timeout = 30 * time.Second
+	saramaConfig.Metadata.Timeout = DefaultKafkaTimeout
+	saramaConfig.Metadata.Retry.Max = DefaultKafkaRetryMax
+	saramaConfig.Metadata.Retry.Backoff = DefaultKafkaRetryBackoff
 
 	topic := settings.KafkaSettings.Topic
 	groupID := "opampcommander-consumer-group"
