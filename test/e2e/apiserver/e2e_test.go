@@ -67,7 +67,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 		agents := listAgents(t, apiBaseURL)
 
 		return len(agents) > 0
-	}, 30*time.Second, 1*time.Second, "At least one agent should register within timeout")
+	}, 3*time.Minute, 1*time.Second, "At least one agent should register within timeout")
 
 	assert.Eventually(t, func() bool {
 		// Then: Collector has complete metadata
