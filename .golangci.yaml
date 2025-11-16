@@ -40,6 +40,7 @@ linters:
         - '.+/management\.HTTPHandler$'
         - '.+/trace\.Sampler$'
         - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
+        - "k8s.io/utils/clock.Timer"
     depguard:
       rules:
         main:

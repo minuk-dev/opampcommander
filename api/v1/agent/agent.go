@@ -65,6 +65,9 @@ type Status struct {
 	// Connected indicates if the agent is currently connected.
 	Connected bool `json:"connected"`
 
+	// ConnectionType indicates the type of connection the agent is using.
+	ConnectionType string `json:"connectionType,omitempty"`
+
 	// LastReportedAt is the timestamp when the agent last reported its status.
 	LastReportedAt string `json:"lastReportedAt,omitempty"`
 } // @name AgentStatus

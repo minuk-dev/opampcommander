@@ -3,6 +3,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/samber/lo"
@@ -105,6 +106,13 @@ func createNonExistingCollections(
 	for _, collectionName := range notExistingCollections {
 		err := database.CreateCollection(ctx, collectionName)
 		if err != nil {
+			// Ignore NamespaceExists error (code 48) which can occur in distributed setups
+			// when multiple servers try to create the same collection concurrently
+			var cmdErr mongo.CommandError
+			if errors.As(err, &cmdErr) && cmdErr.Code == 48 { // NamespaceExists
+				continue
+			}
+
 			return fmt.Errorf("failed to create collection %s: %w", collectionName, err)
 		}
 	}

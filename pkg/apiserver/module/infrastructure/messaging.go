@@ -22,6 +22,15 @@ const (
 
 	// DefaultReceiverCloseTimeout is the default timeout for closing the Kafka receiver.
 	DefaultReceiverCloseTimeout = 10 * time.Second
+
+	// DefaultKafkaTimeout is the default timeout for Kafka operations.
+	DefaultKafkaTimeout = 30 * time.Second
+
+	// DefaultKafkaRetryMax is the default maximum number of retries for Kafka operations.
+	DefaultKafkaRetryMax = 10
+
+	// DefaultKafkaRetryBackoff is the default backoff duration between Kafka retries.
+	DefaultKafkaRetryBackoff = 2 * time.Second
 )
 
 // UnsupportedEventProtocolError is returned when an unsupported event protocol type is specified.
@@ -50,7 +59,7 @@ func NewEventhubAdapter(
 			return nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 		}
 
-		receiver, err := createKafkaReceiver(settings, lifecycle)
+		receiver, err := createKafkaReceiver(settings, logger, lifecycle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 		}
@@ -76,6 +85,9 @@ func createKafkaSender(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
+	saramaConfig.Metadata.Timeout = DefaultKafkaTimeout
+	saramaConfig.Metadata.Retry.Max = DefaultKafkaRetryMax
+	saramaConfig.Metadata.Retry.Backoff = DefaultKafkaRetryBackoff
 	topic := settings.KafkaSettings.Topic
 
 	var opts []cekafka.SenderOptionFunc
@@ -106,12 +118,16 @@ func createKafkaSender(
 // createKafkaReceiver creates a Kafka receiver with lifecycle management.
 func createKafkaReceiver(
 	settings *config.EventSettings,
+	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 ) (*cekafka.Consumer, error) {
 	brokers := settings.KafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Return.Errors = true
 	saramaConfig.Version = sarama.V2_6_0_0
+	saramaConfig.Metadata.Timeout = DefaultKafkaTimeout
+	saramaConfig.Metadata.Retry.Max = DefaultKafkaRetryMax
+	saramaConfig.Metadata.Retry.Backoff = DefaultKafkaRetryBackoff
 
 	topic := settings.KafkaSettings.Topic
 	groupID := "opampcommander-consumer-group"
@@ -121,15 +137,28 @@ func createKafkaReceiver(
 		return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 	}
 
+	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
+
 	lifecycle.Append(fx.Hook{
-		OnStart: func(ctx context.Context) error {
-			return consumer.OpenInbound(ctx)
+		OnStart: func(context.Context) error {
+			// Start OpenInbound asynchronously to avoid blocking application startup
+			// OpenInbound may take time to establish connection to Kafka
+			go func() {
+				err := consumer.OpenInbound(lifecycleCtx)
+				if err != nil {
+					logger.Error("Kafka receiver OpenInbound error", "error", err)
+				}
+			}()
+
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			err := consumer.Close(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to close Kafka receiver: %w", err)
 			}
+
+			defer lifecycleCancel()
 
 			return nil
 		},

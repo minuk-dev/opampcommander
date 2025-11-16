@@ -1,6 +1,8 @@
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 
+.PHONY: lint lint-fix prebuilt-doc build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic release docker docker-image
+
 lint:
 	golangci-lint run
 
@@ -89,10 +91,10 @@ build: prebuilt-doc
 	goreleaser build
 
 unittest:
-	go test -short ./... 
+	go test -short ./... -coverprofile=coverage.txt
 
 test:
-	go test -race ./... 
+	go test -race ./... -coverprofile=coverage.txt
 
 test-e2e:
 	@echo "Running E2E tests (requires Docker)..."

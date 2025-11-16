@@ -40,6 +40,18 @@ func (ct ConnectionType) String() string {
 	}
 }
 
+// ConnectionTypeFromString converts a string to a ConnectionType.
+func ConnectionTypeFromString(s string) ConnectionType {
+	switch s {
+	case "HTTP":
+		return ConnectionTypeHTTP
+	case "WebSocket":
+		return ConnectionTypeWebSocket
+	default:
+		return ConnectionTypeUnknown
+	}
+}
+
 // Connection represents a connection to an agent.
 // This is a pure domain model containing only metadata about the connection.
 // The actual WebSocket connection object is managed separately by the WebSocketRegistry.

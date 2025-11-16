@@ -55,6 +55,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 			ComponentHealth:     mapper.mapComponentHealthToAPI(&agent.Status.ComponentHealth),
 			AvailableComponents: mapper.mapAvailableComponentsToAPI(&agent.Status.AvailableComponents),
 			Connected:           agent.Status.Connected,
+			ConnectionType:      agent.Status.ConnectionType.String(),
 			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
 		},
 	}

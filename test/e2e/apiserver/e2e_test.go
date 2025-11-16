@@ -38,7 +38,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -63,29 +63,35 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// When: Collector reports via OpAMP
-	time.Sleep(5 * time.Second)
+	assert.Eventually(t, func() bool {
+		agents := listAgents(t, apiBaseURL)
 
-	// Debug: Check collector logs if no agents registered
-	agents := listAgents(t, apiBaseURL)
-	if len(agents) == 0 {
-		logs, err := collectorContainer.Logs(ctx)
-		if err == nil {
-			logBytes, _ := io.ReadAll(logs)
-			t.Logf("Collector logs:\n%s", string(logBytes))
+		return len(agents) > 0
+	}, 3*time.Minute, 1*time.Second, "At least one agent should register within timeout")
+
+	assert.Eventually(t, func() bool {
+		// Then: Collector has complete metadata
+		agents := listAgents(t, apiBaseURL)
+		agent := findAgentByUID(agents, collectorUID)
+		require.NotNil(t, agent, "Collector should be registered")
+
+		hasDescription := len(agent.Metadata.Description.IdentifyingAttributes) > 0 ||
+			len(agent.Metadata.Description.NonIdentifyingAttributes) > 0
+		if !hasDescription {
+			return false // Agent does not have description yet
 		}
-	}
 
-	// Then: Agent is registered
-	require.GreaterOrEqual(t, len(agents), 1, "At least one agent should be registered")
+		hasCapabilities := agent.Metadata.Capabilities != 0
 
-	// Then: Collector has complete metadata
-	agent := findAgentByUID(agents, collectorUID)
-	require.NotNil(t, agent, "Collector should be registered")
-	assertAgentMetadataComplete(t, agent)
+		return hasCapabilities // Agent should have capabilities
+	}, 30*time.Second, 1*time.Second, "Agent metadata should be complete within timeout")
 
 	// Then: Agent is retrievable by ID
-	specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
-	assert.Equal(t, collectorUID, specificAgent.Metadata.InstanceUID)
+	assert.Eventually(t, func() bool {
+		specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
+
+		return specificAgent.Metadata.InstanceUID == collectorUID
+	}, 30*time.Second, 1*time.Second, "Agent should be retrievable by ID within timeout")
 }
 
 func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
@@ -129,25 +135,24 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	}()
 
 	// When: All collectors report via OpAMP
-	time.Sleep(8 * time.Second)
+	assert.Eventually(t, func() bool {
+		agents := listAgents(t, apiBaseURL)
 
-	// Then: All agents are registered
-	agents := listAgents(t, apiBaseURL)
-	assert.GreaterOrEqual(t, len(agents), numCollectors, "All collectors should be registered")
-
-	// Then: Each collector is found
-	foundCount := 0
-
-	for _, uid := range collectorUIDs {
-		if findAgentByUID(agents, uid) != nil {
-			foundCount++
+		if len(agents) < numCollectors {
+			return false
 		}
-	}
 
-	assert.Equal(t, numCollectors, foundCount, "All collectors should be found")
+		foundCount := 0
+
+		for _, uid := range collectorUIDs {
+			if findAgentByUID(agents, uid) != nil {
+				foundCount++
+			}
+		}
+
+		return foundCount == numCollectors
+	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
-
-// Helper functions for Given-When-Then pattern
 
 //nolint:ireturn
 func startMongoDB(t *testing.T) (testcontainers.Container, string) {
@@ -167,6 +172,9 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 
 	hostname, _ := os.Hostname()
 	serverID := fmt.Sprintf("%s-test-%d", hostname, port)
+
+	managementPort, err := testutil.GetFreeTCPPort()
+	require.NoError(t, err)
 
 	//exhaustruct:ignore
 	settings := config.ServerSettings{
@@ -200,6 +208,7 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 		},
 		//exhaustruct:ignore
 		ManagementSettings: config.ManagementSettings{
+			Address: fmt.Sprintf(":%d", managementPort),
 			//exhaustruct:ignore
 			ObservabilitySettings: config.ObservabilitySettings{
 				//exhaustruct:ignore
@@ -292,17 +301,6 @@ func findAgentByUID(agents []v1agent.Agent, uid uuid.UUID) *v1agent.Agent {
 	return nil
 }
 
-func assertAgentMetadataComplete(t *testing.T, agent *v1agent.Agent) {
-	t.Helper()
-
-	hasDescription := len(agent.Metadata.Description.IdentifyingAttributes) > 0 ||
-		len(agent.Metadata.Description.NonIdentifyingAttributes) > 0
-	assert.True(t, hasDescription, "Agent should have description")
-
-	hasCapabilities := agent.Metadata.Capabilities != 0
-	assert.True(t, hasCapabilities, "Agent should have capabilities")
-}
-
 func createCollectorConfig(t *testing.T, cacheDir string, opampPort int, instanceUID uuid.UUID) string {
 	t.Helper()
 
@@ -386,6 +384,7 @@ func startOTelCollector(t *testing.T, configPath string) testcontainers.Containe
 		},
 		Cmd:        []string{"--config=/etc/otel-collector-config.yaml"},
 		WaitingFor: wait.ForLog("Everything is ready").WithStartupTimeout(60 * time.Second),
+		ExtraHosts: []string{"host.docker.internal:host-gateway"},
 	}
 
 	//exhaustruct:ignore

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -95,9 +96,14 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// ShortItemForCLI is a struct that represents an agent item for display.
-type ShortItemForCLI struct {
-	InstanceUID uuid.UUID `short:"Instance UID" text:"instanceUid"`
+// ItemForCLI is a struct that represents an agent item for display.
+type ItemForCLI struct {
+	InstanceUID    uuid.UUID `short:"Instance UID"     text:"Instance UID"`
+	ConnectionType string    `short:"Connection Type"  text:"Connection Type"`
+	Connected      bool      `short:"Connected"        text:"Connected"`
+	Healthy        bool      `short:"Healthy"          text:"Healthy"`
+	StartedAt      string    `short:"Started At"       text:"Started At"`
+	LastReportedAt string    `short:"Last Reported At" text:"Last Reported At"`
 }
 
 // List retrieves the list of agents.
@@ -121,10 +127,8 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 	switch formatType := formatter.FormatType(opt.formatType); formatType {
 	case formatter.SHORT, formatter.TEXT:
-		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ShortItemForCLI {
-			return ShortItemForCLI{
-				InstanceUID: agent.Metadata.InstanceUID,
-			}
+		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ItemForCLI {
+			return toShortItemForCLI(agent)
 		})
 		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
 	case formatter.JSON, formatter.YAML:
@@ -166,10 +170,8 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 		return nil
 	}
 
-	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ShortItemForCLI {
-		return ShortItemForCLI{
-			InstanceUID: a.Agent.Metadata.InstanceUID,
-		}
+	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ItemForCLI {
+		return toShortItemForCLI(*a.Agent)
 	})
 
 	err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
@@ -189,4 +191,15 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	return nil
+}
+
+func toShortItemForCLI(agent v1agent.Agent) ItemForCLI {
+	return ItemForCLI{
+		InstanceUID:    agent.Metadata.InstanceUID,
+		ConnectionType: agent.Status.ConnectionType,
+		Connected:      agent.Status.Connected,
+		Healthy:        agent.Status.ComponentHealth.Healthy,
+		StartedAt:      time.Unix(agent.Status.ComponentHealth.StartTimeUnix, 0).Format(time.DateTime),
+		LastReportedAt: agent.Status.LastReportedAt,
+	}
 }
