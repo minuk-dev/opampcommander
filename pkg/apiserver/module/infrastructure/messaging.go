@@ -59,7 +59,7 @@ func NewEventhubAdapter(
 			return nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 		}
 
-		receiver, err := createKafkaReceiver(settings, lifecycle)
+		receiver, err := createKafkaReceiver(settings, logger, lifecycle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 		}
@@ -118,6 +118,7 @@ func createKafkaSender(
 // createKafkaReceiver creates a Kafka receiver with lifecycle management.
 func createKafkaReceiver(
 	settings *config.EventSettings,
+	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 ) (*cekafka.Consumer, error) {
 	brokers := settings.KafkaSettings.Brokers
@@ -138,7 +139,14 @@ func createKafkaReceiver(
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return consumer.OpenInbound(ctx)
+			// Start OpenInbound asynchronously to avoid blocking application startup
+			// OpenInbound may take time to establish connection to Kafka
+			go func() {
+				if err := consumer.OpenInbound(context.Background()); err != nil {
+					logger.Error("Kafka receiver OpenInbound error", "error", err)
+				}
+			}()
+			return nil
 		},
 		OnStop: func(ctx context.Context) error {
 			err := consumer.Close(ctx)
