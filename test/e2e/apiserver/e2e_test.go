@@ -384,6 +384,7 @@ func startOTelCollector(t *testing.T, configPath string) testcontainers.Containe
 		},
 		Cmd:        []string{"--config=/etc/otel-collector-config.yaml"},
 		WaitingFor: wait.ForLog("Everything is ready").WithStartupTimeout(60 * time.Second),
+		ExtraHosts: []string{"host.docker.internal:host-gateway"},
 	}
 
 	//exhaustruct:ignore

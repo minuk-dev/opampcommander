@@ -76,6 +76,10 @@ func createKafkaSender(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
+	saramaConfig.Metadata.Timeout = 30 * time.Second
+	saramaConfig.Metadata.Retry.Max = 10
+	saramaConfig.Metadata.Retry.Backoff = 2 * time.Second
+	saramaConfig.Admin.Timeout = 30 * time.Second
 	topic := settings.KafkaSettings.Topic
 
 	var opts []cekafka.SenderOptionFunc
@@ -112,6 +116,10 @@ func createKafkaReceiver(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Return.Errors = true
 	saramaConfig.Version = sarama.V2_6_0_0
+	saramaConfig.Metadata.Timeout = 30 * time.Second
+	saramaConfig.Metadata.Retry.Max = 10
+	saramaConfig.Metadata.Retry.Backoff = 2 * time.Second
+	saramaConfig.Admin.Timeout = 30 * time.Second
 
 	topic := settings.KafkaSettings.Topic
 	groupID := "opampcommander-consumer-group"

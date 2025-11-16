@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -233,7 +234,60 @@ func startKafka(t *testing.T) (testcontainers.Container, string) {
 	broker := brokers[0]
 	t.Logf("Kafka started at: %s", broker)
 
+	// Wait for Kafka to be truly ready by attempting to connect
+	waitForKafkaReady(t, broker)
+
 	return kafkaContainer, broker
+}
+
+func waitForKafkaReady(t *testing.T, broker string) {
+	t.Helper()
+
+	config := sarama.NewConfig()
+	config.Version = sarama.V2_6_0_0
+	config.Metadata.Timeout = 10 * time.Second
+	config.Metadata.Retry.Max = 10
+	config.Metadata.Retry.Backoff = 1 * time.Second
+	config.Net.DialTimeout = 10 * time.Second
+	config.Net.ReadTimeout = 10 * time.Second
+	config.Net.WriteTimeout = 10 * time.Second
+	config.Admin.Timeout = 10 * time.Second
+
+	maxRetries := 60
+	for i := range maxRetries {
+		client, err := sarama.NewClient([]string{broker}, config)
+		if err == nil {
+			// Successfully created client, check if we can retrieve metadata
+			brokers := client.Brokers()
+			if len(brokers) > 0 {
+				// Try to connect to broker
+				err = brokers[0].Open(config)
+				if err == nil {
+					connected, err := brokers[0].Connected()
+					if err == nil && connected {
+						t.Logf("Kafka is ready after %d retries", i+1)
+						client.Close()
+
+						return
+					}
+
+					if err != nil {
+						t.Logf("Kafka broker connection check failed: %v", err)
+					}
+				} else {
+					t.Logf("Kafka broker open failed: %v", err)
+				}
+			}
+
+			client.Close()
+		} else {
+			t.Logf("Kafka client creation attempt %d failed: %v", i+1, err)
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	t.Fatal("Kafka did not become ready in time")
 }
 
 func setupAPIServerWithKafka(
