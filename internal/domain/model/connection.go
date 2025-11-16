@@ -47,8 +47,6 @@ func ConnectionTypeFromString(s string) ConnectionType {
 		return ConnectionTypeHTTP
 	case "WebSocket":
 		return ConnectionTypeWebSocket
-	case "Unknown":
-		fallthrough
 	default:
 		return ConnectionTypeUnknown
 	}
