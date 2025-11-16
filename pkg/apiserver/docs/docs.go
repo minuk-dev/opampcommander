@@ -1083,6 +1083,10 @@ const docTemplate = `{
                     "description": "Connected indicates if the agent is currently connected.",
                     "type": "boolean"
                 },
+                "connectionType": {
+                    "description": "ConnectionType indicates the type of connection the agent is using.",
+                    "type": "string"
+                },
                 "effectiveConfig": {
                     "description": "EffectiveConfig is the effective configuration of the agent.",
                     "allOf": [

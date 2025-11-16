@@ -135,7 +135,7 @@ func (s *Service) OnMessage(
 	)
 	logger.Info("start")
 
-	err := s.injectInstanceUIDToConnection(ctx, conn, instanceUID)
+	connection, err := s.injectInstanceUIDToConnection(ctx, conn, instanceUID)
 	if err != nil {
 		logger.Error("failed to inject instanceUID to connection", slog.String("error", err.Error()))
 		// even if injecting instanceUID fails, proceed to process the message
@@ -155,7 +155,7 @@ func (s *Service) OnMessage(
 	}
 
 	// Update agent connection status
-	agent.UpdateLastCommunicationInfo(s.clock.Now())
+	agent.UpdateLastCommunicationInfo(s.clock.Now(), connection)
 
 	err = s.report(agent, message, currentServer)
 	if err != nil {
@@ -322,24 +322,24 @@ func (s *Service) injectInstanceUIDToConnection(
 	ctx context.Context,
 	conn types.Connection,
 	instanceUID uuid.UUID,
-) error {
+) (*model.Connection, error) {
 	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 	// Even if the connection is not found, we should still process the message
 	if err != nil {
-		return fmt.Errorf("failed to get connection: %w", err)
+		return nil, fmt.Errorf("failed to get connection: %w", err)
 	}
 
 	if connection.InstanceUID == instanceUID {
 		// already injected, skip as an optimization
-		return nil
+		return connection, nil
 	}
 
 	connection.SetInstanceUID(instanceUID)
 
 	err = s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
-		return fmt.Errorf("failed to save connection with instanceUID: %w", err)
+		return nil, fmt.Errorf("failed to save connection with instanceUID: %w", err)
 	}
 
-	return nil
+	return connection, nil
 }

@@ -53,6 +53,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 				Components: make(map[string]ComponentDetails),
 			},
 			Connected:      false,
+			ConnectionType: ConnectionTypeUnknown,
 			LastReportedAt: time.Time{},
 			LastReportedTo: nil,
 		},
@@ -205,6 +206,7 @@ type AgentStatus struct {
 	AvailableComponents AgentAvailableComponents
 
 	Connected      bool
+	ConnectionType ConnectionType
 	LastReportedAt time.Time
 	LastReportedTo *Server
 }
@@ -639,9 +641,15 @@ func (r *RemoteConfig) IsManaged() bool {
 }
 
 // UpdateLastCommunicationInfo updates the last communication info of the agent.
-func (a *Agent) UpdateLastCommunicationInfo(now time.Time) {
+func (a *Agent) UpdateLastCommunicationInfo(now time.Time, connection *Connection) {
 	a.Status.Connected = true
+
 	a.Status.LastReportedAt = now
+	if connection != nil {
+		a.Status.ConnectionType = connection.Type
+	} else {
+		a.Status.ConnectionType = ConnectionTypeUnknown
+	}
 }
 
 // caution: inject now instead of time.Now()
