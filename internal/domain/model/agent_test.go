@@ -205,3 +205,29 @@ func TestAgentCommands_HasReportFullStateCommand(t *testing.T) {
 		assert.False(t, commands.HasReportFullStateCommand())
 	})
 }
+
+func TestAgent_UpdateLastCommunicationInfo(t *testing.T) {
+	t.Parallel()
+	t.Run("Update last communication info with connection", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		connection := model.NewConnection("conn-id", model.ConnectionTypeWebSocket)
+		now := time.Now()
+
+		a.UpdateLastCommunicationInfo(now, connection)
+		assert.Equal(t, now, a.Status.LastReportedAt)
+		assert.Equal(t, model.ConnectionTypeWebSocket, a.Status.ConnectionType)
+	})
+
+	t.Run("Update last communication info without connection", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		now := time.Now()
+
+		a.UpdateLastCommunicationInfo(now, nil)
+		assert.Equal(t, now, a.Status.LastReportedAt)
+		assert.Equal(t, model.ConnectionTypeUnknown, a.Status.ConnectionType)
+	})
+}
