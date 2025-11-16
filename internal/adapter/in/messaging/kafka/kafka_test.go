@@ -33,7 +33,12 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 	// Given: Kafka is running
 	kafkaContainer, broker := startKafkaContainer(t)
 
-	defer func() { _ = kafkaContainer.Terminate(ctx) }()
+	defer func() {
+		terminateCtx, terminateCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer terminateCancel()
+
+		_ = kafkaContainer.Terminate(terminateCtx)
+	}()
 
 	// Given: Kafka sender and receiver are configured
 	topic := "test.opampcommander.events"
@@ -48,8 +53,11 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 	// Given: Receiver is started
 	receivedMessages := make(chan *serverevent.Message, 10)
 
+	receiverCtx, receiverCancel := context.WithCancel(ctx)
+	defer receiverCancel()
+
 	go func() {
-		_ = adapter.StartReceiver(ctx, func(_ context.Context, msg *serverevent.Message) error {
+		_ = adapter.StartReceiver(receiverCtx, func(_ context.Context, msg *serverevent.Message) error {
 			receivedMessages <- msg
 
 			return nil
@@ -100,7 +108,12 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 
 	kafkaContainer, broker := startKafkaContainer(t)
 
-	defer func() { _ = kafkaContainer.Terminate(ctx) }()
+	defer func() {
+		terminateCtx, terminateCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer terminateCancel()
+
+		_ = kafkaContainer.Terminate(terminateCtx)
+	}()
 
 	topic := "test.opampcommander.multi"
 	sender := createTestSender(t, broker, topic)
@@ -112,8 +125,11 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 
 	receivedMessages := make(chan *serverevent.Message, 10)
 
+	receiverCtx, receiverCancel := context.WithCancel(ctx)
+	defer receiverCancel()
+
 	go func() {
-		_ = adapter.StartReceiver(ctx, func(_ context.Context, msg *serverevent.Message) error {
+		_ = adapter.StartReceiver(receiverCtx, func(_ context.Context, msg *serverevent.Message) error {
 			receivedMessages <- msg
 
 			return nil
@@ -162,12 +178,14 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 //nolint:ireturn
 func startKafkaContainer(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
-	ctx := t.Context()
 
-	kafkaContainer, err := kafkaTestContainer.Run(ctx, "confluentinc/cp-kafka:7.5.0")
+	kafkaContainer, err := kafkaTestContainer.Run(t.Context(),
+		"confluentinc/cp-kafka:7.5.0",
+		kafkaTestContainer.WithClusterID("test-cluster-id"),
+	)
 	require.NoError(t, err)
 
-	brokers, err := kafkaContainer.Brokers(ctx)
+	brokers, err := kafkaContainer.Brokers(t.Context())
 	require.NoError(t, err)
 	require.NotEmpty(t, brokers)
 
@@ -196,15 +214,8 @@ func createTestReceiver(t *testing.T, broker, topic string) *cekafka.Consumer {
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 	config.Version = sarama.V2_6_0_0
 
-	groupID := "test-consumer-group"
+	groupID := "test-consumer-group-" + uuid.New().String()
 	receiver, err := cekafka.NewConsumer([]string{broker}, config, groupID, topic)
-	require.NoError(t, err)
-
-	// Open the consumer
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	err = receiver.OpenInbound(ctx)
 	require.NoError(t, err)
 
 	return receiver
