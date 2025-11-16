@@ -80,12 +80,15 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 
 	// Then: Agent should be visible on server 1
 	var agent1 *v1agent.Agent
+
 	assert.Eventually(t, func() bool {
 		agents1 := listAgents(t, server1URL)
 		if len(agents1) < 1 {
 			return false
 		}
+
 		agent1 = findAgentByUID(agents1, collectorUID)
+
 		return agent1 != nil
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
 	require.NotNil(t, agent1, "Collector should be found on server 1")
@@ -114,7 +117,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 		updatedAgent1 := getAgentByID(t, server1URL, collectorUID)
 		updatedAgent2 := getAgentByID(t, server2URL, collectorUID)
 
-		return updatedAgent1.Spec.RemoteConfig.ConfigMap != nil && 
+		return updatedAgent1.Spec.RemoteConfig.ConfigMap != nil &&
 			updatedAgent2.Spec.RemoteConfig.ConfigMap != nil &&
 			len(updatedAgent1.Spec.RemoteConfig.ConfigMap) > 0 &&
 			len(updatedAgent2.Spec.RemoteConfig.ConfigMap) > 0
@@ -166,6 +169,7 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	// Then: Agent is registered on primary
 	assert.Eventually(t, func() bool {
 		agents := listAgents(t, primaryURL)
+
 		return len(agents) >= 1
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on primary")
 	t.Log("Agent registered on primary server")

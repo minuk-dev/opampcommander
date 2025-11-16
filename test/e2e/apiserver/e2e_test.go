@@ -89,6 +89,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	// Then: Agent is retrievable by ID
 	assert.Eventually(t, func() bool {
 		specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
+
 		return specificAgent.Metadata.InstanceUID == collectorUID
 	}, 1*time.Minute, 5*time.Second, "Agent should be retrievable by ID within timeout")
 }

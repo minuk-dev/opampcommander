@@ -89,6 +89,7 @@ func TestKafkaAdapter_SendAndReceive(t *testing.T) {
 			require.NotNil(t, received.Payload.MessageForServerToAgent)
 			assert.Equal(t, testAgentUID, received.Payload.TargetAgentInstanceUIDs[0])
 			assert.Contains(t, received.Source, "test-server-1")
+
 			return true
 		default:
 			return false
@@ -157,12 +158,14 @@ func TestKafkaAdapter_MultipleMessages(t *testing.T) {
 	// Then: All messages should be received
 	assert.Eventually(t, func() bool {
 		receivedCount := 0
+
 		for {
 			select {
 			case msg := <-receivedMessages:
 				if msg != nil {
 					receivedCount++
 				}
+
 				if receivedCount == numMessages {
 					return true
 				}
