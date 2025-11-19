@@ -147,9 +147,18 @@ type AgentConfigFile struct {
 
 // AgentRemoteConfig is a struct to manage remote config.
 type AgentRemoteConfig struct {
+	ConfigData              *AgentRemoteConfigData `bson:"configData,omitempty"`
 	RemoteConfigStatuses    []AgentRemoteConfigSub `bson:"remoteConfigStatuses"`
 	LastErrorMessage        string                 `bson:"lastErrorMessage"`
 	LastModifiedAtUnixMilli int64                  `bson:"lastModifiedAtUnixMilli"`
+}
+
+// AgentRemoteConfigData is a struct to manage remote config data.
+type AgentRemoteConfigData struct {
+	Key                 []byte        `bson:"key"`
+	Status              AgentRemoteConfigStatusEnum `bson:"status"`
+	Config              []byte        `bson:"config"`
+	LastUpdatedAtMilli int64         `bson:"lastUpdatedAtMilli"`
 }
 
 // AgentRemoteConfigSub is a struct to manage remote config status with key.
@@ -378,6 +387,15 @@ func (arc *AgentRemoteConfig) ToDomain() domainmodel.RemoteConfig {
 		return remoteConfig
 	}
 
+	if arc.ConfigData != nil {
+		remoteConfig.ConfigData = domainmodel.RemoteConfigData{
+			Key:           vo.Hash(arc.ConfigData.Key),
+			Status:        domainmodel.RemoteConfigStatus(arc.ConfigData.Status),
+			Config:        arc.ConfigData.Config,
+			LastUpdatedAt: time.UnixMilli(arc.ConfigData.LastUpdatedAtMilli),
+		}
+	}
+
 	for _, sub := range arc.RemoteConfigStatuses {
 		remoteConfig.SetStatus(sub.Key, domainmodel.RemoteConfigStatus(sub.Value))
 	}
@@ -580,6 +598,12 @@ func AgentRemoteConfigFromDomain(arc domainmodel.RemoteConfig) *AgentRemoteConfi
 	}
 
 	return &AgentRemoteConfig{
+		ConfigData: &AgentRemoteConfigData{
+			Key:                []byte(configData.Key),
+			Status:             AgentRemoteConfigStatusEnum(configData.Status),
+			Config:             configData.Config,
+			LastUpdatedAtMilli: configData.LastUpdatedAt.UnixMilli(),
+		},
 		RemoteConfigStatuses: []AgentRemoteConfigSub{
 			{
 				Key:   configData.Key,
