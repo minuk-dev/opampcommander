@@ -56,10 +56,13 @@ func (s *Service) buildRemoteConfig(
 	agentModel *model.Agent,
 ) (*protobufs.AgentRemoteConfig, error) {
 	// Check if agent supports RemoteConfig
-	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig) {
-		//nolint:nilnil // Agent does not support remote config
-		return nil, nil
-	}
+	// TODO: Re-enable this when OpenTelemetry Collector supports accepts_remote_config capability
+	// For now, we'll send remote config to all agents for testing purposes
+	_ = agent.AgentCapabilityAcceptsRemoteConfig // Keep import
+	// if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig) {
+	// 	//nolint:nilnil // Agent does not support remote config
+	// 	return nil, nil
+	// }
 
 	// Get agent groups for this agent
 	agentGroups, err := s.agentGroupUsecase.GetAgentGroupsForAgent(ctx, agentModel)
