@@ -155,10 +155,10 @@ type AgentRemoteConfig struct {
 
 // AgentRemoteConfigData is a struct to manage remote config data.
 type AgentRemoteConfigData struct {
-	Key                 []byte        `bson:"key"`
-	Status              AgentRemoteConfigStatusEnum `bson:"status"`
-	Config              []byte        `bson:"config"`
-	LastUpdatedAtMilli int64         `bson:"lastUpdatedAtMilli"`
+	Key                []byte                      `bson:"key"`
+	Status             AgentRemoteConfigStatusEnum `bson:"status"`
+	Config             []byte                      `bson:"config"`
+	LastUpdatedAtMilli int64                       `bson:"lastUpdatedAtMilli"`
 }
 
 // AgentRemoteConfigSub is a struct to manage remote config status with key.

@@ -127,8 +127,8 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 		t.Logf("Agent1 RemoteConfig: %+v", updatedAgent1.Spec.RemoteConfig)
 		t.Logf("Agent2 RemoteConfig: %+v", updatedAgent2.Spec.RemoteConfig)
 
-		hasConfig1 := updatedAgent1.Spec.RemoteConfig.ConfigMap != nil && len(updatedAgent1.Spec.RemoteConfig.ConfigMap) > 0
-		hasConfig2 := updatedAgent2.Spec.RemoteConfig.ConfigMap != nil && len(updatedAgent2.Spec.RemoteConfig.ConfigMap) > 0
+		hasConfig1 := len(updatedAgent1.Spec.RemoteConfig.ConfigMap) > 0
+		hasConfig2 := len(updatedAgent2.Spec.RemoteConfig.ConfigMap) > 0
 
 		t.Logf("Agent1 has config: %v, Agent2 has config: %v", hasConfig1, hasConfig2)
 
@@ -393,7 +393,7 @@ func setupAPIServerWithKafka(
 func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]string) {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/agentgroups", baseURL)
+	url := baseURL + "/api/v1/agentgroups"
 	t.Logf("Creating AgentGroup at URL: %s with name: %s", url, name)
 
 	reqBody := map[string]interface{}{
@@ -426,7 +426,7 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	require.True(t,
 		resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated,
 		"Create AgentGroup should succeed, got status: %d", resp.StatusCode)
-	
+
 	t.Logf("AgentGroup '%s' created successfully", name)
 }
 
@@ -445,7 +445,7 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	if err != nil {
 		t.Fatalf("Failed to get AgentGroup: %v", err)
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
 		t.Logf("Get AgentGroup response: %s", string(bodyBytes))
@@ -453,8 +453,10 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	}
 
 	var agentGroup map[string]interface{}
+
 	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
-	resp.Body.Close()
+	require.NoError(t, err)
+	err = resp.Body.Close()
 	require.NoError(t, err)
 
 	t.Logf("Current AgentGroup before update: %+v", agentGroup)
@@ -463,11 +465,11 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	if agentGroup["agentConfig"] == nil {
 		agentGroup["agentConfig"] = make(map[string]interface{})
 	}
-	
+
 	// Convert configMap to YAML and set it as the Value field
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
-	
+
 	agentConfig := agentGroup["agentConfig"].(map[string]interface{})
 	agentConfig["value"] = string(configBytes)
 
