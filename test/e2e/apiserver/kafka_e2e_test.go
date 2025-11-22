@@ -21,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -232,7 +233,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 // Helper functions
 
-//nolint:ireturn
 func startKafka(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 	ctx := t.Context()
@@ -442,36 +442,27 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	require.NoError(t, err)
 
 	resp, err := client.Do(getReq)
-	if err != nil {
-		t.Fatalf("Failed to get AgentGroup: %v", err)
-	}
+	require.NoError(t, err, "Failed to get AgentGroup before update")
 
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		t.Logf("Get AgentGroup response: %s", string(bodyBytes))
-		t.Fatalf("Failed to get AgentGroup, status: %d, body: %s", resp.StatusCode, string(bodyBytes))
-	}
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var agentGroup map[string]interface{}
+	var agentGroup v1agentgroup.AgentGroup
 
 	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
 	require.NoError(t, err)
+
 	err = resp.Body.Close()
 	require.NoError(t, err)
 
 	t.Logf("Current AgentGroup before update: %+v", agentGroup)
 
-	// Update the config
-	if agentGroup["agentConfig"] == nil {
-		agentGroup["agentConfig"] = make(map[string]interface{})
-	}
-
 	// Convert configMap to YAML and set it as the Value field
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
 
-	agentConfig := agentGroup["agentConfig"].(map[string]interface{})
-	agentConfig["value"] = string(configBytes)
+	agentGroup.AgentConfig = &v1agentgroup.AgentConfig{
+		Value: string(configBytes),
+	}
 
 	t.Logf("AgentGroup after update: %+v", agentGroup)
 
@@ -488,11 +479,6 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	require.NoError(t, err)
 
 	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		t.Logf("Update AgentGroup response: %s", string(bodyBytes))
-	}
 
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Update AgentGroup should succeed")
 }

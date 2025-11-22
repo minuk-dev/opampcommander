@@ -154,7 +154,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
 
-//nolint:ireturn
 func startMongoDB(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 
@@ -366,7 +365,6 @@ service:
 	return configPath
 }
 
-//nolint:ireturn
 func startOTelCollector(t *testing.T, configPath string) testcontainers.Container {
 	t.Helper()
 

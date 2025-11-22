@@ -2,6 +2,7 @@ package opamp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -14,6 +15,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
+)
+
+var (
+	// ErrNotSupportedOperation is returned when the operation is not supported by the agent.
+	ErrNotSupportedOperation = errors.New("operation not supported by the agent")
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
@@ -56,13 +62,11 @@ func (s *Service) buildRemoteConfig(
 	agentModel *model.Agent,
 ) (*protobufs.AgentRemoteConfig, error) {
 	// Check if agent supports RemoteConfig
-	// TODO: Re-enable this when OpenTelemetry Collector supports accepts_remote_config capability
-	// For now, we'll send remote config to all agents for testing purposes
 	_ = agent.AgentCapabilityAcceptsRemoteConfig // Keep import
-	// if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig) {
-	// 	//nolint:nilnil // Agent does not support remote config
-	// 	return nil, nil
-	// }
+
+	if !agentModel.IsRemoteConfigSupported() {
+		return nil, ErrNotSupportedOperation
+	}
 
 	// Get agent groups for this agent
 	agentGroups, err := s.agentGroupUsecase.GetAgentGroupsForAgent(ctx, agentModel)
