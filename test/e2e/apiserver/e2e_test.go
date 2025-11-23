@@ -154,7 +154,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
 
-//nolint:ireturn
 func startMongoDB(t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 
@@ -274,21 +273,39 @@ func listAgents(t *testing.T, baseURL string) []v1agent.Agent {
 func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1agent.Agent {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/agents/%s", baseURL, uid)
-	resp, err := http.Get(url) //nolint:noctx,gosec // test helper
+	agent, err := tryGetAgentByID(baseURL, uid)
 	require.NoError(t, err)
+
+	return agent
+}
+
+func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1agent.Agent, error) {
+	url := fmt.Sprintf("%s/api/v1/agents/%s", baseURL, uid)
+
+	resp, err := http.Get(url) //nolint:noctx,gosec // test helper
+	if err != nil {
+		return v1agent.Agent{}, fmt.Errorf("failed to get agent by ID: %w", err)
+	}
 
 	defer func() { _ = resp.Body.Close() }()
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	if resp.StatusCode != http.StatusOK {
+		return v1agent.Agent{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode) //nolint:err113
+	}
 
 	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
+	if err != nil {
+		return v1agent.Agent{}, fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	var agent v1agent.Agent
-	require.NoError(t, json.Unmarshal(body, &agent))
 
-	return agent
+	err = json.Unmarshal(body, &agent)
+	if err != nil {
+		return v1agent.Agent{}, fmt.Errorf("failed to unmarshal agent: %w", err)
+	}
+
+	return agent, nil
 }
 
 func findAgentByUID(agents []v1agent.Agent, uid uuid.UUID) *v1agent.Agent {
@@ -366,7 +383,6 @@ service:
 	return configPath
 }
 
-//nolint:ireturn
 func startOTelCollector(t *testing.T, configPath string) testcontainers.Container {
 	t.Helper()
 

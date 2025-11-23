@@ -652,7 +652,17 @@ func (a *Agent) UpdateLastCommunicationInfo(now time.Time, connection *Connectio
 	}
 }
 
+// IsRemoteConfigSupported checks if the agent supports remote configuration.
+func (a *Agent) IsRemoteConfigSupported() bool {
+	return a.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig)
+}
+
 // caution: inject now instead of time.Now()
 func (r *RemoteConfig) updateLastModifiedAt() {
 	r.LastModifiedAt = time.Now()
+}
+
+// HasRemoteConfig checks if the agent has remote configuration to apply.
+func (a *Agent) HasRemoteConfig() bool {
+	return len(a.Commands.Commands) > 0 && a.IsRemoteConfigSupported()
 }

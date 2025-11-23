@@ -115,7 +115,9 @@ func (s *ManageService) CreateAgentGroup(
 ) (*v1agentgroup.AgentGroup, error) {
 	requestedBy, err := security.GetUser(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("get user from context: %w", err)
+		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
+		requestedBy = security.NewAnonymousUser()
 	}
 
 	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand, requestedBy)

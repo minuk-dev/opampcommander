@@ -71,9 +71,9 @@ func TestBuildRemoteConfig_NoCapability(t *testing.T) {
 	// When: Build remote config
 	result, err := service.buildRemoteConfig(context.Background(), agentModel)
 
-	// Then: Should return nil
-	require.NoError(t, err)
-	assert.Nil(t, result, "Should not send config to agent without capability")
+	// Then: Should return ErrNotSupportedOperation
+	require.ErrorIs(t, err, ErrNotSupportedOperation)
+	assert.Nil(t, result, "Result should be nil when capability is missing")
 }
 
 func TestBuildRemoteConfig_WithCapability_NoGroups(t *testing.T) {

@@ -85,6 +85,7 @@ func NewAuthJWTMiddleware(
 
 	return func(ctx *gin.Context) {
 		if hasAnyPrefix(ctx.Request.URL.Path, bypassPrefix) {
+			saveUser(ctx, NewAnonymousUser())
 			ctx.Next()
 
 			return

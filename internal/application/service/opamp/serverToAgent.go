@@ -2,6 +2,7 @@ package opamp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -11,9 +12,13 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
+)
+
+var (
+	// ErrNotSupportedOperation is returned when the operation is not supported by the agent.
+	ErrNotSupportedOperation = errors.New("operation not supported by the agent")
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
@@ -32,21 +37,35 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	// Clear all commands after processing
 	agentModel.Commands.Clear()
 
-	// Build RemoteConfig if applicable
-	remoteConfig, err := s.buildRemoteConfig(ctx, agentModel)
-	if err != nil {
-		s.logger.Error("failed to build remote config for agent",
-			slog.String("instanceUID", instanceUID.String()),
-			slog.String("error", err.Error()))
+	var (
+		remoteConfig *protobufs.AgentRemoteConfig
+		err          error
+	)
 
-		return nil, fmt.Errorf("failed to build remote config: %w", err)
+	if agentModel.HasRemoteConfig() {
+		// Build RemoteConfig if applicable
+		remoteConfig, err = s.buildRemoteConfig(ctx, agentModel)
+		if err != nil {
+			s.logger.Error("failed to build remote config for agent",
+				slog.String("instanceUID", instanceUID.String()),
+				slog.String("error", err.Error()))
+
+			return nil, fmt.Errorf("failed to build remote config: %w", err)
+		}
 	}
 
-	//exhaustruct:ignore
 	return &protobufs.ServerToAgent{
-		InstanceUid:  instanceUID[:],
-		Flags:        flags,
-		RemoteConfig: remoteConfig,
+		InstanceUid:         instanceUID[:],
+		ErrorResponse:       nil,
+		RemoteConfig:        remoteConfig,
+		ConnectionSettings:  nil,
+		PackagesAvailable:   nil,
+		Flags:               flags,
+		Capabilities:        0,
+		AgentIdentification: nil,
+		Command:             nil,
+		CustomCapabilities:  nil,
+		CustomMessage:       nil,
 	}, nil
 }
 
@@ -55,10 +74,8 @@ func (s *Service) buildRemoteConfig(
 	ctx context.Context,
 	agentModel *model.Agent,
 ) (*protobufs.AgentRemoteConfig, error) {
-	// Check if agent supports RemoteConfig
-	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig) {
-		//nolint:nilnil // Agent does not support remote config
-		return nil, nil
+	if !agentModel.IsRemoteConfigSupported() {
+		return nil, ErrNotSupportedOperation
 	}
 
 	// Get agent groups for this agent

@@ -41,6 +41,8 @@ linters:
         - '.+/trace\.Sampler$'
         - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
         - "k8s.io/utils/clock.Timer"
+        # test
+        - "github.com/testcontainers/testcontainers-go.Container"
     depguard:
       rules:
         main:
@@ -116,6 +118,7 @@ linters:
             - github.com/stretchr/testify/mock
             - github.com/google/uuid
             - github.com/tidwall/gjson
+            - gopkg.in/yaml.v3
             - gotest.tools/icmd
             - go.uber.org/goleak
             - github.com/IBM/sarama
