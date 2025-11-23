@@ -557,13 +557,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: List Agents
       tags:
       - agent

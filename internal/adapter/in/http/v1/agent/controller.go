@@ -65,14 +65,27 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {array} Agent
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
-// @Failure 400 {object} map[string]any
-// @Failure 500 {object} map[string]any
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
 	if err != nil {
 		c.logger.Error("failed to parse limit", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+		ctx.JSON(http.StatusBadRequest, api.ErrorModel{
+			Type:     ctx.Request.URL.String(),
+			Title:    "Invalid Query Parameter",
+			Status:   http.StatusBadRequest,
+			Detail:   "The 'limit' query parameter must be a valid integer.",
+			Instance: ctx.Request.URL.String(),
+			Errors: []*api.ErrorDetail{
+				{
+					Message:  "invalid integer format",
+					Location: "query.limit",
+					Value:    ctx.Query("limit"),
+				},
+			},
+		})
 
 		return
 	}
@@ -85,7 +98,20 @@ func (c *Controller) List(ctx *gin.Context) {
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, api.ErrorModel{
+			Type:     ctx.Request.URL.String(),
+			Title:    "Internal Server Error",
+			Status:   http.StatusInternalServerError,
+			Detail:   "An error occurred while retrieving the list of agents.",
+			Instance: ctx.Request.URL.String(),
+			Errors: []*api.ErrorDetail{
+				{
+					Message:  err.Error(),
+					Location: "server",
+					Value:    nil,
+				},
+			},
+		})
 
 		return
 	}
