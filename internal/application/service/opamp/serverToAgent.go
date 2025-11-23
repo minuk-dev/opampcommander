@@ -12,7 +12,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
@@ -61,9 +60,6 @@ func (s *Service) buildRemoteConfig(
 	ctx context.Context,
 	agentModel *model.Agent,
 ) (*protobufs.AgentRemoteConfig, error) {
-	// Check if agent supports RemoteConfig
-	_ = agent.AgentCapabilityAcceptsRemoteConfig // Keep import
-
 	if !agentModel.IsRemoteConfigSupported() {
 		return nil, ErrNotSupportedOperation
 	}
