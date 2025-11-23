@@ -37,21 +37,35 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	// Clear all commands after processing
 	agentModel.Commands.Clear()
 
-	// Build RemoteConfig if applicable
-	remoteConfig, err := s.buildRemoteConfig(ctx, agentModel)
-	if err != nil {
-		s.logger.Error("failed to build remote config for agent",
-			slog.String("instanceUID", instanceUID.String()),
-			slog.String("error", err.Error()))
+	var (
+		remoteConfig *protobufs.AgentRemoteConfig
+		err          error
+	)
 
-		return nil, fmt.Errorf("failed to build remote config: %w", err)
+	if agentModel.HasRemoteConfig() {
+		// Build RemoteConfig if applicable
+		remoteConfig, err = s.buildRemoteConfig(ctx, agentModel)
+		if err != nil {
+			s.logger.Error("failed to build remote config for agent",
+				slog.String("instanceUID", instanceUID.String()),
+				slog.String("error", err.Error()))
+
+			return nil, fmt.Errorf("failed to build remote config: %w", err)
+		}
 	}
 
-	//exhaustruct:ignore
 	return &protobufs.ServerToAgent{
-		InstanceUid:  instanceUID[:],
-		Flags:        flags,
-		RemoteConfig: remoteConfig,
+		InstanceUid:         instanceUID[:],
+		ErrorResponse:       nil,
+		RemoteConfig:        remoteConfig,
+		ConnectionSettings:  nil,
+		PackagesAvailable:   nil,
+		Flags:               flags,
+		Capabilities:        0,
+		AgentIdentification: nil,
+		Command:             nil,
+		CustomCapabilities:  nil,
+		CustomMessage:       nil,
 	}, nil
 }
 
