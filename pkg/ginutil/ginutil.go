@@ -22,3 +22,8 @@ func GetQueryInt64(c *gin.Context, key string, defaultValue int64) (int64, error
 
 	return value, nil
 }
+
+// GetErrorTypeURI constructs a standardized error type URI.
+func GetErrorTypeURI(c *gin.Context) string {
+	return c.Request.Host + c.FullPath()
+}

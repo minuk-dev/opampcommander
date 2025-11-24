@@ -69,11 +69,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
+	baseURL := ginutil.GetErrorTypeURI(ctx)
+
 	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
 	if err != nil {
 		c.logger.Error("failed to parse limit", "error", err.Error())
 		ctx.JSON(http.StatusBadRequest, api.ErrorModel{
-			Type:     ctx.Request.URL.String(),
+			Type:     baseURL,
 			Title:    "Invalid Query Parameter",
 			Status:   http.StatusBadRequest,
 			Detail:   "The 'limit' query parameter must be a valid integer.",
@@ -99,7 +101,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, api.ErrorModel{
-			Type:     ctx.Request.URL.String(),
+			Type:     baseURL,
 			Title:    "Internal Server Error",
 			Status:   http.StatusInternalServerError,
 			Detail:   "An error occurred while retrieving the list of agents.",
@@ -136,7 +138,7 @@ func (c *Controller) List(ctx *gin.Context) {
 //nolint:funlen // Get method is long due to detailed error handling and response construction.
 func (c *Controller) Get(ctx *gin.Context) {
 	id := ctx.Param("id")
-	baseURL := ctx.Request.URL.Scheme + "://" + ctx.Request.Host + ctx.Request.URL.Path
+	baseURL := ginutil.GetErrorTypeURI(ctx)
 
 	instanceUID, err := uuid.Parse(id)
 	if err != nil {
