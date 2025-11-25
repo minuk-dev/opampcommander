@@ -87,6 +87,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
 		return
 	}
 
@@ -121,6 +122,7 @@ func (c *Controller) List(ctx *gin.Context) {
 func (c *Controller) Get(ctx *gin.Context) {
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
 		return
 	}
 
@@ -146,12 +148,14 @@ func (c *Controller) Get(ctx *gin.Context) {
 func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
 		return
 	}
 
 	continueToken := ctx.Query("continue")
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
 		return
 	}
 
@@ -222,12 +226,14 @@ func (c *Controller) Create(ctx *gin.Context) {
 func (c *Controller) Update(ctx *gin.Context) {
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
 		return
 	}
 
 	var req agentgroupv1.AgentGroup
 
 	if err := ginutil.BindJSON(ctx, &req); err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, false)
 		return
 	}
 
@@ -255,6 +261,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 func (c *Controller) Delete(ctx *gin.Context) {
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
 		return
 	}
 

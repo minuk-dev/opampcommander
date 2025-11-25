@@ -92,6 +92,20 @@ func TestAgentGroupController_List(t *testing.T) {
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		
+		// Check RFC 9457 structure
+		body := recorder.Body.String()
+		assert.Contains(t, body, "type")
+		assert.Contains(t, body, "title")
+		assert.Contains(t, body, "status")
+		assert.Contains(t, body, "detail")
+		assert.Contains(t, body, "instance")
+		assert.Contains(t, body, "errors")
+		
+		// Check specific error information
+		assert.Contains(t, body, "invalid format")
+		assert.Contains(t, body, "query.limit")
+		assert.Contains(t, body, "invalid")
 	})
 
 	t.Run("List AgentGroups - internal error", func(t *testing.T) {
@@ -227,9 +241,18 @@ func TestAgentGroupController_Create_InvalidBody(t *testing.T) {
 		"/api/v1/agentgroups",
 		strings.NewReader("invalid"),
 	)
+	req.Header.Set("Content-Type", "application/json")
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	
+	// Check RFC 9457 structure
+	body := recorder.Body.String()
+	assert.Contains(t, body, "type")
+	assert.Contains(t, body, "title")
+	assert.Contains(t, body, "status")
+	assert.Contains(t, body, "detail")
+	assert.Contains(t, body, "instance")
 }
 
 func TestAgentGroupController_Create_InternalError(t *testing.T) {
@@ -318,9 +341,18 @@ func TestAgentGroupController_Update_InvalidBody(t *testing.T) {
 		"/api/v1/agentgroups/something",
 		strings.NewReader("invalid"),
 	)
+	req.Header.Set("Content-Type", "application/json")
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	
+	// Check RFC 9457 structure
+	body := recorder.Body.String()
+	assert.Contains(t, body, "type")
+	assert.Contains(t, body, "title")
+	assert.Contains(t, body, "status")
+	assert.Contains(t, body, "detail")
+	assert.Contains(t, body, "instance")
 }
 
 func TestAgentGroupController_Update_InternalError(t *testing.T) {

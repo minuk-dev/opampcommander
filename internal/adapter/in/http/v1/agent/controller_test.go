@@ -131,7 +131,20 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-		assert.JSONEq(t, `{"error":"invalid limit parameter"}`, recorder.Body.String())
+		
+		// Check RFC 9457 structure
+		body := recorder.Body.String()
+		assert.Contains(t, body, "type")
+		assert.Contains(t, body, "title")
+		assert.Contains(t, body, "status")
+		assert.Contains(t, body, "detail")
+		assert.Contains(t, body, "instance")
+		assert.Contains(t, body, "errors")
+		
+		// Check specific error information
+		assert.Contains(t, body, "invalid format")
+		assert.Contains(t, body, "query.limit")
+		assert.Contains(t, body, "invalid")
 	})
 
 	t.Run("List Agents - any error returns 500", func(t *testing.T) {
@@ -213,7 +226,14 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
-		assert.JSONEq(t, `{"error":"agent not found"}`, recorder.Body.String())
+		
+		// Check RFC 9457 structure
+		body := recorder.Body.String()
+		assert.Contains(t, body, "type")
+		assert.Contains(t, body, "title")
+		assert.Contains(t, body, "status")
+		assert.Contains(t, body, "detail")
+		assert.Contains(t, body, "instance")
 	})
 
 	t.Run("Get Agent - instanceUID is not uuid returns 400", func(t *testing.T) {
@@ -232,6 +252,20 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		
+		// Check RFC 9457 structure
+		body := recorder.Body.String()
+		assert.Contains(t, body, "type")
+		assert.Contains(t, body, "title")
+		assert.Contains(t, body, "status")
+		assert.Contains(t, body, "detail")
+		assert.Contains(t, body, "instance")
+		assert.Contains(t, body, "errors")
+		
+		// Check specific error information
+		assert.Contains(t, body, "invalid format")
+		assert.Contains(t, body, "path.id")
+		assert.Contains(t, body, "not-a-uuid")
 	})
 
 	t.Run("Get Agent - other error returns 500", func(t *testing.T) {

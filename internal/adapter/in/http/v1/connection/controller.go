@@ -64,6 +64,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
 		return
 	}
 
