@@ -2,15 +2,12 @@
 package agent
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
@@ -28,8 +25,7 @@ func NewController(
 	logger *slog.Logger,
 ) *Controller {
 	controller := &Controller{
-		logger: logger,
-
+		logger:       logger,
 		agentUsecase: usecase,
 	}
 
@@ -64,14 +60,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {array} Agent
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
-// @Failure 400 {object} map[string]any
-// @Failure 500 {object} map[string]any
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
-	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
-		c.logger.Error("failed to parse limit", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
 
 		return
 	}
@@ -84,7 +79,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of agents.")
 
 		return
 	}
@@ -101,32 +96,22 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
 // @Success  200 {object} Agent
-// @Failure  400 {object} map[string]any
-// @Failure  404 {object} map[string]any
-// @Failure  500 {object} map[string]any
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
 // @Router  /api/v1/agents/{id} [get].
 func (c *Controller) Get(ctx *gin.Context) {
-	id := ctx.Param("id")
-
-	instanceUID, err := uuid.Parse(id)
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
-		c.logger.Error("failed to parse id", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
 
 		return
 	}
 
 	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), instanceUID)
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
-			c.logger.Error("agent not found", "instanceUID", instanceUID.String())
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
-
-			return
-		}
-
 		c.logger.Error("failed to get agent", "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent.")
 
 		return
 	}

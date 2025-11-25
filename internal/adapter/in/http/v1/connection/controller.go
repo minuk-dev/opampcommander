@@ -29,9 +29,8 @@ type Controller struct {
 // NewController creates a new instance of the Controller struct.
 func NewController(adminUsecase applicationport.AdminUsecase) *Controller {
 	controller := &Controller{
-		logger: slog.Default(),
-		clock:  k8sclock.RealClock{},
-
+		logger:       slog.Default(),
+		clock:        k8sclock.RealClock{},
 		adminUsecase: adminUsecase,
 	}
 
@@ -63,10 +62,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()
 
-	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
-		c.logger.Error("failed to get limit query parameter", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid limit parameter"})
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
 
 		return
 	}
@@ -78,7 +76,8 @@ func (c *Controller) List(ctx *gin.Context) {
 		Continue: continueToken,
 	})
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, err)
+		c.logger.Error("failed to list connections", "error", err.Error())
+		ginutil.InternalServerError(ctx, err, "An error occurred while listing connections.")
 
 		return
 	}

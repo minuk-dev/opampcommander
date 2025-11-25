@@ -116,7 +116,7 @@ func (s *Service) ListConnections(
 	totalMatchedItemsCount := len(keys)
 
 	var nextContinue string
-	if options.Limit > 0 && len(keys) > int(options.Limit) {
+	if options.Limit > 0 && int64(len(keys)) > options.Limit {
 		nextContinue = keys[options.Limit]
 		keys = keys[:options.Limit]
 	} else {
