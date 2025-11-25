@@ -88,6 +88,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
 		return
 	}
 
@@ -100,6 +101,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to list agent groups", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving the list of agent groups.")
+
 		return
 	}
 
@@ -123,6 +125,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
+
 		return
 	}
 
@@ -130,6 +133,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to get agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent group.")
+
 		return
 	}
 
@@ -149,13 +153,16 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
 		return
 	}
 
 	continueToken := ctx.Query("continue")
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
+
 		return
 	}
 
@@ -166,6 +173,7 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to get agents by agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agents for the agent group.")
+
 		return
 	}
 
@@ -187,8 +195,10 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 func (c *Controller) Create(ctx *gin.Context) {
 	var req agentgroupv1.CreateRequest
 
-	if err := ginutil.BindJSON(ctx, &req); err != nil {
+	err := ginutil.BindJSON(ctx, &req)
+	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
+
 		return
 	}
 
@@ -202,6 +212,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to create agent group", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while creating the agent group.")
+
 		return
 	}
 
@@ -227,13 +238,16 @@ func (c *Controller) Update(ctx *gin.Context) {
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
+
 		return
 	}
 
 	var req agentgroupv1.AgentGroup
 
-	if err := ginutil.BindJSON(ctx, &req); err != nil {
+	err = ginutil.BindJSON(ctx, &req)
+	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
+
 		return
 	}
 
@@ -241,6 +255,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to update agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent group.")
+
 		return
 	}
 
@@ -262,6 +277,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
+
 		return
 	}
 
@@ -269,6 +285,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to delete agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent group.")
+
 		return
 	}
 

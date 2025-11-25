@@ -65,6 +65,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
 		return
 	}
 
@@ -77,6 +78,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to list connections", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while listing connections.")
+
 		return
 	}
 

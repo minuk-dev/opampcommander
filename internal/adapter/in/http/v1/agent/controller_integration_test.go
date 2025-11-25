@@ -1,3 +1,4 @@
+//nolint:dupl
 package agent_test
 
 import (
@@ -39,7 +40,7 @@ func TestAgentController_ValidationErrorCases(t *testing.T) {
 		},
 		{
 			name:           "List with invalid limit format",
-			method:         http.MethodGet,  
+			method:         http.MethodGet,
 			path:           "/api/v1/agents?limit=abc",
 			expectedStatus: http.StatusBadRequest,
 			expectedFields: []string{"type", "title", "status", "detail", "instance", "errors"},
@@ -194,7 +195,7 @@ func TestAgentController_EdgeCases(t *testing.T) {
 
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
-		
+
 		// Verify the UUID is properly normalized
 		responseUUID := gjson.Get(recorder.Body.String(), "metadata.instanceUid").String()
 		assert.Equal(t, expectedUUID.String(), responseUUID)
@@ -226,24 +227,23 @@ func TestAgentController_ConcurrentRequests(t *testing.T) {
 
 	// Run 10 concurrent requests
 	responses := make(chan int, 10)
-	
-	for i := 0; i < 10; i++ {
+
+	for range 10 {
 		go func() {
 			recorder := httptest.NewRecorder()
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			router.ServeHTTP(recorder, req)
+
 			responses <- recorder.Code
 		}()
 	}
 
 	// Check all responses
-	for i := 0; i < 10; i++ {
-		select {
-		case code := <-responses:
-			assert.Equal(t, http.StatusOK, code)
-		}
+	for range 10 {
+		code := <-responses
+		assert.Equal(t, http.StatusOK, code)
 	}
 }
 
@@ -286,6 +286,7 @@ func TestAgentController_ResponseFormat(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 
 		var response v1agent.ListResponse
+
 		err = json.Unmarshal(recorder.Body.Bytes(), &response)
 		require.NoError(t, err)
 
@@ -328,6 +329,7 @@ func TestAgentController_ResponseFormat(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 
 		var response v1agent.Agent
+
 		err = json.Unmarshal(recorder.Body.Bytes(), &response)
 		require.NoError(t, err)
 

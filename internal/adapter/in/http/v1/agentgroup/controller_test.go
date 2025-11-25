@@ -1,3 +1,4 @@
+//nolint:dupl
 package agentgroup_test
 
 import (
@@ -92,7 +93,7 @@ func TestAgentGroupController_List(t *testing.T) {
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-		
+
 		// Check RFC 9457 structure
 		body := recorder.Body.String()
 		assert.Contains(t, body, "type")
@@ -101,7 +102,7 @@ func TestAgentGroupController_List(t *testing.T) {
 		assert.Contains(t, body, "detail")
 		assert.Contains(t, body, "instance")
 		assert.Contains(t, body, "errors")
-		
+
 		// Check specific error information
 		assert.Contains(t, body, "invalid format")
 		assert.Contains(t, body, "query.limit")
@@ -245,7 +246,7 @@ func TestAgentGroupController_Create_InvalidBody(t *testing.T) {
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-	
+
 	// Check RFC 9457 structure
 	body := recorder.Body.String()
 	assert.Contains(t, body, "type")
@@ -345,7 +346,7 @@ func TestAgentGroupController_Update_InvalidBody(t *testing.T) {
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-	
+
 	// Check RFC 9457 structure
 	body := recorder.Body.String()
 	assert.Contains(t, body, "type")

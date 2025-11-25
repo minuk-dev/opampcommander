@@ -67,6 +67,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
 		return
 	}
 
@@ -79,6 +80,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of agents.")
+
 		return
 	}
 
@@ -102,6 +104,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
 		return
 	}
 
@@ -109,6 +112,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to get agent", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent.")
+
 		return
 	}
 

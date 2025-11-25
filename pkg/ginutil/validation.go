@@ -1,4 +1,3 @@
-// Package ginutil provides utilities for Gin web framework.
 package ginutil
 
 import (
@@ -9,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Validation error types
+// Validation error types.
 var (
 	ErrValidationFailed = errors.New("validation failed")
 	ErrRequiredParam    = errors.New("required parameter is missing")
@@ -67,36 +66,38 @@ func ParseString(c *gin.Context, paramName string, required bool) (string, error
 // BindJSON binds JSON request body and validates it.
 // Returns error if validation fails - caller must handle error response.
 func BindJSON(c *gin.Context, obj any) error {
-	if err := c.ShouldBindJSON(obj); err != nil {
+	err := c.ShouldBindJSON(obj)
+	if err != nil {
 		return ErrValidationFailed
 	}
+
 	return nil
 }
 
 // HandleValidationError handles validation errors and sends appropriate RFC 9457 response.
-func HandleValidationError(c *gin.Context, paramName, paramValue string, err error, isPathParam bool) {
+func HandleValidationError(gCtx *gin.Context, paramName, paramValue string, err error, isPathParam bool) {
 	switch {
 	case errors.Is(err, ErrRequiredParam):
 		if isPathParam {
-			InvalidPathParamError(c, paramName, "", "parameter is required")
+			InvalidPathParamError(gCtx, paramName, "", "parameter is required")
 		} else {
-			InvalidQueryParamError(c, paramName, "", "parameter is required")
+			InvalidQueryParamError(gCtx, paramName, "", "parameter is required")
 		}
 	case errors.Is(err, ErrInvalidFormat):
 		if isPathParam {
-			InvalidPathParamError(c, paramName, paramValue, "invalid format")
+			InvalidPathParamError(gCtx, paramName, paramValue, "invalid format")
 		} else {
-			InvalidQueryParamError(c, paramName, paramValue, "invalid format")
+			InvalidQueryParamError(gCtx, paramName, paramValue, "invalid format")
 		}
 	case errors.Is(err, ErrInvalidValue):
 		if isPathParam {
-			InvalidPathParamError(c, paramName, paramValue, "invalid value")
+			InvalidPathParamError(gCtx, paramName, paramValue, "invalid value")
 		} else {
-			InvalidQueryParamError(c, paramName, paramValue, "invalid value")
+			InvalidQueryParamError(gCtx, paramName, paramValue, "invalid value")
 		}
 	case errors.Is(err, ErrValidationFailed):
-		InvalidRequestBodyError(c, err)
+		InvalidRequestBodyError(gCtx, err)
 	default:
-		InternalServerError(c, err, "An error occurred during validation.")
+		InternalServerError(gCtx, err, "An error occurred during validation.")
 	}
 }

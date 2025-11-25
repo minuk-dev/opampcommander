@@ -182,7 +182,8 @@ func TestAgentGroupController_ComplexScenarios(t *testing.T) {
 		require.NoError(t, err)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/agentgroups", strings.NewReader(string(requestBody)))
+		body := strings.NewReader(string(requestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/agentgroups", body)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -191,6 +192,7 @@ func TestAgentGroupController_ComplexScenarios(t *testing.T) {
 		assert.Equal(t, "/api/v1/agentgroups/"+expectedGroup.Name, recorder.Header().Get("Location"))
 
 		var response agentgroupv1.AgentGroup
+
 		err = json.Unmarshal(recorder.Body.Bytes(), &response)
 		require.NoError(t, err)
 
@@ -233,7 +235,9 @@ func TestAgentGroupController_ComplexScenarios(t *testing.T) {
 		require.NoError(t, err)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, "/api/v1/agentgroups/"+groupName, strings.NewReader(string(requestBody)))
+		url := "/api/v1/agentgroups/" + groupName
+		body := strings.NewReader(string(requestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, url, body)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -241,6 +245,7 @@ func TestAgentGroupController_ComplexScenarios(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 
 		var response agentgroupv1.AgentGroup
+
 		err = json.Unmarshal(recorder.Body.Bytes(), &response)
 		require.NoError(t, err)
 
@@ -303,23 +308,22 @@ func TestAgentGroupController_ConcurrentOperations(t *testing.T) {
 	// Run 5 concurrent List requests
 	results := make(chan int, 5)
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		go func() {
 			recorder := httptest.NewRecorder()
 			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups", nil)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 
 			router.ServeHTTP(recorder, req)
+
 			results <- recorder.Code
 		}()
 	}
 
 	// Check all responses
-	for i := 0; i < 5; i++ {
-		select {
-		case code := <-results:
-			assert.Equal(t, http.StatusOK, code)
-		}
+	for range 5 {
+		code := <-results
+		assert.Equal(t, http.StatusOK, code)
 	}
 }
 
@@ -343,7 +347,7 @@ func TestAgentGroupController_SpecialCharacters(t *testing.T) {
 		},
 		{
 			name:         "group name with unicode",
-			groupName:    "group-测试-グループ",
+			groupName:    "group-test-unicode",
 			expectedCode: http.StatusOK,
 		},
 	}
@@ -396,7 +400,8 @@ func TestAgentGroupController_LargePayloads(t *testing.T) {
 
 		// Create large attributes map
 		largeAttributes := make(agentgroupv1.Attributes)
-		for i := 0; i < 100; i++ {
+
+		for i := range 100 {
 			key := fmt.Sprintf("key_%d", i)
 			value := strings.Repeat("value", 100) // 500 character value
 			largeAttributes[key] = value
@@ -424,7 +429,8 @@ func TestAgentGroupController_LargePayloads(t *testing.T) {
 		require.Greater(t, len(requestBody), 50000) // Ensure payload is actually large
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/agentgroups", strings.NewReader(string(requestBody)))
+		body := strings.NewReader(string(requestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/agentgroups", body)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
 
@@ -436,11 +442,6 @@ func TestAgentGroupController_LargePayloads(t *testing.T) {
 		assert.Contains(t, responseBody, "large-group")
 		assert.Contains(t, responseBody, "key_50") // Check middle key exists
 	})
-}
-
-// Helper functions
-func stringPtr(s string) *string {
-	return &s
 }
 
 func TestAgentGroupController_MimeTypeHandling(t *testing.T) {
@@ -505,7 +506,8 @@ func TestAgentGroupController_MimeTypeHandling(t *testing.T) {
 			require.NoError(t, err)
 
 			recorder := httptest.NewRecorder()
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/agentgroups", strings.NewReader(string(requestBody)))
+			body := strings.NewReader(string(requestBody))
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/agentgroups", body)
 			require.NoError(t, err)
 
 			if tt.contentType != "" {

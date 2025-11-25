@@ -13,7 +13,14 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
+var (
+	errDatabaseConnectionFailed = errors.New("database connection failed")
+	errSomethingWentWrong       = errors.New("something went wrong")
+	errInvalidJSONFormat        = errors.New("invalid JSON format")
+)
+
 func TestInvalidQueryParamError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -29,6 +36,7 @@ func TestInvalidQueryParamError(t *testing.T) {
 }
 
 func TestInvalidPathParamError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -42,19 +50,21 @@ func TestInvalidPathParamError(t *testing.T) {
 }
 
 func TestInvalidRequestBodyError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/test", nil)
 
-	testErr := errors.New("invalid JSON format")
+	testErr := errInvalidJSONFormat
 	ginutil.InvalidRequestBodyError(ctx, testErr)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestHandleDomainError_ResourceNotExist(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -67,32 +77,35 @@ func TestHandleDomainError_ResourceNotExist(t *testing.T) {
 }
 
 func TestHandleDomainError_InternalServerError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/agents", nil)
 
-	testErr := errors.New("database connection failed")
+	testErr := errDatabaseConnectionFailed
 	ginutil.HandleDomainError(ctx, testErr, "Failed to retrieve agents")
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestInternalServerError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
-	testErr := errors.New("something went wrong")
+	testErr := errSomethingWentWrong
 	ginutil.InternalServerError(ctx, testErr, "An unexpected error occurred")
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestResourceNotFoundError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -106,6 +119,7 @@ func TestResourceNotFoundError(t *testing.T) {
 }
 
 func TestErrorResponse(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -126,9 +140,10 @@ func TestErrorResponse(t *testing.T) {
 
 // TestErrorResponse tests that the error response follows RFC 9457 structure.
 func TestErrorResponseStructure(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	
+
 	router.GET("/test", func(ctx *gin.Context) {
 		ginutil.InvalidQueryParamError(ctx, "limit", "invalid", "must be a valid integer")
 	})
@@ -147,6 +162,7 @@ func TestErrorResponseStructure(t *testing.T) {
 }
 
 func TestDetermineLocationFromURL(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -165,6 +181,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 					{Key: "name", Value: "test-name"},
 				}
 				ctx.Request = httptest.NewRequest(http.MethodGet, "/agents/test-id", nil)
+
 				return ctx
 			},
 			identifier: "test-id",
@@ -176,6 +193,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
 				ctx.Request = httptest.NewRequest(http.MethodGet, "/agents?limit=invalid&offset=0", nil)
+
 				return ctx
 			},
 			identifier: "invalid",
@@ -187,6 +205,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
 				ctx.Request = httptest.NewRequest(http.MethodGet, "/test?filter=abc&search=abc", nil)
+
 				return ctx
 			},
 			identifier: "abc",
@@ -201,6 +220,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 					{Key: "id", Value: "other-value"},
 				}
 				ctx.Request = httptest.NewRequest(http.MethodGet, "/agents/other-value?limit=10", nil)
+
 				return ctx
 			},
 			identifier: "not-found",
@@ -212,6 +232,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
 				ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+
 				return ctx
 			},
 			identifier: "",
@@ -221,11 +242,13 @@ func TestDetermineLocationFromURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := tt.setupContext()
-			
+
 			// Use ResourceNotFoundError to trigger determineLocationFromURL indirectly
 			ginutil.ResourceNotFoundError(ctx, "test", tt.identifier)
-			
+
 			// Check that the response was generated (meaning the function ran)
 			assert.True(t, ctx.Writer.Written())
 		})
@@ -233,6 +256,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 }
 
 func TestGetErrorDetails(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -281,6 +305,8 @@ func TestGetErrorDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
 			ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -295,7 +321,7 @@ func TestGetErrorDetails(t *testing.T) {
 			ginutil.ErrorResponse(ctx, errorInfo)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
-			
+
 			body := w.Body.String()
 			assert.Contains(t, body, tt.expectedTitle)
 			assert.Contains(t, body, tt.expectedDetail)
@@ -304,6 +330,7 @@ func TestGetErrorDetails(t *testing.T) {
 }
 
 func TestErrorResponse_UnknownErrorType(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -321,7 +348,7 @@ func TestErrorResponse_UnknownErrorType(t *testing.T) {
 	ginutil.ErrorResponse(ctx, errorInfo)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	
+
 	body := w.Body.String()
 	assert.Contains(t, body, "Unknown Error")
 	assert.Contains(t, body, "An unknown error occurred")

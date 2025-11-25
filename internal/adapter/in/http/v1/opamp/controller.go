@@ -61,6 +61,7 @@ func NewController(
 	})
 	if err != nil {
 		controller.logger.Error("failed to attach opamp server", "error", err.Error())
+
 		return nil
 	}
 

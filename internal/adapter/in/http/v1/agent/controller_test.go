@@ -1,3 +1,4 @@
+//nolint:dupl
 package agent_test
 
 import (
@@ -131,7 +132,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-		
+
 		// Check RFC 9457 structure
 		body := recorder.Body.String()
 		assert.Contains(t, body, "type")
@@ -140,7 +141,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		assert.Contains(t, body, "detail")
 		assert.Contains(t, body, "instance")
 		assert.Contains(t, body, "errors")
-		
+
 		// Check specific error information
 		assert.Contains(t, body, "invalid format")
 		assert.Contains(t, body, "query.limit")
@@ -226,7 +227,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusNotFound, recorder.Code)
-		
+
 		// Check RFC 9457 structure
 		body := recorder.Body.String()
 		assert.Contains(t, body, "type")
@@ -252,7 +253,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
-		
+
 		// Check RFC 9457 structure
 		body := recorder.Body.String()
 		assert.Contains(t, body, "type")
@@ -261,7 +262,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		assert.Contains(t, body, "detail")
 		assert.Contains(t, body, "instance")
 		assert.Contains(t, body, "errors")
-		
+
 		// Check specific error information
 		assert.Contains(t, body, "invalid format")
 		assert.Contains(t, body, "path.id")

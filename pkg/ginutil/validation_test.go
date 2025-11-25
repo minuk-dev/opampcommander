@@ -11,11 +11,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
+var errUnknownError = errors.New("unknown error")
+
 func TestParseUUID(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -45,6 +49,8 @@ func TestParseUUID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
 			ctx.AddParam("id", tt.paramValue)
@@ -52,11 +58,11 @@ func TestParseUUID(t *testing.T) {
 			result, err := ginutil.ParseUUID(ctx, "id")
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, tt.errorType))
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.errorType)
 				assert.Equal(t, uuid.Nil, result)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.NotEqual(t, uuid.Nil, result)
 			}
 		})
@@ -64,6 +70,7 @@ func TestParseUUID(t *testing.T) {
 }
 
 func TestParseInt64(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -113,9 +120,11 @@ func TestParseInt64(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
-			
+
 			if tt.paramValue != "" {
 				ctx.Request = httptest.NewRequest(http.MethodGet, "/test?limit="+tt.paramValue, nil)
 			} else {
@@ -125,10 +134,10 @@ func TestParseInt64(t *testing.T) {
 			result, err := ginutil.ParseInt64(ctx, "limit", tt.defaultValue)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, tt.errorType))
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.errorType)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expected, result)
 			}
 		})
@@ -136,6 +145,7 @@ func TestParseInt64(t *testing.T) {
 }
 
 func TestParseString(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -171,6 +181,8 @@ func TestParseString(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
 			ctx.AddParam("name", tt.paramValue)
@@ -178,10 +190,10 @@ func TestParseString(t *testing.T) {
 			result, err := ginutil.ParseString(ctx, "name", tt.required)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, tt.errorType))
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.errorType)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expected, result)
 			}
 		})
@@ -189,6 +201,7 @@ func TestParseString(t *testing.T) {
 }
 
 func TestBindJSON(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	type TestStruct struct {
@@ -223,19 +236,22 @@ func TestBindJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
 			ctx.Request = httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(tt.requestBody))
 			ctx.Request.Header.Set("Content-Type", "application/json")
 
 			var obj TestStruct
+
 			err := ginutil.BindJSON(ctx, &obj)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.True(t, errors.Is(err, tt.errorType))
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.errorType)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, "John", obj.Name)
 				assert.Equal(t, 30, obj.Age)
 			}
@@ -244,6 +260,7 @@ func TestBindJSON(t *testing.T) {
 }
 
 func TestHandleValidationError(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -312,7 +329,7 @@ func TestHandleValidationError(t *testing.T) {
 		},
 		{
 			name:         "unknown error",
-			err:          errors.New("unknown error"),
+			err:          errUnknownError,
 			paramName:    "test",
 			paramValue:   "test",
 			isPathParam:  false,
@@ -330,6 +347,8 @@ func TestHandleValidationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
 			ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -343,57 +362,61 @@ func TestHandleValidationError(t *testing.T) {
 }
 
 func TestHandleValidationError_CompleteErrorResponse(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name            string
-		err             error
-		paramName       string
-		paramValue      string
-		isPathParam     bool
-		expectedMessage string
+		name             string
+		err              error
+		paramName        string
+		paramValue       string
+		isPathParam      bool
+		expectedMessage  string
 		expectedLocation string
 	}{
 		{
-			name:            "query param invalid format",
-			err:             ginutil.ErrInvalidFormat,
-			paramName:       "limit",
-			paramValue:      "abc",
-			isPathParam:     false,
-			expectedMessage: "invalid format",
+			name:             "query param invalid format",
+			err:              ginutil.ErrInvalidFormat,
+			paramName:        "limit",
+			paramValue:       "abc",
+			isPathParam:      false,
+			expectedMessage:  "invalid format",
 			expectedLocation: "query.limit",
 		},
 		{
-			name:            "path param required",
-			err:             ginutil.ErrRequiredParam,
-			paramName:       "id",
-			paramValue:      "",
-			isPathParam:     true,
-			expectedMessage: "parameter is required",
+			name:             "path param required",
+			err:              ginutil.ErrRequiredParam,
+			paramName:        "id",
+			paramValue:       "",
+			isPathParam:      true,
+			expectedMessage:  "parameter is required",
 			expectedLocation: "path.id",
 		},
 		{
-			name:            "query param invalid value",
-			err:             ginutil.ErrInvalidValue,
-			paramName:       "offset",
-			paramValue:      "-1",
-			isPathParam:     false,
-			expectedMessage: "invalid value",
+			name:             "query param invalid value",
+			err:              ginutil.ErrInvalidValue,
+			paramName:        "offset",
+			paramValue:       "-1",
+			isPathParam:      false,
+			expectedMessage:  "invalid value",
 			expectedLocation: "query.offset",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
-			
+
 			url := "/test"
 			if !tt.isPathParam && tt.paramValue != "" {
 				url += "?" + tt.paramName + "=" + tt.paramValue
 			}
+
 			ctx.Request = httptest.NewRequest(http.MethodGet, url, nil)
-			
+
 			if tt.isPathParam {
 				ctx.AddParam(tt.paramName, tt.paramValue)
 			}
@@ -401,7 +424,7 @@ func TestHandleValidationError_CompleteErrorResponse(t *testing.T) {
 			ginutil.HandleValidationError(ctx, tt.paramName, tt.paramValue, tt.err, tt.isPathParam)
 
 			assert.Equal(t, http.StatusBadRequest, w.Code)
-			
+
 			body := w.Body.String()
 			assert.Contains(t, body, tt.expectedMessage)
 			// Note: location determination is complex, so we just check the response structure

@@ -1,4 +1,3 @@
-// Package ginutil provides utilities for Gin web framework.
 package ginutil
 
 import (
@@ -84,6 +83,7 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 				},
 			},
 		})
+
 		return
 	}
 
@@ -96,8 +96,9 @@ func InvalidQueryParamError(ctx *gin.Context, paramName, value string, message s
 	ErrorResponse(ctx, &ErrorInfo{
 		Type:     ErrorTypeInvalidQuery,
 		Message:  message,
-		Location: fmt.Sprintf("query.%s", paramName),
+		Location: "query." + paramName,
 		Value:    value,
+		Err:      nil,
 	})
 }
 
@@ -106,8 +107,9 @@ func InvalidPathParamError(ctx *gin.Context, paramName, value string, message st
 	ErrorResponse(ctx, &ErrorInfo{
 		Type:     ErrorTypeInvalidPath,
 		Message:  message,
-		Location: fmt.Sprintf("path.%s", paramName),
+		Location: "path." + paramName,
 		Value:    value,
+		Err:      nil,
 	})
 }
 
@@ -154,7 +156,7 @@ func ResourceNotFoundError(ctx *gin.Context, resourceType, identifier string) {
 		Instance: ctx.Request.URL.String(),
 		Errors: []*api.ErrorDetail{
 			{
-				Message:  fmt.Sprintf("%s not found", resourceType),
+				Message:  resourceType + " not found",
 				Location: determineLocationFromURL(ctx, identifier),
 				Value:    identifier,
 			},
@@ -167,19 +169,19 @@ func determineLocationFromURL(ctx *gin.Context, identifier string) string {
 	// Check if identifier is in path parameters
 	for _, param := range ctx.Params {
 		if param.Value == identifier {
-			return fmt.Sprintf("path.%s", param.Key)
+			return "path." + param.Key
 		}
 	}
-	
+
 	// Check if identifier is in query parameters
 	for key, values := range ctx.Request.URL.Query() {
 		for _, value := range values {
 			if value == identifier {
-				return fmt.Sprintf("query.%s", key)
+				return "query." + key
 			}
 		}
 	}
-	
+
 	return "unknown"
 }
 
@@ -191,11 +193,13 @@ func getErrorDetails(errorType ErrorType) (int, string, string) {
 	case ErrorTypeInvalidPath:
 		return http.StatusBadRequest, "Invalid Path Parameter", "One or more path parameters are invalid."
 	case ErrorTypeInvalidRequestBody:
-		return http.StatusBadRequest, "Invalid Request Body", "The request body is not valid JSON or does not conform to the expected schema."
+		return http.StatusBadRequest, "Invalid Request Body",
+			"The request body is not valid JSON or does not conform to the expected schema."
 	case ErrorTypeResourceNotFound:
 		return http.StatusNotFound, "Not Found", "The requested resource does not exist."
 	case ErrorTypeInternalServer:
-		return http.StatusInternalServerError, "Internal Server Error", "An unexpected error occurred while processing the request."
+		return http.StatusInternalServerError, "Internal Server Error",
+			"An unexpected error occurred while processing the request."
 	default:
 		return http.StatusInternalServerError, "Unknown Error", "An unknown error occurred."
 	}

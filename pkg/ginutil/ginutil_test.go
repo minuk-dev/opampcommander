@@ -7,11 +7,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 func TestGetQueryInt64(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -87,22 +89,25 @@ func TestGetQueryInt64(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
-			
+
 			url := "/test"
 			if tt.query != "" {
 				url += "?" + tt.query
 			}
+
 			ctx.Request = httptest.NewRequest(http.MethodGet, url, nil)
 
 			result, err := ginutil.GetQueryInt64(ctx, tt.key, tt.defaultValue)
 
 			if tt.expectError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), "failed to get query parameter")
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tt.expected, result)
 			}
 		})
@@ -110,6 +115,7 @@ func TestGetQueryInt64(t *testing.T) {
 }
 
 func TestGetErrorTypeURI(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
@@ -158,9 +164,12 @@ func TestGetErrorTypeURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			router := gin.New()
+
 			var actualURI string
-			
+
 			// Add route handler that captures the error type URI
 			router.Any(tt.path, func(ctx *gin.Context) {
 				actualURI = ginutil.GetErrorTypeURI(ctx)
@@ -170,19 +179,20 @@ func TestGetErrorTypeURI(t *testing.T) {
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			req.Host = tt.host
-			
+
 			router.ServeHTTP(w, req)
-			
+
 			assert.Equal(t, tt.expectedURI, actualURI)
 		})
 	}
 }
 
 func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
+	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	
+
 	tests := []struct {
 		name         string
 		routePattern string
@@ -200,7 +210,7 @@ func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
 		{
 			name:         "multiple parameters",
 			routePattern: "/users/:userId/posts/:postId",
-			requestPath:  "/users/123/posts/456", 
+			requestPath:  "/users/123/posts/456",
 			host:         "blog.example.com",
 			expectedURI:  "blog.example.com/users/:userId/posts/:postId",
 		},
@@ -215,8 +225,10 @@ func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			var actualURI string
-			
+
 			router.GET(tt.routePattern, func(ctx *gin.Context) {
 				actualURI = ginutil.GetErrorTypeURI(ctx)
 				ctx.Status(http.StatusOK)
@@ -225,9 +237,9 @@ func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, tt.requestPath, nil)
 			req.Host = tt.host
-			
+
 			router.ServeHTTP(w, req)
-			
+
 			assert.Equal(t, tt.expectedURI, actualURI)
 		})
 	}
