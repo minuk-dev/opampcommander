@@ -166,7 +166,7 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 		return
 	}
 
-	agent, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), name, &model.ListOptions{
+	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), name, &model.ListOptions{
 		Limit:    limit,
 		Continue: continueToken,
 	})
@@ -177,7 +177,7 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, agent)
+	ctx.JSON(http.StatusOK, agents)
 }
 
 // Create creates a new agent group.
