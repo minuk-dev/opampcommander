@@ -12,6 +12,7 @@ import (
 	serverv1 "github.com/minuk-dev/opampcommander/api/v1/server"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
 // Controller is a struct that handles HTTP requests related to servers.
@@ -56,8 +57,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	servers, err := c.serverUsecase.ListServers(ctx.Request.Context())
 	if err != nil {
 		c.logger.Error("failed to list servers", "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list servers"})
-
+		ginutil.InternalServerError(ctx, err, "An error occurred while listing servers.")
 		return
 	}
 

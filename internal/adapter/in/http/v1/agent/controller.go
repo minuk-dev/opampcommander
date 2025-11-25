@@ -2,16 +2,12 @@
 package agent
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
-	"github.com/minuk-dev/opampcommander/api"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
@@ -29,8 +25,7 @@ func NewController(
 	logger *slog.Logger,
 ) *Controller {
 	controller := &Controller{
-		logger: logger,
-
+		logger:       logger,
 		agentUsecase: usecase,
 	}
 
@@ -69,26 +64,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-
-	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
-		c.logger.Error("failed to parse limit", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Invalid Query Parameter",
-			Status:   http.StatusBadRequest,
-			Detail:   "The 'limit' query parameter must be a valid integer.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  "invalid integer format",
-					Location: "query.limit",
-					Value:    ctx.Query("limit"),
-				},
-			},
-		})
-
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
 		return
 	}
 
@@ -100,21 +78,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while retrieving the list of agents.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of agents.")
 		return
 	}
 
@@ -134,71 +98,17 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Failure  404 {object} ErrorModel
 // @Failure  500 {object} ErrorModel
 // @Router  /api/v1/agents/{id} [get].
-//
-//nolint:funlen // Get method is long due to detailed error handling and response construction.
 func (c *Controller) Get(ctx *gin.Context) {
-	id := ctx.Param("id")
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-
-	instanceUID, err := uuid.Parse(id)
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
-		c.logger.Error("failed to parse id", "error", err.Error())
-		ctx.JSON(http.StatusBadRequest, api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Invalid Instance UID",
-			Status:   http.StatusBadRequest,
-			Detail:   "The provided instance UID is not a valid UUID.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  "invalid UUID format",
-					Location: "path.id",
-					Value:    id,
-				},
-			},
-		})
-
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
 		return
 	}
 
 	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), instanceUID)
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
-			c.logger.Error("agent not found", "instanceUID", instanceUID.String())
-			ctx.JSON(http.StatusNotFound, api.ErrorModel{
-				Type:     baseURL,
-				Title:    "Agent Not Found",
-				Status:   http.StatusNotFound,
-				Detail:   "No agent found with the provided instance UID.",
-				Instance: ctx.Request.URL.String(),
-				Errors: []*api.ErrorDetail{
-					{
-						Message:  "agent does not exist",
-						Location: "path.id",
-						Value:    id,
-					},
-				},
-			})
-
-			return
-		}
-
 		c.logger.Error("failed to get agent", "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while retrieving the agent.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent.")
 		return
 	}
 

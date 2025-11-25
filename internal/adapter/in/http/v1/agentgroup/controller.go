@@ -2,16 +2,13 @@
 package agentgroup
 
 import (
-	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/minuk-dev/opampcommander/api"
 	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
@@ -88,26 +85,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups [get].
 func (c *Controller) List(ctx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-
-	limit, err := ginutil.GetQueryInt64(ctx, "limit", 0)
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
-		c.logger.Error("failed to get limit from query", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Invalid Query Parameter",
-			Status:   http.StatusBadRequest,
-			Detail:   "The 'limit' query parameter must be a valid integer.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  "must be a valid integer",
-					Location: "query.limit",
-					Value:    ctx.Query("limit"),
-				},
-			},
-		})
-
 		return
 	}
 
@@ -118,22 +97,8 @@ func (c *Controller) List(ctx *gin.Context) {
 		Continue: continueToken,
 	})
 	if err != nil {
-		c.logger.Error("failed to list agent groups", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusInternalServerError, api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while retrieving the list of agent groups.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		c.logger.Error("failed to list agent groups", "error", err.Error())
+		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving the list of agent groups.")
 		return
 	}
 
@@ -154,46 +119,15 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups/{name} [get].
 func (c *Controller) Get(ctx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-	name := ctx.Param("name")
+	name, err := ginutil.ParseString(ctx, "name", true)
+	if err != nil {
+		return
+	}
 
 	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), name)
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
-			ctx.JSON(http.StatusNotFound, &api.ErrorModel{
-				Type:     baseURL,
-				Title:    "Not Found",
-				Status:   http.StatusNotFound,
-				Detail:   "The requested agent group does not exist.",
-				Instance: ctx.Request.URL.String(),
-				Errors: []*api.ErrorDetail{
-					{
-						Message:  "agent group not found",
-						Location: "path.name",
-						Value:    name,
-					},
-				},
-			})
-
-			return
-		}
-
-		c.logger.Error("failed to get agent group", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusInternalServerError, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while retrieving the agent group.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		c.logger.Error("failed to get agent group", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent group.")
 		return
 	}
 
@@ -209,77 +143,29 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Produce json
 // @Success 200 {array} Agent
 // @Param name path string true "Agent Group Name".
-func (c *Controller) ListAgentsByAgentGroup(gCtx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(gCtx)
-
-	limit, err := ginutil.GetQueryInt64(gCtx, "limit", 0)
+func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
-		c.logger.Error("failed to get limit from query", slog.String("error", err.Error()))
-		gCtx.JSON(http.StatusBadRequest, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Invalid Query Parameter",
-			Status:   http.StatusBadRequest,
-			Detail:   "The 'limit' query parameter must be a valid integer.",
-			Instance: gCtx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  "must be a valid integer",
-					Location: "query.limit",
-					Value:    gCtx.Query("limit"),
-				},
-			},
-		})
-
 		return
 	}
 
-	continueToken := gCtx.Query("continue")
-	name := gCtx.Param("name")
+	continueToken := ctx.Query("continue")
+	name, err := ginutil.ParseString(ctx, "name", true)
+	if err != nil {
+		return
+	}
 
-	agent, err := c.agentGroupUsecase.ListAgentsByAgentGroup(gCtx.Request.Context(), name, &model.ListOptions{
+	agent, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), name, &model.ListOptions{
 		Limit:    limit,
 		Continue: continueToken,
 	})
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
-			gCtx.JSON(http.StatusNotFound, &api.ErrorModel{
-				Type:     baseURL,
-				Title:    "Not Found",
-				Status:   http.StatusNotFound,
-				Detail:   "The requested agent group does not exist.",
-				Instance: gCtx.Request.URL.String(),
-				Errors: []*api.ErrorDetail{
-					{
-						Message:  "agent group not found",
-						Location: "path.name",
-						Value:    name,
-					},
-				},
-			})
-
-			return
-		}
-
-		c.logger.Error("failed to get agents by agent group", slog.String("error", err.Error()))
-		gCtx.JSON(http.StatusInternalServerError, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while retrieving the agents for the agent group.",
-			Instance: gCtx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		c.logger.Error("failed to get agents by agent group", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agents for the agent group.")
 		return
 	}
 
-	gCtx.JSON(http.StatusOK, agent)
+	ctx.JSON(http.StatusOK, agent)
 }
 
 // Create creates a new agent group.
@@ -295,15 +181,10 @@ func (c *Controller) ListAgentsByAgentGroup(gCtx *gin.Context) {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-
 	var req agentgroupv1.CreateRequest
 
-	err := ctx.ShouldBindJSON(&req)
-	if err != nil {
-		c.logger.Error("failed to bind request", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
-
+	if err := ginutil.BindJSON(ctx, &req); err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, false)
 		return
 	}
 
@@ -315,22 +196,8 @@ func (c *Controller) Create(ctx *gin.Context) {
 		AgentConfig: req.AgentConfig,
 	})
 	if err != nil {
-		c.logger.Error("failed to create agent group", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusInternalServerError, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while creating the agent group.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		c.logger.Error("failed to create agent group", "error", err.Error())
+		ginutil.InternalServerError(ctx, err, "An error occurred while creating the agent group.")
 		return
 	}
 
@@ -353,69 +220,21 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agentgroups/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-	name := ctx.Param("name")
+	name, err := ginutil.ParseString(ctx, "name", true)
+	if err != nil {
+		return
+	}
 
 	var req agentgroupv1.AgentGroup
 
-	err := ctx.ShouldBindJSON(&req)
-	if err != nil {
-		c.logger.Error("failed to bind request", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Invalid Request Body",
-			Status:   http.StatusBadRequest,
-			Detail:   "The request body is not valid JSON or does not conform to the expected schema.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "body",
-					Value:    nil,
-				},
-			},
-		})
-
+	if err := ginutil.BindJSON(ctx, &req); err != nil {
 		return
 	}
 
 	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx.Request.Context(), name, &req)
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
-			ctx.JSON(http.StatusNotFound, &api.ErrorModel{
-				Type:     baseURL,
-				Title:    "Not Found",
-				Status:   http.StatusNotFound,
-				Detail:   "The agent group to update does not exist.",
-				Instance: ctx.Request.URL.String(),
-				Errors: []*api.ErrorDetail{
-					{
-						Message:  "agent group not found",
-						Location: "path.name",
-						Value:    name,
-					},
-				},
-			})
-
-			return
-		}
-
-		c.logger.Error("failed to update agent group", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusInternalServerError, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while updating the agent group.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+		c.logger.Error("failed to update agent group", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent group.")
 		return
 	}
 
@@ -434,46 +253,15 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agentgroups/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
-	baseURL := ginutil.GetErrorTypeURI(ctx)
-	name := ctx.Param("name")
-
-	err := c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), name)
+	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
-			ctx.JSON(http.StatusNotFound, &api.ErrorModel{
-				Type:     baseURL,
-				Title:    "Not Found",
-				Status:   http.StatusNotFound,
-				Detail:   "The agent group to delete does not exist.",
-				Instance: ctx.Request.URL.String(),
-				Errors: []*api.ErrorDetail{
-					{
-						Message:  "agent group not found",
-						Location: "path.name",
-						Value:    name,
-					},
-				},
-			})
+		return
+	}
 
-			return
-		}
-
-		c.logger.Error("failed to delete agent group", slog.String("error", err.Error()))
-		ctx.JSON(http.StatusInternalServerError, &api.ErrorModel{
-			Type:     baseURL,
-			Title:    "Internal Server Error",
-			Status:   http.StatusInternalServerError,
-			Detail:   "An error occurred while deleting the agent group.",
-			Instance: ctx.Request.URL.String(),
-			Errors: []*api.ErrorDetail{
-				{
-					Message:  err.Error(),
-					Location: "server",
-					Value:    nil,
-				},
-			},
-		})
-
+	err = c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), name)
+	if err != nil {
+		c.logger.Error("failed to delete agent group", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent group.")
 		return
 	}
 
