@@ -39,28 +39,46 @@ func TestAgentGroupController_List(t *testing.T) {
 
 		groups := []agentgroupv1.AgentGroup{
 			{
-				Name:       "g1",
-				Attributes: agentgroupv1.Attributes{},
-				Selector: agentgroupv1.AgentSelector{
-					IdentifyingAttributes:    map[string]string{},
-					NonIdentifyingAttributes: map[string]string{},
+				Metadata: agentgroupv1.AgentGroupMetadata{
+					Name:       "g1",
+					Attributes: agentgroupv1.Attributes{},
+					Selector: agentgroupv1.AgentSelector{
+						IdentifyingAttributes:    map[string]string{},
+						NonIdentifyingAttributes: map[string]string{},
+					},
 				},
-				CreatedAt: time.Now(),
-				CreatedBy: "",
-				DeletedAt: nil,
-				DeletedBy: nil,
+				Spec: agentgroupv1.AgentGroupSpec{},
+				Status: agentgroupv1.AgentGroupStatus{
+					Conditions: []agentgroupv1.Condition{
+						{
+							Type:               agentgroupv1.ConditionTypeCreated,
+							LastTransitionTime: time.Now(),
+							Status:             agentgroupv1.ConditionStatusTrue,
+							Reason: "", Message: "Agent group created",
+						},
+					},
+				},
 			},
 			{
-				Name:       "g2",
-				Attributes: agentgroupv1.Attributes{},
-				Selector: agentgroupv1.AgentSelector{
-					IdentifyingAttributes:    map[string]string{},
-					NonIdentifyingAttributes: map[string]string{},
+				Metadata: agentgroupv1.AgentGroupMetadata{
+					Name:       "g2",
+					Attributes: agentgroupv1.Attributes{},
+					Selector: agentgroupv1.AgentSelector{
+						IdentifyingAttributes:    map[string]string{},
+						NonIdentifyingAttributes: map[string]string{},
+					},
 				},
-				CreatedAt: time.Now(),
-				CreatedBy: "",
-				DeletedAt: nil,
-				DeletedBy: nil,
+				Spec: agentgroupv1.AgentGroupSpec{},
+				Status: agentgroupv1.AgentGroupStatus{
+					Conditions: []agentgroupv1.Condition{
+						{
+							Type:               agentgroupv1.ConditionTypeCreated,
+							LastTransitionTime: time.Now(),
+							Status:             agentgroupv1.ConditionStatusTrue,
+							Reason: "", Message: "Agent group created",
+						},
+					},
+				},
 			},
 		}
 		usecase.EXPECT().ListAgentGroups(mock.Anything, mock.Anything).Return(&agentgroupv1.ListResponse{
@@ -136,16 +154,25 @@ func TestAgentGroupController_Get(t *testing.T) {
 	router := ctrlBase.Router
 
 	agentGroup := &agentgroupv1.AgentGroup{
-		Name:       "g1",
-		Attributes: agentgroupv1.Attributes{},
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    map[string]string{},
-			NonIdentifyingAttributes: map[string]string{},
+		Metadata: agentgroupv1.AgentGroupMetadata{
+			Name:       "g1",
+			Attributes: agentgroupv1.Attributes{},
+			Selector: agentgroupv1.AgentSelector{
+				IdentifyingAttributes:    map[string]string{},
+				NonIdentifyingAttributes: map[string]string{},
+			},
 		},
-		CreatedAt: time.Now(),
-		CreatedBy: "",
-		DeletedAt: nil,
-		DeletedBy: nil,
+		Spec: agentgroupv1.AgentGroupSpec{},
+		Status: agentgroupv1.AgentGroupStatus{
+			Conditions: []agentgroupv1.Condition{
+				{
+					Type:               agentgroupv1.ConditionTypeCreated,
+					LastTransitionTime: time.Now(),
+					Status:             agentgroupv1.ConditionStatusTrue,
+					Reason: "", Message: "Agent group created",
+				},
+			},
+		},
 	}
 	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(agentGroup, nil)
 
@@ -200,16 +227,25 @@ func TestAgentGroupController_Create(t *testing.T) {
 
 	name := "g1"
 	body := agentgroupv1.AgentGroup{
-		Name:       name,
-		Attributes: agentgroupv1.Attributes{},
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    map[string]string{},
-			NonIdentifyingAttributes: map[string]string{},
+		Metadata: agentgroupv1.AgentGroupMetadata{
+			Name:       name,
+			Attributes: agentgroupv1.Attributes{},
+			Selector: agentgroupv1.AgentSelector{
+				IdentifyingAttributes:    map[string]string{},
+				NonIdentifyingAttributes: map[string]string{},
+			},
 		},
-		CreatedAt: time.Now(),
-		CreatedBy: "",
-		DeletedAt: nil,
-		DeletedBy: nil,
+		Spec: agentgroupv1.AgentGroupSpec{},
+		Status: agentgroupv1.AgentGroupStatus{
+			Conditions: []agentgroupv1.Condition{
+				{
+					Type:               agentgroupv1.ConditionTypeCreated,
+					LastTransitionTime: time.Now(),
+					Status:             agentgroupv1.ConditionStatusTrue,
+					Reason: "", Message: "Agent group created",
+				},
+			},
+		},
 	}
 	usecase.EXPECT().CreateAgentGroup(mock.Anything, mock.Anything).Return(&body, nil)
 	jsonBody, err := json.Marshal(body)
@@ -264,16 +300,25 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 	payload := agentgroupv1.AgentGroup{
-		Name:       "g1",
-		Attributes: agentgroupv1.Attributes{},
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    map[string]string{},
-			NonIdentifyingAttributes: map[string]string{},
+		Metadata: agentgroupv1.AgentGroupMetadata{
+			Name:       "g1",
+			Attributes: agentgroupv1.Attributes{},
+			Selector: agentgroupv1.AgentSelector{
+				IdentifyingAttributes:    map[string]string{},
+				NonIdentifyingAttributes: map[string]string{},
+			},
 		},
-		CreatedAt: time.Now(),
-		CreatedBy: "",
-		DeletedAt: nil,
-		DeletedBy: nil,
+		Spec: agentgroupv1.AgentGroupSpec{},
+		Status: agentgroupv1.AgentGroupStatus{
+			Conditions: []agentgroupv1.Condition{
+				{
+					Type:               agentgroupv1.ConditionTypeCreated,
+					LastTransitionTime: time.Now(),
+					Status:             agentgroupv1.ConditionStatusTrue,
+					Reason: "", Message: "Agent group created",
+				},
+			},
+		},
 	}
 	usecase.EXPECT().CreateAgentGroup(mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
@@ -301,16 +346,25 @@ func TestAgentGroupController_Update(t *testing.T) {
 	router := ctrlBase.Router
 	uid := uuid.New()
 	group := &agentgroupv1.AgentGroup{
-		Name:       "g1",
-		Attributes: agentgroupv1.Attributes{},
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    map[string]string{},
-			NonIdentifyingAttributes: map[string]string{},
+		Metadata: agentgroupv1.AgentGroupMetadata{
+			Name:       "g1",
+			Attributes: agentgroupv1.Attributes{},
+			Selector: agentgroupv1.AgentSelector{
+				IdentifyingAttributes:    map[string]string{},
+				NonIdentifyingAttributes: map[string]string{},
+			},
 		},
-		CreatedAt: time.Now(),
-		CreatedBy: "",
-		DeletedAt: nil,
-		DeletedBy: nil,
+		Spec: agentgroupv1.AgentGroupSpec{},
+		Status: agentgroupv1.AgentGroupStatus{
+			Conditions: []agentgroupv1.Condition{
+				{
+					Type:               agentgroupv1.ConditionTypeCreated,
+					LastTransitionTime: time.Now(),
+					Status:             agentgroupv1.ConditionStatusTrue,
+					Reason: "", Message: "Agent group created",
+				},
+			},
+		},
 	}
 	usecase.EXPECT().UpdateAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(group, nil)
 	jsonBody, err := json.Marshal(group)
@@ -365,16 +419,25 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 	router := ctrlBase.Router
 	name := "g1"
 	group := &agentgroupv1.AgentGroup{
-		Name:       name,
-		Attributes: agentgroupv1.Attributes{},
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    map[string]string{},
-			NonIdentifyingAttributes: map[string]string{},
+		Metadata: agentgroupv1.AgentGroupMetadata{
+			Name:       name,
+			Attributes: agentgroupv1.Attributes{},
+			Selector: agentgroupv1.AgentSelector{
+				IdentifyingAttributes:    map[string]string{},
+				NonIdentifyingAttributes: map[string]string{},
+			},
 		},
-		CreatedAt: time.Now(),
-		CreatedBy: "",
-		DeletedAt: nil,
-		DeletedBy: nil,
+		Spec: agentgroupv1.AgentGroupSpec{},
+		Status: agentgroupv1.AgentGroupStatus{
+			Conditions: []agentgroupv1.Condition{
+				{
+					Type:               agentgroupv1.ConditionTypeCreated,
+					LastTransitionTime: time.Now(),
+					Status:             agentgroupv1.ConditionStatusTrue,
+					Reason: "", Message: "Agent group created",
+				},
+			},
+		},
 	}
 	usecase.EXPECT().UpdateAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 

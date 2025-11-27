@@ -16,8 +16,17 @@ type Server struct {
 	ServerID string `bson:"serverId"`
 	// LastHeartbeatAt is the last time the server sent a heartbeat.
 	LastHeartbeatAt time.Time `bson:"lastHeartbeatAt"`
-	// CreatedAt is the time the server was first registered.
-	CreatedAt time.Time `bson:"createdAt"`
+	// Conditions is a list of conditions that apply to the server.
+	Conditions []ServerCondition `bson:"conditions,omitempty"`
+}
+
+// ServerCondition represents a condition of a server in MongoDB.
+type ServerCondition struct {
+	Type               string        `bson:"type"`
+	LastTransitionTime bson.DateTime `bson:"lastTransitionTime"`
+	Status             string        `bson:"status"`
+	Reason             string        `bson:"reason"`
+	Message            string        `bson:"message,omitempty"`
 }
 
 // ToDomainModel converts the Server entity to a domain model.
@@ -26,10 +35,21 @@ func (s *Server) ToDomainModel() *domainmodel.Server {
 		return nil
 	}
 
+	conditions := make([]domainmodel.ServerCondition, len(s.Conditions))
+	for i, condition := range s.Conditions {
+		conditions[i] = domainmodel.ServerCondition{
+			Type:               domainmodel.ServerConditionType(condition.Type),
+			LastTransitionTime: condition.LastTransitionTime.Time(),
+			Status:             domainmodel.ServerConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
 	return &domainmodel.Server{
 		ID:              s.ServerID,
 		LastHeartbeatAt: s.LastHeartbeatAt,
-		CreatedAt:       s.CreatedAt,
+		Conditions:      conditions,
 	}
 }
 
@@ -39,10 +59,21 @@ func ToServerEntity(server *domainmodel.Server) *Server {
 		return nil
 	}
 
+	conditions := make([]ServerCondition, len(server.Conditions))
+	for i, condition := range server.Conditions {
+		conditions[i] = ServerCondition{
+			Type:               string(condition.Type),
+			LastTransitionTime: bson.NewDateTimeFromTime(condition.LastTransitionTime),
+			Status:             string(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
 	return &Server{
 		ID:              nil,
 		ServerID:        server.ID,
 		LastHeartbeatAt: server.LastHeartbeatAt,
-		CreatedAt:       server.CreatedAt,
+		Conditions:      conditions,
 	}
 }

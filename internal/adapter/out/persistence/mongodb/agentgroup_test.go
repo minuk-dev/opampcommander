@@ -14,7 +14,6 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -55,23 +54,23 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		})
 
 		// given
-		agentGroup := agentgroup.New(
+		agentGroup := model.NewAgentGroup(
 			"group-a",
-			agentgroup.OfAttributes(map[string]string{"env": "prod", "team": "core"}),
+			model.OfAttributes(map[string]string{"env": "prod", "team": "core"}),
 			time.Now(),
 			"tester",
 		)
 
-		err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when
-		loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Name)
+		loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
 
 		// then
 		require.NoError(t, err)
-		assert.Equal(t, agentGroup.Name, loaded.Name)
-		assert.Equal(t, agentGroup.Attributes, loaded.Attributes)
+		assert.Equal(t, agentGroup.Metadata.Name, loaded.Metadata.Name)
+		assert.Equal(t, agentGroup.Metadata.Attributes, loaded.Metadata.Attributes)
 		assert.False(t, loaded.IsDeleted())
 	})
 
@@ -125,13 +124,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		})
 
 		// given
-		agentGroup := agentgroup.New(
+		agentGroup := model.NewAgentGroup(
 			"group-single",
-			agentgroup.OfAttributes(map[string]string{"env": "test"}),
+			model.OfAttributes(map[string]string{"env": "test"}),
 			time.Now(),
 			"tester",
 		)
-		err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when
@@ -141,7 +140,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Len(t, resp.Items, 1)
-		assert.Equal(t, agentGroup.Name, resp.Items[0].Name)
+		assert.Equal(t, agentGroup.Metadata.Name, resp.Items[0].Metadata.Name)
 	})
 
 	t.Run("Multiple agent groups in list", func(t *testing.T) {
@@ -154,16 +153,16 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		})
 
 		// given - create multiple groups
-		agentGroups := make([]*agentgroup.AgentGroup, 3)
+		agentGroups := make([]*model.AgentGroup, 3)
 		for idx := range 3 {
-			agentGroup := agentgroup.New(
+			agentGroup := model.NewAgentGroup(
 				"group-"+uuid.NewString()[:8],
-				agentgroup.OfAttributes(map[string]string{"idx": uuid.NewString()}),
+				model.OfAttributes(map[string]string{"idx": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
 			agentGroups[idx] = agentGroup
-			err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+			err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 			require.NoError(t, err)
 		}
 
@@ -178,11 +177,11 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		// Check that all our agent groups are in the list
 		foundUIDs := make(map[string]bool)
 		for _, item := range resp.Items {
-			foundUIDs[item.Name] = true
+			foundUIDs[item.Metadata.Name] = true
 		}
 
 		for _, agentGroup := range agentGroups {
-			assert.True(t, foundUIDs[agentGroup.Name], "AgentGroup %s should be present in the list", agentGroup.Name)
+			assert.True(t, foundUIDs[agentGroup.Metadata.Name], "AgentGroup %s should be present in the list", agentGroup.Metadata.Name)
 		}
 	})
 
@@ -197,13 +196,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 
 		// given - create 5 groups
 		for range 5 {
-			agentGroup := agentgroup.New(
+			agentGroup := model.NewAgentGroup(
 				"group-"+uuid.NewString()[:8],
-				agentgroup.OfAttributes(map[string]string{"i": uuid.NewString()}),
+				model.OfAttributes(map[string]string{"i": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
-			err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+			err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 			require.NoError(t, err)
 		}
 
@@ -221,11 +220,11 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 			// Ensure no duplicate UIDs between pages
 			page1UIDs := make(map[string]bool)
 			for _, item := range resp1.Items {
-				page1UIDs[item.Name] = true
+				page1UIDs[item.Metadata.Name] = true
 			}
 
 			for _, item := range resp2.Items {
-				assert.False(t, page1UIDs[item.Name], "Name %s should not appear in both pages", item.Name)
+				assert.False(t, page1UIDs[item.Metadata.Name], "Name %s should not appear in both pages", item.Metadata.Name)
 			}
 		}
 	})
@@ -245,25 +244,25 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		})
 
 		// given
-		agentGroup := agentgroup.New(
+		agentGroup := model.NewAgentGroup(
 			"group-new",
-			agentgroup.OfAttributes(map[string]string{"env": "staging", "version": "v1.0"}),
+			model.OfAttributes(map[string]string{"env": "staging", "version": "v1.0"}),
 			time.Now(),
 			"creator",
 		)
 
 		// when
-		err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 
 		// then
 		require.NoError(t, err)
 
 		// Verify agent group was saved
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Name)
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
 		require.NoError(t, err)
-		assert.Equal(t, agentGroup.Name, got.Name)
-		assert.Equal(t, agentGroup.Attributes, got.Attributes)
-		assert.Equal(t, agentGroup.CreatedBy, got.CreatedBy)
+		assert.Equal(t, agentGroup.Metadata.Name, got.Metadata.Name)
+		assert.Equal(t, agentGroup.Metadata.Attributes, got.Metadata.Attributes)
+		assert.Equal(t, agentGroup.GetCreatedBy(), got.GetCreatedBy())
 	})
 
 	t.Run("Update existing agent group", func(t *testing.T) {
@@ -276,30 +275,30 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		})
 
 		// given - create initial agent group
-		originalGroup := agentgroup.New(
+		originalGroup := model.NewAgentGroup(
 			"group-update",
-			agentgroup.OfAttributes(map[string]string{"env": "dev"}),
+			model.OfAttributes(map[string]string{"env": "dev"}),
 			time.Now(),
 			"creator",
 		)
-		err := adapter.PutAgentGroup(ctx, originalGroup.Name, originalGroup)
+		err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
 		require.NoError(t, err)
 
 		// when - update with new attributes
-		updatedGroup := agentgroup.New(
+		updatedGroup := model.NewAgentGroup(
 			"group-update-new-name",
-			agentgroup.OfAttributes(map[string]string{"env": "prod", "team": "backend"}),
+			model.OfAttributes(map[string]string{"env": "prod", "team": "backend"}),
 			time.Now(),
 			"updater",
 		)
-		err = adapter.PutAgentGroup(ctx, updatedGroup.Name, updatedGroup)
+		err = adapter.PutAgentGroup(ctx, updatedGroup.Metadata.Name, updatedGroup)
 		require.NoError(t, err)
 
 		// then
-		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Name)
+		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Metadata.Name)
 		require.NoError(t, err)
-		assert.Equal(t, updatedGroup.Name, got.Name)
-		assert.Equal(t, updatedGroup.Attributes, got.Attributes)
+		assert.Equal(t, updatedGroup.Metadata.Name, got.Metadata.Name)
+		assert.Equal(t, updatedGroup.Metadata.Attributes, got.Metadata.Attributes)
 	})
 }
 
@@ -317,30 +316,30 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 		})
 
 		// given
-		agentGroup := agentgroup.New(
+		agentGroup := model.NewAgentGroup(
 			"group-to-delete",
-			agentgroup.OfAttributes(map[string]string{"env": "test"}),
+			model.OfAttributes(map[string]string{"env": "test"}),
 			time.Now(),
 			"creator",
 		)
-		err := adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when - soft delete
 		deletedBy := "deleter"
 		deletedAt := time.Now()
 		agentGroup.MarkDeleted(deletedAt, deletedBy)
-		err = adapter.PutAgentGroup(ctx, agentGroup.Name, agentGroup)
+		err = adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// then
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Name)
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
 		require.NoError(t, err)
 		assert.True(t, got.IsDeleted())
-		assert.Equal(t, deletedBy, *got.DeletedBy)
-		assert.NotNil(t, got.DeletedAt)
+		assert.Equal(t, deletedBy, *got.GetDeletedBy())
+		assert.NotNil(t, got.GetDeletedAt())
 		// Check that deleted time is close to expected time (within 1 second)
-		assert.WithinDuration(t, deletedAt, *got.DeletedAt, time.Second)
+		assert.WithinDuration(t, deletedAt, *got.GetDeletedAt(), time.Second)
 	})
 }
 
@@ -368,28 +367,28 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 		"unicode":       "테스트-값",
 	}
 
-	originalGroup := agentgroup.New(
+	originalGroup := model.NewAgentGroup(
 		"complex-group",
-		agentgroup.OfAttributes(complexAttributes),
+		model.OfAttributes(complexAttributes),
 		time.Now(),
 		"system-admin",
 	)
 
 	// when
-	err := adapter.PutAgentGroup(ctx, originalGroup.Name, originalGroup)
+	err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
 	require.NoError(t, err)
 
-	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Name)
+	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Metadata.Name)
 	require.NoError(t, err)
 
 	// then
-	assert.Equal(t, originalGroup.Name, loadedGroup.Name)
-	assert.Equal(t, originalGroup.Attributes, loadedGroup.Attributes)
-	assert.Equal(t, originalGroup.CreatedBy, loadedGroup.CreatedBy)
+	assert.Equal(t, originalGroup.Metadata.Name, loadedGroup.Metadata.Name)
+	assert.Equal(t, originalGroup.Metadata.Attributes, loadedGroup.Metadata.Attributes)
+	assert.Equal(t, originalGroup.GetCreatedBy(), loadedGroup.GetCreatedBy())
 
 	// Verify each attribute individually
 	for key, expectedValue := range complexAttributes {
-		actualValue, exists := loadedGroup.Attributes[key]
+		actualValue, exists := loadedGroup.Metadata.Attributes[key]
 		assert.True(t, exists, "Attribute key %s should exist", key)
 		assert.Equal(t, expectedValue, actualValue, "Attribute value for key %s should match", key)
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 )
 
@@ -48,15 +47,15 @@ type AgentNotificationUsecase interface {
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its name
-	GetAgentGroup(ctx context.Context, name string) (*agentgroup.AgentGroup, error)
+	GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error)
 	// SaveAgentGroup saves the agent group.
-	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentGroup], error)
 	// SaveAgentGroup saves the agent group.
-	SaveAgentGroup(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup) error
+	SaveAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) error
 	// DeleteAgentGroup deletes the agent group by its ID.
 	DeleteAgentGroup(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
 	// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.
-	GetAgentGroupsForAgent(ctx context.Context, agent *model.Agent) ([]*agentgroup.AgentGroup, error)
+	GetAgentGroupsForAgent(ctx context.Context, agent *model.Agent) ([]*model.AgentGroup, error)
 }
 
 // AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.
@@ -64,7 +63,7 @@ type AgentGroupRelatedUsecase interface {
 	// ListAgentsByAgentGroup lists agents belonging to a specific agent group.
 	ListAgentsByAgentGroup(
 		ctx context.Context,
-		agentGroup *agentgroup.AgentGroup,
+		agentGroup *model.AgentGroup,
 		options *model.ListOptions,
 	) (*model.ListResponse[*model.Agent], error)
 }

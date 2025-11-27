@@ -2,6 +2,7 @@
 package agentgroup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -100,9 +101,14 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	displayedAgents := lo.Map(agentgroups, func(agentgroup v1agentgroup.AgentGroup, _ int) formattedAgentGroup {
-		return toFormattedAgentGroup(agentgroup)
-	})
+	displayedAgents := make([]formattedAgentGroup, len(agentgroups))
+	for i, agentgroup := range agentgroups {
+		formatted, err := opt.toFormattedAgentGroup(cmd.Context(), agentgroup)
+		if err != nil {
+			return fmt.Errorf("failed to format agent group %s: %w", agentgroup.Metadata.Name, err)
+		}
+		displayedAgents[i] = formatted
+	}
 
 	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
 	if err != nil {
@@ -137,9 +143,14 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		return nil
 	}
 
-	displayedAgentGroups := lo.Map(agentGroups, func(a AgentGroupWithErr, _ int) formattedAgentGroup {
-		return toFormattedAgentGroup(*a.AgentGroup)
-	})
+	displayedAgentGroups := make([]formattedAgentGroup, len(agentGroups))
+	for i, a := range agentGroups {
+		formatted, err := opt.toFormattedAgentGroup(cmd.Context(), *a.AgentGroup)
+		if err != nil {
+			return fmt.Errorf("failed to format agent group %s: %w", a.AgentGroup.Metadata.Name, err)
+		}
+		displayedAgentGroups[i] = formatted
+	}
 
 	err := formatter.Format(cmd.OutOrStdout(), displayedAgentGroups, formatter.FormatType(opt.formatType))
 	if err != nil {
@@ -163,6 +174,10 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 //nolint:lll
 type formattedAgentGroup struct {
 	Name                             string            `json:"name"                             short:"name"      text:"name"                yaml:"name"`
+	NumTotalAgents                   int               `json:"numTotalAgents"                   short:"-"         text:"totalAgents"         yaml:"numTotalAgents"`
+	NumConnectedHealthyAgents        int               `json:"numConnectedHealthyAgents"        short:"-"         text:"connected"           yaml:"numConnectedHealthyAgents"`
+	NumConnectedUnhealthyAgents      int               `json:"numConnectedUnhealthyAgents"      short:"-"         text:"unhealthy"           yaml:"numConnectedUnhealthyAgents"`
+	NumNotConnectedAgents            int               `json:"numNotConnectedAgents"            short:"-"         text:"disconnected"        yaml:"numNotConnectedAgents"`
 	Attributes                       map[string]string `json:"attributes"                       short:"-"         text:"-"                   yaml:"attributes"`
 	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"         text:"-"                   yaml:"identifyingAttributesSelector"`
 	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"         text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
@@ -172,15 +187,68 @@ type formattedAgentGroup struct {
 	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"-"         text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
-func toFormattedAgentGroup(agentGroup v1agentgroup.AgentGroup) formattedAgentGroup {
-	return formattedAgentGroup{
-		Name:                             agentGroup.Name,
-		Attributes:                       agentGroup.Attributes,
-		IdentifyingAttributesSelector:    agentGroup.Selector.IdentifyingAttributes,
-		NonIdentifyingAttributesSelector: agentGroup.Selector.NonIdentifyingAttributes,
-		CreatedAt:                        agentGroup.CreatedAt,
-		CreatedBy:                        agentGroup.CreatedBy,
-		DeletedAt:                        agentGroup.DeletedAt,
-		DeletedBy:                        agentGroup.DeletedBy,
+func (opt *CommandOptions) toFormattedAgentGroup(ctx context.Context, agentGroup v1agentgroup.AgentGroup) (formattedAgentGroup, error) {
+	// Extract timestamps and users from conditions
+	var createdAt time.Time
+	var createdBy string
+	var deletedAt *time.Time
+	var deletedBy *string
+
+	for _, condition := range agentGroup.Status.Conditions {
+		switch condition.Type {
+		case v1agentgroup.ConditionTypeCreated:
+			if condition.Status == v1agentgroup.ConditionStatusTrue {
+				createdAt = condition.LastTransitionTime
+				createdBy = condition.Reason
+			}
+		case v1agentgroup.ConditionTypeDeleted:
+			if condition.Status == v1agentgroup.ConditionStatusTrue {
+				deletedAt = &condition.LastTransitionTime
+				deletedBy = &condition.Reason
+			}
+		}
 	}
+
+	formatted := formattedAgentGroup{
+		Name:                             agentGroup.Metadata.Name,
+		Attributes:                       agentGroup.Metadata.Attributes,
+		IdentifyingAttributesSelector:    agentGroup.Metadata.Selector.IdentifyingAttributes,
+		NonIdentifyingAttributesSelector: agentGroup.Metadata.Selector.NonIdentifyingAttributes,
+		CreatedAt:                        createdAt,
+		CreatedBy:                        createdBy,
+		DeletedAt:                        deletedAt,
+		DeletedBy:                        deletedBy,
+	}
+
+	// Only calculate agent statistics for text format
+	if opt.formatType == "text" {
+		agents, err := clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, agentGroup.Metadata.Name)
+		if err != nil {
+			return formatted, fmt.Errorf("failed to list agents for group %s: %w", agentGroup.Metadata.Name, err)
+		}
+
+		formatted.NumTotalAgents = len(agents)
+
+		connectedHealthy := 0
+		connectedUnhealthy := 0
+		notConnected := 0
+
+		for _, agent := range agents {
+			if agent.Status.Connected {
+				if agent.Status.ComponentHealth.Healthy {
+					connectedHealthy++
+				} else {
+					connectedUnhealthy++
+				}
+			} else {
+				notConnected++
+			}
+		}
+
+		formatted.NumConnectedHealthyAgents = connectedHealthy
+		formatted.NumConnectedUnhealthyAgents = connectedUnhealthy
+		formatted.NumNotConnectedAgents = notConnected
+	}
+
+	return formatted, nil
 }

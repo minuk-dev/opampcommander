@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -51,7 +50,7 @@ func NewAgentGroupService(
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
 	name string,
-) (*agentgroup.AgentGroup, error) {
+) (*model.AgentGroup, error) {
 	return s.persistencePort.GetAgentGroup(ctx, name)
 }
 
@@ -61,7 +60,7 @@ func (s *AgentGroupService) GetAgentGroup(
 func (s *AgentGroupService) SaveAgentGroup(
 	ctx context.Context,
 	name string,
-	agentGroup *agentgroup.AgentGroup,
+	agentGroup *model.AgentGroup,
 ) error {
 	return s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
 }
@@ -72,7 +71,7 @@ func (s *AgentGroupService) SaveAgentGroup(
 func (s *AgentGroupService) ListAgentGroups(
 	ctx context.Context,
 	options *model.ListOptions,
-) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+) (*model.ListResponse[*model.AgentGroup], error) {
 	return s.persistencePort.ListAgentGroups(ctx, options)
 }
 
@@ -101,10 +100,10 @@ func (s *AgentGroupService) DeleteAgentGroup(
 // ListAgentsByAgentGroup lists agents that belong to the specified agent group.
 func (s *AgentGroupService) ListAgentsByAgentGroup(
 	ctx context.Context,
-	agentGroup *agentgroup.AgentGroup,
+	agentGroup *model.AgentGroup,
 	options *model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	agentSelector := agentGroup.Selector
+	agentSelector := agentGroup.Metadata.Selector
 
 	listResp, err := s.agentIndexer.ListAgentsByAttributes(
 		ctx,
@@ -123,7 +122,7 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 func (s *AgentGroupService) GetAgentGroupsForAgent(
 	ctx context.Context,
 	agent *model.Agent,
-) ([]*agentgroup.AgentGroup, error) {
+) ([]*model.AgentGroup, error) {
 	// Get all agent groups
 	allGroups, err := s.persistencePort.ListAgentGroups(ctx, nil)
 	if err != nil {
@@ -131,14 +130,14 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 	}
 
 	// Filter groups that match the agent
-	var matchingGroups []*agentgroup.AgentGroup
+	var matchingGroups []*model.AgentGroup
 
 	for _, group := range allGroups.Items {
 		if group.IsDeleted() {
 			continue
 		}
 
-		if matchesSelector(agent, group.Selector) {
+		if matchesSelector(agent, group.Metadata.Selector) {
 			matchingGroups = append(matchingGroups, group)
 		}
 	}

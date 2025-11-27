@@ -48,8 +48,10 @@ func TestServerAdapter_GetServer(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server-1",
 			LastHeartbeatAt: now,
-			CreatedAt:       now,
+			Conditions:      []model.ServerCondition{},
 		}
+		server.MarkRegistered("test")
+		
 		err := adapter.PutServer(ctx, server)
 		require.NoError(t, err)
 
@@ -95,8 +97,9 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	server := &model.Server{
 		ID:              "test-server",
 		LastHeartbeatAt: now,
-		CreatedAt:       now,
+		Conditions: []model.ServerCondition{},
 	}
+	server.MarkRegistered("test")
 
 	err = adapter.PutServer(ctx, server)
 	require.NoError(t, err)
@@ -105,7 +108,8 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "test-server", retrievedServer.ID)
 	assert.WithinDuration(t, now, retrievedServer.LastHeartbeatAt, time.Second)
-	assert.WithinDuration(t, now, retrievedServer.CreatedAt, time.Second)
+	// Check that server has registered condition
+	assert.True(t, retrievedServer.IsConditionTrue(model.ServerConditionTypeRegistered))
 }
 
 func TestServerAdapter_ListServers(t *testing.T) {
@@ -136,8 +140,9 @@ func TestServerAdapter_ListServers(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server-" + string(rune('0'+i)),
 			LastHeartbeatAt: now,
-			CreatedAt:       now,
+			Conditions: []model.ServerCondition{},
 		}
+		server.MarkRegistered("test")
 		err := adapter.PutServer(ctx, server)
 		require.NoError(t, err)
 	}
@@ -164,7 +169,7 @@ func TestServer_IsAlive(t *testing.T) {
 			server: &model.Server{
 				ID:              "server-1",
 				LastHeartbeatAt: now.Add(-30 * time.Second),
-				CreatedAt:       now.Add(-10 * time.Minute),
+				Conditions: []model.ServerCondition{},
 			},
 			checkTime:   now,
 			expectedVal: true,
@@ -174,7 +179,7 @@ func TestServer_IsAlive(t *testing.T) {
 			server: &model.Server{
 				ID:              "server-2",
 				LastHeartbeatAt: now.Add(-2 * time.Minute),
-				CreatedAt:       now.Add(-10 * time.Minute),
+				Conditions: []model.ServerCondition{},
 			},
 			checkTime:   now,
 			expectedVal: false,
@@ -184,7 +189,7 @@ func TestServer_IsAlive(t *testing.T) {
 			server: &model.Server{
 				ID:              "server-3",
 				LastHeartbeatAt: now.Add(-59 * time.Second),
-				CreatedAt:       now.Add(-10 * time.Minute),
+				Conditions: []model.ServerCondition{},
 			},
 			checkTime:   now,
 			expectedVal: true,

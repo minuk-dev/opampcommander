@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 )
 
@@ -52,11 +51,11 @@ type ServerEventReceiverPort interface {
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.
 type AgentGroupPersistencePort interface {
 	// GetAgentGroup retrieves an agent group by its ID.
-	GetAgentGroup(ctx context.Context, name string) (*agentgroup.AgentGroup, error)
+	GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error)
 	// PutAgentGroup saves the agent group.
-	PutAgentGroup(ctx context.Context, name string, agentGroup *agentgroup.AgentGroup) error
+	PutAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) error
 	// ListAgentGroups retrieves a list of agent groups with pagination options.
-	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentgroup.AgentGroup], error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentGroup], error)
 }
 
 // ServerPersistencePort is an interface that defines the methods for server persistence.

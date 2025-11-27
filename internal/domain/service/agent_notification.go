@@ -60,7 +60,7 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 		currentServer = &model.Server{
 			ID:              "unknown",
 			LastHeartbeatAt: time.Time{},
-			CreatedAt:       time.Time{},
+			Conditions:      []model.ServerCondition{},
 		}
 	}
 

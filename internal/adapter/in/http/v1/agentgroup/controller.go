@@ -216,7 +216,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/agentgroups/"+created.Name)
+	ctx.Header("Location", "/api/v1/agentgroups/"+created.Metadata.Name)
 	ctx.JSON(http.StatusCreated, created)
 }
 

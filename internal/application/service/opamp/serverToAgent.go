@@ -12,7 +12,6 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
@@ -84,8 +83,8 @@ func (s *Service) buildRemoteConfig(
 		return nil, fmt.Errorf("failed to get agent groups for agent: %w", err)
 	}
 
-	agentGroupsWithRemoteConfigs := lo.Filter(agentGroups, func(group *agentgroup.AgentGroup, _ int) bool {
-		return group.AgentConfig != nil && group.AgentConfig.Value != ""
+	agentGroupsWithRemoteConfigs := lo.Filter(agentGroups, func(group *model.AgentGroup, _ int) bool {
+		return group.Spec.AgentConfig != nil && group.Spec.AgentConfig.Value != ""
 	})
 
 	if len(agentGroupsWithRemoteConfigs) == 0 {
@@ -94,16 +93,16 @@ func (s *Service) buildRemoteConfig(
 	}
 
 	sort.Slice(agentGroupsWithRemoteConfigs, func(i, j int) bool {
-		return agentGroupsWithRemoteConfigs[i].Priority > agentGroupsWithRemoteConfigs[j].Priority
+		return agentGroupsWithRemoteConfigs[i].Metadata.Priority > agentGroupsWithRemoteConfigs[j].Metadata.Priority
 	})
 
 	winnerGroup := agentGroupsWithRemoteConfigs[0]
 	s.logger.Info("applying remote config from agent group",
-		slog.String("agentGroupName", winnerGroup.Name),
-		slog.Int("priority", winnerGroup.Priority),
+		slog.String("agentGroupName", winnerGroup.Metadata.Name),
+		slog.Int("priority", winnerGroup.Metadata.Priority),
 	)
 
-	configBytes := []byte(winnerGroup.AgentConfig.Value)
+	configBytes := []byte(winnerGroup.Spec.AgentConfig.Value)
 
 	// Compute hash of the configuration
 	configHash, err := vo.NewHash(configBytes)

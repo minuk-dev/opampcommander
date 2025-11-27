@@ -14,10 +14,41 @@ const (
 
 // Server represents an API server instance.
 type Server struct {
-	ID              string    `json:"id"`
-	LastHeartbeatAt time.Time `json:"lastHeartbeatAt"`
-	CreatedAt       time.Time `json:"createdAt"`
+	ID              string      `json:"id"`
+	LastHeartbeatAt time.Time   `json:"lastHeartbeatAt"`
+	Conditions      []Condition `json:"conditions"`
 } // @name Server
+
+// Condition represents a condition of a server.
+type Condition struct {
+	Type               ConditionType   `json:"type"`
+	LastTransitionTime time.Time       `json:"lastTransitionTime"`
+	Status             ConditionStatus `json:"status"`
+	Reason             string          `json:"reason"`
+	Message            string          `json:"message,omitempty"`
+} // @name ServerCondition
+
+// ConditionType represents the type of a server condition.
+type ConditionType string // @name ServerConditionType
+
+const (
+	// ConditionTypeRegistered represents the condition when the server was registered.
+	ConditionTypeRegistered ConditionType = "Registered"
+	// ConditionTypeAlive represents the condition when the server is alive.
+	ConditionTypeAlive ConditionType = "Alive"
+)
+
+// ConditionStatus represents the status of a server condition.
+type ConditionStatus string // @name ServerConditionStatus
+
+const (
+	// ConditionStatusTrue represents a true condition status.
+	ConditionStatusTrue ConditionStatus = "True"
+	// ConditionStatusFalse represents a false condition status.
+	ConditionStatusFalse ConditionStatus = "False"
+	// ConditionStatusUnknown represents an unknown condition status.
+	ConditionStatusUnknown ConditionStatus = "Unknown"
+)
 
 // ListResponse represents a list of servers with metadata.
 type ListResponse = v1.ListResponse[Server]

@@ -125,9 +125,14 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 
 	for i := 0; i < elemType.NumField(); i++ {
 		field := elemType.Field(i)
-		if field.Name == "Name" || field.Name == "ID" || (field.Tag.Get(tag) != "" && field.Tag.Get(tag) != "-") {
+		tagValue := field.Tag.Get(tag)
+		if field.Name == "Name" || field.Name == "ID" || (tagValue != "" && tagValue != "-") {
 			fieldIndexes = append(fieldIndexes, i)
-			fieldNames = append(fieldNames, field.Name)
+			if tagValue != "" && tagValue != "-" {
+				fieldNames = append(fieldNames, tagValue)
+			} else {
+				fieldNames = append(fieldNames, field.Name)
+			}
 		}
 	}
 

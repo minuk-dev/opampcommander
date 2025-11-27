@@ -67,7 +67,7 @@ func (c *Controller) List(ctx *gin.Context) {
 			return serverv1.Server{
 				ID:              server.ID,
 				LastHeartbeatAt: server.LastHeartbeatAt,
-				CreatedAt:       server.CreatedAt,
+				Conditions:      mapConditionsToAPI(server.Conditions),
 			}
 		}),
 		v1.ListMeta{
@@ -77,4 +77,24 @@ func (c *Controller) List(ctx *gin.Context) {
 	)
 
 	ctx.JSON(http.StatusOK, serverResponse)
+}
+
+// mapConditionsToAPI converts domain server conditions to API conditions.
+func mapConditionsToAPI(conditions []model.ServerCondition) []serverv1.Condition {
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	apiConditions := make([]serverv1.Condition, len(conditions))
+	for i, condition := range conditions {
+		apiConditions[i] = serverv1.Condition{
+			Type:               serverv1.ConditionType(condition.Type),
+			LastTransitionTime: condition.LastTransitionTime,
+			Status:             serverv1.ConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
+	return apiConditions
 }
