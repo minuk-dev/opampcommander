@@ -12,26 +12,26 @@ const (
 
 // AgentGroup represents a struct that represents an agent group.
 type AgentGroup struct {
-	Metadata AgentGroupMetadata `json:"metadata"`
-	Spec     AgentGroupSpec     `json:"spec"`
-	Status   AgentGroupStatus   `json:"status"`
+	Metadata Metadata `json:"metadata"`
+	Spec     Spec     `json:"spec"`
+	Status   Status   `json:"status"`
 } // @name AgentGroup
 
-// AgentGroupMetadata represents metadata information for an agent group.
-type AgentGroupMetadata struct {
+// Metadata represents metadata information for an agent group.
+type Metadata struct {
 	Name       string        `json:"name"`
 	Priority   int           `json:"priority"`
 	Attributes Attributes    `json:"attributes"`
 	Selector   AgentSelector `json:"selector"`
 } // @name AgentGroupMetadata
 
-// AgentGroupSpec represents the specification of an agent group.
-type AgentGroupSpec struct {
+// Spec represents the specification of an agent group.
+type Spec struct {
 	AgentConfig *AgentConfig `json:"agentConfig,omitempty"`
 } // @name AgentGroupSpec
 
-// AgentGroupStatus represents the status of an agent group.
-type AgentGroupStatus struct {
+// Status represents the status of an agent group.
+type Status struct {
 	Conditions []Condition `json:"conditions"`
 } // @name AgentGroupStatus
 
@@ -66,7 +66,7 @@ const (
 
 // CreateRequest represents a request to create an agent group.
 type CreateRequest struct {
-	Name        string        `binding:"required" json:"name"`
+	Name        string        `binding:"required"           json:"name"`
 	Priority    int           `json:"priority"`
 	Attributes  Attributes    `json:"attributes"`
 	Selector    AgentSelector `json:"selector"`

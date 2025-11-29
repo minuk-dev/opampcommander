@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/samber/lo"
+)
 
 // Server represents a server that an agent communicates with.
 // It contains the server's unique identifier and liveness information.
@@ -58,21 +62,23 @@ func (s *Server) IsAlive(now time.Time, timeout time.Duration) bool {
 // SetCondition sets or updates a condition in the server's status.
 func (s *Server) SetCondition(conditionType ServerConditionType, status ServerConditionStatus, reason, message string) {
 	now := time.Now()
-	
+
 	// Check if condition already exists
-	for i, condition := range s.Conditions {
-		if condition.Type == conditionType {
+	_, idx, ok := lo.FindIndexOf(s.Conditions, func(condition ServerCondition) bool {
+		return condition.Type == conditionType
+	})
+	if ok {
+		if s.Conditions[idx].Status == status {
 			// Update existing condition only if status changed
-			if condition.Status != status {
-				s.Conditions[i].Status = status
-				s.Conditions[i].LastTransitionTime = now
-				s.Conditions[i].Reason = reason
-				s.Conditions[i].Message = message
-			}
-			return
+			s.Conditions[idx].Status = status
+			s.Conditions[idx].LastTransitionTime = now
+			s.Conditions[idx].Reason = reason
+			s.Conditions[idx].Message = message
 		}
+
+		return
 	}
-	
+
 	// Add new condition
 	s.Conditions = append(s.Conditions, ServerCondition{
 		Type:               conditionType,
@@ -85,17 +91,20 @@ func (s *Server) SetCondition(conditionType ServerConditionType, status ServerCo
 
 // GetCondition returns the condition of the specified type.
 func (s *Server) GetCondition(conditionType ServerConditionType) *ServerCondition {
-	for _, condition := range s.Conditions {
-		if condition.Type == conditionType {
-			return &condition
-		}
+	condition, ok := lo.Find(s.Conditions, func(condition ServerCondition) bool {
+		return condition.Type == conditionType
+	})
+	if !ok {
+		return nil
 	}
-	return nil
+
+	return &condition
 }
 
 // IsConditionTrue checks if the specified condition type is true.
 func (s *Server) IsConditionTrue(conditionType ServerConditionType) bool {
 	condition := s.GetCondition(conditionType)
+
 	return condition != nil && condition.Status == ServerConditionStatusTrue
 }
 
@@ -121,6 +130,7 @@ func (s *Server) GetRegisteredAt() *time.Time {
 			return &condition.LastTransitionTime
 		}
 	}
+
 	return nil
 }
 
@@ -131,5 +141,6 @@ func (s *Server) GetRegisteredBy() string {
 			return condition.Reason
 		}
 	}
+
 	return ""
 }

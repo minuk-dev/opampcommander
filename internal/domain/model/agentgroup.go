@@ -123,6 +123,7 @@ func (ag *AgentGroup) IsDeleted() bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -135,10 +136,11 @@ func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
 			ag.Status.Conditions[i].LastTransitionTime = deletedAt
 			ag.Status.Conditions[i].Status = ConditionStatusTrue
 			ag.Status.Conditions[i].Reason = deletedBy
+
 			return
 		}
 	}
-	
+
 	// Add new deleted condition
 	ag.Status.Conditions = append(ag.Status.Conditions, Condition{
 		Type:               ConditionTypeDeleted,
@@ -156,6 +158,7 @@ func (ag *AgentGroup) GetCreatedAt() *time.Time {
 			return &condition.LastTransitionTime
 		}
 	}
+
 	return nil
 }
 
@@ -166,6 +169,7 @@ func (ag *AgentGroup) GetCreatedBy() string {
 			return condition.Reason
 		}
 	}
+
 	return ""
 }
 
@@ -176,6 +180,7 @@ func (ag *AgentGroup) GetDeletedAt() *time.Time {
 			return &condition.LastTransitionTime
 		}
 	}
+
 	return nil
 }
 
@@ -184,9 +189,11 @@ func (ag *AgentGroup) GetDeletedBy() *string {
 	for _, condition := range ag.Status.Conditions {
 		if condition.Type == ConditionTypeDeleted && condition.Status == ConditionStatusTrue {
 			reason := condition.Reason
+
 			return &reason
 		}
 	}
+
 	return nil
 }
 

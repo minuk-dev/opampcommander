@@ -720,23 +720,28 @@ func (a *Agent) HasRemoteConfig() bool {
 }
 
 // SetCondition sets or updates a condition in the agent's status.
-func (a *Agent) SetCondition(conditionType AgentConditionType, status AgentConditionStatus, triggeredBy, message string) {
+func (a *Agent) SetCondition(
+	conditionType AgentConditionType,
+	status AgentConditionStatus,
+	triggeredBy, message string,
+) {
 	now := time.Now()
-	
+
 	// Check if condition already exists
-	for i, condition := range a.Status.Conditions {
+	for idx, condition := range a.Status.Conditions {
 		if condition.Type == conditionType {
 			// Update existing condition only if status changed
 			if condition.Status != status {
-				a.Status.Conditions[i].Status = status
-				a.Status.Conditions[i].LastTransitionTime = now
-				a.Status.Conditions[i].Reason = triggeredBy
-				a.Status.Conditions[i].Message = message
+				a.Status.Conditions[idx].Status = status
+				a.Status.Conditions[idx].LastTransitionTime = now
+				a.Status.Conditions[idx].Reason = triggeredBy
+				a.Status.Conditions[idx].Message = message
 			}
+
 			return
 		}
 	}
-	
+
 	// Add new condition
 	a.Status.Conditions = append(a.Status.Conditions, AgentCondition{
 		Type:               conditionType,
@@ -754,12 +759,14 @@ func (a *Agent) GetCondition(conditionType AgentConditionType) *AgentCondition {
 			return &condition
 		}
 	}
+
 	return nil
 }
 
 // IsConditionTrue checks if the specified condition type is true.
 func (a *Agent) IsConditionTrue(conditionType AgentConditionType) bool {
 	condition := a.GetCondition(conditionType)
+
 	return condition != nil && condition.Status == AgentConditionStatusTrue
 }
 
@@ -785,8 +792,9 @@ func (a *Agent) MarkHealthy(triggeredBy string) {
 func (a *Agent) MarkUnhealthy(triggeredBy, reason string) {
 	message := "Agent is unhealthy"
 	if reason != "" {
-		message = fmt.Sprintf("Agent is unhealthy: %s", reason)
+		message = "Agent is unhealthy: " + reason
 	}
+
 	a.SetCondition(AgentConditionTypeHealthy, AgentConditionStatusFalse, triggeredBy, message)
 }
 

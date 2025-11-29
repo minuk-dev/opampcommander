@@ -191,7 +191,7 @@ func toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 	}
 
 	return &v1agentgroup.AgentGroup{
-		Metadata: v1agentgroup.AgentGroupMetadata{
+		Metadata: v1agentgroup.Metadata{
 			Name:       domain.Metadata.Name,
 			Attributes: v1agentgroup.Attributes(domain.Metadata.Attributes),
 			Priority:   domain.Metadata.Priority,
@@ -200,10 +200,10 @@ func toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 				NonIdentifyingAttributes: domain.Metadata.Selector.NonIdentifyingAttributes,
 			},
 		},
-		Spec: v1agentgroup.AgentGroupSpec{
+		Spec: v1agentgroup.Spec{
 			AgentConfig: agentConfig,
 		},
-		Status: v1agentgroup.AgentGroupStatus{
+		Status: v1agentgroup.Status{
 			Conditions: conditions,
 		},
 	}

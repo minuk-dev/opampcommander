@@ -141,10 +141,12 @@ type formattedAgentGroup struct {
 
 func toFormattedAgentGroup(agentGroup *agentgroupv1.AgentGroup) *formattedAgentGroup {
 	// Extract timestamps and users from conditions
-	var createdAt time.Time
-	var createdBy string
-	var deletedAt *time.Time
-	var deletedBy *string
+	var (
+		createdAt time.Time
+		createdBy string
+		deletedAt *time.Time
+		deletedBy *string
+	)
 
 	for _, condition := range agentGroup.Status.Conditions {
 		switch condition.Type {

@@ -239,7 +239,7 @@ func TestAgentConditions(t *testing.T) {
 		t.Parallel()
 
 		agent := model.NewAgent(uuid.New())
-		
+
 		// Check that the agent has the registered condition
 		condition := agent.GetCondition(model.AgentConditionTypeRegistered)
 		assert.NotNil(t, condition)
@@ -255,12 +255,12 @@ func TestAgentConditions(t *testing.T) {
 
 		agent := model.NewAgent(uuid.New())
 		triggeredBy := "user"
-		
+
 		agent.MarkConnected(triggeredBy)
-		
+
 		assert.True(t, agent.Status.Connected)
 		assert.True(t, agent.IsConditionTrue(model.AgentConditionTypeConnected))
-		
+
 		condition := agent.GetCondition(model.AgentConditionTypeConnected)
 		assert.NotNil(t, condition)
 		assert.Equal(t, model.AgentConditionTypeConnected, condition.Type)
@@ -274,17 +274,17 @@ func TestAgentConditions(t *testing.T) {
 
 		agent := model.NewAgent(uuid.New())
 		triggeredBy := "system"
-		
+
 		// First connect
 		agent.MarkConnected("user")
 		assert.True(t, agent.Status.Connected)
-		
+
 		// Then disconnect
 		agent.MarkDisconnected(triggeredBy)
-		
+
 		assert.False(t, agent.Status.Connected)
 		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeConnected))
-		
+
 		condition := agent.GetCondition(model.AgentConditionTypeConnected)
 		assert.NotNil(t, condition)
 		assert.Equal(t, model.AgentConditionTypeConnected, condition.Type)
@@ -298,11 +298,11 @@ func TestAgentConditions(t *testing.T) {
 
 		agent := model.NewAgent(uuid.New())
 		triggeredBy := "health-check"
-		
+
 		agent.MarkHealthy(triggeredBy)
-		
+
 		assert.True(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
-		
+
 		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
 		assert.NotNil(t, condition)
 		assert.Equal(t, model.AgentConditionTypeHealthy, condition.Type)
@@ -317,11 +317,11 @@ func TestAgentConditions(t *testing.T) {
 		agent := model.NewAgent(uuid.New())
 		triggeredBy := "health-check"
 		reason := "high CPU usage"
-		
+
 		agent.MarkUnhealthy(triggeredBy, reason)
-		
+
 		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
-		
+
 		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
 		assert.NotNil(t, condition)
 		assert.Equal(t, model.AgentConditionTypeHealthy, condition.Type)
@@ -334,7 +334,7 @@ func TestAgentConditions(t *testing.T) {
 		t.Parallel()
 
 		agent := model.NewAgent(uuid.New())
-		
+
 		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
 		assert.Nil(t, condition)
 		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))

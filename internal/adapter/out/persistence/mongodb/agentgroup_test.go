@@ -181,7 +181,8 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		}
 
 		for _, agentGroup := range agentGroups {
-			assert.True(t, foundUIDs[agentGroup.Metadata.Name], "AgentGroup %s should be present in the list", agentGroup.Metadata.Name)
+			assert.True(t, foundUIDs[agentGroup.Metadata.Name],
+				"AgentGroup %s should be present in the list", agentGroup.Metadata.Name)
 		}
 	})
 
