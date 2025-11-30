@@ -68,7 +68,7 @@ func (s *Server) SetCondition(conditionType ServerConditionType, status ServerCo
 		return condition.Type == conditionType
 	})
 	if ok {
-		if s.Conditions[idx].Status == status {
+		if s.Conditions[idx].Status != status {
 			// Update existing condition only if status changed
 			s.Conditions[idx].Status = status
 			s.Conditions[idx].LastTransitionTime = now

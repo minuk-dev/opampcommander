@@ -226,7 +226,7 @@ func TestAgentGroupController_Create(t *testing.T) {
 	router := ctrlBase.Router
 
 	name := "g1"
-	body := agentgroupv1.AgentGroup{
+	returnValue := agentgroupv1.AgentGroup{
 		Metadata: agentgroupv1.Metadata{
 			Name:       name,
 			Attributes: agentgroupv1.Attributes{},
@@ -247,8 +247,19 @@ func TestAgentGroupController_Create(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().CreateAgentGroup(mock.Anything, mock.Anything).Return(&body, nil)
-	jsonBody, err := json.Marshal(body)
+
+	payload := agentgroupv1.CreateRequest{
+		Name:       name,
+		Attributes: agentgroupv1.Attributes{},
+		Selector: agentgroupv1.AgentSelector{
+			IdentifyingAttributes:    map[string]string{},
+			NonIdentifyingAttributes: map[string]string{},
+		},
+	}
+
+	usecase.EXPECT().CreateAgentGroup(mock.Anything, mock.Anything).Return(&returnValue, nil)
+
+	jsonBody, err := json.Marshal(payload)
 	require.NoError(t, err)
 
 	recorder := httptest.NewRecorder()
@@ -299,25 +310,12 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 	controller := agentgroup.NewController(usecase, ctrlBase.Logger)
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
-	payload := agentgroupv1.AgentGroup{
-		Metadata: agentgroupv1.Metadata{
-			Name:       "g1",
-			Attributes: agentgroupv1.Attributes{},
-			Selector: agentgroupv1.AgentSelector{
-				IdentifyingAttributes:    map[string]string{},
-				NonIdentifyingAttributes: map[string]string{},
-			},
-		},
-		Spec: agentgroupv1.Spec{},
-		Status: agentgroupv1.Status{
-			Conditions: []agentgroupv1.Condition{
-				{
-					Type:               agentgroupv1.ConditionTypeCreated,
-					LastTransitionTime: time.Now(),
-					Status:             agentgroupv1.ConditionStatusTrue,
-					Reason:             "", Message: "Agent group created",
-				},
-			},
+	payload := agentgroupv1.CreateRequest{
+		Name:       "g1",
+		Attributes: agentgroupv1.Attributes{},
+		Selector: agentgroupv1.AgentSelector{
+			IdentifyingAttributes:    map[string]string{},
+			NonIdentifyingAttributes: map[string]string{},
 		},
 	}
 
