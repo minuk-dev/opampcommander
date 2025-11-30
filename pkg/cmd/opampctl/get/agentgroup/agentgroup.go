@@ -102,12 +102,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 	displayedAgents := make([]formattedAgentGroup, len(agentgroups))
 	for idx, agentgroup := range agentgroups {
-		formatted, err := opt.toFormattedAgentGroup(agentgroup)
-		if err != nil {
-			return fmt.Errorf("failed to format agent group %s: %w", agentgroup.Metadata.Name, err)
-		}
-
-		displayedAgents[idx] = formatted
+		displayedAgents[idx] = opt.toFormattedAgentGroup(agentgroup)
 	}
 
 	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
@@ -144,12 +139,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	}
 
 	displayedAgentGroups := lo.Map(agentGroups, func(a AgentGroupWithErr, _ int) formattedAgentGroup {
-		formatted, err := opt.toFormattedAgentGroup(*a.AgentGroup)
-		if err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Debug: %v\n", err)
-		}
-
-		return formatted
+		return opt.toFormattedAgentGroup(*a.AgentGroup)
 	})
 
 	err := formatter.Format(cmd.OutOrStdout(), displayedAgentGroups, formatter.FormatType(opt.formatType))
@@ -215,11 +205,11 @@ func extractConditionInfo(conditions []v1agentgroup.Condition) (time.Time, strin
 
 func (opt *CommandOptions) toFormattedAgentGroup(
 	agentGroup v1agentgroup.AgentGroup,
-) (formattedAgentGroup, error) {
+) formattedAgentGroup {
 	// Extract timestamps and users from conditions
 	createdAt, createdBy, deletedAt, deletedBy := extractConditionInfo(agentGroup.Status.Conditions)
 
-	formatted := formattedAgentGroup{
+	return formattedAgentGroup{
 		Name:                             agentGroup.Metadata.Name,
 		NumTotalAgents:                   agentGroup.Status.NumAgents,
 		NumConnectedHealthyAgents:        agentGroup.Status.NumHealthyAgents,
@@ -233,6 +223,4 @@ func (opt *CommandOptions) toFormattedAgentGroup(
 		DeletedAt:                        deletedAt,
 		DeletedBy:                        deletedBy,
 	}
-
-	return formatted, nil
 }

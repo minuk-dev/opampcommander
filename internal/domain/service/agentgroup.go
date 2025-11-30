@@ -56,6 +56,7 @@ func (s *AgentGroupService) SaveAgentGroup(
 	if err != nil {
 		return nil, err
 	}
+
 	return agentGroup, nil
 }
 

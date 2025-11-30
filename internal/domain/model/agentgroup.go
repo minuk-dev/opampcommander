@@ -113,6 +113,12 @@ func NewAgentGroup(
 			AgentConfig: nil,
 		},
 		Status: AgentGroupStatus{
+			NumAgents:             0,
+			NumConnectedAgents:    0,
+			NumHealthyAgents:      0,
+			NumUnhealthyAgents:    0,
+			NumNotConnectedAgents: 0,
+
 			Conditions: []Condition{
 				{
 					Type:               ConditionTypeCreated,

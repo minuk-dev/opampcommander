@@ -56,7 +56,7 @@ func (s *ManageService) GetAgentGroup(
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	return s.toAPIModelAgentGroup(ctx, agentGroup), nil
+	return s.toAPIModelAgentGroup(agentGroup), nil
 }
 
 // ListAgentGroups returns a paginated list of agent groups.
@@ -71,7 +71,7 @@ func (s *ManageService) ListAgentGroups(
 
 	return v1agentgroup.NewListResponse(
 		lo.Map(domainResp.Items, func(agentGroup *model.AgentGroup, _ int) v1agentgroup.AgentGroup {
-			return *s.toAPIModelAgentGroup(ctx, agentGroup)
+			return *s.toAPIModelAgentGroup(agentGroup)
 		}),
 		v1.ListMeta{
 			Continue:           domainResp.Continue,
@@ -126,7 +126,7 @@ func (s *ManageService) CreateAgentGroup(
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
 
-	return s.toAPIModelAgentGroup(ctx, agentGroup), nil
+	return s.toAPIModelAgentGroup(agentGroup), nil
 }
 
 // UpdateAgentGroup updates an existing agent group.
@@ -142,7 +142,7 @@ func (s *ManageService) UpdateAgentGroup(
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
 
-	return s.toAPIModelAgentGroup(ctx, agentGroup), nil
+	return s.toAPIModelAgentGroup(agentGroup), nil
 }
 
 // DeleteAgentGroup marks an agent group as deleted.
@@ -167,7 +167,7 @@ func (s *ManageService) DeleteAgentGroup(
 	return nil
 }
 
-func (s *ManageService) toAPIModelAgentGroup(ctx context.Context, domain *model.AgentGroup) *v1agentgroup.AgentGroup {
+func (s *ManageService) toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 	if domain == nil {
 		return nil
 	}
@@ -240,6 +240,13 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 			AgentConfig: agentConfig,
 		},
 		Status: model.AgentGroupStatus{
+			// No need to set statistics here; they will be calculated by the persistence layer
+			NumAgents:             0,
+			NumConnectedAgents:    0,
+			NumHealthyAgents:      0,
+			NumUnhealthyAgents:    0,
+			NumNotConnectedAgents: 0,
+
 			Conditions: []model.Condition{
 				{
 					Type:               model.ConditionTypeCreated,

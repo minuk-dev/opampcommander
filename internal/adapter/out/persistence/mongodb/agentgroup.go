@@ -68,33 +68,66 @@ func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	}
 
 	// Convert entity to domain model
-	domainModel := entity.ToDomain()
-	
-	// Update status with calculated statistics
-	domainModel.Status.NumAgents = int(agentGroupStatistics.numAgents)
-	domainModel.Status.NumConnectedAgents = int(agentGroupStatistics.numConnectedAgents)
-	domainModel.Status.NumHealthyAgents = int(agentGroupStatistics.numHealthyAgents)
-	domainModel.Status.NumUnhealthyAgents = int(agentGroupStatistics.numUnhealthyAgents)
-	domainModel.Status.NumNotConnectedAgents = int(agentGroupStatistics.numNotConnectedAgents)
+	domainModel := entity.ToDomain(agentGroupStatistics)
 
 	return domainModel, nil
 }
 
-type statistics struct {
-	numAgents             int64
-	numConnectedAgents    int64
-	numHealthyAgents      int64
-	numUnhealthyAgents    int64
-	numNotConnectedAgents int64
+// ListAgentGroups implements port.AgentGroupPersistencePort.
+func (a *AgentGroupMongoAdapter) ListAgentGroups(
+	ctx context.Context, options *model.ListOptions,
+) (*model.ListResponse[*model.AgentGroup], error) {
+	resp, err := a.common.list(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert entities to domain models with statistics
+	items := make([]*model.AgentGroup, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
+		if err != nil {
+			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Name, err)
+		}
+
+		// Convert entity to domain model
+		domainModel := item.ToDomain(agentGroupStatistics)
+		items = append(items, domainModel)
+	}
+
+	return &model.ListResponse[*model.AgentGroup]{
+		Items:              items,
+		Continue:           resp.Continue,
+		RemainingItemCount: resp.RemainingItemCount,
+	}, nil
+}
+
+// PutAgentGroup implements port.AgentGroupPersistencePort.
+//
+//nolint:godox,revive
+func (a *AgentGroupMongoAdapter) PutAgentGroup(
+	ctx context.Context, name string, agentGroup *model.AgentGroup,
+) error {
+	// TODO: name should be used to save the agent group with the given name.
+	// ref. https://github.com/minuk-dev/opampcommander/issues/145
+	// Because some update operations may change the name of the agent group.
+	entity := entity.AgentGroupFromDomain(agentGroup)
+
+	err := a.common.put(ctx, entity)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	ctx context.Context,
 	agentGroupEntity *entity.AgentGroup,
-) (*statistics, error) {
+) (*entity.AgentGroupStatistics, error) {
 	// Build filter conditions for agents matching this agent group's selector
-	selector := agentGroupEntity.ToDomain().Metadata.Selector
-	
+	selector := agentGroupEntity.Selector
+
 	// Build match conditions for identifying attributes
 	identifyingConditions := make([]bson.M, 0, len(selector.IdentifyingAttributes))
 	for key, value := range selector.IdentifyingAttributes {
@@ -128,6 +161,7 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 
 	// Build match filter
 	var matchFilter bson.M
+
 	switch len(allConditions) {
 	case 0:
 		matchFilter = bson.M{}
@@ -141,7 +175,7 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	pipeline := []bson.M{
 		// Match agents that belong to this agent group
 		{"$match": matchFilter},
-		
+
 		// Add computed fields for agent conditions
 		{
 			"$addFields": bson.M{
@@ -175,11 +209,11 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 				},
 			},
 		},
-		
+
 		// Group and count by different conditions
 		{
 			"$group": bson.M{
-				"_id": nil,
+				"_id":       nil,
 				"numAgents": bson.M{"$sum": 1},
 				"numConnectedAgents": bson.M{
 					"$sum": bson.M{
@@ -213,7 +247,13 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	if err != nil {
 		return nil, fmt.Errorf("failed to aggregate agent statistics: %w", err)
 	}
-	defer cursor.Close(ctx)
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.common.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
 
 	var result struct {
 		NumAgents             int64 `bson:"numAgents"`
@@ -224,72 +264,17 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	}
 
 	if cursor.Next(ctx) {
-		if err := cursor.Decode(&result); err != nil {
+		err := cursor.Decode(&result)
+		if err != nil {
 			return nil, fmt.Errorf("failed to decode statistics result: %w", err)
 		}
 	}
 
-	return &statistics{
-		numAgents:             result.NumAgents,
-		numConnectedAgents:    result.NumConnectedAgents,
-		numHealthyAgents:      result.NumHealthyAgents,
-		numUnhealthyAgents:    result.NumUnhealthyAgents,
-		numNotConnectedAgents: result.NumNotConnectedAgents,
+	return &entity.AgentGroupStatistics{
+		NumAgents:             result.NumAgents,
+		NumConnectedAgents:    result.NumConnectedAgents,
+		NumHealthyAgents:      result.NumHealthyAgents,
+		NumUnhealthyAgents:    result.NumUnhealthyAgents,
+		NumNotConnectedAgents: result.NumNotConnectedAgents,
 	}, nil
-}
-
-// ListAgentGroups implements port.AgentGroupPersistencePort.
-func (a *AgentGroupMongoAdapter) ListAgentGroups(
-	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.AgentGroup], error) {
-	resp, err := a.common.list(ctx, options)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert entities to domain models with statistics
-	items := make([]*model.AgentGroup, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
-		if err != nil {
-			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Name, err)
-		}
-
-		// Convert entity to domain model
-		domainModel := item.ToDomain()
-		
-		// Update status with calculated statistics
-		domainModel.Status.NumAgents = int(agentGroupStatistics.numAgents)
-		domainModel.Status.NumConnectedAgents = int(agentGroupStatistics.numConnectedAgents)
-		domainModel.Status.NumHealthyAgents = int(agentGroupStatistics.numHealthyAgents)
-		domainModel.Status.NumUnhealthyAgents = int(agentGroupStatistics.numUnhealthyAgents)
-		domainModel.Status.NumNotConnectedAgents = int(agentGroupStatistics.numNotConnectedAgents)
-
-		items = append(items, domainModel)
-	}
-
-	return &model.ListResponse[*model.AgentGroup]{
-		Items:              items,
-		Continue:           resp.Continue,
-		RemainingItemCount: resp.RemainingItemCount,
-	}, nil
-}
-
-// PutAgentGroup implements port.AgentGroupPersistencePort.
-//
-//nolint:godox,revive
-func (a *AgentGroupMongoAdapter) PutAgentGroup(
-	ctx context.Context, name string, agentGroup *model.AgentGroup,
-) error {
-	// TODO: name should be used to save the agent group with the given name.
-	// ref. https://github.com/minuk-dev/opampcommander/issues/145
-	// Because some update operations may change the name of the agent group.
-	entity := entity.AgentGroupFromDomain(agentGroup)
-
-	err := a.common.put(ctx, entity)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
