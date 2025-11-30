@@ -16,31 +16,21 @@ var _ port.AgentGroupRelatedUsecase = (*AgentGroupService)(nil)
 // AgentGroupPersistencePort is an alias for port.AgentGroupPersistencePort.
 type AgentGroupPersistencePort = port.AgentGroupPersistencePort
 
-// AgentByLabelsIndexer is an interface that defines the methods for listing agents by their labels.
-type AgentByLabelsIndexer interface {
-	// ListAgentsByIdentifyingAttributes lists agents by their identifying attributes such as labels.
-	ListAgentsByAttributes(
-		ctx context.Context,
-		identifyingAttributes map[string]string,
-		nonIdentifyingAttributes map[string]string,
-		options *model.ListOptions,
-	) (*model.ListResponse[*model.Agent], error)
-}
-
 // AgentGroupService is a struct that implements the AgentGroupUsecase interface.
 type AgentGroupService struct {
 	persistencePort AgentGroupPersistencePort
-	agentIndexer    AgentByLabelsIndexer
+	agentUsecase    port.AgentUsecase
 }
 
 // NewAgentGroupService creates a new instance of AgentGroupService.
 func NewAgentGroupService(
 	persistencePort AgentGroupPersistencePort,
+	agentUsecase port.AgentUsecase,
 	_ *slog.Logger,
 ) *AgentGroupService {
 	return &AgentGroupService{
 		persistencePort: persistencePort,
-		agentIndexer:    nil,
+		agentUsecase:    agentUsecase,
 	}
 }
 
@@ -61,8 +51,12 @@ func (s *AgentGroupService) SaveAgentGroup(
 	ctx context.Context,
 	name string,
 	agentGroup *model.AgentGroup,
-) error {
-	return s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
+) (*model.AgentGroup, error) {
+	err := s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
+	if err != nil {
+		return nil, err
+	}
+	return agentGroup, nil
 }
 
 // ListAgentGroups retrieves a list of agent groups with pagination options.
@@ -105,10 +99,9 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 ) (*model.ListResponse[*model.Agent], error) {
 	agentSelector := agentGroup.Metadata.Selector
 
-	listResp, err := s.agentIndexer.ListAgentsByAttributes(
+	listResp, err := s.agentUsecase.ListAgentsBySelector(
 		ctx,
-		agentSelector.IdentifyingAttributes,
-		agentSelector.NonIdentifyingAttributes,
+		agentSelector,
 		options,
 	)
 	if err != nil {

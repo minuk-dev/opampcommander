@@ -2,7 +2,6 @@
 package agentgroup
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -103,7 +102,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 	displayedAgents := make([]formattedAgentGroup, len(agentgroups))
 	for idx, agentgroup := range agentgroups {
-		formatted, err := opt.toFormattedAgentGroup(cmd.Context(), agentgroup)
+		formatted, err := opt.toFormattedAgentGroup(agentgroup)
 		if err != nil {
 			return fmt.Errorf("failed to format agent group %s: %w", agentgroup.Metadata.Name, err)
 		}
@@ -145,7 +144,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	}
 
 	displayedAgentGroups := lo.Map(agentGroups, func(a AgentGroupWithErr, _ int) formattedAgentGroup {
-		formatted, err := opt.toFormattedAgentGroup(cmd.Context(), *a.AgentGroup)
+		formatted, err := opt.toFormattedAgentGroup(*a.AgentGroup)
 		if err != nil {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Debug: %v\n", err)
 		}
@@ -215,7 +214,6 @@ func extractConditionInfo(conditions []v1agentgroup.Condition) (time.Time, strin
 }
 
 func (opt *CommandOptions) toFormattedAgentGroup(
-	ctx context.Context,
 	agentGroup v1agentgroup.AgentGroup,
 ) (formattedAgentGroup, error) {
 	// Extract timestamps and users from conditions
@@ -223,10 +221,10 @@ func (opt *CommandOptions) toFormattedAgentGroup(
 
 	formatted := formattedAgentGroup{
 		Name:                             agentGroup.Metadata.Name,
-		NumTotalAgents:                   0, // Agent counting implemented in calculateAgentStats
-		NumConnectedHealthyAgents:        0, // Agent counting implemented in calculateAgentStats
-		NumConnectedUnhealthyAgents:      0, // Agent counting implemented in calculateAgentStats
-		NumNotConnectedAgents:            0, // Agent counting implemented in calculateAgentStats
+		NumTotalAgents:                   agentGroup.Status.NumAgents,
+		NumConnectedHealthyAgents:        agentGroup.Status.NumHealthyAgents,
+		NumConnectedUnhealthyAgents:      agentGroup.Status.NumUnhealthyAgents,
+		NumNotConnectedAgents:            agentGroup.Status.NumNotConnectedAgents,
 		Attributes:                       agentGroup.Metadata.Attributes,
 		IdentifyingAttributesSelector:    agentGroup.Metadata.Selector.IdentifyingAttributes,
 		NonIdentifyingAttributesSelector: agentGroup.Metadata.Selector.NonIdentifyingAttributes,
@@ -236,47 +234,5 @@ func (opt *CommandOptions) toFormattedAgentGroup(
 		DeletedBy:                        deletedBy,
 	}
 
-	// Only calculate agent statistics for text format
-	if opt.formatType == "text" {
-		err := opt.calculateAgentStats(ctx, agentGroup.Metadata.Name, &formatted)
-		if err != nil {
-			return formatted, err
-		}
-	}
-
 	return formatted, nil
-}
-
-func (opt *CommandOptions) calculateAgentStats(
-	ctx context.Context,
-	agentGroupName string,
-	formatted *formattedAgentGroup,
-) error {
-	agents, err := clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, agentGroupName)
-	if err != nil {
-		return fmt.Errorf("failed to list agents for group %s: %w", agentGroupName, err)
-	}
-
-	formatted.NumTotalAgents = len(agents)
-
-	connectedHealthy := 0
-	connectedUnhealthy := 0
-	notConnected := 0
-
-	for _, agent := range agents {
-		switch {
-		case agent.Status.Connected && agent.Status.ComponentHealth.Healthy:
-			connectedHealthy++
-		case agent.Status.Connected && !agent.Status.ComponentHealth.Healthy:
-			connectedUnhealthy++
-		default:
-			notConnected++
-		}
-	}
-
-	formatted.NumConnectedHealthyAgents = connectedHealthy
-	formatted.NumConnectedUnhealthyAgents = connectedUnhealthy
-	formatted.NumNotConnectedAgents = notConnected
-
-	return nil
 }

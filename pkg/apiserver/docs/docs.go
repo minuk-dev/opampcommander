@@ -1066,10 +1066,31 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "conditions": {
+                    "description": "Conditions is a list of conditions that apply to the agent group.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/AgentGroupCondition"
                     }
+                },
+                "numAgents": {
+                    "description": "NumAgents is the total number of agents in the agent group.",
+                    "type": "integer"
+                },
+                "numConnectedAgents": {
+                    "description": "NumConnectedAgents is the number of connected agents in the agent group.",
+                    "type": "integer"
+                },
+                "numHealthyAgents": {
+                    "description": "NumHealthyAgents is the number of healthy agents in the agent group.",
+                    "type": "integer"
+                },
+                "numNotConnectedAgents": {
+                    "description": "NumNotConnectedAgents is the number of not connected agents in the agent group.",
+                    "type": "integer"
+                },
+                "numUnhealthyAgents": {
+                    "description": "NumUnhealthyAgents is the number of unhealthy agents in the agent group.",
+                    "type": "integer"
                 }
             }
         },

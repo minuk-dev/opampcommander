@@ -56,7 +56,7 @@ func (s *ManageService) GetAgentGroup(
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	return toAPIModelAgentGroup(agentGroup), nil
+	return s.toAPIModelAgentGroup(ctx, agentGroup), nil
 }
 
 // ListAgentGroups returns a paginated list of agent groups.
@@ -71,7 +71,7 @@ func (s *ManageService) ListAgentGroups(
 
 	return v1agentgroup.NewListResponse(
 		lo.Map(domainResp.Items, func(agentGroup *model.AgentGroup, _ int) v1agentgroup.AgentGroup {
-			return *toAPIModelAgentGroup(agentGroup)
+			return *s.toAPIModelAgentGroup(ctx, agentGroup)
 		}),
 		v1.ListMeta{
 			Continue:           domainResp.Continue,
@@ -121,12 +121,12 @@ func (s *ManageService) CreateAgentGroup(
 
 	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand, requestedBy)
 
-	err = s.agentgroupUsecase.SaveAgentGroup(ctx, createCommand.Name, domainAgentGroup)
+	agentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, createCommand.Name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
 
-	return toAPIModelAgentGroup(domainAgentGroup), nil
+	return s.toAPIModelAgentGroup(ctx, agentGroup), nil
 }
 
 // UpdateAgentGroup updates an existing agent group.
@@ -137,12 +137,12 @@ func (s *ManageService) UpdateAgentGroup(
 ) (*v1agentgroup.AgentGroup, error) {
 	domainAgentGroup := toDomainModelAgentGroupFromAPI(apiAgentGroup)
 
-	err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
+	agentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
 
-	return toAPIModelAgentGroup(domainAgentGroup), nil
+	return s.toAPIModelAgentGroup(ctx, agentGroup), nil
 }
 
 // DeleteAgentGroup marks an agent group as deleted.
@@ -167,7 +167,7 @@ func (s *ManageService) DeleteAgentGroup(
 	return nil
 }
 
-func toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
+func (s *ManageService) toAPIModelAgentGroup(ctx context.Context, domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 	if domain == nil {
 		return nil
 	}
@@ -190,6 +190,7 @@ func toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 		}
 	}
 
+	// Use statistics from domain model (calculated by persistence layer)
 	return &v1agentgroup.AgentGroup{
 		Metadata: v1agentgroup.Metadata{
 			Name:       domain.Metadata.Name,
@@ -204,7 +205,12 @@ func toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 			AgentConfig: agentConfig,
 		},
 		Status: v1agentgroup.Status{
-			Conditions: conditions,
+			NumAgents:             domain.Status.NumAgents,
+			NumConnectedAgents:    domain.Status.NumConnectedAgents,
+			NumHealthyAgents:      domain.Status.NumHealthyAgents,
+			NumUnhealthyAgents:    domain.Status.NumUnhealthyAgents,
+			NumNotConnectedAgents: domain.Status.NumNotConnectedAgents,
+			Conditions:            conditions,
 		},
 	}
 }
@@ -284,7 +290,12 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 			AgentConfig: agentConfig,
 		},
 		Status: model.AgentGroupStatus{
-			Conditions: conditions,
+			NumAgents:             api.Status.NumAgents,
+			NumConnectedAgents:    api.Status.NumConnectedAgents,
+			NumHealthyAgents:      api.Status.NumHealthyAgents,
+			NumUnhealthyAgents:    api.Status.NumUnhealthyAgents,
+			NumNotConnectedAgents: api.Status.NumNotConnectedAgents,
+			Conditions:            conditions,
 		},
 	}
 }

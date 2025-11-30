@@ -32,6 +32,22 @@ type Spec struct {
 
 // Status represents the status of an agent group.
 type Status struct {
+	// NumAgents is the total number of agents in the agent group.
+	NumAgents int `json:"numAgents"`
+
+	// NumConnectedAgents is the number of connected agents in the agent group.
+	NumConnectedAgents int `json:"numConnectedAgents"`
+
+	// NumHealthyAgents is the number of healthy agents in the agent group.
+	NumHealthyAgents int `json:"numHealthyAgents"`
+
+	// NumUnhealthyAgents is the number of unhealthy agents in the agent group.
+	NumUnhealthyAgents int `json:"numUnhealthyAgents"`
+
+	// NumNotConnectedAgents is the number of not connected agents in the agent group.
+	NumNotConnectedAgents int `json:"numNotConnectedAgents"`
+
+	// Conditions is a list of conditions that apply to the agent group.
 	Conditions []Condition `json:"conditions"`
 } // @name AgentGroupStatus
 
