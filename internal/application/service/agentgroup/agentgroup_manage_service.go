@@ -15,7 +15,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/mapper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainagentgroup "github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
@@ -71,7 +70,7 @@ func (s *ManageService) ListAgentGroups(
 	}
 
 	return v1agentgroup.NewListResponse(
-		lo.Map(domainResp.Items, func(agentGroup *domainagentgroup.AgentGroup, _ int) v1agentgroup.AgentGroup {
+		lo.Map(domainResp.Items, func(agentGroup *model.AgentGroup, _ int) v1agentgroup.AgentGroup {
 			return *toAPIModelAgentGroup(agentGroup)
 		}),
 		v1.ListMeta{
@@ -92,7 +91,7 @@ func (s *ManageService) ListAgentsByAgentGroup(
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Selector, options)
+	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Metadata.Selector, options)
 	if err != nil {
 		return nil, fmt.Errorf("list agents by agent group: %w", err)
 	}
@@ -168,85 +167,124 @@ func (s *ManageService) DeleteAgentGroup(
 	return nil
 }
 
-func toAPIModelAgentGroup(domain *domainagentgroup.AgentGroup) *v1agentgroup.AgentGroup {
+func toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentgroup.AgentGroup {
 	if domain == nil {
 		return nil
 	}
 
 	var agentConfig *v1agentgroup.AgentConfig
-	if domain.AgentConfig != nil {
+	if domain.Spec.AgentConfig != nil {
 		agentConfig = &v1agentgroup.AgentConfig{
-			Value: domain.AgentConfig.Value,
+			Value: domain.Spec.AgentConfig.Value,
+		}
+	}
+
+	conditions := make([]v1agentgroup.Condition, len(domain.Status.Conditions))
+	for i, condition := range domain.Status.Conditions {
+		conditions[i] = v1agentgroup.Condition{
+			Type:               v1agentgroup.ConditionType(condition.Type),
+			LastTransitionTime: condition.LastTransitionTime,
+			Status:             v1agentgroup.ConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
 		}
 	}
 
 	return &v1agentgroup.AgentGroup{
-		Name:       domain.Name,
-		Attributes: v1agentgroup.Attributes(domain.Attributes),
-		Priority:   domain.Priority,
-		Selector: v1agentgroup.AgentSelector{
-			IdentifyingAttributes:    domain.Selector.IdentifyingAttributes,
-			NonIdentifyingAttributes: domain.Selector.NonIdentifyingAttributes,
+		Metadata: v1agentgroup.Metadata{
+			Name:       domain.Metadata.Name,
+			Attributes: v1agentgroup.Attributes(domain.Metadata.Attributes),
+			Priority:   domain.Metadata.Priority,
+			Selector: v1agentgroup.AgentSelector{
+				IdentifyingAttributes:    domain.Metadata.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: domain.Metadata.Selector.NonIdentifyingAttributes,
+			},
 		},
-		AgentConfig: agentConfig,
-		CreatedAt:   domain.CreatedAt,
-		CreatedBy:   domain.CreatedBy,
-		DeletedAt:   domain.DeletedAt,
-		DeletedBy:   domain.DeletedBy,
+		Spec: v1agentgroup.Spec{
+			AgentConfig: agentConfig,
+		},
+		Status: v1agentgroup.Status{
+			Conditions: conditions,
+		},
 	}
 }
 
 func (s *ManageService) toDomainModelAgentGroupForCreate(
 	cmd *port.CreateAgentGroupCommand,
 	requestedBy *security.User,
-) *domainagentgroup.AgentGroup {
-	var agentConfig *domainagentgroup.AgentConfig
+) *model.AgentGroup {
+	var agentConfig *model.AgentConfig
 	if cmd.AgentConfig != nil {
-		agentConfig = &domainagentgroup.AgentConfig{
+		agentConfig = &model.AgentConfig{
 			Value: cmd.AgentConfig.Value,
 		}
 	}
 
-	return &domainagentgroup.AgentGroup{
-		Name:       cmd.Name,
-		Attributes: domainagentgroup.Attributes(cmd.Attributes),
-		Priority:   cmd.Priority,
-		Selector: model.AgentSelector{
-			IdentifyingAttributes:    cmd.Selector.IdentifyingAttributes,
-			NonIdentifyingAttributes: cmd.Selector.NonIdentifyingAttributes,
+	return &model.AgentGroup{
+		Metadata: model.AgentGroupMetadata{
+			Name:       cmd.Name,
+			Attributes: model.Attributes(cmd.Attributes),
+			Priority:   cmd.Priority,
+			Selector: model.AgentSelector{
+				IdentifyingAttributes:    cmd.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: cmd.Selector.NonIdentifyingAttributes,
+			},
 		},
-		AgentConfig: agentConfig,
-		CreatedAt:   s.clock.Now(),
-		CreatedBy:   requestedBy.String(),
-		DeletedAt:   nil,
-		DeletedBy:   nil,
+		Spec: model.AgentGroupSpec{
+			AgentConfig: agentConfig,
+		},
+		Status: model.AgentGroupStatus{
+			Conditions: []model.Condition{
+				{
+					Type:               model.ConditionTypeCreated,
+					LastTransitionTime: s.clock.Now(),
+					Status:             model.ConditionStatusTrue,
+					Reason:             requestedBy.String(),
+					Message:            "Agent group created",
+				},
+			},
+		},
 	}
 }
 
-func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *domainagentgroup.AgentGroup {
+func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGroup {
 	if api == nil {
 		return nil
 	}
 
-	var agentConfig *domainagentgroup.AgentConfig
-	if api.AgentConfig != nil {
-		agentConfig = &domainagentgroup.AgentConfig{
-			Value: api.AgentConfig.Value,
+	var agentConfig *model.AgentConfig
+	if api.Spec.AgentConfig != nil {
+		agentConfig = &model.AgentConfig{
+			Value: api.Spec.AgentConfig.Value,
 		}
 	}
 
-	return &domainagentgroup.AgentGroup{
-		Name:       api.Name,
-		Priority:   api.Priority,
-		Attributes: domainagentgroup.Attributes(api.Attributes),
-		Selector: model.AgentSelector{
-			IdentifyingAttributes:    api.Selector.IdentifyingAttributes,
-			NonIdentifyingAttributes: api.Selector.NonIdentifyingAttributes,
+	conditions := make([]model.Condition, len(api.Status.Conditions))
+	for i, condition := range api.Status.Conditions {
+		conditions[i] = model.Condition{
+			Type:               model.ConditionType(condition.Type),
+			LastTransitionTime: condition.LastTransitionTime,
+			Status:             model.ConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
+	return &model.AgentGroup{
+		Metadata: model.AgentGroupMetadata{
+			Name:       api.Metadata.Name,
+			Priority:   api.Metadata.Priority,
+			Attributes: model.Attributes(api.Metadata.Attributes),
+			Selector: model.AgentSelector{
+				IdentifyingAttributes:    api.Metadata.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: api.Metadata.Selector.NonIdentifyingAttributes,
+			},
 		},
-		AgentConfig: agentConfig,
-		CreatedAt:   api.CreatedAt,
-		CreatedBy:   api.CreatedBy,
-		DeletedAt:   api.DeletedAt,
-		DeletedBy:   api.DeletedBy,
+		Spec: model.AgentGroupSpec{
+			AgentConfig: agentConfig,
+		},
+		Status: model.AgentGroupStatus{
+			Conditions: conditions,
+		},
 	}
 }

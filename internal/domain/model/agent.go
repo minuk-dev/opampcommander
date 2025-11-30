@@ -52,6 +52,15 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			AvailableComponents: AgentAvailableComponents{
 				Components: make(map[string]ComponentDetails),
 			},
+			Conditions: []AgentCondition{
+				{
+					Type:               AgentConditionTypeRegistered,
+					LastTransitionTime: time.Now(),
+					Status:             AgentConditionStatusTrue,
+					Reason:             "system",
+					Message:            "Agent registered",
+				},
+			},
 			Connected:      false,
 			ConnectionType: ConnectionTypeUnknown,
 			LastReportedAt: time.Time{},
@@ -205,11 +214,54 @@ type AgentStatus struct {
 	ComponentHealth     AgentComponentHealth
 	AvailableComponents AgentAvailableComponents
 
+	// Conditions is a list of conditions that apply to the agent.
+	Conditions []AgentCondition
+
 	Connected      bool
 	ConnectionType ConnectionType
 	LastReportedAt time.Time
 	LastReportedTo *Server
 }
+
+// AgentCondition represents a condition of an agent.
+type AgentCondition struct {
+	// Type is the type of the condition.
+	Type AgentConditionType
+	// LastTransitionTime is the last time the condition transitioned.
+	LastTransitionTime time.Time
+	// Status is the status of the condition.
+	Status AgentConditionStatus
+	// Reason is the identifier of the user or system that triggered the condition.
+	Reason string
+	// Message is a human readable message indicating details about the condition.
+	Message string
+}
+
+// AgentConditionType represents the type of an agent condition.
+type AgentConditionType string
+
+const (
+	// AgentConditionTypeConnected represents the condition when the agent is connected.
+	AgentConditionTypeConnected AgentConditionType = "Connected"
+	// AgentConditionTypeHealthy represents the condition when the agent is healthy.
+	AgentConditionTypeHealthy AgentConditionType = "Healthy"
+	// AgentConditionTypeConfigured represents the condition when the agent has been configured.
+	AgentConditionTypeConfigured AgentConditionType = "Configured"
+	// AgentConditionTypeRegistered represents the condition when the agent has been registered.
+	AgentConditionTypeRegistered AgentConditionType = "Registered"
+)
+
+// AgentConditionStatus represents the status of an agent condition.
+type AgentConditionStatus string
+
+const (
+	// AgentConditionStatusTrue represents a true condition status.
+	AgentConditionStatusTrue AgentConditionStatus = "True"
+	// AgentConditionStatusFalse represents a false condition status.
+	AgentConditionStatusFalse AgentConditionStatus = "False"
+	// AgentConditionStatusUnknown represents an unknown condition status.
+	AgentConditionStatusUnknown AgentConditionStatus = "Unknown"
+)
 
 // AgentCommands is a list of commands to be sent to the agent.
 type AgentCommands struct {
@@ -665,4 +717,88 @@ func (r *RemoteConfig) updateLastModifiedAt() {
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return len(a.Commands.Commands) > 0 && a.IsRemoteConfigSupported()
+}
+
+// SetCondition sets or updates a condition in the agent's status.
+func (a *Agent) SetCondition(
+	conditionType AgentConditionType,
+	status AgentConditionStatus,
+	triggeredBy, message string,
+) {
+	now := time.Now()
+
+	// Check if condition already exists
+	for idx, condition := range a.Status.Conditions {
+		if condition.Type == conditionType {
+			// Update existing condition only if status changed
+			if condition.Status != status {
+				a.Status.Conditions[idx].Status = status
+				a.Status.Conditions[idx].LastTransitionTime = now
+				a.Status.Conditions[idx].Reason = triggeredBy
+				a.Status.Conditions[idx].Message = message
+			}
+
+			return
+		}
+	}
+
+	// Add new condition
+	a.Status.Conditions = append(a.Status.Conditions, AgentCondition{
+		Type:               conditionType,
+		LastTransitionTime: now,
+		Status:             status,
+		Reason:             triggeredBy,
+		Message:            message,
+	})
+}
+
+// GetCondition returns the condition of the specified type.
+func (a *Agent) GetCondition(conditionType AgentConditionType) *AgentCondition {
+	for _, condition := range a.Status.Conditions {
+		if condition.Type == conditionType {
+			return &condition
+		}
+	}
+
+	return nil
+}
+
+// IsConditionTrue checks if the specified condition type is true.
+func (a *Agent) IsConditionTrue(conditionType AgentConditionType) bool {
+	condition := a.GetCondition(conditionType)
+
+	return condition != nil && condition.Status == AgentConditionStatusTrue
+}
+
+// MarkConnected marks the agent as connected and updates the connection condition.
+func (a *Agent) MarkConnected(triggeredBy string) {
+	a.Status.Connected = true
+	a.Status.LastReportedAt = time.Now()
+	a.SetCondition(AgentConditionTypeConnected, AgentConditionStatusTrue, triggeredBy, "Agent connected")
+}
+
+// MarkDisconnected marks the agent as disconnected and updates the connection condition.
+func (a *Agent) MarkDisconnected(triggeredBy string) {
+	a.Status.Connected = false
+	a.SetCondition(AgentConditionTypeConnected, AgentConditionStatusFalse, triggeredBy, "Agent disconnected")
+}
+
+// MarkHealthy marks the agent as healthy.
+func (a *Agent) MarkHealthy(triggeredBy string) {
+	a.SetCondition(AgentConditionTypeHealthy, AgentConditionStatusTrue, triggeredBy, "Agent is healthy")
+}
+
+// MarkUnhealthy marks the agent as unhealthy.
+func (a *Agent) MarkUnhealthy(triggeredBy, reason string) {
+	message := "Agent is unhealthy"
+	if reason != "" {
+		message = "Agent is unhealthy: " + reason
+	}
+
+	a.SetCondition(AgentConditionTypeHealthy, AgentConditionStatusFalse, triggeredBy, message)
+}
+
+// MarkConfigured marks the agent as configured.
+func (a *Agent) MarkConfigured(triggeredBy string) {
+	a.SetCondition(AgentConditionTypeConfigured, AgentConditionStatusTrue, triggeredBy, "Agent configuration applied")
 }

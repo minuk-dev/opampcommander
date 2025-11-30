@@ -13,18 +13,17 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 // Mock AgentGroupUsecase for testing.
 type mockAgentGroupUsecase struct {
-	groups []*agentgroup.AgentGroup
+	groups []*model.AgentGroup
 	err    error
 }
 
 //nolint:nilnil // Mock method returns nil for both values when not implemented
-func (m *mockAgentGroupUsecase) GetAgentGroup(_ context.Context, _ string) (*agentgroup.AgentGroup, error) {
+func (m *mockAgentGroupUsecase) GetAgentGroup(_ context.Context, _ string) (*model.AgentGroup, error) {
 	return nil, nil
 }
 
@@ -32,11 +31,11 @@ func (m *mockAgentGroupUsecase) GetAgentGroup(_ context.Context, _ string) (*age
 func (m *mockAgentGroupUsecase) ListAgentGroups(
 	_ context.Context,
 	_ *model.ListOptions,
-) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+) (*model.ListResponse[*model.AgentGroup], error) {
 	return nil, nil
 }
 
-func (m *mockAgentGroupUsecase) SaveAgentGroup(_ context.Context, _ string, _ *agentgroup.AgentGroup) error {
+func (m *mockAgentGroupUsecase) SaveAgentGroup(_ context.Context, _ string, _ *model.AgentGroup) error {
 	return nil
 }
 
@@ -47,7 +46,7 @@ func (m *mockAgentGroupUsecase) DeleteAgentGroup(_ context.Context, _ string, _ 
 func (m *mockAgentGroupUsecase) GetAgentGroupsForAgent(
 	_ context.Context,
 	_ *model.Agent,
-) ([]*agentgroup.AgentGroup, error) {
+) ([]*model.AgentGroup, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -83,7 +82,7 @@ func TestBuildRemoteConfig_WithCapability_NoGroups(t *testing.T) {
 	logger := slog.Default()
 	service := &Service{
 		logger:            logger,
-		agentGroupUsecase: &mockAgentGroupUsecase{groups: []*agentgroup.AgentGroup{}},
+		agentGroupUsecase: &mockAgentGroupUsecase{groups: []*model.AgentGroup{}},
 	}
 
 	agentModel := model.NewAgent(uuid.New())
@@ -104,11 +103,15 @@ func TestBuildRemoteConfig_WithCapability_WithConfig(t *testing.T) {
 	testConfig := "receivers:\n  otlp:\nexporters:\n  logging:\n"
 
 	mockUsecase := &mockAgentGroupUsecase{
-		groups: []*agentgroup.AgentGroup{
+		groups: []*model.AgentGroup{
 			{
-				Name: "test-group",
-				AgentConfig: &agentgroup.AgentConfig{
-					Value: testConfig,
+				Metadata: model.AgentGroupMetadata{
+					Name: "test-group",
+				},
+				Spec: model.AgentGroupSpec{
+					AgentConfig: &model.AgentConfig{
+						Value: testConfig,
+					},
 				},
 			},
 		},
@@ -146,11 +149,15 @@ func TestBuildRemoteConfig_ConfigAlreadyApplied(t *testing.T) {
 	testConfig := "receivers:\n  otlp:\nexporters:\n  logging:\n"
 
 	mockUsecase := &mockAgentGroupUsecase{
-		groups: []*agentgroup.AgentGroup{
+		groups: []*model.AgentGroup{
 			{
-				Name: "test-group",
-				AgentConfig: &agentgroup.AgentConfig{
-					Value: testConfig,
+				Metadata: model.AgentGroupMetadata{
+					Name: "test-group",
+				},
+				Spec: model.AgentGroupSpec{
+					AgentConfig: &model.AgentConfig{
+						Value: testConfig,
+					},
 				},
 			},
 		},
@@ -207,10 +214,14 @@ func TestBuildRemoteConfig_EmptyConfigValue(t *testing.T) {
 
 	// Given: Group with empty config value
 	mockUsecase := &mockAgentGroupUsecase{
-		groups: []*agentgroup.AgentGroup{
+		groups: []*model.AgentGroup{
 			{
-				Name:        "test-group",
-				AgentConfig: &agentgroup.AgentConfig{Value: ""},
+				Metadata: model.AgentGroupMetadata{
+					Name: "test-group",
+				},
+				Spec: model.AgentGroupSpec{
+					AgentConfig: &model.AgentConfig{Value: ""},
+				},
 			},
 		},
 	}

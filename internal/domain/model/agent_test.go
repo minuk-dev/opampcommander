@@ -231,3 +231,112 @@ func TestAgent_UpdateLastCommunicationInfo(t *testing.T) {
 		assert.Equal(t, model.ConnectionTypeUnknown, a.Status.ConnectionType)
 	})
 }
+
+func TestAgentConditions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("New agent should have registered condition", func(t *testing.T) {
+		t.Parallel()
+
+		agent := model.NewAgent(uuid.New())
+
+		// Check that the agent has the registered condition
+		condition := agent.GetCondition(model.AgentConditionTypeRegistered)
+		assert.NotNil(t, condition)
+		assert.Equal(t, model.AgentConditionTypeRegistered, condition.Type)
+		assert.Equal(t, model.AgentConditionStatusTrue, condition.Status)
+		assert.Equal(t, "system", condition.Reason)
+		assert.Equal(t, "Agent registered", condition.Message)
+		assert.True(t, agent.IsConditionTrue(model.AgentConditionTypeRegistered))
+	})
+
+	t.Run("Mark agent as connected", func(t *testing.T) {
+		t.Parallel()
+
+		agent := model.NewAgent(uuid.New())
+		triggeredBy := "user"
+
+		agent.MarkConnected(triggeredBy)
+
+		assert.True(t, agent.Status.Connected)
+		assert.True(t, agent.IsConditionTrue(model.AgentConditionTypeConnected))
+
+		condition := agent.GetCondition(model.AgentConditionTypeConnected)
+		assert.NotNil(t, condition)
+		assert.Equal(t, model.AgentConditionTypeConnected, condition.Type)
+		assert.Equal(t, model.AgentConditionStatusTrue, condition.Status)
+		assert.Equal(t, triggeredBy, condition.Reason)
+		assert.Equal(t, "Agent connected", condition.Message)
+	})
+
+	t.Run("Mark agent as disconnected", func(t *testing.T) {
+		t.Parallel()
+
+		agent := model.NewAgent(uuid.New())
+		triggeredBy := "system"
+
+		// First connect
+		agent.MarkConnected("user")
+		assert.True(t, agent.Status.Connected)
+
+		// Then disconnect
+		agent.MarkDisconnected(triggeredBy)
+
+		assert.False(t, agent.Status.Connected)
+		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeConnected))
+
+		condition := agent.GetCondition(model.AgentConditionTypeConnected)
+		assert.NotNil(t, condition)
+		assert.Equal(t, model.AgentConditionTypeConnected, condition.Type)
+		assert.Equal(t, model.AgentConditionStatusFalse, condition.Status)
+		assert.Equal(t, triggeredBy, condition.Reason)
+		assert.Equal(t, "Agent disconnected", condition.Message)
+	})
+
+	t.Run("Mark agent as healthy", func(t *testing.T) {
+		t.Parallel()
+
+		agent := model.NewAgent(uuid.New())
+		triggeredBy := "health-check"
+
+		agent.MarkHealthy(triggeredBy)
+
+		assert.True(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
+
+		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
+		assert.NotNil(t, condition)
+		assert.Equal(t, model.AgentConditionTypeHealthy, condition.Type)
+		assert.Equal(t, model.AgentConditionStatusTrue, condition.Status)
+		assert.Equal(t, triggeredBy, condition.Reason)
+		assert.Equal(t, "Agent is healthy", condition.Message)
+	})
+
+	t.Run("Mark agent as unhealthy", func(t *testing.T) {
+		t.Parallel()
+
+		agent := model.NewAgent(uuid.New())
+		triggeredBy := "health-check"
+		reason := "high CPU usage"
+
+		agent.MarkUnhealthy(triggeredBy, reason)
+
+		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
+
+		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
+		assert.NotNil(t, condition)
+		assert.Equal(t, model.AgentConditionTypeHealthy, condition.Type)
+		assert.Equal(t, model.AgentConditionStatusFalse, condition.Status)
+		assert.Equal(t, triggeredBy, condition.Reason)
+		assert.Contains(t, condition.Message, reason)
+	})
+
+	t.Run("Get non-existent condition", func(t *testing.T) {
+		t.Parallel()
+
+		agent := model.NewAgent(uuid.New())
+
+		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
+		assert.Nil(t, condition)
+		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
+	})
+}

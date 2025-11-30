@@ -54,6 +54,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 			},
 			ComponentHealth:     mapper.mapComponentHealthToAPI(&agent.Status.ComponentHealth),
 			AvailableComponents: mapper.mapAvailableComponentsToAPI(&agent.Status.AvailableComponents),
+			Conditions:          mapper.mapConditionsToAPI(agent.Status.Conditions),
 			Connected:           agent.Status.Connected,
 			ConnectionType:      agent.Status.ConnectionType.String(),
 			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
@@ -156,4 +157,23 @@ func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1age
 			ContentType: configFile.ContentType,
 		}
 	}
+}
+
+func (mapper *Mapper) mapConditionsToAPI(conditions []model.AgentCondition) []v1agent.Condition {
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	apiConditions := make([]v1agent.Condition, len(conditions))
+	for i, condition := range conditions {
+		apiConditions[i] = v1agent.Condition{
+			Type:               v1agent.ConditionType(condition.Type),
+			LastTransitionTime: mapper.formatTime(condition.LastTransitionTime),
+			Status:             v1agent.ConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
+	return apiConditions
 }

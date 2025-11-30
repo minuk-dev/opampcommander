@@ -125,11 +125,11 @@ func (o *CommandOptions) ValidArgsFunction(
 	}
 
 	matched := lo.Filter(agentGroups, func(ag v1agentgroup.AgentGroup, _ int) bool {
-		return strings.Contains(strings.ToLower(ag.Name), strings.ToLower(toComplete))
+		return strings.Contains(strings.ToLower(ag.Metadata.Name), strings.ToLower(toComplete))
 	})
 
 	names := lo.Map(matched, func(ag v1agentgroup.AgentGroup, _ int) string {
-		return ag.Name
+		return ag.Metadata.Name
 	})
 
 	return names, cobra.ShellCompDirectiveNoFileComp

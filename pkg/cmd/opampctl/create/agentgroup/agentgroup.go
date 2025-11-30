@@ -140,14 +140,37 @@ type formattedAgentGroup struct {
 }
 
 func toFormattedAgentGroup(agentGroup *agentgroupv1.AgentGroup) *formattedAgentGroup {
+	// Extract timestamps and users from conditions
+	var (
+		createdAt time.Time
+		createdBy string
+		deletedAt *time.Time
+		deletedBy *string
+	)
+
+	for _, condition := range agentGroup.Status.Conditions {
+		switch condition.Type {
+		case agentgroupv1.ConditionTypeCreated:
+			if condition.Status == agentgroupv1.ConditionStatusTrue {
+				createdAt = condition.LastTransitionTime
+				createdBy = condition.Reason
+			}
+		case agentgroupv1.ConditionTypeDeleted:
+			if condition.Status == agentgroupv1.ConditionStatusTrue {
+				deletedAt = &condition.LastTransitionTime
+				deletedBy = &condition.Reason
+			}
+		}
+	}
+
 	return &formattedAgentGroup{
-		Name:                             agentGroup.Name,
-		Attributes:                       agentGroup.Attributes,
-		IdentifyingAttributesSelector:    agentGroup.Selector.IdentifyingAttributes,
-		NonIdentifyingAttributesSelector: agentGroup.Selector.NonIdentifyingAttributes,
-		CreatedAt:                        agentGroup.CreatedAt,
-		CreatedBy:                        agentGroup.CreatedBy,
-		DeletedAt:                        agentGroup.DeletedAt,
-		DeletedBy:                        agentGroup.DeletedBy,
+		Name:                             agentGroup.Metadata.Name,
+		Attributes:                       agentGroup.Metadata.Attributes,
+		IdentifyingAttributesSelector:    agentGroup.Metadata.Selector.IdentifyingAttributes,
+		NonIdentifyingAttributesSelector: agentGroup.Metadata.Selector.NonIdentifyingAttributes,
+		CreatedAt:                        createdAt,
+		CreatedBy:                        createdBy,
+		DeletedAt:                        deletedAt,
+		DeletedBy:                        deletedBy,
 	}
 }

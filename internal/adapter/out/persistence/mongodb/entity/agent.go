@@ -53,10 +53,20 @@ type AgentStatus struct {
 	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
 	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
 	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
+	Conditions          []AgentCondition          `bson:"conditions,omitempty"`
 	Connected           bool                      `bson:"connected,omitempty"`
 	ConnectionType      string                    `bson:"connectionType,omitempty"`
 	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
 	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
+}
+
+// AgentCondition represents a condition of an agent in MongoDB.
+type AgentCondition struct {
+	Type               string        `bson:"type"`
+	LastTransitionTime bson.DateTime `bson:"lastTransitionTime"`
+	Status             string        `bson:"status"`
+	Reason             string        `bson:"reason"`
+	Message            string        `bson:"message,omitempty"`
 }
 
 // AgentCommands represents the commands to be sent to an agent.
@@ -247,6 +257,17 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 
 // ToDomain converts the AgentStatus to domain model.
 func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
+	conditions := make([]domainmodel.AgentCondition, len(status.Conditions))
+	for i, condition := range status.Conditions {
+		conditions[i] = domainmodel.AgentCondition{
+			Type:               domainmodel.AgentConditionType(condition.Type),
+			LastTransitionTime: condition.LastTransitionTime.Time(),
+			Status:             domainmodel.AgentConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
 	return domainmodel.AgentStatus{
 		EffectiveConfig: switchIfNil(
 			status.EffectiveConfig.ToDomain(),
@@ -268,6 +289,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 			//exhaustruct:ignore
 			domainmodel.AgentAvailableComponents{},
 		),
+		Conditions:     conditions,
 		Connected:      status.Connected,
 		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),
 		LastReportedAt: status.LastCommunicatedAt.Time(),
@@ -471,6 +493,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
 			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
 			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
+			Conditions:          AgentConditionsFromDomain(agent.Status.Conditions),
 			Connected:           agent.Status.Connected,
 			ConnectionType:      agent.Status.ConnectionType.String(),
 			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
@@ -650,4 +673,24 @@ func AgentAvailableComponentsFromDomain(acc *domainmodel.AgentAvailableComponent
 			}),
 		Hash: acc.Hash,
 	}
+}
+
+// AgentConditionsFromDomain converts domain conditions to persistence model.
+func AgentConditionsFromDomain(conditions []domainmodel.AgentCondition) []AgentCondition {
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	result := make([]AgentCondition, len(conditions))
+	for i, condition := range conditions {
+		result[i] = AgentCondition{
+			Type:               string(condition.Type),
+			LastTransitionTime: bson.NewDateTimeFromTime(condition.LastTransitionTime),
+			Status:             string(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
+	return result
 }

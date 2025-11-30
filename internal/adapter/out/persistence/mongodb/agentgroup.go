@@ -9,7 +9,6 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -53,7 +52,7 @@ func NewAgentGroupRepository(
 // GetAgentGroup implements port.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	ctx context.Context, name string,
-) (*agentgroup.AgentGroup, error) {
+) (*model.AgentGroup, error) {
 	entity, err := a.common.get(ctx, name)
 	if err != nil {
 		return nil, err
@@ -65,14 +64,14 @@ func (a *AgentGroupMongoAdapter) GetAgentGroup(
 // ListAgentGroups implements port.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) ListAgentGroups(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*agentgroup.AgentGroup], error) {
+) (*model.ListResponse[*model.AgentGroup], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.ListResponse[*agentgroup.AgentGroup]{
-		Items: lo.Map(resp.Items, func(item *entity.AgentGroup, _ int) *agentgroup.AgentGroup {
+	return &model.ListResponse[*model.AgentGroup]{
+		Items: lo.Map(resp.Items, func(item *entity.AgentGroup, _ int) *model.AgentGroup {
 			return item.ToDomain()
 		}),
 		Continue:           resp.Continue,
@@ -84,7 +83,7 @@ func (a *AgentGroupMongoAdapter) ListAgentGroups(
 //
 //nolint:godox,revive
 func (a *AgentGroupMongoAdapter) PutAgentGroup(
-	ctx context.Context, name string, agentGroup *agentgroup.AgentGroup,
+	ctx context.Context, name string, agentGroup *model.AgentGroup,
 ) error {
 	// TODO: name should be used to save the agent group with the given name.
 	// ref. https://github.com/minuk-dev/opampcommander/issues/145

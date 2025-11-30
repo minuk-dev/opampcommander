@@ -96,15 +96,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -202,22 +200,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -244,22 +239,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -858,6 +850,54 @@ const docTemplate = `{
                 }
             }
         },
+        "AgentCondition": {
+            "type": "object",
+            "properties": {
+                "lastTransitionTime": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/AgentConditionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/AgentConditionType"
+                }
+            }
+        },
+        "AgentConditionStatus": {
+            "type": "string",
+            "enum": [
+                "True",
+                "False",
+                "Unknown"
+            ],
+            "x-enum-varnames": [
+                "ConditionStatusTrue",
+                "ConditionStatusFalse",
+                "ConditionStatusUnknown"
+            ]
+        },
+        "AgentConditionType": {
+            "type": "string",
+            "enum": [
+                "Connected",
+                "Healthy",
+                "Configured",
+                "Registered"
+            ],
+            "x-enum-varnames": [
+                "ConditionTypeConnected",
+                "ConditionTypeHealthy",
+                "ConditionTypeConfigured",
+                "ConditionTypeRegistered"
+            ]
+        },
         "AgentConfigFile": {
             "type": "object",
             "properties": {
@@ -921,23 +961,70 @@ const docTemplate = `{
         "AgentGroup": {
             "type": "object",
             "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/AgentGroupMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/AgentGroupSpec"
+                },
+                "status": {
+                    "$ref": "#/definitions/AgentGroupStatus"
+                }
+            }
+        },
+        "AgentGroupCondition": {
+            "type": "object",
+            "properties": {
+                "lastTransitionTime": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/AgentGroupConditionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/AgentGroupConditionType"
+                }
+            }
+        },
+        "AgentGroupConditionStatus": {
+            "type": "string",
+            "enum": [
+                "True",
+                "False"
+            ],
+            "x-enum-varnames": [
+                "ConditionStatusTrue",
+                "ConditionStatusFalse"
+            ]
+        },
+        "AgentGroupConditionType": {
+            "type": "string",
+            "enum": [
+                "Created",
+                "Deleted"
+            ],
+            "x-enum-varnames": [
+                "ConditionTypeCreated",
+                "ConditionTypeDeleted"
+            ]
+        },
+        "AgentGroupCreateRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
                 "agentConfig": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentConfig"
+                    "$ref": "#/definitions/agentgroup.AgentConfig"
                 },
                 "attributes": {
-                    "$ref": "#/definitions/api_v1_agentgroup.Attributes"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "createdBy": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "type": "string"
-                },
-                "deletedBy": {
-                    "type": "string"
+                    "$ref": "#/definitions/agentgroup.Attributes"
                 },
                 "name": {
                     "type": "string"
@@ -950,17 +1037,11 @@ const docTemplate = `{
                 }
             }
         },
-        "AgentGroupCreateRequest": {
+        "AgentGroupMetadata": {
             "type": "object",
-            "required": [
-                "name"
-            ],
             "properties": {
-                "agentConfig": {
-                    "$ref": "#/definitions/api_v1_agentgroup.AgentConfig"
-                },
                 "attributes": {
-                    "$ref": "#/definitions/api_v1_agentgroup.Attributes"
+                    "$ref": "#/definitions/agentgroup.Attributes"
                 },
                 "name": {
                     "type": "string"
@@ -970,6 +1051,25 @@ const docTemplate = `{
                 },
                 "selector": {
                     "$ref": "#/definitions/agentgroup.AgentSelector"
+                }
+            }
+        },
+        "AgentGroupSpec": {
+            "type": "object",
+            "properties": {
+                "agentConfig": {
+                    "$ref": "#/definitions/agentgroup.AgentConfig"
+                }
+            }
+        },
+        "AgentGroupStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgentGroupCondition"
+                    }
                 }
             }
         },
@@ -1073,6 +1173,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/AgentComponentHealth"
                         }
                     ]
+                },
+                "conditions": {
+                    "description": "Conditions is a list of conditions that apply to the agent.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgentCondition"
+                    }
                 },
                 "connected": {
                     "description": "Connected indicates if the agent is currently connected.",
@@ -1246,8 +1353,11 @@ const docTemplate = `{
         "Server": {
             "type": "object",
             "properties": {
-                "createdAt": {
-                    "type": "string"
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ServerCondition"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -1256,6 +1366,50 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "ServerCondition": {
+            "type": "object",
+            "properties": {
+                "lastTransitionTime": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/ServerConditionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/ServerConditionType"
+                }
+            }
+        },
+        "ServerConditionStatus": {
+            "type": "string",
+            "enum": [
+                "True",
+                "False",
+                "Unknown"
+            ],
+            "x-enum-varnames": [
+                "ConditionStatusTrue",
+                "ConditionStatusFalse",
+                "ConditionStatusUnknown"
+            ]
+        },
+        "ServerConditionType": {
+            "type": "string",
+            "enum": [
+                "Registered",
+                "Alive"
+            ],
+            "x-enum-varnames": [
+                "ConditionTypeRegistered",
+                "ConditionTypeAlive"
+            ]
         },
         "VersionInfo": {
             "type": "object",
@@ -1289,6 +1443,14 @@ const docTemplate = `{
                 }
             }
         },
+        "agentgroup.AgentConfig": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
         "agentgroup.AgentSelector": {
             "type": "object",
             "properties": {
@@ -1306,15 +1468,7 @@ const docTemplate = `{
                 }
             }
         },
-        "api_v1_agentgroup.AgentConfig": {
-            "type": "object",
-            "properties": {
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "api_v1_agentgroup.Attributes": {
+        "agentgroup.Attributes": {
             "type": "object",
             "additionalProperties": {
                 "type": "string"

@@ -491,7 +491,7 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
 
-	agentGroup.AgentConfig = &v1agentgroup.AgentConfig{
+	agentGroup.Spec.AgentConfig = &v1agentgroup.AgentConfig{
 		Value: string(configBytes),
 	}
 

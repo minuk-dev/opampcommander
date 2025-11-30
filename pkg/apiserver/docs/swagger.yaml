@@ -38,6 +38,41 @@ definitions:
       statusTimeMs:
         type: integer
     type: object
+  AgentCondition:
+    properties:
+      lastTransitionTime:
+        type: string
+      message:
+        type: string
+      reason:
+        type: string
+      status:
+        $ref: '#/definitions/AgentConditionStatus'
+      type:
+        $ref: '#/definitions/AgentConditionType'
+    type: object
+  AgentConditionStatus:
+    enum:
+    - "True"
+    - "False"
+    - Unknown
+    type: string
+    x-enum-varnames:
+    - ConditionStatusTrue
+    - ConditionStatusFalse
+    - ConditionStatusUnknown
+  AgentConditionType:
+    enum:
+    - Connected
+    - Healthy
+    - Configured
+    - Registered
+    type: string
+    x-enum-varnames:
+    - ConditionTypeConnected
+    - ConditionTypeHealthy
+    - ConditionTypeConfigured
+    - ConditionTypeRegistered
   AgentConfigFile:
     properties:
       body:
@@ -81,31 +116,48 @@ definitions:
     type: object
   AgentGroup:
     properties:
-      agentConfig:
-        $ref: '#/definitions/api_v1_agentgroup.AgentConfig'
-      attributes:
-        $ref: '#/definitions/api_v1_agentgroup.Attributes'
-      createdAt:
-        type: string
-      createdBy:
-        type: string
-      deletedAt:
-        type: string
-      deletedBy:
-        type: string
-      name:
-        type: string
-      priority:
-        type: integer
-      selector:
-        $ref: '#/definitions/agentgroup.AgentSelector'
+      metadata:
+        $ref: '#/definitions/AgentGroupMetadata'
+      spec:
+        $ref: '#/definitions/AgentGroupSpec'
+      status:
+        $ref: '#/definitions/AgentGroupStatus'
     type: object
+  AgentGroupCondition:
+    properties:
+      lastTransitionTime:
+        type: string
+      message:
+        type: string
+      reason:
+        type: string
+      status:
+        $ref: '#/definitions/AgentGroupConditionStatus'
+      type:
+        $ref: '#/definitions/AgentGroupConditionType'
+    type: object
+  AgentGroupConditionStatus:
+    enum:
+    - "True"
+    - "False"
+    type: string
+    x-enum-varnames:
+    - ConditionStatusTrue
+    - ConditionStatusFalse
+  AgentGroupConditionType:
+    enum:
+    - Created
+    - Deleted
+    type: string
+    x-enum-varnames:
+    - ConditionTypeCreated
+    - ConditionTypeDeleted
   AgentGroupCreateRequest:
     properties:
       agentConfig:
-        $ref: '#/definitions/api_v1_agentgroup.AgentConfig'
+        $ref: '#/definitions/agentgroup.AgentConfig'
       attributes:
-        $ref: '#/definitions/api_v1_agentgroup.Attributes'
+        $ref: '#/definitions/agentgroup.Attributes'
       name:
         type: string
       priority:
@@ -114,6 +166,29 @@ definitions:
         $ref: '#/definitions/agentgroup.AgentSelector'
     required:
     - name
+    type: object
+  AgentGroupMetadata:
+    properties:
+      attributes:
+        $ref: '#/definitions/agentgroup.Attributes'
+      name:
+        type: string
+      priority:
+        type: integer
+      selector:
+        $ref: '#/definitions/agentgroup.AgentSelector'
+    type: object
+  AgentGroupSpec:
+    properties:
+      agentConfig:
+        $ref: '#/definitions/agentgroup.AgentConfig'
+    type: object
+  AgentGroupStatus:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/AgentGroupCondition'
+        type: array
     type: object
   AgentMetadata:
     properties:
@@ -176,6 +251,11 @@ definitions:
         allOf:
         - $ref: '#/definitions/AgentComponentHealth'
         description: ComponentHealth is the health status of the agent's components.
+      conditions:
+        description: Conditions is a list of conditions that apply to the agent.
+        items:
+          $ref: '#/definitions/AgentCondition'
+        type: array
       connected:
         description: Connected indicates if the agent is currently connected.
         type: boolean
@@ -306,13 +386,46 @@ definitions:
     type: object
   Server:
     properties:
-      createdAt:
-        type: string
+      conditions:
+        items:
+          $ref: '#/definitions/ServerCondition'
+        type: array
       id:
         type: string
       lastHeartbeatAt:
         type: string
     type: object
+  ServerCondition:
+    properties:
+      lastTransitionTime:
+        type: string
+      message:
+        type: string
+      reason:
+        type: string
+      status:
+        $ref: '#/definitions/ServerConditionStatus'
+      type:
+        $ref: '#/definitions/ServerConditionType'
+    type: object
+  ServerConditionStatus:
+    enum:
+    - "True"
+    - "False"
+    - Unknown
+    type: string
+    x-enum-varnames:
+    - ConditionStatusTrue
+    - ConditionStatusFalse
+    - ConditionStatusUnknown
+  ServerConditionType:
+    enum:
+    - Registered
+    - Alive
+    type: string
+    x-enum-varnames:
+    - ConditionTypeRegistered
+    - ConditionTypeAlive
   VersionInfo:
     properties:
       buildDate:
@@ -334,6 +447,11 @@ definitions:
       platform:
         type: string
     type: object
+  agentgroup.AgentConfig:
+    properties:
+      value:
+        type: string
+    type: object
   agentgroup.AgentSelector:
     properties:
       identifyingAttributes:
@@ -345,12 +463,7 @@ definitions:
           type: string
         type: object
     type: object
-  api_v1_agentgroup.AgentConfig:
-    properties:
-      value:
-        type: string
-    type: object
-  api_v1_agentgroup.Attributes:
+  agentgroup.Attributes:
     additionalProperties:
       type: string
     type: object
@@ -415,13 +528,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: Create Agent Group
       tags:
       - agentgroup
@@ -440,18 +551,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "404":
           description: Not Found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: Delete Agent Group
       tags:
       - agentgroup
@@ -516,18 +624,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "404":
           description: Not Found
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/ErrorModel'
       summary: Update Agent Group
       tags:
       - agentgroup

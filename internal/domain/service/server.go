@@ -211,12 +211,19 @@ func (s *ServerService) registerServer(ctx context.Context) error {
 	server := &model.Server{
 		ID:              s.id,
 		LastHeartbeatAt: now,
-		CreatedAt:       now,
+		Conditions:      []model.ServerCondition{},
 	}
 
 	if existingServer != nil {
-		server.CreatedAt = existingServer.CreatedAt
+		// Copy existing conditions
+		server.Conditions = existingServer.Conditions
+	} else {
+		// Mark as registered for new servers
+		server.MarkRegistered("system")
 	}
+
+	// Mark as alive
+	server.MarkAlive("heartbeat")
 
 	err = s.serverPersistencePort.PutServer(ctx, server)
 	if err != nil {
