@@ -121,55 +121,17 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	return nil
 }
 
+//nolint:funlen // Reason: mongodb aggregation pipeline is long.
 func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	ctx context.Context,
 	agentGroupEntity *entity.AgentGroup,
 ) (*entity.AgentGroupStatistics, error) {
 	// Build filter conditions for agents matching this agent group's selector
 	selector := agentGroupEntity.Selector
-
-	// Build match conditions for identifying attributes
-	identifyingConditions := make([]bson.M, 0, len(selector.IdentifyingAttributes))
-	for key, value := range selector.IdentifyingAttributes {
-		identifyingConditions = append(identifyingConditions, bson.M{
-			entity.IdentifyingAttributesFieldName: bson.M{
-				"$elemMatch": bson.M{
-					"key":   key,
-					"value": value,
-				},
-			},
-		})
-	}
-
-	// Build match conditions for non-identifying attributes
-	nonIdentifyingConditions := make([]bson.M, 0, len(selector.NonIdentifyingAttributes))
-	for key, value := range selector.NonIdentifyingAttributes {
-		nonIdentifyingConditions = append(nonIdentifyingConditions, bson.M{
-			entity.NonIdentifyingAttributesFieldName: bson.M{
-				"$elemMatch": bson.M{
-					"key":   key,
-					"value": value,
-				},
-			},
-		})
-	}
-
-	// Combine all conditions
-	allConditions := make([]bson.M, 0, len(identifyingConditions)+len(nonIdentifyingConditions))
-	allConditions = append(allConditions, identifyingConditions...)
-	allConditions = append(allConditions, nonIdentifyingConditions...)
+	allConditions := SelectorToMatchConditions(selector)
 
 	// Build match filter
-	var matchFilter bson.M
-
-	switch len(allConditions) {
-	case 0:
-		matchFilter = bson.M{}
-	case 1:
-		matchFilter = allConditions[0]
-	default:
-		matchFilter = bson.M{"$and": allConditions}
-	}
+	matchFilter := buildFilter(allConditions)
 
 	// MongoDB aggregation pipeline to calculate agent statistics
 	pipeline := []bson.M{
@@ -186,8 +148,8 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 							"as":    "condition",
 							"in": bson.M{
 								"$and": []bson.M{
-									{"$eq": []interface{}{"$$condition.type", "Connected"}},
-									{"$eq": []interface{}{"$$condition.status", "True"}},
+									{"$eq": []any{"$$condition.type", "Connected"}},
+									{"$eq": []any{"$$condition.status", "True"}},
 								},
 							},
 						},
@@ -200,8 +162,8 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 							"as":    "condition",
 							"in": bson.M{
 								"$and": []bson.M{
-									{"$eq": []interface{}{"$$condition.type", "Healthy"}},
-									{"$eq": []interface{}{"$$condition.status", "True"}},
+									{"$eq": []any{"$$condition.type", "Healthy"}},
+									{"$eq": []any{"$$condition.status", "True"}},
 								},
 							},
 						},
@@ -217,26 +179,26 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 				"numAgents": bson.M{"$sum": 1},
 				"numConnectedAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []interface{}{"$isConnected", 1, 0},
+						"$cond": []any{"$isConnected", 1, 0},
 					},
 				},
 				"numHealthyAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []interface{}{
-							bson.M{"$and": []interface{}{"$isConnected", "$isHealthy"}}, 1, 0,
+						"$cond": []any{
+							bson.M{"$and": []any{"$isConnected", "$isHealthy"}}, 1, 0,
 						},
 					},
 				},
 				"numUnhealthyAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []interface{}{
-							bson.M{"$and": []interface{}{"$isConnected", bson.M{"$not": "$isHealthy"}}}, 1, 0,
+						"$cond": []any{
+							bson.M{"$and": []any{"$isConnected", bson.M{"$not": "$isHealthy"}}}, 1, 0,
 						},
 					},
 				},
 				"numNotConnectedAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []interface{}{bson.M{"$not": "$isConnected"}, 1, 0},
+						"$cond": []any{bson.M{"$not": "$isConnected"}, 1, 0},
 					},
 				},
 			},

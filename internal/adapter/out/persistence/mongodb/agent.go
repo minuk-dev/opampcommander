@@ -124,36 +124,7 @@ func (a *AgentRepository) ListAgentsBySelector(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	// Build filter conditions for identifying attributes
-	identifyingConditions := make([]bson.M, 0, len(selector.IdentifyingAttributes))
-	for key, value := range selector.IdentifyingAttributes {
-		identifyingConditions = append(identifyingConditions, bson.M{
-			entity.IdentifyingAttributesFieldName: bson.M{
-				"$elemMatch": bson.M{
-					"key":   key,
-					"value": value,
-				},
-			},
-		})
-	}
-
-	// Build filter conditions for non-identifying attributes
-	nonIdentifyingConditions := make([]bson.M, 0, len(selector.NonIdentifyingAttributes))
-	for key, value := range selector.NonIdentifyingAttributes {
-		nonIdentifyingConditions = append(nonIdentifyingConditions, bson.M{
-			entity.NonIdentifyingAttributesFieldName: bson.M{
-				"$elemMatch": bson.M{
-					"key":   key,
-					"value": value,
-				},
-			},
-		})
-	}
-
-	// Combine all conditions
-	allConditions := make([]bson.M, 0, len(identifyingConditions)+len(nonIdentifyingConditions)+1)
-	allConditions = append(allConditions, identifyingConditions...)
-	allConditions = append(allConditions, nonIdentifyingConditions...)
+	allConditions := SelectorToMatchConditions(AgentSelectorToEntity(selector))
 
 	// Add continue token condition if present
 	continueTokenFilter := withContinueToken(continueTokenObjectID)
@@ -229,6 +200,14 @@ func (a *AgentRepository) ListAgentsBySelector(
 		Continue:           continueTokenRetval,
 		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
 	}, nil
+}
+
+// AgentSelectorToEntity converts a domain AgentSelector to a persistence entity AgentSelector.
+func AgentSelectorToEntity(selector model.AgentSelector) entity.AgentSelector {
+	return entity.AgentSelector{
+		IdentifyingAttributes:    selector.IdentifyingAttributes,
+		NonIdentifyingAttributes: selector.NonIdentifyingAttributes,
+	}
 }
 
 // buildFilter builds a MongoDB filter from a list of conditions.
