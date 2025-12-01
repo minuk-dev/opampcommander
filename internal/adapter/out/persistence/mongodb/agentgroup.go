@@ -104,10 +104,10 @@ func (a *AgentGroupMongoAdapter) ListAgentGroups(
 
 // PutAgentGroup implements port.AgentGroupPersistencePort.
 //
-//nolint:godox,revive
+//nolint:godox // Reason: TODO comment.
 func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	ctx context.Context, name string, agentGroup *model.AgentGroup,
-) error {
+) (*model.AgentGroup, error) {
 	// TODO: name should be used to save the agent group with the given name.
 	// ref. https://github.com/minuk-dev/opampcommander/issues/145
 	// Because some update operations may change the name of the agent group.
@@ -115,10 +115,16 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 
 	err := a.common.put(ctx, entity)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("put agent group: %w", err)
 	}
 
-	return nil
+	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.
+	newAgentGroup, err := a.GetAgentGroup(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("get agent group after put: %w", err)
+	}
+
+	return newAgentGroup, nil
 }
 
 //nolint:funlen // Reason: mongodb aggregation pipeline is long.

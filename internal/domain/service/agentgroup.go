@@ -35,39 +35,43 @@ func NewAgentGroupService(
 }
 
 // GetAgentGroup retrieves an agent group by its ID.
-//
-//nolint:wrapcheck
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
 	name string,
 ) (*model.AgentGroup, error) {
-	return s.persistencePort.GetAgentGroup(ctx, name)
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("get agent group: %w", err)
+	}
+
+	return agentGroup, nil
 }
 
 // SaveAgentGroup saves the agent group.
-//
-//nolint:wrapcheck
 func (s *AgentGroupService) SaveAgentGroup(
 	ctx context.Context,
 	name string,
 	agentGroup *model.AgentGroup,
 ) (*model.AgentGroup, error) {
-	err := s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
+	agentGroup, err := s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("save agent group: %w", err)
 	}
 
 	return agentGroup, nil
 }
 
 // ListAgentGroups retrieves a list of agent groups with pagination options.
-//
-//nolint:wrapcheck
 func (s *AgentGroupService) ListAgentGroups(
 	ctx context.Context,
 	options *model.ListOptions,
 ) (*model.ListResponse[*model.AgentGroup], error) {
-	return s.persistencePort.ListAgentGroups(ctx, options)
+	resp, err := s.persistencePort.ListAgentGroups(ctx, options)
+	if err != nil {
+		return nil, fmt.Errorf("list agent groups: %w", err)
+	}
+
+	return resp, nil
 }
 
 // DeleteAgentGroup marks an agent group as deleted.
@@ -84,7 +88,7 @@ func (s *AgentGroupService) DeleteAgentGroup(
 
 	agentGroup.MarkDeleted(deletedAt, deletedBy)
 
-	err = s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
+	_, err = s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
 	if err != nil {
 		return fmt.Errorf("failed to delete agent group: %w", err)
 	}
