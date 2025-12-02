@@ -35,8 +35,12 @@ func (m *mockAgentGroupUsecase) ListAgentGroups(
 	return nil, nil
 }
 
-func (m *mockAgentGroupUsecase) SaveAgentGroup(_ context.Context, _ string, _ *model.AgentGroup) error {
-	return nil
+func (m *mockAgentGroupUsecase) SaveAgentGroup(
+	_ context.Context,
+	_ string,
+	agentGroup *model.AgentGroup,
+) (*model.AgentGroup, error) {
+	return agentGroup, nil
 }
 
 func (m *mockAgentGroupUsecase) DeleteAgentGroup(_ context.Context, _ string, _ time.Time, _ string) error {

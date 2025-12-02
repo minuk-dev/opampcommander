@@ -51,7 +51,7 @@ type AgentGroupUsecase interface {
 	// SaveAgentGroup saves the agent group.
 	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentGroup], error)
 	// SaveAgentGroup saves the agent group.
-	SaveAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) error
+	SaveAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) (*model.AgentGroup, error)
 	// DeleteAgentGroup deletes the agent group by its ID.
 	DeleteAgentGroup(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
 	// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.

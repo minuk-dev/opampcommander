@@ -53,7 +53,7 @@ type AgentGroupPersistencePort interface {
 	// GetAgentGroup retrieves an agent group by its ID.
 	GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error)
 	// PutAgentGroup saves the agent group.
-	PutAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) error
+	PutAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) (*model.AgentGroup, error)
 	// ListAgentGroups retrieves a list of agent groups with pagination options.
 	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentGroup], error)
 }

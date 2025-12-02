@@ -61,7 +61,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 			"tester",
 		)
 
-		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when
@@ -69,6 +69,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 
 		// then
 		require.NoError(t, err)
+		assert.Equal(t, putResult, loaded)
 		assert.Equal(t, agentGroup.Metadata.Name, loaded.Metadata.Name)
 		assert.Equal(t, agentGroup.Metadata.Attributes, loaded.Metadata.Attributes)
 		assert.False(t, loaded.IsDeleted())
@@ -130,7 +131,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 			time.Now(),
 			"tester",
 		)
-		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when
@@ -140,6 +141,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Len(t, resp.Items, 1)
+		assert.Equal(t, putResult, resp.Items[0])
 		assert.Equal(t, agentGroup.Metadata.Name, resp.Items[0].Metadata.Name)
 	})
 
@@ -162,8 +164,9 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 				"tester",
 			)
 			agentGroups[idx] = agentGroup
-			err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+			putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 			require.NoError(t, err)
+			assert.Equal(t, agentGroup.Metadata.Name, putResult.Metadata.Name)
 		}
 
 		// when
@@ -203,7 +206,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 				time.Now(),
 				"tester",
 			)
-			err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+			_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 			require.NoError(t, err)
 		}
 
@@ -253,7 +256,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		)
 
 		// when
-		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 
 		// then
 		require.NoError(t, err)
@@ -261,6 +264,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		// Verify agent group was saved
 		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
 		require.NoError(t, err)
+		assert.Equal(t, putResult, got)
 		assert.Equal(t, agentGroup.Metadata.Name, got.Metadata.Name)
 		assert.Equal(t, agentGroup.Metadata.Attributes, got.Metadata.Attributes)
 		assert.Equal(t, agentGroup.GetCreatedBy(), got.GetCreatedBy())
@@ -282,7 +286,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 			time.Now(),
 			"creator",
 		)
-		err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
+		_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
 		require.NoError(t, err)
 
 		// when - update with new attributes
@@ -292,7 +296,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 			time.Now(),
 			"updater",
 		)
-		err = adapter.PutAgentGroup(ctx, updatedGroup.Metadata.Name, updatedGroup)
+		_, err = adapter.PutAgentGroup(ctx, updatedGroup.Metadata.Name, updatedGroup)
 		require.NoError(t, err)
 
 		// then
@@ -323,14 +327,14 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 			time.Now(),
 			"creator",
 		)
-		err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when - soft delete
 		deletedBy := "deleter"
 		deletedAt := time.Now()
 		agentGroup.MarkDeleted(deletedAt, deletedBy)
-		err = adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		_, err = adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// then
@@ -376,7 +380,7 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 	)
 
 	// when
-	err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
+	_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
 	require.NoError(t, err)
 
 	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Metadata.Name)

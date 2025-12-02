@@ -43,8 +43,17 @@ type Condition struct {
 	Message            string    `bson:"message,omitempty"`
 }
 
+// AgentGroupStatistics holds statistical data for an agent group.
+type AgentGroupStatistics struct {
+	NumAgents             int64
+	NumConnectedAgents    int64
+	NumHealthyAgents      int64
+	NumUnhealthyAgents    int64
+	NumNotConnectedAgents int64
+}
+
 // ToDomain converts the AgentGroup entity to the domain model.
-func (e *AgentGroup) ToDomain() *model.AgentGroup {
+func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGroup {
 	var agentConfig *model.AgentConfig
 	if e.AgentConfig != nil {
 		agentConfig = &model.AgentConfig{
@@ -77,6 +86,12 @@ func (e *AgentGroup) ToDomain() *model.AgentGroup {
 			AgentConfig: agentConfig,
 		},
 		Status: model.AgentGroupStatus{
+			NumAgents:             int(statistics.NumAgents),
+			NumHealthyAgents:      int(statistics.NumHealthyAgents),
+			NumConnectedAgents:    int(statistics.NumConnectedAgents),
+			NumUnhealthyAgents:    int(statistics.NumUnhealthyAgents),
+			NumNotConnectedAgents: int(statistics.NumNotConnectedAgents),
+
 			Conditions: conditions,
 		},
 	}

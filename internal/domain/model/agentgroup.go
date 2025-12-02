@@ -36,6 +36,23 @@ type AgentGroupSpec struct {
 
 // AgentGroupStatus represents the status of an agent group.
 type AgentGroupStatus struct {
+	// NumAgents is the total number of agents in the agent group.
+	// NumAgents = NumConnectedAgents + NumNotConnectedAgents
+	NumAgents int
+
+	// NumConnectedAgents is the number of connected agents in the agent group.
+	// NumConnectedAgents = NumHealthyAgents + NumUnhealthyAgents
+	NumConnectedAgents int
+
+	// NumHealthyAgents is the number of healthy agents in the agent group.
+	NumHealthyAgents int
+
+	// NumUnhealthyAgents is the number of unhealthy agents in the agent group.
+	NumUnhealthyAgents int
+
+	// NumNotConnectedAgents is the number of not connected agents in the agent group.
+	NumNotConnectedAgents int
+
 	// Conditions is a list of conditions that apply to the agent group.
 	Conditions []Condition
 }
@@ -96,6 +113,12 @@ func NewAgentGroup(
 			AgentConfig: nil,
 		},
 		Status: AgentGroupStatus{
+			NumAgents:             0,
+			NumConnectedAgents:    0,
+			NumHealthyAgents:      0,
+			NumUnhealthyAgents:    0,
+			NumNotConnectedAgents: 0,
+
 			Conditions: []Condition{
 				{
 					Type:               ConditionTypeCreated,
