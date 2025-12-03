@@ -760,7 +760,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
-	
+
 	t.Run("Agent with NewInstanceUID", func(t *testing.T) {
 		t.Parallel()
 		base := testutil.NewBase(t)

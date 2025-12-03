@@ -25,8 +25,8 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType       string
-	newInstanceUID   string
+	formatType     string
+	newInstanceUID string
 
 	// internal
 	client *client.Client
@@ -66,7 +66,7 @@ Examples:
 
   # Set a new instance UID and output as JSON
   opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 new-instance-uid-123 -o json`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.ExactArgs(2), //nolint:mnd // exactly 2 args are required
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Parse agent instance UID
 			instanceUID, err := uuid.Parse(args[0])
@@ -92,7 +92,7 @@ Examples:
 }
 
 // Prepare prepares the command for execution.
-func (opts *CommandOptions) Prepare(cmd *cobra.Command, args []string) error {
+func (opts *CommandOptions) Prepare(*cobra.Command, []string) error {
 	client, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
@@ -115,6 +115,7 @@ func (opts *CommandOptions) setNewInstanceUID(cmd *cobra.Command, instanceUID uu
 	}
 
 	formatType := formatter.FormatType(opts.formatType)
+
 	err = formatter.Format(cmd.OutOrStdout(), agent, formatType)
 	if err != nil {
 		return fmt.Errorf("failed to format output: %w", err)

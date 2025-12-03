@@ -144,12 +144,16 @@ func (c *Controller) SetNewInstanceUID(ctx *gin.Context) {
 	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
 		return
 	}
 
 	var req v1agent.SetNewInstanceUIDRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+
+	err = ctx.ShouldBindJSON(&req)
+	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, true)
+
 		return
 	}
 
@@ -157,6 +161,7 @@ func (c *Controller) SetNewInstanceUID(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to set new instance UID", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while setting the new instance UID.")
+
 		return
 	}
 

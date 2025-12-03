@@ -51,7 +51,7 @@ type Metadata struct {
 type Spec struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID string `json:"newInstanceUid,omitempty"`
-	
+
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig RemoteConfig `json:"remoteConfig"`
 } // @name AgentSpec

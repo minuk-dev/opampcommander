@@ -183,6 +183,6 @@ func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
 	if len(newInstanceUID) == 0 {
 		return ""
 	}
-	
+
 	return string(newInstanceUID)
 }

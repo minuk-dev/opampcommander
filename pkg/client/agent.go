@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 
 	uuid "github.com/google/uuid"
 
@@ -53,26 +54,29 @@ func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*age
 }
 
 // SetAgentNewInstanceUID sets a new instance UID for an agent.
-func (s *AgentService) SetAgentNewInstanceUID(ctx context.Context, id uuid.UUID, request agentv1.SetNewInstanceUIDRequest) (*agentv1.Agent, error) {
+func (s *AgentService) SetAgentNewInstanceUID(
+	ctx context.Context,
+	id uuid.UUID,
+	request agentv1.SetNewInstanceUIDRequest,
+) (*agentv1.Agent, error) {
 	var result agentv1.Agent
-	
+
 	response, err := s.service.Resty.R().
 		SetContext(ctx).
 		SetPathParam("id", id.String()).
 		SetBody(request).
 		SetResult(&result).
 		Put(SetAgentNewInstanceUIDURL)
-	
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to set new instance UID for agent: %w", err)
 	}
-	
+
 	if response.IsError() {
 		return nil, &ResponseError{
 			StatusCode:   response.StatusCode(),
 			ErrorMessage: response.String(),
 		}
 	}
-	
+
 	return &result, nil
 }
