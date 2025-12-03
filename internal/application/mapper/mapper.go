@@ -31,7 +31,8 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 			CustomCapabilities: mapper.mapCustomCapabilitiesToAPI(&agent.Metadata.CustomCapabilities),
 		},
 		Spec: v1agent.Spec{
-			RemoteConfig: mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
+			NewInstanceUID: mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID),
+			RemoteConfig:   mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
 		},
 		Status: v1agent.Status{
 			EffectiveConfig: v1agent.EffectiveConfig{
@@ -176,4 +177,12 @@ func (mapper *Mapper) mapConditionsToAPI(conditions []model.AgentCondition) []v1
 	}
 
 	return apiConditions
+}
+
+func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
+	if len(newInstanceUID) == 0 {
+		return ""
+	}
+	
+	return string(newInstanceUID)
 }

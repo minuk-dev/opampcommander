@@ -44,7 +44,8 @@ type AgentMetadata struct {
 
 // AgentSpec represents the desired specification of an agent.
 type AgentSpec struct {
-	RemoteConfig *AgentRemoteConfig `bson:"remoteConfig,omitempty"`
+	NewInstanceUID []byte             `bson:"newInstanceUID,omitempty"`
+	RemoteConfig   *AgentRemoteConfig `bson:"remoteConfig,omitempty"`
 }
 
 // AgentStatus represents the current status of an agent.
@@ -251,7 +252,8 @@ func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
 // ToDomain converts the AgentSpec to domain model.
 func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 	return domainmodel.AgentSpec{
-		RemoteConfig: spec.RemoteConfig.ToDomain(),
+		NewInstanceUID: spec.NewInstanceUID,
+		RemoteConfig:   spec.RemoteConfig.ToDomain(),
 	}
 }
 
@@ -486,7 +488,8 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),
 		},
 		Spec: AgentSpec{
-			RemoteConfig: AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
+			NewInstanceUID: agent.Spec.NewInstanceUID,
+			RemoteConfig:   AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
 		},
 		Status: AgentStatus{
 			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),

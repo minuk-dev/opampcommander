@@ -14,6 +14,11 @@ type UpdateAgentConfigRequest struct {
 	RemoteConfig any `binding:"required" json:"remoteConfig"`
 } // @name UpdateAgentConfigRequest
 
+// SetNewInstanceUIDRequest is a struct that represents the request to set a new instance UID for the agent.
+type SetNewInstanceUIDRequest struct {
+	NewInstanceUID string `binding:"required" json:"newInstanceUid"`
+} // @name SetNewInstanceUIDRequest
+
 // Agent represents an agent which is defined OpAMP protocol.
 // It follows the Kubernetes-style resource structure with Metadata, Spec, and Status.
 type Agent struct {
@@ -44,6 +49,9 @@ type Metadata struct {
 
 // Spec contains the desired configuration for the agent.
 type Spec struct {
+	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
+	NewInstanceUID string `json:"newInstanceUid,omitempty"`
+	
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig RemoteConfig `json:"remoteConfig"`
 } // @name AgentSpec

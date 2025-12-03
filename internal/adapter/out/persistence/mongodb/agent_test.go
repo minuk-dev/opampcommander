@@ -756,3 +756,91 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		assert.Contains(t, err.Error(), "invalid continue token")
 	})
 }
+
+func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	
+	t.Run("Agent with NewInstanceUID", func(t *testing.T) {
+		t.Parallel()
+		base := testutil.NewBase(t)
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_newinstanceuid")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given
+		instanceUID := uuid.New()
+		newInstanceUID := []byte("new-instance-uid-123")
+		agent := model.NewAgent(instanceUID)
+		agent.Spec.NewInstanceUID = newInstanceUID
+
+		// when - Save agent
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.NotNil(t, retrievedAgent)
+		assert.Equal(t, newInstanceUID, retrievedAgent.Spec.NewInstanceUID)
+		assert.True(t, retrievedAgent.HasNewInstanceUID())
+		assert.Equal(t, newInstanceUID, retrievedAgent.NewInstanceUID())
+	})
+
+	t.Run("Agent without NewInstanceUID", func(t *testing.T) {
+		t.Parallel()
+		base := testutil.NewBase(t)
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_nonewinstanceuid")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given
+		instanceUID := uuid.New()
+		agent := model.NewAgent(instanceUID)
+		// NewInstanceUID is not set (default nil/empty)
+
+		// when - Save agent
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.NotNil(t, retrievedAgent)
+		assert.Nil(t, retrievedAgent.Spec.NewInstanceUID)
+		assert.False(t, retrievedAgent.HasNewInstanceUID())
+		assert.Nil(t, retrievedAgent.NewInstanceUID())
+	})
+}
