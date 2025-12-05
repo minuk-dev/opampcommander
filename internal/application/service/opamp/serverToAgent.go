@@ -61,6 +61,11 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		}
 	}
 
+	var capabilities int32
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
+
 	return &protobufs.ServerToAgent{
 		InstanceUid:         instanceUID[:],
 		ErrorResponse:       nil,
@@ -68,7 +73,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		ConnectionSettings:  nil,
 		PackagesAvailable:   nil,
 		Flags:               flags,
-		Capabilities:        0,
+		Capabilities:        uint64(capabilities),
 		AgentIdentification: agentIdentification,
 		Command:             nil,
 		CustomCapabilities:  nil,
