@@ -839,7 +839,7 @@ func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
 		require.NoError(t, err)
 		assert.NotNil(t, retrievedAgent)
-		assert.Nil(t, retrievedAgent.Spec.NewInstanceUID)
+		assert.Equal(t, uuid.Nil, retrievedAgent.Spec.NewInstanceUID)
 		assert.False(t, retrievedAgent.HasNewInstanceUID())
 		assert.Nil(t, retrievedAgent.NewInstanceUID())
 	})

@@ -31,7 +31,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			InstanceUID: instanceUID,
 		},
 		Spec: AgentSpec{
-			NewInstanceUID: uuid.UUID{},
+			NewInstanceUID: uuid.Nil,
 			RemoteConfig:   NewRemoteConfig(),
 		},
 		Status: AgentStatus{
