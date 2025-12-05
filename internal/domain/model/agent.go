@@ -809,10 +809,14 @@ func (a *Agent) MarkConfigured(triggeredBy string) {
 
 // NewInstanceUID returns the new instance UID to inform the agent.
 func (a *Agent) NewInstanceUID() []byte {
+	if a.Spec.NewInstanceUID == uuid.Nil {
+		return nil
+	}
+
 	return a.Spec.NewInstanceUID[:]
 }
 
 // HasNewInstanceUID checks if there is a new instance UID to inform the agent.
 func (a *Agent) HasNewInstanceUID() bool {
-	return len(a.Spec.NewInstanceUID) > 0
+	return a.Spec.NewInstanceUID != uuid.Nil
 }
