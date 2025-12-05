@@ -309,14 +309,15 @@ func TestAgentControllerSetNewInstanceUID(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		newInstanceUID := "new-instance-uid-123"
+		newInstanceUID := uuid.New()
+		newInstanceUIDStr := newInstanceUID.String()
 		//exhaustruct:ignore
 		expectedAgent := &v1agent.Agent{
 			Metadata: v1agent.Metadata{
 				InstanceUID: instanceUID,
 			},
 			Spec: v1agent.Spec{
-				NewInstanceUID: newInstanceUID,
+				NewInstanceUID: newInstanceUIDStr,
 			},
 		}
 
@@ -326,7 +327,7 @@ func TestAgentControllerSetNewInstanceUID(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		body := `{"newInstanceUid":"` + newInstanceUID + `"}`
+		body := `{"newInstanceUid":"` + newInstanceUIDStr + `"}`
 		req, err := http.NewRequestWithContext(
 			t.Context(),
 			http.MethodPut,
@@ -342,7 +343,7 @@ func TestAgentControllerSetNewInstanceUID(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		response := gjson.Parse(recorder.Body.String())
 		assert.Equal(t, instanceUID.String(), response.Get("metadata.instanceUid").String())
-		assert.Equal(t, newInstanceUID, response.Get("spec.newInstanceUid").String())
+		assert.Equal(t, newInstanceUIDStr, response.Get("spec.newInstanceUid").String())
 	})
 
 	t.Run("Set New Instance UID - invalid UUID returns 400", func(t *testing.T) {
@@ -419,7 +420,8 @@ func TestAgentControllerSetNewInstanceUID(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		newInstanceUID := "new-instance-uid-123"
+		newInstanceUID := uuid.New()
+		newInstanceUIDStr := newInstanceUID.String()
 
 		agentUsecase.EXPECT().
 			SetNewInstanceUID(mock.Anything, instanceUID, newInstanceUID).
@@ -427,7 +429,7 @@ func TestAgentControllerSetNewInstanceUID(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		body := `{"newInstanceUid":"` + newInstanceUID + `"}`
+		body := `{"newInstanceUid":"` + newInstanceUIDStr + `"}`
 		req, err := http.NewRequestWithContext(
 			t.Context(),
 			http.MethodPut,

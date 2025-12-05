@@ -65,7 +65,8 @@ Examples:
   opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001
 
   # Set a new instance UID and output as JSON
-  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001 -o json`,
+  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 \
+    550e8400-e29b-41d4-a716-446655440001 -o json`,
 		Args: cobra.ExactArgs(2), //nolint:mnd // exactly 2 args are required
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Parse agent instance UID
@@ -105,8 +106,13 @@ func (opts *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // setNewInstanceUID sets a new instance UID for an agent.
 func (opts *CommandOptions) setNewInstanceUID(cmd *cobra.Command, instanceUID uuid.UUID) error {
+	newUID, err := uuid.Parse(opts.newInstanceUID)
+	if err != nil {
+		return fmt.Errorf("invalid new instance UID: %w", err)
+	}
+
 	request := v1agent.SetNewInstanceUIDRequest{
-		NewInstanceUID: opts.newInstanceUID,
+		NewInstanceUID: newUID,
 	}
 
 	agent, err := opts.client.AgentService.SetAgentNewInstanceUID(cmd.Context(), instanceUID, request)

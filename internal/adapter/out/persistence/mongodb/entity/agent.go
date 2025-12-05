@@ -251,8 +251,16 @@ func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
 
 // ToDomain converts the AgentSpec to domain model.
 func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
+	var uid uuid.UUID
+
+	const uuidSize = 16
+
+	if len(spec.NewInstanceUID) == uuidSize {
+		copy(uid[:], spec.NewInstanceUID)
+	}
+
 	return domainmodel.AgentSpec{
-		NewInstanceUID: spec.NewInstanceUID,
+		NewInstanceUID: uid,
 		RemoteConfig:   spec.RemoteConfig.ToDomain(),
 	}
 }
@@ -488,7 +496,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),
 		},
 		Spec: AgentSpec{
-			NewInstanceUID: agent.Spec.NewInstanceUID,
+			NewInstanceUID: agent.Spec.NewInstanceUID[:],
 			RemoteConfig:   AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
 		},
 		Status: AgentStatus{

@@ -62,6 +62,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	}
 
 	var capabilities int32
+
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
@@ -73,7 +74,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		ConnectionSettings:  nil,
 		PackagesAvailable:   nil,
 		Flags:               flags,
-		Capabilities:        uint64(capabilities),
+		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
 		AgentIdentification: agentIdentification,
 		Command:             nil,
 		CustomCapabilities:  nil,

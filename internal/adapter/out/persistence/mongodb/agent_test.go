@@ -786,7 +786,7 @@ func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		newInstanceUID := []byte("new-instance-uid-123")
+		newInstanceUID := uuid.New()
 		agent := model.NewAgent(instanceUID)
 		agent.Spec.NewInstanceUID = newInstanceUID
 
@@ -800,7 +800,7 @@ func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 		assert.NotNil(t, retrievedAgent)
 		assert.Equal(t, newInstanceUID, retrievedAgent.Spec.NewInstanceUID)
 		assert.True(t, retrievedAgent.HasNewInstanceUID())
-		assert.Equal(t, newInstanceUID, retrievedAgent.NewInstanceUID())
+		assert.Equal(t, newInstanceUID[:], retrievedAgent.NewInstanceUID())
 	})
 
 	t.Run("Agent without NewInstanceUID", func(t *testing.T) {

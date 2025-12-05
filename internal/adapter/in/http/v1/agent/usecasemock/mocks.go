@@ -177,7 +177,7 @@ func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.C
 }
 
 // SetNewInstanceUID provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID string) (*agent.Agent, error) {
+func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error) {
 	ret := _mock.Called(ctx, instanceUID, newInstanceUID)
 
 	if len(ret) == 0 {
@@ -186,17 +186,17 @@ func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceU
 
 	var r0 *agent.Agent
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) (*agent.Agent, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) (*agent.Agent, error)); ok {
 		return returnFunc(ctx, instanceUID, newInstanceUID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, string) *agent.Agent); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) *agent.Agent); ok {
 		r0 = returnFunc(ctx, instanceUID, newInstanceUID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*agent.Agent)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, string) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID) error); ok {
 		r1 = returnFunc(ctx, instanceUID, newInstanceUID)
 	} else {
 		r1 = ret.Error(1)
@@ -212,12 +212,12 @@ type MockManageUsecase_SetNewInstanceUID_Call struct {
 // SetNewInstanceUID is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceUID uuid.UUID
-//   - newInstanceUID string
+//   - newInstanceUID uuid.UUID
 func (_e *MockManageUsecase_Expecter) SetNewInstanceUID(ctx interface{}, instanceUID interface{}, newInstanceUID interface{}) *MockManageUsecase_SetNewInstanceUID_Call {
 	return &MockManageUsecase_SetNewInstanceUID_Call{Call: _e.mock.On("SetNewInstanceUID", ctx, instanceUID, newInstanceUID)}
 }
 
-func (_c *MockManageUsecase_SetNewInstanceUID_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID, newInstanceUID string)) *MockManageUsecase_SetNewInstanceUID_Call {
+func (_c *MockManageUsecase_SetNewInstanceUID_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID)) *MockManageUsecase_SetNewInstanceUID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -227,9 +227,9 @@ func (_c *MockManageUsecase_SetNewInstanceUID_Call) Run(run func(ctx context.Con
 		if args[1] != nil {
 			arg1 = args[1].(uuid.UUID)
 		}
-		var arg2 string
+		var arg2 uuid.UUID
 		if args[2] != nil {
-			arg2 = args[2].(string)
+			arg2 = args[2].(uuid.UUID)
 		}
 		run(
 			arg0,
@@ -245,7 +245,7 @@ func (_c *MockManageUsecase_SetNewInstanceUID_Call) Return(agent1 *agent.Agent, 
 	return _c
 }
 
-func (_c *MockManageUsecase_SetNewInstanceUID_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID, newInstanceUID string) (*agent.Agent, error)) *MockManageUsecase_SetNewInstanceUID_Call {
+func (_c *MockManageUsecase_SetNewInstanceUID_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error)) *MockManageUsecase_SetNewInstanceUID_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -31,7 +31,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			InstanceUID: instanceUID,
 		},
 		Spec: AgentSpec{
-			NewInstanceUID: nil,
+			NewInstanceUID: uuid.UUID{},
 			RemoteConfig:   NewRemoteConfig(),
 		},
 		Status: AgentStatus{
@@ -809,7 +809,7 @@ func (a *Agent) MarkConfigured(triggeredBy string) {
 
 // NewInstanceUID returns the new instance UID to inform the agent.
 func (a *Agent) NewInstanceUID() []byte {
-	return a.Spec.NewInstanceUID
+	return a.Spec.NewInstanceUID[:]
 }
 
 // HasNewInstanceUID checks if there is a new instance UID to inform the agent.
