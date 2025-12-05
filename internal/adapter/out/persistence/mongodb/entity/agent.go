@@ -478,6 +478,10 @@ func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
 
 // AgentFromDomain converts domain model to persistence model.
 func AgentFromDomain(agent *domainmodel.Agent) *Agent {
+	var newInstanceUID []byte
+	if agent.Spec.NewInstanceUID != uuid.Nil {
+		newInstanceUID = agent.Spec.NewInstanceUID[:]
+	}
 	return &Agent{
 		Common: Common{
 			Version: VersionV1,
@@ -493,7 +497,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),
 		},
 		Spec: AgentSpec{
-			NewInstanceUID: agent.Spec.NewInstanceUID[:],
+			NewInstanceUID: newInstanceUID,
 			RemoteConfig:   AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
 		},
 		Status: AgentStatus{
