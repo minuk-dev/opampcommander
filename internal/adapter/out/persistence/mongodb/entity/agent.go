@@ -251,12 +251,9 @@ func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
 
 // ToDomain converts the AgentSpec to domain model.
 func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
-	var uid uuid.UUID
-
-	const uuidSize = 16
-
-	if len(spec.NewInstanceUID) == uuidSize {
-		copy(uid[:], spec.NewInstanceUID)
+	uid, err := uuid.FromBytes(spec.NewInstanceUID)
+	if err != nil {
+		uid = uuid.Nil
 	}
 
 	return domainmodel.AgentSpec{
