@@ -75,3 +75,26 @@ func (s *Service) ListAgents(
 		},
 	), nil
 }
+
+// SetNewInstanceUID implements port.AgentManageUsecase.
+func (s *Service) SetNewInstanceUID(
+	ctx context.Context,
+	instanceUID uuid.UUID,
+	newInstanceUID uuid.UUID,
+) (*v1agent.Agent, error) {
+	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	// Set the new instance UID
+	agent.Spec.NewInstanceUID = newInstanceUID
+
+	// Save the updated agent
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save agent: %w", err)
+	}
+
+	return s.mapper.MapAgentToAPI(agent), nil
+}

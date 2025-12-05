@@ -31,7 +31,8 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			InstanceUID: instanceUID,
 		},
 		Spec: AgentSpec{
-			RemoteConfig: NewRemoteConfig(),
+			NewInstanceUID: uuid.Nil,
+			RemoteConfig:   NewRemoteConfig(),
 		},
 		Status: AgentStatus{
 			EffectiveConfig: AgentEffectiveConfig{
@@ -330,8 +331,11 @@ type AgentCommand struct {
 }
 
 // AgentSpec is a domain model to control opamp agent spec.
-// AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
+	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
+	NewInstanceUID uuid.UUID
+
+	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig
 }
 
@@ -801,4 +805,18 @@ func (a *Agent) MarkUnhealthy(triggeredBy, reason string) {
 // MarkConfigured marks the agent as configured.
 func (a *Agent) MarkConfigured(triggeredBy string) {
 	a.SetCondition(AgentConditionTypeConfigured, AgentConditionStatusTrue, triggeredBy, "Agent configuration applied")
+}
+
+// NewInstanceUID returns the new instance UID to inform the agent.
+func (a *Agent) NewInstanceUID() []byte {
+	if a.Spec.NewInstanceUID == uuid.Nil {
+		return nil
+	}
+
+	return a.Spec.NewInstanceUID[:]
+}
+
+// HasNewInstanceUID checks if there is a new instance UID to inform the agent.
+func (a *Agent) HasNewInstanceUID() bool {
+	return a.Spec.NewInstanceUID != uuid.Nil
 }

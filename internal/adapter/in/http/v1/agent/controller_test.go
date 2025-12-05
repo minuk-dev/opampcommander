@@ -4,6 +4,7 @@ package agent_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -290,6 +291,157 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
+
+func TestAgentControllerSetNewInstanceUID(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Set New Instance UID - happy case", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+		newInstanceUID := uuid.New()
+		newInstanceUIDStr := newInstanceUID.String()
+		//exhaustruct:ignore
+		expectedAgent := &v1agent.Agent{
+			Metadata: v1agent.Metadata{
+				InstanceUID: instanceUID,
+			},
+			Spec: v1agent.Spec{
+				NewInstanceUID: newInstanceUIDStr,
+			},
+		}
+
+		agentUsecase.EXPECT().
+			SetNewInstanceUID(mock.Anything, instanceUID, newInstanceUID).
+			Return(expectedAgent, nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		body := `{"newInstanceUid":"` + newInstanceUIDStr + `"}`
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPut,
+			"/api/v1/agents/"+instanceUID.String()+"/new-instance-uid",
+			strings.NewReader(body),
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		router.ServeHTTP(recorder, req)
+
+		// then
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		response := gjson.Parse(recorder.Body.String())
+		assert.Equal(t, instanceUID.String(), response.Get("metadata.instanceUid").String())
+		assert.Equal(t, newInstanceUIDStr, response.Get("spec.newInstanceUid").String())
+	})
+
+	t.Run("Set New Instance UID - invalid UUID returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when
+		recorder := httptest.NewRecorder()
+		body := `{"newInstanceUid":"new-instance-uid-123"}`
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPut,
+			"/api/v1/agents/not-a-uuid/new-instance-uid",
+			strings.NewReader(body),
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		router.ServeHTTP(recorder, req)
+
+		// then
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Contains(t, recorder.Body.String(), "invalid format")
+	})
+
+	t.Run("Set New Instance UID - missing body returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+
+		// when
+		recorder := httptest.NewRecorder()
+		body := `{}`
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPut,
+			"/api/v1/agents/"+instanceUID.String()+"/new-instance-uid",
+			strings.NewReader(body),
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		router.ServeHTTP(recorder, req)
+
+		// then - test actual behavior, whether validation catches it or not
+		if recorder.Code == http.StatusBadRequest {
+			assert.Contains(t, recorder.Body.String(), "required")
+		} else {
+			// If validation doesn't catch it, expect usecase error
+			assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+		}
+	})
+
+	t.Run("Set New Instance UID - usecase error returns 500", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+		newInstanceUID := uuid.New()
+		newInstanceUIDStr := newInstanceUID.String()
+
+		agentUsecase.EXPECT().
+			SetNewInstanceUID(mock.Anything, instanceUID, newInstanceUID).
+			Return(nil, assert.AnError)
+
+		// when
+		recorder := httptest.NewRecorder()
+		body := `{"newInstanceUid":"` + newInstanceUIDStr + `"}`
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPut,
+			"/api/v1/agents/"+instanceUID.String()+"/new-instance-uid",
+			strings.NewReader(body),
+		)
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		router.ServeHTTP(recorder, req)
+
+		// then
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
 }

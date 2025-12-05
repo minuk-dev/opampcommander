@@ -53,6 +53,20 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		}
 	}
 
+	var agentIdentification *protobufs.AgentIdentification
+	if agentModel.HasNewInstanceUID() {
+		// Agent has a new InstanceUID, need to inform the agent
+		agentIdentification = &protobufs.AgentIdentification{
+			NewInstanceUid: agentModel.NewInstanceUID(),
+		}
+	}
+
+	var capabilities int32
+
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
+
 	return &protobufs.ServerToAgent{
 		InstanceUid:         instanceUID[:],
 		ErrorResponse:       nil,
@@ -60,8 +74,8 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		ConnectionSettings:  nil,
 		PackagesAvailable:   nil,
 		Flags:               flags,
-		Capabilities:        0,
-		AgentIdentification: nil,
+		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
+		AgentIdentification: agentIdentification,
 		Command:             nil,
 		CustomCapabilities:  nil,
 		CustomMessage:       nil,

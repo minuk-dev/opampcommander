@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
@@ -46,6 +47,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/agents/:id",
 			Handler:     "http.v1.agent.Get",
 			HandlerFunc: c.Get,
+		},
+		{
+			Method:      http.MethodPut,
+			Path:        "/api/v1/agents/:id/new-instance-uid",
+			Handler:     "http.v1.agent.SetNewInstanceUID",
+			HandlerFunc: c.SetNewInstanceUID,
 		},
 	}
 }
@@ -112,6 +119,48 @@ func (c *Controller) Get(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to get agent", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, agent)
+}
+
+// SetNewInstanceUID sets a new instance UID for an agent.
+//
+// @Summary  Set New Instance UID
+// @Tags agent
+// @Description Set a new instance UID for an agent.
+// @Accept json
+// @Produce json
+// @Param id path string true "Instance UID of the agent"
+// @Param request body SetNewInstanceUIDRequest true "New instance UID request"
+// @Success 200 {object} Agent
+// @Failure 400 {object} ErrorModel
+// @Failure 404 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/agents/{id}/new-instance-uid [put].
+func (c *Controller) SetNewInstanceUID(ctx *gin.Context) {
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	var req v1agent.SetNewInstanceUIDRequest
+
+	err = ctx.ShouldBindJSON(&req)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, true)
+
+		return
+	}
+
+	agent, err := c.agentUsecase.SetNewInstanceUID(ctx.Request.Context(), instanceUID, req.NewInstanceUID)
+	if err != nil {
+		c.logger.Error("failed to set new instance UID", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while setting the new instance UID.")
 
 		return
 	}
