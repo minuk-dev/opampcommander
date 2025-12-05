@@ -62,10 +62,10 @@ The agent will be notified of the new instance UID when it next connects to the 
 
 Examples:
   # Set a new instance UID for an agent
-  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 new-instance-uid-123
+  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001
 
   # Set a new instance UID and output as JSON
-  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 new-instance-uid-123 -o json`,
+  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001 -o json`,
 		Args: cobra.ExactArgs(2), //nolint:mnd // exactly 2 args are required
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Parse agent instance UID

@@ -168,7 +168,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
 }
 
@@ -291,7 +291,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
-		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
 }
 

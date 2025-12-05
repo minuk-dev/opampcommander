@@ -16,7 +16,7 @@ type UpdateAgentConfigRequest struct {
 
 // SetNewInstanceUIDRequest is a struct that represents the request to set a new instance UID for the agent.
 type SetNewInstanceUIDRequest struct {
-	NewInstanceUID string `binding:"required" json:"newInstanceUid"`
+	NewInstanceUID uuid.UUID `binding:"required" json:"newInstanceUid"`
 } // @name SetNewInstanceUIDRequest
 
 // Agent represents an agent which is defined OpAMP protocol.

@@ -333,7 +333,7 @@ type AgentCommand struct {
 // AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
-	NewInstanceUID []byte
+	NewInstanceUID uuid.UUID
 
 	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig

@@ -80,7 +80,7 @@ func (s *Service) ListAgents(
 func (s *Service) SetNewInstanceUID(
 	ctx context.Context,
 	instanceUID uuid.UUID,
-	newInstanceUID string,
+	newInstanceUID uuid.UUID,
 ) (*v1agent.Agent, error) {
 	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
@@ -88,7 +88,7 @@ func (s *Service) SetNewInstanceUID(
 	}
 
 	// Set the new instance UID
-	agent.Spec.NewInstanceUID = []byte(newInstanceUID)
+	agent.Spec.NewInstanceUID = newInstanceUID
 
 	// Save the updated agent
 	err = s.agentUsecase.SaveAgent(ctx, agent)
