@@ -24,18 +24,7 @@ var (
 func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) (*protobufs.ServerToAgent, error) {
 	var flags uint64
 
-	// Request ReportFullState if:
-	// 1. Agent has a pending ReportFullState command
-	// 2. Agent's Metadata is not complete (missing description or capabilities)
-	if agentModel.Commands.HasReportFullStateCommand() || !agentModel.Metadata.IsComplete() {
-		flags |= uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState)
-	}
-
 	instanceUID := agentModel.Metadata.InstanceUID
-
-	// Clear all commands after processing
-	agentModel.Commands.Clear()
-
 	var (
 		remoteConfig *protobufs.AgentRemoteConfig
 		err          error

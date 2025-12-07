@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -17,7 +18,6 @@ import (
 type Agent struct {
 	Metadata AgentMetadata
 	Spec     AgentSpec
-	Commands AgentCommands
 	Status   AgentStatus
 }
 
@@ -67,9 +67,6 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			LastReportedAt: time.Time{},
 			LastReportedTo: nil,
 		},
-		Commands: AgentCommands{
-			Commands: []AgentCommand{},
-		},
 	}
 
 	// Apply options
@@ -87,7 +84,10 @@ func (a *Agent) IsConnected(_ context.Context) bool {
 
 // HasPendingServerMessages checks if there are any pending server messages for the agent.
 func (a *Agent) HasPendingServerMessages() bool {
-	return len(a.Commands.Commands) > 0
+	return !a.HasInstanceUID() ||
+		!a.Metadata.IsComplete() ||
+		!a.HasRemoteConfig()
+	// TODO: restart
 }
 
 // ConnectedServerID returns the server the agent is currently connected to.
@@ -514,9 +514,6 @@ func (a *Agent) ApplyRemoteConfig(config any) error {
 		return fmt.Errorf("failed to apply remote config: %w", err)
 	}
 
-	// Add command to notify agent about config change
-	a.Commands.SendRemoteConfigUpdated(configData.Key, time.Now(), "system")
-
 	return nil
 }
 
@@ -551,11 +548,6 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 	a.Status.AvailableComponents = *availableComponents
 
 	return nil
-}
-
-// SetReportFullState is a method to set the report full state of the agent.
-func (a *Agent) SetReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
-	a.Commands.SendReportFullState(reportFullState, requestedAt, requestedBy)
 }
 
 // RecordLastReported updates the last communicated time and server of the agent.
@@ -720,7 +712,8 @@ func (r *RemoteConfig) updateLastModifiedAt() {
 
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
-	return len(a.Commands.Commands) > 0 && a.IsRemoteConfigSupported()
+	return a.IsRemoteConfigSupported() &&
+		!bytes.Equal(a.Spec.RemoteConfig.Hash(), a.Status.RemoteConfigStatus.Hash)
 }
 
 // SetCondition sets or updates a condition in the agent's status.
