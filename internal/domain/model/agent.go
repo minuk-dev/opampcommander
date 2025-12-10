@@ -86,8 +86,19 @@ func (a *Agent) IsConnected(_ context.Context) bool {
 func (a *Agent) HasPendingServerMessages() bool {
 	return !a.HasInstanceUID() ||
 		!a.Metadata.IsComplete() ||
-		!a.HasRemoteConfig()
-	// TODO: restart
+		!a.HasRemoteConfig() ||
+		!a.ShouldBeRestarted()
+}
+
+// HasInstanceUID checks if the agent has a valid instance UID.
+func (a *Agent) HasInstanceUID() bool {
+	return a.Spec.NewInstanceUID != uuid.Nil
+}
+
+// ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
+func (a *Agent) ShouldBeRestarted() bool {
+	return a.Spec.RequiredRestartedAt != nil &&
+		a.Spec.RequiredRestartedAt.After(a.Status.ComponentHealth.StartTime)
 }
 
 // ConnectedServerID returns the server the agent is currently connected to.
@@ -210,6 +221,7 @@ func (am *AgentMetadata) IsComplete() bool {
 
 // AgentStatus is a domain model to control opamp agent status.
 type AgentStatus struct {
+	RemoteConfigStatus  AgentRemoteConfigStatus
 	EffectiveConfig     AgentEffectiveConfig
 	PackageStatuses     AgentPackageStatuses
 	ComponentHealth     AgentComponentHealth
@@ -337,6 +349,9 @@ type AgentSpec struct {
 
 	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig
+
+	// RequiredRestartedAt is the time when the agent is required to be restarted to apply a command that requires a restart.
+	RequiredRestartedAt *time.Time
 }
 
 // AgentComponentHealth is a domain model to control opamp agent component health.
@@ -561,15 +576,7 @@ func (a *Agent) RecordLastReported(by *Server, at time.Time) {
 
 // RemoteConfig is a struct to manage remote config.
 type RemoteConfig struct {
-	ConfigData       RemoteConfigData
-	LastErrorMessage string
-	LastModifiedAt   time.Time
-}
-
-// RemoteConfigData is a struct to manage remote config data with status.
-type RemoteConfigData struct {
-	Key           vo.Hash
-	Status        RemoteConfigStatus
+	Hash          vo.Hash
 	Config        []byte
 	LastUpdatedAt time.Time
 }
@@ -705,15 +712,10 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 	return a.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig)
 }
 
-// caution: inject now instead of time.Now()
-func (r *RemoteConfig) updateLastModifiedAt() {
-	r.LastModifiedAt = time.Now()
-}
-
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return a.IsRemoteConfigSupported() &&
-		!bytes.Equal(a.Spec.RemoteConfig.Hash(), a.Status.RemoteConfigStatus.Hash)
+		!bytes.Equal(a.Spec.RemoteConfig.Hash, a.Status.RemoteConfigStatus.LastRemoteConfigHash)
 }
 
 // SetCondition sets or updates a condition in the agent's status.
