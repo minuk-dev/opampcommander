@@ -114,7 +114,6 @@ func (s *Service) buildRemoteConfig(
 	}
 
 	// Check if agent already has this config applied
-	currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
 	if currentStatus == model.RemoteConfigStatusApplied {
 		// Agent already has this config applied, don't send config body again
 		// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed

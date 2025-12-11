@@ -25,7 +25,6 @@ func TestNewAgent(t *testing.T) {
 		assert.NotNil(t, a.Status.PackageStatuses.Packages)
 		assert.NotNil(t, a.Status.ComponentHealth.ComponentHealthMap)
 		assert.NotNil(t, a.Status.AvailableComponents.Components)
-		assert.NotNil(t, a.Commands.Commands)
 	})
 
 	t.Run("Create agent with description option", func(t *testing.T) {

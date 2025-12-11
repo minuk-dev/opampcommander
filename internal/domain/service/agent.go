@@ -86,7 +86,7 @@ func (s *AgentService) UpdateAgentConfig(ctx context.Context, instanceUID uuid.U
 		return fmt.Errorf("failed to get or create agent: %w", err)
 	}
 
-	err = agent.ApplyRemoteConfig(config)
+	err = agent.ApplyRemoteConfig(config, "text/yaml")
 	if err != nil {
 		return fmt.Errorf("failed to apply remote config: %w", err)
 	}

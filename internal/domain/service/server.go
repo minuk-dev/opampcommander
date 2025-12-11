@@ -358,7 +358,7 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 	var flags uint64
 
 	// Request ReportFullState if needed
-	if agent.Commands.HasReportFullStateCommand() || !agent.Metadata.IsComplete() {
+	if agent.NeedFullStateCommand() {
 		flags |= uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState)
 	}
 
