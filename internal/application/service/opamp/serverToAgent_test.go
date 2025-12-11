@@ -182,24 +182,13 @@ func TestBuildRemoteConfig_ConfigAlreadyApplied(t *testing.T) {
 	configHash, err := vo.NewHash(configBytes)
 	require.NoError(t, err)
 
-	// Create a config data with the same hash that server would send
-	configData := model.RemoteConfigData{
-		Key:           configHash,
-		Status:        model.RemoteConfigStatusUnset,
-		Config:        configBytes,
-		LastUpdatedAt: time.Now(),
-	}
-
 	// Apply the config data
-	err = agentModel.Spec.RemoteConfig.ApplyRemoteConfig(configData)
+	err = agentModel.Spec.RemoteConfig.ApplyRemoteConfig(configBytes)
 	require.NoError(t, err)
 
 	// Agent reports back that it applied the config
-	agentModel.Spec.RemoteConfig.SetStatus(configHash, model.RemoteConfigStatusApplied)
-
-	// Verify status was set
-	currentStatus := agentModel.Spec.RemoteConfig.GetStatus(configHash)
-	require.Equal(t, model.RemoteConfigStatusApplied, currentStatus, "Status should be set to Applied")
+	agentModel.Status.RemoteConfigStatus.Status = model.RemoteConfigStatusApplied
+	agentModel.Status.RemoteConfigStatus.LastRemoteConfigHash = configHash.Bytes()
 
 	// When: Build remote config
 	result, err := service.buildRemoteConfig(context.Background(), agentModel)

@@ -1,6 +1,7 @@
 package opamp
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -114,7 +115,9 @@ func (s *Service) buildRemoteConfig(
 	}
 
 	// Check if agent already has this config applied
-	if currentStatus == model.RemoteConfigStatusApplied {
+	currentStatus := agentModel.Status.RemoteConfigStatus.Status
+	if currentStatus == model.RemoteConfigStatusApplied &&
+		bytes.Equal(agentModel.Status.RemoteConfigStatus.LastRemoteConfigHash, configHash.Bytes()) {
 		// Agent already has this config applied, don't send config body again
 		// According to OpAMP spec: "SHOULD NOT be set if the config for this Agent has not changed
 		// since it was last requested (i.e. AgentConfigRequest.last_remote_config_hash field is equal
