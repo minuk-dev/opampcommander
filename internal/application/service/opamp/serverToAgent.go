@@ -26,6 +26,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	var flags uint64
 
 	instanceUID := agentModel.Metadata.InstanceUID
+
 	var (
 		remoteConfig *protobufs.AgentRemoteConfig
 		err          error

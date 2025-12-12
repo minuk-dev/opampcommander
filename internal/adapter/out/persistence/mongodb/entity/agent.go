@@ -31,7 +31,6 @@ type Agent struct {
 	Metadata AgentMetadata `bson:"metadata"`
 	Spec     AgentSpec     `bson:"spec"`
 	Status   AgentStatus   `bson:"status"`
-	Commands AgentCommands `bson:"commands"`
 }
 
 // AgentMetadata represents the metadata of an agent.
@@ -46,21 +45,21 @@ type AgentMetadata struct {
 type AgentSpec struct {
 	NewInstanceUID      []byte             `bson:"newInstanceUID,omitempty"`
 	RemoteConfig        *AgentRemoteConfig `bson:"remoteConfig,omitempty"`
-	RequiredRestartedAt *bson.DateTime     `bson:"requiredRestartedAt,omitempty"`
+	RequiredRestartedAt bson.DateTime      `bson:"requiredRestartedAt,omitempty"`
 }
 
 // AgentStatus represents the current status of an agent.
 type AgentStatus struct {
-	EffectiveConfig     *AgentEffectiveConfig        `bson:"effectiveConfig,omitempty"`
-	PackageStatuses     *AgentPackageStatuses        `bson:"packageStatuses,omitempty"`
-	ComponentHealth     *AgentComponentHealth        `bson:"componentHealth,omitempty"`
-	AvailableComponents *AgentAvailableComponents    `bson:"availableComponents,omitempty"`
-	RemoteConfigStatus  *AgentRemoteConfigStatus     `bson:"remoteConfigStatus,omitempty"`
-	Conditions          []AgentCondition             `bson:"conditions,omitempty"`
-	Connected           bool                         `bson:"connected,omitempty"`
-	ConnectionType      string                       `bson:"connectionType,omitempty"`
-	LastCommunicatedAt  bson.DateTime                `bson:"lastCommunicatedAt,omitempty"`
-	LastCommunicatedTo  *Server                      `bson:"lastCommunicatedTo,omitempty"`
+	EffectiveConfig     *AgentEffectiveConfig     `bson:"effectiveConfig,omitempty"`
+	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
+	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
+	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
+	RemoteConfigStatus  *AgentRemoteConfigStatus  `bson:"remoteConfigStatus,omitempty"`
+	Conditions          []AgentCondition          `bson:"conditions,omitempty"`
+	Connected           bool                      `bson:"connected,omitempty"`
+	ConnectionType      string                    `bson:"connectionType,omitempty"`
+	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
+	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
 }
 
 // AgentCondition represents a condition of an agent in MongoDB.
@@ -70,21 +69,6 @@ type AgentCondition struct {
 	Status             string        `bson:"status"`
 	Reason             string        `bson:"reason"`
 	Message            string        `bson:"message,omitempty"`
-}
-
-// AgentCommands represents the commands to be sent to an agent.
-type AgentCommands struct {
-	Commands []AgentCommand `bson:"commands"`
-}
-
-// AgentCommand represents a command to be sent to an agent.
-type AgentCommand struct {
-	CommandID               uuid.UUID     `bson:"commandId"`
-	ReportFullState         bool          `bson:"reportFullState"`
-	RemoteConfigUpdated     bool          `bson:"remoteConfigUpdated"`
-	RemoteConfigUpdatedHash bson.Binary   `bson:"remoteConfigUpdatedHash"`
-	CreatedAt               bson.DateTime `bson:"createdAt"`
-	CreatedBy               string        `bson:"createdBy"`
 }
 
 // AgentDescription is a struct to manage agent description.
@@ -270,7 +254,7 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 	return domainmodel.AgentSpec{
 		NewInstanceUID:      uid,
 		RemoteConfig:        spec.RemoteConfig.ToDomain(),
-		RequiredRestartedAt: nil, // TODO: implement proper conversion from bson.DateTime
+		RequiredRestartedAt: time.Time{},
 	}
 }
 
@@ -310,8 +294,14 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		),
 		RemoteConfigStatus: func() domainmodel.AgentRemoteConfigStatus {
 			if status.RemoteConfigStatus == nil {
-				return domainmodel.AgentRemoteConfigStatus{}
+				return domainmodel.AgentRemoteConfigStatus{
+					LastRemoteConfigHash: nil,
+					Status:               domainmodel.RemoteConfigStatusUnset,
+					ErrorMessage:         "",
+					LastUpdatedAt:        time.Time{},
+				}
 			}
+
 			return status.RemoteConfigStatus.ToDomain()
 		}(),
 		Conditions:     conditions,
@@ -319,31 +309,6 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),
 		LastReportedAt: status.LastCommunicatedAt.Time(),
 		LastReportedTo: status.LastCommunicatedTo.ToDomainModel(),
-	}
-}
-
-// ToDomain converts the AgentCommands to domain model.
-func (ac *AgentCommands) ToDomain() domainmodel.AgentCommands {
-	if ac == nil {
-		return domainmodel.AgentCommands{
-			Commands: []domainmodel.AgentCommand{},
-		}
-	}
-
-	commands := make([]domainmodel.AgentCommand, 0, len(ac.Commands))
-	for _, cmd := range ac.Commands {
-		commands = append(commands, domainmodel.AgentCommand{
-			CommandID:               cmd.CommandID,
-			ReportFullState:         cmd.ReportFullState,
-			RemoteConfigUpdated:     cmd.RemoteConfigUpdated,
-			RemoteConfigUpdatedHash: vo.Hash(cmd.RemoteConfigUpdatedHash.Data),
-			CreatedAt:               cmd.CreatedAt.Time(),
-			CreatedBy:               cmd.CreatedBy,
-		})
-	}
-
-	return domainmodel.AgentCommands{
-		Commands: commands,
 	}
 }
 
@@ -508,7 +473,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		Spec: AgentSpec{
 			NewInstanceUID:      newInstanceUID,
 			RemoteConfig:        AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
-			RequiredRestartedAt: nil, // TODO: implement proper conversion
+			RequiredRestartedAt: bson.NewDateTimeFromTime(agent.Spec.RequiredRestartedAt),
 		},
 		Status: AgentStatus{
 			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
@@ -522,34 +487,6 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
 			LastCommunicatedTo:  ToServerEntity(agent.Status.LastReportedTo),
 		},
-	}
-}
-
-// AgentCommandsFromDomain converts domain model to persistence model.
-func AgentCommandsFromDomain(domain *domainmodel.AgentCommands) AgentCommands {
-	if domain == nil {
-		return AgentCommands{
-			Commands: []AgentCommand{},
-		}
-	}
-
-	commands := make([]AgentCommand, 0, len(domain.Commands))
-	for _, cmd := range domain.Commands {
-		commands = append(commands, AgentCommand{
-			CommandID:           cmd.CommandID,
-			ReportFullState:     cmd.ReportFullState,
-			RemoteConfigUpdated: cmd.RemoteConfigUpdated,
-			RemoteConfigUpdatedHash: bson.Binary{
-				Subtype: bson.TypeBinaryGeneric,
-				Data:    cmd.RemoteConfigUpdatedHash.Bytes(),
-			},
-			CreatedAt: bson.NewDateTimeFromTime(cmd.CreatedAt),
-			CreatedBy: cmd.CreatedBy,
-		})
-	}
-
-	return AgentCommands{
-		Commands: commands,
 	}
 }
 
@@ -648,7 +585,7 @@ func AgentRemoteConfigFromDomain(arc domainmodel.RemoteConfig) *AgentRemoteConfi
 			Config:             arc.Config,
 			LastUpdatedAtMilli: arc.LastUpdatedAt.UnixMilli(),
 		},
-		RemoteConfigStatuses: []AgentRemoteConfigSub{},
+		RemoteConfigStatuses:    []AgentRemoteConfigSub{},
 		LastErrorMessage:        "",
 		LastModifiedAtUnixMilli: arc.LastUpdatedAt.UnixMilli(),
 	}
@@ -694,13 +631,19 @@ func AgentAvailableComponentsFromDomain(acc *domainmodel.AgentAvailableComponent
 // ToDomain converts the AgentRemoteConfigStatus to domain model.
 func (arcs *AgentRemoteConfigStatus) ToDomain() domainmodel.AgentRemoteConfigStatus {
 	if arcs == nil {
-		return domainmodel.AgentRemoteConfigStatus{}
+		return domainmodel.AgentRemoteConfigStatus{
+			LastRemoteConfigHash: nil,
+			Status:               domainmodel.RemoteConfigStatusUnset,
+			ErrorMessage:         "",
+			LastUpdatedAt:        time.Time{},
+		}
 	}
 
 	return domainmodel.AgentRemoteConfigStatus{
 		LastRemoteConfigHash: arcs.LastRemoteConfigHash,
 		Status:               domainmodel.RemoteConfigStatus(arcs.Status),
 		ErrorMessage:         arcs.ErrorMessage,
+		LastUpdatedAt:        time.Time{},
 	}
 }
 
