@@ -30,7 +30,7 @@ func remoteConfigStatusToDomain(remoteConfigStatus *protobufs.RemoteConfigStatus
 		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
 		Status:               model.RemoteConfigStatus(remoteConfigStatus.GetStatus()),
 		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
-		LastUpdatedAt:        time.Time{},
+		LastUpdatedAt:        time.Now(),
 	}
 }
 
