@@ -104,8 +104,8 @@ func (a *Agent) NeedFullStateCommand() bool {
 // HasPendingServerMessages checks if there are any pending server messages for the agent.
 func (a *Agent) HasPendingServerMessages() bool {
 	return a.NeedFullStateCommand() ||
-		!a.HasRemoteConfig() ||
-		!a.ShouldBeRestarted()
+		a.HasRemoteConfig() ||
+		a.ShouldBeRestarted()
 }
 
 // HasInstanceUID checks if the agent has a valid instance UID.
