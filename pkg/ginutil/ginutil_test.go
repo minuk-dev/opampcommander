@@ -191,8 +191,6 @@ func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	router := gin.New()
-
 	tests := []struct {
 		name         string
 		routePattern string
@@ -226,6 +224,8 @@ func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+
+			router := gin.New()
 
 			var actualURI string
 
