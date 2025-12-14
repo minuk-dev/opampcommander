@@ -1,6 +1,8 @@
 package opamp
 
 import (
+	"time"
+
 	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -28,6 +30,7 @@ func remoteConfigStatusToDomain(remoteConfigStatus *protobufs.RemoteConfigStatus
 		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
 		Status:               model.RemoteConfigStatus(remoteConfigStatus.GetStatus()),
 		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
+		LastUpdatedAt:        time.Now(),
 	}
 }
 

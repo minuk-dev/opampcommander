@@ -1,7 +1,10 @@
 package model
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,11 +16,15 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
+var (
+	// ErrUnsupportedRemoteConfigContentType is returned when the remote config content type is not supported.
+	ErrUnsupportedRemoteConfigContentType = errors.New("unsupported remote config content type")
+)
+
 // Agent is a domain model to control opamp agent by opampcommander.
 type Agent struct {
 	Metadata AgentMetadata
 	Spec     AgentSpec
-	Commands AgentCommands
 	Status   AgentStatus
 }
 
@@ -31,10 +38,17 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			InstanceUID: instanceUID,
 		},
 		Spec: AgentSpec{
-			NewInstanceUID: uuid.Nil,
-			RemoteConfig:   NewRemoteConfig(),
+			NewInstanceUID:      uuid.Nil,
+			RemoteConfig:        NewRemoteConfig(),
+			RequiredRestartedAt: time.Time{},
 		},
 		Status: AgentStatus{
+			RemoteConfigStatus: AgentRemoteConfigStatus{
+				LastRemoteConfigHash: nil,
+				Status:               RemoteConfigStatusUnset,
+				ErrorMessage:         "",
+				LastUpdatedAt:        time.Time{},
+			},
 			EffectiveConfig: AgentEffectiveConfig{
 				ConfigMap: AgentConfigMap{
 					ConfigMap: make(map[string]AgentConfigFile),
@@ -67,9 +81,6 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			LastReportedAt: time.Time{},
 			LastReportedTo: nil,
 		},
-		Commands: AgentCommands{
-			Commands: []AgentCommand{},
-		},
 	}
 
 	// Apply options
@@ -85,9 +96,27 @@ func (a *Agent) IsConnected(_ context.Context) bool {
 	return !a.Status.LastReportedAt.IsZero()
 }
 
+// NeedFullStateCommand checks if the agent needs to send a ReportFullState command.
+func (a *Agent) NeedFullStateCommand() bool {
+	return !a.HasInstanceUID() || !a.Metadata.IsComplete()
+}
+
 // HasPendingServerMessages checks if there are any pending server messages for the agent.
 func (a *Agent) HasPendingServerMessages() bool {
-	return len(a.Commands.Commands) > 0
+	return a.NeedFullStateCommand() ||
+		a.HasRemoteConfig() ||
+		a.ShouldBeRestarted()
+}
+
+// HasInstanceUID checks if the agent has a valid instance UID.
+func (a *Agent) HasInstanceUID() bool {
+	return a.Spec.NewInstanceUID != uuid.Nil
+}
+
+// ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
+func (a *Agent) ShouldBeRestarted() bool {
+	return !a.Spec.RequiredRestartedAt.IsZero() &&
+		a.Spec.RequiredRestartedAt.After(a.Status.ComponentHealth.StartTime)
 }
 
 // ConnectedServerID returns the server the agent is currently connected to.
@@ -161,22 +190,6 @@ func WithAvailableComponents(availableComponents *AgentAvailableComponents) Agen
 	}
 }
 
-// WithRemoteConfigStatus sets the agent remote config status.
-func WithRemoteConfigStatus(remoteConfigStatus *AgentRemoteConfigStatus) AgentOption {
-	return func(agent *Agent) {
-		if remoteConfigStatus != nil {
-			if remoteConfigStatus.ErrorMessage != "" {
-				agent.Spec.RemoteConfig.SetLastErrorMessage(remoteConfigStatus.ErrorMessage)
-			}
-
-			agent.Spec.RemoteConfig.SetStatus(
-				vo.Hash(remoteConfigStatus.LastRemoteConfigHash),
-				remoteConfigStatus.Status,
-			)
-		}
-	}
-}
-
 // AgentMetadata is a domain model to control opamp agent metadata.
 type AgentMetadata struct {
 	// InstanceUID is a unique identifier for the agent instance.
@@ -210,6 +223,7 @@ func (am *AgentMetadata) IsComplete() bool {
 
 // AgentStatus is a domain model to control opamp agent status.
 type AgentStatus struct {
+	RemoteConfigStatus  AgentRemoteConfigStatus
 	EffectiveConfig     AgentEffectiveConfig
 	PackageStatuses     AgentPackageStatuses
 	ComponentHealth     AgentComponentHealth
@@ -337,6 +351,10 @@ type AgentSpec struct {
 
 	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig
+
+	// RequiredRestartedAt is the time when the agent is required to be
+	// restarted to apply a command that requires a restart.
+	RequiredRestartedAt time.Time
 }
 
 // AgentComponentHealth is a domain model to control opamp agent component health.
@@ -391,6 +409,7 @@ type AgentRemoteConfigStatus struct {
 	LastRemoteConfigHash []byte
 	Status               RemoteConfigStatus
 	ErrorMessage         string
+	LastUpdatedAt        time.Time
 }
 
 // AgentPackageStatuses is a map of package statuses.
@@ -490,32 +509,42 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 		return nil // No remote config status to report
 	}
 
-	if status.ErrorMessage != "" {
-		a.Spec.RemoteConfig.SetLastErrorMessage(status.ErrorMessage)
-	}
-
-	a.Spec.RemoteConfig.SetStatus(
-		vo.Hash(status.LastRemoteConfigHash),
-		status.Status,
-	)
+	a.Status.RemoteConfigStatus = *status
 
 	return nil
 }
 
 // ApplyRemoteConfig is a method to apply the remote configuration to the agent.
-func (a *Agent) ApplyRemoteConfig(config any) error {
-	configData, err := NewRemoteConfigData(config)
-	if err != nil {
-		return fmt.Errorf("failed to create remote config data: %w", err)
+func (a *Agent) ApplyRemoteConfig(config any, contentType string) error {
+	if config == nil {
+		return nil // No remote config to apply
 	}
 
-	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData)
+	var (
+		configData []byte
+		err        error
+	)
+
+	switch contentType {
+	case "application/json":
+		configData, err = json.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal remote config to JSON: %w", err)
+		}
+	case "application/yaml", "text/yaml":
+		configData, err = yaml.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal remote config to YAML: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported remote config content type: %s, %w",
+			contentType, ErrUnsupportedRemoteConfigContentType)
+	}
+
+	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData, contentType)
 	if err != nil {
 		return fmt.Errorf("failed to apply remote config: %w", err)
 	}
-
-	// Add command to notify agent about config change
-	a.Commands.SendRemoteConfigUpdated(configData.Key, time.Now(), "system")
 
 	return nil
 }
@@ -553,11 +582,6 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 	return nil
 }
 
-// SetReportFullState is a method to set the report full state of the agent.
-func (a *Agent) SetReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
-	a.Commands.SendReportFullState(reportFullState, requestedAt, requestedBy)
-}
-
 // RecordLastReported updates the last communicated time and server of the agent.
 func (a *Agent) RecordLastReported(by *Server, at time.Time) {
 	if by != nil {
@@ -569,16 +593,9 @@ func (a *Agent) RecordLastReported(by *Server, at time.Time) {
 
 // RemoteConfig is a struct to manage remote config.
 type RemoteConfig struct {
-	ConfigData       RemoteConfigData
-	LastErrorMessage string
-	LastModifiedAt   time.Time
-}
-
-// RemoteConfigData is a struct to manage remote config data with status.
-type RemoteConfigData struct {
-	Key           vo.Hash
-	Status        RemoteConfigStatus
+	Hash          vo.Hash
 	Config        []byte
+	ContentType   string
 	LastUpdatedAt time.Time
 }
 
@@ -617,35 +634,11 @@ func (s RemoteConfigStatus) String() string {
 // NewRemoteConfig creates a new RemoteConfig instance.
 func NewRemoteConfig() RemoteConfig {
 	return RemoteConfig{
-		ConfigData: RemoteConfigData{
-			Key:           vo.Hash{},
-			Status:        RemoteConfigStatusUnset,
-			Config:        []byte{},
-			LastUpdatedAt: time.Time{},
-		},
-		LastErrorMessage: "",
-		LastModifiedAt:   time.Now(),
+		Hash:          nil,
+		Config:        nil,
+		LastUpdatedAt: time.Time{},
+		ContentType:   "",
 	}
-}
-
-// NewRemoteConfigData creates a new RemoteConfigData instance from config.
-func NewRemoteConfigData(config any) (RemoteConfigData, error) {
-	configBytes, err := yaml.Marshal(config)
-	if err != nil {
-		return RemoteConfigData{}, fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	hash, err := vo.NewHash(configBytes)
-	if err != nil {
-		return RemoteConfigData{}, fmt.Errorf("failed to create hash: %w", err)
-	}
-
-	return RemoteConfigData{
-		Key:           hash,
-		Status:        RemoteConfigStatusUnset,
-		Config:        configBytes,
-		LastUpdatedAt: time.Now(),
-	}, nil
 }
 
 // RemoteConfigStatusFromOpAMP converts OpAMP status to domain model.
@@ -653,47 +646,20 @@ func RemoteConfigStatusFromOpAMP(status protobufs.RemoteConfigStatuses) RemoteCo
 	return RemoteConfigStatus(status)
 }
 
-// SetStatus sets status with key.
-func (r *RemoteConfig) SetStatus(key vo.Hash, status RemoteConfigStatus) {
-	r.updateLastModifiedAt()
-
-	if r.ConfigData.Key.Equal(key) {
-		r.ConfigData.Status = status
-	}
-}
-
-// GetStatus gets status with key.
-func (r *RemoteConfig) GetStatus(key vo.Hash) RemoteConfigStatus {
-	if r.ConfigData.Key.Equal(key) {
-		return r.ConfigData.Status
-	}
-
-	return RemoteConfigStatusUnset
-}
-
-// GetCurrentConfig returns the current config data.
-func (r *RemoteConfig) GetCurrentConfig() RemoteConfigData {
-	return r.ConfigData
-}
-
-// SetLastErrorMessage sets last error message.
-func (r *RemoteConfig) SetLastErrorMessage(errorMessage string) {
-	r.updateLastModifiedAt()
-	r.LastErrorMessage = errorMessage
-}
-
 // ApplyRemoteConfig applies remote config.
-func (r *RemoteConfig) ApplyRemoteConfig(configData RemoteConfigData) error {
-	r.updateLastModifiedAt()
-	r.ConfigData = configData
+func (r *RemoteConfig) ApplyRemoteConfig(configData []byte, contentType string) error {
+	var err error
+
+	r.Hash, err = vo.NewHash(configData)
+	if err != nil {
+		return fmt.Errorf("failed to create hash for remote config: %w", err)
+	}
+
+	r.LastUpdatedAt = time.Now()
+	r.Config = configData
+	r.ContentType = contentType
 
 	return nil
-}
-
-// IsManaged returns whether the agent is managed by the server.
-// An agent is considered managed if it has remote config.
-func (r *RemoteConfig) IsManaged() bool {
-	return !r.ConfigData.Key.IsZero()
 }
 
 // UpdateLastCommunicationInfo updates the last communication info of the agent.
@@ -713,14 +679,10 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 	return a.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRemoteConfig)
 }
 
-// caution: inject now instead of time.Now()
-func (r *RemoteConfig) updateLastModifiedAt() {
-	r.LastModifiedAt = time.Now()
-}
-
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
-	return len(a.Commands.Commands) > 0 && a.IsRemoteConfigSupported()
+	return a.IsRemoteConfigSupported() &&
+		!bytes.Equal(a.Spec.RemoteConfig.Hash, a.Status.RemoteConfigStatus.LastRemoteConfigHash)
 }
 
 // SetCondition sets or updates a condition in the agent's status.

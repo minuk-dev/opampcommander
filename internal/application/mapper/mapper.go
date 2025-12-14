@@ -91,16 +91,16 @@ func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1a
 	configMap := make(map[string]v1agent.ConfigFile)
 
 	// If there's config data, add it to the config map
-	if len(remoteConfig.ConfigData.Config) > 0 {
+	if len(remoteConfig.Config) > 0 {
 		configMap["remote_config.yaml"] = v1agent.ConfigFile{
-			Body:        string(remoteConfig.ConfigData.Config),
+			Body:        string(remoteConfig.Config),
 			ContentType: TextYAML,
 		}
 	}
 
 	return v1agent.RemoteConfig{
 		ConfigMap:  configMap,
-		ConfigHash: string(remoteConfig.ConfigData.Key),
+		ConfigHash: string(remoteConfig.Hash),
 	}
 }
 

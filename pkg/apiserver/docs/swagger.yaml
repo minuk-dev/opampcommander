@@ -256,6 +256,10 @@ definitions:
     type: object
   AgentSpec:
     properties:
+      newInstanceUid:
+        description: NewInstanceUID is a new instance UID to inform the agent of its
+          new identity.
+        type: string
       remoteConfig:
         allOf:
         - $ref: '#/definitions/AgentRemoteConfig'
@@ -446,6 +450,13 @@ definitions:
     x-enum-varnames:
     - ConditionTypeRegistered
     - ConditionTypeAlive
+  SetNewInstanceUIDRequest:
+    properties:
+      newInstanceUid:
+        type: string
+    required:
+    - newInstanceUid
+    type: object
   VersionInfo:
     properties:
       buildDate:
@@ -721,6 +732,45 @@ paths:
           schema:
             $ref: '#/definitions/ErrorModel'
       summary: Get Agent
+      tags:
+      - agent
+  /api/v1/agents/{id}/new-instance-uid:
+    put:
+      consumes:
+      - application/json
+      description: Set a new instance UID for an agent.
+      parameters:
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New instance UID request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/SetNewInstanceUIDRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Agent'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Set New Instance UID
       tags:
       - agent
   /api/v1/auth/basic:
