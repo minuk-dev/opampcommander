@@ -175,7 +175,8 @@ func (s *ManageService) toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentg
 	var agentConfig *v1agentgroup.AgentConfig
 	if domain.Spec.AgentConfig != nil {
 		agentConfig = &v1agentgroup.AgentConfig{
-			Value: domain.Spec.AgentConfig.Value,
+			Value:       string(domain.Spec.AgentConfig.Value),
+			ContentType: domain.Spec.AgentConfig.ContentType,
 		}
 	}
 
@@ -195,7 +196,7 @@ func (s *ManageService) toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentg
 		Metadata: v1agentgroup.Metadata{
 			Name:       domain.Metadata.Name,
 			Attributes: v1agentgroup.Attributes(domain.Metadata.Attributes),
-			Priority:   domain.Metadata.Priority,
+			Priority:   int(domain.Metadata.Priority),
 			Selector: v1agentgroup.AgentSelector{
 				IdentifyingAttributes:    domain.Metadata.Selector.IdentifyingAttributes,
 				NonIdentifyingAttributes: domain.Metadata.Selector.NonIdentifyingAttributes,
@@ -222,7 +223,8 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	var agentConfig *model.AgentConfig
 	if cmd.AgentConfig != nil {
 		agentConfig = &model.AgentConfig{
-			Value: cmd.AgentConfig.Value,
+			Value:       []byte(cmd.AgentConfig.Value),
+			ContentType: cmd.AgentConfig.ContentType,
 		}
 	}
 
@@ -230,7 +232,7 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 		Metadata: model.AgentGroupMetadata{
 			Name:       cmd.Name,
 			Attributes: model.Attributes(cmd.Attributes),
-			Priority:   cmd.Priority,
+			Priority:   int32(cmd.Priority), //nolint:gosec // Priority values are expected to be small
 			Selector: model.AgentSelector{
 				IdentifyingAttributes:    cmd.Selector.IdentifyingAttributes,
 				NonIdentifyingAttributes: cmd.Selector.NonIdentifyingAttributes,
@@ -268,7 +270,8 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 	var agentConfig *model.AgentConfig
 	if api.Spec.AgentConfig != nil {
 		agentConfig = &model.AgentConfig{
-			Value: api.Spec.AgentConfig.Value,
+			Value:       []byte(api.Spec.AgentConfig.Value),
+			ContentType: api.Spec.AgentConfig.ContentType,
 		}
 	}
 
@@ -286,7 +289,7 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 	return &model.AgentGroup{
 		Metadata: model.AgentGroupMetadata{
 			Name:       api.Metadata.Name,
-			Priority:   api.Metadata.Priority,
+			Priority:   int32(api.Metadata.Priority), //nolint:gosec // Priority values are expected to be small
 			Attributes: model.Attributes(api.Metadata.Attributes),
 			Selector: model.AgentSelector{
 				IdentifyingAttributes:    api.Metadata.Selector.IdentifyingAttributes,

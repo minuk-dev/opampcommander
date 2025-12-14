@@ -99,7 +99,8 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 
 		agentConfig = &agentgroupv1.AgentConfig{
-			Value: string(data),
+			Value:       string(data),
+			ContentType: "text/yaml",
 		}
 	}
 

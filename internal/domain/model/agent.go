@@ -515,9 +515,14 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 }
 
 // ApplyRemoteConfig is a method to apply the remote configuration to the agent.
-func (a *Agent) ApplyRemoteConfig(config any, contentType string) error {
+func (a *Agent) ApplyRemoteConfig(config any, contentType string, priority int32) error {
 	if config == nil {
 		return nil // No remote config to apply
+	}
+
+	if priority <= a.Spec.RemoteConfig.Priority {
+		// The new remote config has lower or equal priority, ignore it
+		return nil
 	}
 
 	var (
@@ -545,6 +550,9 @@ func (a *Agent) ApplyRemoteConfig(config any, contentType string) error {
 	if err != nil {
 		return fmt.Errorf("failed to apply remote config: %w", err)
 	}
+
+	// Set the priority after applying the config
+	a.Spec.RemoteConfig.Priority = priority
 
 	return nil
 }
@@ -597,6 +605,11 @@ type RemoteConfig struct {
 	Config        []byte
 	ContentType   string
 	LastUpdatedAt time.Time
+
+	// ConfiguredBy is the identifier of the agentgroup or user who configured the remote config.
+	ConfiguredBy string
+	// Priority is the priority of the remote config. Higher priority configs override lower priority ones.
+	Priority int32
 }
 
 // RemoteConfigStatus is generated from agentToServer of OpAMP.
@@ -638,6 +651,8 @@ func NewRemoteConfig() RemoteConfig {
 		Config:        nil,
 		LastUpdatedAt: time.Time{},
 		ContentType:   "",
+		ConfiguredBy:  "",
+		Priority:      0,
 	}
 }
 

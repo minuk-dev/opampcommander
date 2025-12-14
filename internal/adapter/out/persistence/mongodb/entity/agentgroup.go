@@ -31,7 +31,8 @@ type AgentSelector struct {
 
 // AgentConfig represents the remote configuration for agents in the group.
 type AgentConfig struct {
-	Value string `bson:"value" json:"value"`
+	Value       string `bson:"value"       json:"value"`
+	ContentType string `bson:"contentType" json:"contentType"`
 }
 
 // Condition represents a condition of an agent group in MongoDB.
@@ -57,7 +58,8 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 	var agentConfig *model.AgentConfig
 	if e.AgentConfig != nil {
 		agentConfig = &model.AgentConfig{
-			Value: e.AgentConfig.Value,
+			Value:       []byte(e.AgentConfig.Value),
+			ContentType: e.AgentConfig.ContentType,
 		}
 	}
 
@@ -76,7 +78,7 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 		Metadata: model.AgentGroupMetadata{
 			Name:       e.Name,
 			Attributes: e.Attributes,
-			Priority:   e.Priority,
+			Priority:   int32(e.Priority), //nolint:gosec // Priority values are expected to be small
 			Selector: model.AgentSelector{
 				IdentifyingAttributes:    e.Selector.IdentifyingAttributes,
 				NonIdentifyingAttributes: e.Selector.NonIdentifyingAttributes,
@@ -102,7 +104,8 @@ func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
 	var agentConfig *AgentConfig
 	if agentgroup.Spec.AgentConfig != nil {
 		agentConfig = &AgentConfig{
-			Value: agentgroup.Spec.AgentConfig.Value,
+			Value:       string(agentgroup.Spec.AgentConfig.Value),
+			ContentType: agentgroup.Spec.AgentConfig.ContentType,
 		}
 	}
 
@@ -124,7 +127,7 @@ func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
 		},
 		Name:       agentgroup.Metadata.Name,
 		Attributes: agentgroup.Metadata.Attributes,
-		Priority:   agentgroup.Metadata.Priority,
+		Priority:   int(agentgroup.Metadata.Priority),
 		Selector: AgentSelector{
 			IdentifyingAttributes:    agentgroup.Metadata.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: agentgroup.Metadata.Selector.NonIdentifyingAttributes,

@@ -103,5 +103,6 @@ type AgentSelector struct {
 // AgentConfig represents the remote configuration for agents in the group.
 // @name AgentGroupAgentConfig.
 type AgentConfig struct {
-	Value string `json:"value"`
+	Value       string `json:"value"`
+	ContentType string `json:"contentType"`
 }
