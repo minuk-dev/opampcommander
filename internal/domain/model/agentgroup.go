@@ -21,7 +21,7 @@ type AgentGroupMetadata struct {
 	Name string
 	// Priority is the priority of the agent group.
 	// When multiple agent groups match an agent, the one with the highest priority is applied.
-	Priority int
+	Priority int32
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
@@ -136,7 +136,10 @@ func NewAgentGroup(
 type AgentConfig struct {
 	// Value is the configuration content in string format.
 	// This can be used directly or as a reference to a configuration.
-	Value string
+	Value []byte
+
+	// ContentType is the MIME type of the configuration content.
+	ContentType string
 }
 
 // IsDeleted returns true if the agent group is marked as deleted.

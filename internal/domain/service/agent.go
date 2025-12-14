@@ -79,26 +79,6 @@ func (s *AgentService) ListAgents(
 	return res, nil
 }
 
-// UpdateAgentConfig updates the agent configuration.
-func (s *AgentService) UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error {
-	agent, err := s.GetOrCreateAgent(ctx, instanceUID)
-	if err != nil {
-		return fmt.Errorf("failed to get or create agent: %w", err)
-	}
-
-	err = agent.ApplyRemoteConfig(config, "text/yaml")
-	if err != nil {
-		return fmt.Errorf("failed to apply remote config: %w", err)
-	}
-
-	err = s.SaveAgent(ctx, agent)
-	if err != nil {
-		return fmt.Errorf("failed to save agent: %w", err)
-	}
-
-	return nil
-}
-
 // ListAgentsBySelector implements port.AgentUsecase.
 func (s *AgentService) ListAgentsBySelector(
 	ctx context.Context,

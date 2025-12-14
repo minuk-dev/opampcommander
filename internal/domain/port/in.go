@@ -35,7 +35,6 @@ type AgentUsecase interface {
 	SaveAgent(ctx context.Context, agent *model.Agent) error
 	// ListAgents lists all agents.
 	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
-	UpdateAgentConfigUsecase
 }
 
 // AgentNotificationUsecase is an interface for notifying servers about agent changes.
@@ -66,12 +65,6 @@ type AgentGroupRelatedUsecase interface {
 		agentGroup *model.AgentGroup,
 		options *model.ListOptions,
 	) (*model.ListResponse[*model.Agent], error)
-}
-
-// UpdateAgentConfigUsecase is an interface that defines the methods for updating agent configurations.
-type UpdateAgentConfigUsecase interface {
-	// UpdateAgentConfig updates the agent configuration.
-	UpdateAgentConfig(ctx context.Context, instanceUID uuid.UUID, config any) error
 }
 
 // ServerUsecase is an interface that defines the methods for server use cases.
