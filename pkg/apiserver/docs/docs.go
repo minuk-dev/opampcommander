@@ -359,6 +359,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agents/{id}/new-instance-uid": {
+            "put": {
+                "description": "Set a new instance UID for an agent.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Set New Instance UID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UID of the agent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New instance UID request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetNewInstanceUIDRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Agent"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/basic": {
             "get": {
                 "description": "Authenticate using basic auth credentials.",
@@ -1166,6 +1225,10 @@ const docTemplate = `{
         "AgentSpec": {
             "type": "object",
             "properties": {
+                "newInstanceUid": {
+                    "description": "NewInstanceUID is a new instance UID to inform the agent of its new identity.",
+                    "type": "string"
+                },
                 "remoteConfig": {
                     "description": "RemoteConfig is the remote configuration of the agent.",
                     "allOf": [
@@ -1431,6 +1494,17 @@ const docTemplate = `{
                 "ConditionTypeRegistered",
                 "ConditionTypeAlive"
             ]
+        },
+        "SetNewInstanceUIDRequest": {
+            "type": "object",
+            "required": [
+                "newInstanceUid"
+            ],
+            "properties": {
+                "newInstanceUid": {
+                    "type": "string"
+                }
+            }
         },
         "VersionInfo": {
             "type": "object",

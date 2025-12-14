@@ -172,13 +172,7 @@ func (s *Service) OnMessage(
 		logger.Error("failed to notify agent update", slog.String("error", err.Error()))
 	}
 
-	response, err := s.fetchServerToAgent(ctx, agent)
-	if err != nil {
-		logger.Error("failed to fetch ServerToAgent message", slog.String("error", err.Error()))
-
-		// whan the ServerToAgent message cannot be created, return a fallback ServerToAgent message
-		return s.createFallbackServerToAgent(instanceUID)
-	}
+	response := s.fetchServerToAgent(ctx, agent)
 
 	logger.Info("end successfully")
 
