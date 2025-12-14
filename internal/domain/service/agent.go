@@ -79,7 +79,7 @@ func (s *AgentService) ListAgents(
 	return res, nil
 }
 
-// tAgentsBySelector implements port.AgentUsecase.
+// ListAgentsBySelector implements port.AgentUsecase.
 func (s *AgentService) ListAgentsBySelector(
 	ctx context.Context,
 	selector model.AgentSelector,
