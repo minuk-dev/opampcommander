@@ -16,7 +16,7 @@ var (
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
-func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) (*protobufs.ServerToAgent, error) {
+func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
 	var flags uint64
 
 	instanceUID := agentModel.Metadata.InstanceUID
@@ -66,7 +66,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		Command:             nil,
 		CustomCapabilities:  nil,
 		CustomMessage:       nil,
-	}, nil
+	}
 }
 
 // createFallbackServerToAgent creates a fallback ServerToAgent message.

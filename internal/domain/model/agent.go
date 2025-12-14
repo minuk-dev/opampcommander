@@ -510,6 +510,7 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 	}
 
 	a.Status.RemoteConfigStatus = *status
+
 	return nil
 }
 
@@ -636,6 +637,7 @@ func NewRemoteConfig() RemoteConfig {
 		Hash:          nil,
 		Config:        nil,
 		LastUpdatedAt: time.Time{},
+		ContentType:   "",
 	}
 }
 
@@ -647,6 +649,7 @@ func RemoteConfigStatusFromOpAMP(status protobufs.RemoteConfigStatuses) RemoteCo
 // ApplyRemoteConfig applies remote config.
 func (r *RemoteConfig) ApplyRemoteConfig(configData []byte, contentType string) error {
 	var err error
+
 	r.Hash, err = vo.NewHash(configData)
 	if err != nil {
 		return fmt.Errorf("failed to create hash for remote config: %w", err)
