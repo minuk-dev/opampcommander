@@ -510,7 +510,6 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 	}
 
 	a.Status.RemoteConfigStatus = *status
-
 	return nil
 }
 
@@ -541,7 +540,7 @@ func (a *Agent) ApplyRemoteConfig(config any, contentType string) error {
 			contentType, ErrUnsupportedRemoteConfigContentType)
 	}
 
-	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData)
+	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData, contentType)
 	if err != nil {
 		return fmt.Errorf("failed to apply remote config: %w", err)
 	}
@@ -595,6 +594,7 @@ func (a *Agent) RecordLastReported(by *Server, at time.Time) {
 type RemoteConfig struct {
 	Hash          vo.Hash
 	Config        []byte
+	ContentType   string
 	LastUpdatedAt time.Time
 }
 
@@ -645,9 +645,16 @@ func RemoteConfigStatusFromOpAMP(status protobufs.RemoteConfigStatuses) RemoteCo
 }
 
 // ApplyRemoteConfig applies remote config.
-func (r *RemoteConfig) ApplyRemoteConfig(configData []byte) error {
+func (r *RemoteConfig) ApplyRemoteConfig(configData []byte, contentType string) error {
+	var err error
+	r.Hash, err = vo.NewHash(configData)
+	if err != nil {
+		return fmt.Errorf("failed to create hash for remote config: %w", err)
+	}
+
 	r.LastUpdatedAt = time.Now()
 	r.Config = configData
+	r.ContentType = contentType
 
 	return nil
 }
