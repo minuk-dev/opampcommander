@@ -2,11 +2,13 @@
 package agent_test
 
 import (
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -441,6 +443,95 @@ func TestAgentControllerSetNewInstanceUID(t *testing.T) {
 
 		router.ServeHTTP(recorder, req)
 
+		// then
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
+
+func TestAgentControllerRestartAgent(t *testing.T) {
+	t.Run("Restart Agent - happy case", func(t *testing.T) {
+		// given
+		instanceUID := uuid.New()
+		
+		// mock
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, slog.Default())
+		
+		agentUsecase.EXPECT().RestartAgent(mock.Anything, instanceUID).Return(nil)
+		
+		router := gin.New()
+		for _, route := range controller.RoutesInfo() {
+			router.Handle(route.Method, route.Path, route.HandlerFunc)
+		}
+		
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			"/api/v1/agents/"+instanceUID.String()+"/restart",
+			nil,
+		)
+		require.NoError(t, err)
+		
+		router.ServeHTTP(recorder, req)
+		
+		// then
+		assert.Equal(t, http.StatusOK, recorder.Code)
+	})
+	
+	t.Run("Restart Agent - invalid UUID returns 400", func(t *testing.T) {
+		// given
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, slog.Default())
+		
+		router := gin.New()
+		for _, route := range controller.RoutesInfo() {
+			router.Handle(route.Method, route.Path, route.HandlerFunc)
+		}
+		
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			"/api/v1/agents/not-a-uuid/restart",
+			nil,
+		)
+		require.NoError(t, err)
+		
+		router.ServeHTTP(recorder, req)
+		
+		// then
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	})
+	
+	t.Run("Restart Agent - usecase error returns 500", func(t *testing.T) {
+		// given
+		instanceUID := uuid.New()
+		
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, slog.Default())
+		
+		agentUsecase.EXPECT().RestartAgent(mock.Anything, instanceUID).Return(assert.AnError)
+		
+		router := gin.New()
+		for _, route := range controller.RoutesInfo() {
+			router.Handle(route.Method, route.Path, route.HandlerFunc)
+		}
+		
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodPost,
+			"/api/v1/agents/"+instanceUID.String()+"/restart",
+			nil,
+		)
+		require.NoError(t, err)
+		
+		router.ServeHTTP(recorder, req)
+		
 		// then
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})

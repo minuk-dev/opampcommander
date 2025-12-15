@@ -98,3 +98,18 @@ func (s *Service) SetNewInstanceUID(
 
 	return s.mapper.MapAgentToAPI(agent), nil
 }
+
+// RestartAgent implements port.AgentManageUsecase.
+func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	err = s.agentNotificationUsecase.RestartAgent(ctx, agent.Metadata.InstanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to restart agent: %w", err)
+	}
+
+	return nil
+}

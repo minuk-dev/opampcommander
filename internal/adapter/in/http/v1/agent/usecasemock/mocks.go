@@ -176,6 +176,63 @@ func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// RestartAgent provides a mock function for the type MockManageUsecase
+func (_mock *MockManageUsecase) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	ret := _mock.Called(ctx, instanceUID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RestartAgent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+		r0 = returnFunc(ctx, instanceUID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockManageUsecase_RestartAgent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RestartAgent'
+type MockManageUsecase_RestartAgent_Call struct {
+	*mock.Call
+}
+
+// RestartAgent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - instanceUID uuid.UUID
+func (_e *MockManageUsecase_Expecter) RestartAgent(ctx interface{}, instanceUID interface{}) *MockManageUsecase_RestartAgent_Call {
+	return &MockManageUsecase_RestartAgent_Call{Call: _e.mock.On("RestartAgent", ctx, instanceUID)}
+}
+
+func (_c *MockManageUsecase_RestartAgent_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID)) *MockManageUsecase_RestartAgent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockManageUsecase_RestartAgent_Call) Return(err error) *MockManageUsecase_RestartAgent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockManageUsecase_RestartAgent_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID) error) *MockManageUsecase_RestartAgent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetNewInstanceUID provides a mock function for the type MockManageUsecase
 func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error) {
 	ret := _mock.Called(ctx, instanceUID, newInstanceUID)
