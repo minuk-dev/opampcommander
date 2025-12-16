@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -14,6 +15,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/mapper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -101,15 +103,37 @@ func (s *Service) SetNewInstanceUID(
 
 // RestartAgent implements port.AgentManageUsecase.
 func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	agentModel, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	err = s.agentNotificationUsecase.RestartAgent(ctx, agent.Metadata.InstanceUID)
-	if err != nil {
-		return fmt.Errorf("failed to restart agent: %w", err)
+	// Check if agent supports restart capability
+	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRestartCommand) {
+		return fmt.Errorf("agent %s does not support restart capability", instanceUID)
 	}
+
+	// Set the required restart time to now to trigger restart on next OpAMP message
+	agentModel.Spec.RequiredRestartedAt = time.Now()
+
+	// Save the updated agent
+	err = s.agentUsecase.SaveAgent(ctx, agentModel)
+	if err != nil {
+		return fmt.Errorf("failed to save agent with restart flag: %w", err)
+	}
+
+	// Notify the connected server that the agent needs to be restarted
+	err = s.agentNotificationUsecase.NotifyAgentUpdated(ctx, agentModel)
+	if err != nil {
+		s.logger.Warn("failed to notify agent update for restart",
+			slog.String("agentInstanceUID", instanceUID.String()),
+			slog.String("error", err.Error()))
+		// Don't return error as the restart flag is already set
+	}
+
+	s.logger.Info("restart scheduled for agent", 
+		"instanceUID", instanceUID.String(),
+		"requiredRestartedAt", agentModel.Spec.RequiredRestartedAt)
 
 	return nil
 }
