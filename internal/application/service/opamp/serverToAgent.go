@@ -48,6 +48,13 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		}
 	}
 
+	var command *protobufs.ServerToAgentCommand
+	if agentModel.ShouldBeRestarted() {
+		command = &protobufs.ServerToAgentCommand{
+			Type: protobufs.CommandType_CommandType_Restart,
+		}
+	}
+
 	var capabilities int32
 
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
@@ -63,7 +70,7 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		Flags:               flags,
 		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
 		AgentIdentification: agentIdentification,
-		Command:             nil,
+		Command:             command,
 		CustomCapabilities:  nil,
 		CustomMessage:       nil,
 	}

@@ -89,16 +89,8 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 
 // RestartAgent requests the agent to restart.
 func (s *AgentNotificationService) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	// For now, this is a placeholder implementation
-	// In a real OpAMP implementation, this would send a restart command
-	// to the agent through the OpAMP protocol
-	s.logger.Info("restart requested for agent", "instanceUID", instanceUID.String())
-	
-	// TODO: Implement actual restart mechanism through OpAMP protocol
-	// This might involve:
-	// 1. Setting a restart flag in the agent's pending messages
-	// 2. Sending ServerToAgent message with restart command
-	// 3. Waiting for agent acknowledgment
-	
+	s.logger.Info("restart notification triggered", "instanceUID", instanceUID.String())
+	// This method is now primarily for logging/monitoring purposes
+	// The actual restart logic is handled in the application service layer
 	return nil
 }
