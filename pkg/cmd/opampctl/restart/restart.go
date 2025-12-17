@@ -1,3 +1,4 @@
+// Package restart provides the restart command for opampctl.
 package restart
 
 import (
@@ -37,7 +38,7 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "restart agent",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := context.Background()
 
 			client, err := clientutil.NewClient(options.GlobalConfig)
@@ -56,6 +57,7 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 			}
 
 			cmd.Printf("Agent %s restarted successfully\n", agentID)
+
 			return nil
 		},
 	}

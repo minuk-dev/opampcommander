@@ -88,7 +88,7 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 }
 
 // RestartAgent requests the agent to restart.
-func (s *AgentNotificationService) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
+func (s *AgentNotificationService) RestartAgent(_ context.Context, instanceUID uuid.UUID) error {
 	s.logger.Info("restart notification triggered", "instanceUID", instanceUID.String())
 	// This method is now primarily for logging/monitoring purposes
 	// The actual restart logic is handled in the application service layer

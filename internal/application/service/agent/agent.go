@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -17,6 +18,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+)
+
+var (
+	// ErrRestartCapabilityNotSupported is returned when agent doesn't support restart capability.
+	ErrRestartCapabilityNotSupported = errors.New("agent does not support restart capability")
 )
 
 var _ applicationport.AgentManageUsecase = (*Service)(nil)
@@ -110,7 +116,7 @@ func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 
 	// Check if agent supports restart capability
 	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRestartCommand) {
-		return fmt.Errorf("agent %s does not support restart capability", instanceUID)
+		return fmt.Errorf("agent %s: %w", instanceUID, ErrRestartCapabilityNotSupported)
 	}
 
 	// Set the required restart time to now to trigger restart on next OpAMP message
@@ -131,7 +137,7 @@ func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 		// Don't return error as the restart flag is already set
 	}
 
-	s.logger.Info("restart scheduled for agent", 
+	s.logger.Info("restart scheduled for agent",
 		"instanceUID", instanceUID.String(),
 		"requiredRestartedAt", agentModel.Spec.RequiredRestartedAt)
 
