@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
@@ -36,6 +36,7 @@ type Service struct {
 	// mapper
 	mapper *mapper.Mapper
 	logger *slog.Logger
+	clock  clock.Clock
 }
 
 // New creates a new instance of the Service struct.
@@ -50,6 +51,7 @@ func New(
 
 		mapper: mapper.New(),
 		logger: logger,
+		clock:  clock.RealClock{},
 	}
 }
 
@@ -120,7 +122,7 @@ func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 	}
 
 	// Set the required restart time to now to trigger restart on next OpAMP message
-	agentModel.Spec.RequiredRestartedAt = time.Now()
+	agentModel.SetRestartRequired(s.clock.Now())
 
 	// Save the updated agent
 	err = s.agentUsecase.SaveAgent(ctx, agentModel)
@@ -139,7 +141,7 @@ func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 
 	s.logger.Info("restart scheduled for agent",
 		"instanceUID", instanceUID.String(),
-		"requiredRestartedAt", agentModel.Spec.RequiredRestartedAt)
+		"requiredRestartedAt", agentModel.Spec.RestartInfo.RequiredRestartedAt)
 
 	return nil
 }

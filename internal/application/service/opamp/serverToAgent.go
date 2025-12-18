@@ -30,7 +30,7 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		remoteConfig = &protobufs.AgentRemoteConfig{
 			Config: &protobufs.AgentConfigMap{
 				ConfigMap: map[string]*protobufs.AgentConfigFile{
-					"opampcommander": &protobufs.AgentConfigFile{
+					"opampcommander": {
 						Body:        agentModel.Spec.RemoteConfig.Config,
 						ContentType: agentModel.Spec.RemoteConfig.ContentType,
 					},
