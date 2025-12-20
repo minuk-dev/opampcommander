@@ -59,8 +59,8 @@ func TestRestartAgentIntegration(t *testing.T) {
 		// Verify agent was updated with restart flag
 		updatedAgent := agentUsecase.agents[instanceUID]
 		assert.True(t, updatedAgent.ShouldBeRestarted(), "Agent should be flagged for restart")
-		assert.False(t, updatedAgent.Spec.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should be set")
-		assert.True(t, updatedAgent.Spec.RequiredRestartedAt.After(testAgent.Status.ComponentHealth.StartTime),
+		assert.False(t, updatedAgent.Spec.RestartInfo.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should be set")
+		assert.True(t, updatedAgent.Spec.RestartInfo.RequiredRestartedAt.After(testAgent.Status.ComponentHealth.StartTime),
 			"RequiredRestartedAt should be after original StartTime")
 
 		// Verify notification was called
@@ -103,7 +103,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 		// Verify agent was not updated
 		updatedAgent := agentUsecase.agents[instanceUID]
 		assert.False(t, updatedAgent.ShouldBeRestarted(), "Agent should not be flagged for restart")
-		assert.True(t, updatedAgent.Spec.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should remain zero")
+		assert.True(t, updatedAgent.Spec.RestartInfo.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should remain zero")
 	})
 }
 
