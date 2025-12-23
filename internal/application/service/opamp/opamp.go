@@ -228,7 +228,7 @@ func (s *Service) report(
 	by *model.Server,
 ) error {
 	// Update communication info
-	agent.RecordLastReported(by, s.clock.Now())
+	agent.RecordLastReported(by, s.clock.Now(), agentToServer.GetSequenceNum())
 
 	err := agent.ReportDescription(descToDomain(agentToServer.GetAgentDescription()))
 	if err != nil {
