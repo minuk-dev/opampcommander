@@ -418,6 +418,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agents/{id}/restart": {
+            "post": {
+                "description": "Restart an agent by its instance UID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Restart Agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Instance UID of the agent",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Agent restarted successfully"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/basic": {
             "get": {
                 "description": "Authenticate using basic auth credentials.",
@@ -1292,6 +1339,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/AgentPackageStatuses"
                         }
                     ]
+                },
+                "sequenceNum": {
+                    "description": "SequenceNum is the sequence number from the last AgentToServer message.",
+                    "type": "integer"
                 }
             }
         },
@@ -1541,6 +1592,9 @@ const docTemplate = `{
         "agentgroup.AgentConfig": {
             "type": "object",
             "properties": {
+                "contentType": {
+                    "type": "string"
+                },
                 "value": {
                     "type": "string"
                 }

@@ -2,6 +2,7 @@ package mongodb_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -842,5 +843,137 @@ func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 		assert.Equal(t, uuid.Nil, retrievedAgent.Spec.NewInstanceUID)
 		assert.False(t, retrievedAgent.HasNewInstanceUID())
 		assert.Nil(t, retrievedAgent.NewInstanceUID())
+	})
+}
+
+func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(
+		ctx,
+		testMongoDBImage,
+	)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Disconnect(ctx)
+		require.NoError(t, err)
+	})
+
+	database := client.Database("testdb_sequencenum")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	t.Run("Agent with SequenceNum is persisted and retrieved", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent and set sequence number
+		agent := model.NewAgent(instanceUID)
+		server := &model.Server{
+			ID: "test-server",
+		}
+		agent.RecordLastReported(server, time.Now(), 42)
+
+		// when - Save to database
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify sequence number is preserved
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedAgent)
+		assert.Equal(t, uint64(42), retrievedAgent.Status.SequenceNum)
+		assert.Equal(t, server.ID, retrievedAgent.Status.LastReportedTo.ID)
+	})
+
+	t.Run("Agent with zero SequenceNum", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent with default sequence number (0)
+		agent := model.NewAgent(instanceUID)
+		assert.Equal(t, uint64(0), agent.Status.SequenceNum)
+
+		// when - Save to database
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify sequence number is 0
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedAgent)
+		assert.Equal(t, uint64(0), retrievedAgent.Status.SequenceNum)
+	})
+
+	t.Run("Agent with large SequenceNum", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent with large sequence number
+		agent := model.NewAgent(instanceUID)
+		largeSeqNum := uint64(9223372036854775807) // Max int64 (safe for MongoDB)
+		server := &model.Server{
+			ID: "test-server",
+		}
+		agent.RecordLastReported(server, time.Now(), largeSeqNum)
+
+		// when - Save to database
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify large sequence number is preserved
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedAgent)
+		assert.Equal(t, largeSeqNum, retrievedAgent.Status.SequenceNum)
+	})
+
+	t.Run("Update SequenceNum multiple times", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent
+		agent := model.NewAgent(instanceUID)
+		server := &model.Server{
+			ID: "test-server",
+		}
+
+		// First update
+		agent.RecordLastReported(server, time.Now(), 1)
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), retrievedAgent.Status.SequenceNum)
+
+		// Second update
+		retrievedAgent.RecordLastReported(server, time.Now(), 2)
+		err = agentRepository.PutAgent(ctx, retrievedAgent)
+		require.NoError(t, err)
+
+		retrievedAgent2, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), retrievedAgent2.Status.SequenceNum)
+
+		// Third update
+		retrievedAgent2.RecordLastReported(server, time.Now(), 100)
+		err = agentRepository.PutAgent(ctx, retrievedAgent2)
+		require.NoError(t, err)
+
+		retrievedAgent3, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), retrievedAgent3.Status.SequenceNum)
 	})
 }
