@@ -42,7 +42,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 		Spec: AgentSpec{
 			NewInstanceUID: uuid.Nil,
 			RemoteConfig:   NewRemoteConfig(),
-			RestartInfo:    AgentRestartInfo{},
+			RestartInfo: AgentRestartInfo{
+				RequiredRestartedAt: time.Time{},
+			},
 		},
 		Status: AgentStatus{
 			RemoteConfigStatus: AgentRemoteConfigStatus{
@@ -138,6 +140,7 @@ func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
 	}
 
 	a.Spec.RestartInfo.RequiredRestartedAt = requiredAt
+
 	return nil
 }
 

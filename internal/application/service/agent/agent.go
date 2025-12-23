@@ -122,7 +122,10 @@ func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 	}
 
 	// Set the required restart time to now to trigger restart on next OpAMP message
-	agentModel.SetRestartRequired(s.clock.Now())
+	err = agentModel.SetRestartRequired(s.clock.Now())
+	if err != nil {
+		return fmt.Errorf("failed to set restart required: %w", err)
+	}
 
 	// Save the updated agent
 	err = s.agentUsecase.SaveAgent(ctx, agentModel)
