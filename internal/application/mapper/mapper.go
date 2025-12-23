@@ -58,6 +58,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
 			Conditions:          mapper.mapConditionsToAPI(agent.Status.Conditions),
 			Connected:           agent.Status.Connected,
 			ConnectionType:      agent.Status.ConnectionType.String(),
+			SequenceNum:         agent.Status.SequenceNum,
 			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
 		},
 	}

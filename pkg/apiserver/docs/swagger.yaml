@@ -299,6 +299,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/AgentPackageStatuses'
         description: PackageStatuses is a map of package statuses for the agent.
+      sequenceNum:
+        description: SequenceNum is the sequence number from the last AgentToServer
+          message.
+        type: integer
     type: object
   AuthnTokenResponse:
     properties:
@@ -480,6 +484,8 @@ definitions:
     type: object
   agentgroup.AgentConfig:
     properties:
+      contentType:
+        type: string
       value:
         type: string
     type: object
@@ -771,6 +777,37 @@ paths:
           schema:
             $ref: '#/definitions/ErrorModel'
       summary: Set New Instance UID
+      tags:
+      - agent
+  /api/v1/agents/{id}/restart:
+    post:
+      consumes:
+      - application/json
+      description: Restart an agent by its instance UID.
+      parameters:
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Agent restarted successfully
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Restart Agent
       tags:
       - agent
   /api/v1/auth/basic:

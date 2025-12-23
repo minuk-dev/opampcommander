@@ -102,6 +102,7 @@ type ItemForCLI struct {
 	ConnectionType string    `short:"Connection Type"  text:"Connection Type"`
 	Connected      bool      `short:"Connected"        text:"Connected"`
 	Healthy        bool      `short:"Healthy"          text:"Healthy"`
+	SequenceNum    uint64    `short:"Sequence Num"     text:"Sequence Num"`
 	StartedAt      string    `short:"Started At"       text:"Started At"`
 	LastReportedAt string    `short:"Last Reported At" text:"Last Reported At"`
 }
@@ -199,6 +200,7 @@ func toShortItemForCLI(agent v1agent.Agent) ItemForCLI {
 		ConnectionType: agent.Status.ConnectionType,
 		Connected:      agent.Status.Connected,
 		Healthy:        agent.Status.ComponentHealth.Healthy,
+		SequenceNum:    agent.Status.SequenceNum,
 		StartedAt:      time.Unix(agent.Status.ComponentHealth.StartTimeUnix, 0).Format(time.DateTime),
 		LastReportedAt: agent.Status.LastReportedAt,
 	}

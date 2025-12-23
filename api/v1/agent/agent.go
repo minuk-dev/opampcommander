@@ -79,6 +79,9 @@ type Status struct {
 	// ConnectionType indicates the type of connection the agent is using.
 	ConnectionType string `json:"connectionType,omitempty"`
 
+	// SequenceNum is the sequence number from the last AgentToServer message.
+	SequenceNum uint64 `json:"sequenceNum,omitempty"`
+
 	// LastReportedAt is the timestamp when the agent last reported its status.
 	LastReportedAt string `json:"lastReportedAt,omitempty"`
 } // @name AgentStatus

@@ -82,6 +82,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			},
 			Connected:      false,
 			ConnectionType: ConnectionTypeUnknown,
+			SequenceNum:    0,
 			LastReportedAt: time.Time{},
 			LastReportedTo: nil,
 		},
@@ -259,6 +260,8 @@ type AgentStatus struct {
 
 	Connected      bool
 	ConnectionType ConnectionType
+
+	SequenceNum    uint64
 	LastReportedAt time.Time
 	LastReportedTo *Server
 }
@@ -622,12 +625,13 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 }
 
 // RecordLastReported updates the last communicated time and server of the agent.
-func (a *Agent) RecordLastReported(by *Server, at time.Time) {
+func (a *Agent) RecordLastReported(by *Server, lastReportedAt time.Time, sequenceNum uint64) {
 	if by != nil {
 		a.Status.LastReportedTo = by
 	}
 
-	a.Status.LastReportedAt = at
+	a.Status.SequenceNum = sequenceNum
+	a.Status.LastReportedAt = lastReportedAt
 }
 
 // RemoteConfig is a struct to manage remote config.

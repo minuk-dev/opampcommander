@@ -25,6 +25,7 @@ func TestNewAgent(t *testing.T) {
 		assert.NotNil(t, a.Status.PackageStatuses.Packages)
 		assert.NotNil(t, a.Status.ComponentHealth.ComponentHealthMap)
 		assert.NotNil(t, a.Status.AvailableComponents.Components)
+		assert.Equal(t, uint64(0), a.Status.SequenceNum)
 	})
 
 	t.Run("Create agent with description option", func(t *testing.T) {
@@ -228,6 +229,104 @@ func TestAgent_UpdateLastCommunicationInfo(t *testing.T) {
 		a.UpdateLastCommunicationInfo(now, nil)
 		assert.Equal(t, now, a.Status.LastReportedAt)
 		assert.Equal(t, model.ConnectionTypeUnknown, a.Status.ConnectionType)
+	})
+}
+
+func TestAgent_RecordLastReported(t *testing.T) {
+	t.Parallel()
+	t.Run("Record last reported with server and sequence number", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		server := &model.Server{
+			ID: "test-server",
+		}
+		now := time.Now()
+		sequenceNum := uint64(123)
+
+		a.RecordLastReported(server, now, sequenceNum)
+
+		assert.Equal(t, server, a.Status.LastReportedTo)
+		assert.Equal(t, now, a.Status.LastReportedAt)
+		assert.Equal(t, sequenceNum, a.Status.SequenceNum)
+	})
+
+	t.Run("Record last reported without server", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		now := time.Now()
+		sequenceNum := uint64(456)
+
+		a.RecordLastReported(nil, now, sequenceNum)
+
+		assert.Nil(t, a.Status.LastReportedTo)
+		assert.Equal(t, now, a.Status.LastReportedAt)
+		assert.Equal(t, sequenceNum, a.Status.SequenceNum)
+	})
+
+	t.Run("Record last reported with incremental sequence numbers", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		server := &model.Server{
+			ID: "test-server",
+		}
+		now := time.Now()
+
+		// First report
+		a.RecordLastReported(server, now, 1)
+		assert.Equal(t, uint64(1), a.Status.SequenceNum)
+
+		// Second report
+		a.RecordLastReported(server, now.Add(time.Second), 2)
+		assert.Equal(t, uint64(2), a.Status.SequenceNum)
+
+		// Third report
+		a.RecordLastReported(server, now.Add(2*time.Second), 3)
+		assert.Equal(t, uint64(3), a.Status.SequenceNum)
+	})
+
+	t.Run("Record last reported with zero sequence number", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		server := &model.Server{
+			ID: "test-server",
+		}
+		now := time.Now()
+
+		a.RecordLastReported(server, now, 0)
+
+		assert.Equal(t, server, a.Status.LastReportedTo)
+		assert.Equal(t, now, a.Status.LastReportedAt)
+		assert.Equal(t, uint64(0), a.Status.SequenceNum)
+	})
+
+	t.Run("Record last reported updates existing values", func(t *testing.T) {
+		t.Parallel()
+
+		a := model.NewAgent(uuid.New())
+		server1 := &model.Server{
+			ID: "server-1",
+		}
+		server2 := &model.Server{
+			ID: "server-2",
+		}
+		time1 := time.Now()
+		time2 := time1.Add(time.Hour)
+
+		// First report
+		a.RecordLastReported(server1, time1, 100)
+		assert.Equal(t, server1, a.Status.LastReportedTo)
+		assert.Equal(t, time1, a.Status.LastReportedAt)
+		assert.Equal(t, uint64(100), a.Status.SequenceNum)
+
+		// Second report with different server
+		a.RecordLastReported(server2, time2, 200)
+		assert.Equal(t, server2, a.Status.LastReportedTo)
+		assert.Equal(t, time2, a.Status.LastReportedAt)
+		assert.Equal(t, uint64(200), a.Status.SequenceNum)
 	})
 }
 

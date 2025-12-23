@@ -58,6 +58,7 @@ type AgentStatus struct {
 	Conditions          []AgentCondition          `bson:"conditions,omitempty"`
 	Connected           bool                      `bson:"connected,omitempty"`
 	ConnectionType      string                    `bson:"connectionType,omitempty"`
+	SequenceNum         uint64                    `bson:"sequenceNum,omitempty"`
 	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
 	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
 }
@@ -309,6 +310,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		Conditions:     conditions,
 		Connected:      status.Connected,
 		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),
+		SequenceNum:    status.SequenceNum,
 		LastReportedAt: status.LastCommunicatedAt.Time(),
 		LastReportedTo: status.LastCommunicatedTo.ToDomainModel(),
 	}
@@ -486,6 +488,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			Conditions:          AgentConditionsFromDomain(agent.Status.Conditions),
 			Connected:           agent.Status.Connected,
 			ConnectionType:      agent.Status.ConnectionType.String(),
+			SequenceNum:         agent.Status.SequenceNum,
 			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
 			LastCommunicatedTo:  ToServerEntity(agent.Status.LastReportedTo),
 		},
