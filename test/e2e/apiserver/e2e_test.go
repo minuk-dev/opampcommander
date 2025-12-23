@@ -431,6 +431,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
 	apiPort := base.GetFreeTCPPort()
@@ -444,30 +445,36 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	// Setup MongoDB client to verify data directly
 	mongoClient, err := setupMongoDBClient(t, mongoURI)
 	require.NoError(t, err)
+
 	defer func() { _ = mongoClient.Disconnect(ctx) }()
 
 	// Given: OTel Collector is started
 	collectorUID := uuid.New()
 	collectorCfg := createCollectorConfig(t, base.CacheDir, apiPort, collectorUID)
 	collectorContainer := startOTelCollector(t, collectorCfg)
+
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// When: Collector reports via OpAMP multiple times
 	t.Log("Waiting for collector to register...")
 	require.Eventually(t, func() bool {
 		agents := listAgents(t, apiBaseURL)
+
 		return len(agents) > 0
 	}, 2*time.Minute, 1*time.Second, "Agent should register within timeout")
 
 	// Then: SequenceNum should be visible through API and incrementing
 	t.Log("Verifying SequenceNum through API...")
+
 	var previousSeqNum uint64
+
 	require.Eventually(t, func() bool {
 		agent := getAgentByID(t, apiBaseURL, collectorUID)
-		
+
 		// First check: SequenceNum should be present and non-zero
 		if agent.Status.SequenceNum == 0 {
 			t.Logf("SequenceNum is still 0, waiting...")
+
 			return false
 		}
 
@@ -475,17 +482,20 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 		if previousSeqNum == 0 {
 			previousSeqNum = agent.Status.SequenceNum
 			t.Logf("Initial SequenceNum: %d", agent.Status.SequenceNum)
+
 			return false // Need to wait for next report to confirm increment
 		}
 
 		// Verify it's incrementing
 		if agent.Status.SequenceNum > previousSeqNum {
 			t.Logf("SequenceNum incremented from %d to %d", previousSeqNum, agent.Status.SequenceNum)
+
 			return true
 		}
 
 		t.Logf("SequenceNum: %d (previous: %d)", agent.Status.SequenceNum, previousSeqNum)
 		previousSeqNum = agent.Status.SequenceNum
+
 		return false
 	}, 90*time.Second, 3*time.Second, "SequenceNum should increment through API")
 
@@ -495,9 +505,12 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 
 	// Then: Final verification - get multiple reports and ensure monotonic increase
 	t.Log("Final verification of SequenceNum progression...")
+
 	seqNums := make([]uint64, 0, 5)
-	for i := 0; i < 5; i++ {
+
+	for i := range 5 {
 		time.Sleep(3 * time.Second)
+
 		agent := getAgentByID(t, apiBaseURL, collectorUID)
 		seqNums = append(seqNums, agent.Status.SequenceNum)
 		t.Logf("Sample %d: SequenceNum = %d", i+1, agent.Status.SequenceNum)
@@ -505,7 +518,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 
 	// Verify monotonic increase
 	for i := 1; i < len(seqNums); i++ {
-		assert.GreaterOrEqual(t, seqNums[i], seqNums[i-1], 
+		assert.GreaterOrEqual(t, seqNums[i], seqNums[i-1],
 			"SequenceNum should be monotonically increasing or equal")
 	}
 
@@ -522,13 +535,13 @@ func setupMongoDBClient(t *testing.T, mongoURI string) (*mongo.Client, error) {
 
 	client, err := mongo.Connect(options.Client().ApplyURI(mongoURI))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
 	// Ping to verify connection
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to ping MongoDB: %w", err)
 	}
 
 	return client, nil
@@ -552,17 +565,17 @@ func verifySequenceNumInMongoDB(t *testing.T, client *mongo.Client, dbName strin
 	// Convert UUID to BSON Binary format
 	uuidBytes, err := agentUID.MarshalBinary()
 	require.NoError(t, err)
-	
+
 	filter := bson.M{"metadata.instanceUid": bson.Binary{
 		Subtype: 0x04, // UUID subtype
 		Data:    uuidBytes,
 	}}
-	
+
 	err = collection.FindOne(ctx, filter).Decode(&result)
 	require.NoError(t, err, "Should find agent in MongoDB")
 
-	assert.Greater(t, result.Status.SequenceNum, uint64(0), 
+	assert.Positive(t, result.Status.SequenceNum,
 		"SequenceNum in MongoDB should be greater than 0")
-	
+
 	t.Logf("SequenceNum in MongoDB: %d", result.Status.SequenceNum)
 }
