@@ -30,7 +30,7 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		remoteConfig = &protobufs.AgentRemoteConfig{
 			Config: &protobufs.AgentConfigMap{
 				ConfigMap: map[string]*protobufs.AgentConfigFile{
-					"opampcommander": &protobufs.AgentConfigFile{
+					"opampcommander": {
 						Body:        agentModel.Spec.RemoteConfig.Config,
 						ContentType: agentModel.Spec.RemoteConfig.ContentType,
 					},
@@ -45,6 +45,13 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		// Agent has a new InstanceUID, need to inform the agent
 		agentIdentification = &protobufs.AgentIdentification{
 			NewInstanceUid: agentModel.NewInstanceUID(),
+		}
+	}
+
+	var command *protobufs.ServerToAgentCommand
+	if agentModel.ShouldBeRestarted() {
+		command = &protobufs.ServerToAgentCommand{
+			Type: protobufs.CommandType_CommandType_Restart,
 		}
 	}
 
@@ -63,7 +70,7 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		Flags:               flags,
 		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
 		AgentIdentification: agentIdentification,
-		Command:             nil,
+		Command:             command,
 		CustomCapabilities:  nil,
 		CustomMessage:       nil,
 	}

@@ -18,6 +18,21 @@ func (a *Capabilities) HasReportsStatus() bool {
 	return a.Has(AgentCapabilityReportsStatus)
 }
 
+// HasAcceptsRemoteConfig checks if the AgentCapabilities has the AcceptsRemoteConfig capability.
+func (a *Capabilities) HasAcceptsRemoteConfig() bool {
+	return a.Has(AgentCapabilityAcceptsRemoteConfig)
+}
+
+// HasReportsEffectiveConfig checks if the AgentCapabilities has the ReportsEffectiveConfig capability.
+func (a *Capabilities) HasReportsEffectiveConfig() bool {
+	return a.Has(AgentCapabilityReportsEffectiveConfig)
+}
+
+// HasAcceptsRestartCommand checks if the AgentCapabilities has the AcceptsRestartCommand capability.
+func (a *Capabilities) HasAcceptsRestartCommand() bool {
+	return a.Has(AgentCapabilityAcceptsRestartCommand)
+}
+
 // Capability is a helper type to represent the capabilities of the Agent.
 // It is used to define the capabilities of the Agent in a more readable way.
 type Capability uint64

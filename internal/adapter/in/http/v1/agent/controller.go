@@ -54,6 +54,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.v1.agent.SetNewInstanceUID",
 			HandlerFunc: c.SetNewInstanceUID,
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/api/v1/agents/:id/restart",
+			Handler:     "http.v1.agent.Restart",
+			HandlerFunc: c.Restart,
+		},
 	}
 }
 
@@ -166,4 +172,36 @@ func (c *Controller) SetNewInstanceUID(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, agent)
+}
+
+// Restart restarts an agent by its instance UID.
+//
+// @Summary  Restart Agent
+// @Tags agent
+// @Description Restart an agent by its instance UID.
+// @Accept  json
+// @Produce  json
+// @Param  id path string true "Instance UID of the agent"
+// @Success  200 "Agent restarted successfully"
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/agents/{id}/restart [post].
+func (c *Controller) Restart(ctx *gin.Context) {
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	err = c.agentUsecase.RestartAgent(ctx.Request.Context(), instanceUID)
+	if err != nil {
+		c.logger.Error("failed to restart agent", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while restarting the agent.")
+
+		return
+	}
+
+	ctx.Status(http.StatusOK)
 }

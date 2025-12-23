@@ -16,6 +16,8 @@ const (
 	GetAgentURL = "/api/v1/agents/{id}"
 	// SetAgentNewInstanceUIDURL is the path to set a new instance UID for an agent.
 	SetAgentNewInstanceUIDURL = "/api/v1/agents/{id}/new-instance-uid"
+	// RestartAgentURL is the path to restart an agent.
+	RestartAgentURL = "/api/v1/agents/{id}/restart"
 )
 
 // AgentService provides methods to interact with agents.
@@ -79,4 +81,24 @@ func (s *AgentService) SetAgentNewInstanceUID(
 	}
 
 	return &result, nil
+}
+
+// RestartAgent restarts an agent by its ID.
+func (s *AgentService) RestartAgent(ctx context.Context, id uuid.UUID) error {
+	response, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("id", id.String()).
+		Post(RestartAgentURL)
+	if err != nil {
+		return fmt.Errorf("failed to restart agent: %w", err)
+	}
+
+	if response.IsError() {
+		return &ResponseError{
+			StatusCode:   response.StatusCode(),
+			ErrorMessage: response.String(),
+		}
+	}
+
+	return nil
 }

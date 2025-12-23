@@ -252,9 +252,11 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 	}
 
 	return domainmodel.AgentSpec{
-		NewInstanceUID:      uid,
-		RemoteConfig:        spec.RemoteConfig.ToDomain(),
-		RequiredRestartedAt: time.Time{},
+		NewInstanceUID: uid,
+		RemoteConfig:   spec.RemoteConfig.ToDomain(),
+		RestartInfo: domainmodel.AgentRestartInfo{
+			RequiredRestartedAt: time.Time{},
+		},
 	}
 }
 
@@ -473,7 +475,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		Spec: AgentSpec{
 			NewInstanceUID:      newInstanceUID,
 			RemoteConfig:        AgentRemoteConfigFromDomain(agent.Spec.RemoteConfig),
-			RequiredRestartedAt: bson.NewDateTimeFromTime(agent.Spec.RequiredRestartedAt),
+			RequiredRestartedAt: bson.NewDateTimeFromTime(agent.Spec.RestartInfo.RequiredRestartedAt),
 		},
 		Status: AgentStatus{
 			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),

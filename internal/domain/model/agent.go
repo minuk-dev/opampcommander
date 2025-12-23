@@ -19,6 +19,8 @@ import (
 var (
 	// ErrUnsupportedRemoteConfigContentType is returned when the remote config content type is not supported.
 	ErrUnsupportedRemoteConfigContentType = errors.New("unsupported remote config content type")
+	// ErrUnsupportedAgentOperation is returned when the agent does not support the requested operation.
+	ErrUnsupportedAgentOperation = errors.New("unsupported agent operation")
 )
 
 // Agent is a domain model to control opamp agent by opampcommander.
@@ -38,9 +40,11 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			InstanceUID: instanceUID,
 		},
 		Spec: AgentSpec{
-			NewInstanceUID:      uuid.Nil,
-			RemoteConfig:        NewRemoteConfig(),
-			RequiredRestartedAt: time.Time{},
+			NewInstanceUID: uuid.Nil,
+			RemoteConfig:   NewRemoteConfig(),
+			RestartInfo: AgentRestartInfo{
+				RequiredRestartedAt: time.Time{},
+			},
 		},
 		Status: AgentStatus{
 			RemoteConfigStatus: AgentRemoteConfigStatus{
@@ -115,8 +119,29 @@ func (a *Agent) HasInstanceUID() bool {
 
 // ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
 func (a *Agent) ShouldBeRestarted() bool {
-	return !a.Spec.RequiredRestartedAt.IsZero() &&
-		a.Spec.RequiredRestartedAt.After(a.Status.ComponentHealth.StartTime)
+	return a.Spec.RestartInfo.ShouldBeRestarted(a.Status.ComponentHealth.StartTime)
+}
+
+// ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
+func (a *AgentRestartInfo) ShouldBeRestarted(agentStartTime time.Time) bool {
+	return !a.RequiredRestartedAt.IsZero() &&
+		a.RequiredRestartedAt.After(agentStartTime)
+}
+
+// IsSupportRestart checks if the agent supports restart command.
+func (a *Agent) IsSupportRestart() bool {
+	return a.Metadata.Capabilities.HasAcceptsRestartCommand()
+}
+
+// SetRestartRequired sets the restart required information for the agent.
+func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
+	if !a.IsSupportRestart() {
+		return ErrUnsupportedAgentOperation
+	}
+
+	a.Spec.RestartInfo.RequiredRestartedAt = requiredAt
+
+	return nil
 }
 
 // ConnectedServerID returns the server the agent is currently connected to.
@@ -352,6 +377,12 @@ type AgentSpec struct {
 	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig
 
+	// RestartInfo contains information about agent restart.
+	RestartInfo AgentRestartInfo
+}
+
+// AgentRestartInfo is a domain model to control opamp agent restart information.
+type AgentRestartInfo struct {
 	// RequiredRestartedAt is the time when the agent is required to be
 	// restarted to apply a command that requires a restart.
 	RequiredRestartedAt time.Time
