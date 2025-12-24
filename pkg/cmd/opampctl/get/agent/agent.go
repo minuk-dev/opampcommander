@@ -18,6 +18,11 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
+const (
+	// MaxCompletionResults is the maximum number of completion results to return.
+	MaxCompletionResults = 20
+)
+
 var (
 	// ErrCommandExecutionFailed is returned when the command execution fails.
 	ErrCommandExecutionFailed = errors.New("command execution failed")
@@ -39,8 +44,9 @@ type CommandOptions struct {
 func NewCommand(options CommandOptions) *cobra.Command {
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
-		Use:   "agent",
-		Short: "agent",
+		Use:               "agent",
+		Short:             "agent",
+		ValidArgsFunction: options.ValidArgsFunction,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := options.Prepare(cmd, args)
 			if err != nil {
@@ -204,4 +210,26 @@ func toShortItemForCLI(agent v1agent.Agent) ItemForCLI {
 		StartedAt:      time.Unix(agent.Status.ComponentHealth.StartTimeUnix, 0).Format(time.DateTime),
 		LastReportedAt: agent.Status.LastReportedAt,
 	}
+}
+
+// ValidArgsFunction provides dynamic completion for agent instance UIDs.
+func (opt *CommandOptions) ValidArgsFunction(
+	cmd *cobra.Command, _ []string, toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+	client, err := clientutil.NewClient(opt.GlobalConfig)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	// Use search API with the toComplete string as query
+	agents, err := clientutil.ListAgentPartially(cmd.Context(), client, toComplete, MaxCompletionResults)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	instanceUIDs := lo.Map(agents, func(agent v1agent.Agent, _ int) string {
+		return agent.Metadata.InstanceUID.String()
+	})
+
+	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
 }
