@@ -44,6 +44,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
+			Path:        "/api/v1/agents/search",
+			Handler:     "http.v1.agent.Search",
+			HandlerFunc: c.Search,
+		},
+		{
+			Method:      http.MethodGet,
 			Path:        "/api/v1/agents/:id",
 			Handler:     "http.v1.agent.Get",
 			HandlerFunc: c.Get,
@@ -93,6 +99,51 @@ func (c *Controller) List(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of agents.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// Search searches agents by query string.
+//
+// @Summary  Search Agents
+// @Tags agent
+// @Description Search agents by instance UID query.
+// @Accept json
+// @Produce json
+// @Success 200 {array} Agent
+// @Param q query string true "Search query for instance UID"
+// @Param limit query int false "Maximum number of agents to return"
+// @Param continue query string false "Token to continue listing agents"
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/agents/search [get].
+func (c *Controller) Search(ctx *gin.Context) {
+	query := ctx.Query("q")
+	if query == "" {
+		ginutil.HandleValidationError(ctx, "q", "", fmt.Errorf("query parameter is required"), false)
+
+		return
+	}
+
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), query, &model.ListOptions{
+		Limit:    limit,
+		Continue: continueToken,
+	})
+	if err != nil {
+		c.logger.Error("failed to search agents", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while searching agents.")
 
 		return
 	}
