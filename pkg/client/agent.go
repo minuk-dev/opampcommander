@@ -12,6 +12,8 @@ import (
 const (
 	// ListAgentURL is the path to list all agents.
 	ListAgentURL = "/api/v1/agents"
+	// SearchAgentURL is the path to search agents.
+	SearchAgentURL = "/api/v1/agents/search"
 	// GetAgentURL is the path to get an agent by ID.
 	GetAgentURL = "/api/v1/agents/{id}"
 	// SetAgentNewInstanceUIDURL is the path to set a new instance UID for an agent.
@@ -53,6 +55,42 @@ func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*age
 			continueToken: listSettings.continueToken,
 		},
 	)
+}
+
+// SearchAgents searches agents by query.
+func (s *AgentService) SearchAgents(ctx context.Context, query string, opts ...ListOption) (*agentv1.ListResponse, error) {
+	var listSettings ListSettings
+	for _, opt := range opts {
+		opt.Apply(&listSettings)
+	}
+
+	var result agentv1.ListResponse
+
+	req := s.service.Resty.R().
+		SetContext(ctx).
+		SetQueryParam("q", query).
+		SetResult(&result)
+
+	if listSettings.limit != nil && *listSettings.limit > 0 {
+		req.SetQueryParam("limit", fmt.Sprintf("%d", *listSettings.limit))
+	}
+	if listSettings.continueToken != nil && *listSettings.continueToken != "" {
+		req.SetQueryParam("continue", *listSettings.continueToken)
+	}
+
+	response, err := req.Get(SearchAgentURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search agents: %w", err)
+	}
+
+	if response.IsError() {
+		return nil, &ResponseError{
+			StatusCode:   response.StatusCode(),
+			ErrorMessage: response.String(),
+		}
+	}
+
+	return &result, nil
 }
 
 // SetAgentNewInstanceUID sets a new instance UID for an agent.
