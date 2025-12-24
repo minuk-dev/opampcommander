@@ -221,3 +221,106 @@ func buildFilter(conditions []bson.M) bson.M {
 		return bson.M{"$and": conditions}
 	}
 }
+
+// SearchAgents implements port.AgentPersistencePort.
+func (a *AgentRepository) SearchAgents(
+	ctx context.Context,
+	query string,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	var (
+		countRetval         int64
+		continueTokenRetval string
+		entitiesRetval      []*entity.Agent
+	)
+
+	if options == nil {
+		//exhaustruct:ignore
+		options = &model.ListOptions{}
+	}
+
+	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
+	if err != nil && options.Continue != "" {
+		return nil, fmt.Errorf("invalid continue token: %w", err)
+	}
+
+	// Build filter for instanceUID search (case-insensitive partial match)
+	conditions := []bson.M{
+		{"metadata.instanceUID": bson.M{"$regex": query, "$options": "i"}},
+	}
+
+	// Add continue token condition if present
+	continueTokenFilter := withContinueToken(continueTokenObjectID)
+	if continueTokenFilter != nil {
+		conditions = append(conditions, continueTokenFilter)
+	}
+
+	filter := buildFilter(conditions)
+
+	var queryWg sync.WaitGroup
+
+	var (
+		fErr error
+		lErr error
+	)
+
+	queryWg.Go(func() {
+		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+		if err != nil {
+			fErr = fmt.Errorf("failed to search agents from mongodb: %w", err)
+
+			return
+		}
+
+		defer func() {
+			closeErr := cursor.Close(ctx)
+			if closeErr != nil {
+				a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+			}
+		}()
+
+		var entities []*entity.Agent
+
+		err = cursor.All(ctx, &entities)
+		if err != nil {
+			fErr = fmt.Errorf("failed to decode search agents from mongodb: %w", err)
+
+			return
+		}
+
+		continueToken, err := getContinueTokenFromEntities(entities)
+		if err != nil {
+			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
+
+			return
+		}
+
+		entitiesRetval = entities
+		continueTokenRetval = continueToken
+	})
+
+	queryWg.Go(func() {
+		cnt, err := a.collection.CountDocuments(ctx, filter)
+		if err != nil {
+			lErr = fmt.Errorf("failed to count search agents in mongodb: %w", err)
+
+			return
+		}
+
+		countRetval = cnt
+	})
+
+	queryWg.Wait()
+
+	if fErr != nil || lErr != nil {
+		return nil, fmt.Errorf("search operation failed: %w %w", fErr, lErr)
+	}
+
+	return &model.ListResponse[*model.Agent]{
+		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *model.Agent {
+			return item.ToDomain()
+		}),
+		Continue:           continueTokenRetval,
+		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
+	}, nil
+}
