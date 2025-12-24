@@ -32,6 +32,7 @@ type AdminUsecase interface {
 type AgentManageUsecase interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error)
 	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
+	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1agent.ListResponse, error)
 	SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*v1agent.Agent, error)
 	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 }
