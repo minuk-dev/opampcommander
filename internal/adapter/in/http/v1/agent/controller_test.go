@@ -544,3 +544,100 @@ func TestAgentControllerRestartAgent(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
 }
+
+func TestAgentControllerSearchAgent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Search Agents - happy case", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.MustParse("12345678-1234-1234-1234-123456789012")
+		//exhaustruct:ignore
+		agents := []v1agent.Agent{
+			{
+				Metadata: v1agent.Metadata{
+					InstanceUID: instanceUID,
+				},
+			},
+		}
+		agentUsecase.EXPECT().
+			SearchAgents(mock.Anything, "1234", mock.Anything).
+			Return(&v1agent.ListResponse{
+				APIVersion: "v1",
+				Kind:       v1agent.AgentKind,
+				Items:      agents,
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/search?q=1234", nil)
+		require.NoError(t, err)
+
+		router.ServeHTTP(recorder, req)
+
+		// then
+		assert.Equal(t, http.StatusOK, recorder.Code)
+
+		result := gjson.Parse(recorder.Body.String())
+		assert.Equal(t, "v1", result.Get("apiVersion").String())
+		assert.Equal(t, v1agent.AgentKind, result.Get("kind").String())
+		assert.Equal(t, int64(1), result.Get("items.#").Int())
+		assert.Equal(t, instanceUID.String(), result.Get("items.0.metadata.instanceUid").String())
+	})
+
+	t.Run("Search Agents - missing query parameter", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/search", nil)
+		require.NoError(t, err)
+
+		router.ServeHTTP(recorder, req)
+
+		// then
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	})
+
+	t.Run("Search Agents - usecase error returns 500", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		agentUsecase.EXPECT().
+			SearchAgents(mock.Anything, "1234", mock.Anything).
+			Return(nil, port.ErrResourceNotExist)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/search?q=1234", nil)
+		require.NoError(t, err)
+
+		router.ServeHTTP(recorder, req)
+
+		// then
+		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
