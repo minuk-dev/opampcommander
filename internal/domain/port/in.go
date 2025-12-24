@@ -35,6 +35,8 @@ type AgentUsecase interface {
 	SaveAgent(ctx context.Context, agent *model.Agent) error
 	// ListAgents lists all agents.
 	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
+	// SearchAgents searches agents by instance UID prefix.
+	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 }
 
 // AgentNotificationUsecase is an interface for notifying servers about agent changes.

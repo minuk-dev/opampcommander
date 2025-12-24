@@ -92,3 +92,17 @@ func (s *AgentService) ListAgentsBySelector(
 
 	return resp, nil
 }
+
+// SearchAgents implements port.AgentUsecase.
+func (s *AgentService) SearchAgents(
+	ctx context.Context,
+	query string,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	resp, err := s.agentPersistencePort.SearchAgents(ctx, query, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search agents: %w", err)
+	}
+
+	return resp, nil
+}

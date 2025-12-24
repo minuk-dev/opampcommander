@@ -24,6 +24,8 @@ type AgentPersistencePort interface {
 		selector model.AgentSelector,
 		options *model.ListOptions,
 	) (*model.ListResponse[*model.Agent], error)
+	// SearchAgents searches agents by query with pagination options.
+	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 }
 
 // EventHubPort is an interface that combines both sender and receiver ports for server events.
