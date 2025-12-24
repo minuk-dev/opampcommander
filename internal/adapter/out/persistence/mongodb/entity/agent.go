@@ -35,9 +35,10 @@ type Agent struct {
 
 // AgentMetadata represents the metadata of an agent.
 type AgentMetadata struct {
-	InstanceUID        bson.Binary              `bson:"instanceUid"`
-	Capabilities       *AgentCapabilities       `bson:"capabilities,omitempty"`
-	Description        *AgentDescription        `bson:"description,omitempty"`
+	InstanceUID       bson.Binary              `bson:"instanceUid"`
+	InstanceUIDString string                   `bson:"instanceUidString"` // String representation for searching
+	Capabilities      *AgentCapabilities       `bson:"capabilities,omitempty"`
+	Description       *AgentDescription        `bson:"description,omitempty"`
 	CustomCapabilities *AgentCustomCapabilities `bson:"customCapabilities,omitempty"`
 }
 
@@ -470,6 +471,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 				Subtype: bson.TypeBinaryUUID,
 				Data:    agent.Metadata.InstanceUID[:],
 			},
+			InstanceUIDString:  agent.Metadata.InstanceUID.String(),
 			Capabilities:       AgentCapabilitiesFromDomain(&agent.Metadata.Capabilities),
 			Description:        AgentDescriptionFromDomain(&agent.Metadata.Description),
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),
