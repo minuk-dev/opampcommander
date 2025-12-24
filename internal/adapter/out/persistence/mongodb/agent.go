@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -228,99 +229,47 @@ func (a *AgentRepository) SearchAgents(
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	var (
-		countRetval         int64
-		continueTokenRetval string
-		entitiesRetval      []*entity.Agent
-	)
-
 	if options == nil {
 		//exhaustruct:ignore
 		options = &model.ListOptions{}
 	}
 
-	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
-	if err != nil && options.Continue != "" {
-		return nil, fmt.Errorf("invalid continue token: %w", err)
+	// Since instanceUID is stored as bson.Binary, we need to fetch all agents
+	// and filter them in memory. For better performance, we should consider:
+	// 1. Adding a string representation of instanceUID in the entity
+	// 2. Using a different search strategy
+	// For now, we'll fetch and filter in memory with pagination
+	fetchLimit := int64(100)
+	if options.Limit > 0 {
+		fetchLimit = options.Limit
 	}
 
-	// Build filter for instanceUID search (case-insensitive partial match)
-	conditions := []bson.M{
-		{"metadata.instanceUID": bson.M{"$regex": query, "$options": "i"}},
+	listOptions := &model.ListOptions{
+		Limit:    fetchLimit * 10, // Fetch more to account for filtering
+		Continue: options.Continue,
 	}
 
-	// Add continue token condition if present
-	continueTokenFilter := withContinueToken(continueTokenObjectID)
-	if continueTokenFilter != nil {
-		conditions = append(conditions, continueTokenFilter)
+	resp, err := a.ListAgents(ctx, listOptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents for search: %w", err)
 	}
 
-	filter := buildFilter(conditions)
-
-	var queryWg sync.WaitGroup
-
-	var (
-		fErr error
-		lErr error
-	)
-
-	queryWg.Go(func() {
-		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
-		if err != nil {
-			fErr = fmt.Errorf("failed to search agents from mongodb: %w", err)
-
-			return
-		}
-
-		defer func() {
-			closeErr := cursor.Close(ctx)
-			if closeErr != nil {
-				a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+	// Filter agents by instanceUID string match (case-insensitive)
+	var filtered []*model.Agent
+	queryLower := strings.ToLower(query)
+	for _, agent := range resp.Items {
+		instanceUIDStr := strings.ToLower(agent.Metadata.InstanceUID.String())
+		if strings.Contains(instanceUIDStr, queryLower) {
+			filtered = append(filtered, agent)
+			if int64(len(filtered)) >= fetchLimit {
+				break
 			}
-		}()
-
-		var entities []*entity.Agent
-
-		err = cursor.All(ctx, &entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to decode search agents from mongodb: %w", err)
-
-			return
 		}
-
-		continueToken, err := getContinueTokenFromEntities(entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
-
-			return
-		}
-
-		entitiesRetval = entities
-		continueTokenRetval = continueToken
-	})
-
-	queryWg.Go(func() {
-		cnt, err := a.collection.CountDocuments(ctx, filter)
-		if err != nil {
-			lErr = fmt.Errorf("failed to count search agents in mongodb: %w", err)
-
-			return
-		}
-
-		countRetval = cnt
-	})
-
-	queryWg.Wait()
-
-	if fErr != nil || lErr != nil {
-		return nil, fmt.Errorf("search operation failed: %w %w", fErr, lErr)
 	}
 
 	return &model.ListResponse[*model.Agent]{
-		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *model.Agent {
-			return item.ToDomain()
-		}),
-		Continue:           continueTokenRetval,
-		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
+		Items:              filtered,
+		Continue:           resp.Continue,
+		RemainingItemCount: 0, // Approximate, since we're filtering in memory
 	}, nil
 }

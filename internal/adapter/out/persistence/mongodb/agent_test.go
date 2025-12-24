@@ -977,3 +977,165 @@ func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
 		assert.Equal(t, uint64(100), retrievedAgent3.Status.SequenceNum)
 	})
 }
+
+func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("Search by instance UID prefix", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create agents with known UUIDs
+		agent1 := model.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
+		agent2 := model.NewAgent(uuid.MustParse("12345678-5678-5678-5678-567856785678"))
+		agent3 := model.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
+
+		err = agentRepository.PutAgent(ctx, agent1)
+		require.NoError(t, err)
+		err = agentRepository.PutAgent(ctx, agent2)
+		require.NoError(t, err)
+		err = agentRepository.PutAgent(ctx, agent3)
+		require.NoError(t, err)
+
+		// when - Search by prefix "12345678-1234"
+		listResponse, err := agentRepository.SearchAgents(ctx, "12345678-1234", &model.ListOptions{})
+
+		// then - Should return only agent1
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, agent1.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+
+	t.Run("Search with no matches", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_no_match")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create an agent
+		agent := model.NewAgent(uuid.New())
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - Search for non-existent prefix
+		listResponse, err := agentRepository.SearchAgents(ctx, "zzzzz", &model.ListOptions{})
+
+		// then - Should return empty list
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Search with pagination", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_pagination")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create multiple agents with same prefix
+		for i := 0; i < 5; i++ {
+			agent := model.NewAgent(uuid.MustParse("aaaaaaaa-" + string(rune('0'+i)) + "000-1000-1000-100000000000"))
+			err = agentRepository.PutAgent(ctx, agent)
+			require.NoError(t, err)
+		}
+
+		// when - Search with limit
+		listResponse, err := agentRepository.SearchAgents(ctx, "aaaa", &model.ListOptions{Limit: 2})
+
+		// then - Should return limited results
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+		assert.NotEmpty(t, listResponse.Continue)
+	})
+
+	t.Run("Case insensitive search", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_case")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create agent with lowercase UUID
+		agent := model.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - Search with uppercase
+		listResponse, err := agentRepository.SearchAgents(ctx, "ABCD", &model.ListOptions{})
+
+		// then - Should find the agent
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, agent.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+}
