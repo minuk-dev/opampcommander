@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"sync"
 
 	"github.com/google/uuid"
@@ -264,8 +265,10 @@ func (a *AgentRepository) SearchAgents(
 	}
 
 	// Build filter for instanceUidString search (case-insensitive regex)
+	safeQuery := escapeRegexLiteral(query)
+
 	conditions := []bson.M{
-		{"metadata.instanceUidString": bson.M{"$regex": query, "$options": "i"}},
+		{"metadata.instanceUidString": bson.M{"$regex": safeQuery, "$options": "i"}},
 	}
 
 	// Add continue token condition if present
@@ -342,4 +345,10 @@ func (a *AgentRepository) SearchAgents(
 		Continue:           continueTokenRetval,
 		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
 	}, nil
+}
+
+// escapeRegexLiteral escapes all regular expression metacharacters in the input
+// so that it is treated as a literal string within a regex pattern.
+func escapeRegexLiteral(query string) string {
+	return regexp.QuoteMeta(query)
 }
