@@ -1138,4 +1138,79 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		assert.Len(t, listResponse.Items, 1)
 		assert.Equal(t, agent.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
 	})
+
+	t.Run("Empty query returns empty result", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_empty")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create an agent
+		agent := model.NewAgent(uuid.New())
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - Search with empty query
+		listResponse, err := agentRepository.SearchAgents(ctx, "", &model.ListOptions{})
+
+		// then - Should return empty list
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Special regex characters are escaped", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_escape")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create agents
+		agent1 := model.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
+		agent2 := model.NewAgent(uuid.MustParse("87654321-4321-4321-4321-210987654321"))
+		err = agentRepository.PutAgent(ctx, agent1)
+		require.NoError(t, err)
+		err = agentRepository.PutAgent(ctx, agent2)
+		require.NoError(t, err)
+
+		// when - Search with regex special characters (should be treated as literal)
+		listResponse, err := agentRepository.SearchAgents(ctx, "1234.*", &model.ListOptions{})
+
+		// then - Should not match as regex pattern, should treat as literal string
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items) // No agent has literal "1234.*" in UUID
+	})
 }

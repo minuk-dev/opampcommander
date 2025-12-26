@@ -259,12 +259,27 @@ func (a *AgentRepository) SearchAgents(
 		options = &model.ListOptions{}
 	}
 
+	// Validate and sanitize query input
+	if query == "" {
+		return &model.ListResponse[*model.Agent]{
+			Items:              []*model.Agent{},
+			Continue:           "",
+			RemainingItemCount: 0,
+		}, nil
+	}
+
+	// Limit query length to prevent abuse
+	const maxQueryLength = 100
+	if len(query) > maxQueryLength {
+		query = query[:maxQueryLength]
+	}
+
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
 	if err != nil && options.Continue != "" {
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	// Build filter for instanceUidString search (case-insensitive regex)
+	// Escape regex metacharacters to prevent regex injection
 	safeQuery := escapeRegexLiteral(query)
 
 	conditions := []bson.M{
