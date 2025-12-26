@@ -148,6 +148,14 @@ func (m *mockAgentUsecase) ListAgents(
 	return nil, errNotImplemented
 }
 
+func (m *mockAgentUsecase) SearchAgents(
+	_ context.Context,
+	_ string,
+	_ *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	return nil, errNotImplemented
+}
+
 type mockAgentNotificationUsecase struct {
 	notificationCalled bool
 }

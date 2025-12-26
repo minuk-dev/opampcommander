@@ -66,6 +66,7 @@ func NewAgentRepository(
 
 // ensureIndexes creates necessary indexes for the agent collection.
 func (a *AgentRepository) ensureIndexes(ctx context.Context) {
+	//exhaustruct:ignore
 	indexModel := mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "metadata.instanceUidString", Value: 1},

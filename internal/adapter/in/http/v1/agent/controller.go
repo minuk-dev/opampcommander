@@ -2,7 +2,7 @@
 package agent
 
 import (
-	"fmt"
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -11,6 +11,11 @@ import (
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
+)
+
+var (
+	// ErrQueryParameterRequired is returned when query parameter is missing.
+	ErrQueryParameterRequired = errors.New("query parameter is required")
 )
 
 // Controller is a struct that implements the agent controller.
@@ -124,7 +129,7 @@ func (c *Controller) List(ctx *gin.Context) {
 func (c *Controller) Search(ctx *gin.Context) {
 	query := ctx.Query("q")
 	if query == "" {
-		ginutil.HandleValidationError(ctx, "q", "", fmt.Errorf("query parameter is required"), false)
+		ginutil.HandleValidationError(ctx, "q", "", ErrQueryParameterRequired, false)
 
 		return
 	}

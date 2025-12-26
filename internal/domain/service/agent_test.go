@@ -81,6 +81,24 @@ func (m *MockAgentPersistencePort) ListAgentsBySelector(
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
 }
 
+func (m *MockAgentPersistencePort) SearchAgents(
+	ctx context.Context,
+	query string,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	args := m.Called(ctx, query, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*model.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
 // MockServerMessageUsecase is a mock implementation of ServerMessageUsecase.
 type MockServerMessageUsecase struct {
 	mock.Mock
@@ -473,5 +491,97 @@ func TestAgent_ApplyRemoteConfigPriority(t *testing.T) {
 		require.NoError(t, err)
 		// Config should be applied as it's higher than -1
 		assert.Equal(t, int32(0), agent.Spec.RemoteConfig.Priority)
+	})
+}
+
+func TestAgentService_SearchAgents(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SearchAgents returns matching agents", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := context.Background()
+		mockPort := new(MockAgentPersistencePort)
+		agentService := service.NewAgentService(mockPort, slog.Default())
+
+		instanceUID := uuid.New()
+		expectedAgents := []*model.Agent{
+			model.NewAgent(instanceUID),
+		}
+		expectedResponse := &model.ListResponse[*model.Agent]{
+			Items:              expectedAgents,
+			Continue:           "",
+			RemainingItemCount: 0,
+		}
+
+		mockPort.On("SearchAgents", ctx, "1234", mock.Anything).Return(expectedResponse, nil)
+
+		// when
+		response, err := agentService.SearchAgents(ctx, "1234", &model.ListOptions{})
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Len(t, response.Items, 1)
+		assert.Equal(t, instanceUID, response.Items[0].Metadata.InstanceUID)
+		mockPort.AssertExpectations(t)
+	})
+
+	t.Run("SearchAgents returns error on persistence failure", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := context.Background()
+		mockPort := new(MockAgentPersistencePort)
+		agentService := service.NewAgentService(mockPort, slog.Default())
+
+		mockPort.On("SearchAgents", ctx, "test", mock.Anything).Return(nil, errDatabaseConnection)
+
+		// when
+		response, err := agentService.SearchAgents(ctx, "test", &model.ListOptions{})
+
+		// then
+		require.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "failed to search agents")
+		mockPort.AssertExpectations(t)
+	})
+
+	t.Run("SearchAgents with pagination", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := context.Background()
+		mockPort := new(MockAgentPersistencePort)
+		agentService := service.NewAgentService(mockPort, slog.Default())
+
+		expectedAgents := []*model.Agent{
+			model.NewAgent(uuid.New()),
+			model.NewAgent(uuid.New()),
+		}
+		expectedResponse := &model.ListResponse[*model.Agent]{
+			Items:              expectedAgents,
+			Continue:           "next-token",
+			RemainingItemCount: 10,
+		}
+
+		options := &model.ListOptions{
+			Limit:    2,
+			Continue: "",
+		}
+
+		mockPort.On("SearchAgents", ctx, "abcd", options).Return(expectedResponse, nil)
+
+		// when
+		response, err := agentService.SearchAgents(ctx, "abcd", options)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Len(t, response.Items, 2)
+		assert.Equal(t, "next-token", response.Continue)
+		assert.Equal(t, int64(10), response.RemainingItemCount)
+		mockPort.AssertExpectations(t)
 	})
 }
