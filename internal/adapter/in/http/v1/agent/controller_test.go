@@ -611,11 +611,11 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 
 		router.ServeHTTP(recorder, req)
 
-		// then
+		// then - Should return 400 for missing required query parameter
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
-	t.Run("Search Agents - usecase error returns 500", func(t *testing.T) {
+	t.Run("Search Agents - usecase error returns 404", func(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase := testutil.NewBase(t).ForController()
@@ -636,7 +636,7 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 
 		router.ServeHTTP(recorder, req)
 
-		// then
-		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+		// then - ErrResourceNotExist maps to 404
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
 	})
 }
