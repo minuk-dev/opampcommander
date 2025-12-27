@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -17,22 +18,17 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ domainport.AgentPersistencePort = (*AgentRepository)(nil)
+var (
+	_ domainport.AgentPersistencePort = (*AgentRepository)(nil)
+
+	// ErrQueryTooLong is returned when the search query exceeds the maximum length.
+	ErrQueryTooLong = errors.New("query too long: maximum length is 100 characters")
+	// ErrQueryTooShort is returned when the search query is too short.
+	ErrQueryTooShort = errors.New("query too short: minimum length is 1 character")
+)
 
 const (
 	agentCollectionName = "agents"
-
-	// MaxQueryLength is the maximum length of the search query.
-	MaxQueryLength = 64
-	// MinQueryLength is the minimum length of the search query.
-	MinQueryLength = 3
-)
-
-var (
-	// ErrQueryTooLong is returned when the search query exceeds the maximum allowed length.
-	ErrQueryTooLong = fmt.Errorf("search query exceeds maximum allowed length over %d", MaxQueryLength)
-	// ErrQueryTooShort is returned when the search query is below the minimum required length.
-	ErrQueryTooShort = fmt.Errorf("search query is below minimum required length under %d", MinQueryLength)
 )
 
 // AgentRepository is a struct that implements the AgentPersistencePort interface.
@@ -246,18 +242,18 @@ func (a *AgentRepository) SearchAgents(
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	var (
-		countRetval         int64
-		continueTokenRetval string
-		entitiesRetval      []*entity.Agent
-	)
-
 	if options == nil {
 		//exhaustruct:ignore
 		options = &model.ListOptions{}
 	}
 
-	// Validate and sanitize query input
+	// Validate query
+	err := validateSearchQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return empty result for empty query
 	if query == "" {
 		return &model.ListResponse[*model.Agent]{
 			Items:              []*model.Agent{},
@@ -266,18 +262,52 @@ func (a *AgentRepository) SearchAgents(
 		}, nil
 	}
 
-	// Limit query length to prevent abuse
+	// Build search filter
+	filter, err := a.buildSearchFilter(query, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute parallel queries
+	entities, continueToken, count, err := a.executeSearchQueries(ctx, filter, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to domain models
+	return &model.ListResponse[*model.Agent]{
+		Items: lo.Map(entities, func(item *entity.Agent, _ int) *model.Agent {
+			return item.ToDomain()
+		}),
+		Continue:           continueToken,
+		RemainingItemCount: count - int64(len(entities)),
+	}, nil
+}
+
+func validateSearchQuery(query string) error {
+	if query == "" {
+		return nil // Empty query is valid, handled separately
+	}
+
 	const (
-		maxQueryLength = 64
-		minQueryLength = 3
+		maxQueryLength = 100
+		minQueryLength = 1
 	)
 
 	if len(query) > maxQueryLength {
-		return nil, ErrQueryTooLong
+		return ErrQueryTooLong
 	}
 
 	if len(query) < minQueryLength {
-		return nil, ErrQueryTooShort
+		return ErrQueryTooShort
+	}
+
+	return nil
+}
+
+func (a *AgentRepository) buildSearchFilter(query string, options *model.ListOptions) (bson.M, error) {
+	if query == "" {
+		return bson.M{}, nil
 	}
 
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
@@ -298,74 +328,80 @@ func (a *AgentRepository) SearchAgents(
 		conditions = append(conditions, continueTokenFilter)
 	}
 
-	filter := buildFilter(conditions)
+	return buildFilter(conditions), nil
+}
+
+func (a *AgentRepository) executeSearchQueries(
+	ctx context.Context,
+	filter bson.M,
+	options *model.ListOptions,
+) ([]*entity.Agent, string, int64, error) {
+	var (
+		entities      []*entity.Agent
+		continueToken string
+		count         int64
+		findErr       error
+		countErr      error
+	)
 
 	var queryWg sync.WaitGroup
 
-	var (
-		fErr error
-		lErr error
-	)
-
 	queryWg.Go(func() {
-		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
-		if err != nil {
-			fErr = fmt.Errorf("failed to search agents from mongodb: %w", err)
-
-			return
-		}
-
-		defer func() {
-			closeErr := cursor.Close(ctx)
-			if closeErr != nil {
-				a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
-			}
-		}()
-
-		var entities []*entity.Agent
-
-		err = cursor.All(ctx, &entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to decode search agents from mongodb: %w", err)
-
-			return
-		}
-
-		continueToken, err := getContinueTokenFromEntities(entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
-
-			return
-		}
-
-		entitiesRetval = entities
-		continueTokenRetval = continueToken
+		entities, continueToken, findErr = a.findAgents(ctx, filter, options)
 	})
 
 	queryWg.Go(func() {
-		cnt, err := a.collection.CountDocuments(ctx, filter)
-		if err != nil {
-			lErr = fmt.Errorf("failed to count search agents in mongodb: %w", err)
-
-			return
-		}
-
-		countRetval = cnt
+		count, countErr = a.countAgents(ctx, filter)
 	})
 
 	queryWg.Wait()
 
-	if fErr != nil || lErr != nil {
-		return nil, fmt.Errorf("search operation failed: %w %w", fErr, lErr)
+	if findErr != nil || countErr != nil {
+		return nil, "", 0, fmt.Errorf("search operation failed: %w %w", findErr, countErr)
 	}
 
-	return &model.ListResponse[*model.Agent]{
-		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *model.Agent {
-			return item.ToDomain()
-		}),
-		Continue:           continueTokenRetval,
-		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
-	}, nil
+	return entities, continueToken, count, nil
+}
+
+func (a *AgentRepository) findAgents(
+	ctx context.Context,
+	filter bson.M,
+	options *model.ListOptions,
+) ([]*entity.Agent, string, error) {
+	cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to search agents from mongodb: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var entities []*entity.Agent
+
+	err = cursor.All(ctx, &entities)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode search agents from mongodb: %w", err)
+	}
+
+	continueToken, err := getContinueTokenFromEntities(entities)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get continue token from entities: %w", err)
+	}
+
+	return entities, continueToken, nil
+}
+
+func (a *AgentRepository) countAgents(ctx context.Context, filter bson.M) (int64, error) {
+	count, err := a.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count search agents in mongodb: %w", err)
+	}
+
+	return count, nil
 }
 
 // ensureIndexes creates necessary indexes for the agent collection.
