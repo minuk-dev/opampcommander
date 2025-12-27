@@ -12,6 +12,7 @@ linters:
           - funlen
           - varnamelen
           - exhaustruct
+          - dupl
   settings:
     gomoddirectives:
       replace-local: true

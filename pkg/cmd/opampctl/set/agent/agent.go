@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
@@ -13,6 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+)
+
+const (
+	// MaxCompletionResults is the maximum number of completion results to return.
+	MaxCompletionResults = 20
 )
 
 var (
@@ -67,7 +73,8 @@ Examples:
   # Set a new instance UID and output as JSON
   opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 \
     550e8400-e29b-41d4-a716-446655440001 -o json`,
-		Args: cobra.ExactArgs(2), //nolint:mnd // exactly 2 args are required
+		Args:              cobra.ExactArgs(2), //nolint:mnd // exactly 2 args are required
+		ValidArgsFunction: options.ValidArgsFunction,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Parse agent instance UID
 			instanceUID, err := uuid.Parse(args[0])
@@ -102,6 +109,40 @@ func (opts *CommandOptions) Prepare(*cobra.Command, []string) error {
 	opts.client = client
 
 	return nil
+}
+
+// ValidArgsFunction provides dynamic completion for agent instance UIDs.
+// Only completes the first argument (agent instance UID).
+func (opts *CommandOptions) ValidArgsFunction(
+	cmd *cobra.Command, args []string, toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+	// Only provide completion for the first argument (agent instance UID)
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	cli, err := clientutil.NewClient(opts.GlobalConfig)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	agentService := cli.AgentService
+
+	// Use search API with the toComplete string as query
+	resp, err := agentService.SearchAgents(
+		cmd.Context(),
+		toComplete,
+		client.WithLimit(MaxCompletionResults),
+	)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
+		return agent.Metadata.InstanceUID.String()
+	})
+
+	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
 }
 
 // setNewInstanceUID sets a new instance UID for an agent.

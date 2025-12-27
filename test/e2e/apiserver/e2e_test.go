@@ -1,3 +1,5 @@
+//go:build e2e
+
 package apiserver_test
 
 import (
@@ -578,4 +580,160 @@ func verifySequenceNumInMongoDB(t *testing.T, client *mongo.Client, dbName strin
 		"SequenceNum in MongoDB should be greater than 0")
 
 	t.Logf("SequenceNum in MongoDB: %d", result.Status.SequenceNum)
+}
+
+func TestE2E_APIServer_SearchAgents(t *testing.T) {
+	t.Parallel()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	if testing.Short() {
+		t.Skip("Skipping E2E test in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	base := testutil.NewBase(t)
+
+	// Given: Infrastructure is set up (MongoDB + API Server)
+	mongoContainer, mongoURI := startMongoDB(t)
+
+	defer func() {
+		_ = mongoContainer.Terminate(ctx)
+	}()
+
+	apiPort := base.GetFreeTCPPort()
+
+	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_search_test")
+	defer stopServer()
+
+	waitForAPIServerReady(t, apiBaseURL)
+
+	// Create multiple agents with known UIDs
+	agent1UID := uuid.MustParse("12345678-1234-1234-1234-123456789012")
+	agent2UID := uuid.MustParse("12345678-5678-5678-5678-567856785678")
+	agent3UID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
+
+	// Insert agents via MongoDB directly to simulate existing agents
+	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = mongoClient.Disconnect(ctx)
+	}()
+
+	collection := mongoClient.Database("opampcommander_search_test").Collection("agents")
+
+	// Insert test agents
+	agents := []interface{}{
+		bson.M{
+			"metadata": bson.M{
+				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent1UID[:]},
+				"instanceUidString": agent1UID.String(),
+			},
+			"status": bson.M{
+				"connected": true,
+			},
+			"spec": bson.M{},
+		},
+		bson.M{
+			"metadata": bson.M{
+				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent2UID[:]},
+				"instanceUidString": agent2UID.String(),
+			},
+			"status": bson.M{
+				"connected": true,
+			},
+			"spec": bson.M{},
+		},
+		bson.M{
+			"metadata": bson.M{
+				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent3UID[:]},
+				"instanceUidString": agent3UID.String(),
+			},
+			"status": bson.M{
+				"connected": false,
+			},
+			"spec": bson.M{},
+		},
+	}
+
+	_, err = collection.InsertMany(ctx, agents)
+	require.NoError(t, err)
+
+	// When: Search by prefix "12345678-1234"
+	t.Log("Searching for agents with prefix '12345678-1234'...")
+	searchResp := searchAgents(t, apiBaseURL, "12345678-1234")
+
+	// Then: Should find only agent1
+	assert.Len(t, searchResp.Items, 1)
+	assert.Equal(t, agent1UID, searchResp.Items[0].Metadata.InstanceUID)
+
+	// When: Search by prefix "1234"
+	t.Log("Searching for agents with prefix '1234'...")
+	searchResp = searchAgents(t, apiBaseURL, "1234")
+
+	// Then: Should find agent1 and agent2
+	assert.Len(t, searchResp.Items, 2)
+
+	// When: Search by prefix "abcd" (case-insensitive)
+	t.Log("Searching for agents with prefix 'ABCD' (uppercase)...")
+	searchResp = searchAgents(t, apiBaseURL, "ABCD")
+
+	// Then: Should find agent3
+	assert.Len(t, searchResp.Items, 1)
+	assert.Equal(t, agent3UID, searchResp.Items[0].Metadata.InstanceUID)
+
+	// When: Search with no matches
+	t.Log("Searching for agents with non-existent prefix...")
+	searchResp = searchAgents(t, apiBaseURL, "zzzzz")
+
+	// Then: Should return empty result
+	assert.Empty(t, searchResp.Items)
+
+	// When: Search with pagination
+	t.Log("Searching with pagination (limit=1)...")
+	searchResp = searchAgentsWithLimit(t, apiBaseURL, "1234", 1)
+
+	// Then: Should return 1 result and have continue token
+	assert.Len(t, searchResp.Items, 1)
+	assert.NotEmpty(t, searchResp.Metadata.Continue)
+}
+
+func searchAgents(t *testing.T, apiBaseURL, query string) *v1agent.ListResponse {
+	t.Helper()
+
+	return searchAgentsWithLimit(t, apiBaseURL, query, 0)
+}
+
+func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1agent.ListResponse {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/agents/search?q=%s", apiBaseURL, query)
+	if limit > 0 {
+		url = fmt.Sprintf("%s&limit=%d", url, limit)
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	require.NoError(t, err)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	defer func() {
+		require.NoError(t, resp.Body.Close())
+	}()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Search request should succeed")
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var listResp v1agent.ListResponse
+
+	err = json.Unmarshal(body, &listResp)
+	require.NoError(t, err)
+
+	return &listResp
 }

@@ -2,8 +2,10 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"sync"
 
 	"github.com/google/uuid"
@@ -16,7 +18,14 @@ import (
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ domainport.AgentPersistencePort = (*AgentRepository)(nil)
+var (
+	_ domainport.AgentPersistencePort = (*AgentRepository)(nil)
+
+	// ErrQueryTooLong is returned when the search query exceeds the maximum length.
+	ErrQueryTooLong = errors.New("query too long: maximum length is 100 characters")
+	// ErrQueryTooShort is returned when the search query is too short.
+	ErrQueryTooShort = errors.New("query too short: minimum length is 1 character")
+)
 
 const (
 	agentCollectionName = "agents"
@@ -45,7 +54,7 @@ func NewAgentRepository(
 		}
 	}
 
-	return &AgentRepository{
+	repo := &AgentRepository{
 		collection: collection,
 		logger:     logger,
 		common: newCommonAdapter(
@@ -56,6 +65,11 @@ func NewAgentRepository(
 			keyQueryFunc,
 		),
 	}
+
+	// Create index for instanceUidString for efficient searching
+	repo.ensureIndexes(context.Background())
+
+	return repo
 }
 
 // GetAgent implements port.AgentPersistencePort.
@@ -220,4 +234,193 @@ func buildFilter(conditions []bson.M) bson.M {
 	default:
 		return bson.M{"$and": conditions}
 	}
+}
+
+// SearchAgents implements port.AgentPersistencePort.
+func (a *AgentRepository) SearchAgents(
+	ctx context.Context,
+	query string,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Agent], error) {
+	if options == nil {
+		//exhaustruct:ignore
+		options = &model.ListOptions{}
+	}
+
+	// Validate query
+	err := validateSearchQuery(query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return empty result for empty query
+	if query == "" {
+		return &model.ListResponse[*model.Agent]{
+			Items:              []*model.Agent{},
+			Continue:           "",
+			RemainingItemCount: 0,
+		}, nil
+	}
+
+	// Build search filter
+	filter, err := a.buildSearchFilter(query, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Execute parallel queries
+	entities, continueToken, count, err := a.executeSearchQueries(ctx, filter, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to domain models
+	return &model.ListResponse[*model.Agent]{
+		Items: lo.Map(entities, func(item *entity.Agent, _ int) *model.Agent {
+			return item.ToDomain()
+		}),
+		Continue:           continueToken,
+		RemainingItemCount: count - int64(len(entities)),
+	}, nil
+}
+
+func validateSearchQuery(query string) error {
+	if query == "" {
+		return nil // Empty query is valid, handled separately
+	}
+
+	const (
+		maxQueryLength = 100
+		minQueryLength = 1
+	)
+
+	if len(query) > maxQueryLength {
+		return ErrQueryTooLong
+	}
+
+	if len(query) < minQueryLength {
+		return ErrQueryTooShort
+	}
+
+	return nil
+}
+
+func (a *AgentRepository) buildSearchFilter(query string, options *model.ListOptions) (bson.M, error) {
+	if query == "" {
+		return bson.M{}, nil
+	}
+
+	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
+	if err != nil && options.Continue != "" {
+		return nil, fmt.Errorf("invalid continue token: %w", err)
+	}
+
+	// Escape regex metacharacters to prevent regex injection
+	safeQuery := escapeRegexLiteral(query)
+
+	conditions := []bson.M{
+		{"metadata.instanceUidString": bson.M{"$regex": "^" + safeQuery, "$options": "i"}},
+	}
+
+	// Add continue token condition if present
+	continueTokenFilter := withContinueToken(continueTokenObjectID)
+	if continueTokenFilter != nil {
+		conditions = append(conditions, continueTokenFilter)
+	}
+
+	return buildFilter(conditions), nil
+}
+
+func (a *AgentRepository) executeSearchQueries(
+	ctx context.Context,
+	filter bson.M,
+	options *model.ListOptions,
+) ([]*entity.Agent, string, int64, error) {
+	var (
+		entities      []*entity.Agent
+		continueToken string
+		count         int64
+		findErr       error
+		countErr      error
+	)
+
+	var queryWg sync.WaitGroup
+
+	queryWg.Go(func() {
+		entities, continueToken, findErr = a.findAgents(ctx, filter, options)
+	})
+
+	queryWg.Go(func() {
+		count, countErr = a.countAgents(ctx, filter)
+	})
+
+	queryWg.Wait()
+
+	if findErr != nil || countErr != nil {
+		return nil, "", 0, fmt.Errorf("search operation failed: %w %w", findErr, countErr)
+	}
+
+	return entities, continueToken, count, nil
+}
+
+func (a *AgentRepository) findAgents(
+	ctx context.Context,
+	filter bson.M,
+	options *model.ListOptions,
+) ([]*entity.Agent, string, error) {
+	cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to search agents from mongodb: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var entities []*entity.Agent
+
+	err = cursor.All(ctx, &entities)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode search agents from mongodb: %w", err)
+	}
+
+	continueToken, err := getContinueTokenFromEntities(entities)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get continue token from entities: %w", err)
+	}
+
+	return entities, continueToken, nil
+}
+
+func (a *AgentRepository) countAgents(ctx context.Context, filter bson.M) (int64, error) {
+	count, err := a.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count search agents in mongodb: %w", err)
+	}
+
+	return count, nil
+}
+
+// ensureIndexes creates necessary indexes for the agent collection.
+func (a *AgentRepository) ensureIndexes(ctx context.Context) {
+	//exhaustruct:ignore
+	indexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "metadata.instanceUidString", Value: 1},
+		},
+	}
+
+	_, err := a.collection.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		a.logger.Warn("failed to create index for instanceUidString", slog.String("error", err.Error()))
+	}
+}
+
+// escapeRegexLiteral escapes all regular expression metacharacters in the input
+// so that it is treated as a literal string within a regex pattern.
+func escapeRegexLiteral(query string) string {
+	return regexp.QuoteMeta(query)
 }

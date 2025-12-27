@@ -233,6 +233,80 @@ func (_c *MockManageUsecase_RestartAgent_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// SearchAgents provides a mock function for the type MockManageUsecase
+func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*agent.ListResponse, error) {
+	ret := _mock.Called(ctx, query, options)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SearchAgents")
+	}
+
+	var r0 *agent.ListResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) (*agent.ListResponse, error)); ok {
+		return returnFunc(ctx, query, options)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) *agent.ListResponse); ok {
+		r0 = returnFunc(ctx, query, options)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*agent.ListResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *model.ListOptions) error); ok {
+		r1 = returnFunc(ctx, query, options)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockManageUsecase_SearchAgents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SearchAgents'
+type MockManageUsecase_SearchAgents_Call struct {
+	*mock.Call
+}
+
+// SearchAgents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - query string
+//   - options *model.ListOptions
+func (_e *MockManageUsecase_Expecter) SearchAgents(ctx interface{}, query interface{}, options interface{}) *MockManageUsecase_SearchAgents_Call {
+	return &MockManageUsecase_SearchAgents_Call{Call: _e.mock.On("SearchAgents", ctx, query, options)}
+}
+
+func (_c *MockManageUsecase_SearchAgents_Call) Run(run func(ctx context.Context, query string, options *model.ListOptions)) *MockManageUsecase_SearchAgents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 *model.ListOptions
+		if args[2] != nil {
+			arg2 = args[2].(*model.ListOptions)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockManageUsecase_SearchAgents_Call) Return(v *agent.ListResponse, err error) *MockManageUsecase_SearchAgents_Call {
+	_c.Call.Return(v, err)
+	return _c
+}
+
+func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context.Context, query string, options *model.ListOptions) (*agent.ListResponse, error)) *MockManageUsecase_SearchAgents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetNewInstanceUID provides a mock function for the type MockManageUsecase
 func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error) {
 	ret := _mock.Called(ctx, instanceUID, newInstanceUID)

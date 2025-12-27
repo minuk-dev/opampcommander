@@ -86,6 +86,28 @@ func (s *Service) ListAgents(
 	), nil
 }
 
+// SearchAgents implements port.AgentManageUsecase.
+func (s *Service) SearchAgents(
+	ctx context.Context,
+	query string,
+	options *model.ListOptions,
+) (*v1agent.ListResponse, error) {
+	response, err := s.agentUsecase.SearchAgents(ctx, query, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search agents: %w", err)
+	}
+
+	return v1agent.NewListResponse(
+		lo.Map(response.Items, func(agent *model.Agent, _ int) v1agent.Agent {
+			return *s.mapper.MapAgentToAPI(agent)
+		}),
+		v1.ListMeta{
+			Continue:           response.Continue,
+			RemainingItemCount: response.RemainingItemCount,
+		},
+	), nil
+}
+
 // SetNewInstanceUID implements port.AgentManageUsecase.
 func (s *Service) SetNewInstanceUID(
 	ctx context.Context,
