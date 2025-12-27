@@ -107,7 +107,7 @@ func (opts *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // ValidArgsFunction provides dynamic completion for agent instance UIDs.
 // Only completes the first argument (agent instance UID).
-func (opt *CommandOptions) ValidArgsFunction(
+func (opts *CommandOptions) ValidArgsFunction(
 	cmd *cobra.Command, args []string, toComplete string,
 ) ([]string, cobra.ShellCompDirective) {
 	// Only provide completion for the first argument (agent instance UID)
@@ -115,7 +115,7 @@ func (opt *CommandOptions) ValidArgsFunction(
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	client, err := clientutil.NewClient(opt.GlobalConfig)
+	client, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
