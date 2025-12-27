@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
@@ -13,6 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+)
+
+const (
+	// MaxCompletionResults is the maximum number of completion results to return.
+	MaxCompletionResults = 20
 )
 
 var (
@@ -115,22 +121,26 @@ func (opts *CommandOptions) ValidArgsFunction(
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	client, err := clientutil.NewClient(opts.GlobalConfig)
+	cli, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	const maxCompletionResults = 20
+	agentService := cli.AgentService
+
 	// Use search API with the toComplete string as query
-	agents, err := clientutil.ListAgentPartially(cmd.Context(), client, toComplete, maxCompletionResults)
+	resp, err := agentService.SearchAgents(
+		cmd.Context(),
+		toComplete,
+		client.WithLimit(MaxCompletionResults),
+	)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	instanceUIDs := make([]string, 0, len(agents))
-	for _, agent := range agents {
-		instanceUIDs = append(instanceUIDs, agent.Metadata.InstanceUID.String())
-	}
+	instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
+		return agent.Metadata.InstanceUID.String()
+	})
 
 	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
 }

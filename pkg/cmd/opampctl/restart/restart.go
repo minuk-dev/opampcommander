@@ -6,10 +6,18 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
+	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+)
+
+const (
+	// MaxCompletionResults is the maximum number of completion results to return.
+	MaxCompletionResults = 20
 )
 
 // CommandOptions contains the options for the restart command.
@@ -69,22 +77,26 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 	_ = cmd.RegisterFlagCompletionFunc(
 		"id",
 		func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			client, err := clientutil.NewClient(options.GlobalConfig)
+			cli, err := clientutil.NewClient(options.GlobalConfig)
 			if err != nil {
 				return nil, cobra.ShellCompDirectiveError
 			}
 
-			const maxCompletionResults = 20
+			agentService := cli.AgentService
 
-			agents, err := clientutil.ListAgentPartially(cmd.Context(), client, toComplete, maxCompletionResults)
+			// Use search API with the toComplete string as query
+			resp, err := agentService.SearchAgents(
+				cmd.Context(),
+				toComplete,
+				client.WithLimit(MaxCompletionResults),
+			)
 			if err != nil {
 				return nil, cobra.ShellCompDirectiveError
 			}
 
-			instanceUIDs := make([]string, 0, len(agents))
-			for _, agent := range agents {
-				instanceUIDs = append(instanceUIDs, agent.Metadata.InstanceUID.String())
-			}
+			instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
+				return agent.Metadata.InstanceUID.String()
+			})
 
 			return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
 		})

@@ -216,18 +216,24 @@ func toShortItemForCLI(agent v1agent.Agent) ItemForCLI {
 func (opt *CommandOptions) ValidArgsFunction(
 	cmd *cobra.Command, _ []string, toComplete string,
 ) ([]string, cobra.ShellCompDirective) {
-	client, err := clientutil.NewClient(opt.GlobalConfig)
+	cli, err := clientutil.NewClient(opt.GlobalConfig)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
+
+	agentService := cli.AgentService
 
 	// Use search API with the toComplete string as query
-	agents, err := clientutil.ListAgentPartially(cmd.Context(), client, toComplete, MaxCompletionResults)
+	resp, err := agentService.SearchAgents(
+		cmd.Context(),
+		toComplete,
+		client.WithLimit(MaxCompletionResults),
+	)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	instanceUIDs := lo.Map(agents, func(agent v1agent.Agent, _ int) string {
+	instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
 		return agent.Metadata.InstanceUID.String()
 	})
 
