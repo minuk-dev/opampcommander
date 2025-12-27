@@ -1086,7 +1086,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// given - Create multiple agents with same prefix
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			agent := model.NewAgent(uuid.MustParse("aaaaaaaa-" + string(rune('0'+i)) + "000-1000-1000-100000000000"))
 			err = agentRepository.PutAgent(ctx, agent)
 			require.NoError(t, err)

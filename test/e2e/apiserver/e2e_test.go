@@ -595,11 +595,13 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() {
 		_ = mongoContainer.Terminate(ctx)
 	}()
 
 	apiPort := base.GetFreeTCPPort()
+
 	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_search_test")
 	defer stopServer()
 
@@ -613,6 +615,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	// Insert agents via MongoDB directly to simulate existing agents
 	mongoClient, err := setupMongoDBClient(t, mongoURI)
 	require.NoError(t, err)
+
 	defer func() {
 		_ = mongoClient.Disconnect(ctx)
 	}()
@@ -715,7 +718,10 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+
+	defer func() {
+		require.NoError(t, resp.Body.Close())
+	}()
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Search request should succeed")
 
@@ -726,6 +732,7 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 	require.NoError(t, err)
 
 	var listResp v1agent.ListResponse
+
 	err = json.Unmarshal(body, &listResp)
 	require.NoError(t, err)
 

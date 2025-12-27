@@ -21,6 +21,18 @@ var _ domainport.AgentPersistencePort = (*AgentRepository)(nil)
 
 const (
 	agentCollectionName = "agents"
+
+	// MaxQueryLength is the maximum length of the search query.
+	MaxQueryLength = 64
+	// MinQueryLength is the minimum length of the search query.
+	MinQueryLength = 3
+)
+
+var (
+	// ErrQueryTooLong is returned when the search query exceeds the maximum allowed length.
+	ErrQueryTooLong = fmt.Errorf("search query exceeds maximum allowed length")
+	// ErrQueryTooShort is returned when the search query is below the minimum required length.
+	ErrQueryTooShort = fmt.Errorf("search query is below minimum required length")
 )
 
 // AgentRepository is a struct that implements the AgentPersistencePort interface.
@@ -62,21 +74,6 @@ func NewAgentRepository(
 	repo.ensureIndexes(context.Background())
 
 	return repo
-}
-
-// ensureIndexes creates necessary indexes for the agent collection.
-func (a *AgentRepository) ensureIndexes(ctx context.Context) {
-	//exhaustruct:ignore
-	indexModel := mongo.IndexModel{
-		Keys: bson.D{
-			{Key: "metadata.instanceUidString", Value: 1},
-		},
-	}
-
-	_, err := a.collection.Indexes().CreateOne(ctx, indexModel)
-	if err != nil {
-		a.logger.Warn("failed to create index for instanceUidString", slog.String("error", err.Error()))
-	}
 }
 
 // GetAgent implements port.AgentPersistencePort.
@@ -270,9 +267,13 @@ func (a *AgentRepository) SearchAgents(
 	}
 
 	// Limit query length to prevent abuse
-	const maxQueryLength = 100
+	const maxQueryLength = 64
+	const minQueryLength = 3
 	if len(query) > maxQueryLength {
-		query = query[:maxQueryLength]
+		return nil, fmt.Errorf("query length exceeds maximum allowed length of %d", maxQueryLength)
+	}
+	if len(query) < minQueryLength {
+		return nil, fmt.Errorf("query length is below minimum required length of %d", minQueryLength)
 	}
 
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
@@ -361,6 +362,21 @@ func (a *AgentRepository) SearchAgents(
 		Continue:           continueTokenRetval,
 		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
 	}, nil
+}
+
+// ensureIndexes creates necessary indexes for the agent collection.
+func (a *AgentRepository) ensureIndexes(ctx context.Context) {
+	//exhaustruct:ignore
+	indexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "metadata.instanceUidString", Value: 1},
+		},
+	}
+
+	_, err := a.collection.Indexes().CreateOne(ctx, indexModel)
+	if err != nil {
+		a.logger.Warn("failed to create index for instanceUidString", slog.String("error", err.Error()))
+	}
 }
 
 // escapeRegexLiteral escapes all regular expression metacharacters in the input

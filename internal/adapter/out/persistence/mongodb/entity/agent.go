@@ -35,10 +35,10 @@ type Agent struct {
 
 // AgentMetadata represents the metadata of an agent.
 type AgentMetadata struct {
-	InstanceUID       bson.Binary              `bson:"instanceUid"`
-	InstanceUIDString string                   `bson:"instanceUidString"` // String representation for searching
-	Capabilities      *AgentCapabilities       `bson:"capabilities,omitempty"`
-	Description       *AgentDescription        `bson:"description,omitempty"`
+	InstanceUID        bson.Binary              `bson:"instanceUid"`
+	InstanceUIDString  string                   `bson:"instanceUidString"` // String representation for searching
+	Capabilities       *AgentCapabilities       `bson:"capabilities,omitempty"`
+	Description        *AgentDescription        `bson:"description,omitempty"`
 	CustomCapabilities *AgentCustomCapabilities `bson:"customCapabilities,omitempty"`
 }
 

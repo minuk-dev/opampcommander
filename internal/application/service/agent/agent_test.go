@@ -82,7 +82,7 @@ func (m *MockAgentUsecase) ListAgents(
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck // mock error
+	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck, forcetypeassert // mock error
 }
 
 func (m *MockAgentUsecase) SearchAgents(
@@ -95,7 +95,7 @@ func (m *MockAgentUsecase) SearchAgents(
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck // mock error
+	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck,forcetypeassert // mock error
 }
 
 type MockAgentNotificationUsecase struct {

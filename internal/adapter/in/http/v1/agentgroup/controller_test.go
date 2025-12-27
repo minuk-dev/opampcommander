@@ -1,4 +1,3 @@
-//nolint:dupl
 package agentgroup_test
 
 import (

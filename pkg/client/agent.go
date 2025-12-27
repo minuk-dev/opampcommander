@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	uuid "github.com/google/uuid"
 
@@ -58,7 +59,11 @@ func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*age
 }
 
 // SearchAgents searches agents by query.
-func (s *AgentService) SearchAgents(ctx context.Context, query string, opts ...ListOption) (*agentv1.ListResponse, error) {
+func (s *AgentService) SearchAgents(
+	ctx context.Context,
+	query string,
+	opts ...ListOption,
+) (*agentv1.ListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
@@ -72,8 +77,9 @@ func (s *AgentService) SearchAgents(ctx context.Context, query string, opts ...L
 		SetResult(&result)
 
 	if listSettings.limit != nil && *listSettings.limit > 0 {
-		req.SetQueryParam("limit", fmt.Sprintf("%d", *listSettings.limit))
+		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
 	}
+
 	if listSettings.continueToken != nil && *listSettings.continueToken != "" {
 		req.SetQueryParam("continue", *listSettings.continueToken)
 	}

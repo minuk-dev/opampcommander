@@ -147,6 +147,7 @@ func ListAgentPartially(
 	maxResults int,
 ) ([]v1agent.Agent, error) {
 	var agents []v1agent.Agent
+
 	continueToken := ""
 
 	for {
