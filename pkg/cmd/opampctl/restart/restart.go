@@ -65,5 +65,27 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&agentID, "id", "", "agent ID to restart")
 	_ = cmd.MarkFlagRequired("id")
 
+	// Add completion for --id flag
+	_ = cmd.RegisterFlagCompletionFunc("id", func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		client, err := clientutil.NewClient(options.GlobalConfig)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		const maxCompletionResults = 20
+
+		agents, err := clientutil.ListAgentPartially(cmd.Context(), client, toComplete, maxCompletionResults)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		instanceUIDs := make([]string, 0, len(agents))
+		for _, agent := range agents {
+			instanceUIDs = append(instanceUIDs, agent.Metadata.InstanceUID.String())
+		}
+
+		return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
+	})
+
 	return cmd
 }
