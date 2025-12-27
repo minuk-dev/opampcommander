@@ -728,9 +728,6 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	err = resp.Body.Close()
-	require.NoError(t, err)
-
 	var listResp v1agent.ListResponse
 
 	err = json.Unmarshal(body, &listResp)
