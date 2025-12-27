@@ -99,15 +99,16 @@ test:
 test-e2e:
 	@echo "Running E2E tests (requires Docker)..."
 	@echo "This may take 10-15 minutes..."
-	go test ./test/e2e/... -v -timeout=20m
+	@echo "Note: E2E tests run without -race flag due to known issues in external Kafka library (IBM/sarama)"
+	go test -tags=e2e ./test/e2e/... -v -timeout=20m
 
 test-e2e-kafka:
 	@echo "Running Kafka E2E tests only..."
-	go test ./test/e2e/apiserver -run TestE2E_APIServer_Kafka -v -timeout=15m
+	go test -tags=e2e ./test/e2e/apiserver -run TestE2E_APIServer_Kafka -v -timeout=15m
 
 test-e2e-basic:
 	@echo "Running basic E2E tests only..."
-	go test ./test/e2e/apiserver -run "TestE2E_APIServer_WithOTelCollector|TestE2E_APIServer_MultipleCollectors" -v -timeout=10m
+	go test -tags=e2e ./test/e2e/apiserver -run "TestE2E_APIServer_WithOTelCollector|TestE2E_APIServer_MultipleCollectors" -v -timeout=10m
 
 release:
 	goreleaser release --rm-dist
