@@ -30,9 +30,9 @@ const (
 
 var (
 	// ErrQueryTooLong is returned when the search query exceeds the maximum allowed length.
-	ErrQueryTooLong = fmt.Errorf("search query exceeds maximum allowed length")
+	ErrQueryTooLong = fmt.Errorf("search query exceeds maximum allowed length over %d", MaxQueryLength)
 	// ErrQueryTooShort is returned when the search query is below the minimum required length.
-	ErrQueryTooShort = fmt.Errorf("search query is below minimum required length")
+	ErrQueryTooShort = fmt.Errorf("search query is below minimum required length under %d", MinQueryLength)
 )
 
 // AgentRepository is a struct that implements the AgentPersistencePort interface.
@@ -267,13 +267,17 @@ func (a *AgentRepository) SearchAgents(
 	}
 
 	// Limit query length to prevent abuse
-	const maxQueryLength = 64
-	const minQueryLength = 3
+	const (
+		maxQueryLength = 64
+		minQueryLength = 3
+	)
+
 	if len(query) > maxQueryLength {
-		return nil, fmt.Errorf("query length exceeds maximum allowed length of %d", maxQueryLength)
+		return nil, ErrQueryTooLong
 	}
+
 	if len(query) < minQueryLength {
-		return nil, fmt.Errorf("query length is below minimum required length of %d", minQueryLength)
+		return nil, ErrQueryTooShort
 	}
 
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
