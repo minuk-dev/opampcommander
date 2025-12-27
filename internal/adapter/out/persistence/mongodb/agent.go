@@ -319,7 +319,7 @@ func (a *AgentRepository) buildSearchFilter(query string, options *model.ListOpt
 	safeQuery := escapeRegexLiteral(query)
 
 	conditions := []bson.M{
-		{"metadata.instanceUidString": bson.M{"$regex": safeQuery, "$options": "i"}},
+		{"metadata.instanceUidString": bson.M{"$regex": "^" + safeQuery, "$options": "i"}},
 	}
 
 	// Add continue token condition if present
