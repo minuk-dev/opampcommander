@@ -239,6 +239,64 @@ func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), st
 	return stopServer, apiBaseURL
 }
 
+func getAuthToken(t *testing.T, baseURL string) string {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/auth/basic", nil) //nolint:noctx
+	require.NoError(t, err)
+	req.SetBasicAuth("test-admin", "test-password")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal(body, &result))
+
+	return result.Token
+}
+
+func getAuthTokenNoTest(baseURL string) string {
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/auth/basic", nil) //nolint:noctx
+	if err != nil {
+		return ""
+	}
+	req.SetBasicAuth("test-admin", "test-password")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	if json.Unmarshal(body, &result) != nil {
+		return ""
+	}
+
+	return result.Token
+}
+
 func waitForAPIServerReady(t *testing.T, baseURL string) {
 	t.Helper()
 
@@ -257,7 +315,13 @@ func waitForAPIServerReady(t *testing.T, baseURL string) {
 func listAgents(t *testing.T, baseURL string) []v1agent.Agent {
 	t.Helper()
 
-	resp, err := http.Get(baseURL + "/api/v1/agents") //nolint:noctx // test helper
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/agents", nil) //nolint:noctx
+	require.NoError(t, err)
+
+	token := getAuthToken(t, baseURL)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 
 	defer func() { _ = resp.Body.Close() }()
@@ -287,7 +351,17 @@ func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1agent.Agent {
 func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1agent.Agent, error) {
 	url := fmt.Sprintf("%s/api/v1/agents/%s", baseURL, uid)
 
-	resp, err := http.Get(url) //nolint:noctx,gosec // test helper
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+	if err != nil {
+		return v1agent.Agent{}, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	token := getAuthTokenNoTest(baseURL)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return v1agent.Agent{}, fmt.Errorf("failed to get agent by ID: %w", err)
 	}
@@ -716,6 +790,9 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	require.NoError(t, err)
+
+	token := getAuthToken(t, apiBaseURL)
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)

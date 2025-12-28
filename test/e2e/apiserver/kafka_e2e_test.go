@@ -450,6 +450,8 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/json")
+	token := getAuthToken(t, baseURL)
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := client.Do(req)
 	require.NoError(t, err)
@@ -478,6 +480,9 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	client := &http.Client{Timeout: 10 * time.Second}
 	getReq, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
 	require.NoError(t, err)
+
+	token := getAuthToken(t, baseURL)
+	getReq.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := client.Do(getReq)
 	require.NoError(t, err, "Failed to get AgentGroup before update")
@@ -512,6 +517,7 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	require.NoError(t, err)
 
 	putReq.Header.Set("Content-Type", "application/json")
+	putReq.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err = client.Do(putReq)
 	require.NoError(t, err)
