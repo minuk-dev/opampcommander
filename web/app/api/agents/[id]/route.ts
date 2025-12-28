@@ -8,10 +8,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const authHeader = request.headers.get('authorization');
+
     const response = await fetch(`${OPAMP_API_URL}/api/v1/agents/${id}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
     });
 
@@ -38,11 +41,15 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+
+    const authHeader = request.headers.get('authorization');
+
     const body = await request.json();
     const response = await fetch(`${OPAMP_API_URL}/api/v1/agents/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify(body),
     });
@@ -70,10 +77,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const authHeader = request.headers.get('authorization');
+
     const response = await fetch(`${OPAMP_API_URL}/api/v1/agents/${id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
     });
 
