@@ -33,6 +33,61 @@ func (a *Capabilities) HasAcceptsRestartCommand() bool {
 	return a.Has(AgentCapabilityAcceptsRestartCommand)
 }
 
+// HasAcceptsOpAMPConnectionSettings checks if the AgentCapabilities has the AcceptsOpAMPConnectionSettings capability.
+func (a *Capabilities) HasAcceptsOpAMPConnectionSettings() bool {
+	return a.Has(AgentCapabilityAcceptsOpAMPConnectionSettings)
+}
+
+// HasReportsOwnMetrics checks if the AgentCapabilities has the ReportsOwnMetrics capability.
+func (a *Capabilities) HasReportsOwnMetrics() bool {
+	return a.Has(AgentCapabilityReportsOwnMetrics)
+}
+
+// HasReportsOwnLogs checks if the AgentCapabilities has the ReportsOwnLogs capability.
+func (a *Capabilities) HasReportsOwnLogs() bool {
+	return a.Has(AgentCapabilityReportsOwnLogs)
+}
+
+// HasReportsOwnTraces checks if the AgentCapabilities has the ReportsOwnTraces capability.
+func (a *Capabilities) HasReportsOwnTraces() bool {
+	return a.Has(AgentCapabilityReportsOwnTraces)
+}
+
+// HasReportsHealth checks if the AgentCapabilities has the ReportsHealth capability.
+func (a *Capabilities) HasReportsHealth() bool {
+	return a.Has(AgentCapabilityReportsHealth)
+}
+
+// HasReportsRemoteConfig checks if the AgentCapabilities has the ReportsRemoteConfig capability.
+func (a *Capabilities) HasReportsRemoteConfig() bool {
+	return a.Has(AgentCapabilityReportsRemoteConfig)
+}
+
+// HasReportsHeartbeat checks if the AgentCapabilities has the ReportsHeartbeat capability.
+func (a *Capabilities) HasReportsHeartbeat() bool {
+	return a.Has(AgentCapabilityReportsHeartbeat)
+}
+
+// HasReportsAvailableComponents checks if the AgentCapabilities has the ReportsAvailableComponents capability.
+func (a *Capabilities) HasReportsAvailableComponents() bool {
+	return a.Has(AgentCapabilityReportsAvailableComponents)
+}
+
+// HasAcceptsPackages checks if the AgentCapabilities has the AcceptsPackages capability.
+func (a *Capabilities) HasAcceptsPackages() bool {
+	return a.Has(AgentCapabilityAcceptsPackages)
+}
+
+// HasReportsPackageStatuses checks if the AgentCapabilities has the ReportsPackageStatuses capability.
+func (a *Capabilities) HasReportsPackageStatuses() bool {
+	return a.Has(AgentCapabilityReportsPackageStatuses)
+}
+
+// HasOtherConnectionSettings checks if the AgentCapabilities has the AcceptsOtherConnectionSettings capability.
+func (a *Capabilities) HasOtherConnectionSettings() bool {
+	return a.Has(AgentCapabilityAcceptsOtherConnectionSettings)
+}
+
 // Capability is a helper type to represent the capabilities of the Agent.
 // It is used to define the capabilities of the Agent in a more readable way.
 type Capability uint64

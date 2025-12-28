@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -129,14 +130,14 @@ func (a *AgentRestartInfo) ShouldBeRestarted(agentStartTime time.Time) bool {
 		a.RequiredRestartedAt.After(agentStartTime)
 }
 
-// IsSupportRestart checks if the agent supports restart command.
-func (a *Agent) IsSupportRestart() bool {
+// IsRestartSupported checks if the agent supports restart command.
+func (a *Agent) IsRestartSupported() bool {
 	return a.Metadata.Capabilities.HasAcceptsRestartCommand()
 }
 
 // SetRestartRequired sets the restart required information for the agent.
 func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
-	if !a.IsSupportRestart() {
+	if !a.IsRestartSupported() {
 		return ErrUnsupportedAgentOperation
 	}
 
@@ -377,11 +378,251 @@ type AgentSpec struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID uuid.UUID
 
+	// ConnectionInfo is the connection information for the agent.
+	ConnectionInfo ConnectionInfo
+
 	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig
 
 	// RestartInfo contains information about agent restart.
 	RestartInfo AgentRestartInfo
+}
+
+type connectionSettings struct {
+	headers     map[string][]string
+	certificate TelemetryTLSCertificate
+}
+
+type ConnectionOption interface {
+	apply(*connectionSettings)
+}
+
+type ConnectionOptionFunc func(*connectionSettings)
+
+func (f ConnectionOptionFunc) apply(cs *connectionSettings) {
+	f(cs)
+}
+
+func WithHeaders(headers map[string][]string) ConnectionOption {
+	return ConnectionOptionFunc(func(cs *connectionSettings) {
+		cs.headers = headers
+	})
+}
+
+func WithCertificate(certificate TelemetryTLSCertificate) ConnectionOption {
+	return ConnectionOptionFunc(func(cs *connectionSettings) {
+		cs.certificate = certificate
+	})
+}
+
+func (a *Agent) SetOpAMPConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+	err := a.Spec.ConnectionInfo.SetOpAMP(OpAMPConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to set OpAMP connection settings: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Agent) SetMetricsConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+	err := a.Spec.ConnectionInfo.SetOwnMetrics(TelemetryConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to set metrics connection settings: %w", err)
+	}
+	return nil
+}
+
+func (a *Agent) SetLogsConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+	err := a.Spec.ConnectionInfo.SetOwnLogs(TelemetryConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set logs connection settings: %w", err)
+	}
+
+	return nil
+}
+
+func (a *Agent) SetTracesConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+	err := a.Spec.ConnectionInfo.SetOwnTraces(TelemetryConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set traces connection settings: %w", err)
+	}
+	return nil
+}
+
+// SetOtherConnectionSettings sets other connection settings for the agent.
+//
+// TODO: Consider resetting other connections if the endpoint is empty.
+func (a *Agent) SetOtherConnectionSettings(name, endpoint string, opts ...ConnectionOption) error {
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+	exisitingConnections := a.Spec.ConnectionInfo.OtherConnections()
+	exisitingConnections[name] = OtherConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	}
+
+	err := a.Spec.ConnectionInfo.SetOtherConnection(name, exisitingConnections[name])
+	if err != nil {
+		return fmt.Errorf("failed to set other connection settings: %w", err)
+	}
+	return nil
+}
+
+func (a *Agent) IsOpAMPConnectionSettingsSupported() bool {
+	return a.Metadata.Capabilities.HasAcceptsOpAMPConnectionSettings()
+}
+
+func (a *Agent) IsOwnMetricsSupported() bool {
+	return a.Metadata.Capabilities.HasReportsOwnTraces()
+}
+
+func (a *Agent) IsOwnLogsSupported() bool {
+	return a.Metadata.Capabilities.HasReportsOwnLogs()
+}
+
+func (a *Agent) IsOwnTracesSupported() bool {
+	return a.Metadata.Capabilities.HasReportsOwnMetrics()
+}
+
+func (a *Agent) IsOtherConnectionSettingsSupported() bool {
+	return a.Metadata.Capabilities.HasAcceptsOpAMPConnectionSettings()
+}
+
+type ConnectionInfo struct {
+	Hash vo.Hash
+
+	opamp            OpAMPConnectionSettings
+	ownMetrics       TelemetryConnectionSettings
+	ownLogs          TelemetryConnectionSettings
+	ownTraces        TelemetryConnectionSettings
+	otherConnections map[string]OtherConnectionSettings
+}
+
+func (ci *ConnectionInfo) OpAMP() OpAMPConnectionSettings {
+	return ci.opamp
+}
+
+func (ci *ConnectionInfo) OwnMetrics() TelemetryConnectionSettings {
+	return ci.ownMetrics
+}
+
+func (ci *ConnectionInfo) OwnLogs() TelemetryConnectionSettings {
+	return ci.ownLogs
+}
+
+func (ci *ConnectionInfo) OwnTraces() TelemetryConnectionSettings {
+	return ci.ownTraces
+}
+
+func (ci *ConnectionInfo) OtherConnections() map[string]OtherConnectionSettings {
+	ret := maps.Clone(ci.otherConnections)
+	if ret == nil {
+		ret = make(map[string]OtherConnectionSettings)
+	}
+	return ret
+}
+
+func (ci *ConnectionInfo) SetOpAMP(settings OpAMPConnectionSettings) error {
+	ci.opamp = settings
+	return ci.updateHash()
+}
+
+func (ci *ConnectionInfo) SetOwnMetrics(settings TelemetryConnectionSettings) error {
+	ci.ownMetrics = settings
+	return ci.updateHash()
+}
+
+func (ci *ConnectionInfo) SetOwnLogs(settings TelemetryConnectionSettings) error {
+	ci.ownLogs = settings
+	return ci.updateHash()
+}
+
+func (ci *ConnectionInfo) SetOwnTraces(settings TelemetryConnectionSettings) error {
+	ci.ownTraces = settings
+	return ci.updateHash()
+}
+
+func (ci *ConnectionInfo) SetOtherConnection(name string, settings OtherConnectionSettings) error {
+	if ci.otherConnections == nil {
+		ci.otherConnections = make(map[string]OtherConnectionSettings)
+	}
+	ci.otherConnections[name] = settings
+	return ci.updateHash()
+}
+
+func (ci *ConnectionInfo) updateHash() error {
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	err := encoder.Encode(ci)
+	if err != nil {
+		return fmt.Errorf("failed to encode connection info for hash: %w", err)
+	}
+	ci.Hash, err = vo.NewHash(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to compute hash for connection info: %w", err)
+	}
+	return nil
+}
+
+type OpAMPConnectionSettings struct {
+	DestinationEndpoint string
+	Headers             map[string][]string
+	Certificate         TelemetryTLSCertificate
+}
+
+type TelemetryConnectionSettings struct {
+	DestinationEndpoint string
+	Headers             map[string][]string
+	Certificate         TelemetryTLSCertificate
+}
+
+type OtherConnectionSettings struct {
+	DestinationEndpoint string
+	Headers             map[string][]string
+	Certificate         TelemetryTLSCertificate
+}
+
+type TelemetryTLSCertificate struct {
+	Cert       []byte
+	PrivateKey []byte
+	CaCert     []byte
 }
 
 // AgentRestartInfo is a domain model to control opamp agent restart information.
