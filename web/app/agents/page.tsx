@@ -20,10 +20,23 @@ import { Refresh as RefreshIcon } from '@mui/icons-material';
 
 interface Agent {
   id: string;
-  name: string;
-  status?: string;
-  version?: string;
-  lastSeen?: string;
+  metadata?: {
+    instanceUid: string;
+    [key: string]: any;
+  };
+  spec?: {
+    [key: string]: any;
+  };
+  status?: {
+    effectiveConfig?: any;
+    packageStatuses?: any;
+    componentHealth?: any;
+    availableComponents?: any;
+    conditions?: any[];
+    connected?: boolean;
+    connectionType?: string;
+    lastReportedAt?: string;
+  };
   [key: string]: any;
 }
 
@@ -83,10 +96,10 @@ export default function AgentsPage() {
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Version</TableCell>
-              <TableCell>Last Seen</TableCell>
+              <TableCell>Instance UID</TableCell>
+              <TableCell>Connection</TableCell>
+              <TableCell>Connection Type</TableCell>
+              <TableCell>Last Reported</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -97,19 +110,19 @@ export default function AgentsPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              agents.map((agent) => (
-                <TableRow key={agent.id} hover>
+              agents.map((agent, index) => (
+                <TableRow key={agent.id || `agent-${index}`} hover>
                   <TableCell>{agent.id}</TableCell>
-                  <TableCell>{agent.name || '-'}</TableCell>
+                  <TableCell>{agent.metadata?.instanceUid || '-'}</TableCell>
                   <TableCell>
                     <Chip
-                      label={agent.status || 'Unknown'}
-                      color={agent.status === 'active' ? 'success' : 'default'}
+                      label={agent.status?.connected ? 'Connected' : 'Disconnected'}
+                      color={agent.status?.connected ? 'success' : 'default'}
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{agent.version || '-'}</TableCell>
-                  <TableCell>{agent.lastSeen || '-'}</TableCell>
+                  <TableCell>{agent.status?.connectionType || '-'}</TableCell>
+                  <TableCell>{agent.status?.lastReportedAt || '-'}</TableCell>
                 </TableRow>
               ))
             )}

@@ -14,7 +14,7 @@ export default function Home() {
       </Typography>
 
       <Grid container spacing={3} sx={{ mt: 2 }}>
-        <Grid xs={12} md={6}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" gap={2}>
@@ -30,7 +30,7 @@ export default function Home() {
           </Card>
         </Grid>
 
-        <Grid xs={12} md={6}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" gap={2}>
