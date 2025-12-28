@@ -8,10 +8,13 @@ export async function GET(request: NextRequest) {
     const queryString = searchParams.toString();
     const url = `${OPAMP_API_URL}/api/v1/agents${queryString ? `?${queryString}` : ''}`;
 
+    const authHeader = request.headers.get('authorization');
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
     });
 
