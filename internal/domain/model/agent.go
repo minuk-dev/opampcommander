@@ -34,6 +34,8 @@ type Agent struct {
 // NewAgent creates a new agent with the given instance UID.
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
+//
+//nolint:funlen
 func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	agent := &Agent{
 		//exhaustruct:ignore
@@ -55,6 +57,11 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 				Status:               RemoteConfigStatusUnset,
 				ErrorMessage:         "",
 				LastUpdatedAt:        time.Time{},
+			},
+			ConnectionSettingsStatus: AgentConnectionSettingsStatus{
+				LastConnectionSettingsHash: nil,
+				Status:                     ConnectionSettingsStatusUnset,
+				ErrorMessage:               "",
 			},
 			EffectiveConfig: AgentEffectiveConfig{
 				ConfigMap: AgentConfigMap{
@@ -252,11 +259,12 @@ func (am *AgentMetadata) IsComplete() bool {
 
 // AgentStatus is a domain model to control opamp agent status.
 type AgentStatus struct {
-	RemoteConfigStatus  AgentRemoteConfigStatus
-	EffectiveConfig     AgentEffectiveConfig
-	PackageStatuses     AgentPackageStatuses
-	ComponentHealth     AgentComponentHealth
-	AvailableComponents AgentAvailableComponents
+	RemoteConfigStatus       AgentRemoteConfigStatus
+	ConnectionSettingsStatus AgentConnectionSettingsStatus
+	EffectiveConfig          AgentEffectiveConfig
+	PackageStatuses          AgentPackageStatuses
+	ComponentHealth          AgentComponentHealth
+	AvailableComponents      AgentAvailableComponents
 
 	// Conditions is a list of conditions that apply to the agent.
 	Conditions []AgentCondition
@@ -629,6 +637,112 @@ func (ci *ConnectionInfo) SetOtherConnection(name string, settings OtherConnecti
 	return ci.updateHash()
 }
 
+// HasConnectionSettings checks if there are any connection settings configured.
+func (ci *ConnectionInfo) HasConnectionSettings() bool {
+	return ci.opamp.DestinationEndpoint != "" ||
+		ci.ownMetrics.DestinationEndpoint != "" ||
+		ci.ownLogs.DestinationEndpoint != "" ||
+		ci.ownTraces.DestinationEndpoint != "" ||
+		len(ci.otherConnections) > 0
+}
+
+// ToProtobuf converts ConnectionInfo to protobuf ConnectionSettingsOffers.
+func (ci *ConnectionInfo) ToProtobuf() *protobufs.ConnectionSettingsOffers {
+	if !ci.HasConnectionSettings() {
+		return nil
+	}
+
+	//exhaustruct:ignore
+	offers := &protobufs.ConnectionSettingsOffers{
+		Hash: ci.Hash.Bytes(),
+	}
+
+	if ci.opamp.DestinationEndpoint != "" {
+		offers.Opamp = ci.opamp.toProtobuf()
+	}
+
+	if ci.ownMetrics.DestinationEndpoint != "" {
+		offers.OwnMetrics = ci.ownMetrics.toProtobuf()
+	}
+
+	if ci.ownLogs.DestinationEndpoint != "" {
+		offers.OwnLogs = ci.ownLogs.toProtobuf()
+	}
+
+	if ci.ownTraces.DestinationEndpoint != "" {
+		offers.OwnTraces = ci.ownTraces.toProtobuf()
+	}
+
+	if len(ci.otherConnections) > 0 {
+		offers.OtherConnections = make(map[string]*protobufs.OtherConnectionSettings)
+		for name, settings := range ci.otherConnections {
+			offers.OtherConnections[name] = settings.toProtobuf()
+		}
+	}
+
+	return offers
+}
+
+func (o *OpAMPConnectionSettings) toProtobuf() *protobufs.OpAMPConnectionSettings {
+	//exhaustruct:ignore
+	return &protobufs.OpAMPConnectionSettings{
+		DestinationEndpoint: o.DestinationEndpoint,
+		Headers:             toProtobufHeaders(o.Headers),
+		Certificate:         o.Certificate.toProtobuf(),
+	}
+}
+
+func (t *TelemetryConnectionSettings) toProtobuf() *protobufs.TelemetryConnectionSettings {
+	//exhaustruct:ignore
+	return &protobufs.TelemetryConnectionSettings{
+		DestinationEndpoint: t.DestinationEndpoint,
+		Headers:             toProtobufHeaders(t.Headers),
+		Certificate:         t.Certificate.toProtobuf(),
+	}
+}
+
+func (o *OtherConnectionSettings) toProtobuf() *protobufs.OtherConnectionSettings {
+	//exhaustruct:ignore
+	return &protobufs.OtherConnectionSettings{
+		DestinationEndpoint: o.DestinationEndpoint,
+		Headers:             toProtobufHeaders(o.Headers),
+		Certificate:         o.Certificate.toProtobuf(),
+	}
+}
+
+func (t *TelemetryTLSCertificate) toProtobuf() *protobufs.TLSCertificate {
+	if len(t.Cert) == 0 && len(t.PrivateKey) == 0 && len(t.CaCert) == 0 {
+		return nil
+	}
+
+	return &protobufs.TLSCertificate{
+		Cert:       t.Cert,
+		PrivateKey: t.PrivateKey,
+		CaCert:     t.CaCert,
+	}
+}
+
+func toProtobufHeaders(headers map[string][]string) *protobufs.Headers {
+	if len(headers) == 0 {
+		return nil
+	}
+
+	pbHeaders := make([]*protobufs.Header, 0)
+
+	for key, values := range headers {
+		for _, value := range values {
+			pbHeaders = append(pbHeaders, &protobufs.Header{
+				Key:   key,
+				Value: value,
+			})
+		}
+	}
+
+	return &protobufs.Headers{
+		Headers: pbHeaders,
+	}
+}
+
 func (ci *ConnectionInfo) updateHash() error {
 	var buf bytes.Buffer
 
@@ -743,6 +857,31 @@ type AgentRemoteConfigStatus struct {
 	LastUpdatedAt        time.Time
 }
 
+// AgentConnectionSettingsStatus is the status of the connection settings.
+type AgentConnectionSettingsStatus struct {
+	LastConnectionSettingsHash []byte
+	Status                     ConnectionSettingsStatus
+	ErrorMessage               string
+}
+
+// ConnectionSettingsStatus represents the status of connection settings.
+type ConnectionSettingsStatus int32
+
+const (
+	// ConnectionSettingsStatusUnset means status is not set.
+	ConnectionSettingsStatusUnset ConnectionSettingsStatus = ConnectionSettingsStatus(
+		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_UNSET))
+	// ConnectionSettingsStatusApplied means connection settings have been applied.
+	ConnectionSettingsStatusApplied ConnectionSettingsStatus = ConnectionSettingsStatus(
+		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_APPLIED))
+	// ConnectionSettingsStatusApplying means connection settings are being applied.
+	ConnectionSettingsStatusApplying ConnectionSettingsStatus = ConnectionSettingsStatus(
+		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_APPLYING))
+	// ConnectionSettingsStatusFailed means applying connection settings failed.
+	ConnectionSettingsStatusFailed ConnectionSettingsStatus = ConnectionSettingsStatus(
+		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_FAILED))
+)
+
 // AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
 	Packages                     map[string]AgentPackageStatus
@@ -841,6 +980,17 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 	}
 
 	a.Status.RemoteConfigStatus = *status
+
+	return nil
+}
+
+// ReportConnectionSettingsStatus is a method to report the connection settings status of the agent.
+func (a *Agent) ReportConnectionSettingsStatus(status *AgentConnectionSettingsStatus) error {
+	if status == nil {
+		return nil // No connection settings status to report
+	}
+
+	a.Status.ConnectionSettingsStatus = *status
 
 	return nil
 }

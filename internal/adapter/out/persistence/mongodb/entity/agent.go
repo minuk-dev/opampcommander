@@ -277,6 +277,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		}
 	}
 
+	//exhaustruct:ignore
 	return domainmodel.AgentStatus{
 		EffectiveConfig: switchIfNil(
 			status.EffectiveConfig.ToDomain(),
@@ -310,6 +311,11 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 
 			return status.RemoteConfigStatus.ToDomain()
 		}(),
+		ConnectionSettingsStatus: domainmodel.AgentConnectionSettingsStatus{
+			LastConnectionSettingsHash: nil,
+			Status:                     domainmodel.ConnectionSettingsStatusUnset,
+			ErrorMessage:               "",
+		},
 		Conditions:     conditions,
 		Connected:      status.Connected,
 		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),
