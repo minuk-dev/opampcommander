@@ -255,6 +255,8 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 
 	return domainmodel.AgentSpec{
 		NewInstanceUID: uid,
+		//exhaustruct:ignore
+		ConnectionInfo: domainmodel.ConnectionInfo{},
 		RemoteConfig:   spec.RemoteConfig.ToDomain(),
 		RestartInfo: domainmodel.AgentRestartInfo{
 			RequiredRestartedAt: time.Time{},
