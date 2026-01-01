@@ -63,7 +63,7 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 
 	var connectionSettings *protobufs.ConnectionSettingsOffers
 	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
-		connectionSettings = agentModel.Spec.ConnectionInfo.ToProtobuf()
+		connectionSettings = connectionInfoToProtobuf(&agentModel.Spec.ConnectionInfo)
 		capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings)
 	}
 

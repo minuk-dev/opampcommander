@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/open-telemetry/opamp-go/protobufs"
 	"gopkg.in/yaml.v3"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
@@ -646,103 +645,6 @@ func (ci *ConnectionInfo) HasConnectionSettings() bool {
 		len(ci.otherConnections) > 0
 }
 
-// ToProtobuf converts ConnectionInfo to protobuf ConnectionSettingsOffers.
-func (ci *ConnectionInfo) ToProtobuf() *protobufs.ConnectionSettingsOffers {
-	if !ci.HasConnectionSettings() {
-		return nil
-	}
-
-	//exhaustruct:ignore
-	offers := &protobufs.ConnectionSettingsOffers{
-		Hash: ci.Hash.Bytes(),
-	}
-
-	if ci.opamp.DestinationEndpoint != "" {
-		offers.Opamp = ci.opamp.toProtobuf()
-	}
-
-	if ci.ownMetrics.DestinationEndpoint != "" {
-		offers.OwnMetrics = ci.ownMetrics.toProtobuf()
-	}
-
-	if ci.ownLogs.DestinationEndpoint != "" {
-		offers.OwnLogs = ci.ownLogs.toProtobuf()
-	}
-
-	if ci.ownTraces.DestinationEndpoint != "" {
-		offers.OwnTraces = ci.ownTraces.toProtobuf()
-	}
-
-	if len(ci.otherConnections) > 0 {
-		offers.OtherConnections = make(map[string]*protobufs.OtherConnectionSettings)
-		for name, settings := range ci.otherConnections {
-			offers.OtherConnections[name] = settings.toProtobuf()
-		}
-	}
-
-	return offers
-}
-
-func (o *OpAMPConnectionSettings) toProtobuf() *protobufs.OpAMPConnectionSettings {
-	//exhaustruct:ignore
-	return &protobufs.OpAMPConnectionSettings{
-		DestinationEndpoint: o.DestinationEndpoint,
-		Headers:             toProtobufHeaders(o.Headers),
-		Certificate:         o.Certificate.toProtobuf(),
-	}
-}
-
-func (t *TelemetryConnectionSettings) toProtobuf() *protobufs.TelemetryConnectionSettings {
-	//exhaustruct:ignore
-	return &protobufs.TelemetryConnectionSettings{
-		DestinationEndpoint: t.DestinationEndpoint,
-		Headers:             toProtobufHeaders(t.Headers),
-		Certificate:         t.Certificate.toProtobuf(),
-	}
-}
-
-func (o *OtherConnectionSettings) toProtobuf() *protobufs.OtherConnectionSettings {
-	//exhaustruct:ignore
-	return &protobufs.OtherConnectionSettings{
-		DestinationEndpoint: o.DestinationEndpoint,
-		Headers:             toProtobufHeaders(o.Headers),
-		Certificate:         o.Certificate.toProtobuf(),
-	}
-}
-
-func (t *TelemetryTLSCertificate) toProtobuf() *protobufs.TLSCertificate {
-	if len(t.Cert) == 0 && len(t.PrivateKey) == 0 && len(t.CaCert) == 0 {
-		return nil
-	}
-
-	return &protobufs.TLSCertificate{
-		Cert:       t.Cert,
-		PrivateKey: t.PrivateKey,
-		CaCert:     t.CaCert,
-	}
-}
-
-func toProtobufHeaders(headers map[string][]string) *protobufs.Headers {
-	if len(headers) == 0 {
-		return nil
-	}
-
-	pbHeaders := make([]*protobufs.Header, 0)
-
-	for key, values := range headers {
-		for _, value := range values {
-			pbHeaders = append(pbHeaders, &protobufs.Header{
-				Key:   key,
-				Value: value,
-			})
-		}
-	}
-
-	return &protobufs.Headers{
-		Headers: pbHeaders,
-	}
-}
-
 func (ci *ConnectionInfo) updateHash() error {
 	var buf bytes.Buffer
 
@@ -869,17 +771,13 @@ type ConnectionSettingsStatus int32
 
 const (
 	// ConnectionSettingsStatusUnset means status is not set.
-	ConnectionSettingsStatusUnset ConnectionSettingsStatus = ConnectionSettingsStatus(
-		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_UNSET))
+	ConnectionSettingsStatusUnset ConnectionSettingsStatus = 0
 	// ConnectionSettingsStatusApplied means connection settings have been applied.
-	ConnectionSettingsStatusApplied ConnectionSettingsStatus = ConnectionSettingsStatus(
-		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_APPLIED))
+	ConnectionSettingsStatusApplied ConnectionSettingsStatus = 1
 	// ConnectionSettingsStatusApplying means connection settings are being applied.
-	ConnectionSettingsStatusApplying ConnectionSettingsStatus = ConnectionSettingsStatus(
-		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_APPLYING))
+	ConnectionSettingsStatusApplying ConnectionSettingsStatus = 2
 	// ConnectionSettingsStatusFailed means applying connection settings failed.
-	ConnectionSettingsStatusFailed ConnectionSettingsStatus = ConnectionSettingsStatus(
-		int32(protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_FAILED))
+	ConnectionSettingsStatusFailed ConnectionSettingsStatus = 3
 )
 
 // AgentPackageStatuses is a map of package statuses.
@@ -1098,16 +996,11 @@ type RemoteConfig struct {
 type RemoteConfigStatus int32
 
 // RemoteConfigStatus constants
-// To manage simply, we use opamp-go's protobufs' value.
 const (
-	RemoteConfigStatusUnset RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_UNSET))
-	RemoteConfigStatusApplied RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED))
-	RemoteConfigStatusApplying RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING))
-	RemoteConfigStatusFailed RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
+	RemoteConfigStatusUnset    RemoteConfigStatus = 0
+	RemoteConfigStatusApplied  RemoteConfigStatus = 1
+	RemoteConfigStatusApplying RemoteConfigStatus = 2
+	RemoteConfigStatusFailed   RemoteConfigStatus = 3
 )
 
 // String returns the string representation of the status.
@@ -1136,11 +1029,6 @@ func NewRemoteConfig() RemoteConfig {
 		ConfiguredBy:  "",
 		Priority:      0,
 	}
-}
-
-// RemoteConfigStatusFromOpAMP converts OpAMP status to domain model.
-func RemoteConfigStatusFromOpAMP(status protobufs.RemoteConfigStatuses) RemoteConfigStatus {
-	return RemoteConfigStatus(status)
 }
 
 // ApplyRemoteConfig applies remote config.
