@@ -3,12 +3,15 @@ package model_test
 import (
 	"testing"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 func TestRemoteConfigStatus(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    model.RemoteConfigStatus
@@ -38,6 +41,7 @@ func TestRemoteConfigStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, int32(tt.expected), int32(tt.input))
 		})
 	}

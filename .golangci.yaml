@@ -126,6 +126,7 @@ linters:
             - github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
             - go.mongodb.org/mongo-driver/v2/mongo
             - go.mongodb.org/mongo-driver/v2/bson
+            - github.com/open-telemetry/opamp-go/protobufs
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/mongodb
             - github.com/testcontainers/testcontainers-go/wait

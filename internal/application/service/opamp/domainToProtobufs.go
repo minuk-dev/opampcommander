@@ -7,37 +7,37 @@ import (
 )
 
 // connectionInfoToProtobuf converts ConnectionInfo to protobuf ConnectionSettingsOffers.
-func connectionInfoToProtobuf(ci *model.ConnectionInfo) *protobufs.ConnectionSettingsOffers {
-	if ci == nil || !ci.HasConnectionSettings() {
+func connectionInfoToProtobuf(connectionInfo *model.ConnectionInfo) *protobufs.ConnectionSettingsOffers {
+	if connectionInfo == nil || !connectionInfo.HasConnectionSettings() {
 		return nil
 	}
 
 	//exhaustruct:ignore
 	offers := &protobufs.ConnectionSettingsOffers{
-		Hash: ci.Hash.Bytes(),
+		Hash: connectionInfo.Hash.Bytes(),
 	}
 
-	opamp := ci.OpAMP()
+	opamp := connectionInfo.OpAMP()
 	if opamp.DestinationEndpoint != "" {
 		offers.Opamp = opampConnectionSettingsToProtobuf(&opamp)
 	}
 
-	ownMetrics := ci.OwnMetrics()
+	ownMetrics := connectionInfo.OwnMetrics()
 	if ownMetrics.DestinationEndpoint != "" {
 		offers.OwnMetrics = telemetryConnectionSettingsToProtobuf(&ownMetrics)
 	}
 
-	ownLogs := ci.OwnLogs()
+	ownLogs := connectionInfo.OwnLogs()
 	if ownLogs.DestinationEndpoint != "" {
 		offers.OwnLogs = telemetryConnectionSettingsToProtobuf(&ownLogs)
 	}
 
-	ownTraces := ci.OwnTraces()
+	ownTraces := connectionInfo.OwnTraces()
 	if ownTraces.DestinationEndpoint != "" {
 		offers.OwnTraces = telemetryConnectionSettingsToProtobuf(&ownTraces)
 	}
 
-	otherConnections := ci.OtherConnections()
+	otherConnections := connectionInfo.OtherConnections()
 	if len(otherConnections) > 0 {
 		offers.OtherConnections = make(map[string]*protobufs.OtherConnectionSettings)
 		for name, settings := range otherConnections {
@@ -49,47 +49,47 @@ func connectionInfoToProtobuf(ci *model.ConnectionInfo) *protobufs.ConnectionSet
 }
 
 func opampConnectionSettingsToProtobuf(
-	o *model.OpAMPConnectionSettings,
+	domain *model.OpAMPConnectionSettings,
 ) *protobufs.OpAMPConnectionSettings {
 	//exhaustruct:ignore
 	return &protobufs.OpAMPConnectionSettings{
-		DestinationEndpoint: o.DestinationEndpoint,
-		Headers:             headersToProtobuf(o.Headers),
-		Certificate:         tlsCertificateToProtobuf(&o.Certificate),
+		DestinationEndpoint: domain.DestinationEndpoint,
+		Headers:             headersToProtobuf(domain.Headers),
+		Certificate:         tlsCertificateToProtobuf(&domain.Certificate),
 	}
 }
 
 func telemetryConnectionSettingsToProtobuf(
-	t *model.TelemetryConnectionSettings,
+	domain *model.TelemetryConnectionSettings,
 ) *protobufs.TelemetryConnectionSettings {
 	//exhaustruct:ignore
 	return &protobufs.TelemetryConnectionSettings{
-		DestinationEndpoint: t.DestinationEndpoint,
-		Headers:             headersToProtobuf(t.Headers),
-		Certificate:         tlsCertificateToProtobuf(&t.Certificate),
+		DestinationEndpoint: domain.DestinationEndpoint,
+		Headers:             headersToProtobuf(domain.Headers),
+		Certificate:         tlsCertificateToProtobuf(&domain.Certificate),
 	}
 }
 
 func otherConnectionSettingsToProtobuf(
-	o *model.OtherConnectionSettings,
+	domain *model.OtherConnectionSettings,
 ) *protobufs.OtherConnectionSettings {
 	//exhaustruct:ignore
 	return &protobufs.OtherConnectionSettings{
-		DestinationEndpoint: o.DestinationEndpoint,
-		Headers:             headersToProtobuf(o.Headers),
-		Certificate:         tlsCertificateToProtobuf(&o.Certificate),
+		DestinationEndpoint: domain.DestinationEndpoint,
+		Headers:             headersToProtobuf(domain.Headers),
+		Certificate:         tlsCertificateToProtobuf(&domain.Certificate),
 	}
 }
 
-func tlsCertificateToProtobuf(t *model.TelemetryTLSCertificate) *protobufs.TLSCertificate {
-	if len(t.Cert) == 0 && len(t.PrivateKey) == 0 && len(t.CaCert) == 0 {
+func tlsCertificateToProtobuf(domain *model.TelemetryTLSCertificate) *protobufs.TLSCertificate {
+	if len(domain.Cert) == 0 && len(domain.PrivateKey) == 0 && len(domain.CaCert) == 0 {
 		return nil
 	}
 
 	return &protobufs.TLSCertificate{
-		Cert:       t.Cert,
-		PrivateKey: t.PrivateKey,
-		CaCert:     t.CaCert,
+		Cert:       domain.Cert,
+		PrivateKey: domain.PrivateKey,
+		CaCert:     domain.CaCert,
 	}
 }
 
