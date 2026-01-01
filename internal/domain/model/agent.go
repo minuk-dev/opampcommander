@@ -995,7 +995,7 @@ type RemoteConfig struct {
 // RemoteConfigStatus is generated from agentToServer of OpAMP.
 type RemoteConfigStatus int32
 
-// RemoteConfigStatus constants.
+// RemoteConfigStatus constants..
 const (
 	RemoteConfigStatusUnset    RemoteConfigStatus = 0
 	RemoteConfigStatusApplied  RemoteConfigStatus = 1
