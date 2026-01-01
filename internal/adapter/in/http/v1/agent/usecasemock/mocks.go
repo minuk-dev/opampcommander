@@ -307,6 +307,75 @@ func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// SetConnectionSettings provides a mock function for the type MockManageUsecase
+func (_mock *MockManageUsecase) SetConnectionSettings(ctx context.Context, instanceUID uuid.UUID, connectionSettings agent.ConnectionSettings, requestedBy string) error {
+	ret := _mock.Called(ctx, instanceUID, connectionSettings, requestedBy)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetConnectionSettings")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, agent.ConnectionSettings, string) error); ok {
+		r0 = returnFunc(ctx, instanceUID, connectionSettings, requestedBy)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockManageUsecase_SetConnectionSettings_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetConnectionSettings'
+type MockManageUsecase_SetConnectionSettings_Call struct {
+	*mock.Call
+}
+
+// SetConnectionSettings is a helper method to define mock.On call
+//   - ctx context.Context
+//   - instanceUID uuid.UUID
+//   - connectionSettings agent.ConnectionSettings
+//   - requestedBy string
+func (_e *MockManageUsecase_Expecter) SetConnectionSettings(ctx interface{}, instanceUID interface{}, connectionSettings interface{}, requestedBy interface{}) *MockManageUsecase_SetConnectionSettings_Call {
+	return &MockManageUsecase_SetConnectionSettings_Call{Call: _e.mock.On("SetConnectionSettings", ctx, instanceUID, connectionSettings, requestedBy)}
+}
+
+func (_c *MockManageUsecase_SetConnectionSettings_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID, connectionSettings agent.ConnectionSettings, requestedBy string)) *MockManageUsecase_SetConnectionSettings_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 agent.ConnectionSettings
+		if args[2] != nil {
+			arg2 = args[2].(agent.ConnectionSettings)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockManageUsecase_SetConnectionSettings_Call) Return(err error) *MockManageUsecase_SetConnectionSettings_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockManageUsecase_SetConnectionSettings_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID, connectionSettings agent.ConnectionSettings, requestedBy string) error) *MockManageUsecase_SetConnectionSettings_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetNewInstanceUID provides a mock function for the type MockManageUsecase
 func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error) {
 	ret := _mock.Called(ctx, instanceUID, newInstanceUID)

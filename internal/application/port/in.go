@@ -34,6 +34,12 @@ type AgentManageUsecase interface {
 	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
 	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1agent.ListResponse, error)
 	SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*v1agent.Agent, error)
+	SetConnectionSettings(
+		ctx context.Context,
+		instanceUID uuid.UUID,
+		connectionSettings v1agent.ConnectionSettings,
+		requestedBy string,
+	) error
 	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 }
 

@@ -19,6 +19,8 @@ const (
 	GetAgentURL = "/api/v1/agents/{id}"
 	// SetAgentNewInstanceUIDURL is the path to set a new instance UID for an agent.
 	SetAgentNewInstanceUIDURL = "/api/v1/agents/{id}/new-instance-uid"
+	// SetAgentConnectionSettingsURL is the path to set connection settings for an agent.
+	SetAgentConnectionSettingsURL = "/api/v1/agents/{id}/connection-settings"
 	// RestartAgentURL is the path to restart an agent.
 	RestartAgentURL = "/api/v1/agents/{id}/restart"
 )
@@ -125,6 +127,31 @@ func (s *AgentService) SetAgentNewInstanceUID(
 	}
 
 	return &result, nil
+}
+
+// SetAgentConnectionSettings sets connection settings for an agent.
+func (s *AgentService) SetAgentConnectionSettings(
+	ctx context.Context,
+	id uuid.UUID,
+	request agentv1.SetConnectionSettingsRequest,
+) error {
+	response, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("id", id.String()).
+		SetBody(request).
+		Put(SetAgentConnectionSettingsURL)
+	if err != nil {
+		return fmt.Errorf("failed to set connection settings for agent: %w", err)
+	}
+
+	if response.IsError() {
+		return &ResponseError{
+			StatusCode:   response.StatusCode(),
+			ErrorMessage: response.String(),
+		}
+	}
+
+	return nil
 }
 
 // RestartAgent restarts an agent by its ID.
