@@ -3,6 +3,7 @@ package agent_test
 import (
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,10 +27,17 @@ func TestNewCommand(t *testing.T) {
 	assert.Equal(t, "agent", cmd.Use)
 	assert.Contains(t, cmd.Short, "Set agent configurations")
 
-	// Check that new-instance-uid subcommand exists
+	// Check that subcommands exist
 	subcommands := cmd.Commands()
-	assert.Len(t, subcommands, 1)
-	assert.Contains(t, subcommands[0].Use, "new-instance-uid")
+	assert.Len(t, subcommands, 2)
+
+	// Check that both new-instance-uid and connection-settings subcommands exist
+	subcommandNames := make([]string, len(subcommands))
+	for i, sc := range subcommands {
+		subcommandNames[i] = sc.Name()
+	}
+	assert.Contains(t, subcommandNames, "new-instance-uid")
+	assert.Contains(t, subcommandNames, "connection-settings")
 }
 
 func TestNewInstanceUIDCommand(t *testing.T) {
@@ -42,7 +50,18 @@ func TestNewInstanceUIDCommand(t *testing.T) {
 
 	// when
 	cmd := agent.NewCommand(options)
-	subCmd := cmd.Commands()[0]
+
+	// Find new-instance-uid subcommand
+	var subCmd *cobra.Command
+	for _, sc := range cmd.Commands() {
+		if sc.Name() == "new-instance-uid" {
+			subCmd = sc
+
+			break
+		}
+	}
+
+	require.NotNil(t, subCmd, "new-instance-uid subcommand should exist")
 
 	// then - Check args validation
 	err := subCmd.Args(subCmd, []string{"arg1", "arg2"})
