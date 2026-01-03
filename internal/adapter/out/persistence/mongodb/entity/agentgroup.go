@@ -55,9 +55,9 @@ type AgentGroupStatistics struct {
 
 // ToDomain converts the AgentGroup entity to the domain model.
 func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGroup {
-	var agentConfig *model.AgentConfig
+	var agentConfig *model.AgentRemoteConfig
 	if e.AgentConfig != nil {
-		agentConfig = &model.AgentConfig{
+		agentConfig = &model.AgentRemoteConfig{
 			Value:       []byte(e.AgentConfig.Value),
 			ContentType: e.AgentConfig.ContentType,
 		}
@@ -85,7 +85,7 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 			},
 		},
 		Spec: model.AgentGroupSpec{
-			AgentConfig: agentConfig,
+			AgentRemoteConfig: agentConfig,
 		},
 		Status: model.AgentGroupStatus{
 			NumAgents:             int(statistics.NumAgents),
@@ -102,10 +102,10 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 // AgentGroupFromDomain converts the AgentGroup domain model to the entity representation.
 func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
 	var agentConfig *AgentConfig
-	if agentgroup.Spec.AgentConfig != nil {
+	if agentgroup.Spec.AgentRemoteConfig != nil {
 		agentConfig = &AgentConfig{
-			Value:       string(agentgroup.Spec.AgentConfig.Value),
-			ContentType: agentgroup.Spec.AgentConfig.ContentType,
+			Value:       string(agentgroup.Spec.AgentRemoteConfig.Value),
+			ContentType: agentgroup.Spec.AgentRemoteConfig.ContentType,
 		}
 	}
 

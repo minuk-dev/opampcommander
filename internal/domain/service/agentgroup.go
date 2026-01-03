@@ -244,8 +244,8 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 			// Here you can implement the logic to update the agent based on the agent group changes.
 			// For example, you might want to update the agent's configuration or metadata.
 			err := agent.ApplyRemoteConfig(
-				agentGroup.Spec.AgentConfig.Value,
-				agentGroup.Spec.AgentConfig.ContentType,
+				agentGroup.Spec.AgentRemoteConfig.Value,
+				agentGroup.Spec.AgentRemoteConfig.ContentType,
 				agentGroup.Metadata.Priority,
 			)
 			if err != nil {

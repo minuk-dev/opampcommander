@@ -173,10 +173,10 @@ func (s *ManageService) toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentg
 	}
 
 	var agentConfig *v1agentgroup.AgentConfig
-	if domain.Spec.AgentConfig != nil {
+	if domain.Spec.AgentRemoteConfig != nil {
 		agentConfig = &v1agentgroup.AgentConfig{
-			Value:       string(domain.Spec.AgentConfig.Value),
-			ContentType: domain.Spec.AgentConfig.ContentType,
+			Value:       string(domain.Spec.AgentRemoteConfig.Value),
+			ContentType: domain.Spec.AgentRemoteConfig.ContentType,
 		}
 	}
 
@@ -220,9 +220,9 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	cmd *port.CreateAgentGroupCommand,
 	requestedBy *security.User,
 ) *model.AgentGroup {
-	var agentConfig *model.AgentConfig
+	var agentConfig *model.AgentRemoteConfig
 	if cmd.AgentConfig != nil {
-		agentConfig = &model.AgentConfig{
+		agentConfig = &model.AgentRemoteConfig{
 			Value:       []byte(cmd.AgentConfig.Value),
 			ContentType: cmd.AgentConfig.ContentType,
 		}
@@ -239,7 +239,7 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 			},
 		},
 		Spec: model.AgentGroupSpec{
-			AgentConfig: agentConfig,
+			AgentRemoteConfig: agentConfig,
 		},
 		Status: model.AgentGroupStatus{
 			// No need to set statistics here; they will be calculated by the persistence layer
@@ -267,9 +267,9 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 		return nil
 	}
 
-	var agentConfig *model.AgentConfig
+	var agentConfig *model.AgentRemoteConfig
 	if api.Spec.AgentConfig != nil {
-		agentConfig = &model.AgentConfig{
+		agentConfig = &model.AgentRemoteConfig{
 			Value:       []byte(api.Spec.AgentConfig.Value),
 			ContentType: api.Spec.AgentConfig.ContentType,
 		}
@@ -297,7 +297,7 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 			},
 		},
 		Spec: model.AgentGroupSpec{
-			AgentConfig: agentConfig,
+			AgentRemoteConfig: agentConfig,
 		},
 		Status: model.AgentGroupStatus{
 			NumAgents:             api.Status.NumAgents,

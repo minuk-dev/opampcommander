@@ -43,11 +43,15 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 		},
 		//exhaustruct:ignore
 		Spec: AgentSpec{
-			NewInstanceUID: uuid.Nil,
-			ConnectionInfo: ConnectionInfo{},
-			RemoteConfig:   NewRemoteConfig(),
-			RestartInfo: AgentRestartInfo{
-				RequiredRestartedAt: time.Time{},
+			managedByAgent: managedByAgent{
+				NewInstanceUID: uuid.Nil,
+				RestartInfo: AgentRestartInfo{
+					RequiredRestartedAt: time.Time{},
+				},
+			},
+			managedByAgentGroup: managedByAgentGroup{
+				RemoteConfig:   NewRemoteConfig(),
+				ConnectionInfo: ConnectionInfo{},
 			},
 		},
 		Status: AgentStatus{
@@ -384,17 +388,25 @@ type AgentCommand struct {
 
 // AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
+	managedByAgent
+	managedByAgentGroup
+}
+
+type managedByAgent struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID uuid.UUID
+
+	// RestartInfo contains information about agent restart.
+	RestartInfo AgentRestartInfo
+}
+
+type managedByAgentGroup struct {
 
 	// ConnectionInfo is the connection information for the agent.
 	ConnectionInfo ConnectionInfo
 
 	// RemoteConfig is the remote configuration for the agent.
 	RemoteConfig RemoteConfig
-
-	// RestartInfo contains information about agent restart.
-	RestartInfo AgentRestartInfo
 }
 
 type connectionSettings struct {
