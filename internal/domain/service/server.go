@@ -128,6 +128,10 @@ func (s *ServerService) CurrentServer(ctx context.Context) (*model.Server, error
 
 // GetServer implements port.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
+	//nolint:godox // https://github.com/minuk-dev/opampcommander/issues/241
+	// TODO: caching server instead of fetching from DB every time
+	// cache condition:
+	// - cached server's LastHeartbeatAt + heartbeatTimeout > now
 	server, err := s.serverPersistencePort.GetServer(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server: %w", err)
