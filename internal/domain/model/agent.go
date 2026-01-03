@@ -1001,12 +1001,16 @@ type RemoteConfig struct {
 // RemoteConfigStatus is generated from agentToServer of OpAMP.
 type RemoteConfigStatus int32
 
-// RemoteConfigStatus constants..
+// RemoteConfigStatus constants.
 const (
-	RemoteConfigStatusUnset    RemoteConfigStatus = 0
-	RemoteConfigStatusApplied  RemoteConfigStatus = 1
+	// RemoteConfigStatusUnset means status is not set.
+	RemoteConfigStatusUnset RemoteConfigStatus = 0
+	// RemoteConfigStatusApplied means remote config has been applied.
+	RemoteConfigStatusApplied RemoteConfigStatus = 1
+	// RemoteConfigStatusApplying means remote config is being applied.
 	RemoteConfigStatusApplying RemoteConfigStatus = 2
-	RemoteConfigStatusFailed   RemoteConfigStatus = 3
+	// RemoteConfigStatusFailed means applying remote config failed.
+	RemoteConfigStatusFailed RemoteConfigStatus = 3
 )
 
 // String returns the string representation of the status.
