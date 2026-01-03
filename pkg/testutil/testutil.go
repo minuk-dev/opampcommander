@@ -42,3 +42,18 @@ func NewBase(tb testing.TB) *Base {
 		CacheDir:     cacheDir,
 	}
 }
+
+// TestLogWriter is an io.Writer that writes to the test log.
+// This is useful for capturing logs in tests, especially when working with
+// libraries that write to io.Writer (e.g., slog.TextHandler).
+type TestLogWriter struct {
+	T testing.TB
+}
+
+// Write implements io.Writer by logging to the test.
+func (w TestLogWriter) Write(p []byte) (n int, err error) {
+	w.T.Helper()
+	w.T.Log(string(p))
+
+	return len(p), nil
+}
