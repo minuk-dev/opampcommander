@@ -6,101 +6,77 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmdutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
-const (
-	// MaxCompletionResults is the maximum number of completion results to return.
-	MaxCompletionResults = 20
-)
-
 var (
-	// ErrCommandExecutionFailed is returned when the command execution fails.
-	ErrCommandExecutionFailed = errors.New("command execution failed")
+	// ErrTargetInstanceUIDNotSpecified is returned when the target agent instance UID is not specified.
+	ErrTargetInstanceUIDNotSpecified = errors.New("target agent instance UID not specified")
+	// ErrNewInstanceUIDNotSpecified is returned when the new instance UID is not specified.
+	ErrNewInstanceUIDNotSpecified = errors.New("new instance UID not specified")
 )
 
 // CommandOptions contains the options for the set agent command.
 type CommandOptions struct {
 	*config.GlobalConfig
 
-	// flags
-	formatType     string
-	newInstanceUID string
-
 	// internal
 	client *client.Client
+
+	// flags
+	formatType string
+
+	targetInstanceUID uuid.UUID
+
+	// new-instance-uid
+	newInstanceUID       string
+	parsedNewInstanceUID uuid.UUID // parsed after Prepare
 }
 
 // NewCommand creates a new set agent command.
 func NewCommand(options CommandOptions) *cobra.Command {
-	//exhaustruct:ignore
 	cmd := &cobra.Command{
-		Use:   "agent",
+		Use:   "agent [target-agent-instance-uid]",
 		Short: "Set agent configurations",
-		Long: `Set various configurations for agents.
-
-Available subcommands:
-  new-instance-uid    Set a new instance UID for an agent`,
-	}
-
-	// Add subcommands
-	cmd.AddCommand(newNewInstanceUIDCommand(options))
-
-	return cmd
-}
-
-// newNewInstanceUIDCommand creates the new-instance-uid subcommand.
-func newNewInstanceUIDCommand(options CommandOptions) *cobra.Command {
-	//exhaustruct:ignore
-	cmd := &cobra.Command{
-		Use:   "new-instance-uid [AGENT_INSTANCE_UID] [NEW_INSTANCE_UID]",
-		Short: "Set a new instance UID for an agent",
-		Long: `Set a new instance UID for an agent.
-
-The agent will be notified of the new instance UID when it next connects to the server.
-
-Examples:
+		Long: `
   # Set a new instance UID for an agent
-  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001
+  opampctl set agent 550e8400-e29b-41d4-a716-446655440000 --new-instance-uid 550e8400-e29b-41d4-a716-446655440001
 
   # Set a new instance UID and output as JSON
-  opampctl set agent new-instance-uid 550e8400-e29b-41d4-a716-446655440000 \
-    550e8400-e29b-41d4-a716-446655440001 -o json`,
-		Args:              cobra.ExactArgs(2), //nolint:mnd // exactly 2 args are required
+  opampctl set agent 550e8400-e29b-41d4-a716-446655440000 --new-instance-uid \
+  550e8400-e29b-41d4-a716-446655440001 -o json`,
+		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: options.ValidArgsFunction,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Parse agent instance UID
-			instanceUID, err := uuid.Parse(args[0])
-			if err != nil {
-				return fmt.Errorf("invalid agent instance UID: %w", err)
-			}
-
-			// Get new instance UID from args
-			options.newInstanceUID = args[1]
-
-			err = options.Prepare(cmd, args)
+			err := options.Prepare(cmd, args)
 			if err != nil {
 				return err
 			}
 
-			return options.setNewInstanceUID(cmd, instanceUID)
+			err = options.Run(cmd, args)
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 	}
-
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "yaml", "Output format (yaml|json|table)")
+	cmd.Flags().StringVarP(&options.newInstanceUID, "new-instance-uid", "", "", "New instance UID to set for the agent")
 
 	return cmd
 }
 
-// Prepare prepares the command for execution.
-func (opts *CommandOptions) Prepare(*cobra.Command, []string) error {
+// Prepare prepares the command options.
+func (opts *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
+	// 0. Initialize client
 	client, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
@@ -108,55 +84,40 @@ func (opts *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 	opts.client = client
 
-	return nil
-}
-
-// ValidArgsFunction provides dynamic completion for agent instance UIDs.
-// Only completes the first argument (agent instance UID).
-func (opts *CommandOptions) ValidArgsFunction(
-	cmd *cobra.Command, args []string, toComplete string,
-) ([]string, cobra.ShellCompDirective) {
-	// Only provide completion for the first argument (agent instance UID)
-	if len(args) != 0 {
-		return nil, cobra.ShellCompDirectiveNoFileComp
+	// 1. Parse target agent instance UID
+	if len(args) < 1 {
+		return ErrTargetInstanceUIDNotSpecified
 	}
 
-	cli, err := clientutil.NewClient(opts.GlobalConfig)
+	targetInstanceUID, err := uuid.Parse(args[0])
 	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
+		return fmt.Errorf("invalid target agent instance UID: %w", err)
 	}
 
-	agentService := cli.AgentService
+	opts.targetInstanceUID = targetInstanceUID
 
-	// Use search API with the toComplete string as query
-	resp, err := agentService.SearchAgents(
-		cmd.Context(),
-		toComplete,
-		client.WithLimit(MaxCompletionResults),
-	)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
+	// 2. Parse new instance UID if set
+	if opts.newInstanceUID == "" {
+		return ErrNewInstanceUIDNotSpecified
 	}
 
-	instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
-		return agent.Metadata.InstanceUID.String()
-	})
-
-	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
-}
-
-// setNewInstanceUID sets a new instance UID for an agent.
-func (opts *CommandOptions) setNewInstanceUID(cmd *cobra.Command, instanceUID uuid.UUID) error {
-	newUID, err := uuid.Parse(opts.newInstanceUID)
+	parsedNewInstanceUID, err := uuid.Parse(opts.newInstanceUID)
 	if err != nil {
 		return fmt.Errorf("invalid new instance UID: %w", err)
 	}
 
+	opts.parsedNewInstanceUID = parsedNewInstanceUID
+
+	return nil
+}
+
+// Run runs the command.
+func (opts *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	request := v1agent.SetNewInstanceUIDRequest{
-		NewInstanceUID: newUID,
+		NewInstanceUID: opts.parsedNewInstanceUID,
 	}
 
-	agent, err := opts.client.AgentService.SetAgentNewInstanceUID(cmd.Context(), instanceUID, request)
+	agent, err := opts.client.AgentService.SetAgentNewInstanceUID(cmd.Context(), opts.targetInstanceUID, request)
 	if err != nil {
 		return fmt.Errorf("failed to set new instance UID: %w", err)
 	}
@@ -169,4 +130,28 @@ func (opts *CommandOptions) setNewInstanceUID(cmd *cobra.Command, instanceUID uu
 	}
 
 	return nil
+}
+
+// ValidArgsFunction provides dynamic completion for agent instance UIDs.
+// Only completes the first argument (agent instance UID).
+func (opts *CommandOptions) ValidArgsFunction(
+	cmd *cobra.Command, _ []string, toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+	cli, err := clientutil.NewClient(opts.GlobalConfig)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	agentService := cli.AgentService
+
+	instanceUids, err := cmdutil.AutoCompleteAgentInstanceUIDs(
+		cmd.Context(),
+		agentService,
+		toComplete,
+	)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveError
+	}
+
+	return instanceUids, cobra.ShellCompDirectiveNoFileComp
 }

@@ -61,11 +61,17 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
 
+	var connectionSettings *protobufs.ConnectionSettingsOffers
+	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
+		connectionSettings = connectionInfoToProtobuf(&agentModel.Spec.ConnectionInfo)
+		capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings)
+	}
+
 	return &protobufs.ServerToAgent{
 		InstanceUid:         instanceUID[:],
 		ErrorResponse:       nil,
 		RemoteConfig:        remoteConfig,
-		ConnectionSettings:  nil,
+		ConnectionSettings:  connectionSettings,
 		PackagesAvailable:   nil,
 		Flags:               flags,
 		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64

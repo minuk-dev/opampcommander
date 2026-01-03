@@ -30,8 +30,20 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
-	// AgentConfig is the remote configuration to be applied to agents in this group.
-	AgentConfig *AgentConfig
+	// AgentRemoteConfig is the remote configuration to be applied to agents in this group.
+	AgentRemoteConfig *AgentRemoteConfig
+
+	// AgentConnection settings for agents in this group.
+	AgentConnectionConfig *AgentConnectionConfig
+}
+
+// AgentConnectionConfig represents connection settings for agents in the group.
+type AgentConnectionConfig struct {
+	OpAMPConnection  OpAMPConnectionSettings
+	OwnMetrics       TelemetryConnectionSettings
+	OwnLogs          TelemetryConnectionSettings
+	OwnTraces        TelemetryConnectionSettings
+	OtherConnections map[string]OtherConnectionSettings
 }
 
 // AgentGroupStatus represents the status of an agent group.
@@ -110,7 +122,8 @@ func NewAgentGroup(
 			},
 		},
 		Spec: AgentGroupSpec{
-			AgentConfig: nil,
+			AgentRemoteConfig:     nil,
+			AgentConnectionConfig: nil,
 		},
 		Status: AgentGroupStatus{
 			NumAgents:             0,
@@ -132,8 +145,8 @@ func NewAgentGroup(
 	}
 }
 
-// AgentConfig represents the remote configuration for agents in the group.
-type AgentConfig struct {
+// AgentRemoteConfig represents the remote configuration for agents in the group.
+type AgentRemoteConfig struct {
 	// Value is the configuration content in string format.
 	// This can be used directly or as a reference to a configuration.
 	Value []byte

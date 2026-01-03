@@ -6,3 +6,5 @@ dist/
 **/*.mongodb
 default.mongodb/
 docs/public
+coverage.txt
+coverage.out

@@ -257,6 +257,12 @@ func (s *Service) report(
 		return fmt.Errorf("failed to report remote config status: %w", err)
 	}
 
+	err = agent.ReportConnectionSettingsStatus(
+		connectionSettingsStatusToDomain(agentToServer.GetConnectionSettingsStatus()))
+	if err != nil {
+		return fmt.Errorf("failed to report connection settings status: %w", err)
+	}
+
 	err = agent.ReportPackageStatuses(packageStatusToDomain(agentToServer.GetPackageStatuses()))
 	if err != nil {
 		return fmt.Errorf("failed to report package statuses: %w", err)

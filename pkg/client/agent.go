@@ -19,6 +19,8 @@ const (
 	GetAgentURL = "/api/v1/agents/{id}"
 	// SetAgentNewInstanceUIDURL is the path to set a new instance UID for an agent.
 	SetAgentNewInstanceUIDURL = "/api/v1/agents/{id}/new-instance-uid"
+	// SetAgentConnectionSettingsURL is the path to set connection settings for an agent.
+	SetAgentConnectionSettingsURL = "/api/v1/agents/{id}/connection-settings"
 	// RestartAgentURL is the path to restart an agent.
 	RestartAgentURL = "/api/v1/agents/{id}/restart"
 )

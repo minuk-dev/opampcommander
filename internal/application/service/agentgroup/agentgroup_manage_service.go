@@ -173,10 +173,16 @@ func (s *ManageService) toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentg
 	}
 
 	var agentConfig *v1agentgroup.AgentConfig
-	if domain.Spec.AgentConfig != nil {
+	if domain.Spec.AgentRemoteConfig != nil {
+		//exhaustruct:ignore
 		agentConfig = &v1agentgroup.AgentConfig{
-			Value:       string(domain.Spec.AgentConfig.Value),
-			ContentType: domain.Spec.AgentConfig.ContentType,
+			Value:       string(domain.Spec.AgentRemoteConfig.Value),
+			ContentType: domain.Spec.AgentRemoteConfig.ContentType,
+		}
+
+		// Add connection settings if configured
+		if domain.Spec.AgentConnectionConfig != nil {
+			agentConfig.ConnectionSettings = s.toAPIConnectionSettings(domain.Spec.AgentConnectionConfig)
 		}
 	}
 
@@ -220,12 +226,17 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 	cmd *port.CreateAgentGroupCommand,
 	requestedBy *security.User,
 ) *model.AgentGroup {
-	var agentConfig *model.AgentConfig
+	var agentConfig *model.AgentRemoteConfig
 	if cmd.AgentConfig != nil {
-		agentConfig = &model.AgentConfig{
+		agentConfig = &model.AgentRemoteConfig{
 			Value:       []byte(cmd.AgentConfig.Value),
 			ContentType: cmd.AgentConfig.ContentType,
 		}
+	}
+
+	var connectionConfig *model.AgentConnectionConfig
+	if cmd.AgentConfig != nil && cmd.AgentConfig.ConnectionSettings != nil {
+		connectionConfig = toDomainConnectionConfigFromAPI(cmd.AgentConfig.ConnectionSettings)
 	}
 
 	return &model.AgentGroup{
@@ -239,7 +250,8 @@ func (s *ManageService) toDomainModelAgentGroupForCreate(
 			},
 		},
 		Spec: model.AgentGroupSpec{
-			AgentConfig: agentConfig,
+			AgentRemoteConfig:     agentConfig,
+			AgentConnectionConfig: connectionConfig,
 		},
 		Status: model.AgentGroupStatus{
 			// No need to set statistics here; they will be calculated by the persistence layer
@@ -267,12 +279,17 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 		return nil
 	}
 
-	var agentConfig *model.AgentConfig
+	var agentConfig *model.AgentRemoteConfig
 	if api.Spec.AgentConfig != nil {
-		agentConfig = &model.AgentConfig{
+		agentConfig = &model.AgentRemoteConfig{
 			Value:       []byte(api.Spec.AgentConfig.Value),
 			ContentType: api.Spec.AgentConfig.ContentType,
 		}
+	}
+
+	var connectionConfig *model.AgentConnectionConfig
+	if api.Spec.AgentConfig != nil && api.Spec.AgentConfig.ConnectionSettings != nil {
+		connectionConfig = toDomainConnectionConfigFromAPI(api.Spec.AgentConfig.ConnectionSettings)
 	}
 
 	conditions := make([]model.Condition, len(api.Status.Conditions))
@@ -297,7 +314,8 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 			},
 		},
 		Spec: model.AgentGroupSpec{
-			AgentConfig: agentConfig,
+			AgentRemoteConfig:     agentConfig,
+			AgentConnectionConfig: connectionConfig,
 		},
 		Status: model.AgentGroupStatus{
 			NumAgents:             api.Status.NumAgents,
@@ -308,4 +326,150 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 			Conditions:            conditions,
 		},
 	}
+}
+
+// toDomainConnectionConfigFromAPI converts API ConnectionSettings to domain AgentConnectionConfig.
+func toDomainConnectionConfigFromAPI(
+	api *v1agent.ConnectionSettings,
+) *model.AgentConnectionConfig {
+	if api == nil {
+		return nil
+	}
+
+	return &model.AgentConnectionConfig{
+		OpAMPConnection: model.OpAMPConnectionSettings{
+			DestinationEndpoint: api.OpAMP.DestinationEndpoint,
+			Headers:             api.OpAMP.Headers,
+			Certificate: model.TelemetryTLSCertificate{
+				Cert:       []byte(api.OpAMP.Certificate.Cert),
+				PrivateKey: []byte(api.OpAMP.Certificate.PrivateKey),
+				CaCert:     []byte(api.OpAMP.Certificate.CaCert),
+			},
+		},
+		OwnMetrics: model.TelemetryConnectionSettings{
+			DestinationEndpoint: api.OwnMetrics.DestinationEndpoint,
+			Headers:             api.OwnMetrics.Headers,
+			Certificate: model.TelemetryTLSCertificate{
+				Cert:       []byte(api.OwnMetrics.Certificate.Cert),
+				PrivateKey: []byte(api.OwnMetrics.Certificate.PrivateKey),
+				CaCert:     []byte(api.OwnMetrics.Certificate.CaCert),
+			},
+		},
+		OwnLogs: model.TelemetryConnectionSettings{
+			DestinationEndpoint: api.OwnLogs.DestinationEndpoint,
+			Headers:             api.OwnLogs.Headers,
+			Certificate: model.TelemetryTLSCertificate{
+				Cert:       []byte(api.OwnLogs.Certificate.Cert),
+				PrivateKey: []byte(api.OwnLogs.Certificate.PrivateKey),
+				CaCert:     []byte(api.OwnLogs.Certificate.CaCert),
+			},
+		},
+		OwnTraces: model.TelemetryConnectionSettings{
+			DestinationEndpoint: api.OwnTraces.DestinationEndpoint,
+			Headers:             api.OwnTraces.Headers,
+			Certificate: model.TelemetryTLSCertificate{
+				Cert:       []byte(api.OwnTraces.Certificate.Cert),
+				PrivateKey: []byte(api.OwnTraces.Certificate.PrivateKey),
+				CaCert:     []byte(api.OwnTraces.Certificate.CaCert),
+			},
+		},
+		OtherConnections: toDomainOtherConnectionsFromAPI(api.OtherConnections),
+	}
+}
+
+// toDomainOtherConnectionsFromAPI converts API other connections to domain format.
+func toDomainOtherConnectionsFromAPI(
+	api map[string]v1agent.OtherConnectionSettings,
+) map[string]model.OtherConnectionSettings {
+	if api == nil {
+		return nil
+	}
+
+	result := make(map[string]model.OtherConnectionSettings, len(api))
+	for name, settings := range api {
+		result[name] = model.OtherConnectionSettings{
+			DestinationEndpoint: settings.DestinationEndpoint,
+			Headers:             settings.Headers,
+			Certificate: model.TelemetryTLSCertificate{
+				Cert:       []byte(settings.Certificate.Cert),
+				PrivateKey: []byte(settings.Certificate.PrivateKey),
+				CaCert:     []byte(settings.Certificate.CaCert),
+			},
+		}
+	}
+
+	return result
+}
+
+// toAPIConnectionSettings converts domain AgentConnectionConfig to API ConnectionSettings.
+func (s *ManageService) toAPIConnectionSettings(
+	domain *model.AgentConnectionConfig,
+) *v1agent.ConnectionSettings {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1agent.ConnectionSettings{
+		OpAMP: v1agent.OpAMPConnectionSettings{
+			DestinationEndpoint: domain.OpAMPConnection.DestinationEndpoint,
+			Headers:             domain.OpAMPConnection.Headers,
+			Certificate: v1agent.TLSCertificate{
+				Cert:       string(domain.OpAMPConnection.Certificate.Cert),
+				PrivateKey: string(domain.OpAMPConnection.Certificate.PrivateKey),
+				CaCert:     string(domain.OpAMPConnection.Certificate.CaCert),
+			},
+		},
+		OwnMetrics: v1agent.TelemetryConnectionSettings{
+			DestinationEndpoint: domain.OwnMetrics.DestinationEndpoint,
+			Headers:             domain.OwnMetrics.Headers,
+			Certificate: v1agent.TLSCertificate{
+				Cert:       string(domain.OwnMetrics.Certificate.Cert),
+				PrivateKey: string(domain.OwnMetrics.Certificate.PrivateKey),
+				CaCert:     string(domain.OwnMetrics.Certificate.CaCert),
+			},
+		},
+		OwnLogs: v1agent.TelemetryConnectionSettings{
+			DestinationEndpoint: domain.OwnLogs.DestinationEndpoint,
+			Headers:             domain.OwnLogs.Headers,
+			Certificate: v1agent.TLSCertificate{
+				Cert:       string(domain.OwnLogs.Certificate.Cert),
+				PrivateKey: string(domain.OwnLogs.Certificate.PrivateKey),
+				CaCert:     string(domain.OwnLogs.Certificate.CaCert),
+			},
+		},
+		OwnTraces: v1agent.TelemetryConnectionSettings{
+			DestinationEndpoint: domain.OwnTraces.DestinationEndpoint,
+			Headers:             domain.OwnTraces.Headers,
+			Certificate: v1agent.TLSCertificate{
+				Cert:       string(domain.OwnTraces.Certificate.Cert),
+				PrivateKey: string(domain.OwnTraces.Certificate.PrivateKey),
+				CaCert:     string(domain.OwnTraces.Certificate.CaCert),
+			},
+		},
+		OtherConnections: s.toAPIOtherConnections(domain.OtherConnections),
+	}
+}
+
+// toAPIOtherConnections converts domain other connections to API format.
+func (s *ManageService) toAPIOtherConnections(
+	domain map[string]model.OtherConnectionSettings,
+) map[string]v1agent.OtherConnectionSettings {
+	if domain == nil {
+		return nil
+	}
+
+	result := make(map[string]v1agent.OtherConnectionSettings, len(domain))
+	for name, settings := range domain {
+		result[name] = v1agent.OtherConnectionSettings{
+			DestinationEndpoint: settings.DestinationEndpoint,
+			Headers:             settings.Headers,
+			Certificate: v1agent.TLSCertificate{
+				Cert:       string(settings.Certificate.Cert),
+				PrivateKey: string(settings.Certificate.PrivateKey),
+				CaCert:     string(settings.Certificate.CaCert),
+			},
+		}
+	}
+
+	return result
 }

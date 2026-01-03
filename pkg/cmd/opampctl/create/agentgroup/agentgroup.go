@@ -98,6 +98,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("failed to read agent config file: %w", err)
 		}
 
+		//exhaustruct:ignore
 		agentConfig = &agentgroupv1.AgentConfig{
 			Value:       string(data),
 			ContentType: "text/yaml",

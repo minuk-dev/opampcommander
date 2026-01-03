@@ -52,6 +52,9 @@ type Spec struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID string `json:"newInstanceUid,omitempty"`
 
+	// ConnectionSettings contains connection settings for the agent.
+	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitempty"`
+
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig RemoteConfig `json:"remoteConfig"`
 } // @name AgentSpec
@@ -192,3 +195,57 @@ const (
 	// ConditionStatusUnknown represents an unknown condition status.
 	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
+
+// ConnectionSettings represents connection settings for the agent.
+type ConnectionSettings struct {
+	// OpAMP contains OpAMP server connection settings.
+	OpAMP OpAMPConnectionSettings `json:"opamp,omitempty"`
+	// OwnMetrics contains own metrics connection settings.
+	OwnMetrics TelemetryConnectionSettings `json:"ownMetrics,omitempty"`
+	// OwnLogs contains own logs connection settings.
+	OwnLogs TelemetryConnectionSettings `json:"ownLogs,omitempty"`
+	// OwnTraces contains own traces connection settings.
+	OwnTraces TelemetryConnectionSettings `json:"ownTraces,omitempty"`
+	// OtherConnections contains other connection settings mapped by name.
+	OtherConnections map[string]OtherConnectionSettings `json:"otherConnections,omitempty"`
+} // @name ConnectionSettings
+
+// OpAMPConnectionSettings represents OpAMP connection settings.
+type OpAMPConnectionSettings struct {
+	// DestinationEndpoint is the URL to connect to the OpAMP server.
+	DestinationEndpoint string `json:"destinationEndpoint"`
+	// Headers are HTTP headers to include in requests.
+	Headers map[string][]string `json:"headers,omitempty"`
+	// Certificate contains TLS certificate information.
+	Certificate TLSCertificate `json:"certificate,omitempty"`
+} // @name OpAMPConnectionSettings
+
+// TelemetryConnectionSettings represents telemetry connection settings.
+type TelemetryConnectionSettings struct {
+	// DestinationEndpoint is the URL to send telemetry data to.
+	DestinationEndpoint string `json:"destinationEndpoint"`
+	// Headers are HTTP headers to include in requests.
+	Headers map[string][]string `json:"headers,omitempty"`
+	// Certificate contains TLS certificate information.
+	Certificate TLSCertificate `json:"certificate,omitempty"`
+} // @name TelemetryConnectionSettings
+
+// OtherConnectionSettings represents other connection settings.
+type OtherConnectionSettings struct {
+	// DestinationEndpoint is the URL to connect to.
+	DestinationEndpoint string `json:"destinationEndpoint"`
+	// Headers are HTTP headers to include in requests.
+	Headers map[string][]string `json:"headers,omitempty"`
+	// Certificate contains TLS certificate information.
+	Certificate TLSCertificate `json:"certificate,omitempty"`
+} // @name OtherConnectionSettings
+
+// TLSCertificate represents TLS certificate information.
+type TLSCertificate struct {
+	// Cert is the PEM-encoded certificate.
+	Cert string `json:"cert,omitempty"`
+	// PrivateKey is the PEM-encoded private key.
+	PrivateKey string `json:"privateKey,omitempty"`
+	// CaCert is the PEM-encoded CA certificate.
+	CaCert string `json:"caCert,omitempty"`
+} // @name TLSCertificate

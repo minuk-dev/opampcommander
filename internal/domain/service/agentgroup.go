@@ -244,12 +244,28 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 			// Here you can implement the logic to update the agent based on the agent group changes.
 			// For example, you might want to update the agent's configuration or metadata.
 			err := agent.ApplyRemoteConfig(
-				agentGroup.Spec.AgentConfig.Value,
-				agentGroup.Spec.AgentConfig.ContentType,
+				agentGroup.Spec.AgentRemoteConfig.Value,
+				agentGroup.Spec.AgentRemoteConfig.ContentType,
 				agentGroup.Metadata.Priority,
 			)
 			if err != nil {
 				return fmt.Errorf("apply remote config to agent %s: %w", agent.Metadata.InstanceUID, err)
+			}
+
+			// Apply connection settings if configured
+			if agentGroup.Spec.AgentConnectionConfig != nil {
+				connConfig := agentGroup.Spec.AgentConnectionConfig
+
+				err = agent.ApplyConnectionSettings(
+					connConfig.OpAMPConnection,
+					connConfig.OwnMetrics,
+					connConfig.OwnLogs,
+					connConfig.OwnTraces,
+					connConfig.OtherConnections,
+				)
+				if err != nil {
+					return fmt.Errorf("apply connection settings to agent %s: %w", agent.Metadata.InstanceUID, err)
+				}
 			}
 
 			// After updating the agent, save it back to the persistence layer.

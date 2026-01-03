@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/open-telemetry/opamp-go/protobufs"
 	"gopkg.in/yaml.v3"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
@@ -33,17 +33,25 @@ type Agent struct {
 // NewAgent creates a new agent with the given instance UID.
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
+//
+//nolint:funlen
 func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	agent := &Agent{
 		//exhaustruct:ignore
 		Metadata: AgentMetadata{
 			InstanceUID: instanceUID,
 		},
+		//exhaustruct:ignore
 		Spec: AgentSpec{
-			NewInstanceUID: uuid.Nil,
-			RemoteConfig:   NewRemoteConfig(),
-			RestartInfo: AgentRestartInfo{
-				RequiredRestartedAt: time.Time{},
+			managedByAgent: managedByAgent{
+				NewInstanceUID: uuid.Nil,
+				RestartInfo: AgentRestartInfo{
+					RequiredRestartedAt: time.Time{},
+				},
+			},
+			managedByAgentGroup: managedByAgentGroup{
+				RemoteConfig:   NewRemoteConfig(),
+				ConnectionInfo: ConnectionInfo{},
 			},
 		},
 		Status: AgentStatus{
@@ -52,6 +60,11 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 				Status:               RemoteConfigStatusUnset,
 				ErrorMessage:         "",
 				LastUpdatedAt:        time.Time{},
+			},
+			ConnectionSettingsStatus: AgentConnectionSettingsStatus{
+				LastConnectionSettingsHash: nil,
+				Status:                     ConnectionSettingsStatusUnset,
+				ErrorMessage:               "",
 			},
 			EffectiveConfig: AgentEffectiveConfig{
 				ConfigMap: AgentConfigMap{
@@ -129,14 +142,14 @@ func (a *AgentRestartInfo) ShouldBeRestarted(agentStartTime time.Time) bool {
 		a.RequiredRestartedAt.After(agentStartTime)
 }
 
-// IsSupportRestart checks if the agent supports restart command.
-func (a *Agent) IsSupportRestart() bool {
+// IsRestartSupported checks if the agent supports restart command.
+func (a *Agent) IsRestartSupported() bool {
 	return a.Metadata.Capabilities.HasAcceptsRestartCommand()
 }
 
 // SetRestartRequired sets the restart required information for the agent.
 func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
-	if !a.IsSupportRestart() {
+	if !a.IsRestartSupported() {
 		return ErrUnsupportedAgentOperation
 	}
 
@@ -249,11 +262,12 @@ func (am *AgentMetadata) IsComplete() bool {
 
 // AgentStatus is a domain model to control opamp agent status.
 type AgentStatus struct {
-	RemoteConfigStatus  AgentRemoteConfigStatus
-	EffectiveConfig     AgentEffectiveConfig
-	PackageStatuses     AgentPackageStatuses
-	ComponentHealth     AgentComponentHealth
-	AvailableComponents AgentAvailableComponents
+	RemoteConfigStatus       AgentRemoteConfigStatus
+	ConnectionSettingsStatus AgentConnectionSettingsStatus
+	EffectiveConfig          AgentEffectiveConfig
+	PackageStatuses          AgentPackageStatuses
+	ComponentHealth          AgentComponentHealth
+	AvailableComponents      AgentAvailableComponents
 
 	// Conditions is a list of conditions that apply to the agent.
 	Conditions []AgentCondition
@@ -306,82 +320,387 @@ const (
 	AgentConditionStatusUnknown AgentConditionStatus = "Unknown"
 )
 
-// AgentCommands is a list of commands to be sent to the agent.
-type AgentCommands struct {
-	Commands []AgentCommand
-}
-
-// Clear removes all commands and returns them.
-func (ac *AgentCommands) Clear() []AgentCommand {
-	commands := ac.Commands
-	ac.Commands = []AgentCommand{}
-
-	return commands
-}
-
-// SendReportFullState adds a ReportFullState command to the commands list.
-func (ac *AgentCommands) SendReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
-	ac.Commands = append(ac.Commands, AgentCommand{
-		CommandID:               uuid.New(),
-		ReportFullState:         reportFullState,
-		RemoteConfigUpdated:     false,
-		RemoteConfigUpdatedHash: vo.Hash{},
-		CreatedAt:               requestedAt,
-		CreatedBy:               requestedBy,
-	})
-}
-
-// SendRemoteConfigUpdated adds a RemoteConfigUpdated command to the commands list.
-func (ac *AgentCommands) SendRemoteConfigUpdated(configHash vo.Hash, requestedAt time.Time, requestedBy string) {
-	ac.Commands = append(ac.Commands, AgentCommand{
-		CommandID:               uuid.New(),
-		ReportFullState:         false,
-		RemoteConfigUpdated:     true,
-		RemoteConfigUpdatedHash: configHash,
-		CreatedAt:               requestedAt,
-		CreatedBy:               requestedBy,
-	})
-}
-
-// HasReportFullStateCommand checks if there's any ReportFullState command.
-func (ac *AgentCommands) HasReportFullStateCommand() bool {
-	for _, cmd := range ac.Commands {
-		if cmd.ReportFullState {
-			return true
-		}
-	}
-
-	return false
-}
-
-// AgentCommand is a domain model to control opamp agent commands.
-type AgentCommand struct {
-	// CommandID is a unique identifier for the command.
-	CommandID uuid.UUID
-	// ReportFullState is a flag to indicate whether the agent should report full state.
-	// If true, the agent should report all state information.
-	// More details, see https://github.com/open-telemetry/opamp-spec/blob/main/specification.md#servertoagentflags
-	ReportFullState bool
-	// RemoteConfigUpdated is a flag to indicate that remote config has been updated.
-	RemoteConfigUpdated bool
-	// RemoteConfigUpdatedHash is the hash of the updated remote config.
-	RemoteConfigUpdatedHash vo.Hash
-	// CreatedAt is the time the command was created.
-	CreatedAt time.Time
-	// CreatedBy is the user who created the command.
-	CreatedBy string
-}
-
 // AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
+	managedByAgent
+	managedByAgentGroup
+}
+
+type managedByAgent struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID uuid.UUID
 
-	// RemoteConfig is the remote configuration for the agent.
-	RemoteConfig RemoteConfig
-
 	// RestartInfo contains information about agent restart.
 	RestartInfo AgentRestartInfo
+}
+
+type managedByAgentGroup struct {
+
+	// ConnectionInfo is the connection information for the agent.
+	ConnectionInfo ConnectionInfo
+
+	// RemoteConfig is the remote configuration for the agent.
+	RemoteConfig RemoteConfig
+}
+
+type connectionSettings struct {
+	headers     map[string][]string
+	certificate TelemetryTLSCertificate
+}
+
+// ConnectionOption is a function option for configuring connection settings.
+type ConnectionOption interface {
+	apply(cs *connectionSettings)
+}
+
+// ConnectionOptionFunc is a function that implements ConnectionOption.
+type ConnectionOptionFunc func(*connectionSettings)
+
+func (f ConnectionOptionFunc) apply(cs *connectionSettings) {
+	f(cs)
+}
+
+// WithHeaders sets the headers for the connection.
+func WithHeaders(headers map[string][]string) ConnectionOption {
+	return ConnectionOptionFunc(func(cs *connectionSettings) {
+		cs.headers = headers
+	})
+}
+
+// WithCertificate sets the certificate for the connection.
+func WithCertificate(certificate TelemetryTLSCertificate) ConnectionOption {
+	return ConnectionOptionFunc(func(cs *connectionSettings) {
+		cs.certificate = certificate
+	})
+}
+
+// SetOpAMPConnectionSettings sets OpAMP connection settings for the agent.
+func (a *Agent) SetOpAMPConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	//exhaustruct:ignore
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+
+	err := a.Spec.ConnectionInfo.SetOpAMP(OpAMPConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set OpAMP connection settings: %w", err)
+	}
+
+	return nil
+}
+
+// SetMetricsConnectionSettings sets metrics connection settings for the agent.
+func (a *Agent) SetMetricsConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	//exhaustruct:ignore
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+
+	err := a.Spec.ConnectionInfo.SetOwnMetrics(TelemetryConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set metrics connection settings: %w", err)
+	}
+
+	return nil
+}
+
+// SetLogsConnectionSettings sets logs connection settings for the agent.
+func (a *Agent) SetLogsConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	//exhaustruct:ignore
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+
+	err := a.Spec.ConnectionInfo.SetOwnLogs(TelemetryConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set logs connection settings: %w", err)
+	}
+
+	return nil
+}
+
+// SetTracesConnectionSettings sets traces connection settings for the agent.
+func (a *Agent) SetTracesConnectionSettings(endpoint string, opts ...ConnectionOption) error {
+	//exhaustruct:ignore
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+
+	err := a.Spec.ConnectionInfo.SetOwnTraces(TelemetryConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to set traces connection settings: %w", err)
+	}
+
+	return nil
+}
+
+// SetOtherConnectionSettings sets other connection settings for the agent.
+func (a *Agent) SetOtherConnectionSettings(name, endpoint string, opts ...ConnectionOption) error {
+	//exhaustruct:ignore
+	settings := &connectionSettings{}
+	for _, opt := range opts {
+		opt.apply(settings)
+	}
+
+	existingConnections := a.Spec.ConnectionInfo.OtherConnections()
+	existingConnections[name] = OtherConnectionSettings{
+		DestinationEndpoint: endpoint,
+		Headers:             settings.headers,
+		Certificate:         settings.certificate,
+	}
+
+	err := a.Spec.ConnectionInfo.SetOtherConnection(name, existingConnections[name])
+	if err != nil {
+		return fmt.Errorf("failed to set other connection settings: %w", err)
+	}
+
+	return nil
+}
+
+// IsOpAMPConnectionSettingsSupported checks if the agent supports OpAMP connection settings.
+func (a *Agent) IsOpAMPConnectionSettingsSupported() bool {
+	return a.Metadata.Capabilities.HasAcceptsOpAMPConnectionSettings()
+}
+
+// IsOwnMetricsSupported checks if the agent supports reporting its own metrics.
+func (a *Agent) IsOwnMetricsSupported() bool {
+	return a.Metadata.Capabilities.HasReportsOwnTraces()
+}
+
+// IsOwnLogsSupported checks if the agent supports reporting its own logs.
+func (a *Agent) IsOwnLogsSupported() bool {
+	return a.Metadata.Capabilities.HasReportsOwnLogs()
+}
+
+// IsOwnTracesSupported checks if the agent supports reporting its own traces.
+func (a *Agent) IsOwnTracesSupported() bool {
+	return a.Metadata.Capabilities.HasReportsOwnMetrics()
+}
+
+// IsOtherConnectionSettingsSupported checks if the agent supports other connection settings.
+func (a *Agent) IsOtherConnectionSettingsSupported() bool {
+	return a.Metadata.Capabilities.HasAcceptsOpAMPConnectionSettings()
+}
+
+// ApplyConnectionSettings applies connection settings to the agent from agent group.
+func (a *Agent) ApplyConnectionSettings(
+	opamp OpAMPConnectionSettings,
+	ownMetrics TelemetryConnectionSettings,
+	ownLogs TelemetryConnectionSettings,
+	ownTraces TelemetryConnectionSettings,
+	otherConnections map[string]OtherConnectionSettings,
+) error {
+	connectionInfo, err := NewConnectionInfo(opamp, ownMetrics, ownLogs, ownTraces, otherConnections)
+	if err != nil {
+		return fmt.Errorf("failed to create connection info: %w", err)
+	}
+
+	a.Spec.ConnectionInfo = *connectionInfo
+
+	return nil
+}
+
+// ConnectionInfo represents connection information for the agent.
+type ConnectionInfo struct {
+	Hash vo.Hash
+
+	opamp            OpAMPConnectionSettings
+	ownMetrics       TelemetryConnectionSettings
+	ownLogs          TelemetryConnectionSettings
+	ownTraces        TelemetryConnectionSettings
+	otherConnections map[string]OtherConnectionSettings
+}
+
+// NewConnectionInfo creates a new ConnectionInfo with the given settings.
+func NewConnectionInfo(
+	opamp OpAMPConnectionSettings,
+	ownMetrics TelemetryConnectionSettings,
+	ownLogs TelemetryConnectionSettings,
+	ownTraces TelemetryConnectionSettings,
+	otherConnections map[string]OtherConnectionSettings,
+) (*ConnectionInfo, error) {
+	connectionInfo := &ConnectionInfo{
+		Hash:             nil,
+		opamp:            opamp,
+		ownMetrics:       ownMetrics,
+		ownLogs:          ownLogs,
+		ownTraces:        ownTraces,
+		otherConnections: otherConnections,
+	}
+
+	err := connectionInfo.updateHash()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create connection info: %w", err)
+	}
+
+	return connectionInfo, nil
+}
+
+// OpAMP returns the OpAMP connection settings.
+func (ci *ConnectionInfo) OpAMP() OpAMPConnectionSettings {
+	return ci.opamp
+}
+
+// OwnMetrics returns the own metrics connection settings.
+func (ci *ConnectionInfo) OwnMetrics() TelemetryConnectionSettings {
+	return ci.ownMetrics
+}
+
+// OwnLogs returns the own logs connection settings.
+func (ci *ConnectionInfo) OwnLogs() TelemetryConnectionSettings {
+	return ci.ownLogs
+}
+
+// OwnTraces returns the own traces connection settings.
+func (ci *ConnectionInfo) OwnTraces() TelemetryConnectionSettings {
+	return ci.ownTraces
+}
+
+// OtherConnections returns the other connection settings.
+func (ci *ConnectionInfo) OtherConnections() map[string]OtherConnectionSettings {
+	ret := maps.Clone(ci.otherConnections)
+	if ret == nil {
+		ret = make(map[string]OtherConnectionSettings)
+	}
+
+	return ret
+}
+
+// UpdateAllConnections updates all connection settings.
+func (ci *ConnectionInfo) UpdateAllConnections(
+	opamp OpAMPConnectionSettings,
+	ownMetrics TelemetryConnectionSettings,
+	ownLogs TelemetryConnectionSettings,
+	ownTraces TelemetryConnectionSettings,
+	otherConnections map[string]OtherConnectionSettings,
+) error {
+	ci.opamp = opamp
+	ci.ownMetrics = ownMetrics
+	ci.ownLogs = ownLogs
+	ci.ownTraces = ownTraces
+	ci.otherConnections = otherConnections
+
+	return ci.updateHash()
+}
+
+// SetOpAMP sets the OpAMP connection settings.
+func (ci *ConnectionInfo) SetOpAMP(settings OpAMPConnectionSettings) error {
+	ci.opamp = settings
+
+	return ci.updateHash()
+}
+
+// SetOwnMetrics sets the own metrics connection settings.
+func (ci *ConnectionInfo) SetOwnMetrics(settings TelemetryConnectionSettings) error {
+	ci.ownMetrics = settings
+
+	return ci.updateHash()
+}
+
+// SetOwnLogs sets the own logs connection settings.
+func (ci *ConnectionInfo) SetOwnLogs(settings TelemetryConnectionSettings) error {
+	ci.ownLogs = settings
+
+	return ci.updateHash()
+}
+
+// SetOwnTraces sets the own traces connection settings.
+func (ci *ConnectionInfo) SetOwnTraces(settings TelemetryConnectionSettings) error {
+	ci.ownTraces = settings
+
+	return ci.updateHash()
+}
+
+// SetOtherConnection sets the other connection settings.
+func (ci *ConnectionInfo) SetOtherConnection(name string, settings OtherConnectionSettings) error {
+	if ci.otherConnections == nil {
+		ci.otherConnections = make(map[string]OtherConnectionSettings)
+	}
+
+	ci.otherConnections[name] = settings
+
+	return ci.updateHash()
+}
+
+// HasConnectionSettings checks if there are any connection settings configured.
+func (ci *ConnectionInfo) HasConnectionSettings() bool {
+	return ci.opamp.DestinationEndpoint != "" ||
+		ci.ownMetrics.DestinationEndpoint != "" ||
+		ci.ownLogs.DestinationEndpoint != "" ||
+		ci.ownTraces.DestinationEndpoint != "" ||
+		len(ci.otherConnections) > 0
+}
+
+func (ci *ConnectionInfo) updateHash() error {
+	var buf bytes.Buffer
+
+	encoder := json.NewEncoder(&buf)
+
+	err := encoder.Encode(map[string]any{
+		"opamp":            ci.opamp,
+		"ownMetrics":       ci.ownMetrics,
+		"ownLogs":          ci.ownLogs,
+		"ownTraces":        ci.ownTraces,
+		"otherConnections": ci.otherConnections,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to encode connection info for hash: %w", err)
+	}
+
+	ci.Hash, err = vo.NewHash(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to compute hash for connection info: %w", err)
+	}
+
+	return nil
+}
+
+// OpAMPConnectionSettings represents OpAMP connection settings.
+type OpAMPConnectionSettings struct {
+	DestinationEndpoint string              `json:"destinationEndpoint"`
+	Headers             map[string][]string `json:"headers"`
+	Certificate         TelemetryTLSCertificate
+}
+
+// TelemetryConnectionSettings represents telemetry connection settings.
+type TelemetryConnectionSettings struct {
+	DestinationEndpoint string              `json:"destinationEndpoint"`
+	Headers             map[string][]string `json:"headers"`
+	Certificate         TelemetryTLSCertificate
+}
+
+// OtherConnectionSettings represents other connection settings.
+type OtherConnectionSettings struct {
+	DestinationEndpoint string              `json:"destinationEndpoint"`
+	Headers             map[string][]string `json:"headers"`
+	Certificate         TelemetryTLSCertificate
+}
+
+// TelemetryTLSCertificate represents TLS certificate for telemetry.
+type TelemetryTLSCertificate struct {
+	Cert       []byte `json:"cert"`
+	PrivateKey []byte `json:"privateKey"`
+	CaCert     []byte `json:"caCert"`
 }
 
 // AgentRestartInfo is a domain model to control opamp agent restart information.
@@ -445,6 +764,27 @@ type AgentRemoteConfigStatus struct {
 	ErrorMessage         string
 	LastUpdatedAt        time.Time
 }
+
+// AgentConnectionSettingsStatus is the status of the connection settings.
+type AgentConnectionSettingsStatus struct {
+	LastConnectionSettingsHash []byte
+	Status                     ConnectionSettingsStatus
+	ErrorMessage               string
+}
+
+// ConnectionSettingsStatus represents the status of connection settings.
+type ConnectionSettingsStatus int32
+
+const (
+	// ConnectionSettingsStatusUnset means status is not set.
+	ConnectionSettingsStatusUnset ConnectionSettingsStatus = 0
+	// ConnectionSettingsStatusApplied means connection settings have been applied.
+	ConnectionSettingsStatusApplied ConnectionSettingsStatus = 1
+	// ConnectionSettingsStatusApplying means connection settings are being applied.
+	ConnectionSettingsStatusApplying ConnectionSettingsStatus = 2
+	// ConnectionSettingsStatusFailed means applying connection settings failed.
+	ConnectionSettingsStatusFailed ConnectionSettingsStatus = 3
+)
 
 // AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
@@ -544,6 +884,17 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 	}
 
 	a.Status.RemoteConfigStatus = *status
+
+	return nil
+}
+
+// ReportConnectionSettingsStatus is a method to report the connection settings status of the agent.
+func (a *Agent) ReportConnectionSettingsStatus(status *AgentConnectionSettingsStatus) error {
+	if status == nil {
+		return nil // No connection settings status to report
+	}
+
+	a.Status.ConnectionSettingsStatus = *status
 
 	return nil
 }
@@ -650,17 +1001,16 @@ type RemoteConfig struct {
 // RemoteConfigStatus is generated from agentToServer of OpAMP.
 type RemoteConfigStatus int32
 
-// RemoteConfigStatus constants
-// To manage simply, we use opamp-go's protobufs' value.
+// RemoteConfigStatus constants.
 const (
-	RemoteConfigStatusUnset RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_UNSET))
-	RemoteConfigStatusApplied RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED))
-	RemoteConfigStatusApplying RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLYING))
-	RemoteConfigStatusFailed RemoteConfigStatus = RemoteConfigStatus(
-		int32(protobufs.RemoteConfigStatuses_RemoteConfigStatuses_FAILED))
+	// RemoteConfigStatusUnset means status is not set.
+	RemoteConfigStatusUnset RemoteConfigStatus = 0
+	// RemoteConfigStatusApplied means remote config has been applied.
+	RemoteConfigStatusApplied RemoteConfigStatus = 1
+	// RemoteConfigStatusApplying means remote config is being applied.
+	RemoteConfigStatusApplying RemoteConfigStatus = 2
+	// RemoteConfigStatusFailed means applying remote config failed.
+	RemoteConfigStatusFailed RemoteConfigStatus = 3
 )
 
 // String returns the string representation of the status.
@@ -689,11 +1039,6 @@ func NewRemoteConfig() RemoteConfig {
 		ConfiguredBy:  "",
 		Priority:      0,
 	}
-}
-
-// RemoteConfigStatusFromOpAMP converts OpAMP status to domain model.
-func RemoteConfigStatusFromOpAMP(status protobufs.RemoteConfigStatuses) RemoteConfigStatus {
-	return RemoteConfigStatus(status)
 }
 
 // ApplyRemoteConfig applies remote config.

@@ -253,13 +253,17 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 		copy(uid[:], spec.NewInstanceUID)
 	}
 
-	return domainmodel.AgentSpec{
-		NewInstanceUID: uid,
-		RemoteConfig:   spec.RemoteConfig.ToDomain(),
-		RestartInfo: domainmodel.AgentRestartInfo{
-			RequiredRestartedAt: time.Time{},
-		},
+	//exhaustruct:ignore
+	agentSpec := domainmodel.AgentSpec{}
+	agentSpec.NewInstanceUID = uid
+	agentSpec.RestartInfo = domainmodel.AgentRestartInfo{
+		RequiredRestartedAt: time.Time{},
 	}
+	//exhaustruct:ignore
+	agentSpec.ConnectionInfo = domainmodel.ConnectionInfo{}
+	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomain()
+
+	return agentSpec
 }
 
 // ToDomain converts the AgentStatus to domain model.
@@ -275,6 +279,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		}
 	}
 
+	//exhaustruct:ignore
 	return domainmodel.AgentStatus{
 		EffectiveConfig: switchIfNil(
 			status.EffectiveConfig.ToDomain(),
@@ -308,6 +313,11 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 
 			return status.RemoteConfigStatus.ToDomain()
 		}(),
+		ConnectionSettingsStatus: domainmodel.AgentConnectionSettingsStatus{
+			LastConnectionSettingsHash: nil,
+			Status:                     domainmodel.ConnectionSettingsStatusUnset,
+			ErrorMessage:               "",
+		},
 		Conditions:     conditions,
 		Connected:      status.Connected,
 		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),

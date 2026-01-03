@@ -34,6 +34,20 @@ func remoteConfigStatusToDomain(remoteConfigStatus *protobufs.RemoteConfigStatus
 	}
 }
 
+func connectionSettingsStatusToDomain(
+	connectionSettingsStatus *protobufs.ConnectionSettingsStatus,
+) *model.AgentConnectionSettingsStatus {
+	if connectionSettingsStatus == nil {
+		return nil
+	}
+
+	return &model.AgentConnectionSettingsStatus{
+		LastConnectionSettingsHash: connectionSettingsStatus.GetLastConnectionSettingsHash(),
+		Status:                     model.ConnectionSettingsStatus(connectionSettingsStatus.GetStatus()),
+		ErrorMessage:               connectionSettingsStatus.GetErrorMessage(),
+	}
+}
+
 func customCapabilitiesToDomain(customCapabilities *protobufs.CustomCapabilities) *model.AgentCustomCapabilities {
 	if customCapabilities == nil {
 		return nil

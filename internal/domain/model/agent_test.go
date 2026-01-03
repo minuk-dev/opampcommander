@@ -159,53 +159,6 @@ func TestAgentMetadata_IsComplete(t *testing.T) {
 	})
 }
 
-func TestAgentCommands_HasReportFullStateCommand(t *testing.T) {
-	t.Parallel()
-	t.Run("Empty commands returns false", func(t *testing.T) {
-		t.Parallel()
-
-		commands := model.AgentCommands{
-			Commands: []model.AgentCommand{},
-		}
-
-		assert.False(t, commands.HasReportFullStateCommand())
-	})
-
-	t.Run("Commands with ReportFullState returns true", func(t *testing.T) {
-		t.Parallel()
-
-		commands := model.AgentCommands{
-			Commands: []model.AgentCommand{
-				{
-					CommandID:       uuid.New(),
-					ReportFullState: true,
-					CreatedAt:       time.Now(),
-					CreatedBy:       "test",
-				},
-			},
-		}
-
-		assert.True(t, commands.HasReportFullStateCommand())
-	})
-
-	t.Run("Commands without ReportFullState returns false", func(t *testing.T) {
-		t.Parallel()
-
-		commands := model.AgentCommands{
-			Commands: []model.AgentCommand{
-				{
-					CommandID:       uuid.New(),
-					ReportFullState: false,
-					CreatedAt:       time.Now(),
-					CreatedBy:       "test",
-				},
-			},
-		}
-
-		assert.False(t, commands.HasReportFullStateCommand())
-	})
-}
-
 func TestAgent_UpdateLastCommunicationInfo(t *testing.T) {
 	t.Parallel()
 	t.Run("Update last communication info with connection", func(t *testing.T) {
