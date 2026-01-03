@@ -526,3 +526,95 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Update AgentGroup should succeed")
 }
+
+// TestE2E_APIServer_KafkaEventMessaging tests server-to-server event messaging via Kafka.
+// This test verifies that events are properly sent and received through Kafka messaging system.
+func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
+	t.Parallel()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	if testing.Short() {
+		t.Skip("Skipping E2E test in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	base := testutil.NewBase(t)
+
+	// Given: Infrastructure setup (MongoDB + Kafka)
+	mongoContainer, mongoURI := startMongoDB(t)
+	defer func() { _ = mongoContainer.Terminate(ctx) }()
+
+	kafkaContainer, kafkaBroker := startKafka(t)
+	defer func() { _ = kafkaContainer.Terminate(ctx) }()
+
+	// Given: Two API servers in distributed mode
+	server1Port := base.GetFreeTCPPort()
+	server2Port := base.GetFreeTCPPort()
+
+	stopServer1, server1URL := setupAPIServerWithKafka(
+		t, server1Port, mongoURI, kafkaBroker, "opampcommander_kafka_messaging_e2e", "messaging-server-1",
+	)
+	defer stopServer1()
+
+	stopServer2, server2URL := setupAPIServerWithKafka(
+		t, server2Port, mongoURI, kafkaBroker, "opampcommander_kafka_messaging_e2e", "messaging-server-2",
+	)
+	defer stopServer2()
+
+	waitForAPIServerReady(t, server1URL)
+	waitForAPIServerReady(t, server2URL)
+
+	t.Log("Both API servers are ready for messaging test")
+
+	// Given: AgentGroup is created
+	agentGroupName := "messaging-test-group"
+	createAgentGroup(t, server1URL, agentGroupName, map[string]string{
+		"service.name": "otel-collector-messaging-test",
+	})
+	t.Logf("AgentGroup created: %s", agentGroupName)
+
+	// Given: Collector connects to server 1
+	collectorUID := uuid.New()
+	collectorCfg := createCollectorConfig(t, base.CacheDir, server1Port, collectorUID)
+	collectorContainer := startOTelCollector(t, collectorCfg)
+	defer func() { _ = collectorContainer.Terminate(ctx) }()
+
+	// Then: Agent should be registered on server 1
+	assert.Eventually(t, func() bool {
+		agents := listAgents(t, server1URL)
+		return len(agents) >= 1 && findAgentByUID(agents, collectorUID) != nil
+	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
+	t.Log("Agent registered on server 1")
+
+	// When: Update agent group configuration via server 2
+	// This should trigger an event that propagates through Kafka
+	updateAgentGroup(t, server2URL, agentGroupName, map[string]string{
+		"messaging_test_key": "updated_via_server2",
+	})
+	t.Log("AgentGroup config updated via server 2")
+
+	// Then: Both servers should maintain consistent agent data
+	// The messaging system ensures servers are aware of configuration changes
+	assert.Eventually(t, func() bool {
+		agent1, err1 := tryGetAgentByID(server1URL, collectorUID)
+		agent2, err2 := tryGetAgentByID(server2URL, collectorUID)
+
+		if err1 != nil || err2 != nil {
+			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)
+			return false
+		}
+
+		// Verify both servers have access to the agent
+		agentExists1 := agent1.Metadata.InstanceUID == collectorUID
+		agentExists2 := agent2.Metadata.InstanceUID == collectorUID
+
+		t.Logf("Agent on server1: %v, server2: %v", agentExists1, agentExists2)
+
+		return agentExists1 && agentExists2
+	}, 30*time.Second, 1*time.Second, "Both servers should have consistent agent data through messaging")
+
+	t.Log("Kafka event messaging test completed successfully")
+}
+

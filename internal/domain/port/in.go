@@ -75,9 +75,6 @@ type AgentGroupRelatedUsecase interface {
 type ServerUsecase interface {
 	// ServerUsecase should also implement ServerMessageUsecase
 	ServerMessageUsecase
-	// ServerIdentityProvider
-	ServerIdentityProvider
-
 	// GetServer retrieves a server by its ID.
 	GetServer(ctx context.Context, id string) (*model.Server, error)
 	// ListServers lists all servers.

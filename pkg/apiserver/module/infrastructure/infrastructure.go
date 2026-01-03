@@ -84,13 +84,7 @@ func provideDatabaseComponents() fx.Option {
 func provideMessagingComponents() fx.Option {
 	return fx.Options(
 		// Provide the event hub adapter
-		fx.Provide(
-			fx.Annotate(
-				NewEventhubAdapter,
-				fx.As(new(port.ServerEventSenderPort)),
-				fx.As(new(port.ServerEventReceiverPort)),
-			),
-		),
+		fx.Provide(newEventSenderAndReceiver),
 	)
 }
 
