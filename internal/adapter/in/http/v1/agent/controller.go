@@ -61,12 +61,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.SetNewInstanceUID,
 		},
 		{
-			Method:      http.MethodPut,
-			Path:        "/api/v1/agents/:id/connection-settings",
-			Handler:     "http.v1.agent.SetConnectionSettings",
-			HandlerFunc: c.SetConnectionSettings,
-		},
-		{
 			Method:      http.MethodPost,
 			Path:        "/api/v1/agents/:id/restart",
 			Handler:     "http.v1.agent.Restart",
@@ -256,55 +250,6 @@ func (c *Controller) Restart(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to restart agent", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while restarting the agent.")
-
-		return
-	}
-
-	ctx.Status(http.StatusOK)
-}
-
-// SetConnectionSettings sets connection settings for an agent.
-//
-// @Summary  Set Connection Settings
-// @Tags agent
-// @Description Set connection settings for an agent by its instance UID.
-// @Accept  json
-// @Produce  json
-// @Param  id path string true "Instance UID of the agent"
-// @Param  connectionSettings body v1agent.SetConnectionSettingsRequest true "Connection settings"
-// @Success  200 "Connection settings updated successfully"
-// @Failure  400 {object} ErrorModel
-// @Failure  404 {object} ErrorModel
-// @Failure  500 {object} ErrorModel
-// @Router  /api/v1/agents/{id}/connection-settings [put].
-func (c *Controller) SetConnectionSettings(ctx *gin.Context) {
-	instanceUID, err := ginutil.ParseUUID(ctx, "id")
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
-
-		return
-	}
-
-	var request v1agent.SetConnectionSettingsRequest
-
-	err = ctx.ShouldBindJSON(&request)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "connectionSettings", "", err, false)
-
-		return
-	}
-
-	requestedBy := "system"
-
-	err = c.agentUsecase.SetConnectionSettings(
-		ctx.Request.Context(),
-		instanceUID,
-		request.ConnectionSettings,
-		requestedBy,
-	)
-	if err != nil {
-		c.logger.Error("failed to set connection settings", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while setting connection settings.")
 
 		return
 	}

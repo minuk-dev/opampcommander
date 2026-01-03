@@ -129,31 +129,6 @@ func (s *AgentService) SetAgentNewInstanceUID(
 	return &result, nil
 }
 
-// SetAgentConnectionSettings sets connection settings for an agent.
-func (s *AgentService) SetAgentConnectionSettings(
-	ctx context.Context,
-	id uuid.UUID,
-	request agentv1.SetConnectionSettingsRequest,
-) error {
-	response, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetPathParam("id", id.String()).
-		SetBody(request).
-		Put(SetAgentConnectionSettingsURL)
-	if err != nil {
-		return fmt.Errorf("failed to set connection settings for agent: %w", err)
-	}
-
-	if response.IsError() {
-		return &ResponseError{
-			StatusCode:   response.StatusCode(),
-			ErrorMessage: response.String(),
-		}
-	}
-
-	return nil
-}
-
 // RestartAgent restarts an agent by its ID.
 func (s *AgentService) RestartAgent(ctx context.Context, id uuid.UUID) error {
 	response, err := s.service.Resty.R().

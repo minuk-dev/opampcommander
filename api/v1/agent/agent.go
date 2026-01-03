@@ -249,9 +249,3 @@ type TLSCertificate struct {
 	// CaCert is the PEM-encoded CA certificate.
 	CaCert string `json:"caCert,omitempty"`
 } // @name TLSCertificate
-
-// SetConnectionSettingsRequest represents a request to set connection settings for an agent.
-type SetConnectionSettingsRequest struct {
-	// ConnectionSettings contains the connection settings to set.
-	ConnectionSettings ConnectionSettings `binding:"required" json:"connectionSettings"`
-} // @name SetConnectionSettingsRequest
