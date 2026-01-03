@@ -75,8 +75,8 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 		assert.Equal(t, targetServer, received.Target)
 		assert.Equal(t, serverevent.MessageTypeSendServerToAgent, received.Type)
 		assert.NotNil(t, received.Payload.MessageForServerToAgent)
-		assert.Len(t, received.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs, 1)
-		assert.Equal(t, agentUID, received.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs[0])
+		assert.Len(t, received.Payload.TargetAgentInstanceUIDs, 1)
+		assert.Equal(t, agentUID, received.Payload.TargetAgentInstanceUIDs[0])
 	case <-time.After(10 * time.Second):
 		t.Fatal("Timeout waiting for message")
 	}

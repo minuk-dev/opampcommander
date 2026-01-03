@@ -21,9 +21,13 @@ func New() fx.Option {
 		domainservice.NewServerService,
 		fx.Annotate(
 			Identity[*domainservice.ServerService],
-			fx.As(new(domainport.ServerIdentityProvider)),
 			fx.As(new(domainport.ServerUsecase)),
 			fx.As(new(domainport.ServerMessageUsecase)),
+		),
+		domainservice.NewServerIdentityService,
+		fx.Annotate(
+			Identity[*domainservice.ServerIdentityService],
+			fx.As(new(domainport.ServerIdentityProvider)),
 		),
 		fx.Annotate(domainservice.NewAgentNotificationService, fx.As(new(domainport.AgentNotificationUsecase))),
 		helper.AsRunner(Identity[*domainservice.ServerService]),
