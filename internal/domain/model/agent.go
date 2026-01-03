@@ -539,8 +539,8 @@ func NewConnectionInfo(
 	ownTraces TelemetryConnectionSettings,
 	otherConnections map[string]OtherConnectionSettings,
 ) (*ConnectionInfo, error) {
-	//exhaustruct:ignore
-	ci := &ConnectionInfo{
+	connectionInfo := &ConnectionInfo{
+		Hash:             nil,
 		opamp:            opamp,
 		ownMetrics:       ownMetrics,
 		ownLogs:          ownLogs,
@@ -548,12 +548,12 @@ func NewConnectionInfo(
 		otherConnections: otherConnections,
 	}
 
-	err := ci.updateHash()
+	err := connectionInfo.updateHash()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create connection info: %w", err)
 	}
 
-	return ci, nil
+	return connectionInfo, nil
 }
 
 // OpAMP returns the OpAMP connection settings.
