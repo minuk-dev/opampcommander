@@ -253,15 +253,17 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 		copy(uid[:], spec.NewInstanceUID)
 	}
 
-	return domainmodel.AgentSpec{
-		NewInstanceUID: uid,
-		//exhaustruct:ignore
-		ConnectionInfo: domainmodel.ConnectionInfo{},
-		RemoteConfig:   spec.RemoteConfig.ToDomain(),
-		RestartInfo: domainmodel.AgentRestartInfo{
-			RequiredRestartedAt: time.Time{},
-		},
+	//exhaustruct:ignore
+	agentSpec := domainmodel.AgentSpec{}
+	agentSpec.NewInstanceUID = uid
+	agentSpec.RestartInfo = domainmodel.AgentRestartInfo{
+		RequiredRestartedAt: time.Time{},
 	}
+	//exhaustruct:ignore
+	agentSpec.ConnectionInfo = domainmodel.ConnectionInfo{}
+	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomain()
+
+	return agentSpec
 }
 
 // ToDomain converts the AgentStatus to domain model.

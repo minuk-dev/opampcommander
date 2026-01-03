@@ -84,6 +84,7 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 				NonIdentifyingAttributes: e.Selector.NonIdentifyingAttributes,
 			},
 		},
+		//exhaustruct:ignore
 		Spec: model.AgentGroupSpec{
 			AgentRemoteConfig: agentConfig,
 		},

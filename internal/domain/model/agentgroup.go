@@ -122,7 +122,8 @@ func NewAgentGroup(
 			},
 		},
 		Spec: AgentGroupSpec{
-			AgentRemoteConfig: nil,
+			AgentRemoteConfig:     nil,
+			AgentConnectionConfig: nil,
 		},
 		Status: AgentGroupStatus{
 			NumAgents:             0,

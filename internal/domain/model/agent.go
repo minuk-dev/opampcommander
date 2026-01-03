@@ -320,72 +320,6 @@ const (
 	AgentConditionStatusUnknown AgentConditionStatus = "Unknown"
 )
 
-// AgentCommands is a list of commands to be sent to the agent.
-type AgentCommands struct {
-	Commands []AgentCommand
-}
-
-// Clear removes all commands and returns them.
-func (ac *AgentCommands) Clear() []AgentCommand {
-	commands := ac.Commands
-	ac.Commands = []AgentCommand{}
-
-	return commands
-}
-
-// SendReportFullState adds a ReportFullState command to the commands list.
-func (ac *AgentCommands) SendReportFullState(reportFullState bool, requestedAt time.Time, requestedBy string) {
-	ac.Commands = append(ac.Commands, AgentCommand{
-		CommandID:               uuid.New(),
-		ReportFullState:         reportFullState,
-		RemoteConfigUpdated:     false,
-		RemoteConfigUpdatedHash: vo.Hash{},
-		CreatedAt:               requestedAt,
-		CreatedBy:               requestedBy,
-	})
-}
-
-// SendRemoteConfigUpdated adds a RemoteConfigUpdated command to the commands list.
-func (ac *AgentCommands) SendRemoteConfigUpdated(configHash vo.Hash, requestedAt time.Time, requestedBy string) {
-	ac.Commands = append(ac.Commands, AgentCommand{
-		CommandID:               uuid.New(),
-		ReportFullState:         false,
-		RemoteConfigUpdated:     true,
-		RemoteConfigUpdatedHash: configHash,
-		CreatedAt:               requestedAt,
-		CreatedBy:               requestedBy,
-	})
-}
-
-// HasReportFullStateCommand checks if there's any ReportFullState command.
-func (ac *AgentCommands) HasReportFullStateCommand() bool {
-	for _, cmd := range ac.Commands {
-		if cmd.ReportFullState {
-			return true
-		}
-	}
-
-	return false
-}
-
-// AgentCommand is a domain model to control opamp agent commands.
-type AgentCommand struct {
-	// CommandID is a unique identifier for the command.
-	CommandID uuid.UUID
-	// ReportFullState is a flag to indicate whether the agent should report full state.
-	// If true, the agent should report all state information.
-	// More details, see https://github.com/open-telemetry/opamp-spec/blob/main/specification.md#servertoagentflags
-	ReportFullState bool
-	// RemoteConfigUpdated is a flag to indicate that remote config has been updated.
-	RemoteConfigUpdated bool
-	// RemoteConfigUpdatedHash is the hash of the updated remote config.
-	RemoteConfigUpdatedHash vo.Hash
-	// CreatedAt is the time the command was created.
-	CreatedAt time.Time
-	// CreatedBy is the user who created the command.
-	CreatedBy string
-}
-
 // AgentSpec is a domain model to control opamp agent spec.
 type AgentSpec struct {
 	managedByAgent
@@ -568,6 +502,24 @@ func (a *Agent) IsOtherConnectionSettingsSupported() bool {
 	return a.Metadata.Capabilities.HasAcceptsOpAMPConnectionSettings()
 }
 
+// ApplyConnectionSettings applies connection settings to the agent from agent group.
+func (a *Agent) ApplyConnectionSettings(
+	opamp OpAMPConnectionSettings,
+	ownMetrics TelemetryConnectionSettings,
+	ownLogs TelemetryConnectionSettings,
+	ownTraces TelemetryConnectionSettings,
+	otherConnections map[string]OtherConnectionSettings,
+) error {
+	connectionInfo, err := NewConnectionInfo(opamp, ownMetrics, ownLogs, ownTraces, otherConnections)
+	if err != nil {
+		return fmt.Errorf("failed to create connection info: %w", err)
+	}
+
+	a.Spec.ConnectionInfo = *connectionInfo
+
+	return nil
+}
+
 // ConnectionInfo represents connection information for the agent.
 type ConnectionInfo struct {
 	Hash vo.Hash
@@ -577,6 +529,31 @@ type ConnectionInfo struct {
 	ownLogs          TelemetryConnectionSettings
 	ownTraces        TelemetryConnectionSettings
 	otherConnections map[string]OtherConnectionSettings
+}
+
+// NewConnectionInfo creates a new ConnectionInfo with the given settings.
+func NewConnectionInfo(
+	opamp OpAMPConnectionSettings,
+	ownMetrics TelemetryConnectionSettings,
+	ownLogs TelemetryConnectionSettings,
+	ownTraces TelemetryConnectionSettings,
+	otherConnections map[string]OtherConnectionSettings,
+) (*ConnectionInfo, error) {
+	//exhaustruct:ignore
+	ci := &ConnectionInfo{
+		opamp:            opamp,
+		ownMetrics:       ownMetrics,
+		ownLogs:          ownLogs,
+		ownTraces:        ownTraces,
+		otherConnections: otherConnections,
+	}
+
+	err := ci.updateHash()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create connection info: %w", err)
+	}
+
+	return ci, nil
 }
 
 // OpAMP returns the OpAMP connection settings.
@@ -607,6 +584,23 @@ func (ci *ConnectionInfo) OtherConnections() map[string]OtherConnectionSettings 
 	}
 
 	return ret
+}
+
+// UpdateAllConnections updates all connection settings.
+func (ci *ConnectionInfo) UpdateAllConnections(
+	opamp OpAMPConnectionSettings,
+	ownMetrics TelemetryConnectionSettings,
+	ownLogs TelemetryConnectionSettings,
+	ownTraces TelemetryConnectionSettings,
+	otherConnections map[string]OtherConnectionSettings,
+) error {
+	ci.opamp = opamp
+	ci.ownMetrics = ownMetrics
+	ci.ownLogs = ownLogs
+	ci.ownTraces = ownTraces
+	ci.otherConnections = otherConnections
+
+	return ci.updateHash()
 }
 
 // SetOpAMP sets the OpAMP connection settings.

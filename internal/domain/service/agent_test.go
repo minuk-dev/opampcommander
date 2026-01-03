@@ -423,13 +423,9 @@ func TestAgent_ApplyRemoteConfigPriority(t *testing.T) {
 	t.Run("Higher priority config should be applied", func(t *testing.T) {
 		t.Parallel()
 
-		agent := &model.Agent{
-			Spec: model.AgentSpec{
-				RemoteConfig: model.RemoteConfig{
-					Priority: 10,
-				},
-			},
-		}
+		//exhaustruct:ignore
+		agent := &model.Agent{}
+		agent.Spec.RemoteConfig.Priority = 10
 
 		err := agent.ApplyRemoteConfig("new-config", "text/yaml", 20)
 		require.NoError(t, err)
@@ -439,14 +435,10 @@ func TestAgent_ApplyRemoteConfigPriority(t *testing.T) {
 	t.Run("Lower priority config should be ignored", func(t *testing.T) {
 		t.Parallel()
 
-		agent := &model.Agent{
-			Spec: model.AgentSpec{
-				RemoteConfig: model.RemoteConfig{
-					Config:   []byte("existing-config"),
-					Priority: 20,
-				},
-			},
-		}
+		//exhaustruct:ignore
+		agent := &model.Agent{}
+		agent.Spec.RemoteConfig.Config = []byte("existing-config")
+		agent.Spec.RemoteConfig.Priority = 20
 
 		originalConfig := agent.Spec.RemoteConfig.Config
 		err := agent.ApplyRemoteConfig("new-config", "text/yaml", 10)
@@ -459,14 +451,10 @@ func TestAgent_ApplyRemoteConfigPriority(t *testing.T) {
 	t.Run("Equal priority config should be ignored", func(t *testing.T) {
 		t.Parallel()
 
-		agent := &model.Agent{
-			Spec: model.AgentSpec{
-				RemoteConfig: model.RemoteConfig{
-					Config:   []byte("existing-config"),
-					Priority: 15,
-				},
-			},
-		}
+		//exhaustruct:ignore
+		agent := &model.Agent{}
+		agent.Spec.RemoteConfig.Config = []byte("existing-config")
+		agent.Spec.RemoteConfig.Priority = 15
 
 		originalConfig := agent.Spec.RemoteConfig.Config
 		err := agent.ApplyRemoteConfig("equal-priority-config", "text/yaml", 15)
@@ -479,13 +467,9 @@ func TestAgent_ApplyRemoteConfigPriority(t *testing.T) {
 	t.Run("Priority zero with no existing config should be applied", func(t *testing.T) {
 		t.Parallel()
 
-		agent := &model.Agent{
-			Spec: model.AgentSpec{
-				RemoteConfig: model.RemoteConfig{
-					Priority: -1, // Lower than 0 to simulate no existing config
-				},
-			},
-		}
+		//exhaustruct:ignore
+		agent := &model.Agent{}
+		agent.Spec.RemoteConfig.Priority = -1 // Lower than 0 to simulate no existing config
 
 		err := agent.ApplyRemoteConfig("initial-config", "text/yaml", 0)
 		require.NoError(t, err)

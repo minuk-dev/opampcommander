@@ -252,6 +252,22 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 				return fmt.Errorf("apply remote config to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}
 
+			// Apply connection settings if configured
+			if agentGroup.Spec.AgentConnectionConfig != nil {
+				connConfig := agentGroup.Spec.AgentConnectionConfig
+
+				err = agent.ApplyConnectionSettings(
+					connConfig.OpAMPConnection,
+					connConfig.OwnMetrics,
+					connConfig.OwnLogs,
+					connConfig.OwnTraces,
+					connConfig.OtherConnections,
+				)
+				if err != nil {
+					return fmt.Errorf("apply connection settings to agent %s: %w", agent.Metadata.InstanceUID, err)
+				}
+			}
+
 			// After updating the agent, save it back to the persistence layer.
 			err = s.agentUsecase.SaveAgent(ctx, agent)
 			if err != nil {
