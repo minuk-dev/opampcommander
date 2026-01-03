@@ -70,8 +70,10 @@ func TestMessageTypeFromEventType(t *testing.T) {
 			result, err := kafkamodel.MessageTypeFromEventType(tt.eventType)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.IsType(t, &kafkamodel.UnknownMessageTypeError{}, err)
+				require.Error(t, err)
+
+				var unknownErr *kafkamodel.UnknownMessageTypeError
+				assert.ErrorAs(t, err, &unknownErr)
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expected, result)

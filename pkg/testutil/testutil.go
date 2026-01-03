@@ -51,7 +51,7 @@ type TestLogWriter struct {
 }
 
 // Write implements io.Writer by logging to the test.
-func (w TestLogWriter) Write(p []byte) (n int, err error) {
+func (w TestLogWriter) Write(p []byte) (int, error) {
 	w.T.Helper()
 	w.T.Log(string(p))
 

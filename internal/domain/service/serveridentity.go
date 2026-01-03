@@ -30,6 +30,8 @@ const (
 	DefaultHeartbeatTimeout = 90 * time.Second
 )
 
+// ServerIdentityService provides server identity and heartbeat management.
+// It implements port.ServerIdentityProvider interface.
 type ServerIdentityService struct {
 	heartbeatInterval time.Duration
 	heartbeatTimeout  time.Duration
@@ -40,6 +42,7 @@ type ServerIdentityService struct {
 	serverPersistencePort port.ServerPersistencePort
 }
 
+// NewServerIdentityService creates a new ServerIdentityService instance.
 func NewServerIdentityService(
 	serverPersistencePort port.ServerPersistencePort,
 	serverID config.ServerID,

@@ -34,7 +34,7 @@ func TestEventReceiverAdapter_StartReceiver(t *testing.T) {
 	defer cancel()
 
 	// Given: Kafka is running
-	kafkaContainer, broker := startKafkaContainer(t, ctx)
+	kafkaContainer, broker := startKafkaContainer(ctx, t)
 
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
@@ -54,13 +54,16 @@ func TestEventReceiverAdapter_StartReceiver(t *testing.T) {
 
 	// Given: Handler to capture received messages
 	receivedMessages := make(chan *serverevent.Message, 10)
-	handler := func(ctx context.Context, msg *serverevent.Message) error {
+	handlerErr := make(chan error, 1)
+	handler := func(_ context.Context, msg *serverevent.Message) error {
 		select {
 		case receivedMessages <- msg:
+			return nil
+		case err := <-handlerErr:
+			return err
 		case <-ctx.Done():
+			return ctx.Err()
 		}
-
-		return nil
 	}
 
 	// Given: Start receiver in background
@@ -80,7 +83,7 @@ func TestEventReceiverAdapter_StartReceiver(t *testing.T) {
 	// When: Send message via Kafka producer
 	sender := createTestSender(t, broker, topic)
 	agentUID := uuid.New()
-	sendTestMessage(t, ctx, sender, currentServerID, agentUID)
+	sendTestMessage(ctx, t, sender, currentServerID, agentUID)
 
 	// Then: Message should be received
 	select {
@@ -88,8 +91,8 @@ func TestEventReceiverAdapter_StartReceiver(t *testing.T) {
 		assert.Equal(t, currentServerID, received.Target)
 		assert.Equal(t, serverevent.MessageTypeSendServerToAgent, received.Type)
 		assert.NotNil(t, received.Payload.MessageForServerToAgent)
-		assert.Len(t, received.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs, 1)
-		assert.Equal(t, agentUID, received.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs[0])
+		assert.Len(t, received.Payload.TargetAgentInstanceUIDs, 1)
+		assert.Equal(t, agentUID, received.Payload.TargetAgentInstanceUIDs[0])
 	case <-time.After(15 * time.Second):
 		t.Fatal("Timeout waiting for message")
 	}
@@ -106,7 +109,7 @@ func TestEventReceiverAdapter_FiltersByTargetServer(t *testing.T) {
 	defer cancel()
 
 	// Given: Kafka is running
-	kafkaContainer, broker := startKafkaContainer(t, ctx)
+	kafkaContainer, broker := startKafkaContainer(ctx, t)
 
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
@@ -127,13 +130,16 @@ func TestEventReceiverAdapter_FiltersByTargetServer(t *testing.T) {
 
 	// Given: Handler to capture received messages
 	receivedMessages := make(chan *serverevent.Message, 10)
-	handler := func(ctx context.Context, msg *serverevent.Message) error {
+	handlerErr := make(chan error, 1)
+	handler := func(_ context.Context, msg *serverevent.Message) error {
 		select {
 		case receivedMessages <- msg:
+			return nil
+		case err := <-handlerErr:
+			return err
 		case <-ctx.Done():
+			return ctx.Err()
 		}
-
-		return nil
 	}
 
 	// Given: Start receiver in background
@@ -154,14 +160,14 @@ func TestEventReceiverAdapter_FiltersByTargetServer(t *testing.T) {
 	sender := createTestSender(t, broker, topic)
 
 	// Message for current server
-	sendTestMessage(t, ctx, sender, currentServerID, uuid.New())
+	sendTestMessage(ctx, t, sender, currentServerID, uuid.New())
 
 	// Message for other server (should be filtered out)
-	sendTestMessage(t, ctx, sender, otherServerID, uuid.New())
+	sendTestMessage(ctx, t, sender, otherServerID, uuid.New())
 
 	// Message for current server again
 	expectedAgentUID := uuid.New()
-	sendTestMessage(t, ctx, sender, currentServerID, expectedAgentUID)
+	sendTestMessage(ctx, t, sender, currentServerID, expectedAgentUID)
 
 	// Then: Only messages for current server should be received
 	receivedCount := 0
@@ -174,7 +180,7 @@ func TestEventReceiverAdapter_FiltersByTargetServer(t *testing.T) {
 
 			receivedCount++
 			if receivedCount == 2 {
-				assert.Equal(t, expectedAgentUID, received.Payload.MessageForServerToAgent.TargetAgentInstanceUIDs[0])
+				assert.Equal(t, expectedAgentUID, received.Payload.TargetAgentInstanceUIDs[0])
 			}
 		case <-timeout:
 			t.Fatalf("Timeout: received %d/2 messages", receivedCount)
@@ -196,13 +202,13 @@ type mockServerIdentityProvider struct {
 	serverID string
 }
 
-func (m *mockServerIdentityProvider) CurrentServer(ctx context.Context) (*model.Server, error) {
+func (m *mockServerIdentityProvider) CurrentServer(_ context.Context) (*model.Server, error) {
 	return &model.Server{
 		ID: m.serverID,
 	}, nil
 }
 
-func startKafkaContainer(t *testing.T, ctx context.Context) (testcontainers.Container, string) {
+func startKafkaContainer(ctx context.Context, t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 
 	kafkaContainer, err := kafkaTestContainer.Run(ctx,
@@ -248,7 +254,13 @@ func createTestConsumer(t *testing.T, broker, topic string) *cekafka.Consumer {
 	return consumer
 }
 
-func sendTestMessage(t *testing.T, ctx context.Context, sender *cekafka.Sender, targetServerID string, agentUID uuid.UUID) {
+func sendTestMessage(
+	ctx context.Context,
+	t *testing.T,
+	sender *cekafka.Sender,
+	targetServerID string,
+	agentUID uuid.UUID,
+) {
 	t.Helper()
 
 	event := cloudevents.NewEvent()

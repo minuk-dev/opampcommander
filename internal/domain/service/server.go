@@ -42,7 +42,6 @@ func NewServerService(
 	serverEventReceiverPort port.ServerEventReceiverPort,
 	connectionUsecase port.ConnectionUsecase,
 	agentUsecase port.AgentUsecase,
-	serverIdentityProvider port.ServerIdentityProvider,
 ) *ServerService {
 	service := &ServerService{
 		logger:                  logger,

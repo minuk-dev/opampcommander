@@ -32,7 +32,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 	defer cancel()
 
 	// Given: Kafka is running
-	kafkaContainer, broker := startKafkaContainer(t, ctx)
+	kafkaContainer, broker := startKafkaContainer(ctx, t)
 
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
@@ -50,7 +50,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 	defer func() { _ = consumer.Close(ctx) }()
 
 	receivedMessages := make(chan *serverevent.Message, 10)
-	go consumeMessages(t, ctx, consumer, receivedMessages)
+	go consumeMessages(ctx, t, consumer, receivedMessages)
 
 	// When: Send message
 	serverID := "test-server-id"
@@ -93,7 +93,7 @@ func TestEventSenderAdapter_SendMultipleMessages(t *testing.T) {
 	defer cancel()
 
 	// Given: Kafka is running
-	kafkaContainer, broker := startKafkaContainer(t, ctx)
+	kafkaContainer, broker := startKafkaContainer(ctx, t)
 
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
@@ -111,7 +111,7 @@ func TestEventSenderAdapter_SendMultipleMessages(t *testing.T) {
 	defer func() { _ = consumer.Close(ctx) }()
 
 	receivedMessages := make(chan *serverevent.Message, 10)
-	go consumeMessages(t, ctx, consumer, receivedMessages)
+	go consumeMessages(ctx, t, consumer, receivedMessages)
 
 	// When: Send multiple messages
 	numMessages := 5
@@ -152,7 +152,7 @@ func TestEventSenderAdapter_SendMultipleMessages(t *testing.T) {
 
 // Helper functions
 
-func startKafkaContainer(t *testing.T, ctx context.Context) (testcontainers.Container, string) {
+func startKafkaContainer(ctx context.Context, t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 
 	kafkaContainer, err := kafkaTestContainer.Run(ctx,
@@ -198,7 +198,12 @@ func createTestConsumer(t *testing.T, broker, topic string) *cekafka.Consumer {
 	return consumer
 }
 
-func consumeMessages(t *testing.T, ctx context.Context, consumer *cekafka.Consumer, messages chan<- *serverevent.Message) {
+func consumeMessages(
+	ctx context.Context,
+	t *testing.T,
+	consumer *cekafka.Consumer,
+	messages chan<- *serverevent.Message,
+) {
 	t.Helper()
 
 	ceClient, err := cloudevents.NewClient(consumer)
