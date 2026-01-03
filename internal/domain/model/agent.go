@@ -516,14 +516,14 @@ func (a *Agent) SetOtherConnectionSettings(name, endpoint string, opts ...Connec
 		opt.apply(settings)
 	}
 
-	exisitingConnections := a.Spec.ConnectionInfo.OtherConnections()
-	exisitingConnections[name] = OtherConnectionSettings{
+	existingConnections := a.Spec.ConnectionInfo.OtherConnections()
+	existingConnections[name] = OtherConnectionSettings{
 		DestinationEndpoint: endpoint,
 		Headers:             settings.headers,
 		Certificate:         settings.certificate,
 	}
 
-	err := a.Spec.ConnectionInfo.SetOtherConnection(name, exisitingConnections[name])
+	err := a.Spec.ConnectionInfo.SetOtherConnection(name, existingConnections[name])
 	if err != nil {
 		return fmt.Errorf("failed to set other connection settings: %w", err)
 	}
