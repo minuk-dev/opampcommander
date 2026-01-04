@@ -63,11 +63,7 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 	if err != nil {
 		logger.Warn("use unknown server because failed to get current server", slog.String("error", err.Error()))
 
-		currentServer = &model.Server{
-			ID:              "unknown",
-			LastHeartbeatAt: time.Time{},
-			Conditions:      []model.ServerCondition{},
-		}
+		currentServer = s.getUnknownServer()
 	}
 
 	server, err := s.serverUsecase.GetServer(ctx, serverID)
@@ -109,4 +105,12 @@ func (s *AgentNotificationService) RestartAgent(_ context.Context, instanceUID u
 	// This method is now primarily for logging/monitoring purposes
 	// The actual restart logic is handled in the application service layer
 	return nil
+}
+
+func (s *AgentNotificationService) getUnknownServer() *model.Server {
+	return &model.Server{
+		ID:              "unknown",
+		LastHeartbeatAt: time.Time{},
+		Conditions:      []model.ServerCondition{},
+	}
 }
