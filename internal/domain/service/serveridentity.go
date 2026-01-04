@@ -58,7 +58,7 @@ func NewServerIdentityService(
 	}
 }
 
-// CurrentServer implements port.ServerUsecase.
+// CurrentServer implements port.ServerIdentityProvider interface.
 func (s *ServerIdentityService) CurrentServer(ctx context.Context) (*model.Server, error) {
 	server, err := s.serverPersistencePort.GetServer(ctx, s.id)
 	if err != nil {
