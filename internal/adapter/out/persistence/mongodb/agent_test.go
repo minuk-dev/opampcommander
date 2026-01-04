@@ -891,7 +891,7 @@ func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, retrievedAgent)
 		assert.Equal(t, uint64(42), retrievedAgent.Status.SequenceNum)
-		assert.Equal(t, server.ID, retrievedAgent.Status.LastReportedTo.ID)
+		assert.Equal(t, server.ID, retrievedAgent.Status.LastReportedTo)
 	})
 
 	t.Run("Agent with zero SequenceNum", func(t *testing.T) {

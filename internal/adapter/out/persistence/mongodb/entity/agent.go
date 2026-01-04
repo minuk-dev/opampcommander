@@ -61,7 +61,7 @@ type AgentStatus struct {
 	ConnectionType      string                    `bson:"connectionType,omitempty"`
 	SequenceNum         uint64                    `bson:"sequenceNum,omitempty"`
 	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
-	LastCommunicatedTo  *Server                   `bson:"lastCommunicatedTo,omitempty"`
+	LastCommunicatedTo  string                    `bson:"lastCommunicatedTo,omitempty"`
 }
 
 // AgentCondition represents a condition of an agent in MongoDB.
@@ -323,7 +323,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),
 		SequenceNum:    status.SequenceNum,
 		LastReportedAt: status.LastCommunicatedAt.Time(),
-		LastReportedTo: status.LastCommunicatedTo.ToDomainModel(),
+		LastReportedTo: status.LastCommunicatedTo,
 	}
 }
 
@@ -502,7 +502,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			ConnectionType:      agent.Status.ConnectionType.String(),
 			SequenceNum:         agent.Status.SequenceNum,
 			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
-			LastCommunicatedTo:  ToServerEntity(agent.Status.LastReportedTo),
+			LastCommunicatedTo:  agent.Status.LastReportedTo,
 		},
 	}
 }

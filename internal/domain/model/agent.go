@@ -97,7 +97,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			ConnectionType: ConnectionTypeUnknown,
 			SequenceNum:    0,
 			LastReportedAt: time.Time{},
-			LastReportedTo: nil,
+			LastReportedTo: "",
 		},
 	}
 
@@ -159,7 +159,7 @@ func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
 }
 
 // ConnectedServerID returns the server the agent is currently connected to.
-func (a *Agent) ConnectedServerID() (*Server, error) {
+func (a *Agent) ConnectedServerID() (string, error) {
 	return a.Status.LastReportedTo, nil
 }
 
@@ -277,7 +277,9 @@ type AgentStatus struct {
 
 	SequenceNum    uint64
 	LastReportedAt time.Time
-	LastReportedTo *Server
+	// LastReportedTo is the ID of the server the agent last reported to.
+	// When you want to get Server object, use `GetServerByID` function from ServerUsecase.
+	LastReportedTo string
 }
 
 // AgentCondition represents a condition of an agent.
@@ -978,7 +980,7 @@ func (a *Agent) ReportAvailableComponents(availableComponents *AgentAvailableCom
 // RecordLastReported updates the last communicated time and server of the agent.
 func (a *Agent) RecordLastReported(by *Server, lastReportedAt time.Time, sequenceNum uint64) {
 	if by != nil {
-		a.Status.LastReportedTo = by
+		a.Status.LastReportedTo = by.ID
 	}
 
 	a.Status.SequenceNum = sequenceNum
