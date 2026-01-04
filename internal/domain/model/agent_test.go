@@ -199,7 +199,7 @@ func TestAgent_RecordLastReported(t *testing.T) {
 
 		a.RecordLastReported(server, now, sequenceNum)
 
-		assert.Equal(t, server, a.Status.LastReportedTo)
+		assert.Equal(t, server.ID, a.Status.LastReportedTo)
 		assert.Equal(t, now, a.Status.LastReportedAt)
 		assert.Equal(t, sequenceNum, a.Status.SequenceNum)
 	})
@@ -213,7 +213,7 @@ func TestAgent_RecordLastReported(t *testing.T) {
 
 		a.RecordLastReported(nil, now, sequenceNum)
 
-		assert.Nil(t, a.Status.LastReportedTo)
+		assert.Empty(t, a.Status.LastReportedTo)
 		assert.Equal(t, now, a.Status.LastReportedAt)
 		assert.Equal(t, sequenceNum, a.Status.SequenceNum)
 	})
@@ -251,7 +251,7 @@ func TestAgent_RecordLastReported(t *testing.T) {
 
 		a.RecordLastReported(server, now, 0)
 
-		assert.Equal(t, server, a.Status.LastReportedTo)
+		assert.Equal(t, server.ID, a.Status.LastReportedTo)
 		assert.Equal(t, now, a.Status.LastReportedAt)
 		assert.Equal(t, uint64(0), a.Status.SequenceNum)
 	})
@@ -271,13 +271,13 @@ func TestAgent_RecordLastReported(t *testing.T) {
 
 		// First report
 		a.RecordLastReported(server1, time1, 100)
-		assert.Equal(t, server1, a.Status.LastReportedTo)
+		assert.Equal(t, server1.ID, a.Status.LastReportedTo)
 		assert.Equal(t, time1, a.Status.LastReportedAt)
 		assert.Equal(t, uint64(100), a.Status.SequenceNum)
 
 		// Second report with different server
 		a.RecordLastReported(server2, time2, 200)
-		assert.Equal(t, server2, a.Status.LastReportedTo)
+		assert.Equal(t, server2.ID, a.Status.LastReportedTo)
 		assert.Equal(t, time2, a.Status.LastReportedAt)
 		assert.Equal(t, uint64(200), a.Status.SequenceNum)
 	})
