@@ -154,7 +154,7 @@ func (s *ServerIdentityService) sendHeartbeat(ctx context.Context) error {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
 
-	server.LastHeartbeatAt = time.Now()
+	server.LastHeartbeatAt = s.clock.Now()
 
 	err = s.serverPersistencePort.PutServer(ctx, server)
 	if err != nil {
