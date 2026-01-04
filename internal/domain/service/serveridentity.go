@@ -68,6 +68,11 @@ func (s *ServerIdentityService) CurrentServer(ctx context.Context) (*model.Serve
 	return server, nil
 }
 
+// Name returns the name of the runner.
+func (s *ServerIdentityService) Name() string {
+	return "ServerIdentityService"
+}
+
 // Run starts the server service and maintains heartbeat.
 func (s *ServerIdentityService) Run(ctx context.Context) error {
 	// Try to register the server
