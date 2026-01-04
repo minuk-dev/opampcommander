@@ -814,3 +814,173 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 
 	return &listResp
 }
+
+// TestE2E_ConnectionType_HTTPAndWebSocket tests that HTTP and WebSocket connections
+// are correctly identified and reported via the connections API.
+func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
+t.Parallel()
+testcontainers.SkipIfProviderIsNotHealthy(t)
+
+if testing.Short() {
+t.Skip("Skipping E2E test in short mode")
+}
+
+ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+defer cancel()
+
+base := testutil.NewBase(t)
+
+// Given: Infrastructure is set up (MongoDB + API Server)
+mongoContainer, mongoURI := startMongoDB(t)
+defer func() { _ = mongoContainer.Terminate(ctx) }()
+
+apiPort := base.GetFreeTCPPort()
+stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_conntype_test")
+defer stopServer()
+
+waitForAPIServerReady(t, apiBaseURL)
+
+// Given: Two OTel Collectors - one with HTTP polling, one with WebSocket
+httpCollectorUID := uuid.New()
+wsCollectorUID := uuid.New()
+
+// Start HTTP polling collector
+httpCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, httpCollectorUID, "http")
+httpCollectorContainer := startOTelCollector(t, httpCollectorCfg)
+defer func() { _ = httpCollectorContainer.Terminate(ctx) }()
+
+// Start WebSocket collector  
+wsCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, wsCollectorUID, "ws")
+wsCollectorContainer := startOTelCollector(t, wsCollectorCfg)
+defer func() { _ = wsCollectorContainer.Terminate(ctx) }()
+
+// When: Both collectors connect
+assert.Eventually(t, func() bool {
+agents := listAgents(t, apiBaseURL)
+return len(agents) >= 2
+}, 2*time.Minute, 1*time.Second, "Both collectors should register")
+
+// Then: Check connections have correct types
+assert.Eventually(t, func() bool {
+connections := listConnections(t, apiBaseURL)
+if len(connections) < 2 {
+return false
+}
+
+httpConnFound := false
+wsConnFound := false
+
+for _, conn := range connections {
+if conn.InstanceUID == httpCollectorUID {
+t.Logf("HTTP Collector connection type: %s", conn.Type)
+if conn.Type == "HTTP" {
+httpConnFound = true
+}
+}
+if conn.InstanceUID == wsCollectorUID {
+t.Logf("WebSocket Collector connection type: %s", conn.Type)
+if conn.Type == "WebSocket" {
+wsConnFound = true
+}
+}
+}
+
+return httpConnFound && wsConnFound
+}, 30*time.Second, 1*time.Second, "Connections should have correct types (HTTP and WebSocket)")
+}
+
+// listConnections retrieves all connections from the API.
+func listConnections(t *testing.T, baseURL string) []connectionResponse {
+t.Helper()
+
+token := getAuthToken(t, baseURL)
+
+req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/connections", nil) //nolint:noctx
+require.NoError(t, err)
+req.Header.Set("Authorization", "Bearer "+token)
+
+resp, err := http.DefaultClient.Do(req)
+require.NoError(t, err)
+defer func() { _ = resp.Body.Close() }()
+
+require.Equal(t, http.StatusOK, resp.StatusCode)
+
+body, err := io.ReadAll(resp.Body)
+require.NoError(t, err)
+
+var result struct {
+Items []connectionResponse `json:"items"`
+}
+require.NoError(t, json.Unmarshal(body, &result))
+
+return result.Items
+}
+
+// connectionResponse represents a connection from the API response.
+type connectionResponse struct {
+ID                 uuid.UUID `json:"id"`
+InstanceUID        uuid.UUID `json:"instanceUid"`
+Type               string    `json:"type"`
+LastCommunicatedAt time.Time `json:"lastCommunicatedAt"`
+Alive              bool      `json:"alive"`
+}
+
+// createCollectorConfigWithProtocol creates a collector config with specified protocol.
+func createCollectorConfigWithProtocol(t *testing.T, cacheDir string, apiPort int, collectorUID uuid.UUID, protocol string) string {
+t.Helper()
+
+endpoint := fmt.Sprintf("http://host.docker.internal:%d/api/v1/opamp", apiPort)
+if protocol == "ws" {
+endpoint = fmt.Sprintf("ws://host.docker.internal:%d/api/v1/opamp", apiPort)
+}
+
+configContent := fmt.Sprintf(`
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+
+exporters:
+  debug:
+    verbosity: detailed
+
+extensions:
+  opamp:
+    server:
+      %s:
+        endpoint: %s
+        headers:
+          User-Agent: "e2e-test-collector-%s"
+    instance_uid: %s
+    agent_description:
+      identifying_attributes:
+        - key: service.name
+          value:
+            string_value: e2e-test-collector
+        - key: service.instance.id
+          value:
+            string_value: %s
+      non_identifying_attributes:
+        - key: test.protocol
+          value:
+            string_value: %s
+
+service:
+  extensions: [opamp]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+`, protocol, endpoint, protocol, collectorUID.String(), collectorUID.String(), protocol)
+
+configPath := filepath.Join(cacheDir, fmt.Sprintf("collector-config-%s-%s.yaml", protocol, collectorUID.String()))
+err := os.WriteFile(configPath, []byte(configContent), 0600)
+require.NoError(t, err)
+
+return configPath
+}

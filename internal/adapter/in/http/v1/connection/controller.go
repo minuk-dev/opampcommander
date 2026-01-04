@@ -87,6 +87,7 @@ func (c *Controller) List(ctx *gin.Context) {
 			return connectionv1.Connection{
 				ID:                 connection.UID,
 				InstanceUID:        connection.InstanceUID,
+				Type:               connection.Type.String(),
 				Alive:              connection.IsAlive(now),
 				LastCommunicatedAt: connection.LastCommunicatedAt,
 			}

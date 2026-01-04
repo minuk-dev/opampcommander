@@ -17,6 +17,7 @@ const (
 type Connection struct {
 	ID                 uuid.UUID `json:"id"`
 	InstanceUID        uuid.UUID `json:"instanceUid"`
+	Type               string    `json:"type"`
 	LastCommunicatedAt time.Time `json:"lastCommunicatedAt"`
 	Alive              bool      `json:"alive"`
 } // @name Connection
