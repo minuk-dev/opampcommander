@@ -28,12 +28,6 @@ type AgentPersistencePort interface {
 	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*model.ListResponse[*model.Agent], error)
 }
 
-// EventHubPort is an interface that combines both sender and receiver ports for server events.
-type EventHubPort interface {
-	ServerEventReceiverPort
-	ServerEventSenderPort
-}
-
 // ServerEventSenderPort is an interface that defines the methods for sending events to servers.
 type ServerEventSenderPort interface {
 	// SendMessageToServer sends a message to the specified server.

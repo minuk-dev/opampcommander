@@ -1,4 +1,4 @@
-// Package kafka implements Kafka messaging adapters.
+// Package kafka provides Kafka messaging adapter implementations.
 package kafka
 
 import (
@@ -11,42 +11,31 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	"github.com/cloudevents/sdk-go/v2/event"
-	"github.com/google/uuid"
 
+	kafkamodel "github.com/minuk-dev/opampcommander/internal/adapter/common/kafka"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-const (
-	// CloudEventMessageSpec is the CloudEvents spec version used.
-	CloudEventMessageSpec = "1.0"
-	// CloudEventContentType is the CloudEvents content type used.
-	CloudEventContentType = "application/json"
-
-	sendToAgentEventType = "io.opampcommander.server.sendtosagent.v1"
-	unknownEventType     = "io.opampcommander.server.unknown.v1"
-)
-
 var (
-	_ port.ServerEventSenderPort   = (*EventSenderAdapter)(nil)
-	_ port.ServerEventReceiverPort = (*EventSenderAdapter)(nil)
+	_ port.ServerEventReceiverPort = (*EventReceiverAdapter)(nil)
 )
 
-// EventSenderAdapter implements port.ServerEventSenderPort using Kafka CloudEvents sender.
-type EventSenderAdapter struct {
-	sender   cloudevents.Client
-	receiver cloudevents.Client
-	logger   *slog.Logger
-	clock    clock.Clock
+// EventReceiverAdapter implements port.ServerEventReceiverPort using Kafka CloudEvents receiver.
+type EventReceiverAdapter struct {
+	serverIdentityProvider port.ServerIdentityProvider
+	receiver               cloudevents.Client
+	logger                 *slog.Logger
+	clock                  clock.Clock
 }
 
-// NewEventSenderAdapter creates a new EventSenderAdapter.
-func NewEventSenderAdapter(
-	protocolSender *cekafka.Sender,
+// NewEventReceiverAdapter creates a new EventReceiverAdapter.
+func NewEventReceiverAdapter(
+	serverIdentityProvider port.ServerIdentityProvider,
 	protocolConsumer *cekafka.Consumer,
 	logger *slog.Logger,
-) (*EventSenderAdapter, error) {
+) (*EventReceiverAdapter, error) {
 	//nolint:godox
 	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
 	// https://github.com/cloudevents/sdk-go/pull/1202
@@ -56,94 +45,46 @@ func NewEventSenderAdapter(
 
 	opts = append(opts, client.WithObservabilityService(otelService))
 
-	sender, err := cloudevents.NewClient(protocolSender, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
-	}
-
 	receiver, err := cloudevents.NewClient(protocolConsumer, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for receiver: %w", err)
 	}
 
-	// sender can be nil when events are disabled
-	return &EventSenderAdapter{
-		sender:   sender,
-		receiver: receiver,
-		logger:   logger,
-		clock:    clock.NewRealClock(),
+	return &EventReceiverAdapter{
+		serverIdentityProvider: serverIdentityProvider,
+		receiver:               receiver,
+		logger:                 logger,
+		clock:                  clock.NewRealClock(),
 	}, nil
 }
 
-// SendMessageToServer implements port.ServerEventSenderPort.
-func (e *EventSenderAdapter) SendMessageToServer(
-	ctx context.Context,
-	serverID string,
-	message serverevent.Message,
-) error {
-	event := cloudevents.NewEvent()
-
-	// Is it better to add message.EventID field?
-	eventID := uuid.New().String()
-	event.SetID(eventID)
-	event.SetSource(newSource(serverID))
-	event.SetType(eventTypeFromMessageType(message.Type))
-	event.SetSpecVersion(CloudEventMessageSpec)
-	event.SetTime(e.clock.Now())
-
-	err := event.SetData(CloudEventContentType, message.Payload)
-	if err != nil {
-		return fmt.Errorf("failed to set event data for server %s: %w", serverID, err)
-	}
-
-	err = e.sender.Send(ctx, event)
-	if err != nil {
-		return fmt.Errorf("failed to send message to server %s: %w", serverID, err)
-	}
-
-	return nil
-}
-
 // StartReceiver implements port.ServerEventReceiverPort.
-func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.ReceiveServerEventHandler) error {
+func (e *EventReceiverAdapter) StartReceiver(
+	ctx context.Context,
+	handler port.ReceiveServerEventHandler,
+) error {
 	err := e.receiver.StartReceiver(ctx, func(ctx context.Context, event event.Event) {
-		var payload serverevent.MessagePayload
-
-		err := event.DataAs(&payload)
-		if err != nil {
-			e.logger.Warn("failed to parse event data",
-				slog.String("eventID", event.ID()),
-				slog.String("eventType", event.Type()),
-				slog.String("error", err.Error()),
-			)
-
+		logArgs := []any{
+			slog.String("eventID", event.ID()),
+			slog.String("eventType", event.Type()),
+		}
+		if !e.isRelatedEvent(ctx, event) {
 			return
 		}
 
-		messageType, err := messageTypeFromEventType(event.Type())
+		message, err := eventToMessage(event)
 		if err != nil {
-			e.logger.Warn("unknown event type",
-				slog.String("eventID", event.ID()),
-				slog.String("eventType", event.Type()),
-				slog.String("error", err.Error()),
+			e.logger.Warn("failed to convert event to message",
+				append(logArgs, slog.String("error", err.Error()))...,
 			)
 
 			return
-		}
-
-		message := &serverevent.Message{
-			Source:  event.Source(),
-			Target:  "",
-			Type:    messageType,
-			Payload: payload,
 		}
 
 		err = handler(ctx, message)
 		if err != nil {
-			e.logger.Warn("failed to handle received message",
-				slog.String("eventID", event.ID()),
-				slog.String("eventType", event.Type()),
-				slog.String("error", err.Error()),
+			e.logger.Warn("failed to convert event to message",
+				append(logArgs, slog.String("error", err.Error()))...,
 			)
 
 			return
@@ -156,24 +97,55 @@ func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.Rec
 	return nil
 }
 
-func newSource(serverID string) string {
-	return "opampcommander/server/" + serverID
+func (e *EventReceiverAdapter) isRelatedEvent(
+	ctx context.Context,
+	event event.Event,
+) bool {
+	currentServer, err := e.serverIdentityProvider.CurrentServer(ctx)
+	if err != nil {
+		e.logger.Warn("failed to get current server identity",
+			slog.String("eventID", event.ID()),
+			slog.String("eventType", event.Type()),
+		)
+
+		return false
+	}
+
+	targetServer := event.Subject()
+	if targetServer != currentServer.ID {
+		// skip events not targeted to this server
+		e.logger.Info("skipping event not targeted to this server",
+			slog.String("eventID", event.ID()),
+			slog.String("eventType", event.Type()),
+			slog.String("targetServer", targetServer),
+			slog.String("currentServer", currentServer.ID),
+		)
+
+		return false
+	}
+
+	return true
 }
 
-func eventTypeFromMessageType(messageType serverevent.MessageType) string {
-	switch messageType {
-	case serverevent.MessageTypeSendServerToAgent:
-		return sendToAgentEventType
-	default:
-		return unknownEventType
-	}
-}
+func eventToMessage(event event.Event) (*serverevent.Message, error) {
+	var payload serverevent.MessagePayload
 
-func messageTypeFromEventType(eventType string) (serverevent.MessageType, error) {
-	switch eventType {
-	case sendToAgentEventType:
-		return serverevent.MessageTypeSendServerToAgent, nil
-	default:
-		return "", &UnknownMessageTypeError{MessageType: eventType}
+	err := event.DataAs(&payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse event data: %w", err)
 	}
+
+	messageType, err := kafkamodel.MessageTypeFromEventType(event.Type())
+	if err != nil {
+		return nil, fmt.Errorf("unknown event type: %w", err)
+	}
+
+	message := &serverevent.Message{
+		Source:  event.Source(),
+		Target:  event.Subject(),
+		Type:    messageType,
+		Payload: payload,
+	}
+
+	return message, nil
 }

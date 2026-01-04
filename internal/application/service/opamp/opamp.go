@@ -24,11 +24,11 @@ const (
 
 // Service is a struct that implements the OpAMPUsecase interface.
 type Service struct {
-	clock             clock.Clock
-	logger            *slog.Logger
-	agentUsecase      domainport.AgentUsecase
-	serverUsecase     domainport.ServerUsecase
-	agentGroupUsecase domainport.AgentGroupUsecase
+	clock                  clock.Clock
+	logger                 *slog.Logger
+	agentUsecase           domainport.AgentUsecase
+	agentGroupUsecase      domainport.AgentGroupUsecase
+	serverIdentityProvider domainport.ServerIdentityProvider
 
 	agentNotificationUsecase domainport.AgentNotificationUsecase
 
@@ -42,7 +42,7 @@ type Service struct {
 func New(
 	agentUsecase domainport.AgentUsecase,
 	connectionUsecase domainport.ConnectionUsecase,
-	serverUsecase domainport.ServerUsecase,
+	serverIdentityProvider domainport.ServerIdentityProvider,
 	agentGroupUsecase domainport.AgentGroupUsecase,
 	agentNotificationUsecase domainport.AgentNotificationUsecase,
 	logger *slog.Logger,
@@ -52,7 +52,7 @@ func New(
 		logger:                   logger,
 		agentUsecase:             agentUsecase,
 		connectionUsecase:        connectionUsecase,
-		serverUsecase:            serverUsecase,
+		serverIdentityProvider:   serverIdentityProvider,
 		agentGroupUsecase:        agentGroupUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
@@ -141,7 +141,7 @@ func (s *Service) OnMessage(
 		// even if injecting instanceUID fails, proceed to process the message
 	}
 
-	currentServer, err := s.serverUsecase.CurrentServer(ctx)
+	currentServer, err := s.serverIdentityProvider.CurrentServer(ctx)
 	if err != nil {
 		logger.Warn("failed to get current server", slog.String("error", err.Error()))
 	}

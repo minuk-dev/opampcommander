@@ -18,6 +18,7 @@ var _ port.AgentNotificationUsecase = (*AgentNotificationService)(nil)
 // AgentNotificationService handles notifications about agent updates.
 type AgentNotificationService struct {
 	serverMessageUsecase   port.ServerMessageUsecase
+	serverUsecase          port.ServerUsecase
 	serverIdentityProvider port.ServerIdentityProvider
 	logger                 *slog.Logger
 }
@@ -25,11 +26,13 @@ type AgentNotificationService struct {
 // NewAgentNotificationService creates a new instance of AgentNotificationService.
 func NewAgentNotificationService(
 	serverMessageUsecase port.ServerMessageUsecase,
+	serverUsecase port.ServerUsecase,
 	serverIdentityProvider port.ServerIdentityProvider,
 	logger *slog.Logger,
 ) *AgentNotificationService {
 	return &AgentNotificationService{
 		serverMessageUsecase:   serverMessageUsecase,
+		serverUsecase:          serverUsecase,
 		serverIdentityProvider: serverIdentityProvider,
 		logger:                 logger,
 	}
@@ -37,14 +40,19 @@ func NewAgentNotificationService(
 
 // NotifyAgentUpdated notifies the connected server that the agent has pending messages.
 func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent *model.Agent) error {
+	logger := s.logger.With(
+		slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
+	)
+
 	if !agent.HasPendingServerMessages() || !agent.IsConnected(ctx) {
+		logger.Info("no notification sent: no pending messages or agent not connected")
+
 		return nil
 	}
 
-	server, err := agent.ConnectedServerID()
+	serverID, err := agent.ConnectedServerID()
 	if err != nil {
-		s.logger.Warn("failed to notify agent update: cannot get connected server",
-			slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
+		logger.Warn("failed to get connected server ID",
 			slog.String("error", err.Error()),
 		)
 
@@ -53,20 +61,24 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 
 	currentServer, err := s.serverIdentityProvider.CurrentServer(ctx)
 	if err != nil {
-		s.logger.Warn("failed to notify agent update: cannot get current server",
-			slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
-			slog.String("error", err.Error()))
+		logger.Warn("use unknown server because failed to get current server", slog.String("error", err.Error()))
 
-		currentServer = &model.Server{
-			ID:              "unknown",
-			LastHeartbeatAt: time.Time{},
-			Conditions:      []model.ServerCondition{},
-		}
+		currentServer = s.getUnknownServer()
+	}
+
+	server, err := s.serverUsecase.GetServer(ctx, serverID)
+	if err != nil {
+		logger.Warn("failed to notify agent update: cannot get connected server",
+			slog.String("serverID", serverID),
+			slog.String("error", err.Error()),
+		)
+
+		return nil
 	}
 
 	err = s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
 		Source: currentServer.ID,
-		Target: server.ID,
+		Target: serverID,
 		Type:   serverevent.MessageTypeSendServerToAgent,
 		Payload: serverevent.MessagePayload{
 			MessageForServerToAgent: &serverevent.MessageForServerToAgent{
@@ -78,7 +90,7 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 	})
 	if err != nil {
 		return fmt.Errorf("failed to send server messages to server %s for agent %s: %w",
-			server.ID,
+			serverID,
 			agent.Metadata.InstanceUID,
 			err,
 		)
@@ -93,4 +105,12 @@ func (s *AgentNotificationService) RestartAgent(_ context.Context, instanceUID u
 	// This method is now primarily for logging/monitoring purposes
 	// The actual restart logic is handled in the application service layer
 	return nil
+}
+
+func (s *AgentNotificationService) getUnknownServer() *model.Server {
+	return &model.Server{
+		ID:              "unknown",
+		LastHeartbeatAt: time.Time{},
+		Conditions:      []model.ServerCondition{},
+	}
 }
