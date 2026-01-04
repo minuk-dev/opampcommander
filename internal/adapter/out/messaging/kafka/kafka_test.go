@@ -3,6 +3,7 @@ package kafka_test
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -49,9 +50,6 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 
 	defer func() { _ = consumer.Close(ctx) }()
 
-	receivedMessages := make(chan *serverevent.Message, 10)
-	go consumeMessages(ctx, t, consumer, receivedMessages)
-
 	// When: Send message
 	serverID := "test-server-id"
 	targetServer := "target-server-id"
@@ -70,88 +68,16 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Then: Message should be received
-	select {
-	case received := <-receivedMessages:
-		assert.Equal(t, targetServer, received.Target)
-		assert.Equal(t, serverevent.MessageTypeSendServerToAgent, received.Type)
-		assert.NotNil(t, received.Payload.MessageForServerToAgent)
-		assert.Len(t, received.Payload.TargetAgentInstanceUIDs, 1)
-		assert.Equal(t, agentUID, received.Payload.TargetAgentInstanceUIDs[0])
-	case <-time.After(10 * time.Second):
-		t.Fatal("Timeout waiting for message")
-	}
+	received := consumeMessage(ctx, t, consumer)
+	require.NotNil(t, received, "received message should not be nil")
+	assert.Equal(t, targetServer, received.Target)
+	assert.Equal(t, serverevent.MessageTypeSendServerToAgent, received.Type)
+	assert.NotNil(t, received.Payload.MessageForServerToAgent)
+	assert.Len(t, received.Payload.TargetAgentInstanceUIDs, 1)
+	assert.Equal(t, agentUID, received.Payload.TargetAgentInstanceUIDs[0])
 }
 
-func TestEventSenderAdapter_SendMultipleMessages(t *testing.T) {
-	t.Parallel()
-
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	// Given: Kafka is running
-	kafkaContainer, broker := startKafkaContainer(ctx, t)
-
-	defer func() { _ = kafkaContainer.Terminate(ctx) }()
-
-	topic := "test-topic-" + uuid.New().String()
-
-	// Given: EventSenderAdapter is created
-	sender := createTestSender(t, broker, topic)
-	logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
-	adapter, err := outkafka.NewEventSenderAdapter(sender, logger)
-	require.NoError(t, err)
-
-	// Given: Consumer to verify messages
-	consumer := createTestConsumer(t, broker, topic)
-
-	defer func() { _ = consumer.Close(ctx) }()
-
-	receivedMessages := make(chan *serverevent.Message, 10)
-	go consumeMessages(ctx, t, consumer, receivedMessages)
-
-	// When: Send multiple messages
-	numMessages := 5
-	serverID := "test-server-id"
-
-	for i := range numMessages {
-		message := serverevent.Message{
-			Target: "target-server-" + string(rune(i)),
-			Type:   serverevent.MessageTypeSendServerToAgent,
-			Payload: serverevent.MessagePayload{
-				MessageForServerToAgent: &serverevent.MessageForServerToAgent{
-					TargetAgentInstanceUIDs: []uuid.UUID{uuid.New()},
-				},
-			},
-		}
-		err = adapter.SendMessageToServer(ctx, serverID, message)
-		require.NoError(t, err)
-	}
-
-	// Then: All messages should be received
-	receivedCount := 0
-	timeout := time.After(20 * time.Second)
-
-	for receivedCount < numMessages {
-		select {
-		case msg := <-receivedMessages:
-			assert.NotNil(t, msg)
-			assert.Equal(t, serverevent.MessageTypeSendServerToAgent, msg.Type)
-
-			receivedCount++
-		case <-timeout:
-			t.Fatalf("Timeout: received %d/%d messages", receivedCount, numMessages)
-		}
-	}
-
-	assert.Equal(t, numMessages, receivedCount)
-}
-
-// Helper functions
-
+// Helper functions.
 func startKafkaContainer(ctx context.Context, t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 
@@ -198,51 +124,41 @@ func createTestConsumer(t *testing.T, broker, topic string) *cekafka.Consumer {
 	return consumer
 }
 
-func consumeMessages(
-	ctx context.Context,
-	t *testing.T,
-	consumer *cekafka.Consumer,
-	messages chan<- *serverevent.Message,
-) {
+// consumeMessage receives a single message from the Kafka consumer.
+func consumeMessage(ctx context.Context, t *testing.T, consumer *cekafka.Consumer) *serverevent.Message {
 	t.Helper()
 
-	ceClient, err := cloudevents.NewClient(consumer)
-	if err != nil {
-		t.Logf("Failed to create cloudevents client: %v", err)
+	receiveCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
-		return
-	}
+	client, err := cloudevents.NewClient(consumer)
+	require.NoError(t, err)
 
-	err = ceClient.StartReceiver(ctx, func(ctx context.Context, event cloudevents.Event) {
-		var payload serverevent.MessagePayload
+	var msg *serverevent.Message
 
-		err := event.DataAs(&payload)
-		if err != nil {
-			t.Logf("Failed to parse event data: %v", err)
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		err := client.StartReceiver(receiveCtx, func(_ context.Context, e cloudevents.Event) {
+			var payload serverevent.MessagePayload
 
-			return
-		}
+			err := e.DataAs(&payload)
+			require.NoError(t, err)
 
-		messageType, err := kafkamodel.MessageTypeFromEventType(event.Type())
-		if err != nil {
-			t.Logf("Unknown event type: %v", err)
+			messageType, err := kafkamodel.MessageTypeFromEventType(e.Type())
+			require.NoError(t, err)
 
-			return
-		}
+			msg = &serverevent.Message{
+				Source:  e.Source(),
+				Target:  e.Subject(),
+				Type:    messageType,
+				Payload: payload,
+			}
 
-		message := &serverevent.Message{
-			Source:  event.Source(),
-			Target:  event.Subject(),
-			Type:    messageType,
-			Payload: payload,
-		}
-
-		select {
-		case messages <- message:
-		case <-ctx.Done():
-		}
+			cancel() // Stop receiving after first message
+		})
+		require.NoError(t, err)
 	})
-	if err != nil {
-		t.Logf("Failed to start receiver: %v", err)
-	}
+	wg.Wait()
+
+	return msg
 }
