@@ -617,4 +617,3 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	t.Log("Kafka event messaging test completed successfully")
 }
-
