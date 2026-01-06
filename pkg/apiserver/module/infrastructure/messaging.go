@@ -44,7 +44,6 @@ func (e *UnsupportedEventProtocolError) Error() string {
 	return "unsupported event protocol type: " + e.ProtocolType
 }
 
-//nolint:ireturn
 func newEventSenderAndReceiver(
 	settings *config.EventSettings,
 	logger *slog.Logger,
