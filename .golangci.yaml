@@ -41,6 +41,8 @@ linters:
         - '.+/management\.HTTPHandler$'
         - '.+/trace\.Sampler$'
         - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
+        - "github.com/minuk-dev/opampcommander/internal/domain/port.ServerEventSenderPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/internal/domain/port.ServerEventReceiverPort" # cannot handle without interface
         - "k8s.io/utils/clock.Timer"
         # test
         - "github.com/testcontainers/testcontainers-go.Container"

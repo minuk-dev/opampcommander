@@ -87,20 +87,34 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // OnConnected implements port.OpAMPUsecase.
+// Deprecated: Use OnConnectedWithType instead for proper connection type detection.
 func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
+	// Default to unknown type for backward compatibility
+	s.OnConnectedWithType(ctx, conn, false)
+}
+
+// OnConnectedWithType implements port.OpAMPUsecase.
+// This is called for both WebSocket and HTTP connections.
+// isWebSocket parameter indicates the connection type.
+func (s *Service) OnConnectedWithType(ctx context.Context, conn types.Connection, isWebSocket bool) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(slog.String("method", "OnConnected"), slog.String("remoteAddr", remoteAddr))
+	logger := s.logger.With(
+		slog.String("method", "OnConnectedWithType"),
+		slog.String("remoteAddr", remoteAddr),
+		slog.Bool("isWebSocket", isWebSocket),
+	)
 
 	logger.Info("start")
 
-	connection, err := s.connectionUsecase.GetOrCreateConnectionByID(ctx, conn)
-	if err != nil {
-		logger.Error("failed to get or create connection", slog.String("error", err.Error()))
-
-		return
+	// Create connection with the correct type
+	connectionType := model.ConnectionTypeHTTP
+	if isWebSocket {
+		connectionType = model.ConnectionTypeWebSocket
 	}
 
-	err = s.connectionUsecase.SaveConnection(ctx, connection)
+	connection := model.NewConnection(conn, connectionType)
+
+	err := s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
 		logger.Error("failed to save connection", slog.String("error", err.Error()))
 

@@ -2,6 +2,7 @@
 package opamp
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -73,12 +74,19 @@ func NewController(
 func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 	c.logger.Debug("OnConnecting", slog.Any("req", req))
 
+	// Detect connection type based on HTTP request
+	// WebSocket connections have "Upgrade: websocket" header
+	// HTTP connections use POST method without upgrade
+	isWebSocket := req.Header.Get("Upgrade") == "websocket"
+
 	return types.ConnectionResponse{
 		Accept:             true,
 		HTTPStatusCode:     http.StatusOK,
 		HTTPResponseHeader: map[string]string{},
 		ConnectionCallbacks: types.ConnectionCallbacks{
-			OnConnected:            c.opampUsecase.OnConnected,
+			OnConnected: func(ctx context.Context, conn types.Connection) {
+				c.opampUsecase.OnConnectedWithType(ctx, conn, isWebSocket)
+			},
 			OnMessage:              c.opampUsecase.OnMessage,
 			OnConnectionClose:      c.opampUsecase.OnConnectionClose,
 			OnReadMessageError:     c.opampUsecase.OnReadMessageError,

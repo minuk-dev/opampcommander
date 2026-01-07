@@ -37,16 +37,24 @@ func TestConnectionController_List(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
+		conn1UID := uuid.New()
+		conn2UID := uuid.New()
+		agent1UID := uuid.New()
+		agent2UID := uuid.New()
+		now := time.Now()
+
 		connections := []*model.Connection{
 			{
-				UID:                uuid.New(),
-				InstanceUID:        uuid.New(),
-				LastCommunicatedAt: time.Now(),
+				UID:                conn1UID,
+				InstanceUID:        agent1UID,
+				Type:               model.ConnectionTypeWebSocket,
+				LastCommunicatedAt: now,
 			},
 			{
-				UID:                uuid.New(),
-				InstanceUID:        uuid.New(),
-				LastCommunicatedAt: time.Now(),
+				UID:                conn2UID,
+				InstanceUID:        agent2UID,
+				Type:               model.ConnectionTypeHTTP,
+				LastCommunicatedAt: now,
 			},
 		}
 		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
@@ -66,7 +74,15 @@ func TestConnectionController_List(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
 		t.Logf("Response Body: %s", recorder.Body.String())
+
+		// Verify connection count
 		assert.Equal(t, len(connections), int(gjson.Get(recorder.Body.String(), "items.#").Int()))
+
+		// Verify connection types are correctly returned
+		items := gjson.Get(recorder.Body.String(), "items").Array()
+		assert.Len(t, items, 2)
+		assert.Equal(t, "WebSocket", gjson.Get(items[0].String(), "type").String())
+		assert.Equal(t, "HTTP", gjson.Get(items[1].String(), "type").String())
 	})
 
 	t.Run("List Connections - error case", func(t *testing.T) {

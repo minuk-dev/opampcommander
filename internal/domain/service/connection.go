@@ -176,31 +176,31 @@ func (s *Service) SendServerToAgent(
 }
 
 // detectConnectionType detects whether the connection is WebSocket or HTTP.
-// According to OpAMP spec, WebSocket connections support bidirectional communication
-// and can use the Send method, while HTTP connections are request-response only.
+// According to OpAMP spec:
+// - WebSocket: Bidirectional, persistent connection. OnConnected is called first.
+// - HTTP: Request-response only, stateless. Only OnMessage is called per request.
+//
+// The key difference: WebSocket connections maintain a persistent net.Conn,
+// while HTTP connections are ephemeral (created per request).
+// We check if the connection object supports the Send method and has a persistent connection.
 func (s *Service) detectConnectionType(id any) model.ConnectionType {
-	conn, ok := id.(types.Connection) // only types.Connection supports Send method
+	conn, ok := id.(types.Connection)
 	if !ok {
+		// If it's not a types.Connection, we can't determine the type
 		return model.ConnectionTypeUnknown
 	}
-	// Try to send a nil message to detect if it's a WebSocket connection
-	// WebSocket will accept this (though we won't actually send anything),
-	// while HTTP will return an error
-	// Note: We don't actually want to send anything here, we just want to check the type
-	// A better approach is to check if the connection implements a WebSocket-specific interface
-	// For now, we'll assume it's WebSocket and let it be corrected later if needed
 
-	// Check the underlying connection type
-	// If the connection's remote address is set and it's persistent, it's likely WebSocket
+	// Check if we have an underlying network connection
 	netConn := conn.Connection()
-	if netConn != nil {
-		// WebSocket connections typically keep the connection open
-		// For now, we'll default to WebSocket since most OpAMP implementations use WebSocket
-		// This will be updated in OnMessage when we receive the first message
-		return model.ConnectionTypeWebSocket
+	if netConn == nil {
+		// No underlying connection means it's likely HTTP (request-response only)
+		return model.ConnectionTypeHTTP
 	}
 
-	return model.ConnectionTypeHTTP
+	// If we have a persistent connection, it's WebSocket
+	// maintains the connection after OnConnected
+	// HTTP only has connection during request processing
+	return model.ConnectionTypeWebSocket
 }
 
 // NotSupportedConnectionTypeError is returned when an operation is attempted.
