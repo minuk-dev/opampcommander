@@ -181,10 +181,9 @@ func (s *Service) OnMessage(
 		logger.Error("failed to save agent", slog.String("error", err.Error()))
 	}
 
-	err = s.agentNotificationUsecase.NotifyAgentUpdated(ctx, agent)
-	if err != nil {
-		logger.Error("failed to notify agent update", slog.String("error", err.Error()))
-	}
+	// Note: NotifyAgentUpdated is NOT called here to avoid infinite loop.
+	// OnMessage already sends a response via fetchServerToAgent.
+	// NotifyAgentUpdated should only be called when agent is updated externally (e.g., via API).
 
 	response := s.fetchServerToAgent(ctx, agent)
 
