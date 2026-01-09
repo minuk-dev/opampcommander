@@ -144,6 +144,7 @@ func (s *ServerService) SendMessageToServer(
 		slog.String("serverID", server.ID),
 		slog.String("messageType", message.Type.String()),
 	)
+
 	err := s.serverEventSenderPort.SendMessageToServer(ctx, server.ID, message)
 	if err != nil {
 		return fmt.Errorf("failed to send message to server %s: %w", server.ID, err)
