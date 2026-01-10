@@ -27,6 +27,8 @@ type ServerService struct {
 	clock            clock.Clock
 	heartbeatTimeout time.Duration
 
+	cachedServers sync.Map // map[string]*model.Server
+
 	serverPersistencePort   port.ServerPersistencePort
 	serverEventSenderPort   port.ServerEventSenderPort
 	serverEventReceiverPort port.ServerEventReceiverPort
@@ -46,6 +48,7 @@ func NewServerService(
 	service := &ServerService{
 		logger:                  logger,
 		clock:                   clock.NewRealClock(),
+		cachedServers:           sync.Map{},
 		serverPersistencePort:   serverPersistencePort,
 		serverEventSenderPort:   serverEventSenderPort,
 		serverEventReceiverPort: serverEventReceiverPort,
@@ -79,14 +82,17 @@ func (s *ServerService) Run(ctx context.Context) error {
 
 // GetServer implements port.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
-	//nolint:godox // https://github.com/minuk-dev/opampcommander/issues/241
-	// TODO: caching server instead of fetching from DB every time
-	// cache condition:
-	// - cached server's LastHeartbeatAt + heartbeatTimeout > now
+	if cachedServer, ok := s.cachedServers.Load(id); ok {
+		server := cachedServer.(*model.Server)
+		if server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+			return server, nil
+		}
+	}
 	server, err := s.serverPersistencePort.GetServer(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
+	s.cachedServers.Store(id, server)
 
 	return server, nil
 }
