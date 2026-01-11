@@ -87,11 +87,9 @@ func (s *ServerService) Run(ctx context.Context) error {
 
 // GetServer implements port.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
-	if cachedServer, ok := s.cachedServers.Load(id); ok {
-		server, ok := cachedServer.(*model.Server)
-		if ok && server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
-			return server, nil
-		}
+	cachedServer, ok := s.getCachedServer(id)
+	if ok && cachedServer.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+		return cachedServer, nil
 	}
 
 	server, err := s.serverPersistencePort.GetServer(ctx, id)
@@ -99,7 +97,7 @@ func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
 
-	s.cachedServers.Store(id, server)
+	s.updateCachedServer(server)
 
 	return server, nil
 }
@@ -268,4 +266,19 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 		// Note: RemoteConfig building is omitted here for simplicity
 		// In production, you should fetch agent groups and build config properly
 	}
+}
+
+func (s *ServerService) getCachedServer(id string) (*model.Server, bool) {
+	if cachedServer, ok := s.cachedServers.Load(id); ok {
+		server, ok := cachedServer.(*model.Server)
+		if ok {
+			return server.Clone(), true
+		}
+	}
+
+	return nil, false
+}
+
+func (s *ServerService) updateCachedServer(server *model.Server) {
+	s.cachedServers.Store(server.ID, server)
 }
