@@ -8,6 +8,11 @@ import (
 	k8sclock "k8s.io/utils/clock"
 )
 
+// Timer represents a timer.
+type Timer interface {
+	k8sclock.Timer
+}
+
 // Clock is from k8s.io/utils/clock.
 type Clock interface {
 	PassiveClock
@@ -16,7 +21,7 @@ type Clock interface {
 	// NewTimer instead.
 	After(d time.Duration) <-chan time.Time
 	// NewTimer returns a new Timer.
-	NewTimer(d time.Duration) k8sclock.Timer
+	NewTimer(d time.Duration) Timer
 	// Sleep sleeps for the provided duration d.
 	// Consider making the sleep interruptible by using 'select' on a context channel and a timer channel.
 	Sleep(d time.Duration)

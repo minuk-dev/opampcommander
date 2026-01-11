@@ -65,6 +65,11 @@ func (s *ServerService) Name() string {
 	return "ServerService"
 }
 
+// SetClock sets the clock for testing purposes.
+func (s *ServerService) SetClock(c clock.Clock) {
+	s.clock = c
+}
+
 // Run starts the server service.
 func (s *ServerService) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
@@ -83,15 +88,17 @@ func (s *ServerService) Run(ctx context.Context) error {
 // GetServer implements port.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
 	if cachedServer, ok := s.cachedServers.Load(id); ok {
-		server := cachedServer.(*model.Server)
-		if server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+		server, ok := cachedServer.(*model.Server)
+		if ok && server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
 			return server, nil
 		}
 	}
+
 	server, err := s.serverPersistencePort.GetServer(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
+
 	s.cachedServers.Store(id, server)
 
 	return server, nil

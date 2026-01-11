@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
-	k8sclock "k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
@@ -41,7 +40,7 @@ func NewManageService(
 		agentgroupUsecase: agentgroupUsecase,
 		agentUsecase:      agentUsecase,
 		agentMapper:       mapper.New(),
-		clock:             k8sclock.RealClock{},
+		clock:             clock.NewRealClock(),
 		logger:            logger,
 	}
 }
