@@ -27,6 +27,8 @@ type ServerService struct {
 	clock            clock.Clock
 	heartbeatTimeout time.Duration
 
+	cachedServers sync.Map // map[string]*model.Server
+
 	serverPersistencePort   port.ServerPersistencePort
 	serverEventSenderPort   port.ServerEventSenderPort
 	serverEventReceiverPort port.ServerEventReceiverPort
@@ -46,6 +48,7 @@ func NewServerService(
 	service := &ServerService{
 		logger:                  logger,
 		clock:                   clock.NewRealClock(),
+		cachedServers:           sync.Map{},
 		serverPersistencePort:   serverPersistencePort,
 		serverEventSenderPort:   serverEventSenderPort,
 		serverEventReceiverPort: serverEventReceiverPort,
@@ -60,6 +63,11 @@ func NewServerService(
 // Name returns the name of the runner.
 func (s *ServerService) Name() string {
 	return "ServerService"
+}
+
+// SetClock sets the clock for testing purposes.
+func (s *ServerService) SetClock(c clock.Clock) {
+	s.clock = c
 }
 
 // Run starts the server service.
@@ -79,14 +87,17 @@ func (s *ServerService) Run(ctx context.Context) error {
 
 // GetServer implements port.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
-	//nolint:godox // https://github.com/minuk-dev/opampcommander/issues/241
-	// TODO: caching server instead of fetching from DB every time
-	// cache condition:
-	// - cached server's LastHeartbeatAt + heartbeatTimeout > now
+	cachedServer, ok := s.getCachedServer(id)
+	if ok {
+		return cachedServer, nil
+	}
+
 	server, err := s.serverPersistencePort.GetServer(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
+
+	s.updateCachedServer(server)
 
 	return server, nil
 }
@@ -255,4 +266,27 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 		// Note: RemoteConfig building is omitted here for simplicity
 		// In production, you should fetch agent groups and build config properly
 	}
+}
+
+func (s *ServerService) getCachedServer(id string) (*model.Server, bool) {
+	if cachedServer, ok := s.cachedServers.Load(id); ok {
+		server, ok := cachedServer.(*model.Server)
+		if ok {
+			if server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+				return server.Clone(), true
+			}
+
+			s.invalidateCachedServer(id) // Remove dead server from cache
+		}
+	}
+
+	return nil, false
+}
+
+func (s *ServerService) invalidateCachedServer(id string) {
+	s.cachedServers.Delete(id)
+}
+
+func (s *ServerService) updateCachedServer(server *model.Server) {
+	s.cachedServers.Store(server.ID, server)
 }

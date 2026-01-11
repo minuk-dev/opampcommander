@@ -32,7 +32,7 @@ func (c *RealClock) After(d time.Duration) <-chan time.Time {
 }
 
 // NewTimer returns a new Timer that will send the current time on its channel after at least duration d.
-func (c *RealClock) NewTimer(d time.Duration) k8sclock.Timer {
+func (c *RealClock) NewTimer(d time.Duration) Timer {
 	return c.RealClock.NewTimer(d)
 }
 

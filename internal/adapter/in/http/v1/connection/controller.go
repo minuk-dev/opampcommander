@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
-	k8sclock "k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
@@ -30,7 +29,7 @@ type Controller struct {
 func NewController(adminUsecase applicationport.AdminUsecase) *Controller {
 	controller := &Controller{
 		logger:       slog.Default(),
-		clock:        k8sclock.RealClock{},
+		clock:        clock.NewRealClock(),
 		adminUsecase: adminUsecase,
 	}
 

@@ -17,6 +17,18 @@ type Server struct {
 	Conditions []ServerCondition
 }
 
+// Clone creates a deep copy of the Server.
+func (s *Server) Clone() *Server {
+	conditionsCopy := make([]ServerCondition, len(s.Conditions))
+	copy(conditionsCopy, s.Conditions)
+
+	return &Server{
+		ID:              s.ID,
+		LastHeartbeatAt: s.LastHeartbeatAt,
+		Conditions:      conditionsCopy,
+	}
+}
+
 // ServerCondition represents a condition of a server.
 type ServerCondition struct {
 	// Type is the type of the condition.
