@@ -88,7 +88,7 @@ func (s *ServerService) Run(ctx context.Context) error {
 // GetServer implements port.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*model.Server, error) {
 	cachedServer, ok := s.getCachedServer(id)
-	if ok && cachedServer.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+	if ok {
 		return cachedServer, nil
 	}
 
@@ -271,7 +271,7 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 func (s *ServerService) getCachedServer(id string) (*model.Server, bool) {
 	if cachedServer, ok := s.cachedServers.Load(id); ok {
 		server, ok := cachedServer.(*model.Server)
-		if ok {
+		if ok && server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
 			return server.Clone(), true
 		}
 	}
