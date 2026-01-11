@@ -271,12 +271,20 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 func (s *ServerService) getCachedServer(id string) (*model.Server, bool) {
 	if cachedServer, ok := s.cachedServers.Load(id); ok {
 		server, ok := cachedServer.(*model.Server)
-		if ok && server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
-			return server.Clone(), true
+		if ok {
+			if server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+				return server.Clone(), true
+			}
+
+			s.invalidateCachedServer(id) // Remove dead server from cache
 		}
 	}
 
 	return nil, false
+}
+
+func (s *ServerService) invalidateCachedServer(id string) {
+	s.cachedServers.Delete(id)
 }
 
 func (s *ServerService) updateCachedServer(server *model.Server) {
