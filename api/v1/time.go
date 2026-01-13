@@ -121,10 +121,36 @@ func (t Time) MarshalJSON() ([]byte, error) {
 
 // UnmarshalYAML implements [yaml.Unmarshaler].
 func (t *Time) UnmarshalYAML(value *yaml.Node) error {
-	panic("unimplemented")
+	if value.Kind == yaml.ScalarNode && value.Tag == "!!null" {
+		t.Time = time.Time{}
+		return nil
+	}
+
+	var str string
+	err := value.Decode(&str)
+	if err != nil {
+		return err
+	}
+
+	pt, err := time.Parse(time.RFC3339, str)
+	if err != nil {
+		return err
+	}
+
+	t.Time = pt.Local()
+	return nil
 }
 
 // MarshalYAML implements [yaml.Marshaler].
 func (t Time) MarshalYAML() (interface{}, error) {
-	panic("unimplemented")
+	if t.IsZero() {
+		// Encode unset/nil objects as JSON's "null".
+		return []byte("null"), nil
+	}
+	buf := make([]byte, 0, len(time.RFC3339)+2)
+	buf = append(buf, '"')
+	// time cannot contain non escapable JSON characters
+	buf = t.UTC().AppendFormat(buf, time.RFC3339)
+	buf = append(buf, '"')
+	return buf, nil
 }
