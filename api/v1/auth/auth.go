@@ -1,7 +1,9 @@
 // Package auth provides the authentication api for the opampcommander application
 package auth
 
-import "time"
+import (
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+)
 
 // InfoResponse defines the response structure for authentication info.
 type InfoResponse struct {
@@ -35,7 +37,7 @@ type DeviceAuthnTokenResponse struct {
 	// This is typically shown to the user in non-textual form, such as a QR code.
 	VerificationURIComplete string `json:"verificationUriComplete,omitempty"`
 	// Expiry is when the device code and user code expire
-	Expiry time.Time `json:"expiry,omitempty"`
+	Expiry v1.Time `json:"expiry,omitempty"`
 	// Interval is the duration in seconds that Poll should wait between requests
 	Interval int64 `json:"interval,omitempty"`
 } // @name DeviceAuthnTokenResponse

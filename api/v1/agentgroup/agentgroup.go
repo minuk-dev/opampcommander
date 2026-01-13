@@ -2,8 +2,7 @@
 package agentgroup
 
 import (
-	"time"
-
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 )
 
@@ -56,7 +55,7 @@ type Status struct {
 // Condition represents a condition of an agent group.
 type Condition struct {
 	Type               ConditionType   `json:"type"`
-	LastTransitionTime time.Time       `json:"lastTransitionTime"`
+	LastTransitionTime v1.Time         `json:"lastTransitionTime"`
 	Status             ConditionStatus `json:"status"`
 	Reason             string          `json:"reason"`
 	Message            string          `json:"message,omitempty"`
