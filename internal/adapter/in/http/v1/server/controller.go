@@ -66,7 +66,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		lo.Map(servers, func(server *model.Server, _ int) serverv1.Server {
 			return serverv1.Server{
 				ID:              server.ID,
-				LastHeartbeatAt: server.LastHeartbeatAt,
+				LastHeartbeatAt: v1.NewTime(server.LastHeartbeatAt),
 				Conditions:      mapConditionsToAPI(server.Conditions),
 			}
 		}),
@@ -89,7 +89,7 @@ func mapConditionsToAPI(conditions []model.ServerCondition) []serverv1.Condition
 	for i, condition := range conditions {
 		apiConditions[i] = serverv1.Condition{
 			Type:               serverv1.ConditionType(condition.Type),
-			LastTransitionTime: condition.LastTransitionTime,
+			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
 			Status:             serverv1.ConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,

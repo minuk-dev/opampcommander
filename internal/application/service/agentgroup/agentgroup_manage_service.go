@@ -189,7 +189,7 @@ func (s *ManageService) toAPIModelAgentGroup(domain *model.AgentGroup) *v1agentg
 	for i, condition := range domain.Status.Conditions {
 		conditions[i] = v1agentgroup.Condition{
 			Type:               v1agentgroup.ConditionType(condition.Type),
-			LastTransitionTime: condition.LastTransitionTime,
+			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
 			Status:             v1agentgroup.ConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,
@@ -295,7 +295,7 @@ func toDomainModelAgentGroupFromAPI(api *v1agentgroup.AgentGroup) *model.AgentGr
 	for i, condition := range api.Status.Conditions {
 		conditions[i] = model.Condition{
 			Type:               model.ConditionType(condition.Type),
-			LastTransitionTime: condition.LastTransitionTime,
+			LastTransitionTime: condition.LastTransitionTime.Time,
 			Status:             model.ConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,

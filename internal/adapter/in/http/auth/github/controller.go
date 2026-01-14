@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
@@ -173,7 +174,7 @@ func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
 		UserCode:                dar.UserCode,
 		VerificationURI:         dar.VerificationURI,
 		VerificationURIComplete: dar.VerificationURIComplete,
-		Expiry:                  dar.Expiry,
+		Expiry:                  v1.NewTime(dar.Expiry),
 		Interval:                dar.Interval,
 	})
 }

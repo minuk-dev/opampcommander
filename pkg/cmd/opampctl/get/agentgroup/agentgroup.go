@@ -189,12 +189,13 @@ func extractConditionInfo(conditions []v1agentgroup.Condition) (time.Time, strin
 		switch condition.Type {
 		case v1agentgroup.ConditionTypeCreated:
 			if condition.Status == v1agentgroup.ConditionStatusTrue {
-				createdAt = condition.LastTransitionTime
+				createdAt = condition.LastTransitionTime.Time
 				createdBy = condition.Reason
 			}
 		case v1agentgroup.ConditionTypeDeleted:
 			if condition.Status == v1agentgroup.ConditionStatusTrue {
-				deletedAt = &condition.LastTransitionTime
+				t := condition.LastTransitionTime.Time
+				deletedAt = &t
 				deletedBy = &condition.Reason
 			}
 		}

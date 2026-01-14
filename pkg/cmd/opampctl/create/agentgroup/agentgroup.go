@@ -154,12 +154,13 @@ func toFormattedAgentGroup(agentGroup *agentgroupv1.AgentGroup) *formattedAgentG
 		switch condition.Type {
 		case agentgroupv1.ConditionTypeCreated:
 			if condition.Status == agentgroupv1.ConditionStatusTrue {
-				createdAt = condition.LastTransitionTime
+				createdAt = condition.LastTransitionTime.Time
 				createdBy = condition.Reason
 			}
 		case agentgroupv1.ConditionTypeDeleted:
 			if condition.Status == agentgroupv1.ConditionStatusTrue {
-				deletedAt = &condition.LastTransitionTime
+				t := condition.LastTransitionTime.Time
+				deletedAt = &t
 				deletedBy = &condition.Reason
 			}
 		}
