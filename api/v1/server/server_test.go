@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/api/v1/server"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1/server"
 )
 
 func TestServer_TimeSerialization(t *testing.T) {
@@ -27,6 +28,7 @@ func TestServer_TimeSerialization(t *testing.T) {
 
 	// Test JSON unmarshaling
 	var unmarshaledServer server.Server
+
 	err = json.Unmarshal(data, &unmarshaledServer)
 	require.NoError(t, err)
 	assert.Equal(t, srv.ID, unmarshaledServer.ID)
@@ -51,6 +53,7 @@ func TestServerCondition_TimeSerialization(t *testing.T) {
 
 	// Test JSON unmarshaling
 	var unmarshaledCondition server.Condition
+
 	err = json.Unmarshal(data, &unmarshaledCondition)
 	require.NoError(t, err)
 	assert.Equal(t, condition.Type, unmarshaledCondition.Type)

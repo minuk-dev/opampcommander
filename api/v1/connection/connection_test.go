@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/api/v1/connection"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1/connection"
 )
 
 func TestConnection_TimeSerialization(t *testing.T) {
@@ -32,6 +33,7 @@ func TestConnection_TimeSerialization(t *testing.T) {
 
 	// Test JSON unmarshaling
 	var unmarshaledConn connection.Connection
+
 	err = json.Unmarshal(data, &unmarshaledConn)
 	require.NoError(t, err)
 	assert.Equal(t, conn.ID, unmarshaledConn.ID)

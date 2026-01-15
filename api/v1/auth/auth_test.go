@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1/auth"
 )
 
 func TestDeviceAuthnTokenResponse_TimeSerialization(t *testing.T) {
@@ -30,6 +31,7 @@ func TestDeviceAuthnTokenResponse_TimeSerialization(t *testing.T) {
 
 	// Test JSON unmarshaling
 	var unmarshaledResponse auth.DeviceAuthnTokenResponse
+
 	err = json.Unmarshal(data, &unmarshaledResponse)
 	require.NoError(t, err)
 	assert.Equal(t, response.DeviceCode, unmarshaledResponse.DeviceCode)

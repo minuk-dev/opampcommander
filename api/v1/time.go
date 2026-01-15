@@ -28,7 +28,7 @@ func (t *Time) DeepCopyInto(out *Time) {
 	*out = *t
 }
 
-// NewTime returns a wrapped instance of the provided time
+// NewTime returns a wrapped instance of the provided time.
 func NewTime(time time.Time) Time {
 	return Time{time}
 }
@@ -49,6 +49,7 @@ func (t *Time) IsZero() bool {
 	if t == nil {
 		return true
 	}
+
 	return t.Time.IsZero()
 }
 
@@ -57,6 +58,7 @@ func (t *Time) Before(u *Time) bool {
 	if t != nil && u != nil {
 		return t.Time.Before(u.Time)
 	}
+
 	return false
 }
 
@@ -65,9 +67,11 @@ func (t *Time) Equal(u *Time) bool {
 	if t == nil && u == nil {
 		return true
 	}
+
 	if t != nil && u != nil {
 		return t.Time.Equal(u.Time)
 	}
+
 	return false
 }
 
@@ -80,6 +84,7 @@ func Unix(sec int64, nsec int64) Time {
 // Rfc3339Copy returns a copy of the Time at second-level precision.
 func (t Time) Rfc3339Copy() Time {
 	copied, _ := time.Parse(time.RFC3339, t.Format(time.RFC3339))
+
 	return Time{copied}
 }
 
@@ -87,10 +92,12 @@ func (t Time) Rfc3339Copy() Time {
 func (t *Time) UnmarshalJSON(b []byte) error {
 	if len(b) == 4 && string(b) == "null" {
 		t.Time = time.Time{}
+
 		return nil
 	}
 
 	var str string
+
 	err := json.Unmarshal(b, &str)
 	if err != nil {
 		return err
@@ -102,6 +109,7 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 	}
 
 	t.Time = pt.Local()
+
 	return nil
 }
 
@@ -111,11 +119,13 @@ func (t Time) MarshalJSON() ([]byte, error) {
 		// Encode unset/nil objects as JSON's "null".
 		return []byte("null"), nil
 	}
+
 	buf := make([]byte, 0, len(time.RFC3339)+2)
 	buf = append(buf, '"')
 	// time cannot contain non escapable JSON characters
 	buf = t.UTC().AppendFormat(buf, time.RFC3339)
 	buf = append(buf, '"')
+
 	return buf, nil
 }
 
@@ -123,10 +133,12 @@ func (t Time) MarshalJSON() ([]byte, error) {
 func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind == yaml.ScalarNode && value.Tag == "!!null" {
 		t.Time = time.Time{}
+
 		return nil
 	}
 
 	var str string
+
 	err := value.Decode(&str)
 	if err != nil {
 		return err
@@ -138,6 +150,7 @@ func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	t.Time = pt.Local()
+
 	return nil
 }
 
@@ -147,10 +160,12 @@ func (t Time) MarshalYAML() (interface{}, error) {
 		// Encode unset/nil objects as JSON's "null".
 		return []byte("null"), nil
 	}
+
 	buf := make([]byte, 0, len(time.RFC3339)+2)
 	buf = append(buf, '"')
 	// time cannot contain non escapable JSON characters
 	buf = t.UTC().AppendFormat(buf, time.RFC3339)
 	buf = append(buf, '"')
+
 	return buf, nil
 }

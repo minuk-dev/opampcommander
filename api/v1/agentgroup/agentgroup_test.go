@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 )
 
 func TestCondition_TimeSerialization(t *testing.T) {
@@ -29,6 +30,7 @@ func TestCondition_TimeSerialization(t *testing.T) {
 
 	// Test JSON unmarshaling
 	var unmarshaledCondition agentgroup.Condition
+
 	err = json.Unmarshal(data, &unmarshaledCondition)
 	require.NoError(t, err)
 	assert.Equal(t, condition.Type, unmarshaledCondition.Type)
