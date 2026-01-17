@@ -13,6 +13,8 @@ import (
 )
 
 func TestCondition_TimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	testTime := time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC)
 
 	condition := agentgroup.Condition{
@@ -38,6 +40,8 @@ func TestCondition_TimeSerialization(t *testing.T) {
 }
 
 func TestCondition_ZeroTimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	condition := agentgroup.Condition{
 		Type:               agentgroup.ConditionTypeCreated,
 		LastTransitionTime: v1.Time{},

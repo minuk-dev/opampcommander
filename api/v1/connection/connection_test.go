@@ -14,6 +14,8 @@ import (
 )
 
 func TestConnection_TimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	connID := uuid.New()
 	instanceID := uuid.New()
 	lastComm := time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC)
@@ -42,6 +44,8 @@ func TestConnection_TimeSerialization(t *testing.T) {
 }
 
 func TestConnection_ZeroTimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	connID := uuid.New()
 	instanceID := uuid.New()
 

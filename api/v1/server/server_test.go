@@ -13,6 +13,8 @@ import (
 )
 
 func TestServer_TimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	heartbeatTime := time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC)
 
 	srv := server.Server{
@@ -36,6 +38,8 @@ func TestServer_TimeSerialization(t *testing.T) {
 }
 
 func TestServerCondition_TimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	transitionTime := time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC)
 
 	condition := server.Condition{
@@ -61,6 +65,8 @@ func TestServerCondition_TimeSerialization(t *testing.T) {
 }
 
 func TestServer_ZeroTimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	srv := server.Server{
 		ID:              "server-1",
 		LastHeartbeatAt: v1.Time{},

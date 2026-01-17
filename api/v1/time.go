@@ -2,14 +2,17 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"go.yaml.in/yaml/v3"
+	"gopkg.in/yaml.v3"
 )
 
 var (
+	//nolint:exhaustruct
 	_ json.Marshaler   = Time{}
 	_ json.Unmarshaler = (*Time)(nil)
+	//nolint:exhaustruct
 	_ yaml.Marshaler   = Time{}
 	_ yaml.Unmarshaler = (*Time)(nil)
 )
@@ -17,8 +20,15 @@ var (
 // Time is a wrapper around time.Time which supports correct
 // marshaling to YAML and JSON.  Wrappers are provided for many
 // of the factory methods that the time package offers.
+//
+//nolint:recvcheck
 type Time struct {
 	time.Time
+}
+
+// NewTime returns a wrapped instance of the provided time.
+func NewTime(time time.Time) Time {
+	return Time{time}
 }
 
 // DeepCopyInto creates a deep-copy of the Time value.  The underlying time.Time
@@ -28,13 +38,10 @@ func (t *Time) DeepCopyInto(out *Time) {
 	*out = *t
 }
 
-// NewTime returns a wrapped instance of the provided time.
-func NewTime(time time.Time) Time {
-	return Time{time}
-}
-
 // Date returns the Time corresponding to the supplied parameters
 // by wrapping time.Date.
+//
+//nolint:revive,predeclared
 func Date(year int, month time.Month, day, hour, min, sec, nsec int, loc *time.Location) Time {
 	return Time{time.Date(year, month, day, hour, min, sec, nsec, loc)}
 }
@@ -63,6 +70,8 @@ func (t *Time) Before(u *Time) bool {
 }
 
 // Equal reports whether the time instant t is equal to u.
+//
+//nolint:varnamelen
 func (t *Time) Equal(u *Time) bool {
 	if t == nil && u == nil {
 		return true
@@ -89,6 +98,8 @@ func (t Time) Rfc3339Copy() Time {
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
+//
+//nolint:varnamelen,gosmopolitan
 func (t *Time) UnmarshalJSON(b []byte) error {
 	if len(b) == 4 && string(b) == "null" {
 		t.Time = time.Time{}
@@ -100,12 +111,12 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 
 	err := json.Unmarshal(b, &str)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal json time: %w", err)
 	}
 
 	pt, err := time.Parse(time.RFC3339, str)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse time %q: %w", str, err)
 	}
 
 	t.Time = pt.Local()
@@ -114,6 +125,8 @@ func (t *Time) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
+//
+//nolint:mnd
 func (t Time) MarshalJSON() ([]byte, error) {
 	if t.IsZero() {
 		// Encode unset/nil objects as JSON's "null".
@@ -130,6 +143,8 @@ func (t Time) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalYAML implements [yaml.Unmarshaler].
+//
+//nolint:gosmopolitan
 func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind == yaml.ScalarNode && value.Tag == "!!null" {
 		t.Time = time.Time{}
@@ -141,12 +156,12 @@ func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 
 	err := value.Decode(&str)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to decode yaml time: %w", err)
 	}
 
 	pt, err := time.Parse(time.RFC3339, str)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse time %q: %w", str, err)
 	}
 
 	t.Time = pt.Local()
@@ -155,6 +170,8 @@ func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // MarshalYAML implements [yaml.Marshaler].
+//
+//nolint:mnd
 func (t Time) MarshalYAML() (interface{}, error) {
 	if t.IsZero() {
 		// Encode unset/nil objects as JSON's "null".

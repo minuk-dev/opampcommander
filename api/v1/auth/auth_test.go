@@ -13,6 +13,8 @@ import (
 )
 
 func TestDeviceAuthnTokenResponse_TimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	expiryTime := time.Date(2024, 1, 15, 10, 30, 45, 0, time.UTC)
 
 	response := auth.DeviceAuthnTokenResponse{
@@ -39,6 +41,8 @@ func TestDeviceAuthnTokenResponse_TimeSerialization(t *testing.T) {
 }
 
 func TestDeviceAuthnTokenResponse_ZeroTimeSerialization(t *testing.T) {
+	t.Parallel()
+
 	response := auth.DeviceAuthnTokenResponse{
 		DeviceCode:      "device123",
 		UserCode:        "USER-CODE",
