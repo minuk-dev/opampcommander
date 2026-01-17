@@ -1,8 +1,6 @@
 package connection
 
 import (
-	"time"
-
 	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
@@ -18,7 +16,7 @@ type Connection struct {
 	ID                 uuid.UUID `json:"id"`
 	InstanceUID        uuid.UUID `json:"instanceUid"`
 	Type               string    `json:"type"`
-	LastCommunicatedAt time.Time `json:"lastCommunicatedAt"`
+	LastCommunicatedAt v1.Time   `json:"lastCommunicatedAt"`
 	Alive              bool      `json:"alive"`
 } // @name Connection
 

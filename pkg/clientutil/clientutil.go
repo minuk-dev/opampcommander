@@ -184,7 +184,7 @@ func getAuthTokenByGithub(cli *client.Client, writer io.Writer) ([]byte, error) 
 
 	authToken, err := cli.AuthService.ExchangeDeviceAuthToken(
 		deviceAuthResponse.DeviceCode,
-		deviceAuthResponse.Expiry,
+		deviceAuthResponse.Expiry.Time,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange device auth token: %w", err)

@@ -2,8 +2,6 @@
 package server
 
 import (
-	"time"
-
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
@@ -15,14 +13,14 @@ const (
 // Server represents an API server instance.
 type Server struct {
 	ID              string      `json:"id"`
-	LastHeartbeatAt time.Time   `json:"lastHeartbeatAt"`
+	LastHeartbeatAt v1.Time     `json:"lastHeartbeatAt"`
 	Conditions      []Condition `json:"conditions"`
 } // @name Server
 
 // Condition represents a condition of a server.
 type Condition struct {
 	Type               ConditionType   `json:"type"`
-	LastTransitionTime time.Time       `json:"lastTransitionTime"`
+	LastTransitionTime v1.Time         `json:"lastTransitionTime"`
 	Status             ConditionStatus `json:"status"`
 	Reason             string          `json:"reason"`
 	Message            string          `json:"message,omitempty"`

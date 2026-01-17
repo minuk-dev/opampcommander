@@ -51,7 +51,7 @@ func TestAgentGroupController_List(t *testing.T) {
 					Conditions: []agentgroupv1.Condition{
 						{
 							Type:               agentgroupv1.ConditionTypeCreated,
-							LastTransitionTime: time.Now(),
+							LastTransitionTime: v1.NewTime(time.Now()),
 							Status:             agentgroupv1.ConditionStatusTrue,
 							Reason:             "", Message: "Agent group created",
 						},
@@ -72,7 +72,7 @@ func TestAgentGroupController_List(t *testing.T) {
 					Conditions: []agentgroupv1.Condition{
 						{
 							Type:               agentgroupv1.ConditionTypeCreated,
-							LastTransitionTime: time.Now(),
+							LastTransitionTime: v1.NewTime(time.Now()),
 							Status:             agentgroupv1.ConditionStatusTrue,
 							Reason:             "", Message: "Agent group created",
 						},
@@ -166,7 +166,7 @@ func TestAgentGroupController_Get(t *testing.T) {
 			Conditions: []agentgroupv1.Condition{
 				{
 					Type:               agentgroupv1.ConditionTypeCreated,
-					LastTransitionTime: time.Now(),
+					LastTransitionTime: v1.NewTime(time.Now()),
 					Status:             agentgroupv1.ConditionStatusTrue,
 					Reason:             "", Message: "Agent group created",
 				},
@@ -239,7 +239,7 @@ func TestAgentGroupController_Create(t *testing.T) {
 			Conditions: []agentgroupv1.Condition{
 				{
 					Type:               agentgroupv1.ConditionTypeCreated,
-					LastTransitionTime: time.Now(),
+					LastTransitionTime: v1.NewTime(time.Now()),
 					Status:             agentgroupv1.ConditionStatusTrue,
 					Reason:             "", Message: "Agent group created",
 				},
@@ -357,7 +357,7 @@ func TestAgentGroupController_Update(t *testing.T) {
 			Conditions: []agentgroupv1.Condition{
 				{
 					Type:               agentgroupv1.ConditionTypeCreated,
-					LastTransitionTime: time.Now(),
+					LastTransitionTime: v1.NewTime(time.Now()),
 					Status:             agentgroupv1.ConditionStatusTrue,
 					Reason:             "", Message: "Agent group created",
 				},
@@ -430,7 +430,7 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 			Conditions: []agentgroupv1.Condition{
 				{
 					Type:               agentgroupv1.ConditionTypeCreated,
-					LastTransitionTime: time.Now(),
+					LastTransitionTime: v1.NewTime(time.Now()),
 					Status:             agentgroupv1.ConditionStatusTrue,
 					Reason:             "", Message: "Agent group created",
 				},

@@ -88,7 +88,7 @@ func (c *Controller) List(ctx *gin.Context) {
 				InstanceUID:        connection.InstanceUID,
 				Type:               connection.Type.String(),
 				Alive:              connection.IsAlive(now),
-				LastCommunicatedAt: connection.LastCommunicatedAt,
+				LastCommunicatedAt: v1.NewTime(connection.LastCommunicatedAt),
 			}
 		}),
 		v1.ListMeta{
