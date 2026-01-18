@@ -8,7 +8,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
@@ -31,11 +31,10 @@ type AdminUsecase interface {
 
 // AgentManageUsecase is a use case that handles agent management operations.
 type AgentManageUsecase interface {
-	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error)
-	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
-	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1agent.ListResponse, error)
-	SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*v1agent.Agent, error)
-	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
+	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error)
+	ListAgents(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+	UpdateAgent(ctx context.Context, instanceUID uuid.UUID, agent *v1.Agent) (*v1.Agent, error)
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
@@ -46,7 +45,7 @@ type AgentGroupManageUsecase interface {
 		ctx context.Context,
 		agentGroupName string,
 		options *model.ListOptions,
-	) (*v1agent.ListResponse, error)
+	) (*v1.ListResponse[v1.Agent], error)
 	CreateAgentGroup(ctx context.Context, createCommand *CreateAgentGroupCommand) (*v1agentgroup.AgentGroup, error)
 	UpdateAgentGroup(
 		ctx context.Context,

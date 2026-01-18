@@ -12,11 +12,9 @@ import (
 	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
-	"github.com/minuk-dev/opampcommander/internal/application/mapper"
+	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -34,7 +32,7 @@ type Service struct {
 	agentNotificationUsecase domainport.AgentNotificationUsecase
 
 	// mapper
-	mapper *mapper.Mapper
+	mapper *helper.Mapper
 	logger *slog.Logger
 	clock  clock.Clock
 }
@@ -49,14 +47,14 @@ func New(
 		agentUsecase:             agentUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
 
-		mapper: mapper.New(),
+		mapper: helper.NewMapper(),
 		logger: logger,
 		clock:  clock.RealClock{},
 	}
 }
 
 // GetAgent implements port.AgentManageUsecase.
-func (s *Service) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error) {
+func (s *Service) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error) {
 	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
@@ -69,21 +67,23 @@ func (s *Service) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent
 func (s *Service) ListAgents(
 	ctx context.Context,
 	options *model.ListOptions,
-) (*v1agent.ListResponse, error) {
+) (*v1.ListResponse[v1.Agent], error) {
 	response, err := s.agentUsecase.ListAgents(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	return v1agent.NewListResponse(
-		lo.Map(response.Items, func(agent *model.Agent, _ int) v1agent.Agent {
-			return *s.mapper.MapAgentToAPI(agent)
-		}),
-		v1.ListMeta{
+	return &v1.ListResponse[v1.Agent]{
+		Kind:       v1.AgentKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.ListMeta{
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-	), nil
+		Items: lo.Map(response.Items, func(agent *model.Agent, _ int) v1.Agent {
+			return *s.mapper.MapAgentToAPI(agent)
+		}),
+	}, nil
 }
 
 // SearchAgents implements port.AgentManageUsecase.
@@ -91,82 +91,42 @@ func (s *Service) SearchAgents(
 	ctx context.Context,
 	query string,
 	options *model.ListOptions,
-) (*v1agent.ListResponse, error) {
+) (*v1.ListResponse[v1.Agent], error) {
 	response, err := s.agentUsecase.SearchAgents(ctx, query, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search agents: %w", err)
 	}
 
-	return v1agent.NewListResponse(
-		lo.Map(response.Items, func(agent *model.Agent, _ int) v1agent.Agent {
-			return *s.mapper.MapAgentToAPI(agent)
-		}),
-		v1.ListMeta{
+	return &v1.ListResponse[v1.Agent]{
+		Kind:       v1.AgentKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.ListMeta{
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-	), nil
+		Items: lo.Map(response.Items, func(agent *model.Agent, _ int) v1.Agent {
+			return *s.mapper.MapAgentToAPI(agent)
+		}),
+	}, nil
 }
 
-// SetNewInstanceUID implements port.AgentManageUsecase.
-func (s *Service) SetNewInstanceUID(
-	ctx context.Context,
-	instanceUID uuid.UUID,
-	newInstanceUID uuid.UUID,
-) (*v1agent.Agent, error) {
-	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+// UpdateAgent implements [port.AgentManageUsecase].
+func (s *Service) UpdateAgent(ctx context.Context, instanceUID uuid.UUID, api *v1.Agent) (*v1.Agent, error) {
+	existing, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Set the new instance UID
-	agent.Spec.NewInstanceUID = newInstanceUID
+	agent := s.mapper.MapAPIToAgent(api)
 
-	// Save the updated agent
-	err = s.agentUsecase.SaveAgent(ctx, agent)
+	updatedAgent := existing
+	updatedAgent.Metadata = agent.Metadata
+	updatedAgent.Spec = agent.Spec
+
+	err = s.agentUsecase.SaveAgent(ctx, existing)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save agent: %w", err)
+		return nil, fmt.Errorf("failed to update agent: %w", err)
 	}
 
-	return s.mapper.MapAgentToAPI(agent), nil
-}
-
-// RestartAgent implements port.AgentManageUsecase.
-func (s *Service) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	agentModel, err := s.agentUsecase.GetAgent(ctx, instanceUID)
-	if err != nil {
-		return fmt.Errorf("failed to get agent: %w", err)
-	}
-
-	// Check if agent supports restart capability
-	if !agentModel.Metadata.Capabilities.Has(agent.AgentCapabilityAcceptsRestartCommand) {
-		return fmt.Errorf("agent %s: %w", instanceUID, ErrRestartCapabilityNotSupported)
-	}
-
-	// Set the required restart time to now to trigger restart on next OpAMP message
-	err = agentModel.SetRestartRequired(s.clock.Now())
-	if err != nil {
-		return fmt.Errorf("failed to set restart required: %w", err)
-	}
-
-	// Save the updated agent
-	err = s.agentUsecase.SaveAgent(ctx, agentModel)
-	if err != nil {
-		return fmt.Errorf("failed to save agent with restart flag: %w", err)
-	}
-
-	// Notify the connected server that the agent needs to be restarted
-	err = s.agentNotificationUsecase.NotifyAgentUpdated(ctx, agentModel)
-	if err != nil {
-		s.logger.Warn("failed to notify agent update for restart",
-			slog.String("agentInstanceUID", instanceUID.String()),
-			slog.String("error", err.Error()))
-		// Don't return error as the restart flag is already set
-	}
-
-	s.logger.Info("restart scheduled for agent",
-		"instanceUID", instanceUID.String(),
-		"requiredRestartedAt", agentModel.Spec.RestartInfo.RequiredRestartedAt)
-
-	return nil
+	return s.mapper.MapAgentToAPI(updatedAgent), nil
 }

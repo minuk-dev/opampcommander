@@ -3,7 +3,6 @@ package agentgroup
 
 import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 )
 
 const (
@@ -104,7 +103,7 @@ type AgentSelector struct {
 // AgentConfig represents the remote configuration for agents in the group.
 // @name AgentGroupAgentConfig.
 type AgentConfig struct {
-	Value              string                      `json:"value"`
-	ContentType        string                      `json:"contentType"`
-	ConnectionSettings *v1agent.ConnectionSettings `json:"connectionSettings,omitempty"`
+	Value              string                 `json:"value"`
+	ContentType        string                 `json:"contentType"`
+	ConnectionSettings *v1.ConnectionSettings `json:"connectionSettings,omitempty"`
 }

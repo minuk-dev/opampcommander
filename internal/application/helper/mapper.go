@@ -1,53 +1,115 @@
-// Package mapper provides functions to map between api and domain models.
-package mapper
+// Package helper provides helper functions for mapping between domain models and API models.
+package helper
 
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 )
 
 // Mapper is a struct that provides methods to map between domain models and API models.
 type Mapper struct{}
 
-// New creates a new instance of Mapper.
-func New() *Mapper {
+func (mapper *Mapper) MapAPIToAgentGroup(agentGroup *model.AgentGroup) v1agentgroup.AgentGroup {
+	panic("unimplemented")
+}
+
+// NewMapper creates a new instance of Mapper.
+func NewMapper() *Mapper {
 	return &Mapper{}
 }
 
+// MapAPIToAgent maps an API model Agent to a domain model Agent.
+func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
+	return &model.Agent{
+		Metadata: model.AgentMetadata{
+			InstanceUID: apiAgent.Metadata.InstanceUID,
+			Description: agent.Description{
+				IdentifyingAttributes:    apiAgent.Metadata.Description.IdentifyingAttributes,
+				NonIdentifyingAttributes: apiAgent.Metadata.Description.NonIdentifyingAttributes,
+			},
+			Capabilities:       agent.Capabilities(apiAgent.Metadata.Capabilities),
+			CustomCapabilities: mapper.mapCustomCapabilitiesFromAPI(&apiAgent.Metadata.CustomCapabilities),
+		},
+		Spec: model.AgentSpec{
+			NewInstanceUID: mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
+			RemoteConfig:   mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
+		},
+		// Note: Status is not mapped here as it is usually managed by the system.
+	}
+}
+
+func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
+	apiCustomCapabilities *v1.AgentCustomCapabilities,
+) model.AgentCustomCapabilities {
+	return model.AgentCustomCapabilities{
+		Capabilities: apiCustomCapabilities.Capabilities,
+	}
+}
+
+func (mapper *Mapper) mapRemoteConfigFromAPI(
+	apiRemoteConfig *v1.AgentRemoteConfig,
+) model.RemoteConfig {
+	configData, ok := apiRemoteConfig.ConfigMap["remote_config.yaml"]
+	if !ok {
+		return model.RemoteConfig{}
+	}
+
+	return model.RemoteConfig{
+		Config: []byte(configData.Body),
+		Hash:   []byte(apiRemoteConfig.ConfigHash),
+	}
+}
+
+func (mapper *Mapper) mapNewInstanceUIDFromAPI(newInstanceUID string) uuid.UUID {
+	if newInstanceUID == "" {
+		return uuid.Nil
+	}
+
+	uid, err := uuid.Parse(newInstanceUID)
+	if err != nil {
+		return uuid.Nil
+	}
+
+	return uid
+}
+
 // MapAgentToAPI maps a domain model Agent to an API model Agent.
-func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1agent.Agent {
-	return &v1agent.Agent{
-		Metadata: v1agent.Metadata{
+func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
+	return &v1.Agent{
+		Metadata: v1.AgentMetadata{
 			InstanceUID: agent.Metadata.InstanceUID,
-			Description: v1agent.Description{
+			Description: v1.AgentDescription{
 				IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
 				NonIdentifyingAttributes: agent.Metadata.Description.NonIdentifyingAttributes,
 			},
-			Capabilities:       v1agent.Capabilities(agent.Metadata.Capabilities),
+			Capabilities:       v1.AgentCapabilities(agent.Metadata.Capabilities),
 			CustomCapabilities: mapper.mapCustomCapabilitiesToAPI(&agent.Metadata.CustomCapabilities),
 		},
 		//exhaustruct:ignore
-		Spec: v1agent.Spec{
+		Spec: v1.AgentSpec{
 			NewInstanceUID: mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
 			RemoteConfig:   mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
 		},
-		Status: v1agent.Status{
-			EffectiveConfig: v1agent.EffectiveConfig{
-				ConfigMap: v1agent.ConfigMap{
+		Status: v1.AgentStatus{
+			EffectiveConfig: v1.AgentEffectiveConfig{
+				ConfigMap: v1.AgentConfigMap{
 					ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
-						func(value model.AgentConfigFile, _ string) v1agent.ConfigFile {
+						func(value model.AgentConfigFile, _ string) v1.AgentConfigFile {
 							return mapper.mapConfigFileToAPI(value)
 						}),
 				},
 			},
-			PackageStatuses: v1agent.PackageStatuses{
+			PackageStatuses: v1.AgentPackageStatuses{
 				Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
-					func(value model.AgentPackageStatus, _ string) v1agent.PackageStatus {
-						return v1agent.PackageStatus{
+					func(value model.AgentPackageStatus, _ string) v1.AgentPackageStatus {
+						return v1.AgentPackageStatus{
 							Name: value.Name,
 						}
 					}),
@@ -73,34 +135,34 @@ func (mapper *Mapper) formatTime(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
-func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth) v1agent.ComponentHealth {
+func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth) v1.AgentComponentHealth {
 	componentsMap := make(map[string]string)
 	for name, comp := range health.ComponentHealthMap {
 		componentsMap[name] = comp.Status
 	}
 
-	return v1agent.ComponentHealth{
+	return v1.AgentComponentHealth{
 		Healthy:       health.Healthy,
-		StartTimeUnix: health.StartTime.Unix(),
+		StartTime:     v1.NewTime(health.StartTime),
 		LastError:     health.LastError,
 		Status:        health.Status,
-		StatusTimeMS:  health.StatusTime.UnixMilli(),
+		StatusTime:    v1.NewTime(health.StatusTime),
 		ComponentsMap: componentsMap,
 	}
 }
 
-func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1agent.RemoteConfig {
-	configMap := make(map[string]v1agent.ConfigFile)
+func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1.AgentRemoteConfig {
+	configMap := make(map[string]v1.AgentConfigFile)
 
 	// If there's config data, add it to the config map
 	if len(remoteConfig.Config) > 0 {
-		configMap["remote_config.yaml"] = v1agent.ConfigFile{
+		configMap["remote_config.yaml"] = v1.AgentConfigFile{
 			Body:        string(remoteConfig.Config),
 			ContentType: TextYAML,
 		}
 	}
 
-	return v1agent.RemoteConfig{
+	return v1.AgentRemoteConfig{
 		ConfigMap:  configMap,
 		ConfigHash: string(remoteConfig.Hash),
 	}
@@ -108,28 +170,28 @@ func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1a
 
 func (mapper *Mapper) mapCustomCapabilitiesToAPI(
 	customCapabilities *model.AgentCustomCapabilities,
-) v1agent.CustomCapabilities {
-	return v1agent.CustomCapabilities{
+) v1.AgentCustomCapabilities {
+	return v1.AgentCustomCapabilities{
 		Capabilities: customCapabilities.Capabilities,
 	}
 }
 
 func (mapper *Mapper) mapAvailableComponentsToAPI(
 	availableComponents *model.AgentAvailableComponents,
-) v1agent.AvailableComponents {
+) v1.AgentAvailableComponents {
 	components := lo.MapValues(availableComponents.Components,
-		func(value model.ComponentDetails, _ string) v1agent.ComponentDetails {
+		func(value model.ComponentDetails, _ string) v1.AgentComponentDetails {
 			// Extract type and version from metadata if available
 			componentType := value.Metadata["type"]
 			version := value.Metadata["version"]
 
-			return v1agent.ComponentDetails{
+			return v1.AgentComponentDetails{
 				Type:    componentType,
 				Version: version,
 			}
 		})
 
-	return v1agent.AvailableComponents{
+	return v1.AgentAvailableComponents{
 		Components: components,
 	}
 }
@@ -145,34 +207,34 @@ const (
 	Empty = ""
 )
 
-func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1agent.ConfigFile {
+func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1.AgentConfigFile {
 	switch configFile.ContentType {
 	case TextJSON,
 		TextYAML,
 		Empty:
-		return v1agent.ConfigFile{
+		return v1.AgentConfigFile{
 			Body:        string(configFile.Body),
 			ContentType: configFile.ContentType,
 		}
 	default:
-		return v1agent.ConfigFile{
+		return v1.AgentConfigFile{
 			Body:        "unsupported content type",
 			ContentType: configFile.ContentType,
 		}
 	}
 }
 
-func (mapper *Mapper) mapConditionsToAPI(conditions []model.AgentCondition) []v1agent.Condition {
+func (mapper *Mapper) mapConditionsToAPI(conditions []model.AgentCondition) []v1.Condition {
 	if len(conditions) == 0 {
 		return nil
 	}
 
-	apiConditions := make([]v1agent.Condition, len(conditions))
+	apiConditions := make([]v1.Condition, len(conditions))
 	for i, condition := range conditions {
-		apiConditions[i] = v1agent.Condition{
-			Type:               v1agent.ConditionType(condition.Type),
+		apiConditions[i] = v1.Condition{
+			Type:               v1.ConditionType(condition.Type),
 			LastTransitionTime: mapper.formatTime(condition.LastTransitionTime),
-			Status:             v1agent.ConditionStatus(condition.Status),
+			Status:             v1.ConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,
 		}

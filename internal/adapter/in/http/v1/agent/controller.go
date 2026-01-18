@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
@@ -56,15 +56,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/agents/:id/new-instance-uid",
-			Handler:     "http.v1.agent.SetNewInstanceUID",
-			HandlerFunc: c.SetNewInstanceUID,
-		},
-		{
-			Method:      http.MethodPost,
-			Path:        "/api/v1/agents/:id/restart",
-			Handler:     "http.v1.agent.Restart",
-			HandlerFunc: c.Restart,
+			Path:        "/api/v1/agents/:id",
+			Handler:     "http.v1.agent.Update",
+			HandlerFunc: c.Update,
 		},
 	}
 }
@@ -183,62 +177,21 @@ func (c *Controller) Get(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, agent)
 }
 
-// SetNewInstanceUID sets a new instance UID for an agent.
+// Update updates an agent's metadata & spec.
 //
-// @Summary  Set New Instance UID
+// @Summary  Update Agent
 // @Tags agent
-// @Description Set a new instance UID for an agent.
-// @Accept json
-// @Produce json
-// @Param id path string true "Instance UID of the agent"
-// @Param request body SetNewInstanceUIDRequest true "New instance UID request"
-// @Success 200 {object} Agent
-// @Failure 400 {object} ErrorModel
-// @Failure 404 {object} ErrorModel
-// @Failure 500 {object} ErrorModel
-// @Router /api/v1/agents/{id}/new-instance-uid [put].
-func (c *Controller) SetNewInstanceUID(ctx *gin.Context) {
-	instanceUID, err := ginutil.ParseUUID(ctx, "id")
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
-
-		return
-	}
-
-	var req v1agent.SetNewInstanceUIDRequest
-
-	err = ctx.ShouldBindJSON(&req)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "body", "", err, true)
-
-		return
-	}
-
-	agent, err := c.agentUsecase.SetNewInstanceUID(ctx.Request.Context(), instanceUID, req.NewInstanceUID)
-	if err != nil {
-		c.logger.Error("failed to set new instance UID", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while setting the new instance UID.")
-
-		return
-	}
-
-	ctx.JSON(http.StatusOK, agent)
-}
-
-// Restart restarts an agent by its instance UID.
-//
-// @Summary  Restart Agent
-// @Tags agent
-// @Description Restart an agent by its instance UID.
+// @Description Update an agent's metadata & spec.
 // @Accept  json
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
-// @Success  200 "Agent restarted successfully"
+// @Param  agent body UpdateAgentRequest true "Agent update request"
+// @Success  200 {object} Agent
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
 // @Failure  500 {object} ErrorModel
-// @Router  /api/v1/agents/{id}/restart [post].
-func (c *Controller) Restart(ctx *gin.Context) {
+// @Router  /api/v1/agents/{id} [post].
+func (c *Controller) Update(ctx *gin.Context) {
 	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
@@ -246,13 +199,20 @@ func (c *Controller) Restart(ctx *gin.Context) {
 		return
 	}
 
-	err = c.agentUsecase.RestartAgent(ctx.Request.Context(), instanceUID)
-	if err != nil {
-		c.logger.Error("failed to restart agent", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while restarting the agent.")
+	var req v1.Agent
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, false)
 
 		return
 	}
 
-	ctx.Status(http.StatusOK)
+	updatedAgent, err := c.agentUsecase.UpdateAgent(ctx.Request.Context(), instanceUID, &req)
+	if err != nil {
+		c.logger.Error("failed to update agent", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, updatedAgent)
 }
