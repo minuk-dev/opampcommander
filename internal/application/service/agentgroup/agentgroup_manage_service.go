@@ -3,6 +3,7 @@ package agentgroup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -16,6 +17,9 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
+
+// ErrAgentGroupAlreadyExists is returned when an agent group with the same name already exists.
+var ErrAgentGroupAlreadyExists = errors.New("agent group already exists")
 
 var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
 
@@ -110,22 +114,19 @@ func (s *ManageService) CreateAgentGroup(
 	ctx context.Context,
 	agentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
-	requestedBy, err := security.GetUser(ctx)
+	_, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		requestedBy = security.NewAnonymousUser()
 	}
+
 	name := agentGroup.Metadata.Name
+
 	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
 	if err == nil && existingAgentGroup != nil {
-		return nil, fmt.Errorf("agent group with name %s already exists", name)
+		return nil, fmt.Errorf("%w: %s", ErrAgentGroupAlreadyExists, name)
 	}
 
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(agentGroup)
-
-	// TODO: add requestedBy to domainAgentGroup's status or metadata if needed
-	_ = requestedBy
 
 	domainAgentGroup, err = s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
@@ -141,21 +142,20 @@ func (s *ManageService) UpdateAgentGroup(
 	name string,
 	apiAgentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
-	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	// Check if the agent group exists
+	_, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group for update: %w", err)
 	}
 
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
-	existingAgentGroup.Metadata = domainAgentGroup.Metadata
-	existingAgentGroup.Spec = domainAgentGroup.Spec
 
-	agentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
+	updatedAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
 
-	return s.mapper.MapAgentGroupToAPI(agentGroup), nil
+	return s.mapper.MapAgentGroupToAPI(updatedAgentGroup), nil
 }
 
 // DeleteAgentGroup marks an agent group as deleted.

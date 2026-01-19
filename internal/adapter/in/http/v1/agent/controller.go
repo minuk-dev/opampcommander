@@ -200,7 +200,9 @@ func (c *Controller) Update(ctx *gin.Context) {
 	}
 
 	var req v1.Agent
-	if err := ctx.ShouldBindJSON(&req); err != nil {
+
+	err = ctx.ShouldBindJSON(&req)
+	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
 
 		return

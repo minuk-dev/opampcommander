@@ -15,21 +15,24 @@ import (
 // Mapper is a struct that provides methods to map between domain models and API models.
 type Mapper struct{}
 
-func (mapper *Mapper) MapAPIToAgentGroup(agentGroup *v1.AgentGroup) *model.AgentGroup {
-	panic("unimplemented")
-}
-
-func (mapper *Mapper) MapAgentGroupToAPI(agentGroup *model.AgentGroup) *v1.AgentGroup {
-	panic("unimplemented")
-}
-
 // NewMapper creates a new instance of Mapper.
 func NewMapper() *Mapper {
 	return &Mapper{}
 }
 
+// MapAPIToAgentGroup maps an API model AgentGroup to a domain model AgentGroup.
+func (mapper *Mapper) MapAPIToAgentGroup(_ *v1.AgentGroup) *model.AgentGroup {
+	panic("unimplemented")
+}
+
+// MapAgentGroupToAPI maps a domain model AgentGroup to an API model AgentGroup.
+func (mapper *Mapper) MapAgentGroupToAPI(_ *model.AgentGroup) *v1.AgentGroup {
+	panic("unimplemented")
+}
+
 // MapAPIToAgent maps an API model Agent to a domain model Agent.
 func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
+	//exhaustruct:ignore
 	return &model.Agent{
 		Metadata: model.AgentMetadata{
 			InstanceUID: apiAgent.Metadata.InstanceUID,
@@ -40,57 +43,13 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
 			Capabilities:       agent.Capabilities(apiAgent.Metadata.Capabilities),
 			CustomCapabilities: mapper.mapCustomCapabilitiesFromAPI(&apiAgent.Metadata.CustomCapabilities),
 		},
+		//exhaustruct:ignore
 		Spec: model.AgentSpec{
 			NewInstanceUID: mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
 			RemoteConfig:   mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
 			RestartInfo:    mapper.mapRestartInfoFromAPI(apiAgent.Spec.RestartRequiredAt),
 		},
 		// Note: Status is not mapped here as it is usually managed by the system.
-	}
-}
-
-func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
-	apiCustomCapabilities *v1.AgentCustomCapabilities,
-) model.AgentCustomCapabilities {
-	return model.AgentCustomCapabilities{
-		Capabilities: apiCustomCapabilities.Capabilities,
-	}
-}
-
-func (mapper *Mapper) mapRemoteConfigFromAPI(
-	apiRemoteConfig *v1.AgentRemoteConfig,
-) model.RemoteConfig {
-	configData, ok := apiRemoteConfig.ConfigMap["remote_config.yaml"]
-	if !ok {
-		return model.RemoteConfig{}
-	}
-
-	return model.RemoteConfig{
-		Config: []byte(configData.Body),
-		Hash:   []byte(apiRemoteConfig.ConfigHash),
-	}
-}
-
-func (mapper *Mapper) mapNewInstanceUIDFromAPI(newInstanceUID string) uuid.UUID {
-	if newInstanceUID == "" {
-		return uuid.Nil
-	}
-
-	uid, err := uuid.Parse(newInstanceUID)
-	if err != nil {
-		return uuid.Nil
-	}
-
-	return uid
-}
-
-func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) model.AgentRestartInfo {
-	if restartRequiredAt == nil || restartRequiredAt.IsZero() {
-		return model.AgentRestartInfo{}
-	}
-
-	return model.AgentRestartInfo{
-		RequiredRestartedAt: restartRequiredAt.Time,
 	}
 }
 
@@ -139,6 +98,54 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 			SequenceNum:         agent.Status.SequenceNum,
 			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
 		},
+	}
+}
+
+func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
+	apiCustomCapabilities *v1.AgentCustomCapabilities,
+) model.AgentCustomCapabilities {
+	return model.AgentCustomCapabilities{
+		Capabilities: apiCustomCapabilities.Capabilities,
+	}
+}
+
+func (mapper *Mapper) mapRemoteConfigFromAPI(
+	apiRemoteConfig *v1.AgentRemoteConfig,
+) model.RemoteConfig {
+	configData, ok := apiRemoteConfig.ConfigMap["remote_config.yaml"]
+	if !ok {
+		//exhaustruct:ignore
+		return model.RemoteConfig{}
+	}
+
+	//exhaustruct:ignore
+	return model.RemoteConfig{
+		Config: []byte(configData.Body),
+		Hash:   []byte(apiRemoteConfig.ConfigHash),
+	}
+}
+
+func (mapper *Mapper) mapNewInstanceUIDFromAPI(newInstanceUID string) uuid.UUID {
+	if newInstanceUID == "" {
+		return uuid.Nil
+	}
+
+	uid, err := uuid.Parse(newInstanceUID)
+	if err != nil {
+		return uuid.Nil
+	}
+
+	return uid
+}
+
+func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) model.AgentRestartInfo {
+	if restartRequiredAt == nil || restartRequiredAt.IsZero() {
+		//exhaustruct:ignore
+		return model.AgentRestartInfo{}
+	}
+
+	return model.AgentRestartInfo{
+		RequiredRestartedAt: restartRequiredAt.Time,
 	}
 }
 

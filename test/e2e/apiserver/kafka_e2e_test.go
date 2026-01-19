@@ -27,8 +27,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gopkg.in/yaml.v3"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -99,7 +98,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// Then: Agent should be visible on server 1
-	var agent1 *v1agent.Agent
+	var agent1 *v1.Agent
 
 	assert.Eventually(t, func() bool {
 		agents1 := listAgents(t, server1URL)
@@ -450,6 +449,7 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/json")
+
 	token := getAuthToken(t, baseURL)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -489,7 +489,7 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var agentGroup v1agentgroup.AgentGroup
+	var agentGroup v1.AgentGroup
 
 	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
 	require.NoError(t, err)
@@ -503,7 +503,7 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
 
-	agentGroup.Spec.AgentConfig = &v1agentgroup.AgentConfig{
+	agentGroup.Spec.AgentConfig = &v1.AgentConfig{
 		Value: string(configBytes),
 	}
 
@@ -544,9 +544,11 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	// Given: Infrastructure setup (MongoDB + Kafka)
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
 	kafkaContainer, kafkaBroker := startKafka(t)
+
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
 	// Given: Two API servers in distributed mode
@@ -579,11 +581,13 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	collectorUID := uuid.New()
 	collectorCfg := createCollectorConfig(t, base.CacheDir, server1Port, collectorUID)
 	collectorContainer := startOTelCollector(t, collectorCfg)
+
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// Then: Agent should be registered on server 1
 	assert.Eventually(t, func() bool {
 		agents := listAgents(t, server1URL)
+
 		return len(agents) >= 1 && findAgentByUID(agents, collectorUID) != nil
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
 	t.Log("Agent registered on server 1")
@@ -603,6 +607,7 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)
+
 			return false
 		}
 

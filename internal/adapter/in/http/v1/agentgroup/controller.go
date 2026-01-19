@@ -194,6 +194,7 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
 	var req v1.AgentGroup
+
 	err := ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)

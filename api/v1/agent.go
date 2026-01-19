@@ -7,6 +7,19 @@ const (
 	AgentKind = "Agent"
 )
 
+// AgentListResponse represents a list of agents with metadata.
+type AgentListResponse = ListResponse[Agent]
+
+// NewAgentListResponse creates a new AgentListResponse with the given agents and metadata.
+func NewAgentListResponse(agents []Agent, metadata ListMeta) *AgentListResponse {
+	return &AgentListResponse{
+		Kind:       AgentKind,
+		APIVersion: APIVersion,
+		Metadata:   metadata,
+		Items:      agents,
+	}
+}
+
 // Agent represents an agent which is defined OpAMP protocol.
 // It follows the Kubernetes-style resource structure with Metadata, Spec, and Status.
 type Agent struct {

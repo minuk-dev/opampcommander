@@ -23,7 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -269,6 +269,7 @@ func getAuthTokenNoTest(baseURL string) string {
 	if err != nil {
 		return ""
 	}
+
 	req.SetBasicAuth("test-admin", "test-password")
 
 	resp, err := http.DefaultClient.Do(req)
@@ -312,7 +313,7 @@ func waitForAPIServerReady(t *testing.T, baseURL string) {
 	}, apiServerStartTimeout, 500*time.Millisecond, "API server should start")
 }
 
-func listAgents(t *testing.T, baseURL string) []v1agent.Agent {
+func listAgents(t *testing.T, baseURL string) []v1.Agent {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/agents", nil) //nolint:noctx
@@ -332,14 +333,14 @@ func listAgents(t *testing.T, baseURL string) []v1agent.Agent {
 	require.NoError(t, err)
 
 	var result struct {
-		Items []v1agent.Agent `json:"items"`
+		Items []v1.Agent `json:"items"`
 	}
 	require.NoError(t, json.Unmarshal(body, &result))
 
 	return result.Items
 }
 
-func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1agent.Agent {
+func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1.Agent {
 	t.Helper()
 
 	agent, err := tryGetAgentByID(baseURL, uid)
@@ -348,12 +349,12 @@ func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1agent.Agent {
 	return agent
 }
 
-func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1agent.Agent, error) {
+func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1.Agent, error) {
 	url := fmt.Sprintf("%s/api/v1/agents/%s", baseURL, uid)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
 	if err != nil {
-		return v1agent.Agent{}, fmt.Errorf("failed to create request: %w", err)
+		return v1.Agent{}, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	token := getAuthTokenNoTest(baseURL)
@@ -363,31 +364,31 @@ func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1agent.Agent, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return v1agent.Agent{}, fmt.Errorf("failed to get agent by ID: %w", err)
+		return v1.Agent{}, fmt.Errorf("failed to get agent by ID: %w", err)
 	}
 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return v1agent.Agent{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode) //nolint:err113
+		return v1.Agent{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode) //nolint:err113
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return v1agent.Agent{}, fmt.Errorf("failed to read response body: %w", err)
+		return v1.Agent{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var agent v1agent.Agent
+	var agent v1.Agent
 
 	err = json.Unmarshal(body, &agent)
 	if err != nil {
-		return v1agent.Agent{}, fmt.Errorf("failed to unmarshal agent: %w", err)
+		return v1.Agent{}, fmt.Errorf("failed to unmarshal agent: %w", err)
 	}
 
 	return agent, nil
 }
 
-func findAgentByUID(agents []v1agent.Agent, uid uuid.UUID) *v1agent.Agent {
+func findAgentByUID(agents []v1.Agent, uid uuid.UUID) *v1.Agent {
 	for i := range agents {
 		if agents[i].Metadata.InstanceUID == uid {
 			return &agents[i]
@@ -765,13 +766,13 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	assert.NotEmpty(t, searchResp.Metadata.Continue)
 }
 
-func searchAgents(t *testing.T, apiBaseURL, query string) *v1agent.ListResponse {
+func searchAgents(t *testing.T, apiBaseURL, query string) *v1.AgentListResponse {
 	t.Helper()
 
 	return searchAgentsWithLimit(t, apiBaseURL, query, 0)
 }
 
-func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1agent.ListResponse {
+func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.AgentListResponse {
 	t.Helper()
 
 	url := fmt.Sprintf("%s/api/v1/agents/search?q=%s", apiBaseURL, query)
@@ -798,7 +799,7 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	var listResp v1agent.ListResponse
+	var listResp v1.AgentListResponse
 
 	err = json.Unmarshal(body, &listResp)
 	require.NoError(t, err)
@@ -823,9 +824,11 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
 	apiPort := base.GetFreeTCPPort()
+
 	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_conntype_test")
 	defer stopServer()
 
@@ -838,16 +841,19 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	// Start HTTP polling collector
 	httpCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, httpCollectorUID, "http")
 	httpCollectorContainer := startOTelCollector(t, httpCollectorCfg)
+
 	defer func() { _ = httpCollectorContainer.Terminate(ctx) }()
 
 	// Start WebSocket collector
 	wsCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, wsCollectorUID, "ws")
 	wsCollectorContainer := startOTelCollector(t, wsCollectorCfg)
+
 	defer func() { _ = wsCollectorContainer.Terminate(ctx) }()
 
 	// When: Both collectors connect
 	assert.Eventually(t, func() bool {
 		agents := listAgents(t, apiBaseURL)
+
 		return len(agents) >= 2
 	}, 2*time.Minute, 1*time.Second, "Both collectors should register")
 
@@ -858,6 +864,7 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	// Find our collectors in the agents list
 	httpAgent := findAgentByUID(agents, httpCollectorUID)
 	wsAgent := findAgentByUID(agents, wsCollectorUID)
+
 	require.NotNil(t, httpAgent, "HTTP collector should be registered as agent")
 	require.NotNil(t, wsAgent, "WebSocket collector should be registered as agent")
 
@@ -869,8 +876,10 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 
 		for _, conn := range connections {
 			t.Logf("Connection InstanceUID: %s, Type: %s", conn.InstanceUID, conn.Type)
+
 			if conn.InstanceUID == wsCollectorUID && conn.Type == "WebSocket" {
 				t.Logf("WebSocket collector connection found")
+
 				return true
 			}
 		}
@@ -891,6 +900,7 @@ func listConnections(t *testing.T, baseURL string) []connectionResponse {
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
+
 	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -916,7 +926,13 @@ type connectionResponse struct {
 }
 
 // createCollectorConfigWithProtocol creates a collector config with specified protocol.
-func createCollectorConfigWithProtocol(t *testing.T, cacheDir string, apiPort int, collectorUID uuid.UUID, protocol string) string {
+func createCollectorConfigWithProtocol(
+	t *testing.T,
+	cacheDir string,
+	apiPort int,
+	collectorUID uuid.UUID,
+	protocol string,
+) string {
 	t.Helper()
 
 	var configContent string
