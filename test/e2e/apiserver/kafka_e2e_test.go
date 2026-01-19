@@ -434,9 +434,11 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	t.Logf("Creating AgentGroup at URL: %s with name: %s", url, name)
 
 	reqBody := map[string]interface{}{
-		"name": name,
-		"selector": map[string]interface{}{
-			"matchLabels": selector,
+		"metadata": map[string]interface{}{
+			"name": name,
+			"selector": map[string]interface{}{
+				"identifyingAttributes": selector,
+			},
 		},
 	}
 
@@ -470,6 +472,30 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	t.Logf("AgentGroup '%s' created successfully", name)
 }
 
+func agentGroupExistsOnServer(t *testing.T, baseURL, name string) bool {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/agentgroups/%s", baseURL, name)
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+	if err != nil {
+		return false
+	}
+
+	token := getAuthToken(t, baseURL)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	return resp.StatusCode == http.StatusOK
+}
+
 func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]string) {
 	t.Helper()
 
@@ -487,9 +513,31 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	resp, err := client.Do(getReq)
 	require.NoError(t, err, "Failed to get AgentGroup before update")
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
 	var agentGroup v1.AgentGroup
+
+	// If AgentGroup doesn't exist, create it first
+	if resp.StatusCode == http.StatusNotFound {
+		err = resp.Body.Close()
+		require.NoError(t, err)
+
+		t.Logf("AgentGroup '%s' not found, creating it first", name)
+
+		// Create AgentGroup with empty selector
+		createAgentGroup(t, baseURL, name, map[string]string{})
+
+		// Get the newly created AgentGroup
+		getReq, err = http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+		require.NoError(t, err)
+
+		getReq.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err = client.Do(getReq)
+		require.NoError(t, err, "Failed to get AgentGroup after creation")
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "AgentGroup should exist after creation")
+	} else {
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	}
 
 	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
 	require.NoError(t, err)
