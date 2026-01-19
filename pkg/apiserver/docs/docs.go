@@ -1312,6 +1312,7 @@ const docTemplate = `{
             "type": "string",
             "enum": [
                 "Created",
+                "Updated",
                 "Deleted",
                 "Connected",
                 "Healthy",
@@ -1320,6 +1321,7 @@ const docTemplate = `{
             ],
             "x-enum-varnames": [
                 "ConditionTypeCreated",
+                "ConditionTypeUpdated",
                 "ConditionTypeDeleted",
                 "ConditionTypeConnected",
                 "ConditionTypeHealthy",

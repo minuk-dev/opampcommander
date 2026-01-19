@@ -273,6 +273,7 @@ definitions:
   ConditionType:
     enum:
     - Created
+    - Updated
     - Deleted
     - Connected
     - Healthy
@@ -281,6 +282,7 @@ definitions:
     type: string
     x-enum-varnames:
     - ConditionTypeCreated
+    - ConditionTypeUpdated
     - ConditionTypeDeleted
     - ConditionTypeConnected
     - ConditionTypeHealthy

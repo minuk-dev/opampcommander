@@ -1304,6 +1304,7 @@
             "type": "string",
             "enum": [
                 "Created",
+                "Updated",
                 "Deleted",
                 "Connected",
                 "Healthy",
@@ -1312,6 +1313,7 @@
             ],
             "x-enum-varnames": [
                 "ConditionTypeCreated",
+                "ConditionTypeUpdated",
                 "ConditionTypeDeleted",
                 "ConditionTypeConnected",
                 "ConditionTypeHealthy",
