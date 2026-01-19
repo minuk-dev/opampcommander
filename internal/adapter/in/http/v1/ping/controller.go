@@ -45,7 +45,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description Ping the server to check if it is alive.
 // @Accept json
 // @Produce json
-// @Success 200 {object} PingResponse
+// @Success 200 {object} v1.PingResponse
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/ping [get].
 func (c *Controller) Handle(ctx *gin.Context) {

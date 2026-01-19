@@ -185,12 +185,12 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Accept  json
 // @Produce  json
 // @Param  id path string true "Instance UID of the agent"
-// @Param  agent body UpdateAgentRequest true "Agent update request"
-// @Success  200 {object} Agent
+// @Param  agent body v1.Agent true "Agent update request"
+// @Success  200 {object} v1.Agent
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
 // @Failure  500 {object} ErrorModel
-// @Router  /api/v1/agents/{id} [post].
+// @Router  /api/v1/agents/{id} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
