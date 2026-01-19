@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	v1connection "github.com/minuk-dev/opampcommander/api/v1/connection"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
 
@@ -81,8 +80,8 @@ func ListAgentFullyByAgentGroup(
 
 // ListConnectionFully lists all connections and applies the provided function to each connection.
 // It continues to fetch connections until there are no more connections to fetch.
-func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1connection.Connection, error) {
-	var connections []v1connection.Connection
+func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1.Connection, error) {
+	var connections []v1.Connection
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
