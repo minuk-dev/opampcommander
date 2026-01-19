@@ -8,7 +8,6 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 )
@@ -16,11 +15,11 @@ import (
 // Mapper is a struct that provides methods to map between domain models and API models.
 type Mapper struct{}
 
-func (mapper *Mapper) MapAPIToAgentGroup(agentGroup *v1agentgroup.AgentGroup) *model.AgentGroup {
+func (mapper *Mapper) MapAPIToAgentGroup(agentGroup *v1.AgentGroup) *model.AgentGroup {
 	panic("unimplemented")
 }
 
-func (mapper *Mapper) MapAgentGroupToAPI(agentGroup *model.AgentGroup) *v1agentgroup.AgentGroup {
+func (mapper *Mapper) MapAgentGroupToAPI(agentGroup *model.AgentGroup) *v1.AgentGroup {
 	panic("unimplemented")
 }
 
@@ -237,7 +236,7 @@ func (mapper *Mapper) mapConditionsToAPI(conditions []model.AgentCondition) []v1
 	for i, condition := range conditions {
 		apiConditions[i] = v1.Condition{
 			Type:               v1.ConditionType(condition.Type),
-			LastTransitionTime: mapper.formatTime(condition.LastTransitionTime),
+			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
 			Status:             v1.ConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,

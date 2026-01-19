@@ -149,41 +149,6 @@ type AgentPackageStatus struct {
 	Name string `json:"name"`
 } // @name AgentPackageStatus
 
-// Condition represents a condition of an agent.
-type Condition struct {
-	Type               ConditionType   `json:"type"`
-	LastTransitionTime string          `json:"lastTransitionTime"`
-	Status             ConditionStatus `json:"status"`
-	Reason             string          `json:"reason"`
-	Message            string          `json:"message,omitempty"`
-} // @name AgentCondition
-
-// ConditionType represents the type of an agent condition.
-type ConditionType string // @name AgentConditionType
-
-const (
-	// ConditionTypeConnected represents the condition when the agent is connected.
-	ConditionTypeConnected ConditionType = "Connected"
-	// ConditionTypeHealthy represents the condition when the agent is healthy.
-	ConditionTypeHealthy ConditionType = "Healthy"
-	// ConditionTypeConfigured represents the condition when the agent has been configured.
-	ConditionTypeConfigured ConditionType = "Configured"
-	// ConditionTypeRegistered represents the condition when the agent has been registered.
-	ConditionTypeRegistered ConditionType = "Registered"
-)
-
-// ConditionStatus represents the status of an agent condition.
-type ConditionStatus string // @name AgentConditionStatus
-
-const (
-	// ConditionStatusTrue represents a true condition status.
-	ConditionStatusTrue ConditionStatus = "True"
-	// ConditionStatusFalse represents a false condition status.
-	ConditionStatusFalse ConditionStatus = "False"
-	// ConditionStatusUnknown represents an unknown condition status.
-	ConditionStatusUnknown ConditionStatus = "Unknown"
-)
-
 // ConnectionSettings represents connection settings for the agent.
 type ConnectionSettings struct {
 	// OpAMP contains OpAMP server connection settings.

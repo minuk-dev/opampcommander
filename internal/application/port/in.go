@@ -9,7 +9,6 @@ import (
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -39,27 +38,14 @@ type AgentManageUsecase interface {
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
 type AgentGroupManageUsecase interface {
-	GetAgentGroup(ctx context.Context, name string) (*v1agentgroup.AgentGroup, error)
-	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*v1agentgroup.ListResponse, error)
+	GetAgentGroup(ctx context.Context, name string) (*v1.AgentGroup, error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.AgentGroup], error)
 	ListAgentsByAgentGroup(
 		ctx context.Context,
 		agentGroupName string,
 		options *model.ListOptions,
 	) (*v1.ListResponse[v1.Agent], error)
-	CreateAgentGroup(ctx context.Context, agentGroup *v1agentgroup.AgentGroup) (*v1agentgroup.AgentGroup, error)
-	UpdateAgentGroup(
-		ctx context.Context,
-		name string,
-		agentGroup *v1agentgroup.AgentGroup,
-	) (*v1agentgroup.AgentGroup, error)
+	CreateAgentGroup(ctx context.Context, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
+	UpdateAgentGroup(ctx context.Context, name string, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
 	DeleteAgentGroup(ctx context.Context, name string) error
-}
-
-// CreateAgentGroupCommand is a command to create an agent group.
-type CreateAgentGroupCommand struct {
-	Name        string
-	Attributes  v1agentgroup.Attributes
-	Priority    int
-	Selector    v1agentgroup.AgentSelector
-	AgentConfig *v1agentgroup.AgentConfig
 }

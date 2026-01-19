@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
@@ -193,7 +193,7 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
-	var req agentgroupv1.AgentGroup
+	var req v1.AgentGroup
 	err := ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
@@ -235,7 +235,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	var req agentgroupv1.AgentGroup
+	var req v1.AgentGroup
 
 	err = ginutil.BindJSON(ctx, &req)
 	if err != nil {
