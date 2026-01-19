@@ -80,15 +80,6 @@ const (
 	ConditionStatusFalse ConditionStatus = "False"
 )
 
-// CreateRequest represents a request to create an agent group.
-type CreateRequest struct {
-	Name        string        `binding:"required"           json:"name"`
-	Priority    int           `json:"priority"`
-	Attributes  Attributes    `json:"attributes"`
-	Selector    AgentSelector `json:"selector"`
-	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`
-} // @name AgentGroupCreateRequest
-
 // Attributes represents a map of attributes for the agent group.
 // @name AgentGroupAttributes.
 type Attributes map[string]string

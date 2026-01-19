@@ -16,7 +16,11 @@ import (
 // Mapper is a struct that provides methods to map between domain models and API models.
 type Mapper struct{}
 
-func (mapper *Mapper) MapAPIToAgentGroup(agentGroup *model.AgentGroup) v1agentgroup.AgentGroup {
+func (mapper *Mapper) MapAPIToAgentGroup(agentGroup *v1agentgroup.AgentGroup) *model.AgentGroup {
+	panic("unimplemented")
+}
+
+func (mapper *Mapper) MapAgentGroupToAPI(agentGroup *model.AgentGroup) *v1agentgroup.AgentGroup {
 	panic("unimplemented")
 }
 

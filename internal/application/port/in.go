@@ -46,7 +46,7 @@ type AgentGroupManageUsecase interface {
 		agentGroupName string,
 		options *model.ListOptions,
 	) (*v1.ListResponse[v1.Agent], error)
-	CreateAgentGroup(ctx context.Context, createCommand *CreateAgentGroupCommand) (*v1agentgroup.AgentGroup, error)
+	CreateAgentGroup(ctx context.Context, agentGroup *v1agentgroup.AgentGroup) (*v1agentgroup.AgentGroup, error)
 	UpdateAgentGroup(
 		ctx context.Context,
 		name string,

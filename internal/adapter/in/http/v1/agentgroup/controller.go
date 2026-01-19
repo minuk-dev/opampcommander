@@ -187,14 +187,13 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 // @Description Create a new agent group.
 // @Accept json
 // @Produce json
-// @Param agentGroup body AgentGroupCreateRequest true "Agent Group to create"
+// @Param agentGroup body AgentGroup true "Agent Group to create"
 // @Success 201 {object} AgentGroup
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
-	var req agentgroupv1.CreateRequest
-
+	var req agentgroupv1.AgentGroup
 	err := ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
@@ -202,13 +201,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &CreateAgentGroupCommand{
-		Name:        req.Name,
-		Priority:    req.Priority,
-		Attributes:  req.Attributes,
-		Selector:    req.Selector,
-		AgentConfig: req.AgentConfig,
-	})
+	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &req)
 	if err != nil {
 		c.logger.Error("failed to create agent group", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while creating the agent group.")

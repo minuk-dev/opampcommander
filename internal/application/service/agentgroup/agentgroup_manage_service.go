@@ -54,7 +54,7 @@ func (s *ManageService) GetAgentGroup(
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	return s.mapper.MapAPIToAgentGroup(agentGroup), nil
+	return s.mapper.MapAgentGroupToAPI(agentGroup), nil
 }
 
 // ListAgentGroups returns a paginated list of agent groups.
@@ -69,7 +69,7 @@ func (s *ManageService) ListAgentGroups(
 
 	return v1agentgroup.NewListResponse(
 		lo.Map(domainResp.Items, func(agentGroup *model.AgentGroup, _ int) v1agentgroup.AgentGroup {
-			return *s.mapper.MapAPIToAgentGroup(agentGroup)
+			return *s.mapper.MapAgentGroupToAPI(agentGroup)
 		}),
 		v1.ListMeta{
 			Continue:           domainResp.Continue,
@@ -110,7 +110,7 @@ func (s *ManageService) ListAgentsByAgentGroup(
 // CreateAgentGroup creates a new agent group.
 func (s *ManageService) CreateAgentGroup(
 	ctx context.Context,
-	createCommand *port.CreateAgentGroupCommand,
+	agentGroup *v1agentgroup.AgentGroup,
 ) (*v1agentgroup.AgentGroup, error) {
 	requestedBy, err := security.GetUser(ctx)
 	if err != nil {
@@ -118,15 +118,23 @@ func (s *ManageService) CreateAgentGroup(
 
 		requestedBy = security.NewAnonymousUser()
 	}
+	name := agentGroup.Metadata.Name
+	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	if err == nil && existingAgentGroup != nil {
+		return nil, fmt.Errorf("agent group with name %s already exists", name)
+	}
 
-	domainAgentGroup := s.toDomainModelAgentGroupForCreate(createCommand, requestedBy)
+	domainAgentGroup := s.mapper.MapAPIToAgentGroup(agentGroup)
 
-	agentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, createCommand.Name, domainAgentGroup)
+	// TODO: add requestedBy to domainAgentGroup's status or metadata if needed
+	_ = requestedBy
+
+	domainAgentGroup, err = s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
 
-	return s.toAPIModelAgentGroup(agentGroup), nil
+	return s.mapper.MapAgentGroupToAPI(domainAgentGroup), nil
 }
 
 // UpdateAgentGroup updates an existing agent group.
@@ -135,14 +143,14 @@ func (s *ManageService) UpdateAgentGroup(
 	name string,
 	apiAgentGroup *v1agentgroup.AgentGroup,
 ) (*v1agentgroup.AgentGroup, error) {
-	domainAgentGroup := toDomainModelAgentGroupFromAPI(apiAgentGroup)
+	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
 
 	agentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
 
-	return s.toAPIModelAgentGroup(agentGroup), nil
+	return s.mapper.MapAgentGroupToAPI(agentGroup), nil
 }
 
 // DeleteAgentGroup marks an agent group as deleted.
