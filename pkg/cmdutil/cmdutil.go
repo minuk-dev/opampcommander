@@ -7,7 +7,7 @@ import (
 
 	"github.com/samber/lo"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
 
@@ -32,7 +32,7 @@ func AutoCompleteAgentInstanceUIDs(
 		return nil, fmt.Errorf("failed to search agents for auto-completion: %w", err)
 	}
 
-	instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
+	instanceUIDs := lo.Map(resp.Items, func(agent v1.Agent, _ int) string {
 		return agent.Metadata.InstanceUID.String()
 	})
 

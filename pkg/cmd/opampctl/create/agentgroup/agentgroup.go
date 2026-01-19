@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -90,7 +90,7 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	agentGroupService := opt.client.AgentGroupService
 
-	var agentConfig *agentgroupv1.AgentConfig
+	var agentConfig *v1.AgentConfig
 
 	if opt.agentConfigFile != "" {
 		data, err := os.ReadFile(filepath.Clean(opt.agentConfigFile))
@@ -99,21 +99,25 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 
 		//exhaustruct:ignore
-		agentConfig = &agentgroupv1.AgentConfig{
+		agentConfig = &v1.AgentConfig{
 			Value:       string(data),
 			ContentType: "text/yaml",
 		}
 	}
 
-	createRequest := &agentgroupv1.CreateRequest{
-		Name:       opt.name,
-		Attributes: opt.attributes,
-		Priority:   opt.priority,
-		Selector: agentgroupv1.AgentSelector{
-			IdentifyingAttributes:    opt.identifyingAttributesSelector,
-			NonIdentifyingAttributes: opt.nonIdentifyingAttributeSelector,
+	createRequest := &v1.AgentGroup{
+		Metadata: v1.Metadata{
+			Name:       opt.name,
+			Attributes: opt.attributes,
+			Priority:   opt.priority,
+			Selector: v1.AgentSelector{
+				IdentifyingAttributes:    opt.identifyingAttributesSelector,
+				NonIdentifyingAttributes: opt.nonIdentifyingAttributeSelector,
+			},
 		},
-		AgentConfig: agentConfig,
+		Spec: v1.Spec{
+			AgentConfig: agentConfig,
+		},
 	}
 
 	agentGroup, err := agentGroupService.CreateAgentGroup(cmd.Context(), createRequest)
@@ -141,7 +145,7 @@ type formattedAgentGroup struct {
 	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
-func toFormattedAgentGroup(agentGroup *agentgroupv1.AgentGroup) *formattedAgentGroup {
+func toFormattedAgentGroup(agentGroup *v1.AgentGroup) *formattedAgentGroup {
 	// Extract timestamps and users from conditions
 	var (
 		createdAt time.Time
@@ -152,13 +156,13 @@ func toFormattedAgentGroup(agentGroup *agentgroupv1.AgentGroup) *formattedAgentG
 
 	for _, condition := range agentGroup.Status.Conditions {
 		switch condition.Type {
-		case agentgroupv1.ConditionTypeCreated:
-			if condition.Status == agentgroupv1.ConditionStatusTrue {
+		case v1.ConditionTypeCreated:
+			if condition.Status == v1.ConditionStatusTrue {
 				createdAt = condition.LastTransitionTime.Time
 				createdBy = condition.Reason
 			}
-		case agentgroupv1.ConditionTypeDeleted:
-			if condition.Status == agentgroupv1.ConditionStatusTrue {
+		case v1.ConditionTypeDeleted:
+			if condition.Status == v1.ConditionStatusTrue {
 				t := condition.LastTransitionTime.Time
 				deletedAt = &t
 				deletedBy = &condition.Reason

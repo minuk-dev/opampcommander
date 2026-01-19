@@ -9,7 +9,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -94,7 +94,7 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 				return nil, cobra.ShellCompDirectiveError
 			}
 
-			instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
+			instanceUIDs := lo.Map(resp.Items, func(agent v1.Agent, _ int) string {
 				return agent.Metadata.InstanceUID.String()
 			})
 

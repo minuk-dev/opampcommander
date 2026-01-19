@@ -9,7 +9,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -124,11 +124,11 @@ func (o *CommandOptions) ValidArgsFunction(
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	matched := lo.Filter(agentGroups, func(ag v1agentgroup.AgentGroup, _ int) bool {
+	matched := lo.Filter(agentGroups, func(ag v1.AgentGroup, _ int) bool {
 		return strings.Contains(strings.ToLower(ag.Metadata.Name), strings.ToLower(toComplete))
 	})
 
-	names := lo.Map(matched, func(ag v1agentgroup.AgentGroup, _ int) string {
+	names := lo.Map(matched, func(ag v1.AgentGroup, _ int) string {
 		return ag.Metadata.Name
 	})
 

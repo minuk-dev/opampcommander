@@ -7,7 +7,7 @@ import (
 
 	uuid "github.com/google/uuid"
 
-	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
 const (
@@ -38,18 +38,21 @@ func NewAgentService(service *service) *AgentService {
 }
 
 // GetAgent retrieves an agent by its ID.
-func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*agentv1.Agent, error) {
-	return getResource[agentv1.Agent](ctx, s.service, GetAgentURL, id.String())
+func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*v1.Agent, error) {
+	return getResource[v1.Agent](ctx, s.service, GetAgentURL, id.String())
 }
 
+// AgentListResponse represents a list of agents with metadata.
+type AgentListResponse = v1.ListResponse[v1.Agent]
+
 // ListAgents lists all agents.
-func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*agentv1.ListResponse, error) {
+func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*AgentListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	return listResources[agentv1.Agent](
+	return listResources[v1.Agent](
 		ctx,
 		s.service,
 		ListAgentURL,
@@ -65,13 +68,13 @@ func (s *AgentService) SearchAgents(
 	ctx context.Context,
 	query string,
 	opts ...ListOption,
-) (*agentv1.ListResponse, error) {
+) (*AgentListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	var result agentv1.ListResponse
+	var result AgentListResponse
 
 	req := s.service.Resty.R().
 		SetContext(ctx).
@@ -101,13 +104,18 @@ func (s *AgentService) SearchAgents(
 	return &result, nil
 }
 
+// SetNewInstanceUIDRequest is a struct that represents the request to set a new instance UID for the agent.
+type SetNewInstanceUIDRequest struct {
+	NewInstanceUID uuid.UUID `binding:"required" json:"newInstanceUid"`
+}
+
 // SetAgentNewInstanceUID sets a new instance UID for an agent.
 func (s *AgentService) SetAgentNewInstanceUID(
 	ctx context.Context,
 	id uuid.UUID,
-	request agentv1.SetNewInstanceUIDRequest,
-) (*agentv1.Agent, error) {
-	var result agentv1.Agent
+	request SetNewInstanceUIDRequest,
+) (*v1.Agent, error) {
+	var result v1.Agent
 
 	response, err := s.service.Resty.R().
 		SetContext(ctx).

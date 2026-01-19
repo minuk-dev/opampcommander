@@ -4,8 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1connection "github.com/minuk-dev/opampcommander/api/v1/connection"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
@@ -17,8 +16,8 @@ const (
 
 // ListAgentFully lists all agents and applies the provided function to each agent.
 // It continues to fetch agents until there are no more agents to fetch.
-func ListAgentFully(ctx context.Context, cli *client.Client) ([]v1agent.Agent, error) {
-	var agents []v1agent.Agent
+func ListAgentFully(ctx context.Context, cli *client.Client) ([]v1.Agent, error) {
+	var agents []v1.Agent
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
@@ -52,8 +51,8 @@ func ListAgentFullyByAgentGroup(
 	ctx context.Context,
 	cli *client.Client,
 	agentGroupName string,
-) ([]v1agent.Agent, error) {
-	var agents []v1agent.Agent
+) ([]v1.Agent, error) {
+	var agents []v1.Agent
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
@@ -111,8 +110,8 @@ func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1connectio
 
 // ListAgentGroupFully lists all agent groups and applies the provided function to each agent group.
 // It continues to fetch agent groups until there are no more agent groups to fetch.
-func ListAgentGroupFully(ctx context.Context, cli *client.Client) ([]v1agentgroup.AgentGroup, error) {
-	var agentGroups []v1agentgroup.AgentGroup
+func ListAgentGroupFully(ctx context.Context, cli *client.Client) ([]v1.AgentGroup, error) {
+	var agentGroups []v1.AgentGroup
 	// Initialize the continue token to an empty string
 	continueToken := ""
 

@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
-	agentgroupv1 "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
 const (
@@ -40,21 +39,24 @@ func NewAgentGroupService(service *service) *AgentGroupService {
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
 	name string,
-) (*agentgroupv1.AgentGroup, error) {
-	return getResource[agentgroupv1.AgentGroup](ctx, s.service, GetAgentGroupURL, name)
+) (*v1.AgentGroup, error) {
+	return getResource[v1.AgentGroup](ctx, s.service, GetAgentGroupURL, name)
 }
+
+// AgentGroupListResponse represents a list of agent groups with metadata.
+type AgentGroupListResponse = v1.ListResponse[v1.AgentGroup]
 
 // ListAgentGroups lists all agent groups.
 func (s *AgentGroupService) ListAgentGroups(
 	ctx context.Context,
 	opts ...ListOption,
-) (*agentgroupv1.ListResponse, error) {
+) (*AgentGroupListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	return listResources[agentgroupv1.AgentGroup](
+	return listResources[v1.AgentGroup](
 		ctx,
 		s.service,
 		ListAgentGroupURL,
@@ -70,13 +72,13 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 	ctx context.Context,
 	name string,
 	opts ...ListOption,
-) (*agentv1.ListResponse, error) {
+) (*AgentListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	var listResponse agentv1.ListResponse
+	var listResponse AgentListResponse
 
 	req := s.service.Resty.R().
 		SetContext(ctx).
@@ -114,9 +116,9 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 // CreateAgentGroup creates a new agent group.
 func (s *AgentGroupService) CreateAgentGroup(
 	ctx context.Context,
-	createRequest *agentgroupv1.CreateRequest,
-) (*agentgroupv1.AgentGroup, error) {
-	return createResource[agentgroupv1.CreateRequest, agentgroupv1.AgentGroup](
+	createRequest *v1.AgentGroup,
+) (*v1.AgentGroup, error) {
+	return createResource[v1.AgentGroup, v1.AgentGroup](
 		ctx,
 		s.service,
 		CreateAgentGroupURL,
@@ -127,8 +129,8 @@ func (s *AgentGroupService) CreateAgentGroup(
 // UpdateAgentGroup updates an existing agent group.
 func (s *AgentGroupService) UpdateAgentGroup(
 	ctx context.Context,
-	updateRequest *agentgroupv1.AgentGroup,
-) (*agentgroupv1.AgentGroup, error) {
+	updateRequest *v1.AgentGroup,
+) (*v1.AgentGroup, error) {
 	return updateResource(
 		ctx,
 		s.service,
