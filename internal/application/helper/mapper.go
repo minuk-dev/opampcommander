@@ -21,13 +21,100 @@ func NewMapper() *Mapper {
 }
 
 // MapAPIToAgentGroup maps an API model AgentGroup to a domain model AgentGroup.
-func (mapper *Mapper) MapAPIToAgentGroup(_ *v1.AgentGroup) *model.AgentGroup {
-	panic("unimplemented")
+func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.AgentGroup {
+	if apiAgentGroup == nil {
+		return nil
+	}
+
+	var agentRemoteConfig *model.AgentRemoteConfig
+
+	if apiAgentGroup.Spec.AgentConfig != nil {
+		agentRemoteConfig = &model.AgentRemoteConfig{
+			Value:       []byte(apiAgentGroup.Spec.AgentConfig.Value),
+			ContentType: apiAgentGroup.Spec.AgentConfig.ContentType,
+		}
+	}
+
+	var agentConnectionConfig *model.AgentConnectionConfig
+
+	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.ConnectionSettings != nil {
+		connSettings := apiAgentGroup.Spec.AgentConfig.ConnectionSettings
+		agentConnectionConfig = &model.AgentConnectionConfig{
+			OpAMPConnection:  mapper.mapOpAMPConnectionFromAPI(connSettings.OpAMP),
+			OwnMetrics:       mapper.mapTelemetryConnectionFromAPI(connSettings.OwnMetrics),
+			OwnLogs:          mapper.mapTelemetryConnectionFromAPI(connSettings.OwnLogs),
+			OwnTraces:        mapper.mapTelemetryConnectionFromAPI(connSettings.OwnTraces),
+			OtherConnections: mapper.mapOtherConnectionsFromAPI(connSettings.OtherConnections),
+		}
+	}
+
+	//exhaustruct:ignore
+	return &model.AgentGroup{
+		Metadata: model.AgentGroupMetadata{
+			Name:       apiAgentGroup.Metadata.Name,
+			Priority:   int32(apiAgentGroup.Metadata.Priority), //nolint:gosec // Priority is bounded by API validation
+			Attributes: model.OfAttributes(apiAgentGroup.Metadata.Attributes),
+			Selector: model.AgentSelector{
+				IdentifyingAttributes:    apiAgentGroup.Metadata.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: apiAgentGroup.Metadata.Selector.NonIdentifyingAttributes,
+			},
+		},
+		Spec: model.AgentGroupSpec{
+			AgentRemoteConfig:     agentRemoteConfig,
+			AgentConnectionConfig: agentConnectionConfig,
+		},
+		// Note: Status is not mapped here as it is usually managed by the system.
+	}
 }
 
 // MapAgentGroupToAPI maps a domain model AgentGroup to an API model AgentGroup.
-func (mapper *Mapper) MapAgentGroupToAPI(_ *model.AgentGroup) *v1.AgentGroup {
-	panic("unimplemented")
+func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1.AgentGroup {
+	if domainAgentGroup == nil {
+		return nil
+	}
+
+	var agentConfig *v1.AgentConfig
+
+	if domainAgentGroup.Spec.AgentRemoteConfig != nil {
+		//exhaustruct:ignore
+		agentConfig = &v1.AgentConfig{
+			Value:       string(domainAgentGroup.Spec.AgentRemoteConfig.Value),
+			ContentType: domainAgentGroup.Spec.AgentRemoteConfig.ContentType,
+		}
+
+		if domainAgentGroup.Spec.AgentConnectionConfig != nil {
+			agentConfig.ConnectionSettings = &v1.ConnectionSettings{
+				OpAMP:            mapper.mapOpAMPConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OpAMPConnection),
+				OwnMetrics:       mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnMetrics),
+				OwnLogs:          mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnLogs),
+				OwnTraces:        mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnTraces),
+				OtherConnections: mapper.mapOtherConnectionsToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OtherConnections),
+			}
+		}
+	}
+
+	return &v1.AgentGroup{
+		Metadata: v1.Metadata{
+			Name:       domainAgentGroup.Metadata.Name,
+			Priority:   int(domainAgentGroup.Metadata.Priority),
+			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
+			Selector: v1.AgentSelector{
+				IdentifyingAttributes:    domainAgentGroup.Metadata.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: domainAgentGroup.Metadata.Selector.NonIdentifyingAttributes,
+			},
+		},
+		Spec: v1.Spec{
+			AgentConfig: agentConfig,
+		},
+		Status: v1.Status{
+			NumAgents:             domainAgentGroup.Status.NumAgents,
+			NumConnectedAgents:    domainAgentGroup.Status.NumConnectedAgents,
+			NumHealthyAgents:      domainAgentGroup.Status.NumHealthyAgents,
+			NumUnhealthyAgents:    domainAgentGroup.Status.NumUnhealthyAgents,
+			NumNotConnectedAgents: domainAgentGroup.Status.NumNotConnectedAgents,
+			Conditions:            mapper.mapAgentGroupConditionsToAPI(domainAgentGroup.Status.Conditions),
+		},
+	}
 }
 
 // MapAPIToAgent maps an API model Agent to a domain model Agent.
@@ -281,4 +368,116 @@ func (mapper *Mapper) mapRestartRequiredAtToAPI(restartRequiredAt time.Time) *v1
 	t := v1.NewTime(restartRequiredAt)
 
 	return &t
+}
+
+func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) model.OpAMPConnectionSettings {
+	return model.OpAMPConnectionSettings{
+		DestinationEndpoint: apiConn.DestinationEndpoint,
+		Headers:             apiConn.Headers,
+		Certificate:         mapper.mapTLSCertificateFromAPI(apiConn.Certificate),
+	}
+}
+
+func (mapper *Mapper) mapTelemetryConnectionFromAPI(
+	apiConn v1.TelemetryConnectionSettings,
+) model.TelemetryConnectionSettings {
+	return model.TelemetryConnectionSettings{
+		DestinationEndpoint: apiConn.DestinationEndpoint,
+		Headers:             apiConn.Headers,
+		Certificate:         mapper.mapTLSCertificateFromAPI(apiConn.Certificate),
+	}
+}
+
+func (mapper *Mapper) mapOtherConnectionsFromAPI(
+	apiConns map[string]v1.OtherConnectionSettings,
+) map[string]model.OtherConnectionSettings {
+	if apiConns == nil {
+		return nil
+	}
+
+	result := make(map[string]model.OtherConnectionSettings)
+
+	for name, conn := range apiConns {
+		result[name] = model.OtherConnectionSettings{
+			DestinationEndpoint: conn.DestinationEndpoint,
+			Headers:             conn.Headers,
+			Certificate:         mapper.mapTLSCertificateFromAPI(conn.Certificate),
+		}
+	}
+
+	return result
+}
+
+func (mapper *Mapper) mapTLSCertificateFromAPI(apiCert v1.TLSCertificate) model.TelemetryTLSCertificate {
+	return model.TelemetryTLSCertificate{
+		Cert:       []byte(apiCert.Cert),
+		PrivateKey: []byte(apiCert.PrivateKey),
+		CaCert:     []byte(apiCert.CaCert),
+	}
+}
+
+func (mapper *Mapper) mapOpAMPConnectionToAPI(conn model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
+	return v1.OpAMPConnectionSettings{
+		DestinationEndpoint: conn.DestinationEndpoint,
+		Headers:             conn.Headers,
+		Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+	}
+}
+
+func (mapper *Mapper) mapTelemetryConnectionToAPI(
+	conn model.TelemetryConnectionSettings,
+) v1.TelemetryConnectionSettings {
+	return v1.TelemetryConnectionSettings{
+		DestinationEndpoint: conn.DestinationEndpoint,
+		Headers:             conn.Headers,
+		Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+	}
+}
+
+func (mapper *Mapper) mapOtherConnectionsToAPI(
+	conns map[string]model.OtherConnectionSettings,
+) map[string]v1.OtherConnectionSettings {
+	if conns == nil {
+		return nil
+	}
+
+	result := make(map[string]v1.OtherConnectionSettings)
+
+	for name, conn := range conns {
+		result[name] = v1.OtherConnectionSettings{
+			DestinationEndpoint: conn.DestinationEndpoint,
+			Headers:             conn.Headers,
+			Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+		}
+	}
+
+	return result
+}
+
+func (mapper *Mapper) mapTLSCertificateToAPI(cert model.TelemetryTLSCertificate) v1.TLSCertificate {
+	return v1.TLSCertificate{
+		Cert:       string(cert.Cert),
+		PrivateKey: string(cert.PrivateKey),
+		CaCert:     string(cert.CaCert),
+	}
+}
+
+func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition) []v1.Condition {
+	if len(conditions) == 0 {
+		return nil
+	}
+
+	apiConditions := make([]v1.Condition, len(conditions))
+
+	for i, condition := range conditions {
+		apiConditions[i] = v1.Condition{
+			Type:               v1.ConditionType(condition.Type),
+			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
+			Status:             v1.ConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	}
+
+	return apiConditions
 }

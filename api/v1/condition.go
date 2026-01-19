@@ -15,6 +15,8 @@ type ConditionType string // @name ConditionType
 const (
 	// ConditionTypeCreated represents the condition when the agent group was created.
 	ConditionTypeCreated ConditionType = "Created"
+	// ConditionTypeUpdated represents the condition when the agent group was updated.
+	ConditionTypeUpdated ConditionType = "Updated"
 	// ConditionTypeDeleted represents the condition when the agent group was deleted.
 	ConditionTypeDeleted ConditionType = "Deleted"
 	// ConditionTypeConnected represents the condition when the agent is connected.

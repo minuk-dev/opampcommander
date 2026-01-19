@@ -121,11 +121,10 @@ func (s *ManageService) CreateAgentGroup(
 		return nil, fmt.Errorf("%w: %s", ErrAgentGroupAlreadyExists, name)
 	}
 
-	//nolint:staticcheck // createdBy is used below in domainAgentGroup.Status.Conditions
 	createdBy, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-		//nolint:staticcheck // createdBy is used below in domainAgentGroup.Status.Conditions
+
 		createdBy = security.NewAnonymousUser()
 	}
 
@@ -158,17 +157,15 @@ func (s *ManageService) UpdateAgentGroup(
 	apiAgentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
 	// Check if the agent group exists
-	//nolint:staticcheck // existingAgentGroup is used below to preserve conditions
 	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group for update: %w", err)
 	}
 
-	//nolint:staticcheck // updatedBy is used below in domainAgentGroup.Status.Conditions
 	updatedBy, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-		//nolint:staticcheck // updatedBy is used below in domainAgentGroup.Status.Conditions
+
 		updatedBy = security.NewAnonymousUser()
 	}
 
