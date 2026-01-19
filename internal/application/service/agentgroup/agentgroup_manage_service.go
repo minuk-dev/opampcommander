@@ -114,19 +114,34 @@ func (s *ManageService) CreateAgentGroup(
 	ctx context.Context,
 	agentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
-	_, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-	}
-
 	name := agentGroup.Metadata.Name
 
-	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
-	if err == nil && existingAgentGroup != nil {
+	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	if getErr == nil && existingAgentGroup != nil {
 		return nil, fmt.Errorf("%w: %s", ErrAgentGroupAlreadyExists, name)
 	}
 
+	//nolint:staticcheck // createdBy is used below in domainAgentGroup.Status.Conditions
+	createdBy, err := security.GetUser(ctx)
+	if err != nil {
+		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+		//nolint:staticcheck // createdBy is used below in domainAgentGroup.Status.Conditions
+		createdBy = security.NewAnonymousUser()
+	}
+
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(agentGroup)
+
+	// Set the created condition with createdBy information
+	now := s.clock.Now()
+	domainAgentGroup.Status.Conditions = []model.Condition{
+		{
+			Type:               model.ConditionTypeCreated,
+			LastTransitionTime: now,
+			Status:             model.ConditionStatusTrue,
+			Reason:             createdBy.String(),
+			Message:            "Agent group created",
+		},
+	}
 
 	domainAgentGroup, err = s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
@@ -143,12 +158,49 @@ func (s *ManageService) UpdateAgentGroup(
 	apiAgentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
 	// Check if the agent group exists
-	_, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	//nolint:staticcheck // existingAgentGroup is used below to preserve conditions
+	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group for update: %w", err)
 	}
 
+	//nolint:staticcheck // updatedBy is used below in domainAgentGroup.Status.Conditions
+	updatedBy, err := security.GetUser(ctx)
+	if err != nil {
+		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+		//nolint:staticcheck // updatedBy is used below in domainAgentGroup.Status.Conditions
+		updatedBy = security.NewAnonymousUser()
+	}
+
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
+
+	// Preserve existing conditions and add/update the Updated condition
+	domainAgentGroup.Status.Conditions = existingAgentGroup.Status.Conditions
+
+	now := s.clock.Now()
+	updatedCondition := model.Condition{
+		Type:               model.ConditionTypeUpdated,
+		LastTransitionTime: now,
+		Status:             model.ConditionStatusTrue,
+		Reason:             updatedBy.String(),
+		Message:            "Agent group updated",
+	}
+
+	// Find and update existing Updated condition or append new one
+	found := false
+
+	for i, cond := range domainAgentGroup.Status.Conditions {
+		if cond.Type == model.ConditionTypeUpdated {
+			domainAgentGroup.Status.Conditions[i] = updatedCondition
+			found = true
+
+			break
+		}
+	}
+
+	if !found {
+		domainAgentGroup.Status.Conditions = append(domainAgentGroup.Status.Conditions, updatedCondition)
+	}
 
 	updatedAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
 	if err != nil {
