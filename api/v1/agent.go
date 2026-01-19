@@ -45,6 +45,10 @@ type AgentSpec struct {
 
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig AgentRemoteConfig `json:"remoteConfig"`
+
+	// RestartRequiredAt is the time when a restart was requested.
+	// If this time is after the agent's start time, the agent should be restarted.
+	RestartRequiredAt *Time `json:"restartRequiredAt,omitempty"`
 } // @name AgentSpec
 
 // AgentStatus contains the observed state of the agent.

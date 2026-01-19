@@ -203,7 +203,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 func toShortItemForCLI(agent v1.Agent) ItemForCLI {
 	var startedAt string
 	if !agent.Status.ComponentHealth.StartTime.IsZero() {
-		startedAt = agent.Status.ComponentHealth.StartTime.Time.Format(time.DateTime)
+		startedAt = agent.Status.ComponentHealth.StartTime.Format(time.DateTime)
 	}
 
 	return ItemForCLI{

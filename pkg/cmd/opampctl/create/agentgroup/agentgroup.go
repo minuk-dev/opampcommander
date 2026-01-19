@@ -105,6 +105,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	//exhaustruct:ignore
 	createRequest := &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name:       opt.name,
@@ -155,7 +156,7 @@ func toFormattedAgentGroup(agentGroup *v1.AgentGroup) *formattedAgentGroup {
 	)
 
 	for _, condition := range agentGroup.Status.Conditions {
-		switch condition.Type {
+		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
 		case v1.ConditionTypeCreated:
 			if condition.Status == v1.ConditionStatusTrue {
 				createdAt = condition.LastTransitionTime.Time

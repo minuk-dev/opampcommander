@@ -119,14 +119,33 @@ func (s *Service) UpdateAgent(ctx context.Context, instanceUID uuid.UUID, api *v
 
 	agent := s.mapper.MapAPIToAgent(api)
 
-	updatedAgent := existing
-	updatedAgent.Metadata = agent.Metadata
-	updatedAgent.Spec = agent.Spec
+	// Handle restart request
+	if !agent.Spec.RestartInfo.RequiredRestartedAt.IsZero() {
+		restartErr := existing.SetRestartRequired(agent.Spec.RestartInfo.RequiredRestartedAt)
+		if restartErr != nil {
+			return nil, fmt.Errorf("failed to set restart required: %w", restartErr)
+		}
+	}
+
+	// Update other spec fields if provided
+	if agent.Spec.NewInstanceUID != uuid.Nil {
+		existing.Spec.NewInstanceUID = agent.Spec.NewInstanceUID
+	}
+
+	if len(agent.Spec.RemoteConfig.Config) > 0 {
+		existing.Spec.RemoteConfig = agent.Spec.RemoteConfig
+	}
 
 	err = s.agentUsecase.SaveAgent(ctx, existing)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update agent: %w", err)
 	}
 
-	return s.mapper.MapAgentToAPI(updatedAgent), nil
+	// Notify about agent update
+	notifyErr := s.agentNotificationUsecase.NotifyAgentUpdated(ctx, existing)
+	if notifyErr != nil {
+		s.logger.Error("failed to notify agent updated", "error", notifyErr.Error())
+	}
+
+	return s.mapper.MapAgentToAPI(existing), nil
 }

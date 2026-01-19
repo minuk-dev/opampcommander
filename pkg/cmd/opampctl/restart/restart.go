@@ -59,7 +59,7 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 				return fmt.Errorf("invalid agent ID format: %w", err)
 			}
 
-			err = client.AgentService.RestartAgent(ctx, agentUUID)
+			_, err = client.AgentService.RestartAgent(ctx, agentUUID)
 			if err != nil {
 				return fmt.Errorf("failed to restart agent: %w", err)
 			}

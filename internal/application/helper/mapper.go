@@ -43,6 +43,7 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
 		Spec: model.AgentSpec{
 			NewInstanceUID: mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
 			RemoteConfig:   mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
+			RestartInfo:    mapper.mapRestartInfoFromAPI(apiAgent.Spec.RestartRequiredAt),
 		},
 		// Note: Status is not mapped here as it is usually managed by the system.
 	}
@@ -83,6 +84,16 @@ func (mapper *Mapper) mapNewInstanceUIDFromAPI(newInstanceUID string) uuid.UUID 
 	return uid
 }
 
+func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) model.AgentRestartInfo {
+	if restartRequiredAt == nil || restartRequiredAt.IsZero() {
+		return model.AgentRestartInfo{}
+	}
+
+	return model.AgentRestartInfo{
+		RequiredRestartedAt: restartRequiredAt.Time,
+	}
+}
+
 // MapAgentToAPI maps a domain model Agent to an API model Agent.
 func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 	return &v1.Agent{
@@ -97,8 +108,9 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 		},
 		//exhaustruct:ignore
 		Spec: v1.AgentSpec{
-			NewInstanceUID: mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
-			RemoteConfig:   mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
+			NewInstanceUID:    mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
+			RemoteConfig:      mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
+			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo.RequiredRestartedAt),
 		},
 		Status: v1.AgentStatus{
 			EffectiveConfig: v1.AgentEffectiveConfig{
@@ -252,4 +264,14 @@ func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
 	}
 
 	return string(newInstanceUID)
+}
+
+func (mapper *Mapper) mapRestartRequiredAtToAPI(restartRequiredAt time.Time) *v1.Time {
+	if restartRequiredAt.IsZero() {
+		return nil
+	}
+
+	t := v1.NewTime(restartRequiredAt)
+
+	return &t
 }

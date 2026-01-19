@@ -186,7 +186,7 @@ func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.T
 	)
 
 	for _, condition := range conditions {
-		switch condition.Type {
+		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
 		case v1.ConditionTypeCreated:
 			if condition.Status == v1.ConditionStatusTrue {
 				createdAt = condition.LastTransitionTime.Time
