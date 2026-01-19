@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmdutil"
@@ -113,7 +112,7 @@ func (opts *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
 
 // Run runs the command.
 func (opts *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	request := v1agent.SetNewInstanceUIDRequest{
+	request := client.SetNewInstanceUIDRequest{
 		NewInstanceUID: opts.parsedNewInstanceUID,
 	}
 

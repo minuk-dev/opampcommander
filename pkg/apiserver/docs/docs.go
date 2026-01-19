@@ -82,7 +82,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/AgentGroupCreateRequest"
+                            "$ref": "#/definitions/AgentGroup"
                         }
                     }
                 ],
@@ -309,6 +309,65 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agents/search": {
+            "get": {
+                "description": "Search agents by instance UID query.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent"
+                ],
+                "summary": "Search Agents",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search query for instance UID",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of agents to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agents",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Agent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agents/{id}": {
             "get": {
                 "description": "Retrieve an agent by its instance UID.",
@@ -357,11 +416,9 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/api/v1/agents/{id}/new-instance-uid": {
+            },
             "put": {
-                "description": "Set a new instance UID for an agent.",
+                "description": "Update an agent's metadata \u0026 spec.",
                 "consumes": [
                     "application/json"
                 ],
@@ -371,7 +428,7 @@ const docTemplate = `{
                 "tags": [
                     "agent"
                 ],
-                "summary": "Set New Instance UID",
+                "summary": "Update Agent",
                 "parameters": [
                     {
                         "type": "string",
@@ -381,12 +438,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "New instance UID request",
-                        "name": "request",
+                        "description": "Agent update request",
+                        "name": "agent",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/SetNewInstanceUIDRequest"
+                            "$ref": "#/definitions/Agent"
                         }
                     }
                 ],
@@ -396,53 +453,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/Agent"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/agents/{id}/restart": {
-            "post": {
-                "description": "Restart an agent by its instance UID.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent"
-                ],
-                "summary": "Restart Agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Instance UID of the agent",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Agent restarted successfully"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -945,34 +955,14 @@ const docTemplate = `{
                 "lastError": {
                     "type": "string"
                 },
-                "startTimeUnix": {
-                    "type": "integer"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "statusTimeMs": {
-                    "type": "integer"
-                }
-            }
-        },
-        "AgentCondition": {
-            "type": "object",
-            "properties": {
-                "lastTransitionTime": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "reason": {
+                "startTime": {
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/AgentConditionStatus"
+                    "type": "string"
                 },
-                "type": {
-                    "$ref": "#/definitions/AgentConditionType"
+                "statusTime": {
+                    "type": "string"
                 }
             }
         },
@@ -987,21 +977,6 @@ const docTemplate = `{
                 "ConditionStatusTrue",
                 "ConditionStatusFalse",
                 "ConditionStatusUnknown"
-            ]
-        },
-        "AgentConditionType": {
-            "type": "string",
-            "enum": [
-                "Connected",
-                "Healthy",
-                "Configured",
-                "Registered"
-            ],
-            "x-enum-varnames": [
-                "ConditionTypeConnected",
-                "ConditionTypeHealthy",
-                "ConditionTypeConfigured",
-                "ConditionTypeRegistered"
             ]
         },
         "AgentConfigFile": {
@@ -1078,76 +1053,11 @@ const docTemplate = `{
                 }
             }
         },
-        "AgentGroupCondition": {
-            "type": "object",
-            "properties": {
-                "lastTransitionTime": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/AgentGroupConditionStatus"
-                },
-                "type": {
-                    "$ref": "#/definitions/AgentGroupConditionType"
-                }
-            }
-        },
-        "AgentGroupConditionStatus": {
-            "type": "string",
-            "enum": [
-                "True",
-                "False"
-            ],
-            "x-enum-varnames": [
-                "ConditionStatusTrue",
-                "ConditionStatusFalse"
-            ]
-        },
-        "AgentGroupConditionType": {
-            "type": "string",
-            "enum": [
-                "Created",
-                "Deleted"
-            ],
-            "x-enum-varnames": [
-                "ConditionTypeCreated",
-                "ConditionTypeDeleted"
-            ]
-        },
-        "AgentGroupCreateRequest": {
-            "type": "object",
-            "required": [
-                "name"
-            ],
-            "properties": {
-                "agentConfig": {
-                    "$ref": "#/definitions/agentgroup.AgentConfig"
-                },
-                "attributes": {
-                    "$ref": "#/definitions/agentgroup.Attributes"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                },
-                "selector": {
-                    "$ref": "#/definitions/agentgroup.AgentSelector"
-                }
-            }
-        },
         "AgentGroupMetadata": {
             "type": "object",
             "properties": {
                 "attributes": {
-                    "$ref": "#/definitions/agentgroup.Attributes"
+                    "$ref": "#/definitions/v1.Attributes"
                 },
                 "name": {
                     "type": "string"
@@ -1156,7 +1066,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "selector": {
-                    "$ref": "#/definitions/agentgroup.AgentSelector"
+                    "$ref": "#/definitions/v1.AgentSelector"
                 }
             }
         },
@@ -1164,7 +1074,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "agentConfig": {
-                    "$ref": "#/definitions/agentgroup.AgentConfig"
+                    "$ref": "#/definitions/v1.AgentConfig"
                 }
             }
         },
@@ -1175,7 +1085,7 @@ const docTemplate = `{
                     "description": "Conditions is a list of conditions that apply to the agent group.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/AgentGroupCondition"
+                        "$ref": "#/definitions/Condition"
                     }
                 },
                 "numAgents": {
@@ -1272,6 +1182,14 @@ const docTemplate = `{
         "AgentSpec": {
             "type": "object",
             "properties": {
+                "connectionSettings": {
+                    "description": "ConnectionSettings contains connection settings for the agent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ConnectionSettings"
+                        }
+                    ]
+                },
                 "newInstanceUid": {
                     "description": "NewInstanceUID is a new instance UID to inform the agent of its new identity.",
                     "type": "string"
@@ -1283,6 +1201,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/AgentRemoteConfig"
                         }
                     ]
+                },
+                "restartRequiredAt": {
+                    "description": "RestartRequiredAt is the time when a restart was requested.\nIf this time is after the agent's start time, the agent should be restarted.",
+                    "type": "string"
                 }
             }
         },
@@ -1309,7 +1231,7 @@ const docTemplate = `{
                     "description": "Conditions is a list of conditions that apply to the agent.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/AgentCondition"
+                        "$ref": "#/definitions/Condition"
                     }
                 },
                 "connected": {
@@ -1366,20 +1288,111 @@ const docTemplate = `{
                 }
             }
         },
+        "Condition": {
+            "type": "object",
+            "properties": {
+                "lastTransitionTime": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/AgentConditionStatus"
+                },
+                "type": {
+                    "$ref": "#/definitions/ConditionType"
+                }
+            }
+        },
+        "ConditionType": {
+            "type": "string",
+            "enum": [
+                "Created",
+                "Deleted",
+                "Connected",
+                "Healthy",
+                "Configured",
+                "Registered"
+            ],
+            "x-enum-varnames": [
+                "ConditionTypeCreated",
+                "ConditionTypeDeleted",
+                "ConditionTypeConnected",
+                "ConditionTypeHealthy",
+                "ConditionTypeConfigured",
+                "ConditionTypeRegistered"
+            ]
+        },
         "Connection": {
             "type": "object",
             "properties": {
                 "alive": {
+                    "description": "Alive indicates whether the connection is currently alive.",
                     "type": "boolean"
                 },
                 "id": {
+                    "description": "ID is the unique identifier of the connection.",
                     "type": "string"
                 },
                 "instanceUid": {
+                    "description": "InstanceUID is the unique identifier of the agent instance.",
                     "type": "string"
                 },
                 "lastCommunicatedAt": {
+                    "description": "LastCommunicatedAt is the timestamp of the last communication with the agent.",
                     "type": "string"
+                },
+                "type": {
+                    "description": "Type is the type of connection (e.g., \"http\", \"websocket\").",
+                    "type": "string"
+                }
+            }
+        },
+        "ConnectionSettings": {
+            "type": "object",
+            "properties": {
+                "opamp": {
+                    "description": "OpAMP contains OpAMP server connection settings.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/OpAMPConnectionSettings"
+                        }
+                    ]
+                },
+                "otherConnections": {
+                    "description": "OtherConnections contains other connection settings mapped by name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/OtherConnectionSettings"
+                    }
+                },
+                "ownLogs": {
+                    "description": "OwnLogs contains own logs connection settings.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/TelemetryConnectionSettings"
+                        }
+                    ]
+                },
+                "ownMetrics": {
+                    "description": "OwnMetrics contains own metrics connection settings.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/TelemetryConnectionSettings"
+                        }
+                    ]
+                },
+                "ownTraces": {
+                    "description": "OwnTraces contains own traces connection settings.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/TelemetryConnectionSettings"
+                        }
+                    ]
                 }
             }
         },
@@ -1476,6 +1489,60 @@ const docTemplate = `{
                 }
             }
         },
+        "OpAMPConnectionSettings": {
+            "type": "object",
+            "properties": {
+                "certificate": {
+                    "description": "Certificate contains TLS certificate information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/TLSCertificate"
+                        }
+                    ]
+                },
+                "destinationEndpoint": {
+                    "description": "DestinationEndpoint is the URL to connect to the OpAMP server.",
+                    "type": "string"
+                },
+                "headers": {
+                    "description": "Headers are HTTP headers to include in requests.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "OtherConnectionSettings": {
+            "type": "object",
+            "properties": {
+                "certificate": {
+                    "description": "Certificate contains TLS certificate information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/TLSCertificate"
+                        }
+                    ]
+                },
+                "destinationEndpoint": {
+                    "description": "DestinationEndpoint is the URL to connect to.",
+                    "type": "string"
+                },
+                "headers": {
+                    "description": "Headers are HTTP headers to include in requests.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "PingResponse": {
             "type": "object",
             "properties": {
@@ -1530,9 +1597,9 @@ const docTemplate = `{
                 "Unknown"
             ],
             "x-enum-varnames": [
-                "ConditionStatusTrue",
-                "ConditionStatusFalse",
-                "ConditionStatusUnknown"
+                "ServerConditionStatusTrue",
+                "ServerConditionStatusFalse",
+                "ServerConditionStatusUnknown"
             ]
         },
         "ServerConditionType": {
@@ -1542,18 +1609,51 @@ const docTemplate = `{
                 "Alive"
             ],
             "x-enum-varnames": [
-                "ConditionTypeRegistered",
-                "ConditionTypeAlive"
+                "ServerConditionTypeRegistered",
+                "ServerConditionTypeAlive"
             ]
         },
-        "SetNewInstanceUIDRequest": {
+        "TLSCertificate": {
             "type": "object",
-            "required": [
-                "newInstanceUid"
-            ],
             "properties": {
-                "newInstanceUid": {
+                "caCert": {
+                    "description": "CaCert is the PEM-encoded CA certificate.",
                     "type": "string"
+                },
+                "cert": {
+                    "description": "Cert is the PEM-encoded certificate.",
+                    "type": "string"
+                },
+                "privateKey": {
+                    "description": "PrivateKey is the PEM-encoded private key.",
+                    "type": "string"
+                }
+            }
+        },
+        "TelemetryConnectionSettings": {
+            "type": "object",
+            "properties": {
+                "certificate": {
+                    "description": "Certificate contains TLS certificate information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/TLSCertificate"
+                        }
+                    ]
+                },
+                "destinationEndpoint": {
+                    "description": "DestinationEndpoint is the URL to send telemetry data to.",
+                    "type": "string"
+                },
+                "headers": {
+                    "description": "Headers are HTTP headers to include in requests.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
@@ -1589,9 +1689,12 @@ const docTemplate = `{
                 }
             }
         },
-        "agentgroup.AgentConfig": {
+        "v1.AgentConfig": {
             "type": "object",
             "properties": {
+                "connectionSettings": {
+                    "$ref": "#/definitions/ConnectionSettings"
+                },
                 "contentType": {
                     "type": "string"
                 },
@@ -1600,7 +1703,7 @@ const docTemplate = `{
                 }
             }
         },
-        "agentgroup.AgentSelector": {
+        "v1.AgentSelector": {
             "type": "object",
             "properties": {
                 "identifyingAttributes": {
@@ -1617,7 +1720,7 @@ const docTemplate = `{
                 }
             }
         },
-        "agentgroup.Attributes": {
+        "v1.Attributes": {
             "type": "object",
             "additionalProperties": {
                 "type": "string"

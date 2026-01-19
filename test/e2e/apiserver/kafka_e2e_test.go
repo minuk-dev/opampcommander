@@ -27,8 +27,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 	"gopkg.in/yaml.v3"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -99,7 +98,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// Then: Agent should be visible on server 1
-	var agent1 *v1agent.Agent
+	var agent1 *v1.Agent
 
 	assert.Eventually(t, func() bool {
 		agents1 := listAgents(t, server1URL)
@@ -435,9 +434,11 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	t.Logf("Creating AgentGroup at URL: %s with name: %s", url, name)
 
 	reqBody := map[string]interface{}{
-		"name": name,
-		"selector": map[string]interface{}{
-			"matchLabels": selector,
+		"metadata": map[string]interface{}{
+			"name": name,
+			"selector": map[string]interface{}{
+				"identifyingAttributes": selector,
+			},
 		},
 	}
 
@@ -450,6 +451,7 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/json")
+
 	token := getAuthToken(t, baseURL)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -470,6 +472,30 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 	t.Logf("AgentGroup '%s' created successfully", name)
 }
 
+func agentGroupExistsOnServer(t *testing.T, baseURL, name string) bool {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/agentgroups/%s", baseURL, name)
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+	if err != nil {
+		return false
+	}
+
+	token := getAuthToken(t, baseURL)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	return resp.StatusCode == http.StatusOK
+}
+
 func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]string) {
 	t.Helper()
 
@@ -487,9 +513,31 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	resp, err := client.Do(getReq)
 	require.NoError(t, err, "Failed to get AgentGroup before update")
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var agentGroup v1.AgentGroup
 
-	var agentGroup v1agentgroup.AgentGroup
+	// If AgentGroup doesn't exist, create it first
+	if resp.StatusCode == http.StatusNotFound {
+		err = resp.Body.Close()
+		require.NoError(t, err)
+
+		t.Logf("AgentGroup '%s' not found, creating it first", name)
+
+		// Create AgentGroup with empty selector
+		createAgentGroup(t, baseURL, name, map[string]string{})
+
+		// Get the newly created AgentGroup
+		getReq, err = http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+		require.NoError(t, err)
+
+		getReq.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err = client.Do(getReq)
+		require.NoError(t, err, "Failed to get AgentGroup after creation")
+
+		require.Equal(t, http.StatusOK, resp.StatusCode, "AgentGroup should exist after creation")
+	} else {
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	}
 
 	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
 	require.NoError(t, err)
@@ -503,7 +551,7 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
 
-	agentGroup.Spec.AgentConfig = &v1agentgroup.AgentConfig{
+	agentGroup.Spec.AgentConfig = &v1.AgentConfig{
 		Value: string(configBytes),
 	}
 
@@ -544,9 +592,11 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	// Given: Infrastructure setup (MongoDB + Kafka)
 	mongoContainer, mongoURI := startMongoDB(t)
+
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
 	kafkaContainer, kafkaBroker := startKafka(t)
+
 	defer func() { _ = kafkaContainer.Terminate(ctx) }()
 
 	// Given: Two API servers in distributed mode
@@ -579,11 +629,13 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	collectorUID := uuid.New()
 	collectorCfg := createCollectorConfig(t, base.CacheDir, server1Port, collectorUID)
 	collectorContainer := startOTelCollector(t, collectorCfg)
+
 	defer func() { _ = collectorContainer.Terminate(ctx) }()
 
 	// Then: Agent should be registered on server 1
 	assert.Eventually(t, func() bool {
 		agents := listAgents(t, server1URL)
+
 		return len(agents) >= 1 && findAgentByUID(agents, collectorUID) != nil
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
 	t.Log("Agent registered on server 1")
@@ -603,6 +655,7 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)
+
 			return false
 		}
 

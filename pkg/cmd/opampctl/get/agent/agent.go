@@ -11,7 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -116,7 +116,7 @@ type ItemForCLI struct {
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	var (
-		agents []v1agent.Agent
+		agents []v1.Agent
 		err    error
 	)
 
@@ -134,7 +134,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 	switch formatType := formatter.FormatType(opt.formatType); formatType {
 	case formatter.SHORT, formatter.TEXT:
-		displayedAgents := lo.Map(agents, func(agent v1agent.Agent, _ int) ItemForCLI {
+		displayedAgents := lo.Map(agents, func(agent v1.Agent, _ int) ItemForCLI {
 			return toShortItemForCLI(agent)
 		})
 		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
@@ -154,7 +154,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 // Get retrieves the agent information for the given agent UIDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	type AgentWithErr struct {
-		Agent *v1agent.Agent
+		Agent *v1.Agent
 		Err   error
 	}
 
@@ -200,14 +200,19 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	return nil
 }
 
-func toShortItemForCLI(agent v1agent.Agent) ItemForCLI {
+func toShortItemForCLI(agent v1.Agent) ItemForCLI {
+	var startedAt string
+	if !agent.Status.ComponentHealth.StartTime.IsZero() {
+		startedAt = agent.Status.ComponentHealth.StartTime.Format(time.DateTime)
+	}
+
 	return ItemForCLI{
 		InstanceUID:    agent.Metadata.InstanceUID,
 		ConnectionType: agent.Status.ConnectionType,
 		Connected:      agent.Status.Connected,
 		Healthy:        agent.Status.ComponentHealth.Healthy,
 		SequenceNum:    agent.Status.SequenceNum,
-		StartedAt:      time.Unix(agent.Status.ComponentHealth.StartTimeUnix, 0).Format(time.DateTime),
+		StartedAt:      startedAt,
 		LastReportedAt: agent.Status.LastReportedAt,
 	}
 }
@@ -233,7 +238,7 @@ func (opt *CommandOptions) ValidArgsFunction(
 		return nil, cobra.ShellCompDirectiveError
 	}
 
-	instanceUIDs := lo.Map(resp.Items, func(agent v1agent.Agent, _ int) string {
+	instanceUIDs := lo.Map(resp.Items, func(agent v1.Agent, _ int) string {
 		return agent.Metadata.InstanceUID.String()
 	})
 

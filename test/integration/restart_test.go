@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/service/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
@@ -52,15 +53,25 @@ func TestRestartAgentIntegration(t *testing.T) {
 
 		agentUsecase.agents[instanceUID] = testAgent
 
-		// Execute restart
-		err := agentService.RestartAgent(ctx, instanceUID)
+		// Execute restart via UpdateAgent
+		restartTime := v1.NewTime(time.Now())
+		//exhaustruct:ignore
+		updateReq := &v1.Agent{
+			Spec: v1.AgentSpec{
+				RestartRequiredAt: &restartTime,
+			},
+		}
+		updatedAgent, err := agentService.UpdateAgent(ctx, instanceUID, updateReq)
 		require.NoError(t, err)
 
 		// Verify agent was updated with restart flag
-		updatedAgent := agentUsecase.agents[instanceUID]
-		assert.True(t, updatedAgent.ShouldBeRestarted(), "Agent should be flagged for restart")
-		assert.False(t, updatedAgent.Spec.RestartInfo.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should be set")
-		assert.True(t, updatedAgent.Spec.RestartInfo.RequiredRestartedAt.After(testAgent.Status.ComponentHealth.StartTime),
+		assert.NotNil(t, updatedAgent.Spec.RestartRequiredAt, "RestartRequiredAt should be set")
+
+		// Verify the domain agent was updated
+		domainAgent := agentUsecase.agents[instanceUID]
+		assert.True(t, domainAgent.ShouldBeRestarted(), "Agent should be flagged for restart")
+		assert.False(t, domainAgent.Spec.RestartInfo.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should be set")
+		assert.True(t, domainAgent.Spec.RestartInfo.RequiredRestartedAt.After(testAgent.Status.ComponentHealth.StartTime),
 			"RequiredRestartedAt should be after original StartTime")
 
 		// Verify notification was called
@@ -95,10 +106,17 @@ func TestRestartAgentIntegration(t *testing.T) {
 
 		agentUsecase.agents[instanceUID] = testAgent
 
-		// Execute restart - should fail
-		err := agentService.RestartAgent(ctx, instanceUID)
+		// Execute restart via UpdateAgent - should fail
+		restartTime := v1.NewTime(time.Now())
+		//exhaustruct:ignore
+		updateReq := &v1.Agent{
+			Spec: v1.AgentSpec{
+				RestartRequiredAt: &restartTime,
+			},
+		}
+		_, err := agentService.UpdateAgent(ctx, instanceUID, updateReq)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "does not support restart capability")
+		assert.Contains(t, err.Error(), "unsupported agent operation")
 
 		// Verify agent was not updated
 		updatedAgent := agentUsecase.agents[instanceUID]

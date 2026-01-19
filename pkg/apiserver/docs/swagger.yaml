@@ -31,25 +31,12 @@ definitions:
         type: boolean
       lastError:
         type: string
-      startTimeUnix:
-        type: integer
-      status:
-        type: string
-      statusTimeMs:
-        type: integer
-    type: object
-  AgentCondition:
-    properties:
-      lastTransitionTime:
-        type: string
-      message:
-        type: string
-      reason:
+      startTime:
         type: string
       status:
-        $ref: '#/definitions/AgentConditionStatus'
-      type:
-        $ref: '#/definitions/AgentConditionType'
+        type: string
+      statusTime:
+        type: string
     type: object
   AgentConditionStatus:
     enum:
@@ -61,18 +48,6 @@ definitions:
     - ConditionStatusTrue
     - ConditionStatusFalse
     - ConditionStatusUnknown
-  AgentConditionType:
-    enum:
-    - Connected
-    - Healthy
-    - Configured
-    - Registered
-    type: string
-    x-enum-varnames:
-    - ConditionTypeConnected
-    - ConditionTypeHealthy
-    - ConditionTypeConfigured
-    - ConditionTypeRegistered
   AgentConfigFile:
     properties:
       body:
@@ -123,72 +98,28 @@ definitions:
       status:
         $ref: '#/definitions/AgentGroupStatus'
     type: object
-  AgentGroupCondition:
-    properties:
-      lastTransitionTime:
-        type: string
-      message:
-        type: string
-      reason:
-        type: string
-      status:
-        $ref: '#/definitions/AgentGroupConditionStatus'
-      type:
-        $ref: '#/definitions/AgentGroupConditionType'
-    type: object
-  AgentGroupConditionStatus:
-    enum:
-    - "True"
-    - "False"
-    type: string
-    x-enum-varnames:
-    - ConditionStatusTrue
-    - ConditionStatusFalse
-  AgentGroupConditionType:
-    enum:
-    - Created
-    - Deleted
-    type: string
-    x-enum-varnames:
-    - ConditionTypeCreated
-    - ConditionTypeDeleted
-  AgentGroupCreateRequest:
-    properties:
-      agentConfig:
-        $ref: '#/definitions/agentgroup.AgentConfig'
-      attributes:
-        $ref: '#/definitions/agentgroup.Attributes'
-      name:
-        type: string
-      priority:
-        type: integer
-      selector:
-        $ref: '#/definitions/agentgroup.AgentSelector'
-    required:
-    - name
-    type: object
   AgentGroupMetadata:
     properties:
       attributes:
-        $ref: '#/definitions/agentgroup.Attributes'
+        $ref: '#/definitions/v1.Attributes'
       name:
         type: string
       priority:
         type: integer
       selector:
-        $ref: '#/definitions/agentgroup.AgentSelector'
+        $ref: '#/definitions/v1.AgentSelector'
     type: object
   AgentGroupSpec:
     properties:
       agentConfig:
-        $ref: '#/definitions/agentgroup.AgentConfig'
+        $ref: '#/definitions/v1.AgentConfig'
     type: object
   AgentGroupStatus:
     properties:
       conditions:
         description: Conditions is a list of conditions that apply to the agent group.
         items:
-          $ref: '#/definitions/AgentGroupCondition'
+          $ref: '#/definitions/Condition'
         type: array
       numAgents:
         description: NumAgents is the total number of agents in the agent group.
@@ -256,6 +187,10 @@ definitions:
     type: object
   AgentSpec:
     properties:
+      connectionSettings:
+        allOf:
+        - $ref: '#/definitions/ConnectionSettings'
+        description: ConnectionSettings contains connection settings for the agent.
       newInstanceUid:
         description: NewInstanceUID is a new instance UID to inform the agent of its
           new identity.
@@ -264,6 +199,11 @@ definitions:
         allOf:
         - $ref: '#/definitions/AgentRemoteConfig'
         description: RemoteConfig is the remote configuration of the agent.
+      restartRequiredAt:
+        description: |-
+          RestartRequiredAt is the time when a restart was requested.
+          If this time is after the agent's start time, the agent should be restarted.
+        type: string
     type: object
   AgentStatus:
     properties:
@@ -278,7 +218,7 @@ definitions:
       conditions:
         description: Conditions is a list of conditions that apply to the agent.
         items:
-          $ref: '#/definitions/AgentCondition'
+          $ref: '#/definitions/Condition'
         type: array
       connected:
         description: Connected indicates if the agent is currently connected.
@@ -317,16 +257,78 @@ definitions:
       version:
         type: string
     type: object
+  Condition:
+    properties:
+      lastTransitionTime:
+        type: string
+      message:
+        type: string
+      reason:
+        type: string
+      status:
+        $ref: '#/definitions/AgentConditionStatus'
+      type:
+        $ref: '#/definitions/ConditionType'
+    type: object
+  ConditionType:
+    enum:
+    - Created
+    - Deleted
+    - Connected
+    - Healthy
+    - Configured
+    - Registered
+    type: string
+    x-enum-varnames:
+    - ConditionTypeCreated
+    - ConditionTypeDeleted
+    - ConditionTypeConnected
+    - ConditionTypeHealthy
+    - ConditionTypeConfigured
+    - ConditionTypeRegistered
   Connection:
     properties:
       alive:
+        description: Alive indicates whether the connection is currently alive.
         type: boolean
       id:
+        description: ID is the unique identifier of the connection.
         type: string
       instanceUid:
+        description: InstanceUID is the unique identifier of the agent instance.
         type: string
       lastCommunicatedAt:
+        description: LastCommunicatedAt is the timestamp of the last communication
+          with the agent.
         type: string
+      type:
+        description: Type is the type of connection (e.g., "http", "websocket").
+        type: string
+    type: object
+  ConnectionSettings:
+    properties:
+      opamp:
+        allOf:
+        - $ref: '#/definitions/OpAMPConnectionSettings'
+        description: OpAMP contains OpAMP server connection settings.
+      otherConnections:
+        additionalProperties:
+          $ref: '#/definitions/OtherConnectionSettings'
+        description: OtherConnections contains other connection settings mapped by
+          name.
+        type: object
+      ownLogs:
+        allOf:
+        - $ref: '#/definitions/TelemetryConnectionSettings'
+        description: OwnLogs contains own logs connection settings.
+      ownMetrics:
+        allOf:
+        - $ref: '#/definitions/TelemetryConnectionSettings'
+        description: OwnMetrics contains own metrics connection settings.
+      ownTraces:
+        allOf:
+        - $ref: '#/definitions/TelemetryConnectionSettings'
+        description: OwnTraces contains own traces connection settings.
     type: object
   DeviceAuthnTokenResponse:
     properties:
@@ -406,6 +408,40 @@ definitions:
         description: URL is the OAuth2 authorization URL.
         type: string
     type: object
+  OpAMPConnectionSettings:
+    properties:
+      certificate:
+        allOf:
+        - $ref: '#/definitions/TLSCertificate'
+        description: Certificate contains TLS certificate information.
+      destinationEndpoint:
+        description: DestinationEndpoint is the URL to connect to the OpAMP server.
+        type: string
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: Headers are HTTP headers to include in requests.
+        type: object
+    type: object
+  OtherConnectionSettings:
+    properties:
+      certificate:
+        allOf:
+        - $ref: '#/definitions/TLSCertificate'
+        description: Certificate contains TLS certificate information.
+      destinationEndpoint:
+        description: DestinationEndpoint is the URL to connect to.
+        type: string
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: Headers are HTTP headers to include in requests.
+        type: object
+    type: object
   PingResponse:
     properties:
       message:
@@ -443,23 +479,45 @@ definitions:
     - Unknown
     type: string
     x-enum-varnames:
-    - ConditionStatusTrue
-    - ConditionStatusFalse
-    - ConditionStatusUnknown
+    - ServerConditionStatusTrue
+    - ServerConditionStatusFalse
+    - ServerConditionStatusUnknown
   ServerConditionType:
     enum:
     - Registered
     - Alive
     type: string
     x-enum-varnames:
-    - ConditionTypeRegistered
-    - ConditionTypeAlive
-  SetNewInstanceUIDRequest:
+    - ServerConditionTypeRegistered
+    - ServerConditionTypeAlive
+  TLSCertificate:
     properties:
-      newInstanceUid:
+      caCert:
+        description: CaCert is the PEM-encoded CA certificate.
         type: string
-    required:
-    - newInstanceUid
+      cert:
+        description: Cert is the PEM-encoded certificate.
+        type: string
+      privateKey:
+        description: PrivateKey is the PEM-encoded private key.
+        type: string
+    type: object
+  TelemetryConnectionSettings:
+    properties:
+      certificate:
+        allOf:
+        - $ref: '#/definitions/TLSCertificate'
+        description: Certificate contains TLS certificate information.
+      destinationEndpoint:
+        description: DestinationEndpoint is the URL to send telemetry data to.
+        type: string
+      headers:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        description: Headers are HTTP headers to include in requests.
+        type: object
     type: object
   VersionInfo:
     properties:
@@ -482,14 +540,16 @@ definitions:
       platform:
         type: string
     type: object
-  agentgroup.AgentConfig:
+  v1.AgentConfig:
     properties:
+      connectionSettings:
+        $ref: '#/definitions/ConnectionSettings'
       contentType:
         type: string
       value:
         type: string
     type: object
-  agentgroup.AgentSelector:
+  v1.AgentSelector:
     properties:
       identifyingAttributes:
         additionalProperties:
@@ -500,7 +560,7 @@ definitions:
           type: string
         type: object
     type: object
-  agentgroup.Attributes:
+  v1.Attributes:
     additionalProperties:
       type: string
     type: object
@@ -554,7 +614,7 @@ paths:
         name: agentGroup
         required: true
         schema:
-          $ref: '#/definitions/AgentGroupCreateRequest'
+          $ref: '#/definitions/AgentGroup'
       produces:
       - application/json
       responses:
@@ -740,23 +800,22 @@ paths:
       summary: Get Agent
       tags:
       - agent
-  /api/v1/agents/{id}/new-instance-uid:
     put:
       consumes:
       - application/json
-      description: Set a new instance UID for an agent.
+      description: Update an agent's metadata & spec.
       parameters:
       - description: Instance UID of the agent
         in: path
         name: id
         required: true
         type: string
-      - description: New instance UID request
+      - description: Agent update request
         in: body
-        name: request
+        name: agent
         required: true
         schema:
-          $ref: '#/definitions/SetNewInstanceUIDRequest'
+          $ref: '#/definitions/Agent'
       produces:
       - application/json
       responses:
@@ -776,38 +835,46 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorModel'
-      summary: Set New Instance UID
+      summary: Update Agent
       tags:
       - agent
-  /api/v1/agents/{id}/restart:
-    post:
+  /api/v1/agents/search:
+    get:
       consumes:
       - application/json
-      description: Restart an agent by its instance UID.
+      description: Search agents by instance UID query.
       parameters:
-      - description: Instance UID of the agent
-        in: path
-        name: id
+      - description: Search query for instance UID
+        in: query
+        name: q
         required: true
+        type: string
+      - description: Maximum number of agents to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agents
+        in: query
+        name: continue
         type: string
       produces:
       - application/json
       responses:
         "200":
-          description: Agent restarted successfully
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Agent'
+            type: array
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "404":
-          description: Not Found
           schema:
             $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/ErrorModel'
-      summary: Restart Agent
+      summary: Search Agents
       tags:
       - agent
   /api/v1/auth/basic:

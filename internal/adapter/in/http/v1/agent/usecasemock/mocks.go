@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -41,23 +41,23 @@ func (_m *MockManageUsecase) EXPECT() *MockManageUsecase_Expecter {
 }
 
 // GetAgent provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agent.Agent, error) {
+func (_mock *MockManageUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error) {
 	ret := _mock.Called(ctx, instanceUID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAgent")
 	}
 
-	var r0 *agent.Agent
+	var r0 *v1.Agent
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*agent.Agent, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*v1.Agent, error)); ok {
 		return returnFunc(ctx, instanceUID)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) *agent.Agent); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) *v1.Agent); ok {
 		r0 = returnFunc(ctx, instanceUID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*agent.Agent)
+			r0 = ret.Get(0).(*v1.Agent)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
@@ -98,34 +98,34 @@ func (_c *MockManageUsecase_GetAgent_Call) Run(run func(ctx context.Context, ins
 	return _c
 }
 
-func (_c *MockManageUsecase_GetAgent_Call) Return(agent1 *agent.Agent, err error) *MockManageUsecase_GetAgent_Call {
+func (_c *MockManageUsecase_GetAgent_Call) Return(agent1 *v1.Agent, err error) *MockManageUsecase_GetAgent_Call {
 	_c.Call.Return(agent1, err)
 	return _c
 }
 
-func (_c *MockManageUsecase_GetAgent_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID) (*agent.Agent, error)) *MockManageUsecase_GetAgent_Call {
+func (_c *MockManageUsecase_GetAgent_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error)) *MockManageUsecase_GetAgent_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListAgents provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) ListAgents(ctx context.Context, options *model.ListOptions) (*agent.ListResponse, error) {
+func (_mock *MockManageUsecase) ListAgents(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error) {
 	ret := _mock.Called(ctx, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAgents")
 	}
 
-	var r0 *agent.ListResponse
+	var r0 *v1.ListResponse[v1.Agent]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*agent.ListResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
 		return returnFunc(ctx, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *agent.ListResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *v1.ListResponse[v1.Agent]); ok {
 		r0 = returnFunc(ctx, options)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*agent.ListResponse)
+			r0 = ret.Get(0).(*v1.ListResponse[v1.Agent])
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.ListOptions) error); ok {
@@ -166,91 +166,36 @@ func (_c *MockManageUsecase_ListAgents_Call) Run(run func(ctx context.Context, o
 	return _c
 }
 
-func (_c *MockManageUsecase_ListAgents_Call) Return(v *agent.ListResponse, err error) *MockManageUsecase_ListAgents_Call {
+func (_c *MockManageUsecase_ListAgents_Call) Return(v *v1.ListResponse[v1.Agent], err error) *MockManageUsecase_ListAgents_Call {
 	_c.Call.Return(v, err)
 	return _c
 }
 
-func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*agent.ListResponse, error)) *MockManageUsecase_ListAgents_Call {
+func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_ListAgents_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// RestartAgent provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	ret := _mock.Called(ctx, instanceUID)
 
-	if len(ret) == 0 {
-		panic("no return value specified for RestartAgent")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
-		r0 = returnFunc(ctx, instanceUID)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockManageUsecase_RestartAgent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RestartAgent'
-type MockManageUsecase_RestartAgent_Call struct {
-	*mock.Call
-}
-
-// RestartAgent is a helper method to define mock.On call
-//   - ctx context.Context
-//   - instanceUID uuid.UUID
-func (_e *MockManageUsecase_Expecter) RestartAgent(ctx interface{}, instanceUID interface{}) *MockManageUsecase_RestartAgent_Call {
-	return &MockManageUsecase_RestartAgent_Call{Call: _e.mock.On("RestartAgent", ctx, instanceUID)}
-}
-
-func (_c *MockManageUsecase_RestartAgent_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID)) *MockManageUsecase_RestartAgent_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 uuid.UUID
-		if args[1] != nil {
-			arg1 = args[1].(uuid.UUID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockManageUsecase_RestartAgent_Call) Return(err error) *MockManageUsecase_RestartAgent_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockManageUsecase_RestartAgent_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID) error) *MockManageUsecase_RestartAgent_Call {
-	_c.Call.Return(run)
-	return _c
-}
 
 // SearchAgents provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*agent.ListResponse, error) {
+func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error) {
 	ret := _mock.Called(ctx, query, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SearchAgents")
 	}
 
-	var r0 *agent.ListResponse
+	var r0 *v1.ListResponse[v1.Agent]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) (*agent.ListResponse, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
 		return returnFunc(ctx, query, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) *agent.ListResponse); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) *v1.ListResponse[v1.Agent]); ok {
 		r0 = returnFunc(ctx, query, options)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*agent.ListResponse)
+			r0 = ret.Get(0).(*v1.ListResponse[v1.Agent])
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *model.ListOptions) error); ok {
@@ -297,58 +242,60 @@ func (_c *MockManageUsecase_SearchAgents_Call) Run(run func(ctx context.Context,
 	return _c
 }
 
-func (_c *MockManageUsecase_SearchAgents_Call) Return(v *agent.ListResponse, err error) *MockManageUsecase_SearchAgents_Call {
+func (_c *MockManageUsecase_SearchAgents_Call) Return(v *v1.ListResponse[v1.Agent], err error) *MockManageUsecase_SearchAgents_Call {
 	_c.Call.Return(v, err)
 	return _c
 }
 
-func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context.Context, query string, options *model.ListOptions) (*agent.ListResponse, error)) *MockManageUsecase_SearchAgents_Call {
+func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context.Context, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_SearchAgents_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// SetNewInstanceUID provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error) {
-	ret := _mock.Called(ctx, instanceUID, newInstanceUID)
+
+
+// UpdateAgent provides a mock function for the type MockManageUsecase
+func (_mock *MockManageUsecase) UpdateAgent(ctx context.Context, instanceUID uuid.UUID, agent *v1.Agent) (*v1.Agent, error) {
+	ret := _mock.Called(ctx, instanceUID, agent)
 
 	if len(ret) == 0 {
-		panic("no return value specified for SetNewInstanceUID")
+		panic("no return value specified for UpdateAgent")
 	}
 
-	var r0 *agent.Agent
+	var r0 *v1.Agent
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) (*agent.Agent, error)); ok {
-		return returnFunc(ctx, instanceUID, newInstanceUID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *v1.Agent) (*v1.Agent, error)); ok {
+		return returnFunc(ctx, instanceUID, agent)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, uuid.UUID) *agent.Agent); ok {
-		r0 = returnFunc(ctx, instanceUID, newInstanceUID)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *v1.Agent) *v1.Agent); ok {
+		r0 = returnFunc(ctx, instanceUID, agent)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*agent.Agent)
+			r0 = ret.Get(0).(*v1.Agent)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, uuid.UUID) error); ok {
-		r1 = returnFunc(ctx, instanceUID, newInstanceUID)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, *v1.Agent) error); ok {
+		r1 = returnFunc(ctx, instanceUID, agent)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockManageUsecase_SetNewInstanceUID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetNewInstanceUID'
-type MockManageUsecase_SetNewInstanceUID_Call struct {
+// MockManageUsecase_UpdateAgent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateAgent'
+type MockManageUsecase_UpdateAgent_Call struct {
 	*mock.Call
 }
 
-// SetNewInstanceUID is a helper method to define mock.On call
+// UpdateAgent is a helper method to define mock.On call
 //   - ctx context.Context
 //   - instanceUID uuid.UUID
-//   - newInstanceUID uuid.UUID
-func (_e *MockManageUsecase_Expecter) SetNewInstanceUID(ctx interface{}, instanceUID interface{}, newInstanceUID interface{}) *MockManageUsecase_SetNewInstanceUID_Call {
-	return &MockManageUsecase_SetNewInstanceUID_Call{Call: _e.mock.On("SetNewInstanceUID", ctx, instanceUID, newInstanceUID)}
+//   - agent *v1.Agent
+func (_e *MockManageUsecase_Expecter) UpdateAgent(ctx interface{}, instanceUID interface{}, agent interface{}) *MockManageUsecase_UpdateAgent_Call {
+	return &MockManageUsecase_UpdateAgent_Call{Call: _e.mock.On("UpdateAgent", ctx, instanceUID, agent)}
 }
 
-func (_c *MockManageUsecase_SetNewInstanceUID_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID)) *MockManageUsecase_SetNewInstanceUID_Call {
+func (_c *MockManageUsecase_UpdateAgent_Call) Run(run func(ctx context.Context, instanceUID uuid.UUID, agent *v1.Agent)) *MockManageUsecase_UpdateAgent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -358,9 +305,9 @@ func (_c *MockManageUsecase_SetNewInstanceUID_Call) Run(run func(ctx context.Con
 		if args[1] != nil {
 			arg1 = args[1].(uuid.UUID)
 		}
-		var arg2 uuid.UUID
+		var arg2 *v1.Agent
 		if args[2] != nil {
-			arg2 = args[2].(uuid.UUID)
+			arg2 = args[2].(*v1.Agent)
 		}
 		run(
 			arg0,
@@ -371,12 +318,12 @@ func (_c *MockManageUsecase_SetNewInstanceUID_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockManageUsecase_SetNewInstanceUID_Call) Return(agent1 *agent.Agent, err error) *MockManageUsecase_SetNewInstanceUID_Call {
+func (_c *MockManageUsecase_UpdateAgent_Call) Return(agent1 *v1.Agent, err error) *MockManageUsecase_UpdateAgent_Call {
 	_c.Call.Return(agent1, err)
 	return _c
 }
 
-func (_c *MockManageUsecase_SetNewInstanceUID_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*agent.Agent, error)) *MockManageUsecase_SetNewInstanceUID_Call {
+func (_c *MockManageUsecase_UpdateAgent_Call) RunAndReturn(run func(ctx context.Context, instanceUID uuid.UUID, agent *v1.Agent) (*v1.Agent, error)) *MockManageUsecase_UpdateAgent_Call {
 	_c.Call.Return(run)
 	return _c
 }

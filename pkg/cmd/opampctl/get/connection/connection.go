@@ -8,7 +8,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
-	v1connection "github.com/minuk-dev/opampcommander/api/v1/connection"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -105,7 +105,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves the connection information for the given IDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	connections := make([]*v1connection.Connection, 0, len(ids))
+	connections := make([]*v1.Connection, 0, len(ids))
 	connectionIDs := lo.Map(ids, func(id string, _ int) uuid.UUID {
 		connectionID, _ := uuid.Parse(id)
 

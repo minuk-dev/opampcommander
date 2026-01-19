@@ -10,7 +10,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -116,7 +116,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 // Get retrieves the agent information for the given agent UIDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	type AgentGroupWithErr struct {
-		AgentGroup *v1agentgroup.AgentGroup
+		AgentGroup *v1.AgentGroup
 		Err        error
 	}
 
@@ -177,7 +177,7 @@ type formattedAgentGroup struct {
 	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"-"         text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
-func extractConditionInfo(conditions []v1agentgroup.Condition) (time.Time, string, *time.Time, *string) {
+func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.Time, *string) {
 	var (
 		createdAt time.Time
 		createdBy string
@@ -186,14 +186,14 @@ func extractConditionInfo(conditions []v1agentgroup.Condition) (time.Time, strin
 	)
 
 	for _, condition := range conditions {
-		switch condition.Type {
-		case v1agentgroup.ConditionTypeCreated:
-			if condition.Status == v1agentgroup.ConditionStatusTrue {
+		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
+		case v1.ConditionTypeCreated:
+			if condition.Status == v1.ConditionStatusTrue {
 				createdAt = condition.LastTransitionTime.Time
 				createdBy = condition.Reason
 			}
-		case v1agentgroup.ConditionTypeDeleted:
-			if condition.Status == v1agentgroup.ConditionStatusTrue {
+		case v1.ConditionTypeDeleted:
+			if condition.Status == v1.ConditionStatusTrue {
 				t := condition.LastTransitionTime.Time
 				deletedAt = &t
 				deletedBy = &condition.Reason
@@ -205,7 +205,7 @@ func extractConditionInfo(conditions []v1agentgroup.Condition) (time.Time, strin
 }
 
 func (opt *CommandOptions) toFormattedAgentGroup(
-	agentGroup v1agentgroup.AgentGroup,
+	agentGroup v1.AgentGroup,
 ) formattedAgentGroup {
 	// Extract timestamps and users from conditions
 	createdAt, createdBy, deletedAt, deletedBy := extractConditionInfo(agentGroup.Status.Conditions)

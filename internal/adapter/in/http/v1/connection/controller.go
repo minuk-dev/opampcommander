@@ -9,7 +9,6 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	connectionv1 "github.com/minuk-dev/opampcommander/api/v1/connection"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
@@ -55,7 +54,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description  Retrieve a list of all connections.
 // @Accept  json
 // @Produce json
-// @Success 200 {array} Connection
+// @Success 200 {array} v1.Connection
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/connections [get].
 func (c *Controller) List(ctx *gin.Context) {
@@ -81,9 +80,9 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	connectionResponse := connectionv1.NewListResponse(
-		lo.Map(response.Items, func(connection *model.Connection, _ int) connectionv1.Connection {
-			return connectionv1.Connection{
+	connectionResponse := v1.NewConnectionListResponse(
+		lo.Map(response.Items, func(connection *model.Connection, _ int) v1.Connection {
+			return v1.Connection{
 				ID:                 connection.UID,
 				InstanceUID:        connection.InstanceUID,
 				Type:               connection.Type.String(),

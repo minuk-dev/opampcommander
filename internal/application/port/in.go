@@ -8,8 +8,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
-	v1agent "github.com/minuk-dev/opampcommander/api/v1/agent"
-	v1agentgroup "github.com/minuk-dev/opampcommander/api/v1/agentgroup"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -31,36 +30,22 @@ type AdminUsecase interface {
 
 // AgentManageUsecase is a use case that handles agent management operations.
 type AgentManageUsecase interface {
-	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1agent.Agent, error)
-	ListAgents(ctx context.Context, options *model.ListOptions) (*v1agent.ListResponse, error)
-	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1agent.ListResponse, error)
-	SetNewInstanceUID(ctx context.Context, instanceUID uuid.UUID, newInstanceUID uuid.UUID) (*v1agent.Agent, error)
-	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
+	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error)
+	ListAgents(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+	UpdateAgent(ctx context.Context, instanceUID uuid.UUID, agent *v1.Agent) (*v1.Agent, error)
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
 type AgentGroupManageUsecase interface {
-	GetAgentGroup(ctx context.Context, name string) (*v1agentgroup.AgentGroup, error)
-	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*v1agentgroup.ListResponse, error)
+	GetAgentGroup(ctx context.Context, name string) (*v1.AgentGroup, error)
+	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.AgentGroup], error)
 	ListAgentsByAgentGroup(
 		ctx context.Context,
 		agentGroupName string,
 		options *model.ListOptions,
-	) (*v1agent.ListResponse, error)
-	CreateAgentGroup(ctx context.Context, createCommand *CreateAgentGroupCommand) (*v1agentgroup.AgentGroup, error)
-	UpdateAgentGroup(
-		ctx context.Context,
-		name string,
-		agentGroup *v1agentgroup.AgentGroup,
-	) (*v1agentgroup.AgentGroup, error)
+	) (*v1.ListResponse[v1.Agent], error)
+	CreateAgentGroup(ctx context.Context, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
+	UpdateAgentGroup(ctx context.Context, name string, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
 	DeleteAgentGroup(ctx context.Context, name string) error
-}
-
-// CreateAgentGroupCommand is a command to create an agent group.
-type CreateAgentGroupCommand struct {
-	Name        string
-	Attributes  v1agentgroup.Attributes
-	Priority    int
-	Selector    v1agentgroup.AgentSelector
-	AgentConfig *v1agentgroup.AgentConfig
 }

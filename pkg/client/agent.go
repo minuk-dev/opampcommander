@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	uuid "github.com/google/uuid"
 
-	agentv1 "github.com/minuk-dev/opampcommander/api/v1/agent"
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
 const (
@@ -17,12 +18,8 @@ const (
 	SearchAgentURL = "/api/v1/agents/search"
 	// GetAgentURL is the path to get an agent by ID.
 	GetAgentURL = "/api/v1/agents/{id}"
-	// SetAgentNewInstanceUIDURL is the path to set a new instance UID for an agent.
-	SetAgentNewInstanceUIDURL = "/api/v1/agents/{id}/new-instance-uid"
-	// SetAgentConnectionSettingsURL is the path to set connection settings for an agent.
-	SetAgentConnectionSettingsURL = "/api/v1/agents/{id}/connection-settings"
-	// RestartAgentURL is the path to restart an agent.
-	RestartAgentURL = "/api/v1/agents/{id}/restart"
+	// UpdateAgentURL is the path to update an agent.
+	UpdateAgentURL = "/api/v1/agents/{id}"
 )
 
 // AgentService provides methods to interact with agents.
@@ -38,18 +35,21 @@ func NewAgentService(service *service) *AgentService {
 }
 
 // GetAgent retrieves an agent by its ID.
-func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*agentv1.Agent, error) {
-	return getResource[agentv1.Agent](ctx, s.service, GetAgentURL, id.String())
+func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*v1.Agent, error) {
+	return getResource[v1.Agent](ctx, s.service, GetAgentURL, id.String())
 }
 
+// AgentListResponse represents a list of agents with metadata.
+type AgentListResponse = v1.ListResponse[v1.Agent]
+
 // ListAgents lists all agents.
-func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*agentv1.ListResponse, error) {
+func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*AgentListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	return listResources[agentv1.Agent](
+	return listResources[v1.Agent](
 		ctx,
 		s.service,
 		ListAgentURL,
@@ -65,13 +65,13 @@ func (s *AgentService) SearchAgents(
 	ctx context.Context,
 	query string,
 	opts ...ListOption,
-) (*agentv1.ListResponse, error) {
+) (*AgentListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	var result agentv1.ListResponse
+	var result AgentListResponse
 
 	req := s.service.Resty.R().
 		SetContext(ctx).
@@ -101,22 +101,23 @@ func (s *AgentService) SearchAgents(
 	return &result, nil
 }
 
-// SetAgentNewInstanceUID sets a new instance UID for an agent.
-func (s *AgentService) SetAgentNewInstanceUID(
-	ctx context.Context,
-	id uuid.UUID,
-	request agentv1.SetNewInstanceUIDRequest,
-) (*agentv1.Agent, error) {
-	var result agentv1.Agent
+// SetNewInstanceUIDRequest is a struct that represents the request to set a new instance UID for the agent.
+type SetNewInstanceUIDRequest struct {
+	NewInstanceUID uuid.UUID `binding:"required" json:"newInstanceUid"`
+}
+
+// UpdateAgent updates an agent with the given spec.
+func (s *AgentService) UpdateAgent(ctx context.Context, id uuid.UUID, agent *v1.Agent) (*v1.Agent, error) {
+	var result v1.Agent
 
 	response, err := s.service.Resty.R().
 		SetContext(ctx).
 		SetPathParam("id", id.String()).
-		SetBody(request).
+		SetBody(agent).
 		SetResult(&result).
-		Put(SetAgentNewInstanceUIDURL)
+		Put(UpdateAgentURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to set new instance UID for agent: %w", err)
+		return nil, fmt.Errorf("failed to update agent: %w", err)
 	}
 
 	if response.IsError() {
@@ -129,22 +130,31 @@ func (s *AgentService) SetAgentNewInstanceUID(
 	return &result, nil
 }
 
+// SetAgentNewInstanceUID sets a new instance UID for an agent.
+func (s *AgentService) SetAgentNewInstanceUID(
+	ctx context.Context,
+	id uuid.UUID,
+	request SetNewInstanceUIDRequest,
+) (*v1.Agent, error) {
+	//exhaustruct:ignore
+	agent := &v1.Agent{
+		Spec: v1.AgentSpec{
+			NewInstanceUID: request.NewInstanceUID.String(),
+		},
+	}
+
+	return s.UpdateAgent(ctx, id, agent)
+}
+
 // RestartAgent restarts an agent by its ID.
-func (s *AgentService) RestartAgent(ctx context.Context, id uuid.UUID) error {
-	response, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetPathParam("id", id.String()).
-		Post(RestartAgentURL)
-	if err != nil {
-		return fmt.Errorf("failed to restart agent: %w", err)
+func (s *AgentService) RestartAgent(ctx context.Context, id uuid.UUID) (*v1.Agent, error) {
+	now := v1.NewTime(time.Now())
+	//exhaustruct:ignore
+	agent := &v1.Agent{
+		Spec: v1.AgentSpec{
+			RestartRequiredAt: &now,
+		},
 	}
 
-	if response.IsError() {
-		return &ResponseError{
-			StatusCode:   response.StatusCode(),
-			ErrorMessage: response.String(),
-		}
-	}
-
-	return nil
+	return s.UpdateAgent(ctx, id, agent)
 }
