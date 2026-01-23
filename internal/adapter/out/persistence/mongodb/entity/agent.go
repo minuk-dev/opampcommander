@@ -289,7 +289,7 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 		PackageStatuses: switchIfNil(
 			status.PackageStatuses.ToDomain(),
 			//exhaustruct:ignore
-			domainmodel.AgentPackageStatuses{},
+			domainmodel.AgentStatusPackageStatuses{},
 		),
 		ComponentHealth: switchIfNil(
 			status.ComponentHealth.ToDomain(),
@@ -367,12 +367,12 @@ func (ae *AgentEffectiveConfig) ToDomain() *domainmodel.AgentEffectiveConfig {
 }
 
 // ToDomain converts the AgentPackageStatuses to domain model.
-func (ap *AgentPackageStatuses) ToDomain() *domainmodel.AgentPackageStatuses {
+func (ap *AgentPackageStatuses) ToDomain() *domainmodel.AgentStatusPackageStatuses {
 	if ap == nil {
 		return nil
 	}
 
-	return &domainmodel.AgentPackageStatuses{
+	return &domainmodel.AgentStatusPackageStatuses{
 		Packages: lo.MapValues(ap.Packages, func(aps AgentPackageStatus, _ string) domainmodel.AgentPackageStatus {
 			return domainmodel.AgentPackageStatus{
 				Name:                 aps.Name,
@@ -548,7 +548,7 @@ func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *Agen
 }
 
 // AgentPackageStatusesFromDomain converts domain model to persistence model.
-func AgentPackageStatusesFromDomain(aps *domainmodel.AgentPackageStatuses) *AgentPackageStatuses {
+func AgentPackageStatusesFromDomain(aps *domainmodel.AgentStatusPackageStatuses) *AgentPackageStatuses {
 	if aps == nil {
 		return nil
 	}

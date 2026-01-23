@@ -69,7 +69,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			},
 			//exhaustruct:ignore
 			PackageStatuses: AgentPackageStatuses{
-				Packages: make(map[string]AgentPackageStatus),
+				Packages: make(map[string]AgentPackageStatusEntry),
 			},
 			//exhaustruct:ignore
 			ComponentHealth: AgentComponentHealth{
@@ -778,13 +778,13 @@ const (
 
 // AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
-	Packages                     map[string]AgentPackageStatus
+	Packages                     map[string]AgentPackageStatusEntry
 	ServerProvidedAllPackgesHash []byte
 	ErrorMessage                 string
 }
 
-// AgentPackageStatus is the status of a package.
-type AgentPackageStatus struct {
+// AgentPackageStatusEntry is the status of a package.
+type AgentPackageStatusEntry struct {
 	Name                 string
 	AgentHasVersion      string
 	AgentHasHash         []byte
