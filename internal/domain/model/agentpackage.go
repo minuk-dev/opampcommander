@@ -12,8 +12,15 @@ type AgentPackageMetadata struct {
 }
 
 type AgentPackageSpec struct {
-	SourceURL string
+	PackageType string
+	Version     string
+	DownloadURL string
+	ContentHash []byte
+	Signature   []byte
+	Headers     map[string]string
+	Hash        []byte
 }
 
 type AgentPackageStatus struct {
+	Conditions []Condition
 }

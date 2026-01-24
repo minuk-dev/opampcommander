@@ -47,6 +47,30 @@ type AgentNotificationUsecase interface {
 	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 }
 
+// AgentPackageUsecase is an interface that defines the methods for agent package use cases.
+type AgentPackageUsecase interface {
+	// GetAgentPackage retrieves an agent package by its name.
+	GetAgentPackage(ctx context.Context, name string) (*model.AgentPackage, error)
+	// ListAgentPackages lists all agent packages.
+	ListAgentPackages(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentPackage], error)
+	// SaveAgentPackage saves the agent package.
+	SaveAgentPackage(ctx context.Context, agentPackage *model.AgentPackage) (*model.AgentPackage, error)
+	// DeleteAgentPackage deletes the agent package by its name.
+	DeleteAgentPackage(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
+}
+
+// AgentRemoteConfigUsecase is an interface that defines the methods for agent remote config use cases.
+type AgentRemoteConfigUsecase interface {
+	// GetAgentRemoteConfig retrieves an agent remote config by its name.
+	GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfig, error)
+	// ListAgentRemoteConfigs lists all agent remote configs.
+	ListAgentRemoteConfigs(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentRemoteConfig], error)
+	// SaveAgentRemoteConfig saves the agent remote config.
+	SaveAgentRemoteConfig(ctx context.Context, agentRemoteConfig *model.AgentRemoteConfig) (*model.AgentRemoteConfig, error)
+	// DeleteAgentRemoteConfig deletes the agent remote config by its name.
+	DeleteAgentRemoteConfig(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
+}
+
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its name
