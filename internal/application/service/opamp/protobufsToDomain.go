@@ -105,10 +105,10 @@ func effectiveConfigToDomain(effectiveConfig *protobufs.EffectiveConfig) *model.
 	}
 }
 
-func packageStatusToDomain(packageStatuses *protobufs.PackageStatuses) *model.AgentStatusPackageStatuses {
-	packages := make(map[string]model.AgentPackageStatus, len(packageStatuses.GetPackages()))
+func packageStatusToDomain(packageStatuses *protobufs.PackageStatuses) *model.AgentPackageStatuses {
+	packages := make(map[string]model.AgentPackageStatusEntry, len(packageStatuses.GetPackages()))
 	for key, value := range packageStatuses.GetPackages() {
-		packages[key] = model.AgentPackageStatus{
+		packages[key] = model.AgentPackageStatusEntry{
 			Name:                 value.GetName(),
 			AgentHasVersion:      value.GetAgentHasVersion(),
 			AgentHasHash:         value.GetAgentHasHash(),
@@ -118,7 +118,7 @@ func packageStatusToDomain(packageStatuses *protobufs.PackageStatuses) *model.Ag
 		}
 	}
 
-	return &model.AgentStatusPackageStatuses{
+	return &model.AgentPackageStatuses{
 		Packages:                     packages,
 		ServerProvidedAllPackgesHash: packageStatuses.GetServerProvidedAllPackagesHash(),
 		ErrorMessage:                 packageStatuses.GetErrorMessage(),

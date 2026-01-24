@@ -72,15 +72,45 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		}
 	}
 
-	var packagesAvailable *protobufs.PackageAvailable
+	var packagesAvailable *protobufs.PackagesAvailable
 	if len(agentModel.Spec.PackagesAvailable.Packages) > 0 {
-		packagesAvailable = &protobufs.PackageAvailable{
-			Packages: lo.Map(agentModel.Spec.PackagesAvailable.Packages, func(pkgName string, _ int) *protobufs.PackageInfo {
-				return &protobufs.PackageInfo{
-					Name: pkgName,
-				}
-			}),
-			ConfigHash: agentModel.Spec.PackagesAvailable.Hash.Bytes(),
+		agentPackages := lo.OmitByValues(
+			lo.SliceToMap(agentModel.Spec.PackagesAvailable.Packages,
+				func(pkgName string) (string, *protobufs.PackageAvailable) {
+					agentPackage, err := s.agentPackageUsecase.GetAgentPackage(ctx, pkgName)
+					if err != nil {
+						s.logger.Error("failed to get agent package", "name", pkgName, "error", err)
+						return pkgName, nil
+					}
+					return pkgName, &protobufs.PackageAvailable{
+						// TODO: Support different package types in the future
+						Type:    protobufs.PackageType_PackageType_TopLevel,
+						Version: agentPackage.Spec.Version,
+						File: &protobufs.DownloadableFile{
+							DownloadUrl: agentPackage.Spec.DownloadURL,
+							ContentHash: agentPackage.Spec.ContentHash,
+							Signature:   agentPackage.Spec.Signature,
+							Headers: &protobufs.Headers{
+								Headers: lo.MapToSlice(agentPackage.Spec.Headers, func(k, v string) *protobufs.Header {
+									return &protobufs.Header{
+										Key:   k,
+										Value: v,
+									}
+								}),
+							},
+						},
+						Hash: agentPackage.Spec.Hash,
+					}
+				}), nil)
+
+		hash, err := vo.NewHashFromAny(agentPackages)
+		if err != nil {
+			s.logger.Error("failed to compute hash for packages available", "instance_uid", instanceUID, "error", err)
+		} else {
+			packagesAvailable = &protobufs.PackagesAvailable{
+				Packages:        agentPackages,
+				AllPackagesHash: hash.Bytes(),
+			}
 		}
 	}
 
@@ -104,7 +134,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		ErrorResponse:       nil,
 		RemoteConfig:        remoteConfig,
 		ConnectionSettings:  connectionSettings,
-		PackagesAvailable:   nil,
+		PackagesAvailable:   packagesAvailable,
 		Flags:               flags,
 		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
 		AgentIdentification: agentIdentification,

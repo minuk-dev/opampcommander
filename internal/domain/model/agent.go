@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
@@ -27,6 +29,14 @@ type Agent struct {
 	Metadata AgentMetadata
 	Spec     AgentSpec
 	Status   AgentStatus
+}
+
+func (a *Agent) ApplyRemoteConfig(name string) error {
+	a.Spec.RemoteConfig.RemoteConfig = append(a.Spec.RemoteConfig.RemoteConfig, name)
+	sort.Strings(a.Spec.RemoteConfig.RemoteConfig)
+	a.Spec.RemoteConfig.RemoteConfig = lo.Uniq(a.Spec.RemoteConfig.RemoteConfig)
+
+	return nil
 }
 
 // NewAgent creates a new agent with the given instance UID.
