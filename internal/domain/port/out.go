@@ -64,6 +64,26 @@ type ServerPersistencePort interface {
 	ListServers(ctx context.Context) ([]*model.Server, error)
 }
 
+// AgentPackagePersistencePort is an interface that defines the methods for agent package persistence.
+type AgentPackagePersistencePort interface {
+	// GetAgentPackage retrieves an agent package by its name.
+	GetAgentPackage(ctx context.Context, name string) (*model.AgentPackage, error)
+	// PutAgentPackage saves or updates an agent package.
+	PutAgentPackage(ctx context.Context, agentPackage *model.AgentPackage) (*model.AgentPackage, error)
+	// ListAgentPackages retrieves a list of agent packages with pagination options.
+	ListAgentPackages(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentPackage], error)
+}
+
+// AgentRemoteConfigPersistencePort is an interface that defines the methods for agent remote config persistence.
+type AgentRemoteConfigPersistencePort interface {
+	// GetAgentRemoteConfig retrieves an agent remote config by its name.
+	GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfigResource, error)
+	// PutAgentRemoteConfig saves or updates an agent remote config.
+	PutAgentRemoteConfig(ctx context.Context, config *model.AgentRemoteConfigResource) (*model.AgentRemoteConfigResource, error)
+	// ListAgentRemoteConfigs retrieves a list of agent remote configs with pagination options.
+	ListAgentRemoteConfigs(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentRemoteConfigResource], error)
+}
+
 var (
 	// ErrResourceNotExist is an error that indicates that the resource does not exist.
 	ErrResourceNotExist = errors.New("resource does not exist")

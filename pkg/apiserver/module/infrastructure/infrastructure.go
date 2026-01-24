@@ -76,6 +76,8 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(port.AgentPersistencePort))),
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(port.AgentGroupPersistencePort))),
 			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(port.ServerPersistencePort))),
+			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(port.AgentPackagePersistencePort))),
+			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(port.AgentRemoteConfigPersistencePort))),
 		),
 	)
 }
