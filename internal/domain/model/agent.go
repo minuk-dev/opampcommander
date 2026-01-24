@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gopkg.in/yaml.v3"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
@@ -47,8 +46,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			RestartInfo: AgentRestartInfo{
 				RequiredRestartedAt: time.Time{},
 			},
-			RemoteConfig:   NewRemoteConfig(),
-			ConnectionInfo: ConnectionInfo{},
+			RemoteConfig:      AgentSpecRemoteConfig{},
+			ConnectionInfo:    ConnectionInfo{},
+			PackagesAvailable: AgentSpecPackage{},
 		},
 		Status: AgentStatus{
 			RemoteConfigStatus: AgentRemoteConfigStatus{
@@ -330,7 +330,31 @@ type AgentSpec struct {
 	ConnectionInfo ConnectionInfo
 
 	// RemoteConfig is the remote configuration for the agent.
-	RemoteConfig RemoteConfig
+	RemoteConfig AgentSpecRemoteConfig
+
+	// PackagesAvailable is the packages available for the agent.
+	PackagesAvailable AgentSpecPackage
+}
+
+type AgentSpecRemoteConfig struct {
+	RemoteConfig []string
+}
+
+type AgentSpecPackage struct {
+	// Packages is a list of package names available for the agent.
+	Packages []string
+}
+
+func (a *AgentSpecPackage) Hash() (vo.Hash, error) {
+	data, err := json.Marshal(a.Packages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal agent spec packages for hashing: %w", err)
+	}
+	hash, err := vo.NewHash(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hash for agent spec packages: %w", err)
+	}
+	return hash, nil
 }
 
 type connectionSettings struct {
@@ -889,49 +913,6 @@ func (a *Agent) ReportConnectionSettingsStatus(status *AgentConnectionSettingsSt
 	return nil
 }
 
-// ApplyRemoteConfig is a method to apply the remote configuration to the agent.
-func (a *Agent) ApplyRemoteConfig(config any, contentType string, priority int32) error {
-	if config == nil {
-		return nil // No remote config to apply
-	}
-
-	if priority <= a.Spec.RemoteConfig.Priority {
-		// The new remote config has lower or equal priority, ignore it
-		return nil
-	}
-
-	var (
-		configData []byte
-		err        error
-	)
-
-	switch contentType {
-	case "application/json":
-		configData, err = json.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal remote config to JSON: %w", err)
-		}
-	case "application/yaml", "text/yaml":
-		configData, err = yaml.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal remote config to YAML: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported remote config content type: %s, %w",
-			contentType, ErrUnsupportedRemoteConfigContentType)
-	}
-
-	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData, contentType)
-	if err != nil {
-		return fmt.Errorf("failed to apply remote config: %w", err)
-	}
-
-	// Set the priority after applying the config
-	a.Spec.RemoteConfig.Priority = priority
-
-	return nil
-}
-
 // ReportPackageStatuses is a method to report the package statuses of the agent.
 func (a *Agent) ReportPackageStatuses(status *AgentPackageStatuses) error {
 	if status == nil {
@@ -1067,7 +1048,7 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return a.IsRemoteConfigSupported() &&
-		!bytes.Equal(a.Spec.RemoteConfig.Hash, a.Status.RemoteConfigStatus.LastRemoteConfigHash)
+		len(a.Spec.RemoteConfig.RemoteConfig) > 0
 }
 
 // SetCondition sets or updates a condition in the agent's status.

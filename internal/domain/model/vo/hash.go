@@ -2,6 +2,7 @@ package vo
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 )
@@ -19,6 +20,19 @@ func NewHash(data []byte) (Hash, error) {
 	}
 
 	return Hash(hash.Sum(nil)), nil
+}
+
+func NewHashFromAny(data any) (Hash, error) {
+	var byteData []byte
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal data to json: %w", err)
+	}
+
+	byteData = jsonData
+
+	return NewHash(byteData)
 }
 
 // String returns the string representation of the hash.

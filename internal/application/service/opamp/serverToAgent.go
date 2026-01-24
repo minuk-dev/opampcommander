@@ -6,8 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 var (
@@ -16,7 +18,7 @@ var (
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
-func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
+func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
 	var flags uint64
 
 	instanceUID := agentModel.Metadata.InstanceUID
@@ -27,16 +29,31 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 
 	if agentModel.HasRemoteConfig() {
 		// Build RemoteConfig if applicable
-		remoteConfig = &protobufs.AgentRemoteConfig{
-			Config: &protobufs.AgentConfigMap{
-				ConfigMap: map[string]*protobufs.AgentConfigFile{
-					"opampcommander": {
-						Body:        agentModel.Spec.RemoteConfig.Config,
-						ContentType: agentModel.Spec.RemoteConfig.ContentType,
-					},
+		remoteConfigs := lo.OmitBy(lo.SliceToMap(
+			agentModel.Spec.RemoteConfig.RemoteConfig,
+			func(remoteConfigName string) (string, *protobufs.AgentConfigFile) {
+				remoteConfig, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(ctx, remoteConfigName)
+				if err != nil {
+					s.logger.Error("failed to get agent remote config", "name", remoteConfigName, "error", err)
+					return remoteConfigName, nil
+				}
+				return remoteConfigName, &protobufs.AgentConfigFile{
+					Body:        remoteConfig.Value,
+					ContentType: remoteConfig.ContentType,
+				}
+			}), nil)
+
+		hash, err := vo.NewHashFromAny(remoteConfigs)
+		if err != nil {
+			s.logger.Error("failed to compute hash for remote config", "instance_uid", instanceUID, "error", err)
+			remoteConfig = nil
+		} else {
+			remoteConfig = &protobufs.AgentRemoteConfig{
+				Config: &protobufs.AgentConfigMap{
+					ConfigMap: remoteConfigs,
 				},
-			},
-			ConfigHash: agentModel.Spec.RemoteConfig.Hash.Bytes(),
+				ConfigHash: hash.Bytes(),
+			}
 		}
 	}
 
@@ -55,6 +72,18 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 		}
 	}
 
+	var packagesAvailable *protobufs.PackageAvailable
+	if len(agentModel.Spec.PackagesAvailable.Packages) > 0 {
+		packagesAvailable = &protobufs.PackageAvailable{
+			Packages: lo.Map(agentModel.Spec.PackagesAvailable.Packages, func(pkgName string, _ int) *protobufs.PackageInfo {
+				return &protobufs.PackageInfo{
+					Name: pkgName,
+				}
+			}),
+			ConfigHash: agentModel.Spec.PackagesAvailable.Hash.Bytes(),
+		}
+	}
+
 	var capabilities int32
 
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
@@ -62,6 +91,8 @@ func (s *Service) fetchServerToAgent(_ context.Context, agentModel *model.Agent)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsConnectionSettingsRequest)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersPackages)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus)
 
 	var connectionSettings *protobufs.ConnectionSettingsOffers
 	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
