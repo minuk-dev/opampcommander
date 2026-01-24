@@ -417,64 +417,46 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 }
 
 // Test for the ApplyRemoteConfig priority logic.
-func TestAgent_ApplyRemoteConfigPriority(t *testing.T) {
+func TestAgent_ApplyRemoteConfig(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Higher priority config should be applied", func(t *testing.T) {
+	t.Run("Remote config name should be added to the list", func(t *testing.T) {
 		t.Parallel()
 
 		//exhaustruct:ignore
 		agent := &model.Agent{}
-		agent.Spec.RemoteConfig.Priority = 10
 
-		err := agent.ApplyRemoteConfig("new-config", "text/yaml", 20)
+		err := agent.ApplyRemoteConfig("config-1")
 		require.NoError(t, err)
-		assert.Equal(t, int32(20), agent.Spec.RemoteConfig.Priority)
+		assert.Contains(t, agent.Spec.RemoteConfig.RemoteConfig, "config-1")
 	})
 
-	t.Run("Lower priority config should be ignored", func(t *testing.T) {
+	t.Run("Multiple remote configs should be added and sorted", func(t *testing.T) {
 		t.Parallel()
 
 		//exhaustruct:ignore
 		agent := &model.Agent{}
-		agent.Spec.RemoteConfig.Config = []byte("existing-config")
-		agent.Spec.RemoteConfig.Priority = 20
 
-		originalConfig := agent.Spec.RemoteConfig.Config
-		err := agent.ApplyRemoteConfig("new-config", "text/yaml", 10)
+		err := agent.ApplyRemoteConfig("config-b")
 		require.NoError(t, err)
-		// Config should remain unchanged as priority is lower
-		assert.Equal(t, originalConfig, agent.Spec.RemoteConfig.Config)
-		assert.Equal(t, int32(20), agent.Spec.RemoteConfig.Priority)
+		err = agent.ApplyRemoteConfig("config-a")
+		require.NoError(t, err)
+
+		assert.Equal(t, []string{"config-a", "config-b"}, agent.Spec.RemoteConfig.RemoteConfig)
 	})
 
-	t.Run("Equal priority config should be ignored", func(t *testing.T) {
+	t.Run("Duplicate remote config names should be deduplicated", func(t *testing.T) {
 		t.Parallel()
 
 		//exhaustruct:ignore
 		agent := &model.Agent{}
-		agent.Spec.RemoteConfig.Config = []byte("existing-config")
-		agent.Spec.RemoteConfig.Priority = 15
 
-		originalConfig := agent.Spec.RemoteConfig.Config
-		err := agent.ApplyRemoteConfig("equal-priority-config", "text/yaml", 15)
+		err := agent.ApplyRemoteConfig("config-1")
 		require.NoError(t, err)
-		// Config should remain unchanged as priority is equal
-		assert.Equal(t, originalConfig, agent.Spec.RemoteConfig.Config)
-		assert.Equal(t, int32(15), agent.Spec.RemoteConfig.Priority)
-	})
-
-	t.Run("Priority zero with no existing config should be applied", func(t *testing.T) {
-		t.Parallel()
-
-		//exhaustruct:ignore
-		agent := &model.Agent{}
-		agent.Spec.RemoteConfig.Priority = -1 // Lower than 0 to simulate no existing config
-
-		err := agent.ApplyRemoteConfig("initial-config", "text/yaml", 0)
+		err = agent.ApplyRemoteConfig("config-1")
 		require.NoError(t, err)
-		// Config should be applied as it's higher than -1
-		assert.Equal(t, int32(0), agent.Spec.RemoteConfig.Priority)
+
+		assert.Equal(t, []string{"config-1"}, agent.Spec.RemoteConfig.RemoteConfig)
 	})
 }
 

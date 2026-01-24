@@ -13,6 +13,11 @@ var _ port.AgentRemoteConfigUsecase = (*AgentRemoteConfigService)(nil)
 type AgentRemoteConfigService struct {
 }
 
+// NewAgentRemoteConfigService creates a new AgentRemoteConfigService.
+func NewAgentRemoteConfigService() *AgentRemoteConfigService {
+	return &AgentRemoteConfigService{}
+}
+
 // GetAgentRemoteConfig implements [port.AgentRemoteConfigUsecase].
 func (a *AgentRemoteConfigService) GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfig, error) {
 	panic("unimplemented")

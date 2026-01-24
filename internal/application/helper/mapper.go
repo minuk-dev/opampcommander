@@ -169,7 +169,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 			},
 			PackageStatuses: v1.AgentPackageStatuses{
 				Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
-					func(value model.AgentPackageStatus, _ string) v1.AgentPackageStatus {
+					func(value model.AgentPackageStatusEntry, _ string) v1.AgentPackageStatus {
 						return v1.AgentPackageStatus{
 							Name: value.Name,
 						}
@@ -198,17 +198,19 @@ func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
 
 func (mapper *Mapper) mapRemoteConfigFromAPI(
 	apiRemoteConfig *v1.AgentRemoteConfig,
-) model.RemoteConfig {
-	configData, ok := apiRemoteConfig.ConfigMap["remote_config.yaml"]
-	if !ok {
-		//exhaustruct:ignore
-		return model.RemoteConfig{}
+) model.AgentSpecRemoteConfig {
+	if apiRemoteConfig == nil || len(apiRemoteConfig.ConfigMap) == 0 {
+		return model.AgentSpecRemoteConfig{}
 	}
 
-	//exhaustruct:ignore
-	return model.RemoteConfig{
-		Config: []byte(configData.Body),
-		Hash:   []byte(apiRemoteConfig.ConfigHash),
+	// Extract remote config names from the config map keys
+	remoteConfigNames := make([]string, 0, len(apiRemoteConfig.ConfigMap))
+	for name := range apiRemoteConfig.ConfigMap {
+		remoteConfigNames = append(remoteConfigNames, name)
+	}
+
+	return model.AgentSpecRemoteConfig{
+		RemoteConfig: remoteConfigNames,
 	}
 }
 
@@ -260,20 +262,17 @@ func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth
 	}
 }
 
-func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.RemoteConfig) v1.AgentRemoteConfig {
+func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.AgentSpecRemoteConfig) v1.AgentRemoteConfig {
 	configMap := make(map[string]v1.AgentConfigFile)
 
-	// If there's config data, add it to the config map
-	if len(remoteConfig.Config) > 0 {
-		configMap["remote_config.yaml"] = v1.AgentConfigFile{
-			Body:        string(remoteConfig.Config),
-			ContentType: TextYAML,
-		}
+	// Add each remote config name to the config map
+	for _, name := range remoteConfig.RemoteConfig {
+		configMap[name] = v1.AgentConfigFile{}
 	}
 
 	return v1.AgentRemoteConfig{
 		ConfigMap:  configMap,
-		ConfigHash: string(remoteConfig.Hash),
+		ConfigHash: "",
 	}
 }
 

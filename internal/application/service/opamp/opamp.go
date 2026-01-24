@@ -47,6 +47,8 @@ func New(
 	serverIdentityProvider domainport.ServerIdentityProvider,
 	agentGroupUsecase domainport.AgentGroupUsecase,
 	agentNotificationUsecase domainport.AgentNotificationUsecase,
+	agentPackageUsecase domainport.AgentPackageUsecase,
+	agentRemoteConfigUsecase domainport.AgentRemoteConfigUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -57,6 +59,8 @@ func New(
 		serverIdentityProvider:   serverIdentityProvider,
 		agentGroupUsecase:        agentGroupUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
+		agentPackageUsecase:      agentPackageUsecase,
+		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
