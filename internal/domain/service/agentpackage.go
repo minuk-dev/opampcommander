@@ -13,6 +13,11 @@ var _ port.AgentPackageUsecase = (*AgentPackageService)(nil)
 type AgentPackageService struct {
 }
 
+// NewAgentPackageService creates a new AgentPackageService.
+func NewAgentPackageService() *AgentPackageService {
+	return &AgentPackageService{}
+}
+
 // GetAgentPackage implements [port.AgentPackageUsecase].
 func (a *AgentPackageService) GetAgentPackage(ctx context.Context, name string) (*model.AgentPackage, error) {
 	panic("unimplemented")
