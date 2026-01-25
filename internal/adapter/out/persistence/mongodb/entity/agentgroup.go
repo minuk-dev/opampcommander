@@ -1,8 +1,10 @@
 package entity
 
 import (
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
+
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 const (
@@ -12,7 +14,8 @@ const (
 
 // AgentGroup is the mongo entity representation of the AgentGroup domain model.
 type AgentGroup struct {
-	Common   `bson:",inline"`
+	Common `bson:",inline"`
+
 	Metadata AgentGroupMetadata `bson:"metadata"`
 	Spec     AgentGroupSpec     `bson:"spec"`
 	Status   AgentGroupStatus   `bson:"status"`
@@ -50,7 +53,7 @@ type AgentRemoteConfig struct {
 
 // AgentConnectionConfig represents connection settings for agents in the group.
 type AgentConnectionConfig struct {
-	OpAMP            ConnectionSettings            `bson:"opamp"  json:"opamp"`
+	OpAMP            ConnectionSettings            `bson:"opamp"            json:"opamp"`
 	OwnMetrics       ConnectionSettings            `bson:"ownMetrics"       json:"ownMetrics"`
 	OwnLogs          ConnectionSettings            `bson:"ownLogs"          json:"ownLogs"`
 	OwnTraces        ConnectionSettings            `bson:"ownTraces"        json:"ownTraces"`
@@ -58,8 +61,8 @@ type AgentConnectionConfig struct {
 }
 
 type ConnectionSettings struct {
-	DestinationEndpoint string                   `bson:"destinationEndpoint" json:"destinationEndpoint"`
-	Headers             map[string][]string      `bson:"headers,omitempty" json:"headers,omitempty"`
+	DestinationEndpoint string                   `bson:"destinationEndpoint"   json:"destinationEndpoint"`
+	Headers             map[string][]string      `bson:"headers,omitempty"     json:"headers,omitempty"`
 	Certificate         TelemetryTLSCeritificate `bson:"certificate,omitempty" json:"certificate,omitempty"`
 }
 
@@ -67,6 +70,14 @@ type TelemetryTLSCeritificate struct {
 	Cert       bson.Binary `bson:"cert,omitempty"       json:"cert,omitempty"`
 	PrivateKey bson.Binary `bson:"privateKey,omitempty" json:"privateKey,omitempty"`
 	CaCert     bson.Binary `bson:"caCert,omitempty"     json:"caCert,omitempty"`
+}
+
+func NewTelemetryTLSCertificate(domain model.TelemetryTLSCertificate) TelemetryTLSCeritificate {
+	return TelemetryTLSCeritificate{
+		Cert:       bson.Binary{Data: domain.Cert},
+		PrivateKey: bson.Binary{Data: domain.PrivateKey},
+		CaCert:     bson.Binary{Data: domain.CaCert},
+	}
 }
 
 // AgentGroupStatistics holds statistical data for an agent group.
@@ -232,52 +243,31 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 			OpAMP: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OpAMPConnection.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OpAMPConnection.Headers,
-				Certificate: TelemetryTLSCeritificate{
-					Cert:       bson.Binary{Data: spec.AgentConnectionConfig.OpAMPConnection.Certificate.Cert},
-					PrivateKey: bson.Binary{Data: spec.AgentConnectionConfig.OpAMPConnection.Certificate.PrivateKey},
-					CaCert:     bson.Binary{Data: spec.AgentConnectionConfig.OpAMPConnection.Certificate.CaCert},
-				},
+				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OpAMPConnection.Certificate),
 			},
 			OwnMetrics: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OwnMetrics.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OwnMetrics.Headers,
-				Certificate: TelemetryTLSCeritificate{
-					Cert:       bson.Binary{Data: spec.AgentConnectionConfig.OwnMetrics.Certificate.Cert},
-					PrivateKey: bson.Binary{Data: spec.AgentConnectionConfig.OwnMetrics.Certificate.PrivateKey},
-					CaCert:     bson.Binary{Data: spec.AgentConnectionConfig.OwnMetrics.Certificate.CaCert},
-				},
+				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OwnMetrics.Certificate),
 			},
 			OwnLogs: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OwnLogs.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OwnLogs.Headers,
-				Certificate: TelemetryTLSCeritificate{
-					Cert:       bson.Binary{Data: spec.AgentConnectionConfig.OwnLogs.Certificate.Cert},
-					PrivateKey: bson.Binary{Data: spec.AgentConnectionConfig.OwnLogs.Certificate.PrivateKey},
-					CaCert:     bson.Binary{Data: spec.AgentConnectionConfig.OwnLogs.Certificate.CaCert},
-				},
+				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OwnLogs.Certificate),
 			},
 			OwnTraces: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OwnTraces.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OwnTraces.Headers,
-				Certificate: TelemetryTLSCeritificate{
-					Cert:       bson.Binary{Data: spec.AgentConnectionConfig.OwnTraces.Certificate.Cert},
-					PrivateKey: bson.Binary{Data: spec.AgentConnectionConfig.OwnTraces.Certificate.PrivateKey},
-					CaCert:     bson.Binary{Data: spec.AgentConnectionConfig.OwnTraces.Certificate.CaCert},
-				},
+				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OwnTraces.Certificate),
 			},
-			OtherConnections: make(map[string]ConnectionSettings),
-		}
-
-		for k, v := range spec.AgentConnectionConfig.OtherConnections {
-			result.AgentConnectionConfig.OtherConnections[k] = ConnectionSettings{
-				DestinationEndpoint: v.DestinationEndpoint,
-				Headers:             v.Headers,
-				Certificate: TelemetryTLSCeritificate{
-					Cert:       bson.Binary{Data: v.Certificate.Cert},
-					PrivateKey: bson.Binary{Data: v.Certificate.PrivateKey},
-					CaCert:     bson.Binary{Data: v.Certificate.CaCert},
-				},
-			}
+			OtherConnections: lo.MapValues(spec.AgentConnectionConfig.OtherConnections,
+				func(v model.OtherConnectionSettings, _ string) ConnectionSettings {
+					return ConnectionSettings{
+						DestinationEndpoint: v.DestinationEndpoint,
+						Headers:             v.Headers,
+						Certificate:         NewTelemetryTLSCertificate(v.Certificate),
+					}
+				}),
 		}
 	}
 
@@ -285,18 +275,9 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 }
 
 func agentGroupStatusFromDomain(status model.AgentGroupStatus) AgentGroupStatus {
-	conditions := make([]Condition, len(status.Conditions))
-	for i, c := range status.Conditions {
-		conditions[i] = Condition{
-			Type:               string(c.Type),
-			LastTransitionTime: c.LastTransitionTime,
-			Status:             string(c.Status),
-			Reason:             c.Reason,
-			Message:            c.Message,
-		}
-	}
-
 	return AgentGroupStatus{
-		Conditions: conditions,
+		Conditions: lo.Map(status.Conditions, func(c model.Condition, _ int) Condition {
+			return NewConnectionFromDomain(c)
+		}),
 	}
 }
