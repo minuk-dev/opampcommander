@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -13,7 +14,8 @@ const (
 
 // AgentPackage is the MongoDB entity for agent package.
 type AgentPackage struct {
-	Common   `bson:",inline"`
+	Common `bson:",inline"`
+
 	Metadata AgentPackageMetadata       `bson:"metadata"`
 	Spec     AgentPackageSpec           `bson:"spec"`
 	Status   AgentPackageResourceStatus `bson:"status"`
@@ -70,32 +72,23 @@ func (s *AgentPackageSpec) toDomain() domainmodel.AgentPackageSpec {
 }
 
 func (s *AgentPackageResourceStatus) toDomain() domainmodel.AgentPackageStatus {
-	conditions := make([]domainmodel.Condition, len(s.Conditions))
-	for i, c := range s.Conditions {
-		conditions[i] = domainmodel.Condition{
-			Type:               domainmodel.ConditionType(c.Type),
-			Status:             domainmodel.ConditionStatus(c.Status),
-			LastTransitionTime: c.LastTransitionTime,
-			Reason:             c.Reason,
-			Message:            c.Message,
-		}
-	}
-
 	return domainmodel.AgentPackageStatus{
-		Conditions: conditions,
+		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) domainmodel.Condition {
+			return c.ToDomain()
+		}),
 	}
 }
 
 // AgentPackageFromDomain converts domain model to entity.
-func AgentPackageFromDomain(ap *domainmodel.AgentPackage) *AgentPackage {
+func AgentPackageFromDomain(domain *domainmodel.AgentPackage) *AgentPackage {
 	return &AgentPackage{
 		Common: Common{
 			Version: VersionV1,
 			ID:      nil,
 		},
-		Metadata: agentPackageMetadataFromDomain(ap.Metadata),
-		Spec:     agentPackageSpecFromDomain(ap.Spec),
-		Status:   agentPackageStatusFromDomain(ap.Status),
+		Metadata: agentPackageMetadataFromDomain(domain.Metadata),
+		Spec:     agentPackageSpecFromDomain(domain.Spec),
+		Status:   agentPackageStatusFromDomain(domain.Status),
 	}
 }
 
@@ -106,32 +99,23 @@ func agentPackageMetadataFromDomain(m domainmodel.AgentPackageMetadata) AgentPac
 	}
 }
 
-func agentPackageSpecFromDomain(s domainmodel.AgentPackageSpec) AgentPackageSpec {
+func agentPackageSpecFromDomain(domain domainmodel.AgentPackageSpec) AgentPackageSpec {
 	return AgentPackageSpec{
-		PackageType: s.PackageType,
-		Version:     s.Version,
-		DownloadURL: s.DownloadURL,
-		ContentHash: s.ContentHash,
-		Signature:   s.Signature,
-		Headers:     s.Headers,
-		Hash:        s.Hash,
+		PackageType: domain.PackageType,
+		Version:     domain.Version,
+		DownloadURL: domain.DownloadURL,
+		ContentHash: domain.ContentHash,
+		Signature:   domain.Signature,
+		Headers:     domain.Headers,
+		Hash:        domain.Hash,
 	}
 }
 
 func agentPackageStatusFromDomain(s domainmodel.AgentPackageStatus) AgentPackageResourceStatus {
-	conditions := make([]Condition, len(s.Conditions))
-	for i, c := range s.Conditions {
-		conditions[i] = Condition{
-			Type:               string(c.Type),
-			Status:             string(c.Status),
-			LastTransitionTime: c.LastTransitionTime,
-			Reason:             c.Reason,
-			Message:            c.Message,
-		}
-	}
-
 	return AgentPackageResourceStatus{
-		Conditions: conditions,
+		Conditions: lo.Map(s.Conditions, func(c domainmodel.Condition, _ int) Condition {
+			return NewConnectionFromDomain(c)
+		}),
 	}
 }
 
@@ -167,17 +151,6 @@ type AgentRemoteConfigResourceEntityStatus struct {
 
 // ToDomain converts the entity to domain model.
 func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteConfigResource {
-	conditions := make([]domainmodel.Condition, len(arc.Status.Conditions))
-	for i, c := range arc.Status.Conditions {
-		conditions[i] = domainmodel.Condition{
-			Type:               domainmodel.ConditionType(c.Type),
-			Status:             domainmodel.ConditionStatus(c.Status),
-			LastTransitionTime: c.LastTransitionTime,
-			Reason:             c.Reason,
-			Message:            c.Message,
-		}
-	}
-
 	return &domainmodel.AgentRemoteConfigResource{
 		Metadata: domainmodel.AgentRemoteConfigMetadata{
 			Name:       arc.Name,
@@ -188,24 +161,15 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 			ContentType: arc.Spec.ContentType,
 		},
 		Status: domainmodel.AgentRemoteConfigResourceStatus{
-			Conditions: conditions,
+			Conditions: lo.Map(arc.Status.Conditions, func(c Condition, _ int) domainmodel.Condition {
+				return c.ToDomain()
+			}),
 		},
 	}
 }
 
 // AgentRemoteConfigResourceEntityFromDomain converts domain model to entity.
 func AgentRemoteConfigResourceEntityFromDomain(arc *domainmodel.AgentRemoteConfigResource) *AgentRemoteConfigResourceEntity {
-	conditions := make([]Condition, len(arc.Status.Conditions))
-	for i, c := range arc.Status.Conditions {
-		conditions[i] = Condition{
-			Type:               string(c.Type),
-			Status:             string(c.Status),
-			LastTransitionTime: c.LastTransitionTime,
-			Reason:             c.Reason,
-			Message:            c.Message,
-		}
-	}
-
 	return &AgentRemoteConfigResourceEntity{
 		Name: arc.Metadata.Name,
 		Metadata: AgentRemoteConfigResourceMetadata{
@@ -216,7 +180,9 @@ func AgentRemoteConfigResourceEntityFromDomain(arc *domainmodel.AgentRemoteConfi
 			ContentType: arc.Spec.ContentType,
 		},
 		Status: AgentRemoteConfigResourceEntityStatus{
-			Conditions: conditions,
+			Conditions: lo.Map(arc.Status.Conditions, func(c domainmodel.Condition, _ int) Condition {
+				return NewConnectionFromDomain(c)
+			}),
 		},
 	}
 }

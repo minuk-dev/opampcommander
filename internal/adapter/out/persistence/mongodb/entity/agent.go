@@ -139,8 +139,8 @@ type AgentConfigMap struct {
 
 // AgentConfigFile is a struct to manage config file.
 type AgentConfigFile struct {
-	Body        []byte `bson:"body"`
-	ContentType string `bson:"contentType"`
+	Body        bson.Binary `bson:"body"`
+	ContentType string      `bson:"contentType"`
 }
 
 // AgentSpecRemoteConfig is a struct to manage remote config names for agent spec.
@@ -150,15 +150,15 @@ type AgentSpecRemoteConfig struct {
 
 // AgentRemoteConfigData is a struct to manage remote config data.
 type AgentRemoteConfigData struct {
-	Key                []byte                      `bson:"key"`
+	Key                bson.Binary                 `bson:"key"`
 	Status             AgentRemoteConfigStatusEnum `bson:"status"`
-	Config             []byte                      `bson:"config"`
+	Config             bson.Binary                 `bson:"config"`
 	LastUpdatedAtMilli int64                       `bson:"lastUpdatedAtMilli"`
 }
 
 // AgentRemoteConfigSub is a struct to manage remote config status with key.
 type AgentRemoteConfigSub struct {
-	Key   []byte                      `bson:"key"`
+	Key   bson.Binary                 `bson:"key"`
 	Value AgentRemoteConfigStatusEnum `bson:"value"`
 }
 
@@ -167,7 +167,7 @@ type AgentRemoteConfigStatusEnum int32
 
 // AgentRemoteConfigStatus represents the status of remote config in MongoDB.
 type AgentRemoteConfigStatus struct {
-	LastRemoteConfigHash []byte                      `bson:"lastRemoteConfigHash,omitempty"`
+	LastRemoteConfigHash bson.Binary                 `bson:"lastRemoteConfigHash,omitempty"`
 	Status               AgentRemoteConfigStatusEnum `bson:"status"`
 	ErrorMessage         string                      `bson:"errorMessage,omitempty"`
 }
@@ -175,7 +175,7 @@ type AgentRemoteConfigStatus struct {
 // AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
 	Packages                     map[string]AgentPackageStatus `bson:"packages"`
-	ServerProvidedAllPackgesHash []byte                        `bson:"serverProvidedAllPackgesHash"`
+	ServerProvidedAllPackgesHash bson.Binary                   `bson:"serverProvidedAllPackgesHash"`
 	ErrorMessage                 string                        `bson:"errorMessage"`
 }
 
@@ -183,7 +183,7 @@ type AgentPackageStatuses struct {
 type AgentPackageStatus struct {
 	Name                 string                 `bson:"name"`
 	AgentHasVersion      string                 `bson:"agentHasVersion"`
-	AgentHasHash         []byte                 `bson:"agentHasHash"`
+	AgentHasHash         bson.Binary            `bson:"agentHasHash"`
 	ServerOfferedVersion string                 `bson:"serverOfferedVersion"`
 	Status               AgentPackageStatusEnum `bson:"status"`
 	ErrorMessage         string                 `bson:"errorMessage"`
@@ -200,7 +200,7 @@ type AgentCustomCapabilities struct {
 // AgentAvailableComponents is a map of available components.
 type AgentAvailableComponents struct {
 	Components map[string]ComponentDetails `bson:"components"`
-	Hash       []byte                      `bson:"hash"`
+	Hash       bson.Binary                 `bson:"hash"`
 }
 
 // ComponentDetails is a details of a component.
@@ -354,7 +354,7 @@ func (ae *AgentEffectiveConfig) ToDomain() *domainmodel.AgentEffectiveConfig {
 		ConfigMap: domainmodel.AgentConfigMap{
 			ConfigMap: lo.MapValues(ae.ConfigMap.ConfigMap, func(acf AgentConfigFile, _ string) domainmodel.AgentConfigFile {
 				return domainmodel.AgentConfigFile{
-					Body:        acf.Body,
+					Body:        acf.Body.Data,
 					ContentType: acf.ContentType,
 				}
 			}),
@@ -373,13 +373,13 @@ func (ap *AgentPackageStatuses) ToDomain() *domainmodel.AgentPackageStatuses {
 			return domainmodel.AgentPackageStatusEntry{
 				Name:                 aps.Name,
 				AgentHasVersion:      aps.AgentHasVersion,
-				AgentHasHash:         aps.AgentHasHash,
+				AgentHasHash:         aps.AgentHasHash.Data,
 				ServerOfferedVersion: aps.ServerOfferedVersion,
 				Status:               domainmodel.AgentPackageStatusEnum(aps.Status),
 				ErrorMessage:         aps.ErrorMessage,
 			}
 		}),
-		ServerProvidedAllPackgesHash: ap.ServerProvidedAllPackgesHash,
+		ServerProvidedAllPackgesHash: ap.ServerProvidedAllPackgesHash.Data,
 		ErrorMessage:                 ap.ErrorMessage,
 	}
 }
@@ -436,7 +436,7 @@ func (avv *AgentAvailableComponents) ToDomain() *domainmodel.AgentAvailableCompo
 			func(component ComponentDetails, _ string) domainmodel.ComponentDetails {
 				return *component.ToDomain()
 			}),
-		Hash: avv.Hash,
+		Hash: avv.Hash.Data,
 	}
 }
 
@@ -530,7 +530,10 @@ func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *Agen
 			ConfigMap: lo.MapValues(aec.ConfigMap.ConfigMap,
 				func(cf domainmodel.AgentConfigFile, _ string) AgentConfigFile {
 					return AgentConfigFile{
-						Body:        cf.Body,
+						Body: bson.Binary{
+							Subtype: bson.TypeBinaryGeneric,
+							Data:    cf.Body,
+						},
 						ContentType: cf.ContentType,
 					}
 				}),
@@ -548,16 +551,22 @@ func AgentPackageStatusesFromDomain(aps *domainmodel.AgentPackageStatuses) *Agen
 		Packages: lo.MapValues(aps.Packages,
 			func(pss domainmodel.AgentPackageStatusEntry, _ string) AgentPackageStatus {
 				return AgentPackageStatus{
-					Name:                 pss.Name,
-					AgentHasVersion:      pss.AgentHasVersion,
-					AgentHasHash:         pss.AgentHasHash,
+					Name:            pss.Name,
+					AgentHasVersion: pss.AgentHasVersion,
+					AgentHasHash: bson.Binary{
+						Subtype: bson.TypeBinaryGeneric,
+						Data:    pss.AgentHasHash,
+					},
 					ServerOfferedVersion: pss.ServerOfferedVersion,
 					Status:               AgentPackageStatusEnum(pss.Status),
 					ErrorMessage:         pss.ErrorMessage,
 				}
 			}),
-		ServerProvidedAllPackgesHash: aps.ServerProvidedAllPackgesHash,
-		ErrorMessage:                 aps.ErrorMessage,
+		ServerProvidedAllPackgesHash: bson.Binary{
+			Subtype: bson.TypeBinaryGeneric,
+			Data:    aps.ServerProvidedAllPackgesHash,
+		},
+		ErrorMessage: aps.ErrorMessage,
 	}
 }
 
@@ -624,7 +633,10 @@ func AgentAvailableComponentsFromDomain(acc *domainmodel.AgentAvailableComponent
 			func(cd domainmodel.ComponentDetails, _ string) ComponentDetails {
 				return *ComponentDetailsFromDomain(&cd)
 			}),
-		Hash: acc.Hash,
+		Hash: bson.Binary{
+			Subtype: bson.TypeBinaryGeneric,
+			Data:    acc.Hash,
+		},
 	}
 }
 
@@ -640,7 +652,7 @@ func (arcs *AgentRemoteConfigStatus) ToDomain() domainmodel.AgentRemoteConfigSta
 	}
 
 	return domainmodel.AgentRemoteConfigStatus{
-		LastRemoteConfigHash: arcs.LastRemoteConfigHash,
+		LastRemoteConfigHash: arcs.LastRemoteConfigHash.Data,
 		Status:               domainmodel.RemoteConfigStatus(arcs.Status),
 		ErrorMessage:         arcs.ErrorMessage,
 		LastUpdatedAt:        time.Time{},
@@ -654,9 +666,12 @@ func AgentRemoteConfigStatusFromDomain(arcs *domainmodel.AgentRemoteConfigStatus
 	}
 
 	return &AgentRemoteConfigStatus{
-		LastRemoteConfigHash: arcs.LastRemoteConfigHash,
-		Status:               AgentRemoteConfigStatusEnum(arcs.Status),
-		ErrorMessage:         arcs.ErrorMessage,
+		LastRemoteConfigHash: bson.Binary{
+			Subtype: bson.TypeBinaryGeneric,
+			Data:    arcs.LastRemoteConfigHash,
+		},
+		Status:       AgentRemoteConfigStatusEnum(arcs.Status),
+		ErrorMessage: arcs.ErrorMessage,
 	}
 }
 

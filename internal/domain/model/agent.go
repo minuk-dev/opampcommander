@@ -703,30 +703,30 @@ func (ci *ConnectionInfo) updateHash() error {
 
 // OpAMPConnectionSettings represents OpAMP connection settings.
 type OpAMPConnectionSettings struct {
-	DestinationEndpoint string              `json:"destinationEndpoint"`
-	Headers             map[string][]string `json:"headers"`
+	DestinationEndpoint string
+	Headers             map[string][]string
 	Certificate         TelemetryTLSCertificate
 }
 
 // TelemetryConnectionSettings represents telemetry connection settings.
 type TelemetryConnectionSettings struct {
-	DestinationEndpoint string              `json:"destinationEndpoint"`
-	Headers             map[string][]string `json:"headers"`
+	DestinationEndpoint string
+	Headers             map[string][]string
 	Certificate         TelemetryTLSCertificate
 }
 
 // OtherConnectionSettings represents other connection settings.
 type OtherConnectionSettings struct {
-	DestinationEndpoint string              `json:"destinationEndpoint"`
-	Headers             map[string][]string `json:"headers"`
+	DestinationEndpoint string
+	Headers             map[string][]string
 	Certificate         TelemetryTLSCertificate
 }
 
 // TelemetryTLSCertificate represents TLS certificate for telemetry.
 type TelemetryTLSCertificate struct {
-	Cert       []byte `json:"cert"`
-	PrivateKey []byte `json:"privateKey"`
-	CaCert     []byte `json:"caCert"`
+	Cert       []byte
+	PrivateKey []byte
+	CaCert     []byte
 }
 
 // AgentRestartInfo is a domain model to control opamp agent restart information.
