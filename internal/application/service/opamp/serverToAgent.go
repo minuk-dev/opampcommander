@@ -35,8 +35,10 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 				remoteConfig, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(ctx, remoteConfigName)
 				if err != nil {
 					s.logger.Error("failed to get agent remote config", "name", remoteConfigName, "error", err)
+
 					return remoteConfigName, nil
 				}
+
 				return remoteConfigName, &protobufs.AgentConfigFile{
 					Body:        remoteConfig.Value,
 					ContentType: remoteConfig.ContentType,
@@ -46,6 +48,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		hash, err := vo.NewHashFromAny(remoteConfigs)
 		if err != nil {
 			s.logger.Error("failed to compute hash for remote config", "instance_uid", instanceUID, "error", err)
+
 			remoteConfig = nil
 		} else {
 			remoteConfig = &protobufs.AgentRemoteConfig{
@@ -80,8 +83,10 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 					agentPackage, err := s.agentPackageUsecase.GetAgentPackage(ctx, pkgName)
 					if err != nil {
 						s.logger.Error("failed to get agent package", "name", pkgName, "error", err)
+
 						return pkgName, nil
 					}
+
 					return pkgName, &protobufs.PackageAvailable{
 						// TODO: Support different package types in the future
 						Type:    protobufs.PackageType_PackageType_TopLevel,

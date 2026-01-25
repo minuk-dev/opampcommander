@@ -44,9 +44,9 @@ type AgentMetadata struct {
 
 // AgentSpec represents the desired specification of an agent.
 type AgentSpec struct {
-	NewInstanceUID      []byte                `bson:"newInstanceUID,omitempty"`
+	NewInstanceUID      []byte                 `bson:"newInstanceUID,omitempty"`
 	RemoteConfig        *AgentSpecRemoteConfig `bson:"remoteConfig,omitempty"`
-	RequiredRestartedAt bson.DateTime         `bson:"requiredRestartedAt,omitempty"`
+	RequiredRestartedAt bson.DateTime          `bson:"requiredRestartedAt,omitempty"`
 }
 
 // AgentStatus represents the current status of an agent.
