@@ -360,10 +360,12 @@ func (a *AgentSpecPackage) Hash() (vo.Hash, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal agent spec packages for hashing: %w", err)
 	}
+
 	hash, err := vo.NewHash(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create hash for agent spec packages: %w", err)
 	}
+
 	return hash, nil
 }
 

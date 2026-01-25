@@ -206,4 +206,3 @@ func AgentRemoteConfigResourceEntityFromDomain(arc *domainmodel.AgentRemoteConfi
 		},
 	}
 }
-

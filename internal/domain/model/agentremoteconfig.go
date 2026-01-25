@@ -12,12 +12,12 @@ type AgentRemoteConfigResource struct {
 
 // AgentRemoteConfigMetadata contains metadata for the agent remote config resource.
 type AgentRemoteConfigMetadata struct {
-	Name        string
-	Attributes  Attributes
-	CreatedAt   time.Time
-	CreatedBy   string
-	UpdatedAt   time.Time
-	UpdatedBy   string
+	Name       string
+	Attributes Attributes
+	CreatedAt  time.Time
+	CreatedBy  string
+	UpdatedAt  time.Time
+	UpdatedBy  string
 }
 
 // AgentRemoteConfigSpec contains the specification for the agent remote config resource.
@@ -40,6 +40,7 @@ func (arc *AgentRemoteConfigResource) IsDeleted() bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -51,6 +52,7 @@ func (arc *AgentRemoteConfigResource) MarkDeleted(deletedAt time.Time, deletedBy
 			arc.Status.Conditions[i].LastTransitionTime = deletedAt
 			arc.Status.Conditions[i].Reason = deletedBy
 			arc.Status.Conditions[i].Message = "Deleted by " + deletedBy
+
 			return
 		}
 	}

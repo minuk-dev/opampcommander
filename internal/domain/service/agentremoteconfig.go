@@ -74,7 +74,7 @@ func (s *AgentRemoteConfigService) SaveAgentRemoteConfig(
 	// This method expects a name to be provided somehow
 	// For now, we'll need to extend the interface or use a different approach
 	// Since AgentRemoteConfig doesn't have a name, we can't save it directly
-	return nil, fmt.Errorf("SaveAgentRemoteConfig requires a name, use SaveAgentRemoteConfigResource instead")
+	return nil, errors.New("SaveAgentRemoteConfig requires a name, use SaveAgentRemoteConfigResource instead")
 }
 
 // DeleteAgentRemoteConfig implements [port.AgentRemoteConfigUsecase].

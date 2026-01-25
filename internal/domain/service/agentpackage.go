@@ -29,6 +29,7 @@ func (s *AgentPackageService) GetAgentPackage(ctx context.Context, name string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent package: %w", err)
 	}
+
 	return agentPackage, nil
 }
 
@@ -41,6 +42,7 @@ func (s *AgentPackageService) ListAgentPackages(
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agent packages: %w", err)
 	}
+
 	return resp, nil
 }
 
@@ -53,6 +55,7 @@ func (s *AgentPackageService) SaveAgentPackage(
 	if err != nil {
 		return nil, fmt.Errorf("failed to save agent package: %w", err)
 	}
+
 	return saved, nil
 }
 
