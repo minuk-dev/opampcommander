@@ -20,7 +20,7 @@ const (
 
 // AgentPackageMongoAdapter is a struct that implements the AgentPackagePersistencePort interface.
 type AgentPackageMongoAdapter struct {
-	common commonEntityAdapter[entity.AgentPackageResource, string]
+	common commonEntityAdapter[entity.AgentPackage, string]
 }
 
 // NewAgentPackageRepository creates a new instance of AgentPackageMongoAdapter.
@@ -29,8 +29,8 @@ func NewAgentPackageRepository(
 	logger *slog.Logger,
 ) *AgentPackageMongoAdapter {
 	collection := mongoDatabase.Collection(agentPackageCollectionName)
-	keyFunc := func(en *entity.AgentPackageResource) string {
-		return en.Name
+	keyFunc := func(en *entity.AgentPackage) string {
+		return en.Metadata.Name
 	}
 	keyQueryFunc := func(key string) any {
 		return key
@@ -84,7 +84,7 @@ func (a *AgentPackageMongoAdapter) ListAgentPackages(
 func (a *AgentPackageMongoAdapter) PutAgentPackage(
 	ctx context.Context, agentPackage *model.AgentPackage,
 ) (*model.AgentPackage, error) {
-	en := entity.AgentPackageResourceFromDomain(agentPackage)
+	en := entity.AgentPackageFromDomain(agentPackage)
 
 	err := a.common.put(ctx, en)
 	if err != nil {

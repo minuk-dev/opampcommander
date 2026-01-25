@@ -9,7 +9,6 @@ import (
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 const (
@@ -147,14 +146,6 @@ type AgentConfigFile struct {
 // AgentSpecRemoteConfig is a struct to manage remote config names for agent spec.
 type AgentSpecRemoteConfig struct {
 	RemoteConfig []string `bson:"remoteConfig"`
-}
-
-// AgentRemoteConfig is a struct to manage remote config.
-type AgentRemoteConfig struct {
-	ConfigData              *AgentRemoteConfigData `bson:"configData,omitempty"`
-	RemoteConfigStatuses    []AgentRemoteConfigSub `bson:"remoteConfigStatuses"`
-	LastErrorMessage        string                 `bson:"lastErrorMessage"`
-	LastModifiedAtUnixMilli int64                  `bson:"lastModifiedAtUnixMilli"`
 }
 
 // AgentRemoteConfigData is a struct to manage remote config data.
@@ -423,22 +414,6 @@ func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig 
 	}
 }
 
-// ToDomain converts the AgentRemoteConfig to domain model.
-func (arc *AgentRemoteConfig) ToDomain() domainmodel.RemoteConfig {
-	remoteConfig := domainmodel.NewRemoteConfig()
-	if arc == nil {
-		return remoteConfig
-	}
-
-	if arc.ConfigData != nil {
-		remoteConfig.Hash = vo.Hash(arc.ConfigData.Key)
-		remoteConfig.Config = arc.ConfigData.Config
-		remoteConfig.LastUpdatedAt = time.UnixMilli(arc.ConfigData.LastUpdatedAtMilli)
-	}
-
-	return remoteConfig
-}
-
 // ToDomain converts the AgentCustomCapabilities to domain model.
 func (acc *AgentCustomCapabilities) ToDomain() *domainmodel.AgentCustomCapabilities {
 	if acc == nil {
@@ -613,25 +588,6 @@ func AgentSpecRemoteConfigFromDomain(arc domainmodel.AgentSpecRemoteConfig) *Age
 
 	return &AgentSpecRemoteConfig{
 		RemoteConfig: arc.RemoteConfig,
-	}
-}
-
-// AgentRemoteConfigFromDomain converts domain model to persistence model.
-func AgentRemoteConfigFromDomain(arc domainmodel.RemoteConfig) *AgentRemoteConfig {
-	if arc.Hash.IsZero() {
-		return nil
-	}
-
-	return &AgentRemoteConfig{
-		ConfigData: &AgentRemoteConfigData{
-			Key:                arc.Hash.Bytes(),
-			Status:             AgentRemoteConfigStatusEnum(domainmodel.RemoteConfigStatusApplied), // Default status
-			Config:             arc.Config,
-			LastUpdatedAtMilli: arc.LastUpdatedAt.UnixMilli(),
-		},
-		RemoteConfigStatuses:    []AgentRemoteConfigSub{},
-		LastErrorMessage:        "",
-		LastModifiedAtUnixMilli: arc.LastUpdatedAt.UnixMilli(),
 	}
 }
 

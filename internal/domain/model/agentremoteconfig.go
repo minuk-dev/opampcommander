@@ -14,10 +14,6 @@ type AgentRemoteConfigResource struct {
 type AgentRemoteConfigMetadata struct {
 	Name       string
 	Attributes Attributes
-	CreatedAt  time.Time
-	CreatedBy  string
-	UpdatedAt  time.Time
-	UpdatedBy  string
 }
 
 // AgentRemoteConfigSpec contains the specification for the agent remote config resource.

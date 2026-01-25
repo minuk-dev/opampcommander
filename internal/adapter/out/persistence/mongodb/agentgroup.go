@@ -34,7 +34,7 @@ func NewAgentGroupRepository(
 	collection := mongoDatabase.Collection(agentGroupCollectionName)
 	agentCollection := mongoDatabase.Collection(agentCollectionName)
 	keyFunc := func(en *entity.AgentGroup) string {
-		return en.Name
+		return en.Metadata.Name
 	}
 	keyQueryFunc := func(key string) any {
 		return key
@@ -87,7 +87,7 @@ func (a *AgentGroupMongoAdapter) ListAgentGroups(
 	for _, item := range resp.Items {
 		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
 		if err != nil {
-			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Name, err)
+			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Metadata.Name, err)
 		}
 
 		// Convert entity to domain model
@@ -133,7 +133,7 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	agentGroupEntity *entity.AgentGroup,
 ) (*entity.AgentGroupStatistics, error) {
 	// Build filter conditions for agents matching this agent group's selector
-	selector := agentGroupEntity.Selector
+	selector := agentGroupEntity.Metadata.Selector
 	allConditions := SelectorToMatchConditions(selector)
 
 	// Build match filter

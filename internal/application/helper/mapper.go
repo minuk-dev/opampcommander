@@ -52,7 +52,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 	return &model.AgentGroup{
 		Metadata: model.AgentGroupMetadata{
 			Name:       apiAgentGroup.Metadata.Name,
-			Priority:   int32(apiAgentGroup.Metadata.Priority), //nolint:gosec // Priority is bounded by API validation
+			Priority:   int(apiAgentGroup.Metadata.Priority),
 			Attributes: model.OfAttributes(apiAgentGroup.Metadata.Attributes),
 			Selector: model.AgentSelector{
 				IdentifyingAttributes:    apiAgentGroup.Metadata.Selector.IdentifyingAttributes,
