@@ -103,6 +103,8 @@ const (
 	ConditionStatusTrue ConditionStatus = "True"
 	// ConditionStatusFalse represents a false condition status.
 	ConditionStatusFalse ConditionStatus = "False"
+	// ConditionStatusUnknown represents an unknown condition status.
+	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
 // NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
