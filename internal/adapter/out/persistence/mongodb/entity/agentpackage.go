@@ -1,8 +1,6 @@
 package entity
 
 import (
-	"time"
-
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -10,25 +8,25 @@ import (
 
 const (
 	// AgentPackageKeyFieldName is the key field name for agent package.
-	AgentPackageKeyFieldName = "name"
+	AgentPackageKeyFieldName = "metadata.name"
 )
 
-// AgentPackageResource is the MongoDB entity for agent package resource.
-type AgentPackageResource struct {
-	ID       *bson.ObjectID               `bson:"_id,omitempty"`
-	Name     string                       `bson:"name"`
-	Metadata AgentPackageResourceMetadata `bson:"metadata"`
-	Spec     AgentPackageResourceSpec     `bson:"spec"`
-	Status   AgentPackageResourceStatus   `bson:"status"`
+// AgentPackage is the MongoDB entity for agent package.
+type AgentPackage struct {
+	Common   `bson:",inline"`
+	Metadata AgentPackageMetadata       `bson:"metadata"`
+	Spec     AgentPackageSpec           `bson:"spec"`
+	Status   AgentPackageResourceStatus `bson:"status"`
 }
 
-// AgentPackageResourceMetadata represents the metadata of an agent package resource.
-type AgentPackageResourceMetadata struct {
+// AgentPackageMetadata represents the metadata of an agent package.
+type AgentPackageMetadata struct {
+	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
-// AgentPackageResourceSpec represents the specification of an agent package resource.
-type AgentPackageResourceSpec struct {
+// AgentPackageSpec represents the specification of an agent package.
+type AgentPackageSpec struct {
 	PackageType string            `bson:"packageType"`
 	Version     string            `bson:"version"`
 	DownloadURL string            `bson:"downloadUrl"`
@@ -44,9 +42,36 @@ type AgentPackageResourceStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (ap *AgentPackageResource) ToDomain() *domainmodel.AgentPackage {
-	conditions := make([]domainmodel.Condition, len(ap.Status.Conditions))
-	for i, c := range ap.Status.Conditions {
+func (ap *AgentPackage) ToDomain() *domainmodel.AgentPackage {
+	return &domainmodel.AgentPackage{
+		Metadata: ap.Metadata.toDomain(),
+		Spec:     ap.Spec.toDomain(),
+		Status:   ap.Status.toDomain(),
+	}
+}
+
+func (m *AgentPackageMetadata) toDomain() domainmodel.AgentPackageMetadata {
+	return domainmodel.AgentPackageMetadata{
+		Name:       m.Name,
+		Attributes: m.Attributes,
+	}
+}
+
+func (s *AgentPackageSpec) toDomain() domainmodel.AgentPackageSpec {
+	return domainmodel.AgentPackageSpec{
+		PackageType: s.PackageType,
+		Version:     s.Version,
+		DownloadURL: s.DownloadURL,
+		ContentHash: s.ContentHash,
+		Signature:   s.Signature,
+		Headers:     s.Headers,
+		Hash:        s.Hash,
+	}
+}
+
+func (s *AgentPackageResourceStatus) toDomain() domainmodel.AgentPackageStatus {
+	conditions := make([]domainmodel.Condition, len(s.Conditions))
+	for i, c := range s.Conditions {
 		conditions[i] = domainmodel.Condition{
 			Type:               domainmodel.ConditionType(c.Type),
 			Status:             domainmodel.ConditionStatus(c.Status),
@@ -56,30 +81,46 @@ func (ap *AgentPackageResource) ToDomain() *domainmodel.AgentPackage {
 		}
 	}
 
-	return &domainmodel.AgentPackage{
-		Metadata: domainmodel.AgentPackageMetadata{
-			Name:       ap.Name,
-			Attributes: ap.Metadata.Attributes,
-		},
-		Spec: domainmodel.AgentPackageSpec{
-			PackageType: ap.Spec.PackageType,
-			Version:     ap.Spec.Version,
-			DownloadURL: ap.Spec.DownloadURL,
-			ContentHash: ap.Spec.ContentHash,
-			Signature:   ap.Spec.Signature,
-			Headers:     ap.Spec.Headers,
-			Hash:        ap.Spec.Hash,
-		},
-		Status: domainmodel.AgentPackageStatus{
-			Conditions: conditions,
-		},
+	return domainmodel.AgentPackageStatus{
+		Conditions: conditions,
 	}
 }
 
-// AgentPackageResourceFromDomain converts domain model to entity.
-func AgentPackageResourceFromDomain(ap *domainmodel.AgentPackage) *AgentPackageResource {
-	conditions := make([]Condition, len(ap.Status.Conditions))
-	for i, c := range ap.Status.Conditions {
+// AgentPackageFromDomain converts domain model to entity.
+func AgentPackageFromDomain(ap *domainmodel.AgentPackage) *AgentPackage {
+	return &AgentPackage{
+		Common: Common{
+			Version: VersionV1,
+			ID:      nil,
+		},
+		Metadata: agentPackageMetadataFromDomain(ap.Metadata),
+		Spec:     agentPackageSpecFromDomain(ap.Spec),
+		Status:   agentPackageStatusFromDomain(ap.Status),
+	}
+}
+
+func agentPackageMetadataFromDomain(m domainmodel.AgentPackageMetadata) AgentPackageMetadata {
+	return AgentPackageMetadata{
+		Name:       m.Name,
+		Attributes: m.Attributes,
+	}
+}
+
+func agentPackageSpecFromDomain(s domainmodel.AgentPackageSpec) AgentPackageSpec {
+	return AgentPackageSpec{
+		PackageType: s.PackageType,
+		Version:     s.Version,
+		DownloadURL: s.DownloadURL,
+		ContentHash: s.ContentHash,
+		Signature:   s.Signature,
+		Headers:     s.Headers,
+		Hash:        s.Hash,
+	}
+}
+
+func agentPackageStatusFromDomain(s domainmodel.AgentPackageStatus) AgentPackageResourceStatus {
+	conditions := make([]Condition, len(s.Conditions))
+	for i, c := range s.Conditions {
 		conditions[i] = Condition{
 			Type:               string(c.Type),
 			Status:             string(c.Status),
@@ -89,23 +130,8 @@ func AgentPackageResourceFromDomain(ap *domainmodel.AgentPackage) *AgentPackageR
 		}
 	}
 
-	return &AgentPackageResource{
-		Name: ap.Metadata.Name,
-		Metadata: AgentPackageResourceMetadata{
-			Attributes: ap.Metadata.Attributes,
-		},
-		Spec: AgentPackageResourceSpec{
-			PackageType: ap.Spec.PackageType,
-			Version:     ap.Spec.Version,
-			DownloadURL: ap.Spec.DownloadURL,
-			ContentHash: ap.Spec.ContentHash,
-			Signature:   ap.Spec.Signature,
-			Headers:     ap.Spec.Headers,
-			Hash:        ap.Spec.Hash,
-		},
-		Status: AgentPackageResourceStatus{
-			Conditions: conditions,
-		},
+	return AgentPackageResourceStatus{
+		Conditions: conditions,
 	}
 }
 
@@ -125,11 +151,7 @@ type AgentRemoteConfigResourceEntity struct {
 
 // AgentRemoteConfigResourceMetadata represents the metadata of an agent remote config resource.
 type AgentRemoteConfigResourceMetadata struct {
-	Attributes     map[string]string `bson:"attributes,omitempty"`
-	CreatedAtMilli int64             `bson:"createdAtMilli,omitempty"`
-	CreatedBy      string            `bson:"createdBy,omitempty"`
-	UpdatedAtMilli int64             `bson:"updatedAtMilli,omitempty"`
-	UpdatedBy      string            `bson:"updatedBy,omitempty"`
+	Attributes map[string]string `bson:"attributes,omitempty"`
 }
 
 // AgentRemoteConfigResourceSpec represents the specification of an agent remote config resource.
@@ -160,10 +182,6 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 		Metadata: domainmodel.AgentRemoteConfigMetadata{
 			Name:       arc.Name,
 			Attributes: arc.Metadata.Attributes,
-			CreatedAt:  time.UnixMilli(arc.Metadata.CreatedAtMilli),
-			CreatedBy:  arc.Metadata.CreatedBy,
-			UpdatedAt:  time.UnixMilli(arc.Metadata.UpdatedAtMilli),
-			UpdatedBy:  arc.Metadata.UpdatedBy,
 		},
 		Spec: domainmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,
@@ -191,11 +209,7 @@ func AgentRemoteConfigResourceEntityFromDomain(arc *domainmodel.AgentRemoteConfi
 	return &AgentRemoteConfigResourceEntity{
 		Name: arc.Metadata.Name,
 		Metadata: AgentRemoteConfigResourceMetadata{
-			Attributes:     arc.Metadata.Attributes,
-			CreatedAtMilli: arc.Metadata.CreatedAt.UnixMilli(),
-			CreatedBy:      arc.Metadata.CreatedBy,
-			UpdatedAtMilli: arc.Metadata.UpdatedAt.UnixMilli(),
-			UpdatedBy:      arc.Metadata.UpdatedBy,
+			Attributes: arc.Metadata.Attributes,
 		},
 		Spec: AgentRemoteConfigResourceSpec{
 			Value:       arc.Spec.Value,

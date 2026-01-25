@@ -21,7 +21,7 @@ type AgentGroupMetadata struct {
 	Name string
 	// Priority is the priority of the agent group.
 	// When multiple agent groups match an agent, the one with the highest priority is applied.
-	Priority int32
+	Priority int
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
