@@ -18,6 +18,8 @@ var (
 )
 
 // fetchServerToAgent creates a ServerToAgent message from the agent.
+//
+//nolint:funlen // Complex message building requires multiple fields
 func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
 	var flags uint64
 
@@ -88,6 +90,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 					}
 
 					return pkgName, &protobufs.PackageAvailable{
+						//nolint:godox // Tracked in issue tracker
 						// TODO: Support different package types in the future
 						Type:    protobufs.PackageType_PackageType_TopLevel,
 						Version: agentPackage.Spec.Version,

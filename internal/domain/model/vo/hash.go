@@ -22,6 +22,7 @@ func NewHash(data []byte) (Hash, error) {
 	return Hash(hash.Sum(nil)), nil
 }
 
+// NewHashFromAny creates a new Hash from any data by marshaling to JSON.
 func NewHashFromAny(data any) (Hash, error) {
 	var byteData []byte
 

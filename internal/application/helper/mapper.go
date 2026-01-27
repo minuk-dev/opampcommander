@@ -52,7 +52,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 	return &model.AgentGroup{
 		Metadata: model.AgentGroupMetadata{
 			Name:       apiAgentGroup.Metadata.Name,
-			Priority:   int(apiAgentGroup.Metadata.Priority),
+			Priority:   apiAgentGroup.Metadata.Priority,
 			Attributes: model.OfAttributes(apiAgentGroup.Metadata.Attributes),
 			Selector: model.AgentSelector{
 				IdentifyingAttributes:    apiAgentGroup.Metadata.Selector.IdentifyingAttributes,
@@ -96,7 +96,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 	return &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name:       domainAgentGroup.Metadata.Name,
-			Priority:   int(domainAgentGroup.Metadata.Priority),
+			Priority:   domainAgentGroup.Metadata.Priority,
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    domainAgentGroup.Metadata.Selector.IdentifyingAttributes,
@@ -200,6 +200,7 @@ func (mapper *Mapper) mapRemoteConfigFromAPI(
 	apiRemoteConfig *v1.AgentRemoteConfig,
 ) model.AgentSpecRemoteConfig {
 	if apiRemoteConfig == nil || len(apiRemoteConfig.ConfigMap) == 0 {
+		//nolint:exhaustruct // RemoteConfig will be nil for empty config
 		return model.AgentSpecRemoteConfig{}
 	}
 
@@ -267,6 +268,7 @@ func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.AgentSpecRemoteCo
 
 	// Add each remote config name to the config map
 	for _, name := range remoteConfig.RemoteConfig {
+		//nolint:exhaustruct // Body and ContentType are not needed for listing
 		configMap[name] = v1.AgentConfigFile{}
 	}
 

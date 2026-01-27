@@ -9,7 +9,7 @@ import (
 
 const (
 	// AgentGroupKeyFieldName is the field name used as the key for AgentGroup entities in MongoDB.
-	AgentGroupKeyFieldName string = "name"
+	AgentGroupKeyFieldName string = "metadata.name"
 )
 
 // AgentGroup is the mongo entity representation of the AgentGroup domain model.
@@ -35,6 +35,7 @@ type AgentGroupSpec struct {
 	AgentConnectionConfig *AgentConnectionConfig `bson:"agentConnectionConfig,omitempty"`
 }
 
+// AgentGroupStatus represents the status of an agent group in MongoDB.
 type AgentGroupStatus struct {
 	Conditions []Condition `bson:"conditions"`
 }
@@ -45,7 +46,7 @@ type AgentSelector struct {
 	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`
 }
 
-// AgentConfig represents the remote configuration for agents in the group.
+// AgentRemoteConfig represents the remote configuration for agents in the group.
 type AgentRemoteConfig struct {
 	Value       string `bson:"value"       json:"value"`
 	ContentType string `bson:"contentType" json:"contentType"`
@@ -60,23 +61,38 @@ type AgentConnectionConfig struct {
 	OtherConnections map[string]ConnectionSettings `bson:"otherConnections" json:"otherConnections"`
 }
 
+// ConnectionSettings represents connection settings for telemetry.
 type ConnectionSettings struct {
 	DestinationEndpoint string                   `bson:"destinationEndpoint"   json:"destinationEndpoint"`
 	Headers             map[string][]string      `bson:"headers,omitempty"     json:"headers,omitempty"`
 	Certificate         TelemetryTLSCeritificate `bson:"certificate,omitempty" json:"certificate,omitempty"`
 }
 
+// TelemetryTLSCeritificate represents TLS certificate for telemetry connections.
 type TelemetryTLSCeritificate struct {
 	Cert       bson.Binary `bson:"cert,omitempty"       json:"cert,omitempty"`
 	PrivateKey bson.Binary `bson:"privateKey,omitempty" json:"privateKey,omitempty"`
 	CaCert     bson.Binary `bson:"caCert,omitempty"     json:"caCert,omitempty"`
 }
 
+// NewTelemetryTLSCertificate creates a new TelemetryTLSCeritificate from domain model.
 func NewTelemetryTLSCertificate(domain model.TelemetryTLSCertificate) TelemetryTLSCeritificate {
 	return TelemetryTLSCeritificate{
-		Cert:       bson.Binary{Data: domain.Cert},
+		//nolint:exhaustruct // Subtype is optional for generic binary data
+		Cert: bson.Binary{Data: domain.Cert},
+		//nolint:exhaustruct // Subtype is optional for generic binary data
 		PrivateKey: bson.Binary{Data: domain.PrivateKey},
-		CaCert:     bson.Binary{Data: domain.CaCert},
+		//nolint:exhaustruct // Subtype is optional for generic binary data
+		CaCert: bson.Binary{Data: domain.CaCert},
+	}
+}
+
+// ToDomain converts TelemetryTLSCeritificate to domain model.
+func (tc *TelemetryTLSCeritificate) ToDomain() model.TelemetryTLSCertificate {
+	return model.TelemetryTLSCertificate{
+		Cert:       tc.Cert.Data,
+		PrivateKey: tc.PrivateKey.Data,
+		CaCert:     tc.CaCert.Data,
 	}
 }
 
@@ -91,21 +107,21 @@ type AgentGroupStatistics struct {
 
 // ToDomain converts the AgentGroup entity to the domain model.
 func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGroup {
-	ag := &model.AgentGroup{
+	agentGroup := &model.AgentGroup{
 		Metadata: e.Metadata.toDomain(),
 		Spec:     e.Spec.toDomain(),
 		Status:   e.Status.toDomain(),
 	}
 
 	if statistics != nil {
-		ag.Status.NumAgents = int(statistics.NumAgents)
-		ag.Status.NumConnectedAgents = int(statistics.NumConnectedAgents)
-		ag.Status.NumHealthyAgents = int(statistics.NumHealthyAgents)
-		ag.Status.NumUnhealthyAgents = int(statistics.NumUnhealthyAgents)
-		ag.Status.NumNotConnectedAgents = int(statistics.NumNotConnectedAgents)
+		agentGroup.Status.NumAgents = int(statistics.NumAgents)
+		agentGroup.Status.NumConnectedAgents = int(statistics.NumConnectedAgents)
+		agentGroup.Status.NumHealthyAgents = int(statistics.NumHealthyAgents)
+		agentGroup.Status.NumUnhealthyAgents = int(statistics.NumUnhealthyAgents)
+		agentGroup.Status.NumNotConnectedAgents = int(statistics.NumNotConnectedAgents)
 	}
 
-	return ag
+	return agentGroup
 }
 func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 	return model.AgentGroupMetadata{
@@ -120,6 +136,7 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 }
 
 func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
+	//nolint:exhaustruct // Fields are set conditionally below
 	spec := model.AgentGroupSpec{}
 
 	if s.AgentRemoteConfig != nil {
@@ -134,52 +151,31 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 			OpAMPConnection: model.OpAMPConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OpAMP.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OpAMP.Headers,
-				Certificate: model.TelemetryTLSCertificate{
-					Cert:       s.AgentConnectionConfig.OpAMP.Certificate.Cert.Data,
-					PrivateKey: s.AgentConnectionConfig.OpAMP.Certificate.PrivateKey.Data,
-					CaCert:     s.AgentConnectionConfig.OpAMP.Certificate.CaCert.Data,
-				},
+				Certificate:         s.AgentConnectionConfig.OpAMP.Certificate.ToDomain(),
 			},
 			OwnMetrics: model.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnMetrics.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnMetrics.Headers,
-				Certificate: model.TelemetryTLSCertificate{
-					Cert:       s.AgentConnectionConfig.OwnMetrics.Certificate.Cert.Data,
-					PrivateKey: s.AgentConnectionConfig.OwnMetrics.Certificate.PrivateKey.Data,
-					CaCert:     s.AgentConnectionConfig.OwnMetrics.Certificate.CaCert.Data,
-				},
+				Certificate:         s.AgentConnectionConfig.OwnMetrics.Certificate.ToDomain(),
 			},
 			OwnLogs: model.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnLogs.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnLogs.Headers,
-				Certificate: model.TelemetryTLSCertificate{
-					Cert:       s.AgentConnectionConfig.OwnLogs.Certificate.Cert.Data,
-					PrivateKey: s.AgentConnectionConfig.OwnLogs.Certificate.PrivateKey.Data,
-					CaCert:     s.AgentConnectionConfig.OwnLogs.Certificate.CaCert.Data,
-				},
+				Certificate:         s.AgentConnectionConfig.OwnLogs.Certificate.ToDomain(),
 			},
 			OwnTraces: model.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnTraces.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnTraces.Headers,
-				Certificate: model.TelemetryTLSCertificate{
-					Cert:       s.AgentConnectionConfig.OwnTraces.Certificate.Cert.Data,
-					PrivateKey: s.AgentConnectionConfig.OwnTraces.Certificate.PrivateKey.Data,
-					CaCert:     s.AgentConnectionConfig.OwnTraces.Certificate.CaCert.Data,
-				},
+				Certificate:         s.AgentConnectionConfig.OwnTraces.Certificate.ToDomain(),
 			},
-			OtherConnections: make(map[string]model.OtherConnectionSettings),
-		}
-
-		for k, v := range s.AgentConnectionConfig.OtherConnections {
-			spec.AgentConnectionConfig.OtherConnections[k] = model.OtherConnectionSettings{
-				DestinationEndpoint: v.DestinationEndpoint,
-				Headers:             v.Headers,
-				Certificate: model.TelemetryTLSCertificate{
-					Cert:       v.Certificate.Cert.Data,
-					PrivateKey: v.Certificate.PrivateKey.Data,
-					CaCert:     v.Certificate.CaCert.Data,
-				},
-			}
+			OtherConnections: lo.MapValues(s.AgentConnectionConfig.OtherConnections,
+				func(v ConnectionSettings, _ string) model.OtherConnectionSettings {
+					return model.OtherConnectionSettings{
+						DestinationEndpoint: v.DestinationEndpoint,
+						Headers:             v.Headers,
+						Certificate:         v.Certificate.ToDomain(),
+					}
+				}),
 		}
 	}
 
@@ -187,19 +183,11 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 }
 
 func (s *AgentGroupStatus) toDomain() model.AgentGroupStatus {
-	conditions := make([]model.Condition, len(s.Conditions))
-	for i, c := range s.Conditions {
-		conditions[i] = model.Condition{
-			Type:               model.ConditionType(c.Type),
-			LastTransitionTime: c.LastTransitionTime,
-			Status:             model.ConditionStatus(c.Status),
-			Reason:             c.Reason,
-			Message:            c.Message,
-		}
-	}
-
+	//nolint:exhaustruct // Statistics fields are set by the caller
 	return model.AgentGroupStatus{
-		Conditions: conditions,
+		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
+			return c.ToDomain()
+		}),
 	}
 }
 
@@ -229,6 +217,7 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 }
 
 func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
+	//nolint:exhaustruct // Fields are set conditionally below
 	result := AgentGroupSpec{}
 
 	if spec.AgentRemoteConfig != nil {
@@ -277,7 +266,7 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 func agentGroupStatusFromDomain(status model.AgentGroupStatus) AgentGroupStatus {
 	return AgentGroupStatus{
 		Conditions: lo.Map(status.Conditions, func(c model.Condition, _ int) Condition {
-			return NewConnectionFromDomain(c)
+			return NewConditionFromDomain(c)
 		}),
 	}
 }

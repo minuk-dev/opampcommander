@@ -88,3 +88,23 @@ func (s *Server) IsConditionTrue(conditionType ConditionType) bool {
 func (s *Server) MarkRegistered(reason string) {
 	s.SetCondition(ConditionTypeCreated, ConditionStatusTrue, reason, "Server registered")
 }
+
+// GetRegisteredAt returns the time when the server was registered.
+func (s *Server) GetRegisteredAt() *time.Time {
+	condition := s.GetCondition(ConditionTypeCreated)
+	if condition == nil {
+		return nil
+	}
+
+	return &condition.LastTransitionTime
+}
+
+// GetRegisteredBy returns the reason/actor who registered the server.
+func (s *Server) GetRegisteredBy() string {
+	condition := s.GetCondition(ConditionTypeCreated)
+	if condition == nil {
+		return ""
+	}
+
+	return condition.Reason
+}

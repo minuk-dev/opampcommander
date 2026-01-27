@@ -79,7 +79,7 @@ func (c *Controller) List(ctx *gin.Context) {
 }
 
 // mapConditionsToAPI converts domain server conditions to API conditions.
-func mapConditionsToAPI(conditions []model.ServerCondition) []v1.ServerCondition {
+func mapConditionsToAPI(conditions []model.Condition) []v1.ServerCondition {
 	if len(conditions) == 0 {
 		return nil
 	}

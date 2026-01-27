@@ -64,9 +64,13 @@ type AgentRemoteConfigUsecase interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its name.
 	GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfig, error)
 	// ListAgentRemoteConfigs lists all agent remote configs.
-	ListAgentRemoteConfigs(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentRemoteConfig], error)
+	ListAgentRemoteConfigs(
+		ctx context.Context, options *model.ListOptions,
+	) (*model.ListResponse[*model.AgentRemoteConfig], error)
 	// SaveAgentRemoteConfig saves the agent remote config.
-	SaveAgentRemoteConfig(ctx context.Context, agentRemoteConfig *model.AgentRemoteConfig) (*model.AgentRemoteConfig, error)
+	SaveAgentRemoteConfig(
+		ctx context.Context, agentRemoteConfig *model.AgentRemoteConfig,
+	) (*model.AgentRemoteConfig, error)
 	// DeleteAgentRemoteConfig deletes the agent remote config by its name.
 	DeleteAgentRemoteConfig(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
 }
@@ -76,7 +80,9 @@ type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its name
 	GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error)
 	// SaveAgentGroup saves the agent group.
-	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentGroup], error)
+	ListAgentGroups(
+		ctx context.Context, options *model.ListOptions,
+	) (*model.ListResponse[*model.AgentGroup], error)
 	// SaveAgentGroup saves the agent group.
 	SaveAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) (*model.AgentGroup, error)
 	// DeleteAgentGroup deletes the agent group by its ID.

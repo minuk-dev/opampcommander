@@ -79,9 +79,15 @@ type AgentRemoteConfigPersistencePort interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its name.
 	GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfigResource, error)
 	// PutAgentRemoteConfig saves or updates an agent remote config.
-	PutAgentRemoteConfig(ctx context.Context, config *model.AgentRemoteConfigResource) (*model.AgentRemoteConfigResource, error)
+	PutAgentRemoteConfig(
+		ctx context.Context,
+		config *model.AgentRemoteConfigResource,
+	) (*model.AgentRemoteConfigResource, error)
 	// ListAgentRemoteConfigs retrieves a list of agent remote configs with pagination options.
-	ListAgentRemoteConfigs(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.AgentRemoteConfigResource], error)
+	ListAgentRemoteConfigs(
+		ctx context.Context,
+		options *model.ListOptions,
+	) (*model.ListResponse[*model.AgentRemoteConfigResource], error)
 }
 
 var (

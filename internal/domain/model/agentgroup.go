@@ -93,6 +93,8 @@ const (
 	ConditionTypeUpdated ConditionType = "Updated"
 	// ConditionTypeDeleted represents the condition when the agent group was deleted.
 	ConditionTypeDeleted ConditionType = "Deleted"
+	// ConditionTypeAlive represents the condition when the server is alive.
+	ConditionTypeAlive ConditionType = "Alive"
 )
 
 // ConditionStatus represents the status of a condition.

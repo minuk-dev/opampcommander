@@ -31,14 +31,6 @@ type Agent struct {
 	Status   AgentStatus
 }
 
-func (a *Agent) ApplyRemoteConfig(name string) error {
-	a.Spec.RemoteConfig.RemoteConfig = append(a.Spec.RemoteConfig.RemoteConfig, name)
-	sort.Strings(a.Spec.RemoteConfig.RemoteConfig)
-	a.Spec.RemoteConfig.RemoteConfig = lo.Uniq(a.Spec.RemoteConfig.RemoteConfig)
-
-	return nil
-}
-
 // NewAgent creates a new agent with the given instance UID.
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
@@ -113,6 +105,15 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	}
 
 	return agent
+}
+
+// ApplyRemoteConfig applies a remote config to the agent.
+func (a *Agent) ApplyRemoteConfig(name string) error {
+	a.Spec.RemoteConfig.RemoteConfig = append(a.Spec.RemoteConfig.RemoteConfig, name)
+	sort.Strings(a.Spec.RemoteConfig.RemoteConfig)
+	a.Spec.RemoteConfig.RemoteConfig = lo.Uniq(a.Spec.RemoteConfig.RemoteConfig)
+
+	return nil
 }
 
 // IsConnected checks if the agent is currently connected.
@@ -346,15 +347,18 @@ type AgentSpec struct {
 	PackagesAvailable AgentSpecPackage
 }
 
+// AgentSpecRemoteConfig represents the remote config specification for an agent.
 type AgentSpecRemoteConfig struct {
 	RemoteConfig []string
 }
 
+// AgentSpecPackage represents the package specification for an agent.
 type AgentSpecPackage struct {
 	// Packages is a list of package names available for the agent.
 	Packages []string
 }
 
+// Hash computes the hash of the agent spec packages.
 func (a *AgentSpecPackage) Hash() (vo.Hash, error) {
 	data, err := json.Marshal(a.Packages)
 	if err != nil {
