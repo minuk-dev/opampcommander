@@ -406,6 +406,7 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 // ToDomain converts the AgentSpecRemoteConfig to domain model.
 func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig {
 	if asrc == nil {
+		//nolint:exhaustruct // RemoteConfig will be nil for empty config
 		return domainmodel.AgentSpecRemoteConfig{}
 	}
 
@@ -528,13 +529,13 @@ func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *Agen
 	return &AgentEffectiveConfig{
 		ConfigMap: AgentConfigMap{
 			ConfigMap: lo.MapValues(aec.ConfigMap.ConfigMap,
-				func(cf domainmodel.AgentConfigFile, _ string) AgentConfigFile {
+				func(configFile domainmodel.AgentConfigFile, _ string) AgentConfigFile {
 					return AgentConfigFile{
 						Body: bson.Binary{
 							Subtype: bson.TypeBinaryGeneric,
-							Data:    cf.Body,
+							Data:    configFile.Body,
 						},
-						ContentType: cf.ContentType,
+						ContentType: configFile.ContentType,
 					}
 				}),
 		},

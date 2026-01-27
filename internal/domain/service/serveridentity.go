@@ -130,7 +130,7 @@ func (s *ServerIdentityService) registerServer(ctx context.Context) error {
 	server := &model.Server{
 		ID:              s.id,
 		LastHeartbeatAt: now,
-		Conditions:      []model.ServerCondition{},
+		Conditions:      []model.Condition{},
 	}
 
 	if existingServer != nil {
@@ -142,7 +142,7 @@ func (s *ServerIdentityService) registerServer(ctx context.Context) error {
 	}
 
 	// Mark as alive
-	server.MarkAlive("heartbeat")
+	server.SetCondition(model.ConditionTypeAlive, model.ConditionStatusTrue, "heartbeat", "Server is alive")
 
 	err = s.serverPersistencePort.PutServer(ctx, server)
 	if err != nil {

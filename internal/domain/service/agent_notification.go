@@ -111,6 +111,6 @@ func (s *AgentNotificationService) getUnknownServer() *model.Server {
 	return &model.Server{
 		ID:              "unknown",
 		LastHeartbeatAt: time.Time{},
-		Conditions:      []model.ServerCondition{},
+		Conditions:      []model.Condition{},
 	}
 }

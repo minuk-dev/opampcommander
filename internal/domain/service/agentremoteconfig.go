@@ -10,6 +10,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
+// ErrSaveAgentRemoteConfigNotSupported is returned when SaveAgentRemoteConfig is called.
+var ErrSaveAgentRemoteConfigNotSupported = errors.New(
+	"SaveAgentRemoteConfig requires a name, use SaveAgentRemoteConfigResource instead",
+)
+
 var _ port.AgentRemoteConfigUsecase = (*AgentRemoteConfigService)(nil)
 
 // AgentRemoteConfigService provides operations for managing agent remote configs.
@@ -69,13 +74,13 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 
 // SaveAgentRemoteConfig implements [port.AgentRemoteConfigUsecase].
 func (s *AgentRemoteConfigService) SaveAgentRemoteConfig(
-	ctx context.Context,
-	agentRemoteConfig *model.AgentRemoteConfig,
+	_ context.Context,
+	_ *model.AgentRemoteConfig,
 ) (*model.AgentRemoteConfig, error) {
 	// This method expects a name to be provided somehow
 	// For now, we'll need to extend the interface or use a different approach
 	// Since AgentRemoteConfig doesn't have a name, we can't save it directly
-	return nil, errors.New("SaveAgentRemoteConfig requires a name, use SaveAgentRemoteConfigResource instead")
+	return nil, ErrSaveAgentRemoteConfigNotSupported
 }
 
 // DeleteAgentRemoteConfig implements [port.AgentRemoteConfigUsecase].

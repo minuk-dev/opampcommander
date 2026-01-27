@@ -114,7 +114,7 @@ func agentPackageSpecFromDomain(domain domainmodel.AgentPackageSpec) AgentPackag
 func agentPackageStatusFromDomain(s domainmodel.AgentPackageStatus) AgentPackageResourceStatus {
 	return AgentPackageResourceStatus{
 		Conditions: lo.Map(s.Conditions, func(c domainmodel.Condition, _ int) Condition {
-			return NewConnectionFromDomain(c)
+			return NewConditionFromDomain(c)
 		}),
 	}
 }
@@ -169,7 +169,10 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 }
 
 // AgentRemoteConfigResourceEntityFromDomain converts domain model to entity.
-func AgentRemoteConfigResourceEntityFromDomain(arc *domainmodel.AgentRemoteConfigResource) *AgentRemoteConfigResourceEntity {
+func AgentRemoteConfigResourceEntityFromDomain(
+	arc *domainmodel.AgentRemoteConfigResource,
+) *AgentRemoteConfigResourceEntity {
+	//nolint:exhaustruct // ID is set by MongoDB
 	return &AgentRemoteConfigResourceEntity{
 		Name: arc.Metadata.Name,
 		Metadata: AgentRemoteConfigResourceMetadata{
@@ -181,7 +184,7 @@ func AgentRemoteConfigResourceEntityFromDomain(arc *domainmodel.AgentRemoteConfi
 		},
 		Status: AgentRemoteConfigResourceEntityStatus{
 			Conditions: lo.Map(arc.Status.Conditions, func(c domainmodel.Condition, _ int) Condition {
-				return NewConnectionFromDomain(c)
+				return NewConditionFromDomain(c)
 			}),
 		},
 	}
