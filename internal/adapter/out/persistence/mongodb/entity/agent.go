@@ -43,7 +43,7 @@ type AgentMetadata struct {
 
 // AgentSpec represents the desired specification of an agent.
 type AgentSpec struct {
-	NewInstanceUID      []byte                 `bson:"newInstanceUID,omitempty"`
+	NewInstanceUID      *bson.Binary           `bson:"newInstanceUID,omitempty"`
 	RemoteConfig        *AgentSpecRemoteConfig `bson:"remoteConfig,omitempty"`
 	RequiredRestartedAt bson.DateTime          `bson:"requiredRestartedAt,omitempty"`
 }
@@ -167,7 +167,7 @@ type AgentRemoteConfigStatusEnum int32
 
 // AgentRemoteConfigStatus represents the status of remote config in MongoDB.
 type AgentRemoteConfigStatus struct {
-	LastRemoteConfigHash bson.Binary                 `bson:"lastRemoteConfigHash,omitempty"`
+	LastRemoteConfigHash *bson.Binary                `bson:"lastRemoteConfigHash,omitempty"`
 	Status               AgentRemoteConfigStatusEnum `bson:"status"`
 	ErrorMessage         string                      `bson:"errorMessage,omitempty"`
 }
@@ -245,8 +245,8 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 
 	const uuidSize = 16
 
-	if len(spec.NewInstanceUID) == uuidSize {
-		copy(uid[:], spec.NewInstanceUID)
+	if spec.NewInstanceUID != nil && len(spec.NewInstanceUID.Data) == uuidSize {
+		copy(uid[:], spec.NewInstanceUID.Data)
 	}
 
 	//exhaustruct:ignore
@@ -458,9 +458,12 @@ func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
 
 // AgentFromDomain converts domain model to persistence model.
 func AgentFromDomain(agent *domainmodel.Agent) *Agent {
-	var newInstanceUID []byte
+	var newInstanceUID *bson.Binary
 	if agent.Spec.NewInstanceUID != uuid.Nil {
-		newInstanceUID = agent.Spec.NewInstanceUID[:]
+		newInstanceUID = &bson.Binary{
+			Subtype: bson.TypeBinaryUUID,
+			Data:    agent.Spec.NewInstanceUID[:],
+		}
 	}
 
 	return &Agent{
@@ -666,13 +669,18 @@ func AgentRemoteConfigStatusFromDomain(arcs *domainmodel.AgentRemoteConfigStatus
 		return nil
 	}
 
-	return &AgentRemoteConfigStatus{
-		LastRemoteConfigHash: bson.Binary{
+	var lastRemoteConfigHash *bson.Binary
+	if arcs.LastRemoteConfigHash != nil {
+		lastRemoteConfigHash = &bson.Binary{
 			Subtype: bson.TypeBinaryGeneric,
 			Data:    arcs.LastRemoteConfigHash,
-		},
-		Status:       AgentRemoteConfigStatusEnum(arcs.Status),
-		ErrorMessage: arcs.ErrorMessage,
+		}
+	}
+
+	return &AgentRemoteConfigStatus{
+		LastRemoteConfigHash: lastRemoteConfigHash,
+		Status:               AgentRemoteConfigStatusEnum(arcs.Status),
+		ErrorMessage:         arcs.ErrorMessage,
 	}
 }
 

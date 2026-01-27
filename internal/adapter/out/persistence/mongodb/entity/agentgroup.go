@@ -70,20 +70,17 @@ type ConnectionSettings struct {
 
 // TelemetryTLSCeritificate represents TLS certificate for telemetry connections.
 type TelemetryTLSCeritificate struct {
-	Cert       bson.Binary `bson:"cert,omitempty"       json:"cert,omitempty"`
-	PrivateKey bson.Binary `bson:"privateKey,omitempty" json:"privateKey,omitempty"`
-	CaCert     bson.Binary `bson:"caCert,omitempty"     json:"caCert,omitempty"`
+	Cert       *bson.Binary `bson:"cert,omitempty"       json:"cert,omitempty"`
+	PrivateKey *bson.Binary `bson:"privateKey,omitempty" json:"privateKey,omitempty"`
+	CaCert     *bson.Binary `bson:"caCert,omitempty"     json:"caCert,omitempty"`
 }
 
 // NewTelemetryTLSCertificate creates a new TelemetryTLSCeritificate from domain model.
 func NewTelemetryTLSCertificate(domain model.TelemetryTLSCertificate) TelemetryTLSCeritificate {
 	return TelemetryTLSCeritificate{
-		//nolint:exhaustruct // Subtype is optional for generic binary data
-		Cert: bson.Binary{Data: domain.Cert},
-		//nolint:exhaustruct // Subtype is optional for generic binary data
-		PrivateKey: bson.Binary{Data: domain.PrivateKey},
-		//nolint:exhaustruct // Subtype is optional for generic binary data
-		CaCert: bson.Binary{Data: domain.CaCert},
+		Cert:       &bson.Binary{Data: domain.Cert},
+		PrivateKey: &bson.Binary{Data: domain.PrivateKey},
+		CaCert:     &bson.Binary{Data: domain.CaCert},
 	}
 }
 
