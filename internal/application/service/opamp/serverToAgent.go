@@ -78,7 +78,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	}
 
 	var packagesAvailable *protobufs.PackagesAvailable
-	if len(agentModel.Spec.PackagesAvailable.Packages) > 0 {
+	if agentModel.HasNewPackages() {
 		agentPackages := lo.OmitByValues(
 			lo.SliceToMap(agentModel.Spec.PackagesAvailable.Packages,
 				func(pkgName string) (string, *protobufs.PackageAvailable) {
