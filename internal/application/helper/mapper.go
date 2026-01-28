@@ -132,9 +132,10 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
 		},
 		//exhaustruct:ignore
 		Spec: model.AgentSpec{
-			NewInstanceUID: mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
-			RemoteConfig:   mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
-			RestartInfo:    mapper.mapRestartInfoFromAPI(apiAgent.Spec.RestartRequiredAt),
+			NewInstanceUID:    mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
+			RemoteConfig:      mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
+			PackagesAvailable: mapper.mapPackagesAvailableFromAPI(&apiAgent.Spec.PackagesAvailable),
+			RestartInfo:       mapper.mapRestartInfoFromAPI(apiAgent.Spec.RestartRequiredAt),
 		},
 		// Note: Status is not mapped here as it is usually managed by the system.
 	}
@@ -156,6 +157,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 		Spec: v1.AgentSpec{
 			NewInstanceUID:    mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
 			RemoteConfig:      mapper.mapRemoteConfigToAPI(&agent.Spec.RemoteConfig),
+			PackagesAvailable: mapper.mapPackagesAvailableToAPI(&agent.Spec.PackagesAvailable),
 			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo.RequiredRestartedAt),
 		},
 		Status: v1.AgentStatus{
@@ -328,6 +330,32 @@ func (mapper *Mapper) mapCustomCapabilitiesToAPI(
 ) v1.AgentCustomCapabilities {
 	return v1.AgentCustomCapabilities{
 		Capabilities: customCapabilities.Capabilities,
+	}
+}
+
+func (mapper *Mapper) mapPackagesAvailableToAPI(
+	packagesAvailable *model.AgentSpecPackage,
+) v1.AgentSpecPackages {
+	if packagesAvailable == nil {
+		//exhaustruct:ignore
+		return v1.AgentSpecPackages{}
+	}
+
+	return v1.AgentSpecPackages{
+		Packages: packagesAvailable.Packages,
+	}
+}
+
+func (mapper *Mapper) mapPackagesAvailableFromAPI(
+	apiPackages *v1.AgentSpecPackages,
+) model.AgentSpecPackage {
+	if apiPackages == nil {
+		//exhaustruct:ignore
+		return model.AgentSpecPackage{}
+	}
+
+	return model.AgentSpecPackage{
+		Packages: apiPackages.Packages,
 	}
 }
 

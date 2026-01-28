@@ -94,7 +94,7 @@ func (a *Service) CreateAgentPackage(
 
 	domainModel.Status = model.AgentPackageStatus{
 		Conditions: []model.Condition{
-			model.Condition{
+			{
 				Type:               model.ConditionTypeCreated,
 				LastTransitionTime: now,
 				Status:             model.ConditionStatusTrue,
