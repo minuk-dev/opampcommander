@@ -46,6 +46,9 @@ type AgentSpec struct {
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig AgentRemoteConfig `json:"remoteConfig"`
 
+	// PackagesAvailable is the packages available for the agent to download.
+	PackagesAvailable AgentSpecPackages `json:"packagesAvailable,omitempty"`
+
 	// RestartRequiredAt is the time when a restart was requested.
 	// If this time is after the agent's start time, the agent should be restarted.
 	RestartRequiredAt *Time `json:"restartRequiredAt,omitempty"`
@@ -152,6 +155,12 @@ type AgentStatusPackageEntry struct {
 	// Name is the name of the package.
 	Name string `json:"name"`
 } // @name AgentPackageStatusPackageEntry
+
+// AgentSpecPackages represents the packages specification for an agent.
+type AgentSpecPackages struct {
+	// Packages is a list of package names available for the agent.
+	Packages []string `json:"packages,omitempty"`
+} // @name AgentSpecPackages
 
 // ConnectionSettings represents connection settings for the agent.
 type ConnectionSettings struct {
