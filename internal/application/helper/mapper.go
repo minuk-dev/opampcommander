@@ -169,8 +169,8 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 			},
 			PackageStatuses: v1.AgentPackageStatuses{
 				Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
-					func(value model.AgentPackageStatusEntry, _ string) v1.AgentPackageStatus {
-						return v1.AgentPackageStatus{
+					func(value model.AgentPackageStatusEntry, _ string) v1.AgentStatusPackageEntry {
+						return v1.AgentStatusPackageEntry{
 							Name: value.Name,
 						}
 					}),
@@ -179,11 +179,56 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 			},
 			ComponentHealth:     mapper.mapComponentHealthToAPI(&agent.Status.ComponentHealth),
 			AvailableComponents: mapper.mapAvailableComponentsToAPI(&agent.Status.AvailableComponents),
-			Conditions:          mapper.mapConditionsToAPI(agent.Status.Conditions),
+			Conditions:          mapper.mapAgentConditionsToAPI(agent.Status.Conditions),
 			Connected:           agent.Status.Connected,
 			ConnectionType:      agent.Status.ConnectionType.String(),
 			SequenceNum:         agent.Status.SequenceNum,
 			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
+		},
+	}
+}
+
+// MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.
+func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1.AgentPackage {
+	return &v1.AgentPackage{
+		Metadata: v1.AgentPackageMetadata{
+			Name:       agentPackage.Metadata.Name,
+			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
+		},
+		Spec: v1.AgentPackageSpec{
+			PackageType: agentPackage.Spec.PackageType,
+			Version:     agentPackage.Spec.Version,
+			DownloadURL: agentPackage.Spec.DownloadURL,
+			ContentHash: agentPackage.Spec.ContentHash,
+			Signature:   agentPackage.Spec.Signature,
+			Headers:     agentPackage.Spec.Headers,
+			Hash:        agentPackage.Spec.Hash,
+		},
+		Status: v1.AgentPackageStatus{
+			Conditions: mapper.mapConditionsToAPI(agentPackage.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToAgentPackage maps an API model AgentPackage to a domain model AgentPackage.
+func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.AgentPackage {
+	return &model.AgentPackage{
+		Metadata: model.AgentPackageMetadata{
+			Name:       apiModel.Metadata.Name,
+			Attributes: model.OfAttributes(apiModel.Metadata.Attributes),
+		},
+		Spec: model.AgentPackageSpec{
+			PackageType: apiModel.Spec.PackageType,
+			Version:     apiModel.Spec.Version,
+			DownloadURL: apiModel.Spec.DownloadURL,
+			ContentHash: apiModel.Spec.ContentHash,
+			Signature:   apiModel.Spec.Signature,
+			Headers:     apiModel.Spec.Headers,
+			Hash:        apiModel.Spec.Hash,
+		},
+		Status: model.AgentPackageStatus{
+			// Skip mapping conditions as they are usually managed by the system.
+			Conditions: nil,
 		},
 	}
 }
@@ -334,23 +379,28 @@ func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1.Ag
 	}
 }
 
-func (mapper *Mapper) mapConditionsToAPI(conditions []model.AgentCondition) []v1.Condition {
-	if len(conditions) == 0 {
-		return nil
-	}
-
-	apiConditions := make([]v1.Condition, len(conditions))
-	for i, condition := range conditions {
-		apiConditions[i] = v1.Condition{
+func (mapper *Mapper) mapAgentConditionsToAPI(conditions []model.AgentCondition) []v1.Condition {
+	return lo.Map(conditions, func(condition model.AgentCondition, _ int) v1.Condition {
+		return v1.Condition{
 			Type:               v1.ConditionType(condition.Type),
 			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
 			Status:             v1.ConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,
 		}
-	}
+	})
+}
 
-	return apiConditions
+func (mapper *Mapper) mapConditionsToAPI(conditions []model.Condition) []v1.Condition {
+	return lo.Map(conditions, func(condition model.Condition, _ int) v1.Condition {
+		return v1.Condition{
+			Type:               v1.ConditionType(condition.Type),
+			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
+			Status:             v1.ConditionStatus(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+		}
+	})
 }
 
 func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {

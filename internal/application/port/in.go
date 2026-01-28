@@ -28,6 +28,15 @@ type AdminUsecase interface {
 	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Connection], error)
 }
 
+// AgentPackageManageUsecase is a use case that handles agent package operations.
+type AgentPackageManageUsecase interface {
+	GetAgentPackage(ctx context.Context, name string) (*v1.AgentPackage, error)
+	ListAgentPackages(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)
+	CreateAgentPackage(ctx context.Context, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
+	UpdateAgentPackage(ctx context.Context, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
+	DeleteAgentPackage(ctx context.Context, name string) error
+}
+
 // AgentManageUsecase is a use case that handles agent management operations.
 type AgentManageUsecase interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error)
