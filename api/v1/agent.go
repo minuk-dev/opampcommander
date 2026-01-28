@@ -7,19 +7,6 @@ const (
 	AgentKind = "Agent"
 )
 
-// AgentListResponse represents a list of agents with metadata.
-type AgentListResponse = ListResponse[Agent]
-
-// NewAgentListResponse creates a new AgentListResponse with the given agents and metadata.
-func NewAgentListResponse(agents []Agent, metadata ListMeta) *AgentListResponse {
-	return &AgentListResponse{
-		Kind:       AgentKind,
-		APIVersion: APIVersion,
-		Metadata:   metadata,
-		Items:      agents,
-	}
-}
-
 // Agent represents an agent which is defined OpAMP protocol.
 // It follows the Kubernetes-style resource structure with Metadata, Spec, and Status.
 type Agent struct {
@@ -123,9 +110,9 @@ type AgentConfigFile struct {
 
 // AgentPackageStatuses represents the package statuses of the agent.
 type AgentPackageStatuses struct {
-	Packages                      map[string]AgentPackageStatus `json:"packages"`
-	ServerProvidedAllPackagesHash string                        `json:"serverProvidedAllPackagesHash,omitempty"`
-	ErrorMessage                  string                        `json:"errorMessage,omitempty"`
+	Packages                      map[string]AgentStatusPackageEntry `json:"packages"`
+	ServerProvidedAllPackagesHash string                             `json:"serverProvidedAllPackagesHash,omitempty"`
+	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
 
 // AgentRemoteConfig represents the remote configuration of the agent.
@@ -160,11 +147,11 @@ type AgentComponentDetails struct {
 	Version string `json:"version,omitempty"`
 } // @name ComponentDetails
 
-// AgentPackageStatus represents the status of a package in the agent.
-type AgentPackageStatus struct {
+// AgentStatusPackageEntry represents the status of a package in the agent.
+type AgentStatusPackageEntry struct {
 	// Name is the name of the package.
 	Name string `json:"name"`
-} // @name AgentPackageStatus
+} // @name AgentPackageStatusPackageEntry
 
 // ConnectionSettings represents connection settings for the agent.
 type ConnectionSettings struct {
