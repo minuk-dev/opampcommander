@@ -24,11 +24,13 @@ const (
 
 // Service is a struct that implements the OpAMPUsecase interface.
 type Service struct {
-	clock                  clock.Clock
-	logger                 *slog.Logger
-	agentUsecase           domainport.AgentUsecase
-	agentGroupUsecase      domainport.AgentGroupUsecase
-	serverIdentityProvider domainport.ServerIdentityProvider
+	clock                    clock.Clock
+	logger                   *slog.Logger
+	agentUsecase             domainport.AgentUsecase
+	agentGroupUsecase        domainport.AgentGroupUsecase
+	agentPackageUsecase      domainport.AgentPackageUsecase
+	agentRemoteConfigUsecase domainport.AgentRemoteConfigUsecase
+	serverIdentityProvider   domainport.ServerIdentityProvider
 
 	agentNotificationUsecase domainport.AgentNotificationUsecase
 
@@ -45,6 +47,8 @@ func New(
 	serverIdentityProvider domainport.ServerIdentityProvider,
 	agentGroupUsecase domainport.AgentGroupUsecase,
 	agentNotificationUsecase domainport.AgentNotificationUsecase,
+	agentPackageUsecase domainport.AgentPackageUsecase,
+	agentRemoteConfigUsecase domainport.AgentRemoteConfigUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -55,6 +59,8 @@ func New(
 		serverIdentityProvider:   serverIdentityProvider,
 		agentGroupUsecase:        agentGroupUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
+		agentPackageUsecase:      agentPackageUsecase,
+		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,

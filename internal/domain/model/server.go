@@ -14,12 +14,12 @@ type Server struct {
 	// LastHeartbeatAt is the last time the server sent a heartbeat.
 	LastHeartbeatAt time.Time
 	// Conditions is a list of conditions that apply to the server.
-	Conditions []ServerCondition
+	Conditions []Condition
 }
 
 // Clone creates a deep copy of the Server.
 func (s *Server) Clone() *Server {
-	conditionsCopy := make([]ServerCondition, len(s.Conditions))
+	conditionsCopy := make([]Condition, len(s.Conditions))
 	copy(conditionsCopy, s.Conditions)
 
 	return &Server{
@@ -29,42 +29,6 @@ func (s *Server) Clone() *Server {
 	}
 }
 
-// ServerCondition represents a condition of a server.
-type ServerCondition struct {
-	// Type is the type of the condition.
-	Type ServerConditionType
-	// LastTransitionTime is the last time the condition transitioned.
-	LastTransitionTime time.Time
-	// Status is the status of the condition.
-	Status ServerConditionStatus
-	// Reason is the identifier of the user or system that triggered the condition.
-	Reason string
-	// Message is a human readable message indicating details about the condition.
-	Message string
-}
-
-// ServerConditionType represents the type of a server condition.
-type ServerConditionType string
-
-const (
-	// ServerConditionTypeRegistered represents the condition when the server was registered.
-	ServerConditionTypeRegistered ServerConditionType = "Registered"
-	// ServerConditionTypeAlive represents the condition when the server is alive.
-	ServerConditionTypeAlive ServerConditionType = "Alive"
-)
-
-// ServerConditionStatus represents the status of a server condition.
-type ServerConditionStatus string
-
-const (
-	// ServerConditionStatusTrue represents a true condition status.
-	ServerConditionStatusTrue ServerConditionStatus = "True"
-	// ServerConditionStatusFalse represents a false condition status.
-	ServerConditionStatusFalse ServerConditionStatus = "False"
-	// ServerConditionStatusUnknown represents an unknown condition status.
-	ServerConditionStatusUnknown ServerConditionStatus = "Unknown"
-)
-
 // IsAlive returns true if the server is alive based on the heartbeat timeout.
 // A server is considered alive if its last heartbeat was within the timeout period.
 func (s *Server) IsAlive(now time.Time, timeout time.Duration) bool {
@@ -72,11 +36,11 @@ func (s *Server) IsAlive(now time.Time, timeout time.Duration) bool {
 }
 
 // SetCondition sets or updates a condition in the server's status.
-func (s *Server) SetCondition(conditionType ServerConditionType, status ServerConditionStatus, reason, message string) {
+func (s *Server) SetCondition(conditionType ConditionType, status ConditionStatus, reason, message string) {
 	now := time.Now()
 
 	// Check if condition already exists
-	_, idx, ok := lo.FindIndexOf(s.Conditions, func(condition ServerCondition) bool {
+	_, idx, ok := lo.FindIndexOf(s.Conditions, func(condition Condition) bool {
 		return condition.Type == conditionType
 	})
 	if ok {
@@ -92,7 +56,7 @@ func (s *Server) SetCondition(conditionType ServerConditionType, status ServerCo
 	}
 
 	// Add new condition
-	s.Conditions = append(s.Conditions, ServerCondition{
+	s.Conditions = append(s.Conditions, Condition{
 		Type:               conditionType,
 		LastTransitionTime: now,
 		Status:             status,
@@ -102,8 +66,8 @@ func (s *Server) SetCondition(conditionType ServerConditionType, status ServerCo
 }
 
 // GetCondition returns the condition of the specified type.
-func (s *Server) GetCondition(conditionType ServerConditionType) *ServerCondition {
-	condition, ok := lo.Find(s.Conditions, func(condition ServerCondition) bool {
+func (s *Server) GetCondition(conditionType ConditionType) *Condition {
+	condition, ok := lo.Find(s.Conditions, func(condition Condition) bool {
 		return condition.Type == conditionType
 	})
 	if !ok {
@@ -114,45 +78,33 @@ func (s *Server) GetCondition(conditionType ServerConditionType) *ServerConditio
 }
 
 // IsConditionTrue checks if the specified condition type is true.
-func (s *Server) IsConditionTrue(conditionType ServerConditionType) bool {
+func (s *Server) IsConditionTrue(conditionType ConditionType) bool {
 	condition := s.GetCondition(conditionType)
 
-	return condition != nil && condition.Status == ServerConditionStatusTrue
+	return condition != nil && condition.Status == ConditionStatusTrue
 }
 
 // MarkRegistered marks the server as registered.
 func (s *Server) MarkRegistered(reason string) {
-	s.SetCondition(ServerConditionTypeRegistered, ServerConditionStatusTrue, reason, "Server registered")
+	s.SetCondition(ConditionTypeCreated, ConditionStatusTrue, reason, "Server registered")
 }
 
-// MarkAlive marks the server as alive.
-func (s *Server) MarkAlive(reason string) {
-	s.SetCondition(ServerConditionTypeAlive, ServerConditionStatusTrue, reason, "Server is alive")
-}
-
-// MarkNotAlive marks the server as not alive.
-func (s *Server) MarkNotAlive(reason string) {
-	s.SetCondition(ServerConditionTypeAlive, ServerConditionStatusFalse, reason, "Server is not responding")
-}
-
-// GetRegisteredAt returns the timestamp when the server was registered.
+// GetRegisteredAt returns the time when the server was registered.
 func (s *Server) GetRegisteredAt() *time.Time {
-	for _, condition := range s.Conditions {
-		if condition.Type == ServerConditionTypeRegistered && condition.Status == ServerConditionStatusTrue {
-			return &condition.LastTransitionTime
-		}
+	condition := s.GetCondition(ConditionTypeCreated)
+	if condition == nil {
+		return nil
 	}
 
-	return nil
+	return &condition.LastTransitionTime
 }
 
-// GetRegisteredBy returns the identifier of the user or system that registered the server.
+// GetRegisteredBy returns the reason/actor who registered the server.
 func (s *Server) GetRegisteredBy() string {
-	for _, condition := range s.Conditions {
-		if condition.Type == ServerConditionTypeRegistered && condition.Status == ServerConditionStatusTrue {
-			return condition.Reason
-		}
+	condition := s.GetCondition(ConditionTypeCreated)
+	if condition == nil {
+		return ""
 	}
 
-	return ""
+	return condition.Reason
 }

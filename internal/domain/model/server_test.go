@@ -18,19 +18,19 @@ func TestServerConditions(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: time.Now(),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
 		// Set registered condition
 		server.MarkRegistered("system")
 
-		condition := server.GetCondition(model.ServerConditionTypeRegistered)
+		condition := server.GetCondition(model.ConditionTypeCreated)
 		assert.NotNil(t, condition)
-		assert.Equal(t, model.ServerConditionTypeRegistered, condition.Type)
-		assert.Equal(t, model.ServerConditionStatusTrue, condition.Status)
+		assert.Equal(t, model.ConditionTypeCreated, condition.Type)
+		assert.Equal(t, model.ConditionStatusTrue, condition.Status)
 		assert.Equal(t, "system", condition.Reason)
 		assert.Equal(t, "Server registered", condition.Message)
-		assert.True(t, server.IsConditionTrue(model.ServerConditionTypeRegistered))
+		assert.True(t, server.IsConditionTrue(model.ConditionTypeCreated))
 	})
 
 	t.Run("Mark server as alive", func(t *testing.T) {
@@ -39,17 +39,17 @@ func TestServerConditions(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: time.Now(),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
-		server.MarkAlive("heartbeat")
+		server.SetCondition(model.ConditionTypeAlive, model.ConditionStatusTrue, "heartbeat", "Server is alive")
 
-		assert.True(t, server.IsConditionTrue(model.ServerConditionTypeAlive))
+		assert.True(t, server.IsConditionTrue(model.ConditionTypeAlive))
 
-		condition := server.GetCondition(model.ServerConditionTypeAlive)
+		condition := server.GetCondition(model.ConditionTypeAlive)
 		assert.NotNil(t, condition)
-		assert.Equal(t, model.ServerConditionTypeAlive, condition.Type)
-		assert.Equal(t, model.ServerConditionStatusTrue, condition.Status)
+		assert.Equal(t, model.ConditionTypeAlive, condition.Type)
+		assert.Equal(t, model.ConditionStatusTrue, condition.Status)
 		assert.Equal(t, "heartbeat", condition.Reason)
 		assert.Equal(t, "Server is alive", condition.Message)
 	})
@@ -60,22 +60,22 @@ func TestServerConditions(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: time.Now(),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
 		// First mark as alive
-		server.MarkAlive("heartbeat")
-		assert.True(t, server.IsConditionTrue(model.ServerConditionTypeAlive))
+		server.SetCondition(model.ConditionTypeAlive, model.ConditionStatusTrue, "heartbeat", "Server is alive")
+		assert.True(t, server.IsConditionTrue(model.ConditionTypeAlive))
 
 		// Then mark as not alive
-		server.MarkNotAlive("timeout")
+		server.SetCondition(model.ConditionTypeAlive, model.ConditionStatusFalse, "timeout", "Server is not responding")
 
-		assert.False(t, server.IsConditionTrue(model.ServerConditionTypeAlive))
+		assert.False(t, server.IsConditionTrue(model.ConditionTypeAlive))
 
-		condition := server.GetCondition(model.ServerConditionTypeAlive)
+		condition := server.GetCondition(model.ConditionTypeAlive)
 		assert.NotNil(t, condition)
-		assert.Equal(t, model.ServerConditionTypeAlive, condition.Type)
-		assert.Equal(t, model.ServerConditionStatusFalse, condition.Status)
+		assert.Equal(t, model.ConditionTypeAlive, condition.Type)
+		assert.Equal(t, model.ConditionStatusFalse, condition.Status)
 		assert.Equal(t, "timeout", condition.Reason)
 		assert.Equal(t, "Server is not responding", condition.Message)
 	})
@@ -86,7 +86,7 @@ func TestServerConditions(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: time.Now(),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
 		// Initially should return nil/empty
@@ -107,12 +107,12 @@ func TestServerConditions(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: time.Now(),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
-		condition := server.GetCondition(model.ServerConditionTypeAlive)
+		condition := server.GetCondition(model.ConditionTypeAlive)
 		assert.Nil(t, condition)
-		assert.False(t, server.IsConditionTrue(model.ServerConditionTypeAlive))
+		assert.False(t, server.IsConditionTrue(model.ConditionTypeAlive))
 	})
 
 	t.Run("Update existing condition", func(t *testing.T) {
@@ -121,29 +121,29 @@ func TestServerConditions(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: time.Now(),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
 		// First mark as alive
-		server.MarkAlive("initial")
-		assert.True(t, server.IsConditionTrue(model.ServerConditionTypeAlive))
+		server.SetCondition(model.ConditionTypeAlive, model.ConditionStatusTrue, "initial", "Server is alive")
+		assert.True(t, server.IsConditionTrue(model.ConditionTypeAlive))
 
 		// Get the initial timestamp
-		firstCondition := server.GetCondition(model.ServerConditionTypeAlive)
+		firstCondition := server.GetCondition(model.ConditionTypeAlive)
 		firstTime := firstCondition.LastTransitionTime
 
 		// Wait a moment and mark as not alive
 		time.Sleep(time.Millisecond)
-		server.MarkNotAlive("timeout")
+		server.SetCondition(model.ConditionTypeAlive, model.ConditionStatusFalse, "timeout", "Server is not responding")
 
 		// Should update the existing condition
 		assert.Len(t, server.Conditions, 1) // Still only one condition
-		assert.False(t, server.IsConditionTrue(model.ServerConditionTypeAlive))
+		assert.False(t, server.IsConditionTrue(model.ConditionTypeAlive))
 
-		updatedCondition := server.GetCondition(model.ServerConditionTypeAlive)
+		updatedCondition := server.GetCondition(model.ConditionTypeAlive)
 		assert.True(t, updatedCondition.LastTransitionTime.After(firstTime))
 		assert.Equal(t, "timeout", updatedCondition.Reason)
-		assert.Equal(t, model.ServerConditionStatusFalse, updatedCondition.Status)
+		assert.Equal(t, model.ConditionStatusFalse, updatedCondition.Status)
 	})
 }
 
@@ -157,7 +157,7 @@ func TestServerIsAlive(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: now.Add(-30 * time.Second),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
 		assert.True(t, server.IsAlive(now, 1*time.Minute))
@@ -170,7 +170,7 @@ func TestServerIsAlive(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server",
 			LastHeartbeatAt: now.Add(-2 * time.Minute),
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 
 		assert.False(t, server.IsAlive(now, 1*time.Minute))

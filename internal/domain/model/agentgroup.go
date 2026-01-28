@@ -21,7 +21,7 @@ type AgentGroupMetadata struct {
 	Name string
 	// Priority is the priority of the agent group.
 	// When multiple agent groups match an agent, the one with the highest priority is applied.
-	Priority int32
+	Priority int
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
@@ -93,6 +93,8 @@ const (
 	ConditionTypeUpdated ConditionType = "Updated"
 	// ConditionTypeDeleted represents the condition when the agent group was deleted.
 	ConditionTypeDeleted ConditionType = "Deleted"
+	// ConditionTypeAlive represents the condition when the server is alive.
+	ConditionTypeAlive ConditionType = "Alive"
 )
 
 // ConditionStatus represents the status of a condition.
@@ -103,6 +105,8 @@ const (
 	ConditionStatusTrue ConditionStatus = "True"
 	// ConditionStatusFalse represents a false condition status.
 	ConditionStatusFalse ConditionStatus = "False"
+	// ConditionStatusUnknown represents an unknown condition status.
+	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
 // NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,

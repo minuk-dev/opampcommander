@@ -7,19 +7,6 @@ const (
 	AgentKind = "Agent"
 )
 
-// AgentListResponse represents a list of agents with metadata.
-type AgentListResponse = ListResponse[Agent]
-
-// NewAgentListResponse creates a new AgentListResponse with the given agents and metadata.
-func NewAgentListResponse(agents []Agent, metadata ListMeta) *AgentListResponse {
-	return &AgentListResponse{
-		Kind:       AgentKind,
-		APIVersion: APIVersion,
-		Metadata:   metadata,
-		Items:      agents,
-	}
-}
-
 // Agent represents an agent which is defined OpAMP protocol.
 // It follows the Kubernetes-style resource structure with Metadata, Spec, and Status.
 type Agent struct {
@@ -58,6 +45,9 @@ type AgentSpec struct {
 
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig AgentRemoteConfig `json:"remoteConfig"`
+
+	// PackagesAvailable is the packages available for the agent to download.
+	PackagesAvailable AgentSpecPackages `json:"packagesAvailable,omitempty"`
 
 	// RestartRequiredAt is the time when a restart was requested.
 	// If this time is after the agent's start time, the agent should be restarted.
@@ -123,9 +113,9 @@ type AgentConfigFile struct {
 
 // AgentPackageStatuses represents the package statuses of the agent.
 type AgentPackageStatuses struct {
-	Packages                      map[string]AgentPackageStatus `json:"packages"`
-	ServerProvidedAllPackagesHash string                        `json:"serverProvidedAllPackagesHash,omitempty"`
-	ErrorMessage                  string                        `json:"errorMessage,omitempty"`
+	Packages                      map[string]AgentStatusPackageEntry `json:"packages"`
+	ServerProvidedAllPackagesHash string                             `json:"serverProvidedAllPackagesHash,omitempty"`
+	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
 
 // AgentRemoteConfig represents the remote configuration of the agent.
@@ -160,11 +150,17 @@ type AgentComponentDetails struct {
 	Version string `json:"version,omitempty"`
 } // @name ComponentDetails
 
-// AgentPackageStatus represents the status of a package in the agent.
-type AgentPackageStatus struct {
+// AgentStatusPackageEntry represents the status of a package in the agent.
+type AgentStatusPackageEntry struct {
 	// Name is the name of the package.
 	Name string `json:"name"`
-} // @name AgentPackageStatus
+} // @name AgentPackageStatusPackageEntry
+
+// AgentSpecPackages represents the packages specification for an agent.
+type AgentSpecPackages struct {
+	// Packages is a list of package names available for the agent.
+	Packages []string `json:"packages,omitempty"`
+} // @name AgentSpecPackages
 
 // ConnectionSettings represents connection settings for the agent.
 type ConnectionSettings struct {

@@ -29,6 +29,7 @@ linters:
     exhaustruct:
       exclude:
         - '.+/cobra\.Command$'
+        - 'go.mongodb.org/mongo-driver/v2/bson.Binary'
     ireturn:
       allow:
         - generic

@@ -48,7 +48,7 @@ func TestServerAdapter_GetServer(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server-1",
 			LastHeartbeatAt: now,
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 		server.MarkRegistered("test")
 
@@ -97,7 +97,7 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	server := &model.Server{
 		ID:              "test-server",
 		LastHeartbeatAt: now,
-		Conditions:      []model.ServerCondition{},
+		Conditions:      []model.Condition{},
 	}
 	server.MarkRegistered("test")
 
@@ -109,7 +109,7 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	assert.Equal(t, "test-server", retrievedServer.ID)
 	assert.WithinDuration(t, now, retrievedServer.LastHeartbeatAt, time.Second)
 	// Check that server has registered condition
-	assert.True(t, retrievedServer.IsConditionTrue(model.ServerConditionTypeRegistered))
+	assert.True(t, retrievedServer.IsConditionTrue(model.ConditionTypeCreated))
 }
 
 func TestServerAdapter_ListServers(t *testing.T) {
@@ -140,7 +140,7 @@ func TestServerAdapter_ListServers(t *testing.T) {
 		server := &model.Server{
 			ID:              "test-server-" + string(rune('0'+i)),
 			LastHeartbeatAt: now,
-			Conditions:      []model.ServerCondition{},
+			Conditions:      []model.Condition{},
 		}
 		server.MarkRegistered("test")
 		err := adapter.PutServer(ctx, server)
@@ -169,7 +169,7 @@ func TestServer_IsAlive(t *testing.T) {
 			server: &model.Server{
 				ID:              "server-1",
 				LastHeartbeatAt: now.Add(-30 * time.Second),
-				Conditions:      []model.ServerCondition{},
+				Conditions:      []model.Condition{},
 			},
 			checkTime:   now,
 			expectedVal: true,
@@ -179,7 +179,7 @@ func TestServer_IsAlive(t *testing.T) {
 			server: &model.Server{
 				ID:              "server-2",
 				LastHeartbeatAt: now.Add(-2 * time.Minute),
-				Conditions:      []model.ServerCondition{},
+				Conditions:      []model.Condition{},
 			},
 			checkTime:   now,
 			expectedVal: false,
@@ -189,7 +189,7 @@ func TestServer_IsAlive(t *testing.T) {
 			server: &model.Server{
 				ID:              "server-3",
 				LastHeartbeatAt: now.Add(-59 * time.Second),
-				Conditions:      []model.ServerCondition{},
+				Conditions:      []model.Condition{},
 			},
 			checkTime:   now,
 			expectedVal: true,
