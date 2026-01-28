@@ -1164,3 +1164,9 @@ func (a *Agent) NewInstanceUID() []byte {
 func (a *Agent) HasNewInstanceUID() bool {
 	return a.Spec.NewInstanceUID != uuid.Nil
 }
+
+// HasNewPackages checks if there are new packages available for the agent.
+func (a *Agent) HasNewPackages() bool {
+	return a.Metadata.Capabilities.HasAcceptsPackages() &&
+		len(a.Spec.PackagesAvailable.Packages) > 0
+}
