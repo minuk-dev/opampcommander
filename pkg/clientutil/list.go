@@ -135,3 +135,32 @@ func ListAgentGroupFully(ctx context.Context, cli *client.Client) ([]v1.AgentGro
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
 	}
 }
+
+// ListAgentPackageFully lists all agent packages and applies the provided function to each agent package.
+// It continues to fetch agent packages until there are no more agent packages to fetch.
+func ListAgentPackageFully(ctx context.Context, cli *client.Client) ([]v1.AgentPackage, error) {
+	var agentPackages []v1.AgentPackage
+	// Initialize the continue token to an empty string
+	continueToken := ""
+
+	for {
+		// List agent packages with the current continue token
+		resp, err := cli.AgentPackageService.ListAgentPackages(
+			ctx,
+			client.WithContinueToken(continueToken),
+			client.WithLimit(ChunkSize),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list agent packages: %w", err)
+		}
+
+		// Iterate over each agent package in the response
+		if len(resp.Items) == 0 {
+			return agentPackages, nil // No agent packages found, exit the loop
+		}
+
+		agentPackages = append(agentPackages, resp.Items...)
+
+		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
+	}
+}
