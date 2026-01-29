@@ -49,7 +49,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description  Retrieve a list of all alive servers.
 // @Accept  json
 // @Produce json
-// @Success 200 {array} v1.Server
+// @Success 200 {object} v1.ListResponse[v1.Server]
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/servers [get].
 func (c *Controller) List(ctx *gin.Context) {

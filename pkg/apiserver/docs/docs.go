@@ -41,10 +41,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AgentGroup"
-                            }
+                            "$ref": "#/definitions/ListResponse-AgentGroup"
                         }
                     },
                     "400": {
@@ -257,6 +254,253 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/agentpackages": {
+            "get": {
+                "description": "Retrieve a list of agent packages.",
+                "tags": [
+                    "agentpackage"
+                ],
+                "summary": "List Agent Packages",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of agent packages to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agent packages",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-AgentPackage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new agent package.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentpackage"
+                ],
+                "summary": "Create Agent Package",
+                "parameters": [
+                    {
+                        "description": "Agent Package to create",
+                        "name": "agentPackage",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AgentPackage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/AgentPackage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/agentpackages/{name}": {
+            "get": {
+                "description": "Retrieve an agent package by its name.",
+                "tags": [
+                    "agentpackage"
+                ],
+                "summary": "Get Agent Package",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the agent package",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentPackage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing agent package.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentpackage"
+                ],
+                "summary": "Update Agent Package",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the agent package",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated Agent Package",
+                        "name": "agentPackage",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AgentPackage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentPackage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete an agent package by its name.",
+                "tags": [
+                    "agentpackage"
+                ],
+                "summary": "Delete Agent Package",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the agent package",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Identifier of the user who deleted the package",
+                        "name": "deletedBy",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/agents": {
             "get": {
                 "description": "Retrieve a list of agents.",
@@ -288,10 +532,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Agent"
-                            }
+                            "$ref": "#/definitions/ListResponse-Agent"
                         }
                     },
                     "400": {
@@ -347,10 +588,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Agent"
-                            }
+                            "$ref": "#/definitions/ListResponse-Agent"
                         }
                     },
                     "400": {
@@ -666,10 +904,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Connection"
-                            }
+                            "$ref": "#/definitions/ListResponse-Connection"
                         }
                     },
                     "500": {
@@ -729,10 +964,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Server"
-                            }
+                            "$ref": "#/definitions/ListResponse-Server"
                         }
                     },
                     "500": {
@@ -1057,7 +1289,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attributes": {
-                    "$ref": "#/definitions/v1.Attributes"
+                    "$ref": "#/definitions/api_v1.Attributes"
                 },
                 "name": {
                     "type": "string"
@@ -1066,7 +1298,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "selector": {
-                    "$ref": "#/definitions/v1.AgentSelector"
+                    "$ref": "#/definitions/api_v1.AgentSelector"
                 }
             }
         },
@@ -1074,7 +1306,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "agentConfig": {
-                    "$ref": "#/definitions/v1.AgentConfig"
+                    "$ref": "#/definitions/api_v1.AgentConfig"
                 }
             }
         },
@@ -1139,7 +1371,81 @@ const docTemplate = `{
                 }
             }
         },
+        "AgentPackage": {
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "$ref": "#/definitions/AgentPackageMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/AgentPackageSpec"
+                },
+                "status": {
+                    "$ref": "#/definitions/AgentPackageStatus"
+                }
+            }
+        },
+        "AgentPackageMetadata": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentPackageSpec": {
+            "type": "object",
+            "properties": {
+                "contentHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "downloadUrl": {
+                    "type": "string"
+                },
+                "hash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "packageType": {
+                    "type": "string"
+                },
+                "signature": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "AgentPackageStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
+                }
+            }
+        },
+        "AgentPackageStatusPackageEntry": {
             "type": "object",
             "properties": {
                 "name": {
@@ -1157,7 +1463,7 @@ const docTemplate = `{
                 "packages": {
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/AgentPackageStatus"
+                        "$ref": "#/definitions/AgentPackageStatusPackageEntry"
                     }
                 },
                 "serverProvidedAllPackagesHash": {
@@ -1194,6 +1500,14 @@ const docTemplate = `{
                     "description": "NewInstanceUID is a new instance UID to inform the agent of its new identity.",
                     "type": "string"
                 },
+                "packagesAvailable": {
+                    "description": "PackagesAvailable is the packages available for the agent to download.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentSpecPackages"
+                        }
+                    ]
+                },
                 "remoteConfig": {
                     "description": "RemoteConfig is the remote configuration of the agent.",
                     "allOf": [
@@ -1205,6 +1519,18 @@ const docTemplate = `{
                 "restartRequiredAt": {
                     "description": "RestartRequiredAt is the time when a restart was requested.\nIf this time is after the agent's start time, the agent should be restarted.",
                     "type": "string"
+                }
+            }
+        },
+        "AgentSpecPackages": {
+            "type": "object",
+            "properties": {
+                "packages": {
+                    "description": "Packages is a list of package names available for the agent.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1482,6 +1808,117 @@ const docTemplate = `{
                 }
             }
         },
+        "ListMeta": {
+            "type": "object",
+            "properties": {
+                "continue": {
+                    "type": "string"
+                },
+                "remainingItemCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ListResponse-Agent": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Agent"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-AgentGroup": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgentGroup"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-AgentPackage": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgentPackage"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-Connection": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Connection"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-Server": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Server"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "OAuth2AuthCodeURLResponse": {
             "type": "object",
             "properties": {
@@ -1691,7 +2128,7 @@ const docTemplate = `{
                 }
             }
         },
-        "v1.AgentConfig": {
+        "api_v1.AgentConfig": {
             "type": "object",
             "properties": {
                 "connectionSettings": {
@@ -1705,7 +2142,7 @@ const docTemplate = `{
                 }
             }
         },
-        "v1.AgentSelector": {
+        "api_v1.AgentSelector": {
             "type": "object",
             "properties": {
                 "identifyingAttributes": {
@@ -1722,7 +2159,44 @@ const docTemplate = `{
                 }
             }
         },
-        "v1.Attributes": {
+        "api_v1.Attributes": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
+        "github_com_minuk-dev_opampcommander_api_v1.AgentConfig": {
+            "type": "object",
+            "properties": {
+                "connectionSettings": {
+                    "$ref": "#/definitions/ConnectionSettings"
+                },
+                "contentType": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_minuk-dev_opampcommander_api_v1.AgentSelector": {
+            "type": "object",
+            "properties": {
+                "identifyingAttributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "nonIdentifyingAttributes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "github_com_minuk-dev_opampcommander_api_v1.Attributes": {
             "type": "object",
             "additionalProperties": {
                 "type": "string"
