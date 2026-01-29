@@ -767,13 +767,13 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	assert.NotEmpty(t, searchResp.Metadata.Continue)
 }
 
-func searchAgents(t *testing.T, apiBaseURL, query string) *v1.AgentListResponse {
+func searchAgents(t *testing.T, apiBaseURL, query string) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
 	return searchAgentsWithLimit(t, apiBaseURL, query, 0)
 }
 
-func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.AgentListResponse {
+func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
 	url := fmt.Sprintf("%s/api/v1/agents/search?q=%s", apiBaseURL, query)
@@ -800,7 +800,7 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	var listResp v1.AgentListResponse
+	var listResp v1.ListResponse[v1.Agent]
 
 	err = json.Unmarshal(body, &listResp)
 	require.NoError(t, err)
