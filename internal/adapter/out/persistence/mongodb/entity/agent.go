@@ -655,8 +655,13 @@ func (arcs *AgentRemoteConfigStatus) ToDomain() domainmodel.AgentRemoteConfigSta
 		}
 	}
 
+	var lastRemoteConfigHash []byte
+	if arcs.LastRemoteConfigHash != nil {
+		lastRemoteConfigHash = arcs.LastRemoteConfigHash.Data
+	}
+
 	return domainmodel.AgentRemoteConfigStatus{
-		LastRemoteConfigHash: arcs.LastRemoteConfigHash.Data,
+		LastRemoteConfigHash: lastRemoteConfigHash,
 		Status:               domainmodel.RemoteConfigStatus(arcs.Status),
 		ErrorMessage:         arcs.ErrorMessage,
 		LastUpdatedAt:        time.Time{},
