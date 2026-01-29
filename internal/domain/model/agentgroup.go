@@ -129,6 +129,7 @@ func NewAgentGroup(
 				IdentifyingAttributes:    nil,
 				NonIdentifyingAttributes: nil,
 			},
+			DeletedAt: nil,
 		},
 		Spec: AgentGroupSpec{
 			AgentRemoteConfig:     nil,

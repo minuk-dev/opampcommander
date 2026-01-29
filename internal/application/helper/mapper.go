@@ -218,6 +218,7 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 		Metadata: model.AgentPackageMetadata{
 			Name:       apiModel.Metadata.Name,
 			Attributes: model.OfAttributes(apiModel.Metadata.Attributes),
+			DeletedAt:  nil,
 		},
 		Spec: model.AgentPackageSpec{
 			PackageType: apiModel.Spec.PackageType,

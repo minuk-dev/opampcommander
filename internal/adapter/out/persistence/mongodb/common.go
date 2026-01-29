@@ -125,6 +125,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	})
 	queryWg.Go(func() {
 		filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
+
 		cnt, err := a.collection.CountDocuments(ctx, filter)
 		if err != nil {
 			lErr = fmt.Errorf("failed to count resources in mongodb: %w", err)
