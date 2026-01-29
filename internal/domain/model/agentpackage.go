@@ -11,6 +11,9 @@ type AgentPackage struct {
 
 // MarkAsDeleted marks the agent package as deleted by setting the DeletedAt timestamp.
 func (a *AgentPackage) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
+	// Set the DeletedAt timestamp in metadata for soft delete filtering
+	a.Metadata.DeletedAt = &deletedAt
+
 	// Mark as deleted by adding a condition
 	a.Status.Conditions = append(a.Status.Conditions, Condition{
 		Type:               ConditionTypeDeleted,

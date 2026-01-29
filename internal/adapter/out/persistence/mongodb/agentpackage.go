@@ -91,5 +91,7 @@ func (a *AgentPackageMongoAdapter) PutAgentPackage(
 		return nil, fmt.Errorf("put agent package: %w", err)
 	}
 
-	return a.GetAgentPackage(ctx, agentPackage.Metadata.Name)
+	// Return the domain model directly instead of querying again
+	// This avoids issues with soft-deleted documents not being found by GetAgentPackage
+	return agentPackage, nil
 }
