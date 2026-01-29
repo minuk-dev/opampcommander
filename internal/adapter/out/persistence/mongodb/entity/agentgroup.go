@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"time"
+
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -27,6 +29,7 @@ type AgentGroupMetadata struct {
 	Priority   int               `bson:"priority"`
 	Attributes map[string]string `bson:"attributes"`
 	Selector   AgentSelector     `bson:"selector"`
+	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentGroupSpec represents the specification of an agent group.
@@ -129,6 +132,7 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 			IdentifyingAttributes:    s.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: s.Selector.NonIdentifyingAttributes,
 		},
+		DeletedAt: s.DeletedAt,
 	}
 }
 
@@ -210,6 +214,7 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 			IdentifyingAttributes:    metadata.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: metadata.Selector.NonIdentifyingAttributes,
 		},
+		DeletedAt: metadata.DeletedAt,
 	}
 }
 

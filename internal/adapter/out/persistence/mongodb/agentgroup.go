@@ -111,11 +111,17 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	// TODO: name should be used to save the agent group with the given name.
 	// ref. https://github.com/minuk-dev/opampcommander/issues/145
 	// Because some update operations may change the name of the agent group.
-	entity := entity.AgentGroupFromDomain(agentGroup)
+	en := entity.AgentGroupFromDomain(agentGroup)
 
-	err := a.common.put(ctx, entity)
+	err := a.common.put(ctx, en)
 	if err != nil {
 		return nil, fmt.Errorf("put agent group: %w", err)
+	}
+
+	// If the agent group is soft deleted, return the input directly
+	// since GetAgentGroup filters out deleted items
+	if agentGroup.IsDeleted() {
+		return agentGroup, nil
 	}
 
 	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.

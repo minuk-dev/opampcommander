@@ -25,11 +25,12 @@ var (
 type KeyFunc[Entity any, KeyType any] func(domain *Entity) KeyType
 
 type commonEntityAdapter[Entity any, KeyType any] struct {
-	logger       *slog.Logger
-	collection   *mongo.Collection
-	KeyFunc      KeyFunc[Entity, KeyType]
-	KeyQueryFunc func(key KeyType) any
-	keyFieldName string
+	logger             *slog.Logger
+	collection         *mongo.Collection
+	KeyFunc            KeyFunc[Entity, KeyType]
+	KeyQueryFunc       func(key KeyType) any
+	keyFieldName       string
+	deletedAtFieldName string
 }
 
 func newCommonAdapter[Entity any, KeyType any](
@@ -40,16 +41,18 @@ func newCommonAdapter[Entity any, KeyType any](
 	keyQueryFunc func(key KeyType) any,
 ) commonEntityAdapter[Entity, KeyType] {
 	return commonEntityAdapter[Entity, KeyType]{
-		logger:       logger,
-		collection:   collection,
-		keyFieldName: keyFieldName,
-		KeyFunc:      keyFunc,
-		KeyQueryFunc: keyQueryFunc,
+		logger:             logger,
+		collection:         collection,
+		keyFieldName:       keyFieldName,
+		KeyFunc:            keyFunc,
+		KeyQueryFunc:       keyQueryFunc,
+		deletedAtFieldName: "metadata.deletedAt",
 	}
 }
 
 func (a *commonEntityAdapter[Entity, KeyType]) get(ctx context.Context, key KeyType) (*Entity, error) {
-	result := a.collection.FindOne(ctx, a.filterByKey(key))
+	filter := a.filterByKeyExcludingDeleted(key)
+	result := a.collection.FindOne(ctx, filter)
 
 	err := result.Err()
 	if err != nil {
@@ -99,9 +102,11 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
+	// Build filter that excludes soft-deleted documents
+	baseFilter := a.excludeDeletedFilter()
+
 	queryWg.Go(func() {
-		entities, err := listWithContinueTokenAndLimit[Entity](ctx,
-			a.logger, a.collection, continueTokenObjectID, options.Limit)
+		entities, err := a.listWithContinueTokenAndLimit(ctx, continueTokenObjectID, options.Limit, baseFilter)
 		if err != nil {
 			fErr = fmt.Errorf("failed to list resources from mongodb: %w", err)
 
@@ -119,7 +124,8 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 		continueTokenRetval = continueToken
 	})
 	queryWg.Go(func() {
-		cnt, err := a.collection.CountDocuments(ctx, withContinueToken(continueTokenObjectID))
+		filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
+		cnt, err := a.collection.CountDocuments(ctx, filter)
 		if err != nil {
 			lErr = fmt.Errorf("failed to count resources in mongodb: %w", err)
 
@@ -154,17 +160,15 @@ func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *
 	return nil
 }
 
-func listWithContinueTokenAndLimit[Entity any](
+func (a *commonEntityAdapter[Entity, KeyType]) listWithContinueTokenAndLimit(
 	ctx context.Context,
-	logger *slog.Logger,
-	collection *mongo.Collection,
 	continueTokenObjectID bson.ObjectID,
 	limit int64,
+	baseFilter bson.M,
 ) ([]*Entity, error) {
-	cursor, err := collection.Find(ctx,
-		withContinueToken(continueTokenObjectID),
-		withLimit(limit),
-	)
+	filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
+
+	cursor, err := a.collection.Find(ctx, filter, withLimit(limit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resources from mongodb: %w", err)
 	}
@@ -172,7 +176,7 @@ func listWithContinueTokenAndLimit[Entity any](
 	defer func() {
 		closeErr := cursor.Close(ctx)
 		if closeErr != nil {
-			logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
 		}
 	}()
 
@@ -204,6 +208,30 @@ func getContinueTokenFromEntities[Entity any](entities []*Entity) (string, error
 
 func (a *commonEntityAdapter[Domain, KeyType]) filterByKey(key KeyType) bson.M {
 	return bson.M{a.keyFieldName: a.KeyQueryFunc(key)}
+}
+
+func (a *commonEntityAdapter[Domain, KeyType]) filterByKeyExcludingDeleted(key KeyType) bson.M {
+	return combineFilters(a.filterByKey(key), a.excludeDeletedFilter())
+}
+
+func (a *commonEntityAdapter[Domain, KeyType]) excludeDeletedFilter() bson.M {
+	if a.deletedAtFieldName == "" {
+		return nil
+	}
+
+	return bson.M{a.deletedAtFieldName: nil}
+}
+
+func combineFilters(filters ...bson.M) bson.M {
+	result := bson.M{}
+
+	for _, filter := range filters {
+		for k, v := range filter {
+			result[k] = v
+		}
+	}
+
+	return result
 }
 
 func withContinueToken(continueToken bson.ObjectID) bson.M {

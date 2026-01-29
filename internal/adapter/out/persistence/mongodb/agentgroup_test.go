@@ -330,21 +330,22 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 		_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
+		// verify it's initially retrievable
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
+		require.NoError(t, err)
+		assert.False(t, got.IsDeleted())
+
 		// when - soft delete
 		deletedBy := "deleter"
 		deletedAt := time.Now()
 		agentGroup.MarkDeleted(deletedAt, deletedBy)
-		_, err = adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		savedGroup, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
+		assert.True(t, savedGroup.IsDeleted())
 
-		// then
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
-		require.NoError(t, err)
-		assert.True(t, got.IsDeleted())
-		assert.Equal(t, deletedBy, *got.GetDeletedBy())
-		assert.NotNil(t, got.GetDeletedAt())
-		// Check that deleted time is close to expected time (within 1 second)
-		assert.WithinDuration(t, deletedAt, *got.GetDeletedAt(), time.Second)
+		// then - should not be retrievable via normal get (soft deleted)
+		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
+		assert.ErrorIs(t, err, domainport.ErrResourceNotExist)
 	})
 }
 

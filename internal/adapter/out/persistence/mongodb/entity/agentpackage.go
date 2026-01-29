@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"time"
+
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -25,6 +27,7 @@ type AgentPackage struct {
 type AgentPackageMetadata struct {
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
+	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentPackageSpec represents the specification of an agent package.
@@ -56,6 +59,7 @@ func (m *AgentPackageMetadata) toDomain() domainmodel.AgentPackageMetadata {
 	return domainmodel.AgentPackageMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
+		DeletedAt:  m.DeletedAt,
 	}
 }
 
@@ -96,6 +100,7 @@ func agentPackageMetadataFromDomain(m domainmodel.AgentPackageMetadata) AgentPac
 	return AgentPackageMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
+		DeletedAt:  m.DeletedAt,
 	}
 }
 
