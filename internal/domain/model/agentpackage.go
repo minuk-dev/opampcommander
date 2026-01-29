@@ -9,6 +9,18 @@ type AgentPackage struct {
 	Status   AgentPackageStatus
 }
 
+// MarkAsDeleted marks the agent package as deleted by setting the DeletedAt timestamp.
+func (a *AgentPackage) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
+	// Mark as deleted by adding a condition
+	a.Status.Conditions = append(a.Status.Conditions, Condition{
+		Type:               ConditionTypeDeleted,
+		Status:             ConditionStatusTrue,
+		LastTransitionTime: deletedAt,
+		Reason:             deletedBy,
+		Message:            "Deleted by " + deletedBy,
+	})
+}
+
 // AgentPackageMetadata represents the metadata of an agent package.
 type AgentPackageMetadata struct {
 	Name       string

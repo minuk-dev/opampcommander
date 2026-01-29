@@ -71,14 +71,7 @@ func (s *AgentPackageService) DeleteAgentPackage(
 		return fmt.Errorf("failed to get agent package for deletion: %w", err)
 	}
 
-	// Mark as deleted by adding a condition
-	agentPackage.Status.Conditions = append(agentPackage.Status.Conditions, model.Condition{
-		Type:               model.ConditionTypeDeleted,
-		Status:             model.ConditionStatusTrue,
-		LastTransitionTime: deletedAt,
-		Reason:             deletedBy,
-		Message:            "Deleted by " + deletedBy,
-	})
+	agentPackage.MarkAsDeleted(deletedAt, deletedBy)
 
 	_, err = s.persistence.PutAgentPackage(ctx, agentPackage)
 	if err != nil {
