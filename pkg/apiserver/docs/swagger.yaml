@@ -960,11 +960,6 @@ paths:
         name: name
         required: true
         type: string
-      - description: Identifier of the user who deleted the package
-        in: query
-        name: deletedBy
-        required: true
-        type: string
       responses:
         "204":
           description: No Content

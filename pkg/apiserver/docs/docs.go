@@ -464,13 +464,6 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Identifier of the user who deleted the package",
-                        "name": "deletedBy",
-                        "in": "query",
-                        "required": true
                     }
                 ],
                 "responses": {

@@ -216,7 +216,6 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Tags agentpackage
 // @Description Delete an agent package by its name.
 // @Param name path string true "Name of the agent package"
-// @Param deletedBy query string true "Identifier of the user who deleted the package"
 // @Success 204
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
