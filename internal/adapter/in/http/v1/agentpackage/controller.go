@@ -95,8 +95,8 @@ func (c *Controller) List(ctx *gin.Context) {
 		Continue: continueToken,
 	})
 	if err != nil {
-		c.logger.Error("failed to list agent groups", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving the list of agent groups.")
+		c.logger.Error("failed to list agent packages", "error", err.Error())
+		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving the list of agent packages.")
 
 		return
 	}
