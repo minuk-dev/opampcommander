@@ -132,7 +132,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	agentPackages := lo.Filter(agentPackagesWithErr, func(a AgentPackageWithErr, _ int) bool {
 		return a.Err == nil
 	})
-	if len(agentPackagesWithErr) == 0 {
+	if len(agentPackages) == 0 {
 		cmd.Println("No agent packages found or all specified packages could not be retrieved.")
 
 		return nil
