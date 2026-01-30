@@ -92,17 +92,7 @@ func (a *Service) CreateAgentPackage(
 		createdBy = security.NewAnonymousUser()
 	}
 
-	domainModel.Status = model.AgentPackageStatus{
-		Conditions: []model.Condition{
-			{
-				Type:               model.ConditionTypeCreated,
-				LastTransitionTime: now,
-				Status:             model.ConditionStatusTrue,
-				Reason:             createdBy.String(),
-				Message:            "Agent group created",
-			},
-		},
-	}
+	domainModel.MarkAsCreated(now, createdBy.String())
 
 	created, err := a.agentpackageUsecase.SaveAgentPackage(ctx, domainModel)
 	if err != nil {

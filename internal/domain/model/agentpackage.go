@@ -9,6 +9,17 @@ type AgentPackage struct {
 	Status   AgentPackageStatus
 }
 
+// MarkAsCreated marks the agent package as created by setting the CreatedAt timestamp.
+func (a *AgentPackage) MarkAsCreated(createdAt time.Time, deletedBy string) {
+	a.Status.Conditions = append(a.Status.Conditions, Condition{
+		Type:               ConditionTypeCreated,
+		Status:             ConditionStatusTrue,
+		LastTransitionTime: createdAt,
+		Reason:             deletedBy,
+		Message:            "Agent package created",
+	})
+}
+
 // MarkAsDeleted marks the agent package as deleted by setting the DeletedAt timestamp.
 func (a *AgentPackage) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 	// Set the DeletedAt timestamp in metadata for soft delete filtering
@@ -20,7 +31,7 @@ func (a *AgentPackage) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 		Status:             ConditionStatusTrue,
 		LastTransitionTime: deletedAt,
 		Reason:             deletedBy,
-		Message:            "Deleted by " + deletedBy,
+		Message:            "Agent package deleted",
 	})
 }
 
