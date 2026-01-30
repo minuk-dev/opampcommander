@@ -101,18 +101,18 @@ definitions:
   AgentGroupMetadata:
     properties:
       attributes:
-        $ref: '#/definitions/v1.Attributes'
+        $ref: '#/definitions/api_v1.Attributes'
       name:
         type: string
       priority:
         type: integer
       selector:
-        $ref: '#/definitions/v1.AgentSelector'
+        $ref: '#/definitions/api_v1.AgentSelector'
     type: object
   AgentGroupSpec:
     properties:
       agentConfig:
-        $ref: '#/definitions/v1.AgentConfig'
+        $ref: '#/definitions/api_v1.AgentConfig'
     type: object
   AgentGroupStatus:
     properties:
@@ -159,7 +159,55 @@ definitions:
         description: InstanceUID is a unique identifier for the agent instance.
         type: string
     type: object
+  AgentPackage:
+    properties:
+      metadata:
+        $ref: '#/definitions/AgentPackageMetadata'
+      spec:
+        $ref: '#/definitions/AgentPackageSpec'
+      status:
+        $ref: '#/definitions/AgentPackageStatus'
+    type: object
+  AgentPackageMetadata:
+    properties:
+      attributes:
+        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+      name:
+        type: string
+    type: object
+  AgentPackageSpec:
+    properties:
+      contentHash:
+        items:
+          type: integer
+        type: array
+      downloadUrl:
+        type: string
+      hash:
+        items:
+          type: integer
+        type: array
+      headers:
+        additionalProperties:
+          type: string
+        type: object
+      packageType:
+        type: string
+      signature:
+        items:
+          type: integer
+        type: array
+      version:
+        type: string
+    type: object
   AgentPackageStatus:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
+  AgentPackageStatusPackageEntry:
     properties:
       name:
         description: Name is the name of the package.
@@ -171,7 +219,7 @@ definitions:
         type: string
       packages:
         additionalProperties:
-          $ref: '#/definitions/AgentPackageStatus'
+          $ref: '#/definitions/AgentPackageStatusPackageEntry'
         type: object
       serverProvidedAllPackagesHash:
         type: string
@@ -195,6 +243,11 @@ definitions:
         description: NewInstanceUID is a new instance UID to inform the agent of its
           new identity.
         type: string
+      packagesAvailable:
+        allOf:
+        - $ref: '#/definitions/AgentSpecPackages'
+        description: PackagesAvailable is the packages available for the agent to
+          download.
       remoteConfig:
         allOf:
         - $ref: '#/definitions/AgentRemoteConfig'
@@ -204,6 +257,14 @@ definitions:
           RestartRequiredAt is the time when a restart was requested.
           If this time is after the agent's start time, the agent should be restarted.
         type: string
+    type: object
+  AgentSpecPackages:
+    properties:
+      packages:
+        description: Packages is a list of package names available for the agent.
+        items:
+          type: string
+        type: array
     type: object
   AgentStatus:
     properties:
@@ -404,6 +465,78 @@ definitions:
       email:
         type: string
     type: object
+  ListMeta:
+    properties:
+      continue:
+        type: string
+      remainingItemCount:
+        type: integer
+    type: object
+  ListResponse-Agent:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Agent'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-AgentGroup:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/AgentGroup'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-AgentPackage:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/AgentPackage'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Connection:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Connection'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Server:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Server'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   OAuth2AuthCodeURLResponse:
     properties:
       url:
@@ -542,7 +675,7 @@ definitions:
       platform:
         type: string
     type: object
-  v1.AgentConfig:
+  api_v1.AgentConfig:
     properties:
       connectionSettings:
         $ref: '#/definitions/ConnectionSettings'
@@ -551,7 +684,7 @@ definitions:
       value:
         type: string
     type: object
-  v1.AgentSelector:
+  api_v1.AgentSelector:
     properties:
       identifyingAttributes:
         additionalProperties:
@@ -562,7 +695,31 @@ definitions:
           type: string
         type: object
     type: object
-  v1.Attributes:
+  api_v1.Attributes:
+    additionalProperties:
+      type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1.AgentConfig:
+    properties:
+      connectionSettings:
+        $ref: '#/definitions/ConnectionSettings'
+      contentType:
+        type: string
+      value:
+        type: string
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1.AgentSelector:
+    properties:
+      identifyingAttributes:
+        additionalProperties:
+          type: string
+        type: object
+      nonIdentifyingAttributes:
+        additionalProperties:
+          type: string
+        type: object
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1.Attributes:
     additionalProperties:
       type: string
     type: object
@@ -590,9 +747,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/AgentGroup'
-            type: array
+            $ref: '#/definitions/ListResponse-AgentGroup'
         "400":
           description: Bad Request
           schema:
@@ -735,6 +890,169 @@ paths:
       summary: Update Agent Group
       tags:
       - agentgroup
+  /api/v1/agentpackages:
+    get:
+      description: Retrieve a list of agent packages.
+      parameters:
+      - description: Maximum number of agent packages to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agent packages
+        in: query
+        name: continue
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-AgentPackage'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Agent Packages
+      tags:
+      - agentpackage
+    post:
+      consumes:
+      - application/json
+      description: Create a new agent package.
+      parameters:
+      - description: Agent Package to create
+        in: body
+        name: agentPackage
+        required: true
+        schema:
+          $ref: '#/definitions/AgentPackage'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/AgentPackage'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create Agent Package
+      tags:
+      - agentpackage
+  /api/v1/agentpackages/{name}:
+    delete:
+      description: Delete an agent package by its name.
+      parameters:
+      - description: Name of the agent package
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete Agent Package
+      tags:
+      - agentpackage
+    get:
+      description: Retrieve an agent package by its name.
+      parameters:
+      - description: Name of the agent package
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentPackage'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Agent Package
+      tags:
+      - agentpackage
+    put:
+      consumes:
+      - application/json
+      description: Update an existing agent package.
+      parameters:
+      - description: Name of the agent package
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Updated Agent Package
+        in: body
+        name: agentPackage
+        required: true
+        schema:
+          $ref: '#/definitions/AgentPackage'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentPackage'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update Agent Package
+      tags:
+      - agentpackage
   /api/v1/agents:
     get:
       consumes:
@@ -755,9 +1073,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Agent'
-            type: array
+            $ref: '#/definitions/ListResponse-Agent'
         "400":
           description: Bad Request
           schema:
@@ -865,9 +1181,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Agent'
-            type: array
+            $ref: '#/definitions/ListResponse-Agent'
         "400":
           description: Bad Request
           schema:
@@ -1008,9 +1322,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Connection'
-            type: array
+            $ref: '#/definitions/ListResponse-Connection'
         "500":
           description: Internal Server Error
           schema:
@@ -1050,9 +1362,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/Server'
-            type: array
+            $ref: '#/definitions/ListResponse-Server'
         "500":
           description: Internal Server Error
           schema:

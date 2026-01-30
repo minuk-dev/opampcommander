@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
-	"gopkg.in/yaml.v3"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
@@ -47,8 +48,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			RestartInfo: AgentRestartInfo{
 				RequiredRestartedAt: time.Time{},
 			},
-			RemoteConfig:   NewRemoteConfig(),
-			ConnectionInfo: ConnectionInfo{},
+			RemoteConfig:      AgentSpecRemoteConfig{},
+			ConnectionInfo:    ConnectionInfo{},
+			PackagesAvailable: AgentSpecPackage{},
 		},
 		Status: AgentStatus{
 			RemoteConfigStatus: AgentRemoteConfigStatus{
@@ -69,7 +71,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			},
 			//exhaustruct:ignore
 			PackageStatuses: AgentPackageStatuses{
-				Packages: make(map[string]AgentPackageStatus),
+				Packages: make(map[string]AgentPackageStatusEntry),
 			},
 			//exhaustruct:ignore
 			ComponentHealth: AgentComponentHealth{
@@ -103,6 +105,15 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	}
 
 	return agent
+}
+
+// ApplyRemoteConfig applies a remote config to the agent.
+func (a *Agent) ApplyRemoteConfig(name string) error {
+	a.Spec.RemoteConfig.RemoteConfig = append(a.Spec.RemoteConfig.RemoteConfig, name)
+	sort.Strings(a.Spec.RemoteConfig.RemoteConfig)
+	a.Spec.RemoteConfig.RemoteConfig = lo.Uniq(a.Spec.RemoteConfig.RemoteConfig)
+
+	return nil
 }
 
 // IsConnected checks if the agent is currently connected.
@@ -330,7 +341,36 @@ type AgentSpec struct {
 	ConnectionInfo ConnectionInfo
 
 	// RemoteConfig is the remote configuration for the agent.
-	RemoteConfig RemoteConfig
+	RemoteConfig AgentSpecRemoteConfig
+
+	// PackagesAvailable is the packages available for the agent.
+	PackagesAvailable AgentSpecPackage
+}
+
+// AgentSpecRemoteConfig represents the remote config specification for an agent.
+type AgentSpecRemoteConfig struct {
+	RemoteConfig []string
+}
+
+// AgentSpecPackage represents the package specification for an agent.
+type AgentSpecPackage struct {
+	// Packages is a list of package names available for the agent.
+	Packages []string
+}
+
+// Hash computes the hash of the agent spec packages.
+func (a *AgentSpecPackage) Hash() (vo.Hash, error) {
+	data, err := json.Marshal(a.Packages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal agent spec packages for hashing: %w", err)
+	}
+
+	hash, err := vo.NewHash(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create hash for agent spec packages: %w", err)
+	}
+
+	return hash, nil
 }
 
 type connectionSettings struct {
@@ -667,30 +707,30 @@ func (ci *ConnectionInfo) updateHash() error {
 
 // OpAMPConnectionSettings represents OpAMP connection settings.
 type OpAMPConnectionSettings struct {
-	DestinationEndpoint string              `json:"destinationEndpoint"`
-	Headers             map[string][]string `json:"headers"`
+	DestinationEndpoint string
+	Headers             map[string][]string
 	Certificate         TelemetryTLSCertificate
 }
 
 // TelemetryConnectionSettings represents telemetry connection settings.
 type TelemetryConnectionSettings struct {
-	DestinationEndpoint string              `json:"destinationEndpoint"`
-	Headers             map[string][]string `json:"headers"`
+	DestinationEndpoint string
+	Headers             map[string][]string
 	Certificate         TelemetryTLSCertificate
 }
 
 // OtherConnectionSettings represents other connection settings.
 type OtherConnectionSettings struct {
-	DestinationEndpoint string              `json:"destinationEndpoint"`
-	Headers             map[string][]string `json:"headers"`
+	DestinationEndpoint string
+	Headers             map[string][]string
 	Certificate         TelemetryTLSCertificate
 }
 
 // TelemetryTLSCertificate represents TLS certificate for telemetry.
 type TelemetryTLSCertificate struct {
-	Cert       []byte `json:"cert"`
-	PrivateKey []byte `json:"privateKey"`
-	CaCert     []byte `json:"caCert"`
+	Cert       []byte
+	PrivateKey []byte
+	CaCert     []byte
 }
 
 // AgentRestartInfo is a domain model to control opamp agent restart information.
@@ -778,13 +818,13 @@ const (
 
 // AgentPackageStatuses is a map of package statuses.
 type AgentPackageStatuses struct {
-	Packages                     map[string]AgentPackageStatus
+	Packages                     map[string]AgentPackageStatusEntry
 	ServerProvidedAllPackgesHash []byte
 	ErrorMessage                 string
 }
 
-// AgentPackageStatus is the status of a package.
-type AgentPackageStatus struct {
+// AgentPackageStatusEntry is the status of a package.
+type AgentPackageStatusEntry struct {
 	Name                 string
 	AgentHasVersion      string
 	AgentHasHash         []byte
@@ -885,49 +925,6 @@ func (a *Agent) ReportConnectionSettingsStatus(status *AgentConnectionSettingsSt
 	}
 
 	a.Status.ConnectionSettingsStatus = *status
-
-	return nil
-}
-
-// ApplyRemoteConfig is a method to apply the remote configuration to the agent.
-func (a *Agent) ApplyRemoteConfig(config any, contentType string, priority int32) error {
-	if config == nil {
-		return nil // No remote config to apply
-	}
-
-	if priority <= a.Spec.RemoteConfig.Priority {
-		// The new remote config has lower or equal priority, ignore it
-		return nil
-	}
-
-	var (
-		configData []byte
-		err        error
-	)
-
-	switch contentType {
-	case "application/json":
-		configData, err = json.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal remote config to JSON: %w", err)
-		}
-	case "application/yaml", "text/yaml":
-		configData, err = yaml.Marshal(config)
-		if err != nil {
-			return fmt.Errorf("failed to marshal remote config to YAML: %w", err)
-		}
-	default:
-		return fmt.Errorf("unsupported remote config content type: %s, %w",
-			contentType, ErrUnsupportedRemoteConfigContentType)
-	}
-
-	err = a.Spec.RemoteConfig.ApplyRemoteConfig(configData, contentType)
-	if err != nil {
-		return fmt.Errorf("failed to apply remote config: %w", err)
-	}
-
-	// Set the priority after applying the config
-	a.Spec.RemoteConfig.Priority = priority
 
 	return nil
 }
@@ -1067,7 +1064,7 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return a.IsRemoteConfigSupported() &&
-		!bytes.Equal(a.Spec.RemoteConfig.Hash, a.Status.RemoteConfigStatus.LastRemoteConfigHash)
+		len(a.Spec.RemoteConfig.RemoteConfig) > 0
 }
 
 // SetCondition sets or updates a condition in the agent's status.
@@ -1166,4 +1163,10 @@ func (a *Agent) NewInstanceUID() []byte {
 // HasNewInstanceUID checks if there is a new instance UID to inform the agent.
 func (a *Agent) HasNewInstanceUID() bool {
 	return a.Spec.NewInstanceUID != uuid.Nil
+}
+
+// HasNewPackages checks if there are new packages available for the agent.
+func (a *Agent) HasNewPackages() bool {
+	return a.Metadata.Capabilities.HasAcceptsPackages() &&
+		len(a.Spec.PackagesAvailable.Packages) > 0
 }

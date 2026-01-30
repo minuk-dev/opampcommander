@@ -78,7 +78,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Summary List Agent Groups
 // @Tags agentgroup
 // @Description Retrieves a list of agent groups with pagination options.
-// @Success 200 {array} AgentGroup
+// @Success 200 {object} v1.ListResponse[v1.AgentGroup]
 // @Param limit query int false "Maximum number of agent groups to return"
 // @Param continue query string false "Token to continue listing agent groups"
 // @Failure 400 {object} map[string]any
@@ -147,7 +147,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Description Retrieve agents belonging to a specific agent group.
 // @Accept json
 // @Produce json
-// @Success 200 {array} Agent
+// @Success 200 {object} v1.ListResponse[v1.Agent]
 // @Param name path string true "Agent Group Name".
 func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)

@@ -10,7 +10,7 @@ lint-fix:
 	golangci-lint run --fix
 
 prebuilt-doc:
-	swag init -o ./pkg/apiserver/docs -g ./cmd/apiserver/main.go
+	swag init -o ./pkg/apiserver/docs -g ./cmd/apiserver/main.go --parseDependency --parseInternal
 
 build-dev: prebuilt-doc
 	goreleaser build --snapshot --clean --single-target

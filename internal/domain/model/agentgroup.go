@@ -21,11 +21,14 @@ type AgentGroupMetadata struct {
 	Name string
 	// Priority is the priority of the agent group.
 	// When multiple agent groups match an agent, the one with the highest priority is applied.
-	Priority int32
+	Priority int
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
 	// Selector is a set of criteria used to select agents for the group.
 	Selector AgentSelector
+	// DeletedAt is the timestamp when the agent group was soft deleted.
+	// If nil, the agent group is not deleted.
+	DeletedAt *time.Time
 }
 
 // AgentGroupSpec represents the specification of an agent group.
@@ -93,6 +96,8 @@ const (
 	ConditionTypeUpdated ConditionType = "Updated"
 	// ConditionTypeDeleted represents the condition when the agent group was deleted.
 	ConditionTypeDeleted ConditionType = "Deleted"
+	// ConditionTypeAlive represents the condition when the server is alive.
+	ConditionTypeAlive ConditionType = "Alive"
 )
 
 // ConditionStatus represents the status of a condition.
@@ -103,6 +108,8 @@ const (
 	ConditionStatusTrue ConditionStatus = "True"
 	// ConditionStatusFalse represents a false condition status.
 	ConditionStatusFalse ConditionStatus = "False"
+	// ConditionStatusUnknown represents an unknown condition status.
+	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
 // NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
@@ -122,6 +129,7 @@ func NewAgentGroup(
 				IdentifyingAttributes:    nil,
 				NonIdentifyingAttributes: nil,
 			},
+			DeletedAt: nil,
 		},
 		Spec: AgentGroupSpec{
 			AgentRemoteConfig:     nil,
@@ -159,6 +167,12 @@ type AgentRemoteConfig struct {
 
 // IsDeleted returns true if the agent group is marked as deleted.
 func (ag *AgentGroup) IsDeleted() bool {
+	// Check deletedAt field first (new approach)
+	if ag.Metadata.DeletedAt != nil {
+		return true
+	}
+
+	// Fallback to condition-based check for backward compatibility
 	for _, condition := range ag.Status.Conditions {
 		if condition.Type == ConditionTypeDeleted && condition.Status == ConditionStatusTrue {
 			return true
@@ -168,9 +182,12 @@ func (ag *AgentGroup) IsDeleted() bool {
 	return false
 }
 
-// MarkDeleted marks the agent group as deleted by adding a deleted condition.
+// MarkDeleted marks the agent group as deleted by setting deletedAt and adding a deleted condition.
 func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
-	// Check if already marked as deleted
+	// Set deletedAt field (new approach)
+	ag.Metadata.DeletedAt = &deletedAt
+
+	// Also maintain condition for backward compatibility
 	for i, condition := range ag.Status.Conditions {
 		if condition.Type == ConditionTypeDeleted {
 			// Update existing deleted condition
@@ -216,6 +233,12 @@ func (ag *AgentGroup) GetCreatedBy() string {
 
 // GetDeletedAt returns the timestamp when the agent group was deleted.
 func (ag *AgentGroup) GetDeletedAt() *time.Time {
+	// Check deletedAt field first (new approach)
+	if ag.Metadata.DeletedAt != nil {
+		return ag.Metadata.DeletedAt
+	}
+
+	// Fallback to condition-based check for backward compatibility
 	for _, condition := range ag.Status.Conditions {
 		if condition.Type == ConditionTypeDeleted && condition.Status == ConditionStatusTrue {
 			return &condition.LastTransitionTime

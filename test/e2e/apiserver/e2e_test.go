@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -766,13 +767,13 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	assert.NotEmpty(t, searchResp.Metadata.Continue)
 }
 
-func searchAgents(t *testing.T, apiBaseURL, query string) *v1.AgentListResponse {
+func searchAgents(t *testing.T, apiBaseURL, query string) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
 	return searchAgentsWithLimit(t, apiBaseURL, query, 0)
 }
 
-func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.AgentListResponse {
+func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
 	url := fmt.Sprintf("%s/api/v1/agents/search?q=%s", apiBaseURL, query)
@@ -799,7 +800,7 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
-	var listResp v1.AgentListResponse
+	var listResp v1.ListResponse[v1.Agent]
 
 	err = json.Unmarshal(body, &listResp)
 	require.NoError(t, err)
@@ -1009,4 +1010,237 @@ service:
 	require.NoError(t, err)
 
 	return configPath
+}
+
+// TestE2E_AgentPackage_CRUD tests the CRUD operations for agent packages via the API.
+func TestE2E_AgentPackage_CRUD(t *testing.T) {
+	t.Parallel()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	if testing.Short() {
+		t.Skip("Skipping E2E test in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	base := testutil.NewBase(t)
+
+	// Given: Infrastructure is set up (MongoDB + API Server)
+	mongoContainer, mongoURI := startMongoDB(t)
+
+	defer func() { _ = mongoContainer.Terminate(ctx) }()
+
+	apiPort := base.GetFreeTCPPort()
+
+	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentpackage_test")
+	defer stopServer()
+
+	waitForAPIServerReady(t, apiBaseURL)
+
+	// Test Create Agent Package
+	t.Run("Create AgentPackage", func(t *testing.T) {
+		pkg := createAgentPackage(t, apiBaseURL, "test-package-1", "TopLevelPackageName", "1.0.0")
+		assert.Equal(t, "test-package-1", pkg.Metadata.Name)
+		assert.Equal(t, "TopLevelPackageName", pkg.Spec.PackageType)
+		assert.Equal(t, "1.0.0", pkg.Spec.Version)
+	})
+
+	// Test List Agent Packages
+	t.Run("List AgentPackages", func(t *testing.T) {
+		// Create another package
+		createAgentPackage(t, apiBaseURL, "test-package-2", "AddonPackage", "2.0.0")
+
+		packages := listAgentPackages(t, apiBaseURL)
+		assert.GreaterOrEqual(t, len(packages), 2, "Should have at least 2 packages")
+	})
+
+	// Test Get Agent Package
+	t.Run("Get AgentPackage", func(t *testing.T) {
+		pkg := getAgentPackage(t, apiBaseURL, "test-package-1")
+		assert.Equal(t, "test-package-1", pkg.Metadata.Name)
+		assert.Equal(t, "TopLevelPackageName", pkg.Spec.PackageType)
+	})
+
+	// Test Update Agent Package
+	t.Run("Update AgentPackage", func(t *testing.T) {
+		pkg := getAgentPackage(t, apiBaseURL, "test-package-1")
+		pkg.Spec.Version = "1.1.0"
+		pkg.Spec.DownloadURL = "https://example.com/updated-pkg.tar.gz"
+
+		updated := updateAgentPackage(t, apiBaseURL, "test-package-1", pkg)
+		assert.Equal(t, "1.1.0", updated.Spec.Version)
+		assert.Equal(t, "https://example.com/updated-pkg.tar.gz", updated.Spec.DownloadURL)
+	})
+
+	// Test Delete Agent Package
+	t.Run("Delete AgentPackage", func(t *testing.T) {
+		deleteAgentPackage(t, apiBaseURL, "test-package-2")
+
+		// Verify deletion
+		packages := listAgentPackages(t, apiBaseURL)
+		for _, pkg := range packages {
+			assert.NotEqual(t, "test-package-2", pkg.Metadata.Name, "Deleted package should not exist")
+		}
+	})
+
+	// Test Get Non-Existent Package
+	t.Run("Get Non-Existent AgentPackage", func(t *testing.T) {
+		token := getAuthToken(t, apiBaseURL)
+		url := fmt.Sprintf("%s/api/v1/agentpackages/%s", apiBaseURL, "non-existent-package")
+
+		req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+
+		defer func() { _ = resp.Body.Close() }()
+
+		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	})
+}
+
+func createAgentPackage(t *testing.T, baseURL, name, packageType, version string) v1.AgentPackage {
+	t.Helper()
+
+	token := getAuthToken(t, baseURL)
+
+	pkg := v1.AgentPackage{
+		Metadata: v1.AgentPackageMetadata{
+			Name:       name,
+			Attributes: v1.Attributes{"env": "test"},
+		},
+		Spec: v1.AgentPackageSpec{
+			PackageType: packageType,
+			Version:     version,
+			DownloadURL: fmt.Sprintf("https://example.com/%s.tar.gz", name),
+		},
+	}
+
+	body, err := json.Marshal(pkg)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/agentpackages", //nolint:noctx
+		strings.NewReader(string(body)))
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result v1.AgentPackage
+	require.NoError(t, json.Unmarshal(respBody, &result))
+
+	return result
+}
+
+func listAgentPackages(t *testing.T, baseURL string) []v1.AgentPackage {
+	t.Helper()
+
+	token := getAuthToken(t, baseURL)
+
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/agentpackages", nil) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result struct {
+		Items []v1.AgentPackage `json:"items"`
+	}
+	require.NoError(t, json.Unmarshal(body, &result))
+
+	return result.Items
+}
+
+func getAgentPackage(t *testing.T, baseURL, name string) v1.AgentPackage {
+	t.Helper()
+
+	token := getAuthToken(t, baseURL)
+
+	url := fmt.Sprintf("%s/api/v1/agentpackages/%s", baseURL, name)
+	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result v1.AgentPackage
+	require.NoError(t, json.Unmarshal(body, &result))
+
+	return result
+}
+
+func updateAgentPackage(t *testing.T, baseURL, name string, pkg v1.AgentPackage) v1.AgentPackage {
+	t.Helper()
+
+	token := getAuthToken(t, baseURL)
+
+	body, err := json.Marshal(pkg)
+	require.NoError(t, err)
+
+	url := fmt.Sprintf("%s/api/v1/agentpackages/%s", baseURL, name)
+	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(body))) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result v1.AgentPackage
+	require.NoError(t, json.Unmarshal(respBody, &result))
+
+	return result
+}
+
+func deleteAgentPackage(t *testing.T, baseURL, name string) {
+	t.Helper()
+
+	token := getAuthToken(t, baseURL)
+
+	url := fmt.Sprintf("%s/api/v1/agentpackages/%s", baseURL, name)
+	req, err := http.NewRequest(http.MethodDelete, url, nil) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }

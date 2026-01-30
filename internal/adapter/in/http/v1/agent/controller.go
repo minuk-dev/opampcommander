@@ -70,7 +70,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Description Retrieve a list of agents.
 // @Accept json
 // @Produce json
-// @Success 200 {array} Agent
+// @Success 200 {object} v1.ListResponse[v1.Agent]
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
 // @Failure 400 {object} ErrorModel
@@ -107,7 +107,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Description Search agents by instance UID query.
 // @Accept json
 // @Produce json
-// @Success 200 {array} Agent
+// @Success 200 {object} v1.ListResponse[v1.Agent]
 // @Param q query string true "Search query for instance UID"
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
