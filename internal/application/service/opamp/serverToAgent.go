@@ -32,7 +32,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	if agentModel.HasRemoteConfig() {
 		// Build RemoteConfig if applicable
 		remoteConfigs := lo.OmitBy(lo.SliceToMap(
-			agentModel.Spec.RemoteConfig.RemoteConfig,
+			agentModel.Spec.RemoteConfig.RemoteConfigNames,
 			func(remoteConfigName string) (string, *protobufs.AgentConfigFile) {
 				remoteConfig, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(ctx, remoteConfigName)
 				if err != nil {
@@ -42,8 +42,8 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 				}
 
 				return remoteConfigName, &protobufs.AgentConfigFile{
-					Body:        remoteConfig.Value,
-					ContentType: remoteConfig.ContentType,
+					Body:        remoteConfig.Spec.Value,
+					ContentType: remoteConfig.Spec.ContentType,
 				}
 			}), nil)
 
@@ -134,7 +134,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 
 	var connectionSettings *protobufs.ConnectionSettingsOffers
 	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
-		connectionSettings = connectionInfoToProtobuf(&agentModel.Spec.ConnectionInfo)
+		connectionSettings = connectionInfoToProtobuf(agentModel.Spec.ConnectionInfo)
 	}
 
 	return &protobufs.ServerToAgent{

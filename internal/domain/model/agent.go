@@ -44,13 +44,11 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 		},
 		//exhaustruct:ignore
 		Spec: AgentSpec{
-			NewInstanceUID: uuid.Nil,
-			RestartInfo: AgentRestartInfo{
-				RequiredRestartedAt: time.Time{},
-			},
-			RemoteConfig:      AgentSpecRemoteConfig{},
-			ConnectionInfo:    ConnectionInfo{},
-			PackagesAvailable: AgentSpecPackage{},
+			NewInstanceUID:    uuid.Nil,
+			RestartInfo:       nil,
+			RemoteConfig:      nil,
+			ConnectionInfo:    nil,
+			PackagesAvailable: nil,
 		},
 		Status: AgentStatus{
 			RemoteConfigStatus: AgentRemoteConfigStatus{
@@ -109,9 +107,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 
 // ApplyRemoteConfig applies a remote config to the agent.
 func (a *Agent) ApplyRemoteConfig(name string) error {
-	a.Spec.RemoteConfig.RemoteConfig = append(a.Spec.RemoteConfig.RemoteConfig, name)
-	sort.Strings(a.Spec.RemoteConfig.RemoteConfig)
-	a.Spec.RemoteConfig.RemoteConfig = lo.Uniq(a.Spec.RemoteConfig.RemoteConfig)
+	a.Spec.RemoteConfig.RemoteConfigNames = append(a.Spec.RemoteConfig.RemoteConfigNames, name)
+	sort.Strings(a.Spec.RemoteConfig.RemoteConfigNames)
+	a.Spec.RemoteConfig.RemoteConfigNames = lo.Uniq(a.Spec.RemoteConfig.RemoteConfigNames)
 
 	return nil
 }
@@ -335,21 +333,21 @@ type AgentSpec struct {
 	NewInstanceUID uuid.UUID
 
 	// RestartInfo contains information about agent restart.
-	RestartInfo AgentRestartInfo
+	RestartInfo *AgentRestartInfo
 
 	// ConnectionInfo is the connection information for the agent.
-	ConnectionInfo ConnectionInfo
+	ConnectionInfo *ConnectionInfo
 
 	// RemoteConfig is the remote configuration for the agent.
-	RemoteConfig AgentSpecRemoteConfig
+	RemoteConfig *AgentSpecRemoteConfig
 
 	// PackagesAvailable is the packages available for the agent.
-	PackagesAvailable AgentSpecPackage
+	PackagesAvailable *AgentSpecPackage
 }
 
 // AgentSpecRemoteConfig represents the remote config specification for an agent.
 type AgentSpecRemoteConfig struct {
-	RemoteConfig []string
+	RemoteConfigNames []string
 }
 
 // AgentSpecPackage represents the package specification for an agent.
@@ -545,7 +543,7 @@ func (a *Agent) ApplyConnectionSettings(
 		return fmt.Errorf("failed to create connection info: %w", err)
 	}
 
-	a.Spec.ConnectionInfo = *connectionInfo
+	a.Spec.ConnectionInfo = connectionInfo
 
 	return nil
 }
@@ -1064,7 +1062,7 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return a.IsRemoteConfigSupported() &&
-		len(a.Spec.RemoteConfig.RemoteConfig) > 0
+		len(a.Spec.RemoteConfig.RemoteConfigNames) > 0
 }
 
 // SetCondition sets or updates a condition in the agent's status.

@@ -118,12 +118,6 @@ type AgentPackageStatuses struct {
 	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
 
-// AgentRemoteConfig represents the remote configuration of the agent.
-type AgentRemoteConfig struct {
-	ConfigMap  map[string]AgentConfigFile `json:"configMap,omitempty"`
-	ConfigHash string                     `json:"configHash,omitempty"`
-} // @name AgentRemoteConfig
-
 // AgentComponentHealth represents the health status of the agent's components.
 type AgentComponentHealth struct {
 	Healthy       bool              `json:"healthy"`

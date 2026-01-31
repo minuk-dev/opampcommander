@@ -33,8 +33,11 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
-	// AgentRemoteConfig is the remote configuration to be applied to agents in this group.
-	AgentRemoteConfig *AgentRemoteConfig
+	// AgentRemoteConfigSpec is the remote configuration to be applied to agents in this group.
+	AgentRemoteConfigSpec *AgentRemoteConfigSpec
+
+	// AgentRemoteConfigRef is a reference to a standalone remote configuration resource.
+	AgentRemoteConfigRef *string
 
 	// AgentConnection settings for agents in this group.
 	AgentConnectionConfig *AgentConnectionConfig
@@ -132,7 +135,8 @@ func NewAgentGroup(
 			DeletedAt: nil,
 		},
 		Spec: AgentGroupSpec{
-			AgentRemoteConfig:     nil,
+			AgentRemoteConfigSpec: nil,
+			AgentRemoteConfigRef:  nil,
 			AgentConnectionConfig: nil,
 		},
 		Status: AgentGroupStatus{
@@ -153,16 +157,6 @@ func NewAgentGroup(
 			},
 		},
 	}
-}
-
-// AgentRemoteConfig represents the remote configuration for agents in the group.
-type AgentRemoteConfig struct {
-	// Value is the configuration content in string format.
-	// This can be used directly or as a reference to a configuration.
-	Value []byte
-
-	// ContentType is the MIME type of the configuration content.
-	ContentType string
 }
 
 // IsDeleted returns true if the agent group is marked as deleted.

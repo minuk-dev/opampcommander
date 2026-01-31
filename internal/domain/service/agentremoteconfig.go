@@ -2,17 +2,11 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
-)
-
-// ErrSaveAgentRemoteConfigNotSupported is returned when SaveAgentRemoteConfig is called.
-var ErrSaveAgentRemoteConfigNotSupported = errors.New(
-	"SaveAgentRemoteConfig requires a name, use SaveAgentRemoteConfigResource instead",
 )
 
 var _ port.AgentRemoteConfigUsecase = (*AgentRemoteConfigService)(nil)
@@ -40,10 +34,7 @@ func (s *AgentRemoteConfigService) GetAgentRemoteConfig(
 	}
 
 	// Convert resource to the simpler AgentRemoteConfig type
-	return &model.AgentRemoteConfig{
-		Value:       resource.Spec.Value,
-		ContentType: resource.Spec.ContentType,
-	}, nil
+	return resource, nil
 }
 
 // ListAgentRemoteConfigs implements [port.AgentRemoteConfigUsecase].
@@ -56,17 +47,8 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 		return nil, fmt.Errorf("failed to list agent remote configs: %w", err)
 	}
 
-	// Convert resources to the simpler AgentRemoteConfig type
-	items := make([]*model.AgentRemoteConfig, 0, len(resourceResp.Items))
-	for _, resource := range resourceResp.Items {
-		items = append(items, &model.AgentRemoteConfig{
-			Value:       resource.Spec.Value,
-			ContentType: resource.Spec.ContentType,
-		})
-	}
-
 	return &model.ListResponse[*model.AgentRemoteConfig]{
-		Items:              items,
+		Items:              resourceResp,
 		RemainingItemCount: resourceResp.RemainingItemCount,
 		Continue:           resourceResp.Continue,
 	}, nil
@@ -74,13 +56,16 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 
 // SaveAgentRemoteConfig implements [port.AgentRemoteConfigUsecase].
 func (s *AgentRemoteConfigService) SaveAgentRemoteConfig(
-	_ context.Context,
-	_ *model.AgentRemoteConfig,
+	ctx context.Context,
+	agentremoteconfig *model.AgentRemoteConfig,
 ) (*model.AgentRemoteConfig, error) {
-	// This method expects a name to be provided somehow
-	// For now, we'll need to extend the interface or use a different approach
-	// Since AgentRemoteConfig doesn't have a name, we can't save it directly
-	return nil, ErrSaveAgentRemoteConfigNotSupported
+	resource, err := s.persistence.PutAgentRemoteConfig(ctx, agentremoteconfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save agent remote config: %w", err)
+	}
+
+	// Convert resource to the simpler AgentRemoteConfig type
+	return resource, nil
 }
 
 // DeleteAgentRemoteConfig implements [port.AgentRemoteConfigUsecase].
