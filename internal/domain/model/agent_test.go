@@ -20,7 +20,7 @@ func TestNewAgent(t *testing.T) {
 		a := model.NewAgent(instanceUID)
 
 		assert.Equal(t, instanceUID, a.Metadata.InstanceUID)
-		assert.NotNil(t, a.Spec.RemoteConfig)
+		assert.Nil(t, a.Spec.RemoteConfig) // RemoteConfig is nil by default
 		assert.NotNil(t, a.Status.EffectiveConfig.ConfigMap.ConfigMap)
 		assert.NotNil(t, a.Status.PackageStatuses.Packages)
 		assert.NotNil(t, a.Status.ComponentHealth.ComponentHealthMap)

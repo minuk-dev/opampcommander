@@ -252,12 +252,11 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 	//exhaustruct:ignore
 	agentSpec := domainmodel.AgentSpec{}
 	agentSpec.NewInstanceUID = uid
-	agentSpec.RestartInfo = domainmodel.AgentRestartInfo{
+	agentSpec.RestartInfo = &domainmodel.AgentRestartInfo{
 		RequiredRestartedAt: time.Time{},
 	}
-	//exhaustruct:ignore
-	agentSpec.ConnectionInfo = domainmodel.ConnectionInfo{}
-	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomain()
+	agentSpec.ConnectionInfo = nil
+	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomainPtr()
 
 	return agentSpec
 }
@@ -411,7 +410,18 @@ func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig 
 	}
 
 	return domainmodel.AgentSpecRemoteConfig{
-		RemoteConfig: asrc.RemoteConfig,
+		RemoteConfigNames: asrc.RemoteConfig,
+	}
+}
+
+// ToDomainPtr converts the AgentSpecRemoteConfig to domain model pointer.
+func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *domainmodel.AgentSpecRemoteConfig {
+	if asrc == nil || len(asrc.RemoteConfig) == 0 {
+		return nil
+	}
+
+	return &domainmodel.AgentSpecRemoteConfig{
+		RemoteConfigNames: asrc.RemoteConfig,
 	}
 }
 
@@ -483,8 +493,8 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		},
 		Spec: AgentSpec{
 			NewInstanceUID:      newInstanceUID,
-			RemoteConfig:        AgentSpecRemoteConfigFromDomain(agent.Spec.RemoteConfig),
-			RequiredRestartedAt: bson.NewDateTimeFromTime(agent.Spec.RestartInfo.RequiredRestartedAt),
+			RemoteConfig:        AgentSpecRemoteConfigFromDomainPtr(agent.Spec.RemoteConfig),
+			RequiredRestartedAt: agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
 		},
 		Status: AgentStatus{
 			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
@@ -500,6 +510,14 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			LastCommunicatedTo:  agent.Status.LastReportedTo,
 		},
 	}
+}
+
+func agentRestartInfoToBsonDateTime(restartInfo *domainmodel.AgentRestartInfo) bson.DateTime {
+	if restartInfo == nil {
+		return bson.NewDateTimeFromTime(time.Time{})
+	}
+
+	return bson.NewDateTimeFromTime(restartInfo.RequiredRestartedAt)
 }
 
 // AgentCapabilitiesFromDomain converts domain model to persistence model.
@@ -595,12 +613,23 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 
 // AgentSpecRemoteConfigFromDomain converts domain model to persistence model.
 func AgentSpecRemoteConfigFromDomain(arc domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
-	if len(arc.RemoteConfig) == 0 {
+	if len(arc.RemoteConfigNames) == 0 {
 		return nil
 	}
 
 	return &AgentSpecRemoteConfig{
-		RemoteConfig: arc.RemoteConfig,
+		RemoteConfig: arc.RemoteConfigNames,
+	}
+}
+
+// AgentSpecRemoteConfigFromDomainPtr converts domain model pointer to persistence model.
+func AgentSpecRemoteConfigFromDomainPtr(arc *domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
+	if arc == nil || len(arc.RemoteConfigNames) == 0 {
+		return nil
+	}
+
+	return &AgentSpecRemoteConfig{
+		RemoteConfig: arc.RemoteConfigNames,
 	}
 }
 

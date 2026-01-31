@@ -50,7 +50,7 @@ func NewAgentRemoteConfigRepository(
 // GetAgentRemoteConfig implements port.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 	ctx context.Context, name string,
-) (*model.AgentRemoteConfigResource, error) {
+) (*model.AgentRemoteConfig, error) {
 	en, err := a.common.get(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("get agent remote config: %w", err)
@@ -62,18 +62,18 @@ func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 // ListAgentRemoteConfigs implements port.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) ListAgentRemoteConfigs(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.AgentRemoteConfigResource], error) {
+) (*model.ListResponse[*model.AgentRemoteConfig], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.AgentRemoteConfigResource, 0, len(resp.Items))
+	items := make([]*model.AgentRemoteConfig, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.AgentRemoteConfigResource]{
+	return &model.ListResponse[*model.AgentRemoteConfig]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
@@ -82,8 +82,8 @@ func (a *AgentRemoteConfigMongoAdapter) ListAgentRemoteConfigs(
 
 // PutAgentRemoteConfig implements port.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) PutAgentRemoteConfig(
-	ctx context.Context, config *model.AgentRemoteConfigResource,
-) (*model.AgentRemoteConfigResource, error) {
+	ctx context.Context, config *model.AgentRemoteConfig,
+) (*model.AgentRemoteConfig, error) {
 	en := entity.AgentRemoteConfigResourceEntityFromDomain(config)
 
 	err := a.common.put(ctx, en)

@@ -48,7 +48,7 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 	}
 
 	return &model.ListResponse[*model.AgentRemoteConfig]{
-		Items:              resourceResp,
+		Items:              resourceResp.Items,
 		RemainingItemCount: resourceResp.RemainingItemCount,
 		Continue:           resourceResp.Continue,
 	}, nil

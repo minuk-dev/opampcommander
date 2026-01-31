@@ -77,17 +77,17 @@ type AgentPackagePersistencePort interface {
 // AgentRemoteConfigPersistencePort is an interface that defines the methods for agent remote config persistence.
 type AgentRemoteConfigPersistencePort interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its name.
-	GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfigResource, error)
+	GetAgentRemoteConfig(ctx context.Context, name string) (*model.AgentRemoteConfig, error)
 	// PutAgentRemoteConfig saves or updates an agent remote config.
 	PutAgentRemoteConfig(
 		ctx context.Context,
-		config *model.AgentRemoteConfigResource,
-	) (*model.AgentRemoteConfigResource, error)
+		config *model.AgentRemoteConfig,
+	) (*model.AgentRemoteConfig, error)
 	// ListAgentRemoteConfigs retrieves a list of agent remote configs with pagination options.
 	ListAgentRemoteConfigs(
 		ctx context.Context,
 		options *model.ListOptions,
-	) (*model.ListResponse[*model.AgentRemoteConfigResource], error)
+	) (*model.ListResponse[*model.AgentRemoteConfig], error)
 }
 
 var (

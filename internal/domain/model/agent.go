@@ -107,6 +107,10 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 
 // ApplyRemoteConfig applies a remote config to the agent.
 func (a *Agent) ApplyRemoteConfig(name string) error {
+	if a.Spec.RemoteConfig == nil {
+		a.Spec.RemoteConfig = &AgentSpecRemoteConfig{}
+	}
+
 	a.Spec.RemoteConfig.RemoteConfigNames = append(a.Spec.RemoteConfig.RemoteConfigNames, name)
 	sort.Strings(a.Spec.RemoteConfig.RemoteConfigNames)
 	a.Spec.RemoteConfig.RemoteConfigNames = lo.Uniq(a.Spec.RemoteConfig.RemoteConfigNames)
@@ -138,11 +142,19 @@ func (a *Agent) HasInstanceUID() bool {
 
 // ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
 func (a *Agent) ShouldBeRestarted() bool {
+	if a.Spec.RestartInfo == nil {
+		return false
+	}
+
 	return a.Spec.RestartInfo.ShouldBeRestarted(a.Status.ComponentHealth.StartTime)
 }
 
 // ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
 func (a *AgentRestartInfo) ShouldBeRestarted(agentStartTime time.Time) bool {
+	if a == nil {
+		return false
+	}
+
 	return !a.RequiredRestartedAt.IsZero() &&
 		a.RequiredRestartedAt.After(agentStartTime)
 }
@@ -156,6 +168,10 @@ func (a *Agent) IsRestartSupported() bool {
 func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
 	if !a.IsRestartSupported() {
 		return ErrUnsupportedAgentOperation
+	}
+
+	if a.Spec.RestartInfo == nil {
+		a.Spec.RestartInfo = &AgentRestartInfo{}
 	}
 
 	a.Spec.RestartInfo.RequiredRestartedAt = requiredAt

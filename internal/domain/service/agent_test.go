@@ -428,7 +428,7 @@ func TestAgent_ApplyRemoteConfig(t *testing.T) {
 
 		err := agent.ApplyRemoteConfig("config-1")
 		require.NoError(t, err)
-		assert.Contains(t, agent.Spec.RemoteConfig.RemoteConfig, "config-1")
+		assert.Contains(t, agent.Spec.RemoteConfig.RemoteConfigNames, "config-1")
 	})
 
 	t.Run("Multiple remote configs should be added and sorted", func(t *testing.T) {
@@ -442,7 +442,7 @@ func TestAgent_ApplyRemoteConfig(t *testing.T) {
 		err = agent.ApplyRemoteConfig("config-a")
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{"config-a", "config-b"}, agent.Spec.RemoteConfig.RemoteConfig)
+		assert.Equal(t, []string{"config-a", "config-b"}, agent.Spec.RemoteConfig.RemoteConfigNames)
 	})
 
 	t.Run("Duplicate remote config names should be deduplicated", func(t *testing.T) {
@@ -456,7 +456,7 @@ func TestAgent_ApplyRemoteConfig(t *testing.T) {
 		err = agent.ApplyRemoteConfig("config-1")
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{"config-1"}, agent.Spec.RemoteConfig.RemoteConfig)
+		assert.Equal(t, []string{"config-1"}, agent.Spec.RemoteConfig.RemoteConfigNames)
 	})
 }
 
