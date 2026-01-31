@@ -6,6 +6,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentpackage"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentremoteconfig"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -27,6 +28,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(agentpackage.NewCommand(agentpackage.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(agentremoteconfig.NewCommand(agentremoteconfig.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 
