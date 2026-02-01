@@ -106,12 +106,12 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 }
 
 // ApplyRemoteConfig applies a remote config to the agent.
-func (a *Agent) ApplyRemoteConfig(name string) error {
+func (a *Agent) ApplyRemoteConfig(agentRemoteConfigName string) error {
 	if a.Spec.RemoteConfig == nil {
 		a.Spec.RemoteConfig = &AgentSpecRemoteConfig{}
 	}
 
-	a.Spec.RemoteConfig.RemoteConfigNames = append(a.Spec.RemoteConfig.RemoteConfigNames, name)
+	a.Spec.RemoteConfig.RemoteConfigNames = append(a.Spec.RemoteConfig.RemoteConfigNames, agentRemoteConfigName)
 	sort.Strings(a.Spec.RemoteConfig.RemoteConfigNames)
 	a.Spec.RemoteConfig.RemoteConfigNames = lo.Uniq(a.Spec.RemoteConfig.RemoteConfigNames)
 
@@ -986,19 +986,6 @@ func (a *Agent) RecordLastReported(by *Server, lastReportedAt time.Time, sequenc
 	a.Status.LastReportedAt = lastReportedAt
 }
 
-// RemoteConfig is a struct to manage remote config.
-type RemoteConfig struct {
-	Hash          vo.Hash
-	Config        []byte
-	ContentType   string
-	LastUpdatedAt time.Time
-
-	// ConfiguredBy is the identifier of the agentgroup or user who configured the remote config.
-	ConfiguredBy string
-	// Priority is the priority of the remote config. Higher priority configs override lower priority ones.
-	Priority int32
-}
-
 // RemoteConfigStatus is generated from agentToServer of OpAMP.
 type RemoteConfigStatus int32
 
@@ -1028,34 +1015,6 @@ func (s RemoteConfigStatus) String() string {
 	default:
 		return fmt.Sprintf("UNKNOWN(%d)", int32(s))
 	}
-}
-
-// NewRemoteConfig creates a new RemoteConfig instance.
-func NewRemoteConfig() RemoteConfig {
-	return RemoteConfig{
-		Hash:          nil,
-		Config:        nil,
-		LastUpdatedAt: time.Time{},
-		ContentType:   "",
-		ConfiguredBy:  "",
-		Priority:      0,
-	}
-}
-
-// ApplyRemoteConfig applies remote config.
-func (r *RemoteConfig) ApplyRemoteConfig(configData []byte, contentType string) error {
-	var err error
-
-	r.Hash, err = vo.NewHash(configData)
-	if err != nil {
-		return fmt.Errorf("failed to create hash for remote config: %w", err)
-	}
-
-	r.LastUpdatedAt = time.Now()
-	r.Config = configData
-	r.ContentType = contentType
-
-	return nil
 }
 
 // UpdateLastCommunicationInfo updates the last communication info of the agent.
