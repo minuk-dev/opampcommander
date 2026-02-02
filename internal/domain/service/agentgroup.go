@@ -26,9 +26,10 @@ type AgentGroupPersistencePort = port.AgentGroupPersistencePort
 
 // AgentGroupService is a struct that implements the AgentGroupUsecase interface.
 type AgentGroupService struct {
-	persistencePort AgentGroupPersistencePort
-	agentUsecase    port.AgentUsecase
-	logger          *slog.Logger
+	persistencePort                  AgentGroupPersistencePort
+	AgentRemoteConfigPersistencePort port.AgentRemoteConfigPersistencePort
+	agentUsecase                     port.AgentUsecase
+	logger                           *slog.Logger
 
 	changedAgentGroupCh chan *model.AgentGroup
 }
@@ -243,7 +244,29 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 		for _, agent := range agentsResp.Items {
 			// Here you can implement the logic to update the agent based on the agent group changes.
 			// For example, you might want to update the agent's configuration or metadata.
-			err := agent.ApplyRemoteConfig(agentGroup.Metadata.Name)
+			for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
+				if remoteConfig.AgentRemoteConfigRef != nil {
+					remoteConfig, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigName)
+					if err != nil {
+						return fmt.Errorf("get agent remote config %s: %w", remoteConfig
+					}
+					err = agent.ApplyRemoteConfig(
+						remoteConfig.Metadata.Name,
+						model.AgentConfigFile{
+							Body:        remoteConfig.Spec.Value,
+							ContentType: remoteConfig.Spec.ContentType,
+						},
+					)
+				} else {
+					err := agent.ApplyRemoteConfig(
+						*remoteConfig.AgentRemoteConfigName,
+						model.AgentConfigFile{
+							Body:        remoteConfig.AgentRemoteConfigSpec.Value,
+							ContentType: remoteConfig.AgentRemoteConfigSpec.ContentType,
+						},
+					)
+				}
+			}
 			if err != nil {
 				return fmt.Errorf("apply remote config to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}

@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
@@ -106,14 +104,18 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 }
 
 // ApplyRemoteConfig applies a remote config to the agent.
-func (a *Agent) ApplyRemoteConfig(agentRemoteConfigName string) error {
+func (a *Agent) ApplyRemoteConfig(
+	agentRemoteConfigName string,
+	agentConfigFile AgentConfigFile,
+) error {
 	if a.Spec.RemoteConfig == nil {
 		a.Spec.RemoteConfig = &AgentSpecRemoteConfig{}
 	}
 
-	a.Spec.RemoteConfig.RemoteConfigNames = append(a.Spec.RemoteConfig.RemoteConfigNames, agentRemoteConfigName)
-	sort.Strings(a.Spec.RemoteConfig.RemoteConfigNames)
-	a.Spec.RemoteConfig.RemoteConfigNames = lo.Uniq(a.Spec.RemoteConfig.RemoteConfigNames)
+	if a.Spec.RemoteConfig.ConfigMap.ConfigMap == nil {
+		a.Spec.RemoteConfig.ConfigMap.ConfigMap = make(map[string]AgentConfigFile)
+	}
+	a.Spec.RemoteConfig.ConfigMap.ConfigMap[agentRemoteConfigName] = agentConfigFile
 
 	return nil
 }
@@ -363,7 +365,7 @@ type AgentSpec struct {
 
 // AgentSpecRemoteConfig represents the remote config specification for an agent.
 type AgentSpecRemoteConfig struct {
-	RemoteConfigNames []string
+	ConfigMap AgentConfigMap
 }
 
 // AgentSpecPackage represents the package specification for an agent.
