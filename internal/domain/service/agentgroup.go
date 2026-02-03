@@ -226,70 +226,24 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 	var continueToken string
 
 	for {
-		listOptions := &model.ListOptions{
+		agentsResp, err := s.ListAgentsByAgentGroup(ctx, agentGroup, &model.ListOptions{
 			Limit:    PropagationChunkSize,
 			Continue: continueToken,
-		}
-
-		agentsResp, err := s.ListAgentsByAgentGroup(ctx, agentGroup, listOptions)
+		})
 		if err != nil {
 			return fmt.Errorf("list agents by agent group: %w", err)
 		}
 
 		if len(agentsResp.Items) == 0 {
-			// No more agents to process
 			break
 		}
 
 		for _, agent := range agentsResp.Items {
-			// Here you can implement the logic to update the agent based on the agent group changes.
-			// For example, you might want to update the agent's configuration or metadata.
-			for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
-				if remoteConfig.AgentRemoteConfigRef != nil {
-					remoteConfig, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigName)
-					if err != nil {
-						return fmt.Errorf("get agent remote config %s: %w", remoteConfig
-					}
-					err = agent.ApplyRemoteConfig(
-						remoteConfig.Metadata.Name,
-						model.AgentConfigFile{
-							Body:        remoteConfig.Spec.Value,
-							ContentType: remoteConfig.Spec.ContentType,
-						},
-					)
-				} else {
-					err := agent.ApplyRemoteConfig(
-						*remoteConfig.AgentRemoteConfigName,
-						model.AgentConfigFile{
-							Body:        remoteConfig.AgentRemoteConfigSpec.Value,
-							ContentType: remoteConfig.AgentRemoteConfigSpec.ContentType,
-						},
-					)
-				}
-			}
-			if err != nil {
-				return fmt.Errorf("apply remote config to agent %s: %w", agent.Metadata.InstanceUID, err)
+			if err := s.applyAgentGroupToAgent(ctx, agentGroup, agent); err != nil {
+				return fmt.Errorf("apply agent group to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}
 
-			// Apply connection settings if configured
-			if agentGroup.Spec.AgentConnectionConfig != nil {
-				connConfig := agentGroup.Spec.AgentConnectionConfig
-
-				err = agent.ApplyConnectionSettings(
-					connConfig.OpAMPConnection,
-					connConfig.OwnMetrics,
-					connConfig.OwnLogs,
-					connConfig.OwnTraces,
-					connConfig.OtherConnections,
-				)
-				if err != nil {
-					return fmt.Errorf("apply connection settings to agent %s: %w", agent.Metadata.InstanceUID, err)
-				}
-			}
-
-			// After updating the agent, save it back to the persistence layer.
-			err = s.agentUsecase.SaveAgent(ctx, agent)
-			if err != nil {
+			if err := s.agentUsecase.SaveAgent(ctx, agent); err != nil {
 				return fmt.Errorf("save updated agent: %w", err)
 			}
 		}
@@ -298,4 +252,80 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 	}
 
 	return nil
+}
+
+func (s *AgentGroupService) applyAgentGroupToAgent(
+	ctx context.Context,
+	agentGroup *model.AgentGroup,
+	agent *model.Agent,
+) error {
+	if err := s.applyRemoteConfigs(ctx, agentGroup, agent); err != nil {
+		return err
+	}
+
+	if err := s.applyConnectionSettings(agentGroup, agent); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AgentGroupService) applyRemoteConfigs(
+	ctx context.Context,
+	agentGroup *model.AgentGroup,
+	agent *model.Agent,
+) error {
+	for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
+		configFile, configName, err := s.resolveRemoteConfig(ctx, remoteConfig)
+		if err != nil {
+			return err
+		}
+
+		if err := agent.ApplyRemoteConfig(configName, configFile); err != nil {
+			return fmt.Errorf("apply remote config %s: %w", configName, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *AgentGroupService) resolveRemoteConfig(
+	ctx context.Context,
+	remoteConfig model.AgentRemoteConfigSpec,
+) (model.AgentConfigFile, string, error) {
+	if remoteConfig.AgentRemoteConfigRef != nil {
+		arc, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigName)
+		if err != nil {
+			return model.AgentConfigFile{}, "", fmt.Errorf("get agent remote config %s: %w",
+				*remoteConfig.AgentRemoteConfigRef, err)
+		}
+
+		return model.AgentConfigFile{
+			Body:        arc.Spec.Value,
+			ContentType: arc.Spec.ContentType,
+		}, arc.Metadata.Name, nil
+	}
+
+	return model.AgentConfigFile{
+		Body:        remoteConfig.AgentRemoteConfigSpec.Value,
+		ContentType: remoteConfig.AgentRemoteConfigSpec.ContentType,
+	}, *remoteConfig.AgentRemoteConfigName, nil
+}
+
+func (s *AgentGroupService) applyConnectionSettings(
+	agentGroup *model.AgentGroup,
+	agent *model.Agent,
+) error {
+	connConfig := agentGroup.Spec.AgentConnectionConfig
+	if connConfig == nil {
+		return nil
+	}
+
+	return agent.ApplyConnectionSettings(
+		connConfig.OpAMPConnection,
+		connConfig.OwnMetrics,
+		connConfig.OwnLogs,
+		connConfig.OwnTraces,
+		connConfig.OtherConnections,
+	)
 }
