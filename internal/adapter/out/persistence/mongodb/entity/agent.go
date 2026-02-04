@@ -404,13 +404,21 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 
 // ToDomain converts the AgentSpecRemoteConfig to domain model.
 func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig {
-	if asrc == nil {
+	if asrc == nil || len(asrc.RemoteConfig) == 0 {
 		//nolint:exhaustruct // RemoteConfig will be nil for empty config
 		return domainmodel.AgentSpecRemoteConfig{}
 	}
 
+	// Convert RemoteConfig names to ConfigMap with empty placeholders
+	configMap := make(map[string]domainmodel.AgentConfigFile)
+	for _, name := range asrc.RemoteConfig {
+		configMap[name] = domainmodel.AgentConfigFile{}
+	}
+
 	return domainmodel.AgentSpecRemoteConfig{
-		RemoteConfigNames: asrc.RemoteConfig,
+		ConfigMap: domainmodel.AgentConfigMap{
+			ConfigMap: configMap,
+		},
 	}
 }
 
@@ -420,8 +428,16 @@ func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *domainmodel.AgentSpecRemoteCon
 		return nil
 	}
 
+	// Convert RemoteConfig names to ConfigMap with empty placeholders
+	configMap := make(map[string]domainmodel.AgentConfigFile)
+	for _, name := range asrc.RemoteConfig {
+		configMap[name] = domainmodel.AgentConfigFile{}
+	}
+
 	return &domainmodel.AgentSpecRemoteConfig{
-		RemoteConfigNames: asrc.RemoteConfig,
+		ConfigMap: domainmodel.AgentConfigMap{
+			ConfigMap: configMap,
+		},
 	}
 }
 
@@ -613,23 +629,35 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 
 // AgentSpecRemoteConfigFromDomain converts domain model to persistence model.
 func AgentSpecRemoteConfigFromDomain(arc domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
-	if len(arc.RemoteConfigNames) == 0 {
+	if len(arc.ConfigMap.ConfigMap) == 0 {
 		return nil
 	}
 
+	// Extract config names from ConfigMap
+	names := make([]string, 0, len(arc.ConfigMap.ConfigMap))
+	for name := range arc.ConfigMap.ConfigMap {
+		names = append(names, name)
+	}
+
 	return &AgentSpecRemoteConfig{
-		RemoteConfig: arc.RemoteConfigNames,
+		RemoteConfig: names,
 	}
 }
 
 // AgentSpecRemoteConfigFromDomainPtr converts domain model pointer to persistence model.
 func AgentSpecRemoteConfigFromDomainPtr(arc *domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
-	if arc == nil || len(arc.RemoteConfigNames) == 0 {
+	if arc == nil || len(arc.ConfigMap.ConfigMap) == 0 {
 		return nil
 	}
 
+	// Extract config names from ConfigMap
+	names := make([]string, 0, len(arc.ConfigMap.ConfigMap))
+	for name := range arc.ConfigMap.ConfigMap {
+		names = append(names, name)
+	}
+
 	return &AgentSpecRemoteConfig{
-		RemoteConfig: arc.RemoteConfigNames,
+		RemoteConfig: names,
 	}
 }
 

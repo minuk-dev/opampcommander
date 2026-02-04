@@ -248,6 +248,11 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 			}
 		}
 
+		// No more pages to fetch
+		if agentsResp.Continue == "" {
+			break
+		}
+
 		continueToken = agentsResp.Continue
 	}
 
@@ -275,8 +280,23 @@ func (s *AgentGroupService) applyRemoteConfigs(
 	agentGroup *model.AgentGroup,
 	agent *model.Agent,
 ) error {
+	agentGroupName := agentGroup.Metadata.Name
+
+	// Handle single remote config (API compatibility)
+	if agentGroup.Spec.AgentRemoteConfig != nil {
+		configFile, configName, err := s.resolveRemoteConfig(ctx, agentGroupName, *agentGroup.Spec.AgentRemoteConfig)
+		if err != nil {
+			return err
+		}
+
+		if err := agent.ApplyRemoteConfig(configName, configFile); err != nil {
+			return fmt.Errorf("apply remote config %s: %w", configName, err)
+		}
+	}
+
+	// Handle multiple remote configs
 	for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
-		configFile, configName, err := s.resolveRemoteConfig(ctx, remoteConfig)
+		configFile, configName, err := s.resolveRemoteConfig(ctx, agentGroupName, remoteConfig)
 		if err != nil {
 			return err
 		}
@@ -291,25 +311,37 @@ func (s *AgentGroupService) applyRemoteConfigs(
 
 func (s *AgentGroupService) resolveRemoteConfig(
 	ctx context.Context,
-	remoteConfig model.AgentRemoteConfigSpec,
+	agentGroupName string,
+	remoteConfig model.AgentGroupAgentRemoteConfig,
 ) (model.AgentConfigFile, string, error) {
+	// Case 1: Reference to existing AgentRemoteConfig resource
 	if remoteConfig.AgentRemoteConfigRef != nil {
-		arc, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigName)
+		arc, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigRef)
 		if err != nil {
 			return model.AgentConfigFile{}, "", fmt.Errorf("get agent remote config %s: %w",
 				*remoteConfig.AgentRemoteConfigRef, err)
 		}
 
+		// Use the original resource name (no prefix needed for refs)
 		return model.AgentConfigFile{
 			Body:        arc.Spec.Value,
 			ContentType: arc.Spec.ContentType,
 		}, arc.Metadata.Name, nil
 	}
 
+	// Case 2: Inline/direct config definition
+	if remoteConfig.AgentRemoteConfigSpec == nil || remoteConfig.AgentRemoteConfigName == nil {
+		return model.AgentConfigFile{}, "", fmt.Errorf("invalid remote config: both spec and name are required for inline config")
+	}
+
+	// Prefix with AgentGroupName to avoid name collisions
+	// Format: {AgentGroupName}/{AgentRemoteConfigName}
+	prefixedName := fmt.Sprintf("%s/%s", agentGroupName, *remoteConfig.AgentRemoteConfigName)
+
 	return model.AgentConfigFile{
 		Body:        remoteConfig.AgentRemoteConfigSpec.Value,
 		ContentType: remoteConfig.AgentRemoteConfigSpec.ContentType,
-	}, *remoteConfig.AgentRemoteConfigName, nil
+	}, prefixedName, nil
 }
 
 func (s *AgentGroupService) applyConnectionSettings(

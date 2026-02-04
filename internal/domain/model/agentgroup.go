@@ -33,6 +33,11 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
+	// AgentRemoteConfig is a single remote configuration (for API compatibility).
+	// Deprecated: Use AgentRemoteConfigs for multiple configs.
+	AgentRemoteConfig *AgentGroupAgentRemoteConfig
+
+	// AgentRemoteConfigs is a list of remote configurations for the agent group.
 	AgentRemoteConfigs []AgentGroupAgentRemoteConfig
 
 	// AgentConnection settings for agents in this group.

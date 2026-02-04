@@ -269,8 +269,17 @@ func (mapper *Mapper) mapRemoteConfigFromAPI(
 		return model.AgentSpecRemoteConfig{}
 	}
 
+	// Convert RemoteConfigNames to ConfigMap with empty placeholders
+	// The actual config values will be fetched when needed
+	configMap := make(map[string]model.AgentConfigFile)
+	for _, name := range apiRemoteConfig.RemoteConfigNames {
+		configMap[name] = model.AgentConfigFile{}
+	}
+
 	return model.AgentSpecRemoteConfig{
-		RemoteConfigNames: apiRemoteConfig.RemoteConfigNames,
+		ConfigMap: model.AgentConfigMap{
+			ConfigMap: configMap,
+		},
 	}
 }
 
@@ -305,8 +314,16 @@ func (mapper *Mapper) mapRemoteConfigFromAPIPtr(
 		return nil
 	}
 
+	// Convert RemoteConfigNames to ConfigMap with empty placeholders
+	configMap := make(map[string]model.AgentConfigFile)
+	for _, name := range apiRemoteConfig.RemoteConfigNames {
+		configMap[name] = model.AgentConfigFile{}
+	}
+
 	return &model.AgentSpecRemoteConfig{
-		RemoteConfigNames: apiRemoteConfig.RemoteConfigNames,
+		ConfigMap: model.AgentConfigMap{
+			ConfigMap: configMap,
+		},
 	}
 }
 
@@ -357,24 +374,36 @@ func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth
 }
 
 func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.AgentSpecRemoteConfig) v1.AgentSpecRemoteConfig {
-	if remoteConfig == nil {
+	if remoteConfig == nil || len(remoteConfig.ConfigMap.ConfigMap) == 0 {
 		//exhaustruct:ignore
 		return v1.AgentSpecRemoteConfig{}
 	}
 
+	// Extract config names from ConfigMap
+	names := make([]string, 0, len(remoteConfig.ConfigMap.ConfigMap))
+	for name := range remoteConfig.ConfigMap.ConfigMap {
+		names = append(names, name)
+	}
+
 	return v1.AgentSpecRemoteConfig{
-		RemoteConfigNames: remoteConfig.RemoteConfigNames,
+		RemoteConfigNames: names,
 	}
 }
 
 func (mapper *Mapper) mapRemoteConfigToAPIPtr(remoteConfig *model.AgentSpecRemoteConfig) v1.AgentSpecRemoteConfig {
-	if remoteConfig == nil {
+	if remoteConfig == nil || len(remoteConfig.ConfigMap.ConfigMap) == 0 {
 		//exhaustruct:ignore
 		return v1.AgentSpecRemoteConfig{}
 	}
 
+	// Extract config names from ConfigMap
+	names := make([]string, 0, len(remoteConfig.ConfigMap.ConfigMap))
+	for name := range remoteConfig.ConfigMap.ConfigMap {
+		names = append(names, name)
+	}
+
 	return v1.AgentSpecRemoteConfig{
-		RemoteConfigNames: remoteConfig.RemoteConfigNames,
+		RemoteConfigNames: names,
 	}
 }
 

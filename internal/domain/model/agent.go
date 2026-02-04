@@ -1039,7 +1039,8 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return a.IsRemoteConfigSupported() &&
-		len(a.Spec.RemoteConfig.RemoteConfigNames) > 0
+		a.Spec.RemoteConfig != nil &&
+		len(a.Spec.RemoteConfig.ConfigMap.ConfigMap) > 0
 }
 
 // SetCondition sets or updates a condition in the agent's status.
