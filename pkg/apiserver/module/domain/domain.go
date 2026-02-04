@@ -14,7 +14,9 @@ func New() fx.Option {
 	components := []any{
 		fx.Annotate(domainservice.NewConnectionService, fx.As(new(domainport.ConnectionUsecase))),
 		fx.Annotate(domainservice.NewAgentService, fx.As(new(domainport.AgentUsecase))),
-		fx.Annotate(domainservice.NewAgentGroupService,
+		domainservice.NewAgentGroupService,
+		fx.Annotate(
+			Identity[*domainservice.AgentGroupService],
 			fx.As(new(domainport.AgentGroupUsecase)),
 			fx.As(new(domainport.AgentGroupRelatedUsecase)),
 		),
@@ -32,6 +34,7 @@ func New() fx.Option {
 			fx.As(new(domainport.ServerIdentityProvider)),
 		),
 		fx.Annotate(domainservice.NewAgentNotificationService, fx.As(new(domainport.AgentNotificationUsecase))),
+		helper.AsRunner(Identity[*domainservice.AgentGroupService]),
 		helper.AsRunner(Identity[*domainservice.ServerService]),
 		helper.AsRunner(Identity[*domainservice.ServerIdentityService]),
 	}

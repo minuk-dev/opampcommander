@@ -547,12 +547,20 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 
 	t.Logf("Current AgentGroup before update: %+v", agentGroup)
 
-	// Convert configMap to YAML and set it as the Value field
+	// Convert configMap to YAML and set it as the inline config
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
 
+	configName := "inline-config"
+	configValue := string(configBytes)
 	agentGroup.Spec.AgentConfig = &v1.AgentConfig{
-		Value: string(configBytes),
+		AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
+			AgentRemoteConfigName: &configName,
+			AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+				Value:       configValue,
+				ContentType: "application/yaml",
+			},
+		},
 	}
 
 	t.Logf("AgentGroup after update: %+v", agentGroup)

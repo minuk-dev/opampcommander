@@ -690,6 +690,10 @@ func (ci *ConnectionInfo) SetOtherConnection(name string, settings OtherConnecti
 
 // HasConnectionSettings checks if there are any connection settings configured.
 func (ci *ConnectionInfo) HasConnectionSettings() bool {
+	if ci == nil {
+		return false
+	}
+
 	return ci.opamp.DestinationEndpoint != "" ||
 		ci.ownMetrics.DestinationEndpoint != "" ||
 		ci.ownLogs.DestinationEndpoint != "" ||
