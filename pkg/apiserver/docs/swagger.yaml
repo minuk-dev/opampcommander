@@ -224,15 +224,6 @@ definitions:
       serverProvidedAllPackagesHash:
         type: string
     type: object
-  AgentRemoteConfig:
-    properties:
-      configHash:
-        type: string
-      configMap:
-        additionalProperties:
-          $ref: '#/definitions/AgentConfigFile'
-        type: object
-    type: object
   AgentSpec:
     properties:
       connectionSettings:
@@ -250,7 +241,7 @@ definitions:
           download.
       remoteConfig:
         allOf:
-        - $ref: '#/definitions/AgentRemoteConfig'
+        - $ref: '#/definitions/AgentSpecRemoteConfig'
         description: RemoteConfig is the remote configuration of the agent.
       restartRequiredAt:
         description: |-
@@ -262,6 +253,15 @@ definitions:
     properties:
       packages:
         description: Packages is a list of package names available for the agent.
+        items:
+          type: string
+        type: array
+    type: object
+  AgentSpecRemoteConfig:
+    properties:
+      remoteConfigNames:
+        description: RemoteConfigNames is a list of remote config names applied to
+          this agent.
         items:
           type: string
         type: array
@@ -677,8 +677,29 @@ definitions:
     type: object
   api_v1.AgentConfig:
     properties:
+      agentRemoteConfig:
+        $ref: '#/definitions/api_v1.AgentGroupRemoteConfig'
       connectionSettings:
         $ref: '#/definitions/ConnectionSettings'
+    type: object
+  api_v1.AgentGroupRemoteConfig:
+    properties:
+      agentRemoteConfigName:
+        description: AgentRemoteConfigName is the name of a standalone remote configuration
+          resource.
+        type: string
+      agentRemoteConfigRef:
+        description: AgentRemoteConfigRef is a reference to a standalone remote configuration
+          resource.
+        type: string
+      agentRemoteConfigSpec:
+        allOf:
+        - $ref: '#/definitions/api_v1.AgentRemoteConfigSpec'
+        description: AgentRemoteConfigSpec is the remote configuration to be applied
+          to agents in this group.
+    type: object
+  api_v1.AgentRemoteConfigSpec:
+    properties:
       contentType:
         type: string
       value:
@@ -701,8 +722,29 @@ definitions:
     type: object
   github_com_minuk-dev_opampcommander_api_v1.AgentConfig:
     properties:
+      agentRemoteConfig:
+        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentGroupRemoteConfig'
       connectionSettings:
         $ref: '#/definitions/ConnectionSettings'
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1.AgentGroupRemoteConfig:
+    properties:
+      agentRemoteConfigName:
+        description: AgentRemoteConfigName is the name of a standalone remote configuration
+          resource.
+        type: string
+      agentRemoteConfigRef:
+        description: AgentRemoteConfigRef is a reference to a standalone remote configuration
+          resource.
+        type: string
+      agentRemoteConfigSpec:
+        allOf:
+        - $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentRemoteConfigSpec'
+        description: AgentRemoteConfigSpec is the remote configuration to be applied
+          to agents in this group.
+    type: object
+  github_com_minuk-dev_opampcommander_api_v1.AgentRemoteConfigSpec:
+    properties:
       contentType:
         type: string
       value:
