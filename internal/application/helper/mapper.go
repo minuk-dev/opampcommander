@@ -150,9 +150,9 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
 		//exhaustruct:ignore
 		Spec: model.AgentSpec{
 			NewInstanceUID:    mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
-			RemoteConfig:      mapper.mapRemoteConfigFromAPIPtr(&apiAgent.Spec.RemoteConfig),
-			PackagesAvailable: mapper.mapPackagesAvailableFromAPIPtr(&apiAgent.Spec.PackagesAvailable),
-			RestartInfo:       mapper.mapRestartInfoFromAPIPtr(apiAgent.Spec.RestartRequiredAt),
+			RemoteConfig:      mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
+			PackagesAvailable: mapper.mapPackagesAvailableFromAPI(&apiAgent.Spec.PackagesAvailable),
+			RestartInfo:       mapper.mapRestartInfoFromAPI(apiAgent.Spec.RestartRequiredAt),
 		},
 		// Note: Status is not mapped here as it is usually managed by the system.
 	}
@@ -263,10 +263,9 @@ func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
 
 func (mapper *Mapper) mapRemoteConfigFromAPI(
 	apiRemoteConfig *v1.AgentSpecRemoteConfig,
-) model.AgentSpecRemoteConfig {
+) *model.AgentSpecRemoteConfig {
 	if apiRemoteConfig == nil || len(apiRemoteConfig.RemoteConfigNames) == 0 {
-		//nolint:exhaustruct // RemoteConfig will be nil for empty config
-		return model.AgentSpecRemoteConfig{}
+		return nil
 	}
 
 	// Convert RemoteConfigNames to ConfigMap with empty placeholders
@@ -276,7 +275,7 @@ func (mapper *Mapper) mapRemoteConfigFromAPI(
 		configMap[name] = model.AgentConfigFile{}
 	}
 
-	return model.AgentSpecRemoteConfig{
+	return &model.AgentSpecRemoteConfig{
 		ConfigMap: model.AgentConfigMap{
 			ConfigMap: configMap,
 		},
@@ -296,50 +295,7 @@ func (mapper *Mapper) mapNewInstanceUIDFromAPI(newInstanceUID string) uuid.UUID 
 	return uid
 }
 
-func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) model.AgentRestartInfo {
-	if restartRequiredAt == nil || restartRequiredAt.IsZero() {
-		//exhaustruct:ignore
-		return model.AgentRestartInfo{}
-	}
-
-	return model.AgentRestartInfo{
-		RequiredRestartedAt: restartRequiredAt.Time,
-	}
-}
-
-func (mapper *Mapper) mapRemoteConfigFromAPIPtr(
-	apiRemoteConfig *v1.AgentSpecRemoteConfig,
-) *model.AgentSpecRemoteConfig {
-	if apiRemoteConfig == nil || len(apiRemoteConfig.RemoteConfigNames) == 0 {
-		return nil
-	}
-
-	// Convert RemoteConfigNames to ConfigMap with empty placeholders
-	configMap := make(map[string]model.AgentConfigFile)
-	for _, name := range apiRemoteConfig.RemoteConfigNames {
-		configMap[name] = model.AgentConfigFile{}
-	}
-
-	return &model.AgentSpecRemoteConfig{
-		ConfigMap: model.AgentConfigMap{
-			ConfigMap: configMap,
-		},
-	}
-}
-
-func (mapper *Mapper) mapPackagesAvailableFromAPIPtr(
-	apiPackages *v1.AgentSpecPackages,
-) *model.AgentSpecPackage {
-	if apiPackages == nil || len(apiPackages.Packages) == 0 {
-		return nil
-	}
-
-	return &model.AgentSpecPackage{
-		Packages: apiPackages.Packages,
-	}
-}
-
-func (mapper *Mapper) mapRestartInfoFromAPIPtr(restartRequiredAt *v1.Time) *model.AgentRestartInfo {
+func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) *model.AgentRestartInfo {
 	if restartRequiredAt == nil || restartRequiredAt.IsZero() {
 		return nil
 	}
@@ -453,13 +409,12 @@ func (mapper *Mapper) mapPackagesAvailableToAPI(
 
 func (mapper *Mapper) mapPackagesAvailableFromAPI(
 	apiPackages *v1.AgentSpecPackages,
-) model.AgentSpecPackage {
+) *model.AgentSpecPackage {
 	if apiPackages == nil {
-		//exhaustruct:ignore
-		return model.AgentSpecPackage{}
+		return nil
 	}
 
-	return model.AgentSpecPackage{
+	return &model.AgentSpecPackage{
 		Packages: apiPackages.Packages,
 	}
 }
