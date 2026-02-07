@@ -530,6 +530,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(referencedConfig, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *model.Agent) bool {
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap[refName]
+
 			return exists
 		})).Return(nil)
 
@@ -586,6 +587,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *model.Agent) bool {
 			// Verify the config has the prefixed name
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap["staging/inline-config"]
+
 			return exists
 		})).Return(nil)
 

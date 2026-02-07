@@ -33,7 +33,7 @@ type Agent struct {
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
 //
-//nolint:funlen
+
 func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	agent := &Agent{
 		//exhaustruct:ignore
@@ -115,6 +115,7 @@ func (a *Agent) ApplyRemoteConfig(
 	if a.Spec.RemoteConfig.ConfigMap.ConfigMap == nil {
 		a.Spec.RemoteConfig.ConfigMap.ConfigMap = make(map[string]AgentConfigFile)
 	}
+
 	a.Spec.RemoteConfig.ConfigMap.ConfigMap[agentRemoteConfigName] = agentConfigFile
 
 	return nil

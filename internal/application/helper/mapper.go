@@ -30,6 +30,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 
 	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.AgentRemoteConfig != nil {
 		apiRemoteConfig := apiAgentGroup.Spec.AgentConfig.AgentRemoteConfig
+
 		agentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: apiRemoteConfig.AgentRemoteConfigName,
 			AgentRemoteConfigRef:  apiRemoteConfig.AgentRemoteConfigRef,
@@ -173,9 +174,9 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 		//exhaustruct:ignore
 		Spec: v1.AgentSpec{
 			NewInstanceUID:    mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
-			RemoteConfig:      mapper.mapRemoteConfigToAPIPtr(agent.Spec.RemoteConfig),
-			PackagesAvailable: mapper.mapPackagesAvailableToAPIPtr(agent.Spec.PackagesAvailable),
-			RestartRequiredAt: mapper.mapRestartRequiredAtToAPIPtr(agent.Spec.RestartInfo),
+			RemoteConfig:      mapper.mapRemoteConfigToAPI(agent.Spec.RemoteConfig),
+			PackagesAvailable: mapper.mapPackagesAvailableToAPI(agent.Spec.PackagesAvailable),
+			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo),
 		},
 		Status: v1.AgentStatus{
 			EffectiveConfig: v1.AgentEffectiveConfig{
@@ -346,24 +347,7 @@ func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.AgentSpecRemoteCo
 	}
 }
 
-func (mapper *Mapper) mapRemoteConfigToAPIPtr(remoteConfig *model.AgentSpecRemoteConfig) v1.AgentSpecRemoteConfig {
-	if remoteConfig == nil || len(remoteConfig.ConfigMap.ConfigMap) == 0 {
-		//exhaustruct:ignore
-		return v1.AgentSpecRemoteConfig{}
-	}
-
-	// Extract config names from ConfigMap
-	names := make([]string, 0, len(remoteConfig.ConfigMap.ConfigMap))
-	for name := range remoteConfig.ConfigMap.ConfigMap {
-		names = append(names, name)
-	}
-
-	return v1.AgentSpecRemoteConfig{
-		RemoteConfigNames: names,
-	}
-}
-
-func (mapper *Mapper) mapPackagesAvailableToAPIPtr(
+func (mapper *Mapper) mapPackagesAvailableToAPI(
 	packagesAvailable *model.AgentSpecPackage,
 ) v1.AgentSpecPackages {
 	if packagesAvailable == nil {
@@ -376,7 +360,7 @@ func (mapper *Mapper) mapPackagesAvailableToAPIPtr(
 	}
 }
 
-func (mapper *Mapper) mapRestartRequiredAtToAPIPtr(restartInfo *model.AgentRestartInfo) *v1.Time {
+func (mapper *Mapper) mapRestartRequiredAtToAPI(restartInfo *model.AgentRestartInfo) *v1.Time {
 	if restartInfo == nil || restartInfo.RequiredRestartedAt.IsZero() {
 		return nil
 	}
@@ -391,19 +375,6 @@ func (mapper *Mapper) mapCustomCapabilitiesToAPI(
 ) v1.AgentCustomCapabilities {
 	return v1.AgentCustomCapabilities{
 		Capabilities: customCapabilities.Capabilities,
-	}
-}
-
-func (mapper *Mapper) mapPackagesAvailableToAPI(
-	packagesAvailable *model.AgentSpecPackage,
-) v1.AgentSpecPackages {
-	if packagesAvailable == nil {
-		//exhaustruct:ignore
-		return v1.AgentSpecPackages{}
-	}
-
-	return v1.AgentSpecPackages{
-		Packages: packagesAvailable.Packages,
 	}
 }
 
@@ -497,16 +468,6 @@ func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
 	}
 
 	return string(newInstanceUID)
-}
-
-func (mapper *Mapper) mapRestartRequiredAtToAPI(restartRequiredAt time.Time) *v1.Time {
-	if restartRequiredAt.IsZero() {
-		return nil
-	}
-
-	t := v1.NewTime(restartRequiredAt)
-
-	return &t
 }
 
 func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) model.OpAMPConnectionSettings {

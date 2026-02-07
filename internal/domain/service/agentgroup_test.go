@@ -20,8 +20,7 @@ import (
 var _ helper.Runner = (*service.AgentGroupService)(nil)
 
 var (
-	errAgentGroupNotFound      = errors.New("agent group not found")
-	errAgentRemoteConfigFailed = errors.New("failed to get remote config")
+	errAgentGroupNotFound = errors.New("agent group not found")
 )
 
 // MockAgentGroupPersistencePort is a mock implementation of AgentGroupPersistencePort.

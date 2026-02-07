@@ -121,6 +121,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 		// Verify agent was not updated
 		updatedAgent := agentUsecase.agents[instanceUID]
 		assert.False(t, updatedAgent.ShouldBeRestarted(), "Agent should not be flagged for restart")
+
 		if updatedAgent.Spec.RestartInfo != nil {
 			assert.True(t, updatedAgent.Spec.RestartInfo.RequiredRestartedAt.IsZero(), "RequiredRestartedAt should remain zero")
 		}

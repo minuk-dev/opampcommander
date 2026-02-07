@@ -239,11 +239,13 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 		}
 
 		for _, agent := range agentsResp.Items {
-			if err := s.applyAgentGroupToAgent(ctx, agentGroup, agent); err != nil {
+			err := s.applyAgentGroupToAgent(ctx, agentGroup, agent)
+			if err != nil {
 				return fmt.Errorf("apply agent group to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}
 
-			if err := s.agentUsecase.SaveAgent(ctx, agent); err != nil {
+			err := s.agentUsecase.SaveAgent(ctx, agent)
+			if err != nil {
 				return fmt.Errorf("save updated agent: %w", err)
 			}
 		}
@@ -264,11 +266,13 @@ func (s *AgentGroupService) applyAgentGroupToAgent(
 	agentGroup *model.AgentGroup,
 	agent *model.Agent,
 ) error {
-	if err := s.applyRemoteConfigs(ctx, agentGroup, agent); err != nil {
+	err := s.applyRemoteConfigs(ctx, agentGroup, agent)
+	if err != nil {
 		return err
 	}
 
-	if err := s.applyConnectionSettings(agentGroup, agent); err != nil {
+	err := s.applyConnectionSettings(agentGroup, agent)
+	if err != nil {
 		return err
 	}
 
@@ -331,7 +335,7 @@ func (s *AgentGroupService) resolveRemoteConfig(
 
 	// Case 2: Inline/direct config definition
 	if remoteConfig.AgentRemoteConfigSpec == nil || remoteConfig.AgentRemoteConfigName == nil {
-		return model.AgentConfigFile{}, "", fmt.Errorf("invalid remote config: both spec and name are required for inline config")
+		return model.AgentConfigFile{}, "", errors.New("invalid remote config: both spec and name are required for inline config")
 	}
 
 	// Prefix with AgentGroupName to avoid name collisions

@@ -44,6 +44,7 @@ type AgentGroupSpec struct {
 	AgentConnectionConfig *AgentConnectionConfig
 }
 
+// AgentGroupAgentRemoteConfig represents a remote configuration for agents in the group.
 type AgentGroupAgentRemoteConfig struct {
 	// AgentRemoteConfigName is the name of a standalone remote configuration resource.
 	AgentRemoteConfigName *string

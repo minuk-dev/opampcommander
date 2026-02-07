@@ -509,7 +509,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		},
 		Spec: AgentSpec{
 			NewInstanceUID:      newInstanceUID,
-			RemoteConfig:        AgentSpecRemoteConfigFromDomainPtr(agent.Spec.RemoteConfig),
+			RemoteConfig:        AgentSpecRemoteConfigFromDomain(agent.Spec.RemoteConfig),
 			RequiredRestartedAt: agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
 		},
 		Status: AgentStatus{
@@ -628,24 +628,7 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 }
 
 // AgentSpecRemoteConfigFromDomain converts domain model to persistence model.
-func AgentSpecRemoteConfigFromDomain(arc domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
-	if len(arc.ConfigMap.ConfigMap) == 0 {
-		return nil
-	}
-
-	// Extract config names from ConfigMap
-	names := make([]string, 0, len(arc.ConfigMap.ConfigMap))
-	for name := range arc.ConfigMap.ConfigMap {
-		names = append(names, name)
-	}
-
-	return &AgentSpecRemoteConfig{
-		RemoteConfig: names,
-	}
-}
-
-// AgentSpecRemoteConfigFromDomainPtr converts domain model pointer to persistence model.
-func AgentSpecRemoteConfigFromDomainPtr(arc *domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
+func AgentSpecRemoteConfigFromDomain(arc *domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
 	if arc == nil || len(arc.ConfigMap.ConfigMap) == 0 {
 		return nil
 	}
