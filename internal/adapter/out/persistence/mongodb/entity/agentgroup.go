@@ -51,9 +51,9 @@ type AgentSelector struct {
 
 // AgentGroupAgentRemoteConfig represents the remote configuration for agents in the group.
 type AgentGroupAgentRemoteConfig struct {
-	AgentRemoteConfigName *string                `bson:"agentRemoteConfigName,omitempty" json:"agentRemoteConfigName,omitempty"`
-	AgentRemoteConfigSpec *AgentRemoteConfigSpec `bson:"agentRemoteConfigSpec,omitempty" json:"agentRemoteConfigSpec,omitempty"`
-	AgentRemoteConfigRef  *string                `bson:"agentRemoteConfigRef,omitempty"  json:"agentRemoteConfigRef,omitempty"`
+	AgentRemoteConfigName *string                `bson:"agentRemoteConfigName,omitempty"`
+	AgentRemoteConfigSpec *AgentRemoteConfigSpec `bson:"agentRemoteConfigSpec,omitempty"`
+	AgentRemoteConfigRef  *string                `bson:"agentRemoteConfigRef,omitempty"`
 }
 
 // AgentRemoteConfigSpec represents the specification of a remote config.
@@ -151,6 +151,7 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 		spec.AgentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: s.AgentRemoteConfig.AgentRemoteConfigName,
 			AgentRemoteConfigRef:  s.AgentRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigSpec: nil,
 		}
 		if s.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
 			spec.AgentRemoteConfig.AgentRemoteConfigSpec = &model.AgentRemoteConfigSpec{
@@ -239,6 +240,7 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 		result.AgentRemoteConfig = &AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: spec.AgentRemoteConfig.AgentRemoteConfigName,
 			AgentRemoteConfigRef:  spec.AgentRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigSpec: nil,
 		}
 		if spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
 			result.AgentRemoteConfig.AgentRemoteConfigSpec = &AgentRemoteConfigSpec{

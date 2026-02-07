@@ -138,11 +138,14 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		return nil
 	}
 
-	displayedAgentRemoteConfigs := lo.Map(agentRemoteConfigs, func(a AgentRemoteConfigWithErr, _ int) formattedAgentRemoteConfig {
-		return opt.toFormattedAgentRemoteConfig(*a.AgentRemoteConfig)
-	})
+	displayedAgentRemoteConfigs := lo.Map(
+		agentRemoteConfigs,
+		func(a AgentRemoteConfigWithErr, _ int) formattedAgentRemoteConfig {
+			return opt.toFormattedAgentRemoteConfig(*a.AgentRemoteConfig)
+		})
 
-	err := formatter.Format(cmd.OutOrStdout(), displayedAgentRemoteConfigs, formatter.FormatType(opt.formatType))
+	err := formatter.Format(
+		cmd.OutOrStdout(), displayedAgentRemoteConfigs, formatter.FormatType(opt.formatType))
 	if err != nil {
 		return fmt.Errorf("failed to format agent remote configs: %w", err)
 	}

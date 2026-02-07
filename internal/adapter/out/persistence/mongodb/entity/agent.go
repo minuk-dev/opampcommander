@@ -405,14 +405,20 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 // ToDomain converts the AgentSpecRemoteConfig to domain model.
 func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig {
 	if asrc == nil || len(asrc.RemoteConfig) == 0 {
-		//nolint:exhaustruct // RemoteConfig will be nil for empty config
-		return domainmodel.AgentSpecRemoteConfig{}
+		return domainmodel.AgentSpecRemoteConfig{
+			ConfigMap: domainmodel.AgentConfigMap{
+				ConfigMap: nil,
+			},
+		}
 	}
 
 	// Convert RemoteConfig names to ConfigMap with empty placeholders
 	configMap := make(map[string]domainmodel.AgentConfigFile)
 	for _, name := range asrc.RemoteConfig {
-		configMap[name] = domainmodel.AgentConfigFile{}
+		configMap[name] = domainmodel.AgentConfigFile{
+			Body:        nil,
+			ContentType: "",
+		}
 	}
 
 	return domainmodel.AgentSpecRemoteConfig{
@@ -431,7 +437,10 @@ func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *domainmodel.AgentSpecRemoteCon
 	// Convert RemoteConfig names to ConfigMap with empty placeholders
 	configMap := make(map[string]domainmodel.AgentConfigFile)
 	for _, name := range asrc.RemoteConfig {
-		configMap[name] = domainmodel.AgentConfigFile{}
+		configMap[name] = domainmodel.AgentConfigFile{
+			Body:        nil,
+			ContentType: "",
+		}
 	}
 
 	return &domainmodel.AgentSpecRemoteConfig{

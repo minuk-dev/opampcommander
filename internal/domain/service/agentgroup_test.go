@@ -19,9 +19,7 @@ import (
 
 var _ helper.Runner = (*service.AgentGroupService)(nil)
 
-var (
-	errAgentGroupNotFound = errors.New("agent group not found")
-)
+var errAgentGroupNotFound = errors.New("agent group not found")
 
 // MockAgentGroupPersistencePort is a mock implementation of AgentGroupPersistencePort.
 type MockAgentGroupPersistencePort struct {
@@ -39,7 +37,7 @@ func (m *MockAgentGroupPersistencePort) GetAgentGroup(
 
 	agentGroup, ok := args.Get(0).(*model.AgentGroup)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return agentGroup, args.Error(1) //nolint:wrapcheck // mock error
@@ -57,7 +55,7 @@ func (m *MockAgentGroupPersistencePort) PutAgentGroup(
 
 	result, ok := args.Get(0).(*model.AgentGroup)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -74,7 +72,7 @@ func (m *MockAgentGroupPersistencePort) ListAgentGroups(
 
 	result, ok := args.Get(0).(*model.ListResponse[*model.AgentGroup])
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -96,7 +94,7 @@ func (m *MockAgentUsecaseForGroup) GetAgent(
 
 	agnt, ok := args.Get(0).(*model.Agent)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return agnt, args.Error(1) //nolint:wrapcheck // mock error
@@ -113,7 +111,7 @@ func (m *MockAgentUsecaseForGroup) GetOrCreateAgent(
 
 	agnt, ok := args.Get(0).(*model.Agent)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return agnt, args.Error(1) //nolint:wrapcheck // mock error
@@ -131,7 +129,7 @@ func (m *MockAgentUsecaseForGroup) ListAgentsBySelector(
 
 	result, ok := args.Get(0).(*model.ListResponse[*model.Agent])
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -154,7 +152,7 @@ func (m *MockAgentUsecaseForGroup) ListAgents(
 
 	result, ok := args.Get(0).(*model.ListResponse[*model.Agent])
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -172,7 +170,7 @@ func (m *MockAgentUsecaseForGroup) SearchAgents(
 
 	result, ok := args.Get(0).(*model.ListResponse[*model.Agent])
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -194,7 +192,7 @@ func (m *MockAgentRemoteConfigPersistencePort) GetAgentRemoteConfig(
 
 	result, ok := args.Get(0).(*model.AgentRemoteConfig)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -211,7 +209,7 @@ func (m *MockAgentRemoteConfigPersistencePort) PutAgentRemoteConfig(
 
 	result, ok := args.Get(0).(*model.AgentRemoteConfig)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -228,7 +226,7 @@ func (m *MockAgentRemoteConfigPersistencePort) ListAgentRemoteConfigs(
 
 	result, ok := args.Get(0).(*model.ListResponse[*model.AgentRemoteConfig])
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return result, args.Error(1) //nolint:wrapcheck // mock error
@@ -243,9 +241,10 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 		expectedGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
@@ -268,9 +267,10 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 		mockPersistence.On("GetAgentGroup", ctx, "non-existent").Return(nil, errAgentGroupNotFound)
 
@@ -292,9 +292,10 @@ func TestAgentGroupService_ListAgentGroups(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 		expectedResponse := &model.ListResponse[*model.AgentGroup]{
 			Items: []*model.AgentGroup{
@@ -325,9 +326,10 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 		agentGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
@@ -373,9 +375,10 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -430,9 +433,10 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -472,9 +476,10 @@ func TestAgentGroupService_Name(t *testing.T) {
 
 	mockPersistence := new(MockAgentGroupPersistencePort)
 	mockAgentUsecase := new(MockAgentUsecaseForGroup)
+	mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 	logger := slog.Default()
 
-	svc := service.NewAgentGroupService(mockPersistence, mockAgentUsecase, logger)
+	svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
 
 	assert.Equal(t, "AgentGroupService", svc.Name())
 }

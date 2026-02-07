@@ -34,6 +34,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 		agentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: apiRemoteConfig.AgentRemoteConfigName,
 			AgentRemoteConfigRef:  apiRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigSpec: nil,
 		}
 		if apiRemoteConfig.AgentRemoteConfigSpec != nil {
 			agentRemoteConfig.AgentRemoteConfigSpec = &model.AgentRemoteConfigSpec{
@@ -91,6 +92,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 			agentConfig.AgentRemoteConfig = &v1.AgentGroupRemoteConfig{
 				AgentRemoteConfigName: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigName,
 				AgentRemoteConfigRef:  domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigRef,
+				AgentRemoteConfigSpec: nil,
 			}
 			if domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
 				agentConfig.AgentRemoteConfig.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
@@ -273,7 +275,10 @@ func (mapper *Mapper) mapRemoteConfigFromAPI(
 	// The actual config values will be fetched when needed
 	configMap := make(map[string]model.AgentConfigFile)
 	for _, name := range apiRemoteConfig.RemoteConfigNames {
-		configMap[name] = model.AgentConfigFile{}
+		configMap[name] = model.AgentConfigFile{
+			Body:        nil,
+			ContentType: "",
+		}
 	}
 
 	return &model.AgentSpecRemoteConfig{

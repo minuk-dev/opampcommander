@@ -1,3 +1,4 @@
+//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -17,6 +18,9 @@ const (
 	// PropagationChunkSize is the number of agents to process in each batch when propagating changes.
 	PropagationChunkSize = 50
 )
+
+// ErrInvalidRemoteConfig is returned when inline remote config is missing required fields.
+var ErrInvalidRemoteConfig = errors.New("invalid remote config: both spec and name are required for inline config")
 
 var _ port.AgentGroupUsecase = (*AgentGroupService)(nil)
 var _ port.AgentGroupRelatedUsecase = (*AgentGroupService)(nil)
@@ -37,14 +41,16 @@ type AgentGroupService struct {
 // NewAgentGroupService creates a new instance of AgentGroupService.
 func NewAgentGroupService(
 	persistencePort AgentGroupPersistencePort,
+	agentRemoteConfigPersistencePort port.AgentRemoteConfigPersistencePort,
 	agentUsecase port.AgentUsecase,
 	logger *slog.Logger,
 ) *AgentGroupService {
 	return &AgentGroupService{
-		persistencePort:     persistencePort,
-		agentUsecase:        agentUsecase,
-		logger:              logger,
-		changedAgentGroupCh: make(chan *model.AgentGroup, ChangedAgentGroupBufferSize),
+		persistencePort:                  persistencePort,
+		AgentRemoteConfigPersistencePort: agentRemoteConfigPersistencePort,
+		agentUsecase:                     agentUsecase,
+		logger:                           logger,
+		changedAgentGroupCh:              make(chan *model.AgentGroup, ChangedAgentGroupBufferSize),
 	}
 }
 
@@ -244,7 +250,7 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 				return fmt.Errorf("apply agent group to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}
 
-			err := s.agentUsecase.SaveAgent(ctx, agent)
+			err = s.agentUsecase.SaveAgent(ctx, agent)
 			if err != nil {
 				return fmt.Errorf("save updated agent: %w", err)
 			}
@@ -271,7 +277,7 @@ func (s *AgentGroupService) applyAgentGroupToAgent(
 		return err
 	}
 
-	err := s.applyConnectionSettings(agentGroup, agent)
+	err = s.applyConnectionSettings(agentGroup, agent)
 	if err != nil {
 		return err
 	}
@@ -293,7 +299,8 @@ func (s *AgentGroupService) applyRemoteConfigs(
 			return err
 		}
 
-		if err := agent.ApplyRemoteConfig(configName, configFile); err != nil {
+		err = agent.ApplyRemoteConfig(configName, configFile)
+		if err != nil {
 			return fmt.Errorf("apply remote config %s: %w", configName, err)
 		}
 	}
@@ -305,7 +312,8 @@ func (s *AgentGroupService) applyRemoteConfigs(
 			return err
 		}
 
-		if err := agent.ApplyRemoteConfig(configName, configFile); err != nil {
+		err = agent.ApplyRemoteConfig(configName, configFile)
+		if err != nil {
 			return fmt.Errorf("apply remote config %s: %w", configName, err)
 		}
 	}
@@ -335,7 +343,7 @@ func (s *AgentGroupService) resolveRemoteConfig(
 
 	// Case 2: Inline/direct config definition
 	if remoteConfig.AgentRemoteConfigSpec == nil || remoteConfig.AgentRemoteConfigName == nil {
-		return model.AgentConfigFile{}, "", errors.New("invalid remote config: both spec and name are required for inline config")
+		return model.AgentConfigFile{}, "", ErrInvalidRemoteConfig
 	}
 
 	// Prefix with AgentGroupName to avoid name collisions
@@ -357,11 +365,16 @@ func (s *AgentGroupService) applyConnectionSettings(
 		return nil
 	}
 
-	return agent.ApplyConnectionSettings(
+	err := agent.ApplyConnectionSettings(
 		connConfig.OpAMPConnection,
 		connConfig.OwnMetrics,
 		connConfig.OwnLogs,
 		connConfig.OwnTraces,
 		connConfig.OtherConnections,
 	)
+	if err != nil {
+		return fmt.Errorf("apply connection settings: %w", err)
+	}
+
+	return nil
 }

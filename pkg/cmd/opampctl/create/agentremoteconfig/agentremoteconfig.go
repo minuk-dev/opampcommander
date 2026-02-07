@@ -51,9 +51,11 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the agent remote config (required)")
-	cmd.Flags().StringToStringVar(&options.attributes, "attributes", nil, "Attributes of the agent remote config (key=value)")
+	cmd.Flags().StringToStringVar(
+		&options.attributes, "attributes", nil, "Attributes of the agent remote config (key=value)")
 	cmd.Flags().StringVar(&options.value, "value", "", "Configuration value (required)")
-	cmd.Flags().StringVar(&options.contentType, "content-type", "", "Content type of the configuration (e.g., application/yaml)")
+	cmd.Flags().StringVar(
+		&options.contentType, "content-type", "", "Content type of the configuration (e.g., application/yaml)")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
 
 	cmd.MarkFlagRequired("name")        //nolint:errcheck,gosec
@@ -96,7 +98,10 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create agent remote config: %w", err)
 	}
 
-	err = formatter.Format(cmd.OutOrStdout(), toFormattedAgentRemoteConfig(agentRemoteConfig), formatter.FormatType(opt.formatType))
+	formatted := toFormattedAgentRemoteConfig(agentRemoteConfig)
+
+	err = formatter.Format(
+		cmd.OutOrStdout(), formatted, formatter.FormatType(opt.formatType))
 	if err != nil {
 		return fmt.Errorf("failed to format output: %w", err)
 	}

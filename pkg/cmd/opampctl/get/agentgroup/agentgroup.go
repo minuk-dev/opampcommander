@@ -198,6 +198,12 @@ func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.T
 				deletedAt = &t
 				deletedBy = &condition.Reason
 			}
+		case v1.ConditionTypeUpdated,
+			v1.ConditionTypeConnected,
+			v1.ConditionTypeHealthy,
+			v1.ConditionTypeConfigured,
+			v1.ConditionTypeRegistered:
+			// These condition types are not used for extracting info
 		}
 	}
 

@@ -28,7 +28,12 @@ func (m *mockAgentGroupPersistence) GetAgentGroup(ctx context.Context, name stri
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.AgentGroup), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.AgentGroup)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockAgentGroupPersistence) PutAgentGroup(
@@ -41,7 +46,12 @@ func (m *mockAgentGroupPersistence) PutAgentGroup(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.AgentGroup), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.AgentGroup)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockAgentGroupPersistence) ListAgentGroups(
@@ -53,7 +63,12 @@ func (m *mockAgentGroupPersistence) ListAgentGroups(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.AgentGroup]), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.ListResponse[*model.AgentGroup])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 // mockAgentUsecase is a mock for AgentUsecase.
@@ -67,7 +82,12 @@ func (m *mockAgentUsecase) GetAgent(ctx context.Context, uid uuid.UUID) (*model.
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.Agent), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.Agent)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockAgentUsecase) GetOrCreateAgent(ctx context.Context, uid uuid.UUID) (*model.Agent, error) {
@@ -76,7 +96,12 @@ func (m *mockAgentUsecase) GetOrCreateAgent(ctx context.Context, uid uuid.UUID) 
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.Agent), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.Agent)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockAgentUsecase) ListAgentsBySelector(
@@ -89,7 +114,12 @@ func (m *mockAgentUsecase) ListAgentsBySelector(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.ListResponse[*model.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockAgentUsecase) SaveAgent(ctx context.Context, a *model.Agent) error {
@@ -107,7 +137,12 @@ func (m *mockAgentUsecase) ListAgents(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.ListResponse[*model.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockAgentUsecase) SearchAgents(
@@ -120,7 +155,12 @@ func (m *mockAgentUsecase) SearchAgents(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.ListResponse[*model.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 // mockRemoteConfigPersistence is a mock for AgentRemoteConfigPersistencePort.
@@ -137,7 +177,12 @@ func (m *mockRemoteConfigPersistence) GetAgentRemoteConfig(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.AgentRemoteConfig), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.AgentRemoteConfig)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockRemoteConfigPersistence) PutAgentRemoteConfig(
@@ -149,7 +194,12 @@ func (m *mockRemoteConfigPersistence) PutAgentRemoteConfig(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.AgentRemoteConfig), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.AgentRemoteConfig)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
 
 func (m *mockRemoteConfigPersistence) ListAgentRemoteConfigs(
@@ -161,8 +211,15 @@ func (m *mockRemoteConfigPersistence) ListAgentRemoteConfigs(
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.AgentRemoteConfig]), args.Error(1) //nolint:wrapcheck
+	result, ok := args.Get(0).(*model.ListResponse[*model.AgentRemoteConfig])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
 }
+
+var errUnexpectedType = errors.New("unexpected type")
 
 func TestResolveRemoteConfig_RefMode(t *testing.T) {
 	t.Parallel()
@@ -176,8 +233,7 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
-		svc.AgentRemoteConfigPersistencePort = mockRemoteConfigPort
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		refName := "shared-otel-config"
 		referencedConfig := &model.AgentRemoteConfig{
@@ -214,8 +270,7 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
-		svc.AgentRemoteConfigPersistencePort = mockRemoteConfigPort
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		refName := "non-existent-config"
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(nil, errRemoteConfigNotFound)
@@ -241,9 +296,10 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
+		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		configName := "collector-config"
 		configValue := []byte("exporters:\n  debug:\n    verbosity: detailed")
@@ -272,9 +328,10 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
+		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		configName := "missing-spec-config"
 		remoteConfig := model.AgentGroupAgentRemoteConfig{
@@ -285,7 +342,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		_, _, err := svc.resolveRemoteConfig(ctx, "test-group", remoteConfig)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid remote config")
+		assert.ErrorIs(t, err, ErrInvalidRemoteConfig)
 	})
 
 	t.Run("Returns error when name is nil", func(t *testing.T) {
@@ -294,9 +351,10 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
+		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		remoteConfig := model.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: nil, // Missing name
@@ -309,7 +367,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		_, _, err := svc.resolveRemoteConfig(ctx, "test-group", remoteConfig)
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "invalid remote config")
+		assert.ErrorIs(t, err, ErrInvalidRemoteConfig)
 	})
 }
 
@@ -325,8 +383,7 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
-		svc.AgentRemoteConfigPersistencePort = mockRemoteConfigPort
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -368,9 +425,10 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
+		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -413,9 +471,10 @@ func TestNameCollisionPrevention(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
+		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		// Create agent
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
@@ -489,8 +548,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
-		svc.AgentRemoteConfigPersistencePort = mockRemoteConfigPort
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},
@@ -547,9 +605,10 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		ctx := context.Background()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
+		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockAgentUC, logger)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},

@@ -99,7 +99,8 @@ func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
 		len(successfullyDeleted), strings.Join(successfullyDeleted, ", "))
 
 	if len(failedToDelete) > 0 {
-		cmd.PrintErrf("Failed to delete %d agentremoteconfig(s): %s\n", len(failedToDelete), strings.Join(failedToDelete, ", "))
+		cmd.PrintErrf("Failed to delete %d agentremoteconfig(s): %s\n",
+			len(failedToDelete), strings.Join(failedToDelete, ", "))
 	}
 
 	return nil

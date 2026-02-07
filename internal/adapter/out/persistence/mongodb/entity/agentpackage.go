@@ -160,6 +160,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 		Metadata: domainmodel.AgentRemoteConfigMetadata{
 			Name:       arc.Name,
 			Attributes: arc.Metadata.Attributes,
+			DeletedAt:  nil,
 		},
 		Spec: domainmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,

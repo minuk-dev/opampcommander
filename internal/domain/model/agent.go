@@ -32,8 +32,6 @@ type Agent struct {
 // NewAgent creates a new agent with the given instance UID.
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
-//
-
 func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	agent := &Agent{
 		//exhaustruct:ignore
@@ -109,7 +107,11 @@ func (a *Agent) ApplyRemoteConfig(
 	agentConfigFile AgentConfigFile,
 ) error {
 	if a.Spec.RemoteConfig == nil {
-		a.Spec.RemoteConfig = &AgentSpecRemoteConfig{}
+		a.Spec.RemoteConfig = &AgentSpecRemoteConfig{
+			ConfigMap: AgentConfigMap{
+				ConfigMap: make(map[string]AgentConfigFile),
+			},
+		}
 	}
 
 	if a.Spec.RemoteConfig.ConfigMap.ConfigMap == nil {
@@ -174,7 +176,9 @@ func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
 	}
 
 	if a.Spec.RestartInfo == nil {
-		a.Spec.RestartInfo = &AgentRestartInfo{}
+		a.Spec.RestartInfo = &AgentRestartInfo{
+			RequiredRestartedAt: time.Time{},
+		}
 	}
 
 	a.Spec.RestartInfo.RequiredRestartedAt = requiredAt
