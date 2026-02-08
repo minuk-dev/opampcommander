@@ -155,11 +155,12 @@ type AgentRemoteConfigResourceEntityStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteConfigResource {
-	return &domainmodel.AgentRemoteConfigResource{
+func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteConfig {
+	return &domainmodel.AgentRemoteConfig{
 		Metadata: domainmodel.AgentRemoteConfigMetadata{
 			Name:       arc.Name,
 			Attributes: arc.Metadata.Attributes,
+			DeletedAt:  nil,
 		},
 		Spec: domainmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,
@@ -175,7 +176,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 
 // AgentRemoteConfigResourceEntityFromDomain converts domain model to entity.
 func AgentRemoteConfigResourceEntityFromDomain(
-	arc *domainmodel.AgentRemoteConfigResource,
+	arc *domainmodel.AgentRemoteConfig,
 ) *AgentRemoteConfigResourceEntity {
 	//nolint:exhaustruct // ID is set by MongoDB
 	return &AgentRemoteConfigResourceEntity{

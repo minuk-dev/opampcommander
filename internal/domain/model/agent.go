@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
@@ -34,8 +32,6 @@ type Agent struct {
 // NewAgent creates a new agent with the given instance UID.
 // It initializes all fields with default values.
 // You can optionally pass AgentOption functions to customize the agent.
-//
-//nolint:funlen
 func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 	agent := &Agent{
 		//exhaustruct:ignore
@@ -44,13 +40,11 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 		},
 		//exhaustruct:ignore
 		Spec: AgentSpec{
-			NewInstanceUID: uuid.Nil,
-			RestartInfo: AgentRestartInfo{
-				RequiredRestartedAt: time.Time{},
-			},
-			RemoteConfig:      AgentSpecRemoteConfig{},
-			ConnectionInfo:    ConnectionInfo{},
-			PackagesAvailable: AgentSpecPackage{},
+			NewInstanceUID:    uuid.Nil,
+			RestartInfo:       nil,
+			RemoteConfig:      nil,
+			ConnectionInfo:    nil,
+			PackagesAvailable: nil,
 		},
 		Status: AgentStatus{
 			RemoteConfigStatus: AgentRemoteConfigStatus{
@@ -108,10 +102,23 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 }
 
 // ApplyRemoteConfig applies a remote config to the agent.
-func (a *Agent) ApplyRemoteConfig(name string) error {
-	a.Spec.RemoteConfig.RemoteConfig = append(a.Spec.RemoteConfig.RemoteConfig, name)
-	sort.Strings(a.Spec.RemoteConfig.RemoteConfig)
-	a.Spec.RemoteConfig.RemoteConfig = lo.Uniq(a.Spec.RemoteConfig.RemoteConfig)
+func (a *Agent) ApplyRemoteConfig(
+	agentRemoteConfigName string,
+	agentConfigFile AgentConfigFile,
+) error {
+	if a.Spec.RemoteConfig == nil {
+		a.Spec.RemoteConfig = &AgentSpecRemoteConfig{
+			ConfigMap: AgentConfigMap{
+				ConfigMap: make(map[string]AgentConfigFile),
+			},
+		}
+	}
+
+	if a.Spec.RemoteConfig.ConfigMap.ConfigMap == nil {
+		a.Spec.RemoteConfig.ConfigMap.ConfigMap = make(map[string]AgentConfigFile)
+	}
+
+	a.Spec.RemoteConfig.ConfigMap.ConfigMap[agentRemoteConfigName] = agentConfigFile
 
 	return nil
 }
@@ -140,11 +147,19 @@ func (a *Agent) HasInstanceUID() bool {
 
 // ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
 func (a *Agent) ShouldBeRestarted() bool {
+	if a.Spec.RestartInfo == nil {
+		return false
+	}
+
 	return a.Spec.RestartInfo.ShouldBeRestarted(a.Status.ComponentHealth.StartTime)
 }
 
 // ShouldBeRestarted checks if the agent should be restarted to apply a command that requires a restart.
 func (a *AgentRestartInfo) ShouldBeRestarted(agentStartTime time.Time) bool {
+	if a == nil {
+		return false
+	}
+
 	return !a.RequiredRestartedAt.IsZero() &&
 		a.RequiredRestartedAt.After(agentStartTime)
 }
@@ -158,6 +173,12 @@ func (a *Agent) IsRestartSupported() bool {
 func (a *Agent) SetRestartRequired(requiredAt time.Time) error {
 	if !a.IsRestartSupported() {
 		return ErrUnsupportedAgentOperation
+	}
+
+	if a.Spec.RestartInfo == nil {
+		a.Spec.RestartInfo = &AgentRestartInfo{
+			RequiredRestartedAt: time.Time{},
+		}
 	}
 
 	a.Spec.RestartInfo.RequiredRestartedAt = requiredAt
@@ -335,21 +356,21 @@ type AgentSpec struct {
 	NewInstanceUID uuid.UUID
 
 	// RestartInfo contains information about agent restart.
-	RestartInfo AgentRestartInfo
+	RestartInfo *AgentRestartInfo
 
 	// ConnectionInfo is the connection information for the agent.
-	ConnectionInfo ConnectionInfo
+	ConnectionInfo *ConnectionInfo
 
 	// RemoteConfig is the remote configuration for the agent.
-	RemoteConfig AgentSpecRemoteConfig
+	RemoteConfig *AgentSpecRemoteConfig
 
 	// PackagesAvailable is the packages available for the agent.
-	PackagesAvailable AgentSpecPackage
+	PackagesAvailable *AgentSpecPackage
 }
 
 // AgentSpecRemoteConfig represents the remote config specification for an agent.
 type AgentSpecRemoteConfig struct {
-	RemoteConfig []string
+	ConfigMap AgentConfigMap
 }
 
 // AgentSpecPackage represents the package specification for an agent.
@@ -545,7 +566,7 @@ func (a *Agent) ApplyConnectionSettings(
 		return fmt.Errorf("failed to create connection info: %w", err)
 	}
 
-	a.Spec.ConnectionInfo = *connectionInfo
+	a.Spec.ConnectionInfo = connectionInfo
 
 	return nil
 }
@@ -674,6 +695,10 @@ func (ci *ConnectionInfo) SetOtherConnection(name string, settings OtherConnecti
 
 // HasConnectionSettings checks if there are any connection settings configured.
 func (ci *ConnectionInfo) HasConnectionSettings() bool {
+	if ci == nil {
+		return false
+	}
+
 	return ci.opamp.DestinationEndpoint != "" ||
 		ci.ownMetrics.DestinationEndpoint != "" ||
 		ci.ownLogs.DestinationEndpoint != "" ||
@@ -972,19 +997,6 @@ func (a *Agent) RecordLastReported(by *Server, lastReportedAt time.Time, sequenc
 	a.Status.LastReportedAt = lastReportedAt
 }
 
-// RemoteConfig is a struct to manage remote config.
-type RemoteConfig struct {
-	Hash          vo.Hash
-	Config        []byte
-	ContentType   string
-	LastUpdatedAt time.Time
-
-	// ConfiguredBy is the identifier of the agentgroup or user who configured the remote config.
-	ConfiguredBy string
-	// Priority is the priority of the remote config. Higher priority configs override lower priority ones.
-	Priority int32
-}
-
 // RemoteConfigStatus is generated from agentToServer of OpAMP.
 type RemoteConfigStatus int32
 
@@ -1016,34 +1028,6 @@ func (s RemoteConfigStatus) String() string {
 	}
 }
 
-// NewRemoteConfig creates a new RemoteConfig instance.
-func NewRemoteConfig() RemoteConfig {
-	return RemoteConfig{
-		Hash:          nil,
-		Config:        nil,
-		LastUpdatedAt: time.Time{},
-		ContentType:   "",
-		ConfiguredBy:  "",
-		Priority:      0,
-	}
-}
-
-// ApplyRemoteConfig applies remote config.
-func (r *RemoteConfig) ApplyRemoteConfig(configData []byte, contentType string) error {
-	var err error
-
-	r.Hash, err = vo.NewHash(configData)
-	if err != nil {
-		return fmt.Errorf("failed to create hash for remote config: %w", err)
-	}
-
-	r.LastUpdatedAt = time.Now()
-	r.Config = configData
-	r.ContentType = contentType
-
-	return nil
-}
-
 // UpdateLastCommunicationInfo updates the last communication info of the agent.
 func (a *Agent) UpdateLastCommunicationInfo(now time.Time, connection *Connection) {
 	a.Status.Connected = true
@@ -1064,7 +1048,8 @@ func (a *Agent) IsRemoteConfigSupported() bool {
 // HasRemoteConfig checks if the agent has remote configuration to apply.
 func (a *Agent) HasRemoteConfig() bool {
 	return a.IsRemoteConfigSupported() &&
-		len(a.Spec.RemoteConfig.RemoteConfig) > 0
+		a.Spec.RemoteConfig != nil &&
+		len(a.Spec.RemoteConfig.ConfigMap.ConfigMap) > 0
 }
 
 // SetCondition sets or updates a condition in the agent's status.

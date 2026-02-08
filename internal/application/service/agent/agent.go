@@ -132,7 +132,7 @@ func (s *Service) UpdateAgent(ctx context.Context, instanceUID uuid.UUID, api *v
 		existing.Spec.NewInstanceUID = agent.Spec.NewInstanceUID
 	}
 
-	if len(agent.Spec.RemoteConfig.RemoteConfig) > 0 {
+	if agent.Spec.RemoteConfig != nil && len(agent.Spec.RemoteConfig.ConfigMap.ConfigMap) > 0 {
 		existing.Spec.RemoteConfig = agent.Spec.RemoteConfig
 	}
 

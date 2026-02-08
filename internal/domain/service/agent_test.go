@@ -420,43 +420,57 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 func TestAgent_ApplyRemoteConfig(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Remote config name should be added to the list", func(t *testing.T) {
+	t.Run("Remote config should be added to ConfigMap", func(t *testing.T) {
 		t.Parallel()
 
 		//exhaustruct:ignore
 		agent := &model.Agent{}
 
-		err := agent.ApplyRemoteConfig("config-1")
+		configFile := model.AgentConfigFile{
+			Body:        []byte("test-config"),
+			ContentType: "application/yaml",
+		}
+		err := agent.ApplyRemoteConfig("config-1", configFile)
 		require.NoError(t, err)
-		assert.Contains(t, agent.Spec.RemoteConfig.RemoteConfig, "config-1")
+		assert.Contains(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, "config-1")
+		assert.Equal(t, configFile, agent.Spec.RemoteConfig.ConfigMap.ConfigMap["config-1"])
 	})
 
-	t.Run("Multiple remote configs should be added and sorted", func(t *testing.T) {
+	t.Run("Multiple remote configs should be added to ConfigMap", func(t *testing.T) {
 		t.Parallel()
 
 		//exhaustruct:ignore
 		agent := &model.Agent{}
 
-		err := agent.ApplyRemoteConfig("config-b")
+		configFileA := model.AgentConfigFile{Body: []byte("config-a"), ContentType: "application/yaml"}
+		configFileB := model.AgentConfigFile{Body: []byte("config-b"), ContentType: "application/yaml"}
+
+		err := agent.ApplyRemoteConfig("config-b", configFileB)
 		require.NoError(t, err)
-		err = agent.ApplyRemoteConfig("config-a")
+		err = agent.ApplyRemoteConfig("config-a", configFileA)
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{"config-a", "config-b"}, agent.Spec.RemoteConfig.RemoteConfig)
+		assert.Len(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, 2)
+		assert.Contains(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, "config-a")
+		assert.Contains(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, "config-b")
 	})
 
-	t.Run("Duplicate remote config names should be deduplicated", func(t *testing.T) {
+	t.Run("Duplicate remote config names should be overwritten", func(t *testing.T) {
 		t.Parallel()
 
 		//exhaustruct:ignore
 		agent := &model.Agent{}
 
-		err := agent.ApplyRemoteConfig("config-1")
+		configFile1 := model.AgentConfigFile{Body: []byte("version-1"), ContentType: "application/yaml"}
+		configFile2 := model.AgentConfigFile{Body: []byte("version-2"), ContentType: "application/yaml"}
+
+		err := agent.ApplyRemoteConfig("config-1", configFile1)
 		require.NoError(t, err)
-		err = agent.ApplyRemoteConfig("config-1")
+		err = agent.ApplyRemoteConfig("config-1", configFile2)
 		require.NoError(t, err)
 
-		assert.Equal(t, []string{"config-1"}, agent.Spec.RemoteConfig.RemoteConfig)
+		assert.Len(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, 1)
+		assert.Equal(t, configFile2, agent.Spec.RemoteConfig.ConfigMap.ConfigMap["config-1"])
 	})
 }
 

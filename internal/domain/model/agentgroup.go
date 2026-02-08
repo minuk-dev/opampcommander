@@ -33,11 +33,26 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
-	// AgentRemoteConfig is the remote configuration to be applied to agents in this group.
-	AgentRemoteConfig *AgentRemoteConfig
+	// AgentRemoteConfig is a single remote configuration (for API compatibility).
+	// Deprecated: Use AgentRemoteConfigs for multiple configs.
+	AgentRemoteConfig *AgentGroupAgentRemoteConfig
+
+	// AgentRemoteConfigs is a list of remote configurations for the agent group.
+	AgentRemoteConfigs []AgentGroupAgentRemoteConfig
 
 	// AgentConnection settings for agents in this group.
 	AgentConnectionConfig *AgentConnectionConfig
+}
+
+// AgentGroupAgentRemoteConfig represents a remote configuration for agents in the group.
+type AgentGroupAgentRemoteConfig struct {
+	// AgentRemoteConfigName is the name of a standalone remote configuration resource.
+	AgentRemoteConfigName *string
+	// AgentRemoteConfigSpec is the remote configuration to be applied to agents in this group.
+	AgentRemoteConfigSpec *AgentRemoteConfigSpec
+
+	// AgentRemoteConfigRef is a reference to a standalone remote configuration resource.
+	AgentRemoteConfigRef *string
 }
 
 // AgentConnectionConfig represents connection settings for agents in the group.
@@ -133,6 +148,7 @@ func NewAgentGroup(
 		},
 		Spec: AgentGroupSpec{
 			AgentRemoteConfig:     nil,
+			AgentRemoteConfigs:    nil,
 			AgentConnectionConfig: nil,
 		},
 		Status: AgentGroupStatus{
@@ -153,16 +169,6 @@ func NewAgentGroup(
 			},
 		},
 	}
-}
-
-// AgentRemoteConfig represents the remote configuration for agents in the group.
-type AgentRemoteConfig struct {
-	// Value is the configuration content in string format.
-	// This can be used directly or as a reference to a configuration.
-	Value []byte
-
-	// ContentType is the MIME type of the configuration content.
-	ContentType string
 }
 
 // IsDeleted returns true if the agent group is marked as deleted.

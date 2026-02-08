@@ -2,9 +2,9 @@ package model
 
 import "time"
 
-// AgentRemoteConfigResource represents a standalone remote configuration resource.
+// AgentRemoteConfig represents a standalone remote configuration resource.
 // This is different from AgentRemoteConfig in agentgroup.go which is embedded in AgentGroup.
-type AgentRemoteConfigResource struct {
+type AgentRemoteConfig struct {
 	Metadata AgentRemoteConfigMetadata
 	Spec     AgentRemoteConfigSpec
 	Status   AgentRemoteConfigResourceStatus
@@ -14,6 +14,7 @@ type AgentRemoteConfigResource struct {
 type AgentRemoteConfigMetadata struct {
 	Name       string
 	Attributes Attributes
+	DeletedAt  *time.Time
 }
 
 // AgentRemoteConfigSpec contains the specification for the agent remote config resource.
@@ -30,34 +31,18 @@ type AgentRemoteConfigResourceStatus struct {
 }
 
 // IsDeleted returns true if the agent remote config is marked as deleted.
-func (arc *AgentRemoteConfigResource) IsDeleted() bool {
-	for _, condition := range arc.Status.Conditions {
-		if condition.Type == ConditionTypeDeleted && condition.Status == ConditionStatusTrue {
-			return true
-		}
-	}
-
-	return false
+func (arc *AgentRemoteConfig) IsDeleted() bool {
+	return arc.Metadata.DeletedAt != nil
 }
 
 // MarkDeleted marks the agent remote config as deleted by adding a deleted condition.
-func (arc *AgentRemoteConfigResource) MarkDeleted(deletedAt time.Time, deletedBy string) {
-	for i, condition := range arc.Status.Conditions {
-		if condition.Type == ConditionTypeDeleted {
-			arc.Status.Conditions[i].Status = ConditionStatusTrue
-			arc.Status.Conditions[i].LastTransitionTime = deletedAt
-			arc.Status.Conditions[i].Reason = deletedBy
-			arc.Status.Conditions[i].Message = "Deleted by " + deletedBy
-
-			return
-		}
-	}
-
+func (arc *AgentRemoteConfig) MarkDeleted(deletedAt time.Time, deletedBy string) {
+	arc.Metadata.DeletedAt = &deletedAt
 	arc.Status.Conditions = append(arc.Status.Conditions, Condition{
 		Type:               ConditionTypeDeleted,
 		Status:             ConditionStatusTrue,
 		LastTransitionTime: deletedAt,
 		Reason:             deletedBy,
-		Message:            "Deleted by " + deletedBy,
+		Message:            "Agent remote config deleted",
 	})
 }

@@ -30,24 +30,16 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	)
 
 	if agentModel.HasRemoteConfig() {
-		// Build RemoteConfig if applicable
-		remoteConfigs := lo.OmitBy(lo.SliceToMap(
-			agentModel.Spec.RemoteConfig.RemoteConfig,
-			func(remoteConfigName string) (string, *protobufs.AgentConfigFile) {
-				remoteConfig, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(ctx, remoteConfigName)
-				if err != nil {
-					s.logger.Error("failed to get agent remote config", "name", remoteConfigName, "error", err)
+		// Build RemoteConfig from ConfigMap
+		configMap := make(map[string]*protobufs.AgentConfigFile)
+		for name, configFile := range agentModel.Spec.RemoteConfig.ConfigMap.ConfigMap {
+			configMap[name] = &protobufs.AgentConfigFile{
+				Body:        configFile.Body,
+				ContentType: configFile.ContentType,
+			}
+		}
 
-					return remoteConfigName, nil
-				}
-
-				return remoteConfigName, &protobufs.AgentConfigFile{
-					Body:        remoteConfig.Value,
-					ContentType: remoteConfig.ContentType,
-				}
-			}), nil)
-
-		hash, err := vo.NewHashFromAny(remoteConfigs)
+		hash, err := vo.NewHashFromAny(configMap)
 		if err != nil {
 			s.logger.Error("failed to compute hash for remote config", "instance_uid", instanceUID, "error", err)
 
@@ -55,7 +47,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		} else {
 			remoteConfig = &protobufs.AgentRemoteConfig{
 				Config: &protobufs.AgentConfigMap{
-					ConfigMap: remoteConfigs,
+					ConfigMap: configMap,
 				},
 				ConfigHash: hash.Bytes(),
 			}
@@ -134,7 +126,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 
 	var connectionSettings *protobufs.ConnectionSettingsOffers
 	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
-		connectionSettings = connectionInfoToProtobuf(&agentModel.Spec.ConnectionInfo)
+		connectionSettings = connectionInfoToProtobuf(agentModel.Spec.ConnectionInfo)
 	}
 
 	return &protobufs.ServerToAgent{

@@ -18,11 +18,12 @@ type Client struct {
 	Endpoint string
 	common   service
 
-	AgentService        *AgentService
-	AgentGroupService   *AgentGroupService
-	AgentPackageService *AgentPackageService
-	ConnectionService   *ConnectionService
-	AuthService         *AuthService
+	AgentService             *AgentService
+	AgentGroupService        *AgentGroupService
+	AgentPackageService      *AgentPackageService
+	AgentRemoteConfigService *AgentRemoteConfigService
+	ConnectionService        *ConnectionService
+	AuthService              *AuthService
 }
 
 type service struct {
@@ -39,11 +40,12 @@ func New(endpoint string, opt ...Option) *Client {
 		common:   service,
 
 		// Initialize services to nil, they will be set later
-		AgentService:        nil,
-		AgentGroupService:   nil,
-		AgentPackageService: nil,
-		ConnectionService:   nil,
-		AuthService:         nil,
+		AgentService:             nil,
+		AgentGroupService:        nil,
+		AgentPackageService:      nil,
+		AgentRemoteConfigService: nil,
+		ConnectionService:        nil,
+		AuthService:              nil,
 	}
 
 	for _, o := range opt {
@@ -55,6 +57,7 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AuthService = NewAuthService(&service)
 	client.AgentGroupService = NewAgentGroupService(&service)
 	client.AgentPackageService = NewAgentPackageService(&service)
+	client.AgentRemoteConfigService = NewAgentRemoteConfigService(&service)
 
 	return client
 }

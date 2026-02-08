@@ -164,3 +164,32 @@ func ListAgentPackageFully(ctx context.Context, cli *client.Client) ([]v1.AgentP
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
 	}
 }
+
+// ListAgentRemoteConfigFully lists all agent remote configs.
+// It continues to fetch agent remote configs until there are no more to fetch.
+func ListAgentRemoteConfigFully(ctx context.Context, cli *client.Client) ([]v1.AgentRemoteConfig, error) {
+	var agentRemoteConfigs []v1.AgentRemoteConfig
+	// Initialize the continue token to an empty string
+	continueToken := ""
+
+	for {
+		// List agent remote configs with the current continue token
+		resp, err := cli.AgentRemoteConfigService.ListAgentRemoteConfigs(
+			ctx,
+			client.WithContinueToken(continueToken),
+			client.WithLimit(ChunkSize),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list agent remote configs: %w", err)
+		}
+
+		// Iterate over each agent remote config in the response
+		if len(resp.Items) == 0 {
+			return agentRemoteConfigs, nil // No agent remote configs found, exit the loop
+		}
+
+		agentRemoteConfigs = append(agentRemoteConfigs, resp.Items...)
+
+		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
+	}
+}

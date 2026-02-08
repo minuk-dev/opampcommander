@@ -100,8 +100,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 
 		//exhaustruct:ignore
 		agentConfig = &v1.AgentConfig{
-			Value:       string(data),
-			ContentType: "text/yaml",
+			AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
+				AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+					Value:       string(data),
+					ContentType: "text/yaml",
+				},
+			},
 		}
 	}
 

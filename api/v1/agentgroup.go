@@ -60,7 +60,17 @@ type AgentSelector struct {
 // AgentConfig represents the remote configuration for agents in the group.
 // @name AgentGroupAgentConfig.
 type AgentConfig struct {
-	Value              string              `json:"value"`
-	ContentType        string              `json:"contentType"`
-	ConnectionSettings *ConnectionSettings `json:"connectionSettings,omitempty"`
+	AgentRemoteConfig  *AgentGroupRemoteConfig `json:"agentRemoteConfig,omitempty"`
+	ConnectionSettings *ConnectionSettings     `json:"connectionSettings,omitempty"`
+}
+
+// AgentGroupRemoteConfig represents the remote configuration in an agent group.
+// @name AgentGroupRemoteConfig.
+type AgentGroupRemoteConfig struct {
+	// AgentRemoteConfigName is the name of a standalone remote configuration resource.
+	AgentRemoteConfigName *string `json:"agentRemoteConfigName,omitempty"`
+	// AgentRemoteConfigSpec is the remote configuration to be applied to agents in this group.
+	AgentRemoteConfigSpec *AgentRemoteConfigSpec `json:"agentRemoteConfigSpec,omitempty"`
+	// AgentRemoteConfigRef is a reference to a standalone remote configuration resource.
+	AgentRemoteConfigRef *string `json:"agentRemoteConfigRef,omitempty"`
 }

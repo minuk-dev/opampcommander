@@ -44,7 +44,7 @@ type AgentSpec struct {
 	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitempty"`
 
 	// RemoteConfig is the remote configuration of the agent.
-	RemoteConfig AgentRemoteConfig `json:"remoteConfig"`
+	RemoteConfig AgentSpecRemoteConfig `json:"remoteConfig"`
 
 	// PackagesAvailable is the packages available for the agent to download.
 	PackagesAvailable AgentSpecPackages `json:"packagesAvailable,omitempty"`
@@ -53,6 +53,12 @@ type AgentSpec struct {
 	// If this time is after the agent's start time, the agent should be restarted.
 	RestartRequiredAt *Time `json:"restartRequiredAt,omitempty"`
 } // @name AgentSpec
+
+// AgentSpecRemoteConfig represents the remote config specification for an agent.
+type AgentSpecRemoteConfig struct {
+	// RemoteConfigNames is a list of remote config names applied to this agent.
+	RemoteConfigNames []string `json:"remoteConfigNames,omitempty"`
+} // @name AgentSpecRemoteConfig
 
 // AgentStatus contains the observed state of the agent.
 type AgentStatus struct {
@@ -117,12 +123,6 @@ type AgentPackageStatuses struct {
 	ServerProvidedAllPackagesHash string                             `json:"serverProvidedAllPackagesHash,omitempty"`
 	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
-
-// AgentRemoteConfig represents the remote configuration of the agent.
-type AgentRemoteConfig struct {
-	ConfigMap  map[string]AgentConfigFile `json:"configMap,omitempty"`
-	ConfigHash string                     `json:"configHash,omitempty"`
-} // @name AgentRemoteConfig
 
 // AgentComponentHealth represents the health status of the agent's components.
 type AgentComponentHealth struct {

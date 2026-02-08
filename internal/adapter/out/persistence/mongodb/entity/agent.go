@@ -252,12 +252,11 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 	//exhaustruct:ignore
 	agentSpec := domainmodel.AgentSpec{}
 	agentSpec.NewInstanceUID = uid
-	agentSpec.RestartInfo = domainmodel.AgentRestartInfo{
+	agentSpec.RestartInfo = &domainmodel.AgentRestartInfo{
 		RequiredRestartedAt: time.Time{},
 	}
-	//exhaustruct:ignore
-	agentSpec.ConnectionInfo = domainmodel.ConnectionInfo{}
-	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomain()
+	agentSpec.ConnectionInfo = nil
+	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomainPtr()
 
 	return agentSpec
 }
@@ -405,13 +404,49 @@ func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
 
 // ToDomain converts the AgentSpecRemoteConfig to domain model.
 func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig {
-	if asrc == nil {
-		//nolint:exhaustruct // RemoteConfig will be nil for empty config
-		return domainmodel.AgentSpecRemoteConfig{}
+	if asrc == nil || len(asrc.RemoteConfig) == 0 {
+		return domainmodel.AgentSpecRemoteConfig{
+			ConfigMap: domainmodel.AgentConfigMap{
+				ConfigMap: nil,
+			},
+		}
+	}
+
+	// Convert RemoteConfig names to ConfigMap with empty placeholders
+	configMap := make(map[string]domainmodel.AgentConfigFile)
+	for _, name := range asrc.RemoteConfig {
+		configMap[name] = domainmodel.AgentConfigFile{
+			Body:        nil,
+			ContentType: "",
+		}
 	}
 
 	return domainmodel.AgentSpecRemoteConfig{
-		RemoteConfig: asrc.RemoteConfig,
+		ConfigMap: domainmodel.AgentConfigMap{
+			ConfigMap: configMap,
+		},
+	}
+}
+
+// ToDomainPtr converts the AgentSpecRemoteConfig to domain model pointer.
+func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *domainmodel.AgentSpecRemoteConfig {
+	if asrc == nil || len(asrc.RemoteConfig) == 0 {
+		return nil
+	}
+
+	// Convert RemoteConfig names to ConfigMap with empty placeholders
+	configMap := make(map[string]domainmodel.AgentConfigFile)
+	for _, name := range asrc.RemoteConfig {
+		configMap[name] = domainmodel.AgentConfigFile{
+			Body:        nil,
+			ContentType: "",
+		}
+	}
+
+	return &domainmodel.AgentSpecRemoteConfig{
+		ConfigMap: domainmodel.AgentConfigMap{
+			ConfigMap: configMap,
+		},
 	}
 }
 
@@ -484,7 +519,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 		Spec: AgentSpec{
 			NewInstanceUID:      newInstanceUID,
 			RemoteConfig:        AgentSpecRemoteConfigFromDomain(agent.Spec.RemoteConfig),
-			RequiredRestartedAt: bson.NewDateTimeFromTime(agent.Spec.RestartInfo.RequiredRestartedAt),
+			RequiredRestartedAt: agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
 		},
 		Status: AgentStatus{
 			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
@@ -500,6 +535,14 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 			LastCommunicatedTo:  agent.Status.LastReportedTo,
 		},
 	}
+}
+
+func agentRestartInfoToBsonDateTime(restartInfo *domainmodel.AgentRestartInfo) bson.DateTime {
+	if restartInfo == nil {
+		return bson.NewDateTimeFromTime(time.Time{})
+	}
+
+	return bson.NewDateTimeFromTime(restartInfo.RequiredRestartedAt)
 }
 
 // AgentCapabilitiesFromDomain converts domain model to persistence model.
@@ -594,13 +637,19 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 }
 
 // AgentSpecRemoteConfigFromDomain converts domain model to persistence model.
-func AgentSpecRemoteConfigFromDomain(arc domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
-	if len(arc.RemoteConfig) == 0 {
+func AgentSpecRemoteConfigFromDomain(arc *domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
+	if arc == nil || len(arc.ConfigMap.ConfigMap) == 0 {
 		return nil
 	}
 
+	// Extract config names from ConfigMap
+	names := make([]string, 0, len(arc.ConfigMap.ConfigMap))
+	for name := range arc.ConfigMap.ConfigMap {
+		names = append(names, name)
+	}
+
 	return &AgentSpecRemoteConfig{
-		RemoteConfig: arc.RemoteConfig,
+		RemoteConfig: names,
 	}
 }
 

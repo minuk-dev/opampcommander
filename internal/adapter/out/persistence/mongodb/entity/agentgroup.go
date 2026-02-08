@@ -34,8 +34,8 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
-	AgentRemoteConfig     *AgentRemoteConfig     `bson:"agentConfig,omitempty"`
-	AgentConnectionConfig *AgentConnectionConfig `bson:"agentConnectionConfig,omitempty"`
+	AgentRemoteConfig     *AgentGroupAgentRemoteConfig `bson:"agentConfig,omitempty"`
+	AgentConnectionConfig *AgentConnectionConfig       `bson:"agentConnectionConfig,omitempty"`
 }
 
 // AgentGroupStatus represents the status of an agent group in MongoDB.
@@ -49,9 +49,16 @@ type AgentSelector struct {
 	NonIdentifyingAttributes map[string]string `json:"nonIdentifyingAttributes"`
 }
 
-// AgentRemoteConfig represents the remote configuration for agents in the group.
-type AgentRemoteConfig struct {
-	Value       string `bson:"value"       json:"value"`
+// AgentGroupAgentRemoteConfig represents the remote configuration for agents in the group.
+type AgentGroupAgentRemoteConfig struct {
+	AgentRemoteConfigName *string                `bson:"agentRemoteConfigName,omitempty"`
+	AgentRemoteConfigSpec *AgentRemoteConfigSpec `bson:"agentRemoteConfigSpec,omitempty"`
+	AgentRemoteConfigRef  *string                `bson:"agentRemoteConfigRef,omitempty"`
+}
+
+// AgentRemoteConfigSpec represents the specification of a remote config.
+type AgentRemoteConfigSpec struct {
+	Value       []byte `bson:"value"       json:"value"`
 	ContentType string `bson:"contentType" json:"contentType"`
 }
 
@@ -141,9 +148,16 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 	spec := model.AgentGroupSpec{}
 
 	if s.AgentRemoteConfig != nil {
-		spec.AgentRemoteConfig = &model.AgentRemoteConfig{
-			Value:       []byte(s.AgentRemoteConfig.Value),
-			ContentType: s.AgentRemoteConfig.ContentType,
+		spec.AgentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
+			AgentRemoteConfigName: s.AgentRemoteConfig.AgentRemoteConfigName,
+			AgentRemoteConfigRef:  s.AgentRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigSpec: nil,
+		}
+		if s.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
+			spec.AgentRemoteConfig.AgentRemoteConfigSpec = &model.AgentRemoteConfigSpec{
+				Value:       s.AgentRemoteConfig.AgentRemoteConfigSpec.Value,
+				ContentType: s.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
+			}
 		}
 	}
 
@@ -223,9 +237,16 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 	result := AgentGroupSpec{}
 
 	if spec.AgentRemoteConfig != nil {
-		result.AgentRemoteConfig = &AgentRemoteConfig{
-			Value:       string(spec.AgentRemoteConfig.Value),
-			ContentType: spec.AgentRemoteConfig.ContentType,
+		result.AgentRemoteConfig = &AgentGroupAgentRemoteConfig{
+			AgentRemoteConfigName: spec.AgentRemoteConfig.AgentRemoteConfigName,
+			AgentRemoteConfigRef:  spec.AgentRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigSpec: nil,
+		}
+		if spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
+			result.AgentRemoteConfig.AgentRemoteConfigSpec = &AgentRemoteConfigSpec{
+				Value:       spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value,
+				ContentType: spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
+			}
 		}
 	}
 

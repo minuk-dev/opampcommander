@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -18,6 +19,9 @@ const (
 	PropagationChunkSize = 50
 )
 
+// ErrInvalidRemoteConfig is returned when inline remote config is missing required fields.
+var ErrInvalidRemoteConfig = errors.New("invalid remote config: both spec and name are required for inline config")
+
 var _ port.AgentGroupUsecase = (*AgentGroupService)(nil)
 var _ port.AgentGroupRelatedUsecase = (*AgentGroupService)(nil)
 
@@ -26,9 +30,10 @@ type AgentGroupPersistencePort = port.AgentGroupPersistencePort
 
 // AgentGroupService is a struct that implements the AgentGroupUsecase interface.
 type AgentGroupService struct {
-	persistencePort AgentGroupPersistencePort
-	agentUsecase    port.AgentUsecase
-	logger          *slog.Logger
+	persistencePort                  AgentGroupPersistencePort
+	AgentRemoteConfigPersistencePort port.AgentRemoteConfigPersistencePort
+	agentUsecase                     port.AgentUsecase
+	logger                           *slog.Logger
 
 	changedAgentGroupCh chan *model.AgentGroup
 }
@@ -36,14 +41,16 @@ type AgentGroupService struct {
 // NewAgentGroupService creates a new instance of AgentGroupService.
 func NewAgentGroupService(
 	persistencePort AgentGroupPersistencePort,
+	agentRemoteConfigPersistencePort port.AgentRemoteConfigPersistencePort,
 	agentUsecase port.AgentUsecase,
 	logger *slog.Logger,
 ) *AgentGroupService {
 	return &AgentGroupService{
-		persistencePort:     persistencePort,
-		agentUsecase:        agentUsecase,
-		logger:              logger,
-		changedAgentGroupCh: make(chan *model.AgentGroup, ChangedAgentGroupBufferSize),
+		persistencePort:                  persistencePort,
+		AgentRemoteConfigPersistencePort: agentRemoteConfigPersistencePort,
+		agentUsecase:                     agentUsecase,
+		logger:                           logger,
+		changedAgentGroupCh:              make(chan *model.AgentGroup, ChangedAgentGroupBufferSize),
 	}
 }
 
@@ -225,53 +232,148 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 	var continueToken string
 
 	for {
-		listOptions := &model.ListOptions{
+		agentsResp, err := s.ListAgentsByAgentGroup(ctx, agentGroup, &model.ListOptions{
 			Limit:    PropagationChunkSize,
 			Continue: continueToken,
-		}
-
-		agentsResp, err := s.ListAgentsByAgentGroup(ctx, agentGroup, listOptions)
+		})
 		if err != nil {
 			return fmt.Errorf("list agents by agent group: %w", err)
 		}
 
 		if len(agentsResp.Items) == 0 {
-			// No more agents to process
 			break
 		}
 
 		for _, agent := range agentsResp.Items {
-			// Here you can implement the logic to update the agent based on the agent group changes.
-			// For example, you might want to update the agent's configuration or metadata.
-			err := agent.ApplyRemoteConfig(agentGroup.Metadata.Name)
+			err := s.applyAgentGroupToAgent(ctx, agentGroup, agent)
 			if err != nil {
-				return fmt.Errorf("apply remote config to agent %s: %w", agent.Metadata.InstanceUID, err)
+				return fmt.Errorf("apply agent group to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}
 
-			// Apply connection settings if configured
-			if agentGroup.Spec.AgentConnectionConfig != nil {
-				connConfig := agentGroup.Spec.AgentConnectionConfig
-
-				err = agent.ApplyConnectionSettings(
-					connConfig.OpAMPConnection,
-					connConfig.OwnMetrics,
-					connConfig.OwnLogs,
-					connConfig.OwnTraces,
-					connConfig.OtherConnections,
-				)
-				if err != nil {
-					return fmt.Errorf("apply connection settings to agent %s: %w", agent.Metadata.InstanceUID, err)
-				}
-			}
-
-			// After updating the agent, save it back to the persistence layer.
 			err = s.agentUsecase.SaveAgent(ctx, agent)
 			if err != nil {
 				return fmt.Errorf("save updated agent: %w", err)
 			}
 		}
 
+		// No more pages to fetch
+		if agentsResp.Continue == "" {
+			break
+		}
+
 		continueToken = agentsResp.Continue
+	}
+
+	return nil
+}
+
+func (s *AgentGroupService) applyAgentGroupToAgent(
+	ctx context.Context,
+	agentGroup *model.AgentGroup,
+	agent *model.Agent,
+) error {
+	err := s.applyRemoteConfigs(ctx, agentGroup, agent)
+	if err != nil {
+		return err
+	}
+
+	err = s.applyConnectionSettings(agentGroup, agent)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AgentGroupService) applyRemoteConfigs(
+	ctx context.Context,
+	agentGroup *model.AgentGroup,
+	agent *model.Agent,
+) error {
+	agentGroupName := agentGroup.Metadata.Name
+
+	// Handle single remote config (API compatibility)
+	if agentGroup.Spec.AgentRemoteConfig != nil {
+		configFile, configName, err := s.resolveRemoteConfig(ctx, agentGroupName, *agentGroup.Spec.AgentRemoteConfig)
+		if err != nil {
+			return err
+		}
+
+		err = agent.ApplyRemoteConfig(configName, configFile)
+		if err != nil {
+			return fmt.Errorf("apply remote config %s: %w", configName, err)
+		}
+	}
+
+	// Handle multiple remote configs
+	for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
+		configFile, configName, err := s.resolveRemoteConfig(ctx, agentGroupName, remoteConfig)
+		if err != nil {
+			return err
+		}
+
+		err = agent.ApplyRemoteConfig(configName, configFile)
+		if err != nil {
+			return fmt.Errorf("apply remote config %s: %w", configName, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *AgentGroupService) resolveRemoteConfig(
+	ctx context.Context,
+	agentGroupName string,
+	remoteConfig model.AgentGroupAgentRemoteConfig,
+) (model.AgentConfigFile, string, error) {
+	// Case 1: Reference to existing AgentRemoteConfig resource
+	if remoteConfig.AgentRemoteConfigRef != nil {
+		arc, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigRef)
+		if err != nil {
+			return model.AgentConfigFile{}, "", fmt.Errorf("get agent remote config %s: %w",
+				*remoteConfig.AgentRemoteConfigRef, err)
+		}
+
+		// Use the original resource name (no prefix needed for refs)
+		return model.AgentConfigFile{
+			Body:        arc.Spec.Value,
+			ContentType: arc.Spec.ContentType,
+		}, arc.Metadata.Name, nil
+	}
+
+	// Case 2: Inline/direct config definition
+	if remoteConfig.AgentRemoteConfigSpec == nil || remoteConfig.AgentRemoteConfigName == nil {
+		return model.AgentConfigFile{}, "", ErrInvalidRemoteConfig
+	}
+
+	// Prefix with AgentGroupName to avoid name collisions
+	// Format: {AgentGroupName}/{AgentRemoteConfigName}
+	prefixedName := fmt.Sprintf("%s/%s", agentGroupName, *remoteConfig.AgentRemoteConfigName)
+
+	return model.AgentConfigFile{
+		Body:        remoteConfig.AgentRemoteConfigSpec.Value,
+		ContentType: remoteConfig.AgentRemoteConfigSpec.ContentType,
+	}, prefixedName, nil
+}
+
+func (s *AgentGroupService) applyConnectionSettings(
+	agentGroup *model.AgentGroup,
+	agent *model.Agent,
+) error {
+	connConfig := agentGroup.Spec.AgentConnectionConfig
+	if connConfig == nil {
+		return nil
+	}
+
+	err := agent.ApplyConnectionSettings(
+		connConfig.OpAMPConnection,
+		connConfig.OwnMetrics,
+		connConfig.OwnLogs,
+		connConfig.OwnTraces,
+		connConfig.OtherConnections,
+	)
+	if err != nil {
+		return fmt.Errorf("apply connection settings: %w", err)
 	}
 
 	return nil
