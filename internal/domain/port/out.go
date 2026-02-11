@@ -90,6 +90,13 @@ type AgentRemoteConfigPersistencePort interface {
 	) (*model.ListResponse[*model.AgentRemoteConfig], error)
 }
 
+// CertificatePersistencePort is an interface that defines the methods for ceritificate config persistence.
+type CertificatePersistencePort interface {
+	GetCertificate(ctx context.Context, name string) (*model.Certificate, error)
+	PutCertificate(ctx context.Context, name string) (*model.Certificate, error)
+	ListCertificate(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Certificate], error)
+}
+
 var (
 	// ErrResourceNotExist is an error that indicates that the resource does not exist.
 	ErrResourceNotExist = errors.New("resource does not exist")

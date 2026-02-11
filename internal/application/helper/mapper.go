@@ -44,11 +44,11 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 		}
 	}
 
-	var agentConnectionConfig *model.AgentConnectionConfig
+	var agentConnectionConfig *model.AgentGroupConnectionConfig
 
 	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.ConnectionSettings != nil {
 		connSettings := apiAgentGroup.Spec.AgentConfig.ConnectionSettings
-		agentConnectionConfig = &model.AgentConnectionConfig{
+		agentConnectionConfig = &model.AgentGroupConnectionConfig{
 			OpAMPConnection:  mapper.mapOpAMPConnectionFromAPI(connSettings.OpAMP),
 			OwnMetrics:       mapper.mapTelemetryConnectionFromAPI(connSettings.OwnMetrics),
 			OwnLogs:          mapper.mapTelemetryConnectionFromAPI(connSettings.OwnLogs),
@@ -475,21 +475,21 @@ func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
 	return string(newInstanceUID)
 }
 
-func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) model.OpAMPConnectionSettings {
-	return model.OpAMPConnectionSettings{
+func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) *model.OpAMPConnectionSettings {
+	return &model.OpAMPConnectionSettings{
 		DestinationEndpoint: apiConn.DestinationEndpoint,
 		Headers:             apiConn.Headers,
-		Certificate:         mapper.mapTLSCertificateFromAPI(apiConn.Certificate),
+		CertificateName:     apiConn.CertificateName,
 	}
 }
 
 func (mapper *Mapper) mapTelemetryConnectionFromAPI(
 	apiConn v1.TelemetryConnectionSettings,
-) model.TelemetryConnectionSettings {
-	return model.TelemetryConnectionSettings{
+) *model.TelemetryConnectionSettings {
+	return &model.TelemetryConnectionSettings{
 		DestinationEndpoint: apiConn.DestinationEndpoint,
 		Headers:             apiConn.Headers,
-		Certificate:         mapper.mapTLSCertificateFromAPI(apiConn.Certificate),
+		CertificateName:     apiConn.CertificateName,
 	}
 }
 
@@ -506,36 +506,36 @@ func (mapper *Mapper) mapOtherConnectionsFromAPI(
 		result[name] = model.OtherConnectionSettings{
 			DestinationEndpoint: conn.DestinationEndpoint,
 			Headers:             conn.Headers,
-			Certificate:         mapper.mapTLSCertificateFromAPI(conn.Certificate),
+			CertificateName:     conn.CertificateName,
 		}
 	}
 
 	return result
 }
 
-func (mapper *Mapper) mapTLSCertificateFromAPI(apiCert v1.TLSCertificate) model.TelemetryTLSCertificate {
-	return model.TelemetryTLSCertificate{
-		Cert:       []byte(apiCert.Cert),
-		PrivateKey: []byte(apiCert.PrivateKey),
-		CaCert:     []byte(apiCert.CaCert),
+func (mapper *Mapper) mapOpAMPConnectionToAPI(conn *model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
+	if conn == nil {
+		return v1.OpAMPConnectionSettings{}
 	}
-}
 
-func (mapper *Mapper) mapOpAMPConnectionToAPI(conn model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
 	return v1.OpAMPConnectionSettings{
 		DestinationEndpoint: conn.DestinationEndpoint,
 		Headers:             conn.Headers,
-		Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+		CertificateName:     conn.CertificateName,
 	}
 }
 
 func (mapper *Mapper) mapTelemetryConnectionToAPI(
-	conn model.TelemetryConnectionSettings,
+	conn *model.TelemetryConnectionSettings,
 ) v1.TelemetryConnectionSettings {
+	if conn == nil {
+		return v1.TelemetryConnectionSettings{}
+	}
+
 	return v1.TelemetryConnectionSettings{
 		DestinationEndpoint: conn.DestinationEndpoint,
 		Headers:             conn.Headers,
-		Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+		CertificateName:     conn.CertificateName,
 	}
 }
 
@@ -552,19 +552,11 @@ func (mapper *Mapper) mapOtherConnectionsToAPI(
 		result[name] = v1.OtherConnectionSettings{
 			DestinationEndpoint: conn.DestinationEndpoint,
 			Headers:             conn.Headers,
-			Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+			CertificateName:     conn.CertificateName,
 		}
 	}
 
 	return result
-}
-
-func (mapper *Mapper) mapTLSCertificateToAPI(cert model.TelemetryTLSCertificate) v1.TLSCertificate {
-	return v1.TLSCertificate{
-		Cert:       string(cert.Cert),
-		PrivateKey: string(cert.PrivateKey),
-		CaCert:     string(cert.CaCert),
-	}
 }
 
 func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition) []v1.Condition {

@@ -15,6 +15,10 @@ type AgentGroup struct {
 	Status   AgentGroupStatus
 }
 
+func (ag *AgentGroup) HasAgentConnectionConfig() bool {
+	return ag.Spec.AgentConnectionConfig != nil
+}
+
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
 	// Name is the name of the agent group.
@@ -41,7 +45,7 @@ type AgentGroupSpec struct {
 	AgentRemoteConfigs []AgentGroupAgentRemoteConfig
 
 	// AgentConnection settings for agents in this group.
-	AgentConnectionConfig *AgentConnectionConfig
+	AgentConnectionConfig *AgentGroupConnectionConfig
 }
 
 // AgentGroupAgentRemoteConfig represents a remote configuration for agents in the group.
@@ -56,11 +60,11 @@ type AgentGroupAgentRemoteConfig struct {
 }
 
 // AgentConnectionConfig represents connection settings for agents in the group.
-type AgentConnectionConfig struct {
-	OpAMPConnection  OpAMPConnectionSettings
-	OwnMetrics       TelemetryConnectionSettings
-	OwnLogs          TelemetryConnectionSettings
-	OwnTraces        TelemetryConnectionSettings
+type AgentGroupConnectionConfig struct {
+	OpAMPConnection  *OpAMPConnectionSettings
+	OwnMetrics       *TelemetryConnectionSettings
+	OwnLogs          *TelemetryConnectionSettings
+	OwnTraces        *TelemetryConnectionSettings
 	OtherConnections map[string]OtherConnectionSettings
 }
 

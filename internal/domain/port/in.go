@@ -101,6 +101,13 @@ type AgentGroupRelatedUsecase interface {
 	) (*model.ListResponse[*model.Agent], error)
 }
 
+type CertificateUsecase interface {
+	GetCertificate(ctx context.Context, name string) (*model.Certificate, error)
+	PutCertificate(ctx context.Context, name string) (*model.Certificate, error)
+	ListCertificate(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Certificate], error)
+	DeleteCertificate(ctx context.Context, name string, deletedAt time.Time, deletedBy string) (*model.Certificate, error)
+}
+
 // ServerUsecase is an interface that defines the methods for server use cases.
 type ServerUsecase interface {
 	// ServerUsecase should also implement ServerMessageUsecase

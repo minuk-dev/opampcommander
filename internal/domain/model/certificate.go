@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 // Certificate represents a TLS certificate used for secure communications.
 type Certificate struct {
 	Metadata CertificateMetadata
@@ -7,10 +9,33 @@ type Certificate struct {
 	Status   CertificateStatus
 }
 
+func (c *Certificate) ToAgentCertificate() *AgentCertificate {
+	return &AgentCertificate{
+		Cert:       c.Spec.Cert,
+		PrivateKey: c.Spec.PrivateKey,
+		CaCert:     c.Spec.CaCert,
+	}
+}
+
+func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
+	// Set the DeletedAt timestamp in metadata for soft delete filtering
+	c.Metadata.DeletedAt = &deletedAt
+
+	// Mark as deleted by adding a condition
+	c.Status.Conditions = append(c.Status.Conditions, Condition{
+		Type:               ConditionTypeDeleted,
+		Status:             ConditionStatusTrue,
+		LastTransitionTime: deletedAt,
+		Reason:             deletedBy,
+		Message:            "Certificate deleted",
+	})
+}
+
 // CertificateMetadata represents metadata information for a certificate.
 type CertificateMetadata struct {
 	Name       string
 	Attributes Attributes
+	DeletedAt  *time.Time
 }
 
 // CertificateSpec represents the specification of a certificate.
