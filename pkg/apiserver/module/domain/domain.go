@@ -22,6 +22,7 @@ func New() fx.Option {
 		),
 		fx.Annotate(domainservice.NewAgentPackageService, fx.As(new(domainport.AgentPackageUsecase))),
 		fx.Annotate(domainservice.NewAgentRemoteConfigService, fx.As(new(domainport.AgentRemoteConfigUsecase))),
+		fx.Annotate(domainservice.NewCertificateService, fx.As(new(domainport.CertificateUsecase))),
 		domainservice.NewServerService,
 		fx.Annotate(
 			Identity[*domainservice.ServerService],

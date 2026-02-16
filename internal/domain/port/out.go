@@ -93,7 +93,7 @@ type AgentRemoteConfigPersistencePort interface {
 // CertificatePersistencePort is an interface that defines the methods for ceritificate config persistence.
 type CertificatePersistencePort interface {
 	GetCertificate(ctx context.Context, name string) (*model.Certificate, error)
-	PutCertificate(ctx context.Context, name string) (*model.Certificate, error)
+	PutCertificate(ctx context.Context, certificate *model.Certificate) (*model.Certificate, error)
 	ListCertificate(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Certificate], error)
 }
 

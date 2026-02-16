@@ -103,7 +103,7 @@ type AgentGroupRelatedUsecase interface {
 
 type CertificateUsecase interface {
 	GetCertificate(ctx context.Context, name string) (*model.Certificate, error)
-	PutCertificate(ctx context.Context, name string) (*model.Certificate, error)
+	SaveCertificate(ctx context.Context, certificate *model.Certificate) (*model.Certificate, error)
 	ListCertificate(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Certificate], error)
 	DeleteCertificate(ctx context.Context, name string, deletedAt time.Time, deletedBy string) (*model.Certificate, error)
 }

@@ -53,21 +53,26 @@ func (c *CertificateService) ListCertificate(
 	return resp, nil
 }
 
-// PutCertificate implements [port.CertificateUsecase].
-func (c *CertificateService) PutCertificate(
+// SaveCertificate implements [port.CertificateUsecase].
+func (c *CertificateService) SaveCertificate(
 	ctx context.Context,
-	name string,
+	certificate *model.Certificate,
 ) (*model.Certificate, error) {
-	certificate, err := c.certificatePersistencePort.PutCertificate(ctx, name)
+	saved, err := c.certificatePersistencePort.PutCertificate(ctx, certificate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to put certificate to persistence: %w", err)
+		return nil, fmt.Errorf("failed to save certificate to persistence: %w", err)
 	}
 
-	return certificate, nil
+	return saved, nil
 }
 
 // DeleteCertificate implements [port.CertificateUsecase].
-func (c *CertificateService) DeleteCertificate(ctx context.Context, name string, deletedAt time.Time, deletedBy string) (*model.Certificate, error) {
+func (c *CertificateService) DeleteCertificate(
+	ctx context.Context,
+	name string,
+	deletedAt time.Time,
+	deletedBy string,
+) (*model.Certificate, error) {
 	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate from persistence: %w", err)
@@ -75,7 +80,7 @@ func (c *CertificateService) DeleteCertificate(ctx context.Context, name string,
 
 	certificate.MarkAsDeleted(deletedAt, deletedBy)
 
-	updatedCertificate, err := c.certificatePersistencePort.PutCertificate(ctx, name)
+	updatedCertificate, err := c.certificatePersistencePort.PutCertificate(ctx, certificate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update certificate in persistence: %w", err)
 	}

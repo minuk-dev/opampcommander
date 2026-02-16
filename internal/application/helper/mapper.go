@@ -578,3 +578,50 @@ func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition)
 
 	return apiConditions
 }
+
+// MapCertificateToAPI maps a domain model Certificate to an API model Certificate.
+func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certificate {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.Certificate{
+		Kind:       v1.CertificateKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.CertificateMetadata{
+			Name:       domain.Metadata.Name,
+			Attributes: v1.Attributes(domain.Metadata.Attributes),
+		},
+		Spec: v1.CertificateSpec{
+			Cert:       string(domain.Spec.Cert),
+			PrivateKey: string(domain.Spec.PrivateKey),
+			CaCert:     string(domain.Spec.CaCert),
+		},
+		Status: v1.CertificateStatus{
+			Conditions: mapper.mapAgentGroupConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToCertificate maps an API model Certificate to a domain model Certificate.
+func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificate {
+	if api == nil {
+		return nil
+	}
+
+	return &model.Certificate{
+		Metadata: model.CertificateMetadata{
+			Name:       api.Metadata.Name,
+			Attributes: model.Attributes(api.Metadata.Attributes),
+			DeletedAt:  nil,
+		},
+		Spec: model.CertificateSpec{
+			Cert:       []byte(api.Spec.Cert),
+			PrivateKey: []byte(api.Spec.PrivateKey),
+			CaCert:     []byte(api.Spec.CaCert),
+		},
+		Status: model.CertificateStatus{
+			Conditions: nil,
+		},
+	}
+}
