@@ -232,6 +232,62 @@ func (m *MockAgentRemoteConfigPersistencePort) ListAgentRemoteConfigs(
 	return result, args.Error(1) //nolint:wrapcheck // mock error
 }
 
+// MockCertificatePersistencePortForGroup is a mock implementation of CertificatePersistencePort for agentgroup tests.
+type MockCertificatePersistencePortForGroup struct {
+	mock.Mock
+}
+
+func (m *MockCertificatePersistencePortForGroup) GetCertificate(
+	ctx context.Context,
+	name string,
+) (*model.Certificate, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	cert, ok := args.Get(0).(*model.Certificate)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return cert, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *MockCertificatePersistencePortForGroup) PutCertificate(
+	ctx context.Context,
+	certificate *model.Certificate,
+) (*model.Certificate, error) {
+	args := m.Called(ctx, certificate)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	cert, ok := args.Get(0).(*model.Certificate)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return cert, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *MockCertificatePersistencePortForGroup) ListCertificate(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Certificate], error) {
+	args := m.Called(ctx, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*model.Certificate])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
 func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 	t.Parallel()
 
@@ -244,7 +300,9 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+		svc := service.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 		expectedGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
@@ -270,7 +328,9 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+		svc := service.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 		mockPersistence.On("GetAgentGroup", ctx, "non-existent").Return(nil, errAgentGroupNotFound)
 
@@ -295,7 +355,9 @@ func TestAgentGroupService_ListAgentGroups(t *testing.T) {
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+		svc := service.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 		expectedResponse := &model.ListResponse[*model.AgentGroup]{
 			Items: []*model.AgentGroup{
@@ -329,7 +391,9 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+		svc := service.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 		agentGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
@@ -378,7 +442,9 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+		svc := service.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -436,7 +502,9 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 		logger := slog.Default()
 
-		svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+		svc := service.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -479,7 +547,9 @@ func TestAgentGroupService_Name(t *testing.T) {
 	mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
 	logger := slog.Default()
 
-	svc := service.NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUsecase, logger)
+	mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+	svc := service.NewAgentGroupService(
+		mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
 	assert.Equal(t, "AgentGroupService", svc.Name())
 }

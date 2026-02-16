@@ -15,6 +15,51 @@ type AgentGroup struct {
 	Status   AgentGroupStatus
 }
 
+// NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
+// createdAt timestamp, and createdBy identifier.
+func NewAgentGroup(
+	name string,
+	attributes Attributes,
+	createdAt time.Time,
+	createdBy string,
+) *AgentGroup {
+	return &AgentGroup{
+		Metadata: AgentGroupMetadata{
+			Name:       name,
+			Attributes: attributes,
+			Priority:   0,
+			Selector: AgentSelector{
+				IdentifyingAttributes:    nil,
+				NonIdentifyingAttributes: nil,
+			},
+			DeletedAt: nil,
+		},
+		Spec: AgentGroupSpec{
+			AgentRemoteConfig:     nil,
+			AgentRemoteConfigs:    nil,
+			AgentConnectionConfig: nil,
+		},
+		Status: AgentGroupStatus{
+			NumAgents:             0,
+			NumConnectedAgents:    0,
+			NumHealthyAgents:      0,
+			NumUnhealthyAgents:    0,
+			NumNotConnectedAgents: 0,
+
+			Conditions: []Condition{
+				{
+					Type:               ConditionTypeCreated,
+					LastTransitionTime: createdAt,
+					Status:             ConditionStatusTrue,
+					Reason:             createdBy,
+					Message:            "Agent group created",
+				},
+			},
+		},
+	}
+}
+
+// HasAgentConnectionConfig returns true if the agent group has connection configuration.
 func (ag *AgentGroup) HasAgentConnectionConfig() bool {
 	return ag.Spec.AgentConnectionConfig != nil
 }
@@ -59,7 +104,7 @@ type AgentGroupAgentRemoteConfig struct {
 	AgentRemoteConfigRef *string
 }
 
-// AgentConnectionConfig represents connection settings for agents in the group.
+// AgentGroupConnectionConfig represents connection settings for agents in the group.
 type AgentGroupConnectionConfig struct {
 	OpAMPConnection  *OpAMPConnectionSettings
 	OwnMetrics       *TelemetryConnectionSettings
@@ -130,50 +175,6 @@ const (
 	// ConditionStatusUnknown represents an unknown condition status.
 	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
-
-// NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
-// createdAt timestamp, and createdBy identifier.
-func NewAgentGroup(
-	name string,
-	attributes Attributes,
-	createdAt time.Time,
-	createdBy string,
-) *AgentGroup {
-	return &AgentGroup{
-		Metadata: AgentGroupMetadata{
-			Name:       name,
-			Attributes: attributes,
-			Priority:   0,
-			Selector: AgentSelector{
-				IdentifyingAttributes:    nil,
-				NonIdentifyingAttributes: nil,
-			},
-			DeletedAt: nil,
-		},
-		Spec: AgentGroupSpec{
-			AgentRemoteConfig:     nil,
-			AgentRemoteConfigs:    nil,
-			AgentConnectionConfig: nil,
-		},
-		Status: AgentGroupStatus{
-			NumAgents:             0,
-			NumConnectedAgents:    0,
-			NumHealthyAgents:      0,
-			NumUnhealthyAgents:    0,
-			NumNotConnectedAgents: 0,
-
-			Conditions: []Condition{
-				{
-					Type:               ConditionTypeCreated,
-					LastTransitionTime: createdAt,
-					Status:             ConditionStatusTrue,
-					Reason:             createdBy,
-					Message:            "Agent group created",
-				},
-			},
-		},
-	}
-}
 
 // IsDeleted returns true if the agent group is marked as deleted.
 func (ag *AgentGroup) IsDeleted() bool {

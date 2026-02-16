@@ -12,11 +12,13 @@ import (
 
 var _ port.CertificateUsecase = (*CertificateService)(nil)
 
+// CertificateService implements the CertificateUsecase interface.
 type CertificateService struct {
 	certificatePersistencePort port.CertificatePersistencePort
 	logger                     *slog.Logger
 }
 
+// NewCertificateService creates a new instance of CertificateService.
 func NewCertificateService(
 	certificatePersistencePort port.CertificatePersistencePort,
 	logger *slog.Logger,

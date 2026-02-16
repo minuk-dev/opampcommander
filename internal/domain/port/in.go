@@ -101,6 +101,7 @@ type AgentGroupRelatedUsecase interface {
 	) (*model.ListResponse[*model.Agent], error)
 }
 
+// CertificateUsecase defines the interface for certificate use cases.
 type CertificateUsecase interface {
 	GetCertificate(ctx context.Context, name string) (*model.Certificate, error)
 	SaveCertificate(ctx context.Context, certificate *model.Certificate) (*model.Certificate, error)

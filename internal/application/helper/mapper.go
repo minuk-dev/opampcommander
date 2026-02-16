@@ -515,7 +515,11 @@ func (mapper *Mapper) mapOtherConnectionsFromAPI(
 
 func (mapper *Mapper) mapOpAMPConnectionToAPI(conn *model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
 	if conn == nil {
-		return v1.OpAMPConnectionSettings{}
+		return v1.OpAMPConnectionSettings{
+			DestinationEndpoint: "",
+			Headers:             nil,
+			CertificateName:     nil,
+		}
 	}
 
 	return v1.OpAMPConnectionSettings{
@@ -529,7 +533,11 @@ func (mapper *Mapper) mapTelemetryConnectionToAPI(
 	conn *model.TelemetryConnectionSettings,
 ) v1.TelemetryConnectionSettings {
 	if conn == nil {
-		return v1.TelemetryConnectionSettings{}
+		return v1.TelemetryConnectionSettings{
+			DestinationEndpoint: "",
+			Headers:             nil,
+			CertificateName:     nil,
+		}
 	}
 
 	return v1.TelemetryConnectionSettings{

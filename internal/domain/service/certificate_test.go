@@ -16,7 +16,9 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/service"
 )
 
-var errCertificatePersistence = errors.New("certificate persistence error")
+var (
+	errCertificatePersistence = errors.New("certificate persistence error")
+)
 
 // MockCertificatePersistencePort is a mock implementation of CertificatePersistencePort.
 type MockCertificatePersistencePort struct {
@@ -34,7 +36,7 @@ func (m *MockCertificatePersistencePort) GetCertificate(
 
 	cert, ok := args.Get(0).(*model.Certificate)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return cert, args.Error(1) //nolint:wrapcheck // mock error
@@ -51,7 +53,7 @@ func (m *MockCertificatePersistencePort) PutCertificate(
 
 	cert, ok := args.Get(0).(*model.Certificate)
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return cert, args.Error(1) //nolint:wrapcheck // mock error
@@ -68,7 +70,7 @@ func (m *MockCertificatePersistencePort) ListCertificate(
 
 	resp, ok := args.Get(0).(*model.ListResponse[*model.Certificate])
 	if !ok {
-		return nil, errors.New("unexpected type")
+		return nil, errUnexpectedType
 	}
 
 	return resp, args.Error(1) //nolint:wrapcheck // mock error

@@ -582,24 +582,28 @@ type ConnectionInfo struct {
 	otherConnections map[string]AgentOtherConnectionSettings
 }
 
+// AgentOpAMPConnectionSettings represents OpAMP connection settings for an agent.
 type AgentOpAMPConnectionSettings struct {
 	DestinationEndpoint string
 	Headers             map[string][]string
 	Certificate         *AgentCertificate
 }
 
+// AgentTelemetryConnectionSettings represents telemetry connection settings for an agent.
 type AgentTelemetryConnectionSettings struct {
 	DestinationEndpoint string
 	Headers             map[string][]string
 	Certificate         *AgentCertificate
 }
 
+// AgentOtherConnectionSettings represents other connection settings for an agent.
 type AgentOtherConnectionSettings struct {
 	DestinationEndpoint string
 	Headers             map[string][]string
 	Certificate         *AgentCertificate
 }
 
+// AgentCertificate represents a certificate used by an agent for secure communications.
 type AgentCertificate struct {
 	Cert       []byte
 	PrivateKey []byte

@@ -72,12 +72,10 @@ type AgentConnectionConfig struct {
 
 // ConnectionSettings represents connection settings for telemetry.
 type ConnectionSettings struct {
-	DestinationEndpoint string              `bson:"destinationEndpoint"     json:"destinationEndpoint"`
-	Headers             map[string][]string `bson:"headers,omitempty"       json:"headers,omitempty"`
+	DestinationEndpoint string              `bson:"destinationEndpoint"       json:"destinationEndpoint"`
+	Headers             map[string][]string `bson:"headers,omitempty"         json:"headers,omitempty"`
 	CertificateName     *string             `bson:"certificateName,omitempty" json:"certificateName,omitempty"`
 }
-
-
 
 // AgentGroupStatistics holds statistical data for an agent group.
 type AgentGroupStatistics struct {

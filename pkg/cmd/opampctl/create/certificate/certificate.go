@@ -20,15 +20,15 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// Flags
-	name        string
-	attributes  map[string]string
-	certFile    string
-	keyFile     string
-	caCertFile  string
-	cert        string
-	key         string
-	caCert      string
-	formatType  string
+	name       string
+	attributes map[string]string
+	certFile   string
+	keyFile    string
+	caCertFile string
+	cert       string
+	key        string
+	caCert     string
+	formatType string
 
 	// internal state
 	client *client.Client
@@ -190,7 +190,7 @@ func toFormattedCertificate(certificate *v1.Certificate) *formattedCertificate {
 	)
 
 	for _, condition := range certificate.Status.Conditions {
-		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
+		switch condition.Type {
 		case v1.ConditionTypeCreated:
 			if condition.Status == v1.ConditionStatusTrue {
 				createdAt = condition.LastTransitionTime.Time
@@ -202,6 +202,8 @@ func toFormattedCertificate(certificate *v1.Certificate) *formattedCertificate {
 				deletedAt = &t
 				deletedBy = &condition.Reason
 			}
+		default:
+			// Ignore other condition types
 		}
 	}
 

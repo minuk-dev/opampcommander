@@ -9,6 +9,7 @@ type Certificate struct {
 	Status   CertificateStatus
 }
 
+// ToAgentCertificate converts the certificate to an AgentCertificate.
 func (c *Certificate) ToAgentCertificate() *AgentCertificate {
 	return &AgentCertificate{
 		Cert:       c.Spec.Cert,
@@ -17,6 +18,7 @@ func (c *Certificate) ToAgentCertificate() *AgentCertificate {
 	}
 }
 
+// MarkAsDeleted marks the certificate as deleted.
 func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 	// Set the DeletedAt timestamp in metadata for soft delete filtering
 	c.Metadata.DeletedAt = &deletedAt

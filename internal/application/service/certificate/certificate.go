@@ -88,6 +88,7 @@ func (s *Service) CreateCertificate(
 	createdBy, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
 		createdBy = security.NewAnonymousUser()
 	}
 
@@ -126,6 +127,7 @@ func (s *Service) UpdateCertificate(
 	updatedBy, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
 		updatedBy = security.NewAnonymousUser()
 	}
 
@@ -153,6 +155,7 @@ func (s *Service) DeleteCertificate(
 	deletedBy, err := security.GetUser(ctx)
 	if err != nil {
 		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
 		deletedBy = security.NewAnonymousUser()
 	}
 
