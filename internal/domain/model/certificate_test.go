@@ -16,15 +16,20 @@ func TestCertificate_ToAgentCertificate(t *testing.T) {
 	t.Run("Converts certificate spec to agent certificate", func(t *testing.T) {
 		t.Parallel()
 
+		// Use placeholder byte data for testing conversion logic
+		certData := []byte("cert-data")
+		keyData := []byte("key-data")
+		caData := []byte("ca-data")
+
 		cert := &model.Certificate{
 			Metadata: model.CertificateMetadata{
 				Name:       "test-cert",
 				Attributes: model.Attributes{"env": "prod"},
 			},
 			Spec: model.CertificateSpec{
-				Cert:       []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
-				PrivateKey: []byte("-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----"),
-				CaCert:     []byte("-----BEGIN CERTIFICATE-----\ntest-ca\n-----END CERTIFICATE-----"),
+				Cert:       certData,
+				PrivateKey: keyData,
+				CaCert:     caData,
 			},
 			Status: model.CertificateStatus{
 				Conditions: nil,
