@@ -102,6 +102,8 @@ definitions:
     properties:
       attributes:
         $ref: '#/definitions/api_v1.Attributes'
+      deletedAt:
+        type: string
       name:
         type: string
       priority:
@@ -172,6 +174,8 @@ definitions:
     properties:
       attributes:
         $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+      deletedAt:
+        type: string
       name:
         type: string
     type: object
@@ -310,6 +314,62 @@ definitions:
       token:
         description: Token is the authentication token.
         type: string
+    type: object
+  Certificate:
+    properties:
+      apiVersion:
+        description: APIVersion is the version of the API.
+        type: string
+      kind:
+        description: Kind is the type of the resource.
+        type: string
+      metadata:
+        allOf:
+        - $ref: '#/definitions/CertificateMetadata'
+        description: Metadata contains the metadata of the certificate.
+      spec:
+        allOf:
+        - $ref: '#/definitions/CertificateSpec'
+        description: Spec contains the specification of the certificate.
+      status:
+        allOf:
+        - $ref: '#/definitions/CertificateStatus'
+        description: Status contains the status of the certificate.
+    type: object
+  CertificateMetadata:
+    properties:
+      attributes:
+        allOf:
+        - $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+        description: Attributes are optional key-value pairs for the certificate.
+      deletedAt:
+        description: |-
+          DeletedAt is the timestamp when the certificate was soft deleted.
+          If nil, the certificate is not deleted.
+        type: string
+      name:
+        description: Name is the unique name of the certificate.
+        type: string
+    type: object
+  CertificateSpec:
+    properties:
+      caCert:
+        description: CaCert is the PEM-encoded CA certificate.
+        type: string
+      cert:
+        description: Cert is the PEM-encoded certificate.
+        type: string
+      privateKey:
+        description: PrivateKey is the PEM-encoded private key.
+        type: string
+    type: object
+  CertificateStatus:
+    properties:
+      conditions:
+        description: Conditions contains the conditions of the certificate.
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
     type: object
   ComponentDetails:
     properties:
@@ -511,6 +571,19 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
+  ListResponse-Certificate:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Certificate'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   ListResponse-Connection:
     properties:
       apiVersion:
@@ -545,10 +618,9 @@ definitions:
     type: object
   OpAMPConnectionSettings:
     properties:
-      certificate:
-        allOf:
-        - $ref: '#/definitions/TLSCertificate'
-        description: Certificate contains TLS certificate information.
+      certificateName:
+        description: CertificateName is the name of the certificate resource to use.
+        type: string
       destinationEndpoint:
         description: DestinationEndpoint is the URL to connect to the OpAMP server.
         type: string
@@ -562,10 +634,9 @@ definitions:
     type: object
   OtherConnectionSettings:
     properties:
-      certificate:
-        allOf:
-        - $ref: '#/definitions/TLSCertificate'
-        description: Certificate contains TLS certificate information.
+      certificateName:
+        description: CertificateName is the name of the certificate resource to use.
+        type: string
       destinationEndpoint:
         description: DestinationEndpoint is the URL to connect to.
         type: string
@@ -625,24 +696,11 @@ definitions:
     x-enum-varnames:
     - ServerConditionTypeRegistered
     - ServerConditionTypeAlive
-  TLSCertificate:
-    properties:
-      caCert:
-        description: CaCert is the PEM-encoded CA certificate.
-        type: string
-      cert:
-        description: Cert is the PEM-encoded certificate.
-        type: string
-      privateKey:
-        description: PrivateKey is the PEM-encoded private key.
-        type: string
-    type: object
   TelemetryConnectionSettings:
     properties:
-      certificate:
-        allOf:
-        - $ref: '#/definitions/TLSCertificate'
-        description: Certificate contains TLS certificate information.
+      certificateName:
+        description: CertificateName is the name of the certificate resource to use.
+        type: string
       destinationEndpoint:
         description: DestinationEndpoint is the URL to send telemetry data to.
         type: string
@@ -1353,6 +1411,169 @@ paths:
       tags:
       - auth
       - basic
+  /api/v1/certificates:
+    get:
+      description: Retrieve a list of certificates.
+      parameters:
+      - description: Maximum number of certificates to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing certificates
+        in: query
+        name: continue
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Certificate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Certificates
+      tags:
+      - certificate
+    post:
+      consumes:
+      - application/json
+      description: Create a new certificate.
+      parameters:
+      - description: Certificate to create
+        in: body
+        name: certificate
+        required: true
+        schema:
+          $ref: '#/definitions/Certificate'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Certificate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create Certificate
+      tags:
+      - certificate
+  /api/v1/certificates/{name}:
+    delete:
+      description: Delete a certificate by its name.
+      parameters:
+      - description: Name of the certificate
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete Certificate
+      tags:
+      - certificate
+    get:
+      description: Retrieve a certificate by its name.
+      parameters:
+      - description: Name of the certificate
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Certificate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Certificate
+      tags:
+      - certificate
+    put:
+      consumes:
+      - application/json
+      description: Update an existing certificate.
+      parameters:
+      - description: Name of the certificate
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Updated Certificate
+        in: body
+        name: certificate
+        required: true
+        schema:
+          $ref: '#/definitions/Certificate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Certificate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update Certificate
+      tags:
+      - certificate
   /api/v1/connections:
     get:
       consumes:
