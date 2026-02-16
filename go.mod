@@ -14,7 +14,7 @@ require (
 	github.com/open-telemetry/opamp-go v0.22.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/samber/lo v1.52.0
-	github.com/samber/slog-gin v1.20.1
+	github.com/samber/slog-gin v1.21.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
