@@ -174,48 +174,24 @@ type formattedCertificate struct {
 	HasCert    bool              `json:"hasCert"             short:"hasCert"             text:"hasCert"             yaml:"hasCert"`
 	HasKey     bool              `json:"hasKey"              short:"hasKey"              text:"hasKey"              yaml:"hasKey"`
 	HasCaCert  bool              `json:"hasCaCert"           short:"hasCaCert"           text:"hasCaCert"           yaml:"hasCaCert"`
-	CreatedAt  time.Time         `json:"createdAt"           short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
-	CreatedBy  string            `json:"createdBy"           short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
 	DeletedAt  *time.Time        `json:"deletedAt,omitempty" short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy  *string           `json:"deletedBy,omitempty" short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func toFormattedCertificate(certificate *v1.Certificate) *formattedCertificate {
-	// Extract timestamps and users from conditions
-	var (
-		createdAt time.Time
-		createdBy string
-		deletedAt *time.Time
-		deletedBy *string
-	)
-
-	for _, condition := range certificate.Status.Conditions {
-		switch condition.Type {
-		case v1.ConditionTypeCreated:
-			if condition.Status == v1.ConditionStatusTrue {
-				createdAt = condition.LastTransitionTime.Time
-				createdBy = condition.Reason
-			}
-		case v1.ConditionTypeDeleted:
-			if condition.Status == v1.ConditionStatusTrue {
-				t := condition.LastTransitionTime.Time
-				deletedAt = &t
-				deletedBy = &condition.Reason
-			}
-		default:
-			// Ignore other condition types
-		}
-	}
-
 	return &formattedCertificate{
 		Name:       certificate.Metadata.Name,
 		Attributes: certificate.Metadata.Attributes,
 		HasCert:    certificate.Spec.Cert != "",
 		HasKey:     certificate.Spec.PrivateKey != "",
 		HasCaCert:  certificate.Spec.CaCert != "",
-		CreatedAt:  createdAt,
-		CreatedBy:  createdBy,
-		DeletedAt:  deletedAt,
-		DeletedBy:  deletedBy,
+		DeletedAt:  switchToNilIfZero(certificate.Metadata.DeletedAt),
 	}
+}
+
+func switchToNilIfZero(t *v1.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+
+	return &t.Time
 }

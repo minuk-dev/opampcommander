@@ -105,6 +105,11 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 	return agentGroup
 }
 func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
+	var deletedAt time.Time
+	if s.DeletedAt != nil {
+		deletedAt = *s.DeletedAt
+	}
+
 	return model.AgentGroupMetadata{
 		Name:       s.Name,
 		Priority:   s.Priority,
@@ -113,7 +118,7 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 			IdentifyingAttributes:    s.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: s.Selector.NonIdentifyingAttributes,
 		},
-		DeletedAt: s.DeletedAt,
+		DeletedAt: deletedAt,
 	}
 }
 
@@ -194,6 +199,11 @@ func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
 }
 
 func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupMetadata {
+	var deletedAt *time.Time
+	if !metadata.DeletedAt.IsZero() {
+		deletedAt = &metadata.DeletedAt
+	}
+
 	return AgentGroupMetadata{
 		Name:       metadata.Name,
 		Priority:   metadata.Priority,
@@ -202,7 +212,7 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 			IdentifyingAttributes:    metadata.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: metadata.Selector.NonIdentifyingAttributes,
 		},
-		DeletedAt: metadata.DeletedAt,
+		DeletedAt: deletedAt,
 	}
 }
 

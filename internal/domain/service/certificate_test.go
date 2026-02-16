@@ -363,7 +363,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 		updatedCert := &model.Certificate{
 			Metadata: model.CertificateMetadata{
 				Name:      "cert-to-delete",
-				DeletedAt: &deletedAt,
+				DeletedAt: deletedAt,
 			},
 			Spec: model.CertificateSpec{Cert: []byte("cert-data")},
 			Status: model.CertificateStatus{

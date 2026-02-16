@@ -20,7 +20,6 @@ func TestCertificate_ToAgentCertificate(t *testing.T) {
 			Metadata: model.CertificateMetadata{
 				Name:       "test-cert",
 				Attributes: model.Attributes{"env": "prod"},
-				DeletedAt:  nil,
 			},
 			Spec: model.CertificateSpec{
 				Cert:       []byte("-----BEGIN CERTIFICATE-----\ntest-cert\n-----END CERTIFICATE-----"),
@@ -68,8 +67,7 @@ func TestCertificate_MarkAsDeleted(t *testing.T) {
 
 		cert := &model.Certificate{
 			Metadata: model.CertificateMetadata{
-				Name:      "test-cert",
-				DeletedAt: nil,
+				Name: "test-cert",
 			},
 			Spec: model.CertificateSpec{
 				Cert: []byte("test"),
@@ -84,8 +82,8 @@ func TestCertificate_MarkAsDeleted(t *testing.T) {
 
 		cert.MarkAsDeleted(deletedAt, deletedBy)
 
-		require.NotNil(t, cert.Metadata.DeletedAt)
-		assert.Equal(t, deletedAt, *cert.Metadata.DeletedAt)
+		assert.False(t, cert.Metadata.DeletedAt.IsZero())
+		assert.Equal(t, deletedAt, cert.Metadata.DeletedAt)
 
 		require.Len(t, cert.Status.Conditions, 1)
 		condition := cert.Status.Conditions[0]
@@ -137,14 +135,14 @@ func TestCertificateMetadata(t *testing.T) {
 		metadata := model.CertificateMetadata{
 			Name:       "my-cert",
 			Attributes: model.Attributes{"team": "platform", "env": "staging"},
-			DeletedAt:  &deletedAt,
+			DeletedAt:  deletedAt,
 		}
 
 		assert.Equal(t, "my-cert", metadata.Name)
 		assert.Equal(t, "platform", metadata.Attributes["team"])
 		assert.Equal(t, "staging", metadata.Attributes["env"])
-		require.NotNil(t, metadata.DeletedAt)
-		assert.Equal(t, deletedAt, *metadata.DeletedAt)
+		assert.False(t, metadata.DeletedAt.IsZero())
+		assert.Equal(t, deletedAt, metadata.DeletedAt)
 	})
 }
 

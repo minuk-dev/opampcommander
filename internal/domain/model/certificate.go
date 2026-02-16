@@ -21,7 +21,7 @@ func (c *Certificate) ToAgentCertificate() *AgentCertificate {
 // MarkAsDeleted marks the certificate as deleted.
 func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 	// Set the DeletedAt timestamp in metadata for soft delete filtering
-	c.Metadata.DeletedAt = &deletedAt
+	c.Metadata.DeletedAt = deletedAt
 
 	// Mark as deleted by adding a condition
 	c.Status.Conditions = append(c.Status.Conditions, Condition{
@@ -37,7 +37,9 @@ func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 type CertificateMetadata struct {
 	Name       string
 	Attributes Attributes
-	DeletedAt  *time.Time
+	// DeletedAt is the timestamp when the certificate was soft deleted.
+	// If zero, the certificate is not deleted.
+	DeletedAt time.Time
 }
 
 // CertificateSpec represents the specification of a certificate.

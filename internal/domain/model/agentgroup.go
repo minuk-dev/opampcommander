@@ -32,7 +32,7 @@ func NewAgentGroup(
 				IdentifyingAttributes:    nil,
 				NonIdentifyingAttributes: nil,
 			},
-			DeletedAt: nil,
+			DeletedAt: time.Time{},
 		},
 		Spec: AgentGroupSpec{
 			AgentRemoteConfig:     nil,
@@ -76,8 +76,8 @@ type AgentGroupMetadata struct {
 	// Selector is a set of criteria used to select agents for the group.
 	Selector AgentSelector
 	// DeletedAt is the timestamp when the agent group was soft deleted.
-	// If nil, the agent group is not deleted.
-	DeletedAt *time.Time
+	// If is zero, the agent group is not deleted.
+	DeletedAt time.Time
 }
 
 // AgentGroupSpec represents the specification of an agent group.
@@ -179,7 +179,7 @@ const (
 // IsDeleted returns true if the agent group is marked as deleted.
 func (ag *AgentGroup) IsDeleted() bool {
 	// Check deletedAt field first (new approach)
-	if ag.Metadata.DeletedAt != nil {
+	if !ag.Metadata.DeletedAt.IsZero() {
 		return true
 	}
 
@@ -196,7 +196,7 @@ func (ag *AgentGroup) IsDeleted() bool {
 // MarkDeleted marks the agent group as deleted by setting deletedAt and adding a deleted condition.
 func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
 	// Set deletedAt field (new approach)
-	ag.Metadata.DeletedAt = &deletedAt
+	ag.Metadata.DeletedAt = deletedAt
 
 	// Also maintain condition for backward compatibility
 	for i, condition := range ag.Status.Conditions {
@@ -245,8 +245,8 @@ func (ag *AgentGroup) GetCreatedBy() string {
 // GetDeletedAt returns the timestamp when the agent group was deleted.
 func (ag *AgentGroup) GetDeletedAt() *time.Time {
 	// Check deletedAt field first (new approach)
-	if ag.Metadata.DeletedAt != nil {
-		return ag.Metadata.DeletedAt
+	if !ag.Metadata.DeletedAt.IsZero() {
+		return &ag.Metadata.DeletedAt
 	}
 
 	// Fallback to condition-based check for backward compatibility

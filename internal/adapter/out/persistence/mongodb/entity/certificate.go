@@ -26,7 +26,7 @@ type Certificate struct {
 type CertificateMetadata struct {
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
-	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
+	DeletedAt  time.Time         `bson:"deletedAt,omitempty"`
 }
 
 // CertificateSpec represents the specification of a certificate.

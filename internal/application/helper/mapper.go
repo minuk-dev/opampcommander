@@ -117,6 +117,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 		Metadata: v1.Metadata{
 			Name:       domainAgentGroup.Metadata.Name,
 			Priority:   domainAgentGroup.Metadata.Priority,
+			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    domainAgentGroup.Metadata.Selector.IdentifyingAttributes,
@@ -212,10 +213,17 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 
 // MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.
 func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1.AgentPackage {
+	var deletedAt *v1.Time
+	if agentPackage.Metadata.DeletedAt != nil {
+		t := v1.NewTime(*agentPackage.Metadata.DeletedAt)
+		deletedAt = &t
+	}
+
 	return &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       agentPackage.Metadata.Name,
 			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
+			DeletedAt:  deletedAt,
 		},
 		Spec: v1.AgentPackageSpec{
 			PackageType: agentPackage.Spec.PackageType,
@@ -255,6 +263,69 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 		},
 	}
 }
+
+// MapCertificateToAPI maps a domain model Certificate to an API model Certificate.
+func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certificate {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.Certificate{
+		Kind:       v1.CertificateKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.CertificateMetadata{
+			Name:       domain.Metadata.Name,
+			Attributes: v1.Attributes(domain.Metadata.Attributes),
+			DeletedAt:  p(v1.NewTime(domain.Metadata.DeletedAt)),
+		},
+		Spec: v1.CertificateSpec{
+			Cert:       string(domain.Spec.Cert),
+			PrivateKey: string(domain.Spec.PrivateKey),
+			CaCert:     string(domain.Spec.CaCert),
+		},
+		Status: v1.CertificateStatus{
+			Conditions: mapper.mapAgentGroupConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToCertificate maps an API model Certificate to a domain model Certificate.
+func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificate {
+	if api == nil {
+		return nil
+	}
+
+	return &model.Certificate{
+		Metadata: model.CertificateMetadata{
+			Name:       api.Metadata.Name,
+			Attributes: model.Attributes(api.Metadata.Attributes),
+			DeletedAt:  api.Metadata.DeletedAt.Time,
+		},
+		Spec: model.CertificateSpec{
+			Cert:       []byte(api.Spec.Cert),
+			PrivateKey: []byte(api.Spec.PrivateKey),
+			CaCert:     []byte(api.Spec.CaCert),
+		},
+		Status: model.CertificateStatus{
+			Conditions: nil,
+		},
+	}
+}
+
+// --------------------------------------------------------------------------
+// Private helper methods (placed after all exported methods per funcorder)
+// --------------------------------------------------------------------------
+
+const (
+	// TextJSON is the content type for JSON.
+	TextJSON = "text/json"
+	// TextYAML is the content type for YAML.
+	TextYAML = "text/yaml"
+	// Empty is the content type for empty.
+	// Empty content type is treated as YAML by default.
+	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
+	Empty = ""
+)
 
 func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
 	apiCustomCapabilities *v1.AgentCustomCapabilities,
@@ -414,17 +485,6 @@ func (mapper *Mapper) mapAvailableComponentsToAPI(
 		Components: components,
 	}
 }
-
-const (
-	// TextJSON is the content type for JSON.
-	TextJSON = "text/json"
-	// TextYAML is the content type for YAML.
-	TextYAML = "text/yaml"
-	// Empty is the content type for empty.
-	// Empty content type is treated as YAML by default.
-	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
-	Empty = ""
-)
 
 func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1.AgentConfigFile {
 	switch configFile.ContentType {
@@ -587,49 +647,6 @@ func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition)
 	return apiConditions
 }
 
-// MapCertificateToAPI maps a domain model Certificate to an API model Certificate.
-func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certificate {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.Certificate{
-		Kind:       v1.CertificateKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.CertificateMetadata{
-			Name:       domain.Metadata.Name,
-			Attributes: v1.Attributes(domain.Metadata.Attributes),
-		},
-		Spec: v1.CertificateSpec{
-			Cert:       string(domain.Spec.Cert),
-			PrivateKey: string(domain.Spec.PrivateKey),
-			CaCert:     string(domain.Spec.CaCert),
-		},
-		Status: v1.CertificateStatus{
-			Conditions: mapper.mapAgentGroupConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
-// MapAPIToCertificate maps an API model Certificate to a domain model Certificate.
-func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificate {
-	if api == nil {
-		return nil
-	}
-
-	return &model.Certificate{
-		Metadata: model.CertificateMetadata{
-			Name:       api.Metadata.Name,
-			Attributes: model.Attributes(api.Metadata.Attributes),
-			DeletedAt:  nil,
-		},
-		Spec: model.CertificateSpec{
-			Cert:       []byte(api.Spec.Cert),
-			PrivateKey: []byte(api.Spec.PrivateKey),
-			CaCert:     []byte(api.Spec.CaCert),
-		},
-		Status: model.CertificateStatus{
-			Conditions: nil,
-		},
-	}
+func p[T any](v T) *T {
+	return &v
 }
