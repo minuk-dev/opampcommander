@@ -295,11 +295,16 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificat
 		return nil
 	}
 
+	var deletedAt time.Time
+	if api.Metadata.DeletedAt != nil {
+		deletedAt = api.Metadata.DeletedAt.Time
+	}
+
 	return &model.Certificate{
 		Metadata: model.CertificateMetadata{
 			Name:       api.Metadata.Name,
 			Attributes: model.Attributes(api.Metadata.Attributes),
-			DeletedAt:  api.Metadata.DeletedAt.Time,
+			DeletedAt:  deletedAt,
 		},
 		Spec: model.CertificateSpec{
 			Cert:       []byte(api.Spec.Cert),
