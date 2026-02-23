@@ -11,7 +11,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-github/v72 v72.0.0
 	github.com/google/uuid v1.6.0
-	github.com/open-telemetry/opamp-go v0.22.0
+	github.com/open-telemetry/opamp-go v0.23.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/samber/lo v1.52.0
 	github.com/samber/slog-gin v1.20.1
