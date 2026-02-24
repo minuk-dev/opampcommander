@@ -135,6 +135,7 @@ func (s *AgentGroupService) UpdateAgentGroup(
 		ctx,
 		s.service,
 		UpdateAgentGroupURL,
+		updateRequest.Metadata.Name,
 		updateRequest,
 	)
 }

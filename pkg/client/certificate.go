@@ -86,6 +86,7 @@ func (s *CertificateService) UpdateCertificate(
 		ctx,
 		s.service,
 		UpdateCertificateURL,
+		updateRequest.Metadata.Name,
 		updateRequest,
 	)
 }

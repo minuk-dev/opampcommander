@@ -202,12 +202,14 @@ func updateResource[Resource any](
 	ctx context.Context,
 	service *service,
 	url string,
+	name string,
 	resource *Resource,
 ) (*Resource, error) {
 	var result Resource
 
 	res, err := service.Resty.R().
 		SetContext(ctx).
+		SetPathParam("id", name).
 		SetBody(resource).
 		SetResult(&result).
 		Put(url)

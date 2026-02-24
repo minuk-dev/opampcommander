@@ -86,6 +86,7 @@ func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
 		ctx,
 		s.service,
 		UpdateAgentRemoteConfigURL,
+		updateRequest.Metadata.Name,
 		updateRequest,
 	)
 }
