@@ -102,6 +102,8 @@ definitions:
     properties:
       attributes:
         $ref: '#/definitions/api_v1.Attributes'
+      createdAt:
+        type: string
       deletedAt:
         type: string
       name:
@@ -174,6 +176,8 @@ definitions:
     properties:
       attributes:
         $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+      createdAt:
+        type: string
       deletedAt:
         type: string
       name:
@@ -342,6 +346,9 @@ definitions:
         allOf:
         - $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
         description: Attributes are optional key-value pairs for the certificate.
+      createdAt:
+        description: CreatedAt is the timestamp when the certificate was created.
+        type: string
       deletedAt:
         description: |-
           DeletedAt is the timestamp when the certificate was soft deleted.
