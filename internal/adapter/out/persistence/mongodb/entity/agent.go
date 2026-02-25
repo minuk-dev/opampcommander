@@ -55,12 +55,18 @@ type AgentStatus struct {
 	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
 	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
 	RemoteConfigStatus  *AgentRemoteConfigStatus  `bson:"remoteConfigStatus,omitempty"`
-	Conditions          []AgentCondition          `bson:"conditions,omitempty"`
-	Connected           bool                      `bson:"connected,omitempty"`
-	ConnectionType      string                    `bson:"connectionType,omitempty"`
-	SequenceNum         uint64                    `bson:"sequenceNum,omitempty"`
-	LastCommunicatedAt  bson.DateTime             `bson:"lastCommunicatedAt,omitempty"`
-	LastCommunicatedTo  string                    `bson:"lastCommunicatedTo,omitempty"`
+	// Conditions stores agent conditions for informational purposes only.
+	// WARNING: Do NOT use Conditions for MongoDB queries or aggregations.
+	// The Conditions field can be null which causes MongoDB aggregation errors.
+	// Use the following indexed fields instead:
+	// - Connected (bool): for connection status queries
+	// - ComponentHealth.Healthy (bool): for health status queries
+	Conditions         []AgentCondition `bson:"conditions,omitempty"`
+	Connected          bool             `bson:"connected,omitempty"`
+	ConnectionType     string           `bson:"connectionType,omitempty"`
+	SequenceNum        uint64           `bson:"sequenceNum,omitempty"`
+	LastCommunicatedAt bson.DateTime    `bson:"lastCommunicatedAt,omitempty"`
+	LastCommunicatedTo string           `bson:"lastCommunicatedTo,omitempty"`
 }
 
 // AgentCondition represents a condition of an agent in MongoDB.

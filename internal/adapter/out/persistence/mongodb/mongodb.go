@@ -43,6 +43,20 @@ var (
 					},
 					Options: nil,
 				},
+				// Index for status.connected field - used in AgentGroup statistics aggregation
+				{
+					Keys: bson.D{
+						{Key: "status.connected", Value: 1},
+					},
+					Options: nil,
+				},
+				// Index for status.componentHealth.healthy field - used in AgentGroup statistics aggregation
+				{
+					Keys: bson.D{
+						{Key: "status.componentHealth.healthy", Value: 1},
+					},
+					Options: nil,
+				},
 			},
 		},
 		{

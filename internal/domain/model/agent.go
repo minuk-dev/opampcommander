@@ -298,6 +298,12 @@ type AgentStatus struct {
 	AvailableComponents      AgentAvailableComponents
 
 	// Conditions is a list of conditions that apply to the agent.
+	// WARNING: Do NOT use Conditions for MongoDB queries or aggregations.
+	// The Conditions field can be null which causes MongoDB aggregation errors
+	// (e.g., $anyElementTrue's argument must be an array, but is null).
+	// Use the following indexed fields instead:
+	// - Connected (bool): for connection status queries
+	// - ComponentHealth.Healthy (bool): for health status queries
 	Conditions []AgentCondition
 
 	Connected      bool
@@ -1118,26 +1124,6 @@ func (a *Agent) MarkConnected(triggeredBy string) {
 func (a *Agent) MarkDisconnected(triggeredBy string) {
 	a.Status.Connected = false
 	a.SetCondition(AgentConditionTypeConnected, AgentConditionStatusFalse, triggeredBy, "Agent disconnected")
-}
-
-// MarkHealthy marks the agent as healthy.
-func (a *Agent) MarkHealthy(triggeredBy string) {
-	a.SetCondition(AgentConditionTypeHealthy, AgentConditionStatusTrue, triggeredBy, "Agent is healthy")
-}
-
-// MarkUnhealthy marks the agent as unhealthy.
-func (a *Agent) MarkUnhealthy(triggeredBy, reason string) {
-	message := "Agent is unhealthy"
-	if reason != "" {
-		message = "Agent is unhealthy: " + reason
-	}
-
-	a.SetCondition(AgentConditionTypeHealthy, AgentConditionStatusFalse, triggeredBy, message)
-}
-
-// MarkConfigured marks the agent as configured.
-func (a *Agent) MarkConfigured(triggeredBy string) {
-	a.SetCondition(AgentConditionTypeConfigured, AgentConditionStatusTrue, triggeredBy, "Agent configuration applied")
 }
 
 // NewInstanceUID returns the new instance UID to inform the agent.

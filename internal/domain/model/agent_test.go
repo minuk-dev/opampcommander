@@ -344,43 +344,6 @@ func TestAgentConditions(t *testing.T) {
 		assert.Equal(t, "Agent disconnected", condition.Message)
 	})
 
-	t.Run("Mark agent as healthy", func(t *testing.T) {
-		t.Parallel()
-
-		agent := model.NewAgent(uuid.New())
-		triggeredBy := "health-check"
-
-		agent.MarkHealthy(triggeredBy)
-
-		assert.True(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
-
-		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
-		assert.NotNil(t, condition)
-		assert.Equal(t, model.AgentConditionTypeHealthy, condition.Type)
-		assert.Equal(t, model.AgentConditionStatusTrue, condition.Status)
-		assert.Equal(t, triggeredBy, condition.Reason)
-		assert.Equal(t, "Agent is healthy", condition.Message)
-	})
-
-	t.Run("Mark agent as unhealthy", func(t *testing.T) {
-		t.Parallel()
-
-		agent := model.NewAgent(uuid.New())
-		triggeredBy := "health-check"
-		reason := "high CPU usage"
-
-		agent.MarkUnhealthy(triggeredBy, reason)
-
-		assert.False(t, agent.IsConditionTrue(model.AgentConditionTypeHealthy))
-
-		condition := agent.GetCondition(model.AgentConditionTypeHealthy)
-		assert.NotNil(t, condition)
-		assert.Equal(t, model.AgentConditionTypeHealthy, condition.Type)
-		assert.Equal(t, model.AgentConditionStatusFalse, condition.Status)
-		assert.Equal(t, triggeredBy, condition.Reason)
-		assert.Contains(t, condition.Message, reason)
-	})
-
 	t.Run("Get non-existent condition", func(t *testing.T) {
 		t.Parallel()
 
