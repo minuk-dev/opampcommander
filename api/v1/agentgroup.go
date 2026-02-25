@@ -18,6 +18,7 @@ type Metadata struct {
 	Priority   int           `json:"priority"`
 	Attributes Attributes    `json:"attributes"`
 	Selector   AgentSelector `json:"selector"`
+	DeletedAt  *Time         `json:"deletedAt"`
 } // @name AgentGroupMetadata
 
 // Spec represents the specification of an agent group.

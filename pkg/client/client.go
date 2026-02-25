@@ -22,6 +22,7 @@ type Client struct {
 	AgentGroupService        *AgentGroupService
 	AgentPackageService      *AgentPackageService
 	AgentRemoteConfigService *AgentRemoteConfigService
+	CertificateService       *CertificateService
 	ConnectionService        *ConnectionService
 	AuthService              *AuthService
 }
@@ -44,6 +45,7 @@ func New(endpoint string, opt ...Option) *Client {
 		AgentGroupService:        nil,
 		AgentPackageService:      nil,
 		AgentRemoteConfigService: nil,
+		CertificateService:       nil,
 		ConnectionService:        nil,
 		AuthService:              nil,
 	}
@@ -58,6 +60,7 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AgentGroupService = NewAgentGroupService(&service)
 	client.AgentPackageService = NewAgentPackageService(&service)
 	client.AgentRemoteConfigService = NewAgentRemoteConfigService(&service)
+	client.CertificateService = NewCertificateService(&service)
 
 	return client
 }
@@ -199,12 +202,14 @@ func updateResource[Resource any](
 	ctx context.Context,
 	service *service,
 	url string,
+	name string,
 	resource *Resource,
 ) (*Resource, error) {
 	var result Resource
 
 	res, err := service.Resty.R().
 		SetContext(ctx).
+		SetPathParam("id", name).
 		SetBody(resource).
 		SetResult(&result).
 		Put(url)

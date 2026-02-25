@@ -880,6 +880,246 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/certificates": {
+            "get": {
+                "description": "Retrieve a list of certificates.",
+                "tags": [
+                    "certificate"
+                ],
+                "summary": "List Certificates",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of certificates to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing certificates",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Certificate"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new certificate.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "certificate"
+                ],
+                "summary": "Create Certificate",
+                "parameters": [
+                    {
+                        "description": "Certificate to create",
+                        "name": "certificate",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Certificate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/Certificate"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/certificates/{name}": {
+            "get": {
+                "description": "Retrieve a certificate by its name.",
+                "tags": [
+                    "certificate"
+                ],
+                "summary": "Get Certificate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the certificate",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Certificate"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing certificate.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "certificate"
+                ],
+                "summary": "Update Certificate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the certificate",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated Certificate",
+                        "name": "certificate",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Certificate"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Certificate"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a certificate by its name.",
+                "tags": [
+                    "certificate"
+                ],
+                "summary": "Delete Certificate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the certificate",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/connections": {
             "get": {
                 "description": "Retrieve a list of all connections.",
@@ -1284,6 +1524,9 @@ const docTemplate = `{
                 "attributes": {
                     "$ref": "#/definitions/api_v1.Attributes"
                 },
+                "deletedAt": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -1383,6 +1626,9 @@ const docTemplate = `{
             "properties": {
                 "attributes": {
                     "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                },
+                "deletedAt": {
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"
@@ -1591,6 +1837,93 @@ const docTemplate = `{
                 "token": {
                     "description": "Token is the authentication token.",
                     "type": "string"
+                }
+            }
+        },
+        "Certificate": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "description": "APIVersion is the version of the API.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is the type of the resource.",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Metadata contains the metadata of the certificate.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/CertificateMetadata"
+                        }
+                    ]
+                },
+                "spec": {
+                    "description": "Spec contains the specification of the certificate.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/CertificateSpec"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "Status contains the status of the certificate.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/CertificateStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "CertificateMetadata": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "description": "Attributes are optional key-value pairs for the certificate.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                        }
+                    ]
+                },
+                "deletedAt": {
+                    "description": "DeletedAt is the timestamp when the certificate was soft deleted.\nIf nil, the certificate is not deleted.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the unique name of the certificate.",
+                    "type": "string"
+                }
+            }
+        },
+        "CertificateSpec": {
+            "type": "object",
+            "properties": {
+                "caCert": {
+                    "description": "CaCert is the PEM-encoded CA certificate.",
+                    "type": "string"
+                },
+                "cert": {
+                    "description": "Cert is the PEM-encoded certificate.",
+                    "type": "string"
+                },
+                "privateKey": {
+                    "description": "PrivateKey is the PEM-encoded private key.",
+                    "type": "string"
+                }
+            }
+        },
+        "CertificateStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "description": "Conditions contains the conditions of the certificate.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
                 }
             }
         },
@@ -1870,6 +2203,26 @@ const docTemplate = `{
                 }
             }
         },
+        "ListResponse-Certificate": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Certificate"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "ListResponse-Connection": {
             "type": "object",
             "properties": {
@@ -1922,13 +2275,9 @@ const docTemplate = `{
         "OpAMPConnectionSettings": {
             "type": "object",
             "properties": {
-                "certificate": {
-                    "description": "Certificate contains TLS certificate information.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/TLSCertificate"
-                        }
-                    ]
+                "certificateName": {
+                    "description": "CertificateName is the name of the certificate resource to use.",
+                    "type": "string"
                 },
                 "destinationEndpoint": {
                     "description": "DestinationEndpoint is the URL to connect to the OpAMP server.",
@@ -1949,13 +2298,9 @@ const docTemplate = `{
         "OtherConnectionSettings": {
             "type": "object",
             "properties": {
-                "certificate": {
-                    "description": "Certificate contains TLS certificate information.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/TLSCertificate"
-                        }
-                    ]
+                "certificateName": {
+                    "description": "CertificateName is the name of the certificate resource to use.",
+                    "type": "string"
                 },
                 "destinationEndpoint": {
                     "description": "DestinationEndpoint is the URL to connect to.",
@@ -2043,33 +2388,12 @@ const docTemplate = `{
                 "ServerConditionTypeAlive"
             ]
         },
-        "TLSCertificate": {
-            "type": "object",
-            "properties": {
-                "caCert": {
-                    "description": "CaCert is the PEM-encoded CA certificate.",
-                    "type": "string"
-                },
-                "cert": {
-                    "description": "Cert is the PEM-encoded certificate.",
-                    "type": "string"
-                },
-                "privateKey": {
-                    "description": "PrivateKey is the PEM-encoded private key.",
-                    "type": "string"
-                }
-            }
-        },
         "TelemetryConnectionSettings": {
             "type": "object",
             "properties": {
-                "certificate": {
-                    "description": "Certificate contains TLS certificate information.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/TLSCertificate"
-                        }
-                    ]
+                "certificateName": {
+                    "description": "CertificateName is the name of the certificate resource to use.",
+                    "type": "string"
                 },
                 "destinationEndpoint": {
                     "description": "DestinationEndpoint is the URL to send telemetry data to.",

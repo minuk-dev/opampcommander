@@ -219,6 +219,62 @@ func (m *mockRemoteConfigPersistence) ListAgentRemoteConfigs(
 	return result, args.Error(1) //nolint:wrapcheck
 }
 
+// mockCertPersistence is a mock for CertificatePersistencePort.
+type mockCertPersistence struct {
+	mock.Mock
+}
+
+func (m *mockCertPersistence) GetCertificate(
+	ctx context.Context,
+	name string,
+) (*model.Certificate, error) {
+	args := m.Called(ctx, name)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck
+	}
+
+	cert, ok := args.Get(0).(*model.Certificate)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return cert, args.Error(1) //nolint:wrapcheck
+}
+
+func (m *mockCertPersistence) PutCertificate(
+	ctx context.Context,
+	certificate *model.Certificate,
+) (*model.Certificate, error) {
+	args := m.Called(ctx, certificate)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck
+	}
+
+	cert, ok := args.Get(0).(*model.Certificate)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return cert, args.Error(1) //nolint:wrapcheck
+}
+
+func (m *mockCertPersistence) ListCertificate(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*model.Certificate], error) {
+	args := m.Called(ctx, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*model.Certificate])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck
+}
+
 var errUnexpectedType = errors.New("unexpected type")
 
 func TestResolveRemoteConfig_RefMode(t *testing.T) {
@@ -233,7 +289,8 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		refName := "shared-otel-config"
 		referencedConfig := &model.AgentRemoteConfig{
@@ -270,7 +327,8 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		refName := "non-existent-config"
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(nil, errRemoteConfigNotFound)
@@ -299,7 +357,8 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		configName := "collector-config"
 		configValue := []byte("exporters:\n  debug:\n    verbosity: detailed")
@@ -331,7 +390,8 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		configName := "missing-spec-config"
 		remoteConfig := model.AgentGroupAgentRemoteConfig{
@@ -354,7 +414,8 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		remoteConfig := model.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: nil, // Missing name
@@ -383,7 +444,8 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -428,7 +490,8 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -474,7 +537,8 @@ func TestNameCollisionPrevention(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		// Create agent
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
@@ -548,7 +612,8 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},
@@ -608,7 +673,8 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
 		logger := slog.Default()
 
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockAgentUC, logger)
+		mockCertPort := new(mockCertPersistence)
+		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		testAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/samber/lo"
-	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
@@ -73,34 +72,9 @@ type AgentConnectionConfig struct {
 
 // ConnectionSettings represents connection settings for telemetry.
 type ConnectionSettings struct {
-	DestinationEndpoint string                   `bson:"destinationEndpoint"   json:"destinationEndpoint"`
-	Headers             map[string][]string      `bson:"headers,omitempty"     json:"headers,omitempty"`
-	Certificate         TelemetryTLSCeritificate `bson:"certificate,omitempty" json:"certificate,omitempty"`
-}
-
-// TelemetryTLSCeritificate represents TLS certificate for telemetry connections.
-type TelemetryTLSCeritificate struct {
-	Cert       *bson.Binary `bson:"cert,omitempty"       json:"cert,omitempty"`
-	PrivateKey *bson.Binary `bson:"privateKey,omitempty" json:"privateKey,omitempty"`
-	CaCert     *bson.Binary `bson:"caCert,omitempty"     json:"caCert,omitempty"`
-}
-
-// NewTelemetryTLSCertificate creates a new TelemetryTLSCeritificate from domain model.
-func NewTelemetryTLSCertificate(domain model.TelemetryTLSCertificate) TelemetryTLSCeritificate {
-	return TelemetryTLSCeritificate{
-		Cert:       &bson.Binary{Data: domain.Cert},
-		PrivateKey: &bson.Binary{Data: domain.PrivateKey},
-		CaCert:     &bson.Binary{Data: domain.CaCert},
-	}
-}
-
-// ToDomain converts TelemetryTLSCeritificate to domain model.
-func (tc *TelemetryTLSCeritificate) ToDomain() model.TelemetryTLSCertificate {
-	return model.TelemetryTLSCertificate{
-		Cert:       tc.Cert.Data,
-		PrivateKey: tc.PrivateKey.Data,
-		CaCert:     tc.CaCert.Data,
-	}
+	DestinationEndpoint string              `bson:"destinationEndpoint"       json:"destinationEndpoint"`
+	Headers             map[string][]string `bson:"headers,omitempty"         json:"headers,omitempty"`
+	CertificateName     *string             `bson:"certificateName,omitempty" json:"certificateName,omitempty"`
 }
 
 // AgentGroupStatistics holds statistical data for an agent group.
@@ -131,6 +105,11 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 	return agentGroup
 }
 func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
+	var deletedAt time.Time
+	if s.DeletedAt != nil {
+		deletedAt = *s.DeletedAt
+	}
+
 	return model.AgentGroupMetadata{
 		Name:       s.Name,
 		Priority:   s.Priority,
@@ -139,7 +118,7 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 			IdentifyingAttributes:    s.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: s.Selector.NonIdentifyingAttributes,
 		},
-		DeletedAt: s.DeletedAt,
+		DeletedAt: deletedAt,
 	}
 }
 
@@ -162,33 +141,33 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 	}
 
 	if s.AgentConnectionConfig != nil {
-		spec.AgentConnectionConfig = &model.AgentConnectionConfig{
-			OpAMPConnection: model.OpAMPConnectionSettings{
+		spec.AgentConnectionConfig = &model.AgentGroupConnectionConfig{
+			OpAMPConnection: &model.OpAMPConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OpAMP.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OpAMP.Headers,
-				Certificate:         s.AgentConnectionConfig.OpAMP.Certificate.ToDomain(),
+				CertificateName:     s.AgentConnectionConfig.OpAMP.CertificateName,
 			},
-			OwnMetrics: model.TelemetryConnectionSettings{
+			OwnMetrics: &model.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnMetrics.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnMetrics.Headers,
-				Certificate:         s.AgentConnectionConfig.OwnMetrics.Certificate.ToDomain(),
+				CertificateName:     s.AgentConnectionConfig.OwnMetrics.CertificateName,
 			},
-			OwnLogs: model.TelemetryConnectionSettings{
+			OwnLogs: &model.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnLogs.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnLogs.Headers,
-				Certificate:         s.AgentConnectionConfig.OwnLogs.Certificate.ToDomain(),
+				CertificateName:     s.AgentConnectionConfig.OwnLogs.CertificateName,
 			},
-			OwnTraces: model.TelemetryConnectionSettings{
+			OwnTraces: &model.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnTraces.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnTraces.Headers,
-				Certificate:         s.AgentConnectionConfig.OwnTraces.Certificate.ToDomain(),
+				CertificateName:     s.AgentConnectionConfig.OwnTraces.CertificateName,
 			},
 			OtherConnections: lo.MapValues(s.AgentConnectionConfig.OtherConnections,
 				func(v ConnectionSettings, _ string) model.OtherConnectionSettings {
 					return model.OtherConnectionSettings{
 						DestinationEndpoint: v.DestinationEndpoint,
 						Headers:             v.Headers,
-						Certificate:         v.Certificate.ToDomain(),
+						CertificateName:     v.CertificateName,
 					}
 				}),
 		}
@@ -220,6 +199,11 @@ func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
 }
 
 func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupMetadata {
+	var deletedAt *time.Time
+	if !metadata.DeletedAt.IsZero() {
+		deletedAt = &metadata.DeletedAt
+	}
+
 	return AgentGroupMetadata{
 		Name:       metadata.Name,
 		Priority:   metadata.Priority,
@@ -228,7 +212,7 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 			IdentifyingAttributes:    metadata.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: metadata.Selector.NonIdentifyingAttributes,
 		},
-		DeletedAt: metadata.DeletedAt,
+		DeletedAt: deletedAt,
 	}
 }
 
@@ -255,29 +239,29 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 			OpAMP: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OpAMPConnection.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OpAMPConnection.Headers,
-				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OpAMPConnection.Certificate),
+				CertificateName:     spec.AgentConnectionConfig.OpAMPConnection.CertificateName,
 			},
 			OwnMetrics: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OwnMetrics.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OwnMetrics.Headers,
-				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OwnMetrics.Certificate),
+				CertificateName:     spec.AgentConnectionConfig.OwnMetrics.CertificateName,
 			},
 			OwnLogs: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OwnLogs.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OwnLogs.Headers,
-				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OwnLogs.Certificate),
+				CertificateName:     spec.AgentConnectionConfig.OwnLogs.CertificateName,
 			},
 			OwnTraces: ConnectionSettings{
 				DestinationEndpoint: spec.AgentConnectionConfig.OwnTraces.DestinationEndpoint,
 				Headers:             spec.AgentConnectionConfig.OwnTraces.Headers,
-				Certificate:         NewTelemetryTLSCertificate(spec.AgentConnectionConfig.OwnTraces.Certificate),
+				CertificateName:     spec.AgentConnectionConfig.OwnTraces.CertificateName,
 			},
 			OtherConnections: lo.MapValues(spec.AgentConnectionConfig.OtherConnections,
 				func(v model.OtherConnectionSettings, _ string) ConnectionSettings {
 					return ConnectionSettings{
 						DestinationEndpoint: v.DestinationEndpoint,
 						Headers:             v.Headers,
-						Certificate:         NewTelemetryTLSCertificate(v.Certificate),
+						CertificateName:     v.CertificateName,
 					}
 				}),
 		}

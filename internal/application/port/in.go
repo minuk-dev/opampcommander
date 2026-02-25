@@ -58,3 +58,12 @@ type AgentGroupManageUsecase interface {
 	UpdateAgentGroup(ctx context.Context, name string, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
 	DeleteAgentGroup(ctx context.Context, name string) error
 }
+
+// CertificateManageUsecase is a use case that handles certificate management operations.
+type CertificateManageUsecase interface {
+	GetCertificate(ctx context.Context, name string) (*v1.Certificate, error)
+	ListCertificates(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Certificate], error)
+	CreateCertificate(ctx context.Context, certificate *v1.Certificate) (*v1.Certificate, error)
+	UpdateCertificate(ctx context.Context, name string, certificate *v1.Certificate) (*v1.Certificate, error)
+	DeleteCertificate(ctx context.Context, name string) error
+}

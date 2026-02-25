@@ -182,8 +182,8 @@ type OpAMPConnectionSettings struct {
 	DestinationEndpoint string `json:"destinationEndpoint"`
 	// Headers are HTTP headers to include in requests.
 	Headers map[string][]string `json:"headers,omitempty"`
-	// Certificate contains TLS certificate information.
-	Certificate TLSCertificate `json:"certificate,omitempty"`
+	// CertificateName is the name of the certificate resource to use.
+	CertificateName *string `json:"certificateName,omitempty"`
 } // @name OpAMPConnectionSettings
 
 // TelemetryConnectionSettings represents telemetry connection settings.
@@ -192,8 +192,8 @@ type TelemetryConnectionSettings struct {
 	DestinationEndpoint string `json:"destinationEndpoint"`
 	// Headers are HTTP headers to include in requests.
 	Headers map[string][]string `json:"headers,omitempty"`
-	// Certificate contains TLS certificate information.
-	Certificate TLSCertificate `json:"certificate,omitempty"`
+	// CertificateName is the name of the certificate resource to use.
+	CertificateName *string `json:"certificateName,omitempty"`
 } // @name TelemetryConnectionSettings
 
 // OtherConnectionSettings represents other connection settings.
@@ -202,8 +202,8 @@ type OtherConnectionSettings struct {
 	DestinationEndpoint string `json:"destinationEndpoint"`
 	// Headers are HTTP headers to include in requests.
 	Headers map[string][]string `json:"headers,omitempty"`
-	// Certificate contains TLS certificate information.
-	Certificate TLSCertificate `json:"certificate,omitempty"`
+	// CertificateName is the name of the certificate resource to use.
+	CertificateName *string `json:"certificateName,omitempty"`
 } // @name OtherConnectionSettings
 
 // TLSCertificate represents TLS certificate information.
