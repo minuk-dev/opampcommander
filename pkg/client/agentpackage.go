@@ -86,6 +86,7 @@ func (s *AgentPackageService) UpdateAgentPackage(
 		ctx,
 		s.service,
 		UpdateAgentPackageURL,
+		updateRequest.Metadata.Name,
 		updateRequest,
 	)
 }

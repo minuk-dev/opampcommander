@@ -1,3 +1,4 @@
+//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (

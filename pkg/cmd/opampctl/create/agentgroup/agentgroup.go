@@ -144,45 +144,23 @@ type formattedAgentGroup struct {
 	Attributes                       map[string]string `json:"attributes"                       short:"-"                   text:"-"                   yaml:"attributes"`
 	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"                   text:"-"                   yaml:"identifyingAttributesSelector"`
 	NonIdentifyingAttributesSelector map[string]string `json:"nonIdentifyingAttributesSelector" short:"-"                   text:"-"                   yaml:"nonIdentifyingAttributesSelector"`
-	CreatedAt                        time.Time         `json:"createdAt"                        short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
-	CreatedBy                        string            `json:"createdBy"                        short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
 	DeletedAt                        *time.Time        `json:"deletedAt,omitempty"              short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy                        *string           `json:"deletedBy,omitempty"              short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func toFormattedAgentGroup(agentGroup *v1.AgentGroup) *formattedAgentGroup {
-	// Extract timestamps and users from conditions
-	var (
-		createdAt time.Time
-		createdBy string
-		deletedAt *time.Time
-		deletedBy *string
-	)
-
-	for _, condition := range agentGroup.Status.Conditions {
-		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
-		case v1.ConditionTypeCreated:
-			if condition.Status == v1.ConditionStatusTrue {
-				createdAt = condition.LastTransitionTime.Time
-				createdBy = condition.Reason
-			}
-		case v1.ConditionTypeDeleted:
-			if condition.Status == v1.ConditionStatusTrue {
-				t := condition.LastTransitionTime.Time
-				deletedAt = &t
-				deletedBy = &condition.Reason
-			}
-		}
-	}
-
 	return &formattedAgentGroup{
 		Name:                             agentGroup.Metadata.Name,
 		Attributes:                       agentGroup.Metadata.Attributes,
 		IdentifyingAttributesSelector:    agentGroup.Metadata.Selector.IdentifyingAttributes,
 		NonIdentifyingAttributesSelector: agentGroup.Metadata.Selector.NonIdentifyingAttributes,
-		CreatedAt:                        createdAt,
-		CreatedBy:                        createdBy,
-		DeletedAt:                        deletedAt,
-		DeletedBy:                        deletedBy,
+		DeletedAt:                        switchToNilIfZero(agentGroup.Metadata.DeletedAt),
 	}
+}
+
+func switchToNilIfZero(t *v1.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+
+	return &t.Time
 }

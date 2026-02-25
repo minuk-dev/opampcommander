@@ -9,6 +9,7 @@ import (
 	agentApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agent"
 	agentgroupApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agentgroup"
 	agentpackageApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agentpackage"
+	certificateApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/certificate"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
@@ -34,6 +35,9 @@ func New() fx.Option {
 
 			agentpackageApplicationService.NewAgentPackageService,
 			fx.Annotate(Identity[*agentpackageApplicationService.Service], fx.As(new(port.AgentPackageManageUsecase))),
+
+			certificateApplicationService.NewCertificateService,
+			fx.Annotate(Identity[*certificateApplicationService.Service], fx.As(new(port.CertificateManageUsecase))),
 		),
 	)
 }

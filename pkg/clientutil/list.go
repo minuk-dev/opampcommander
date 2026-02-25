@@ -193,3 +193,32 @@ func ListAgentRemoteConfigFully(ctx context.Context, cli *client.Client) ([]v1.A
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
 	}
 }
+
+// ListCertificateFully lists all certificates.
+// It continues to fetch certificates until there are no more to fetch.
+func ListCertificateFully(ctx context.Context, cli *client.Client) ([]v1.Certificate, error) {
+	var certificates []v1.Certificate
+	// Initialize the continue token to an empty string
+	continueToken := ""
+
+	for {
+		// List certificates with the current continue token
+		resp, err := cli.CertificateService.ListCertificates(
+			ctx,
+			client.WithContinueToken(continueToken),
+			client.WithLimit(ChunkSize),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list certificates: %w", err)
+		}
+
+		// Iterate over each certificate in the response
+		if len(resp.Items) == 0 {
+			return certificates, nil // No certificates found, exit the loop
+		}
+
+		certificates = append(certificates, resp.Items...)
+
+		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
+	}
+}

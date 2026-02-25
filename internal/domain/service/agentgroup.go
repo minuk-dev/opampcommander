@@ -25,32 +25,40 @@ var ErrInvalidRemoteConfig = errors.New("invalid remote config: both spec and na
 var _ port.AgentGroupUsecase = (*AgentGroupService)(nil)
 var _ port.AgentGroupRelatedUsecase = (*AgentGroupService)(nil)
 
-// AgentGroupPersistencePort is an alias for port.AgentGroupPersistencePort.
-type AgentGroupPersistencePort = port.AgentGroupPersistencePort
-
 // AgentGroupService is a struct that implements the AgentGroupUsecase interface.
 type AgentGroupService struct {
-	persistencePort                  AgentGroupPersistencePort
-	AgentRemoteConfigPersistencePort port.AgentRemoteConfigPersistencePort
-	agentUsecase                     port.AgentUsecase
-	logger                           *slog.Logger
+	// main port
+	persistencePort port.AgentGroupPersistencePort
 
+	// related port
+	remoteConfigPersistencePort port.AgentRemoteConfigPersistencePort
+	certificatePersistencePort  port.CertificatePersistencePort
+
+	// other domain usecases
+	agentUsecase port.AgentUsecase
+
+	// internalStatus
 	changedAgentGroupCh chan *model.AgentGroup
+
+	// utils
+	logger *slog.Logger
 }
 
 // NewAgentGroupService creates a new instance of AgentGroupService.
 func NewAgentGroupService(
-	persistencePort AgentGroupPersistencePort,
+	persistencePort port.AgentGroupPersistencePort,
 	agentRemoteConfigPersistencePort port.AgentRemoteConfigPersistencePort,
+	certificatePersistencePort port.CertificatePersistencePort,
 	agentUsecase port.AgentUsecase,
 	logger *slog.Logger,
 ) *AgentGroupService {
 	return &AgentGroupService{
-		persistencePort:                  persistencePort,
-		AgentRemoteConfigPersistencePort: agentRemoteConfigPersistencePort,
-		agentUsecase:                     agentUsecase,
-		logger:                           logger,
-		changedAgentGroupCh:              make(chan *model.AgentGroup, ChangedAgentGroupBufferSize),
+		persistencePort:             persistencePort,
+		remoteConfigPersistencePort: agentRemoteConfigPersistencePort,
+		certificatePersistencePort:  certificatePersistencePort,
+		agentUsecase:                agentUsecase,
+		logger:                      logger,
+		changedAgentGroupCh:         make(chan *model.AgentGroup, ChangedAgentGroupBufferSize),
 	}
 }
 
@@ -277,7 +285,7 @@ func (s *AgentGroupService) applyAgentGroupToAgent(
 		return err
 	}
 
-	err = s.applyConnectionSettings(agentGroup, agent)
+	err = s.applyConnectionSettings(ctx, agentGroup, agent)
 	if err != nil {
 		return err
 	}
@@ -328,7 +336,7 @@ func (s *AgentGroupService) resolveRemoteConfig(
 ) (model.AgentConfigFile, string, error) {
 	// Case 1: Reference to existing AgentRemoteConfig resource
 	if remoteConfig.AgentRemoteConfigRef != nil {
-		arc, err := s.AgentRemoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigRef)
+		arc, err := s.remoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigRef)
 		if err != nil {
 			return model.AgentConfigFile{}, "", fmt.Errorf("get agent remote config %s: %w",
 				*remoteConfig.AgentRemoteConfigRef, err)
@@ -357,24 +365,145 @@ func (s *AgentGroupService) resolveRemoteConfig(
 }
 
 func (s *AgentGroupService) applyConnectionSettings(
+	ctx context.Context,
 	agentGroup *model.AgentGroup,
 	agent *model.Agent,
 ) error {
-	connConfig := agentGroup.Spec.AgentConnectionConfig
-	if connConfig == nil {
+	logger := s.logger.With(
+		slog.String("agent.metadata.instanceUid", agent.Metadata.InstanceUID.String()),
+		slog.String("agentgroup.metadata.name", agentGroup.Metadata.Name),
+	)
+
+	if agentGroup.HasAgentConnectionConfig() {
+		logger.Debug("skip to apply connection settings because agentGroup has no connection config")
+
 		return nil
 	}
 
-	err := agent.ApplyConnectionSettings(
-		connConfig.OpAMPConnection,
-		connConfig.OwnMetrics,
-		connConfig.OwnLogs,
-		connConfig.OwnTraces,
-		connConfig.OtherConnections,
-	)
+	conn := agentGroup.Spec.AgentConnectionConfig
+	if conn == nil {
+		return nil
+	}
+
+	opampConnection := s.buildOpAMPConnection(ctx, conn.OpAMPConnection, logger)
+	ownMetrics := s.buildTelemetryConnection(ctx, conn.OwnMetrics, logger)
+	ownLogs := s.buildTelemetryConnection(ctx, conn.OwnLogs, logger)
+	ownTraces := s.buildTelemetryConnection(ctx, conn.OwnTraces, logger)
+	otherConnections := s.buildOtherConnections(ctx, conn.OtherConnections, logger)
+
+	err := agent.ApplyConnectionSettings(opampConnection, ownMetrics, ownLogs, ownTraces, otherConnections)
 	if err != nil {
 		return fmt.Errorf("apply connection settings: %w", err)
 	}
 
 	return nil
+}
+
+func (s *AgentGroupService) buildOpAMPConnection(
+	ctx context.Context,
+	conn *model.OpAMPConnectionSettings,
+	logger *slog.Logger,
+) *model.AgentOpAMPConnectionSettings {
+	if conn == nil {
+		return nil
+	}
+
+	result := &model.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: conn.DestinationEndpoint,
+		Headers:             conn.Headers,
+		Certificate:         nil,
+	}
+
+	if conn.CertificateName != nil {
+		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, *conn.CertificateName)
+		if err != nil {
+			logger.Warn("failed to get certificate for OpAMP connection",
+				slog.String("certificateName", *conn.CertificateName),
+				slog.String("err", err.Error()),
+			)
+		} else {
+			result.Certificate = certificate.ToAgentCertificate()
+		}
+	}
+
+	return result
+}
+
+func (s *AgentGroupService) buildTelemetryConnection(
+	ctx context.Context,
+	conn *model.TelemetryConnectionSettings,
+	logger *slog.Logger,
+) *model.AgentTelemetryConnectionSettings {
+	if conn == nil {
+		return nil
+	}
+
+	result := &model.AgentTelemetryConnectionSettings{
+		DestinationEndpoint: conn.DestinationEndpoint,
+		Headers:             conn.Headers,
+		Certificate:         nil,
+	}
+
+	if conn.CertificateName != nil {
+		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, *conn.CertificateName)
+		if err != nil {
+			logger.Warn("failed to get certificate for telemetry connection",
+				slog.String("certificateName", *conn.CertificateName),
+				slog.String("err", err.Error()),
+			)
+
+			return nil
+		}
+
+		result.Certificate = certificate.ToAgentCertificate()
+	}
+
+	return result
+}
+
+func (s *AgentGroupService) buildOtherConnections(
+	ctx context.Context,
+	conns map[string]model.OtherConnectionSettings,
+	logger *slog.Logger,
+) map[string]model.AgentOtherConnectionSettings {
+	return mapValuesWithFilterNil(conns,
+		func(conn model.OtherConnectionSettings, _ string) *model.AgentOtherConnectionSettings {
+			result := &model.AgentOtherConnectionSettings{
+				DestinationEndpoint: conn.DestinationEndpoint,
+				Headers:             conn.Headers,
+				Certificate:         nil,
+			}
+
+			if conn.CertificateName != nil {
+				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, *conn.CertificateName)
+				if err != nil {
+					logger.Warn("failed to get certificate for other connection",
+						slog.String("certificateName", *conn.CertificateName),
+						slog.String("err", err.Error()),
+					)
+
+					return nil
+				}
+
+				result.Certificate = certificate.ToAgentCertificate()
+			}
+
+			return result
+		},
+	)
+}
+
+func mapValuesWithFilterNil[K comparable, V, R any](in map[K]V, iteratee func(value V, key K) *R) map[K]R {
+	result := make(map[K]R, len(in))
+
+	for key, value := range in {
+		transformed := iteratee(value, key)
+		if transformed == nil {
+			continue
+		}
+
+		result[key] = *transformed
+	}
+
+	return result
 }

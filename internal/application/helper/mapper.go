@@ -44,11 +44,11 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 		}
 	}
 
-	var agentConnectionConfig *model.AgentConnectionConfig
+	var agentConnectionConfig *model.AgentGroupConnectionConfig
 
 	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.ConnectionSettings != nil {
 		connSettings := apiAgentGroup.Spec.AgentConfig.ConnectionSettings
-		agentConnectionConfig = &model.AgentConnectionConfig{
+		agentConnectionConfig = &model.AgentGroupConnectionConfig{
 			OpAMPConnection:  mapper.mapOpAMPConnectionFromAPI(connSettings.OpAMP),
 			OwnMetrics:       mapper.mapTelemetryConnectionFromAPI(connSettings.OwnMetrics),
 			OwnLogs:          mapper.mapTelemetryConnectionFromAPI(connSettings.OwnLogs),
@@ -117,6 +117,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 		Metadata: v1.Metadata{
 			Name:       domainAgentGroup.Metadata.Name,
 			Priority:   domainAgentGroup.Metadata.Priority,
+			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    domainAgentGroup.Metadata.Selector.IdentifyingAttributes,
@@ -212,10 +213,17 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 
 // MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.
 func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1.AgentPackage {
+	var deletedAt *v1.Time
+	if agentPackage.Metadata.DeletedAt != nil {
+		t := v1.NewTime(*agentPackage.Metadata.DeletedAt)
+		deletedAt = &t
+	}
+
 	return &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       agentPackage.Metadata.Name,
 			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
+			DeletedAt:  deletedAt,
 		},
 		Spec: v1.AgentPackageSpec{
 			PackageType: agentPackage.Spec.PackageType,
@@ -255,6 +263,74 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 		},
 	}
 }
+
+// MapCertificateToAPI maps a domain model Certificate to an API model Certificate.
+func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certificate {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.Certificate{
+		Kind:       v1.CertificateKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.CertificateMetadata{
+			Name:       domain.Metadata.Name,
+			Attributes: v1.Attributes(domain.Metadata.Attributes),
+			DeletedAt:  p(v1.NewTime(domain.Metadata.DeletedAt)),
+		},
+		Spec: v1.CertificateSpec{
+			Cert:       string(domain.Spec.Cert),
+			PrivateKey: string(domain.Spec.PrivateKey),
+			CaCert:     string(domain.Spec.CaCert),
+		},
+		Status: v1.CertificateStatus{
+			Conditions: mapper.mapAgentGroupConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToCertificate maps an API model Certificate to a domain model Certificate.
+func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificate {
+	if api == nil {
+		return nil
+	}
+
+	var deletedAt time.Time
+	if api.Metadata.DeletedAt != nil {
+		deletedAt = api.Metadata.DeletedAt.Time
+	}
+
+	return &model.Certificate{
+		Metadata: model.CertificateMetadata{
+			Name:       api.Metadata.Name,
+			Attributes: model.Attributes(api.Metadata.Attributes),
+			DeletedAt:  deletedAt,
+		},
+		Spec: model.CertificateSpec{
+			Cert:       []byte(api.Spec.Cert),
+			PrivateKey: []byte(api.Spec.PrivateKey),
+			CaCert:     []byte(api.Spec.CaCert),
+		},
+		Status: model.CertificateStatus{
+			Conditions: nil,
+		},
+	}
+}
+
+// --------------------------------------------------------------------------
+// Private helper methods (placed after all exported methods per funcorder)
+// --------------------------------------------------------------------------
+
+const (
+	// TextJSON is the content type for JSON.
+	TextJSON = "text/json"
+	// TextYAML is the content type for YAML.
+	TextYAML = "text/yaml"
+	// Empty is the content type for empty.
+	// Empty content type is treated as YAML by default.
+	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
+	Empty = ""
+)
 
 func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
 	apiCustomCapabilities *v1.AgentCustomCapabilities,
@@ -415,17 +491,6 @@ func (mapper *Mapper) mapAvailableComponentsToAPI(
 	}
 }
 
-const (
-	// TextJSON is the content type for JSON.
-	TextJSON = "text/json"
-	// TextYAML is the content type for YAML.
-	TextYAML = "text/yaml"
-	// Empty is the content type for empty.
-	// Empty content type is treated as YAML by default.
-	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
-	Empty = ""
-)
-
 func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1.AgentConfigFile {
 	switch configFile.ContentType {
 	case TextJSON,
@@ -475,21 +540,21 @@ func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
 	return string(newInstanceUID)
 }
 
-func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) model.OpAMPConnectionSettings {
-	return model.OpAMPConnectionSettings{
+func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) *model.OpAMPConnectionSettings {
+	return &model.OpAMPConnectionSettings{
 		DestinationEndpoint: apiConn.DestinationEndpoint,
 		Headers:             apiConn.Headers,
-		Certificate:         mapper.mapTLSCertificateFromAPI(apiConn.Certificate),
+		CertificateName:     apiConn.CertificateName,
 	}
 }
 
 func (mapper *Mapper) mapTelemetryConnectionFromAPI(
 	apiConn v1.TelemetryConnectionSettings,
-) model.TelemetryConnectionSettings {
-	return model.TelemetryConnectionSettings{
+) *model.TelemetryConnectionSettings {
+	return &model.TelemetryConnectionSettings{
 		DestinationEndpoint: apiConn.DestinationEndpoint,
 		Headers:             apiConn.Headers,
-		Certificate:         mapper.mapTLSCertificateFromAPI(apiConn.Certificate),
+		CertificateName:     apiConn.CertificateName,
 	}
 }
 
@@ -506,36 +571,44 @@ func (mapper *Mapper) mapOtherConnectionsFromAPI(
 		result[name] = model.OtherConnectionSettings{
 			DestinationEndpoint: conn.DestinationEndpoint,
 			Headers:             conn.Headers,
-			Certificate:         mapper.mapTLSCertificateFromAPI(conn.Certificate),
+			CertificateName:     conn.CertificateName,
 		}
 	}
 
 	return result
 }
 
-func (mapper *Mapper) mapTLSCertificateFromAPI(apiCert v1.TLSCertificate) model.TelemetryTLSCertificate {
-	return model.TelemetryTLSCertificate{
-		Cert:       []byte(apiCert.Cert),
-		PrivateKey: []byte(apiCert.PrivateKey),
-		CaCert:     []byte(apiCert.CaCert),
+func (mapper *Mapper) mapOpAMPConnectionToAPI(conn *model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
+	if conn == nil {
+		return v1.OpAMPConnectionSettings{
+			DestinationEndpoint: "",
+			Headers:             nil,
+			CertificateName:     nil,
+		}
 	}
-}
 
-func (mapper *Mapper) mapOpAMPConnectionToAPI(conn model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
 	return v1.OpAMPConnectionSettings{
 		DestinationEndpoint: conn.DestinationEndpoint,
 		Headers:             conn.Headers,
-		Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+		CertificateName:     conn.CertificateName,
 	}
 }
 
 func (mapper *Mapper) mapTelemetryConnectionToAPI(
-	conn model.TelemetryConnectionSettings,
+	conn *model.TelemetryConnectionSettings,
 ) v1.TelemetryConnectionSettings {
+	if conn == nil {
+		return v1.TelemetryConnectionSettings{
+			DestinationEndpoint: "",
+			Headers:             nil,
+			CertificateName:     nil,
+		}
+	}
+
 	return v1.TelemetryConnectionSettings{
 		DestinationEndpoint: conn.DestinationEndpoint,
 		Headers:             conn.Headers,
-		Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+		CertificateName:     conn.CertificateName,
 	}
 }
 
@@ -552,19 +625,11 @@ func (mapper *Mapper) mapOtherConnectionsToAPI(
 		result[name] = v1.OtherConnectionSettings{
 			DestinationEndpoint: conn.DestinationEndpoint,
 			Headers:             conn.Headers,
-			Certificate:         mapper.mapTLSCertificateToAPI(conn.Certificate),
+			CertificateName:     conn.CertificateName,
 		}
 	}
 
 	return result
-}
-
-func (mapper *Mapper) mapTLSCertificateToAPI(cert model.TelemetryTLSCertificate) v1.TLSCertificate {
-	return v1.TLSCertificate{
-		Cert:       string(cert.Cert),
-		PrivateKey: string(cert.PrivateKey),
-		CaCert:     string(cert.CaCert),
-	}
 }
 
 func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition) []v1.Condition {
@@ -585,4 +650,8 @@ func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition)
 	}
 
 	return apiConditions
+}
+
+func p[T any](v T) *T {
+	return &v
 }

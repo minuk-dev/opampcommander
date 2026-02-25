@@ -121,46 +121,24 @@ type formattedAgentPackage struct {
 	PackageType string            `json:"packageType"         short:"type"                text:"packageType"         yaml:"packageType"`
 	Version     string            `json:"version"             short:"version"             text:"version"             yaml:"version"`
 	DownloadURL string            `json:"downloadUrl"         short:"-"                   text:"downloadUrl"         yaml:"downloadUrl"`
-	CreatedAt   time.Time         `json:"createdAt"           short:"createdAt"           text:"createdAt"           yaml:"createdAt"`
-	CreatedBy   string            `json:"createdBy"           short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
 	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy   *string           `json:"deletedBy,omitempty" short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func toFormattedAgentPackage(agentPackage *v1.AgentPackage) *formattedAgentPackage {
-	// Extract timestamps and users from conditions
-	var (
-		createdAt time.Time
-		createdBy string
-		deletedAt *time.Time
-		deletedBy *string
-	)
-
-	for _, condition := range agentPackage.Status.Conditions {
-		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
-		case v1.ConditionTypeCreated:
-			if condition.Status == v1.ConditionStatusTrue {
-				createdAt = condition.LastTransitionTime.Time
-				createdBy = condition.Reason
-			}
-		case v1.ConditionTypeDeleted:
-			if condition.Status == v1.ConditionStatusTrue {
-				t := condition.LastTransitionTime.Time
-				deletedAt = &t
-				deletedBy = &condition.Reason
-			}
-		}
-	}
-
 	return &formattedAgentPackage{
 		Name:        agentPackage.Metadata.Name,
 		Attributes:  agentPackage.Metadata.Attributes,
 		PackageType: agentPackage.Spec.PackageType,
 		Version:     agentPackage.Spec.Version,
 		DownloadURL: agentPackage.Spec.DownloadURL,
-		CreatedAt:   createdAt,
-		CreatedBy:   createdBy,
-		DeletedAt:   deletedAt,
-		DeletedBy:   deletedBy,
+		DeletedAt:   switchToNilIfZero(agentPackage.Metadata.DeletedAt),
 	}
+}
+
+func switchToNilIfZero(t *v1.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+
+	return &t.Time
 }

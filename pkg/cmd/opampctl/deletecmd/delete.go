@@ -8,6 +8,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentpackage"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentremoteconfig"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -31,6 +32,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(agentremoteconfig.NewCommand(agentremoteconfig.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(certificate.NewCommand(certificate.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 

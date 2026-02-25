@@ -12,6 +12,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentpackage"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/certificate"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
@@ -55,6 +56,7 @@ func provideHTTPComponents() fx.Option {
 			agent.NewController, helper.AsController(Identity[*agent.Controller]),
 			agentgroup.NewController, helper.AsController(Identity[*agentgroup.Controller]),
 			agentpackage.NewController, helper.AsController(Identity[*agentpackage.Controller]),
+			certificate.NewController, helper.AsController(Identity[*certificate.Controller]),
 			server.NewController, helper.AsController(Identity[*server.Controller]),
 			github.NewController, helper.AsController(Identity[*github.Controller]),
 			basic.NewController, helper.AsController(Identity[*basic.Controller]),
@@ -80,6 +82,7 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(port.ServerPersistencePort))),
 			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(port.AgentPackagePersistencePort))),
 			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(port.AgentRemoteConfigPersistencePort))),
+			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(port.CertificatePersistencePort))),
 		),
 	)
 }

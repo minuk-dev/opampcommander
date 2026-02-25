@@ -163,59 +163,31 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 
 //nolint:lll
 type formattedAgentPackage struct {
-	Name        string            `json:"name"                short:"name"      text:"name"                yaml:"name"`
-	Attributes  map[string]string `json:"attributes"          short:"-"         text:"-"                   yaml:"attributes"`
-	PackageType string            `json:"packageType"         short:"type"      text:"packageType"         yaml:"packageType"`
-	Version     string            `json:"version"             short:"version"   text:"version"             yaml:"version"`
-	DownloadURL string            `json:"downloadUrl"         short:"-"         text:"downloadUrl"         yaml:"downloadUrl"`
-	CreatedAt   time.Time         `json:"createdAt"           short:"createdAt" text:"createdAt"           yaml:"createdAt"`
-	CreatedBy   string            `json:"createdBy"           short:"createdBy" text:"createdBy"           yaml:"createdBy"`
-	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"-"         text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy   *string           `json:"deletedBy,omitempty" short:"-"         text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
-}
-
-func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.Time, *string) {
-	var (
-		createdAt time.Time
-		createdBy string
-		deletedAt *time.Time
-		deletedBy *string
-	)
-
-	for _, condition := range conditions {
-		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
-		case v1.ConditionTypeCreated:
-			if condition.Status == v1.ConditionStatusTrue {
-				createdAt = condition.LastTransitionTime.Time
-				createdBy = condition.Reason
-			}
-		case v1.ConditionTypeDeleted:
-			if condition.Status == v1.ConditionStatusTrue {
-				t := condition.LastTransitionTime.Time
-				deletedAt = &t
-				deletedBy = &condition.Reason
-			}
-		}
-	}
-
-	return createdAt, createdBy, deletedAt, deletedBy
+	Name        string            `json:"name"                short:"name"    text:"name"                yaml:"name"`
+	Attributes  map[string]string `json:"attributes"          short:"-"       text:"-"                   yaml:"attributes"`
+	PackageType string            `json:"packageType"         short:"type"    text:"packageType"         yaml:"packageType"`
+	Version     string            `json:"version"             short:"version" text:"version"             yaml:"version"`
+	DownloadURL string            `json:"downloadUrl"         short:"-"       text:"downloadUrl"         yaml:"downloadUrl"`
+	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"-"       text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
 }
 
 func (opt *CommandOptions) toFormattedAgentPackage(
 	agentPackage v1.AgentPackage,
 ) formattedAgentPackage {
-	// Extract timestamps and users from conditions
-	createdAt, createdBy, deletedAt, deletedBy := extractConditionInfo(agentPackage.Status.Conditions)
-
 	return formattedAgentPackage{
 		Name:        agentPackage.Metadata.Name,
 		Attributes:  agentPackage.Metadata.Attributes,
 		PackageType: agentPackage.Spec.PackageType,
 		Version:     agentPackage.Spec.Version,
 		DownloadURL: agentPackage.Spec.DownloadURL,
-		CreatedAt:   createdAt,
-		CreatedBy:   createdBy,
-		DeletedAt:   deletedAt,
-		DeletedBy:   deletedBy,
+		DeletedAt:   switchToNilIfZero(agentPackage.Metadata.DeletedAt),
 	}
+}
+
+func switchToNilIfZero(t *v1.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+
+	return &t.Time
 }

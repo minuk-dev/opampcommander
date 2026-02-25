@@ -15,6 +15,55 @@ type AgentGroup struct {
 	Status   AgentGroupStatus
 }
 
+// NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
+// createdAt timestamp, and createdBy identifier.
+func NewAgentGroup(
+	name string,
+	attributes Attributes,
+	createdAt time.Time,
+	createdBy string,
+) *AgentGroup {
+	return &AgentGroup{
+		Metadata: AgentGroupMetadata{
+			Name:       name,
+			Attributes: attributes,
+			Priority:   0,
+			Selector: AgentSelector{
+				IdentifyingAttributes:    nil,
+				NonIdentifyingAttributes: nil,
+			},
+			DeletedAt: time.Time{},
+		},
+		Spec: AgentGroupSpec{
+			AgentRemoteConfig:     nil,
+			AgentRemoteConfigs:    nil,
+			AgentConnectionConfig: nil,
+		},
+		Status: AgentGroupStatus{
+			NumAgents:             0,
+			NumConnectedAgents:    0,
+			NumHealthyAgents:      0,
+			NumUnhealthyAgents:    0,
+			NumNotConnectedAgents: 0,
+
+			Conditions: []Condition{
+				{
+					Type:               ConditionTypeCreated,
+					LastTransitionTime: createdAt,
+					Status:             ConditionStatusTrue,
+					Reason:             createdBy,
+					Message:            "Agent group created",
+				},
+			},
+		},
+	}
+}
+
+// HasAgentConnectionConfig returns true if the agent group has connection configuration.
+func (ag *AgentGroup) HasAgentConnectionConfig() bool {
+	return ag.Spec.AgentConnectionConfig != nil
+}
+
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
 	// Name is the name of the agent group.
@@ -27,8 +76,8 @@ type AgentGroupMetadata struct {
 	// Selector is a set of criteria used to select agents for the group.
 	Selector AgentSelector
 	// DeletedAt is the timestamp when the agent group was soft deleted.
-	// If nil, the agent group is not deleted.
-	DeletedAt *time.Time
+	// If is zero, the agent group is not deleted.
+	DeletedAt time.Time
 }
 
 // AgentGroupSpec represents the specification of an agent group.
@@ -41,7 +90,7 @@ type AgentGroupSpec struct {
 	AgentRemoteConfigs []AgentGroupAgentRemoteConfig
 
 	// AgentConnection settings for agents in this group.
-	AgentConnectionConfig *AgentConnectionConfig
+	AgentConnectionConfig *AgentGroupConnectionConfig
 }
 
 // AgentGroupAgentRemoteConfig represents a remote configuration for agents in the group.
@@ -55,12 +104,12 @@ type AgentGroupAgentRemoteConfig struct {
 	AgentRemoteConfigRef *string
 }
 
-// AgentConnectionConfig represents connection settings for agents in the group.
-type AgentConnectionConfig struct {
-	OpAMPConnection  OpAMPConnectionSettings
-	OwnMetrics       TelemetryConnectionSettings
-	OwnLogs          TelemetryConnectionSettings
-	OwnTraces        TelemetryConnectionSettings
+// AgentGroupConnectionConfig represents connection settings for agents in the group.
+type AgentGroupConnectionConfig struct {
+	OpAMPConnection  *OpAMPConnectionSettings
+	OwnMetrics       *TelemetryConnectionSettings
+	OwnLogs          *TelemetryConnectionSettings
+	OwnTraces        *TelemetryConnectionSettings
 	OtherConnections map[string]OtherConnectionSettings
 }
 
@@ -127,54 +176,10 @@ const (
 	ConditionStatusUnknown ConditionStatus = "Unknown"
 )
 
-// NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
-// createdAt timestamp, and createdBy identifier.
-func NewAgentGroup(
-	name string,
-	attributes Attributes,
-	createdAt time.Time,
-	createdBy string,
-) *AgentGroup {
-	return &AgentGroup{
-		Metadata: AgentGroupMetadata{
-			Name:       name,
-			Attributes: attributes,
-			Priority:   0,
-			Selector: AgentSelector{
-				IdentifyingAttributes:    nil,
-				NonIdentifyingAttributes: nil,
-			},
-			DeletedAt: nil,
-		},
-		Spec: AgentGroupSpec{
-			AgentRemoteConfig:     nil,
-			AgentRemoteConfigs:    nil,
-			AgentConnectionConfig: nil,
-		},
-		Status: AgentGroupStatus{
-			NumAgents:             0,
-			NumConnectedAgents:    0,
-			NumHealthyAgents:      0,
-			NumUnhealthyAgents:    0,
-			NumNotConnectedAgents: 0,
-
-			Conditions: []Condition{
-				{
-					Type:               ConditionTypeCreated,
-					LastTransitionTime: createdAt,
-					Status:             ConditionStatusTrue,
-					Reason:             createdBy,
-					Message:            "Agent group created",
-				},
-			},
-		},
-	}
-}
-
 // IsDeleted returns true if the agent group is marked as deleted.
 func (ag *AgentGroup) IsDeleted() bool {
 	// Check deletedAt field first (new approach)
-	if ag.Metadata.DeletedAt != nil {
+	if !ag.Metadata.DeletedAt.IsZero() {
 		return true
 	}
 
@@ -191,7 +196,7 @@ func (ag *AgentGroup) IsDeleted() bool {
 // MarkDeleted marks the agent group as deleted by setting deletedAt and adding a deleted condition.
 func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
 	// Set deletedAt field (new approach)
-	ag.Metadata.DeletedAt = &deletedAt
+	ag.Metadata.DeletedAt = deletedAt
 
 	// Also maintain condition for backward compatibility
 	for i, condition := range ag.Status.Conditions {
@@ -240,8 +245,8 @@ func (ag *AgentGroup) GetCreatedBy() string {
 // GetDeletedAt returns the timestamp when the agent group was deleted.
 func (ag *AgentGroup) GetDeletedAt() *time.Time {
 	// Check deletedAt field first (new approach)
-	if ag.Metadata.DeletedAt != nil {
-		return ag.Metadata.DeletedAt
+	if !ag.Metadata.DeletedAt.IsZero() {
+		return &ag.Metadata.DeletedAt
 	}
 
 	// Fallback to condition-based check for backward compatibility
