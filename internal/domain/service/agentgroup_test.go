@@ -398,6 +398,8 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 		agentGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
 				Name: "test-group",
+			},
+			Spec: model.AgentGroupSpec{
 				Selector: model.AgentSelector{
 					IdentifyingAttributes: map[string]string{
 						"service.name": "test-service",
@@ -419,7 +421,7 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 		}
 
 		options := &model.ListOptions{Limit: 10}
-		mockAgentUsecase.On("ListAgentsBySelector", ctx, agentGroup.Metadata.Selector, options).
+		mockAgentUsecase.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, options).
 			Return(expectedResponse, nil)
 
 		result, err := svc.ListAgentsByAgentGroup(ctx, agentGroup, options)
@@ -458,6 +460,8 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		matchingGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
 				Name: "matching-group",
+			},
+			Spec: model.AgentGroupSpec{
 				Selector: model.AgentSelector{
 					IdentifyingAttributes: map[string]string{
 						"service.name": "my-service",
@@ -469,6 +473,8 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		nonMatchingGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
 				Name: "non-matching-group",
+			},
+			Spec: model.AgentGroupSpec{
 				Selector: model.AgentSelector{
 					IdentifyingAttributes: map[string]string{
 						"service.name": "other-service",
@@ -515,6 +521,8 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 		nonMatchingGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
 				Name: "non-matching-group",
+			},
+			Spec: model.AgentGroupSpec{
 				Selector: model.AgentSelector{
 					IdentifyingAttributes: map[string]string{
 						"service.name": "other-service",

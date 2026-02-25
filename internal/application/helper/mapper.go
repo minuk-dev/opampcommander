@@ -61,14 +61,14 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 	return &model.AgentGroup{
 		Metadata: model.AgentGroupMetadata{
 			Name:       apiAgentGroup.Metadata.Name,
-			Priority:   apiAgentGroup.Metadata.Priority,
 			Attributes: model.OfAttributes(apiAgentGroup.Metadata.Attributes),
-			Selector: model.AgentSelector{
-				IdentifyingAttributes:    apiAgentGroup.Metadata.Selector.IdentifyingAttributes,
-				NonIdentifyingAttributes: apiAgentGroup.Metadata.Selector.NonIdentifyingAttributes,
-			},
 		},
 		Spec: model.AgentGroupSpec{
+			Priority: apiAgentGroup.Spec.Priority,
+			Selector: model.AgentSelector{
+				IdentifyingAttributes:    apiAgentGroup.Spec.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: apiAgentGroup.Spec.Selector.NonIdentifyingAttributes,
+			},
 			AgentRemoteConfig:     agentRemoteConfig,
 			AgentConnectionConfig: agentConnectionConfig,
 		},
@@ -116,15 +116,15 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 	return &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name:       domainAgentGroup.Metadata.Name,
-			Priority:   domainAgentGroup.Metadata.Priority,
 			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
-			Selector: v1.AgentSelector{
-				IdentifyingAttributes:    domainAgentGroup.Metadata.Selector.IdentifyingAttributes,
-				NonIdentifyingAttributes: domainAgentGroup.Metadata.Selector.NonIdentifyingAttributes,
-			},
 		},
 		Spec: v1.Spec{
+			Priority: domainAgentGroup.Spec.Priority,
+			Selector: v1.AgentSelector{
+				IdentifyingAttributes:    domainAgentGroup.Spec.Selector.IdentifyingAttributes,
+				NonIdentifyingAttributes: domainAgentGroup.Spec.Selector.NonIdentifyingAttributes,
+			},
 			AgentConfig: agentConfig,
 		},
 		Status: v1.Status{

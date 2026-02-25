@@ -27,14 +27,14 @@ func NewAgentGroup(
 		Metadata: AgentGroupMetadata{
 			Name:       name,
 			Attributes: attributes,
-			Priority:   0,
+			DeletedAt:  time.Time{},
+		},
+		Spec: AgentGroupSpec{
+			Priority: 0,
 			Selector: AgentSelector{
 				IdentifyingAttributes:    nil,
 				NonIdentifyingAttributes: nil,
 			},
-			DeletedAt: time.Time{},
-		},
-		Spec: AgentGroupSpec{
 			AgentRemoteConfig:     nil,
 			AgentRemoteConfigs:    nil,
 			AgentConnectionConfig: nil,
@@ -68,13 +68,8 @@ func (ag *AgentGroup) HasAgentConnectionConfig() bool {
 type AgentGroupMetadata struct {
 	// Name is the name of the agent group.
 	Name string
-	// Priority is the priority of the agent group.
-	// When multiple agent groups match an agent, the one with the highest priority is applied.
-	Priority int
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
-	// Selector is a set of criteria used to select agents for the group.
-	Selector AgentSelector
 	// DeletedAt is the timestamp when the agent group was soft deleted.
 	// If is zero, the agent group is not deleted.
 	DeletedAt time.Time
@@ -82,6 +77,13 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
+	// Priority is the priority of the agent group.
+	// When multiple agent groups match an agent, the one with the highest priority is applied.
+	Priority int
+
+	// Selector is a set of criteria used to select agents for the group.
+	Selector AgentSelector
+
 	// AgentRemoteConfig is a single remote configuration (for API compatibility).
 	// Deprecated: Use AgentRemoteConfigs for multiple configs.
 	AgentRemoteConfig *AgentGroupAgentRemoteConfig

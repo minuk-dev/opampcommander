@@ -25,14 +25,14 @@ type AgentGroup struct {
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
 	Name       string            `bson:"name"`
-	Priority   int               `bson:"priority"`
 	Attributes map[string]string `bson:"attributes"`
-	Selector   AgentSelector     `bson:"selector"`
 	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
+	Priority              int                          `bson:"priority"`
+	Selector              AgentSelector                `bson:"selector"`
 	AgentRemoteConfig     *AgentGroupAgentRemoteConfig `bson:"agentConfig,omitempty"`
 	AgentConnectionConfig *AgentConnectionConfig       `bson:"agentConnectionConfig,omitempty"`
 }
@@ -112,19 +112,20 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 
 	return model.AgentGroupMetadata{
 		Name:       s.Name,
-		Priority:   s.Priority,
 		Attributes: s.Attributes,
-		Selector: model.AgentSelector{
-			IdentifyingAttributes:    s.Selector.IdentifyingAttributes,
-			NonIdentifyingAttributes: s.Selector.NonIdentifyingAttributes,
-		},
-		DeletedAt: deletedAt,
+		DeletedAt:  deletedAt,
 	}
 }
 
 func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 	//nolint:exhaustruct // Fields are set conditionally below
-	spec := model.AgentGroupSpec{}
+	spec := model.AgentGroupSpec{
+		Priority: s.Priority,
+		Selector: model.AgentSelector{
+			IdentifyingAttributes:    s.Selector.IdentifyingAttributes,
+			NonIdentifyingAttributes: s.Selector.NonIdentifyingAttributes,
+		},
+	}
 
 	if s.AgentRemoteConfig != nil {
 		spec.AgentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
@@ -206,19 +207,20 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 
 	return AgentGroupMetadata{
 		Name:       metadata.Name,
-		Priority:   metadata.Priority,
 		Attributes: metadata.Attributes,
-		Selector: AgentSelector{
-			IdentifyingAttributes:    metadata.Selector.IdentifyingAttributes,
-			NonIdentifyingAttributes: metadata.Selector.NonIdentifyingAttributes,
-		},
-		DeletedAt: deletedAt,
+		DeletedAt:  deletedAt,
 	}
 }
 
 func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 	//nolint:exhaustruct // Fields are set conditionally below
-	result := AgentGroupSpec{}
+	result := AgentGroupSpec{
+		Priority: spec.Priority,
+		Selector: AgentSelector{
+			IdentifyingAttributes:    spec.Selector.IdentifyingAttributes,
+			NonIdentifyingAttributes: spec.Selector.NonIdentifyingAttributes,
+		},
+	}
 
 	if spec.AgentRemoteConfig != nil {
 		result.AgentRemoteConfig = &AgentGroupAgentRemoteConfig{

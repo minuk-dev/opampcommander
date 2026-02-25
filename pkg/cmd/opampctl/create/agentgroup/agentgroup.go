@@ -114,13 +114,13 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		Metadata: v1.Metadata{
 			Name:       opt.name,
 			Attributes: opt.attributes,
-			Priority:   opt.priority,
+		},
+		Spec: v1.Spec{
+			Priority: opt.priority,
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    opt.identifyingAttributesSelector,
 				NonIdentifyingAttributes: opt.nonIdentifyingAttributeSelector,
 			},
-		},
-		Spec: v1.Spec{
 			AgentConfig: agentConfig,
 		},
 	}
@@ -151,8 +151,8 @@ func toFormattedAgentGroup(agentGroup *v1.AgentGroup) *formattedAgentGroup {
 	return &formattedAgentGroup{
 		Name:                             agentGroup.Metadata.Name,
 		Attributes:                       agentGroup.Metadata.Attributes,
-		IdentifyingAttributesSelector:    agentGroup.Metadata.Selector.IdentifyingAttributes,
-		NonIdentifyingAttributesSelector: agentGroup.Metadata.Selector.NonIdentifyingAttributes,
+		IdentifyingAttributesSelector:    agentGroup.Spec.Selector.IdentifyingAttributes,
+		NonIdentifyingAttributesSelector: agentGroup.Spec.Selector.NonIdentifyingAttributes,
 		DeletedAt:                        switchToNilIfZero(agentGroup.Metadata.DeletedAt),
 	}
 }

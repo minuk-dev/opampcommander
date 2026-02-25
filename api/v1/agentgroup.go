@@ -14,16 +14,16 @@ type AgentGroup struct {
 
 // Metadata represents metadata information for an agent group.
 type Metadata struct {
-	Name       string        `json:"name"`
-	Priority   int           `json:"priority"`
-	Attributes Attributes    `json:"attributes"`
-	Selector   AgentSelector `json:"selector"`
-	DeletedAt  *Time         `json:"deletedAt"`
+	Name       string     `json:"name"`
+	Attributes Attributes `json:"attributes"`
+	DeletedAt  *Time      `json:"deletedAt"`
 } // @name AgentGroupMetadata
 
 // Spec represents the specification of an agent group.
 type Spec struct {
-	AgentConfig *AgentConfig `json:"agentConfig,omitempty"`
+	Priority    int           `json:"priority"`
+	Selector    AgentSelector `json:"selector"`
+	AgentConfig *AgentConfig  `json:"agentConfig,omitempty"`
 } // @name AgentGroupSpec
 
 // Status represents the status of an agent group.
