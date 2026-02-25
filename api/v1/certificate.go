@@ -25,6 +25,8 @@ type CertificateMetadata struct {
 	Name string `json:"name"`
 	// Attributes are optional key-value pairs for the certificate.
 	Attributes Attributes `json:"attributes,omitempty"`
+	// CreatedAt is the timestamp when the certificate was created.
+	CreatedAt Time `json:"createdAt"`
 	// DeletedAt is the timestamp when the certificate was soft deleted.
 	// If nil, the certificate is not deleted.
 	DeletedAt *Time `json:"deletedAt,omitempty"`

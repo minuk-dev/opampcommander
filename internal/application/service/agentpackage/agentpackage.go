@@ -114,6 +114,10 @@ func (a *Service) UpdateAgentPackage(
 	}
 
 	domainModel := a.mapper.MapAPIToAgentPackage(agentPackage)
+
+	// Preserve createdAt from existing agent package (immutable field)
+	domainModel.Metadata.CreatedAt = existingDomainModel.Metadata.CreatedAt
+
 	domainModel.Status = existingDomainModel.Status
 
 	updated, err := a.agentpackageUsecase.SaveAgentPackage(ctx, domainModel)

@@ -1524,6 +1524,9 @@ const docTemplate = `{
                 "attributes": {
                     "$ref": "#/definitions/api_v1.Attributes"
                 },
+                "createdAt": {
+                    "type": "string"
+                },
                 "deletedAt": {
                     "type": "string"
                 },
@@ -1626,6 +1629,9 @@ const docTemplate = `{
             "properties": {
                 "attributes": {
                     "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                },
+                "createdAt": {
+                    "type": "string"
                 },
                 "deletedAt": {
                     "type": "string"
@@ -1887,6 +1893,10 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
                         }
                     ]
+                },
+                "createdAt": {
+                    "description": "CreatedAt is the timestamp when the certificate was created.",
+                    "type": "string"
                 },
                 "deletedAt": {
                     "description": "DeletedAt is the timestamp when the certificate was soft deleted.\nIf nil, the certificate is not deleted.",

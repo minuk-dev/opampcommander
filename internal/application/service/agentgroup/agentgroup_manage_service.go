@@ -171,6 +171,9 @@ func (s *ManageService) UpdateAgentGroup(
 
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
 
+	// Preserve createdAt from existing agent group (immutable field)
+	domainAgentGroup.Metadata.CreatedAt = existingAgentGroup.Metadata.CreatedAt
+
 	// Preserve existing conditions and add/update the Updated condition
 	domainAgentGroup.Status.Conditions = existingAgentGroup.Status.Conditions
 

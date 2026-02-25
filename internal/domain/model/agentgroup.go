@@ -27,6 +27,7 @@ func NewAgentGroup(
 		Metadata: AgentGroupMetadata{
 			Name:       name,
 			Attributes: attributes,
+			CreatedAt:  createdAt,
 			DeletedAt:  time.Time{},
 		},
 		Spec: AgentGroupSpec{
@@ -70,6 +71,8 @@ type AgentGroupMetadata struct {
 	Name string
 	// Attributes is a map of attributes associated with the agent group.
 	Attributes Attributes
+	// CreatedAt is the timestamp when the agent group was created.
+	CreatedAt time.Time
 	// DeletedAt is the timestamp when the agent group was soft deleted.
 	// If is zero, the agent group is not deleted.
 	DeletedAt time.Time

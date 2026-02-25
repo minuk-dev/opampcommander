@@ -14,6 +14,7 @@ type AgentRemoteConfig struct {
 type AgentRemoteConfigMetadata struct {
 	Name       string
 	Attributes Attributes
+	CreatedAt  time.Time
 	DeletedAt  *time.Time
 }
 

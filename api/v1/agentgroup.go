@@ -16,7 +16,8 @@ type AgentGroup struct {
 type Metadata struct {
 	Name       string     `json:"name"`
 	Attributes Attributes `json:"attributes"`
-	DeletedAt  *Time      `json:"deletedAt"`
+	CreatedAt  Time       `json:"createdAt"`
+	DeletedAt  *Time      `json:"deletedAt,omitempty"`
 } // @name AgentGroupMetadata
 
 // Spec represents the specification of an agent group.

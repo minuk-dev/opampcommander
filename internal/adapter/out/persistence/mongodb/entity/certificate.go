@@ -26,6 +26,7 @@ type Certificate struct {
 type CertificateMetadata struct {
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
+	CreatedAt  time.Time         `bson:"createdAt,omitempty"`
 	DeletedAt  time.Time         `bson:"deletedAt,omitempty"`
 }
 
@@ -54,6 +55,7 @@ func (m *CertificateMetadata) toDomain() model.CertificateMetadata {
 	return model.CertificateMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
+		CreatedAt:  m.CreatedAt,
 		DeletedAt:  m.DeletedAt,
 	}
 }
@@ -91,6 +93,7 @@ func certificateMetadataFromDomain(m model.CertificateMetadata) CertificateMetad
 	return CertificateMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
+		CreatedAt:  m.CreatedAt,
 		DeletedAt:  m.DeletedAt,
 	}
 }
