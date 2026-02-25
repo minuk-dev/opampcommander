@@ -27,7 +27,7 @@ type AgentPackage struct {
 type AgentPackageMetadata struct {
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
-	CreatedAt  *time.Time        `bson:"createdAt,omitempty"`
+	CreatedAt  time.Time         `bson:"createdAt"`
 	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
@@ -144,7 +144,7 @@ type AgentRemoteConfigResourceEntity struct {
 // AgentRemoteConfigResourceMetadata represents the metadata of an agent remote config resource.
 type AgentRemoteConfigResourceMetadata struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
-	CreatedAt  *time.Time        `bson:"createdAt,omitempty"`
+	CreatedAt  time.Time         `bson:"createdAt"`
 }
 
 // AgentRemoteConfigResourceSpec represents the specification of an agent remote config resource.

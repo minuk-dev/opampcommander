@@ -16,7 +16,7 @@ type AgentPackage struct {
 type AgentPackageMetadata struct {
 	Name       string     `json:"name"`
 	Attributes Attributes `json:"attributes"`
-	CreatedAt  *Time      `json:"createdAt,omitempty"`
+	CreatedAt  Time       `json:"createdAt"`
 	DeletedAt  *Time      `json:"deletedAt,omitempty"`
 } // @name AgentPackageMetadata
 

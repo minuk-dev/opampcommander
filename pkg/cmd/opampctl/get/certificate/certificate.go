@@ -205,18 +205,10 @@ func (opt *CommandOptions) toFormattedCertificate(
 	certificate v1.Certificate,
 ) formattedCertificate {
 	// Extract timestamps from metadata first, then fallback to conditions
-	var (
-		createdAt time.Time
-		createdBy string
-	)
-
-	if certificate.Metadata.CreatedAt != nil && !certificate.Metadata.CreatedAt.IsZero() {
-		createdAt = certificate.Metadata.CreatedAt.Time
-	}
+	createdAt := certificate.Metadata.CreatedAt.Time
 
 	// Get createdBy and deletedAt/deletedBy from conditions (createdBy is not in metadata)
-	condCreatedAt, condCreatedBy, deletedAt, deletedBy := extractConditionInfo(certificate.Status.Conditions)
-	createdBy = condCreatedBy
+	condCreatedAt, createdBy, deletedAt, deletedBy := extractConditionInfo(certificate.Status.Conditions)
 
 	// Fallback to condition's createdAt if metadata doesn't have it
 	if createdAt.IsZero() {

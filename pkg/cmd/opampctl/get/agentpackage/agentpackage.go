@@ -168,7 +168,7 @@ type formattedAgentPackage struct {
 	PackageType string            `json:"packageType"         short:"type"      text:"packageType"         yaml:"packageType"`
 	Version     string            `json:"version"             short:"version"   text:"version"             yaml:"version"`
 	DownloadURL string            `json:"downloadUrl"         short:"-"         text:"downloadUrl"         yaml:"downloadUrl"`
-	CreatedAt   *time.Time        `json:"createdAt,omitempty" short:"createdAt" text:"createdAt,omitempty" yaml:"createdAt,omitempty"`
+	CreatedAt   time.Time         `json:"createdAt"           short:"createdAt" text:"createdAt"           yaml:"createdAt"`
 	CreatedBy   string            `json:"createdBy,omitempty" short:"createdBy" text:"createdBy,omitempty" yaml:"createdBy,omitempty"`
 	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"-"         text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
 }
@@ -204,22 +204,14 @@ func (opt *CommandOptions) toFormattedAgentPackage(
 	agentPackage v1.AgentPackage,
 ) formattedAgentPackage {
 	// Extract timestamps from metadata first, then fallback to conditions
-	var (
-		createdAt *time.Time
-		createdBy string
-	)
-
-	if agentPackage.Metadata.CreatedAt != nil && !agentPackage.Metadata.CreatedAt.IsZero() {
-		createdAt = &agentPackage.Metadata.CreatedAt.Time
-	}
+	createdAt := agentPackage.Metadata.CreatedAt.Time
 
 	// Get createdBy from conditions (createdBy is not in metadata)
-	condCreatedAt, condCreatedBy, _, _ := extractConditionInfo(agentPackage.Status.Conditions)
-	createdBy = condCreatedBy
+	condCreatedAt, createdBy, _, _ := extractConditionInfo(agentPackage.Status.Conditions)
 
 	// Fallback to condition's createdAt if metadata doesn't have it
-	if createdAt == nil && !condCreatedAt.IsZero() {
-		createdAt = &condCreatedAt
+	if createdAt.IsZero() {
+		createdAt = condCreatedAt
 	}
 
 	return formattedAgentPackage{

@@ -12,7 +12,7 @@ type AgentPackage struct {
 // MarkAsCreated marks the agent package as created by setting the CreatedAt timestamp.
 func (a *AgentPackage) MarkAsCreated(createdAt time.Time, createdBy string) {
 	// Set the CreatedAt timestamp in metadata
-	a.Metadata.CreatedAt = &createdAt
+	a.Metadata.CreatedAt = createdAt
 
 	a.Status.Conditions = append(a.Status.Conditions, Condition{
 		Type:               ConditionTypeCreated,
@@ -43,7 +43,7 @@ type AgentPackageMetadata struct {
 	Name       string
 	Attributes Attributes
 	// CreatedAt is the timestamp when the agent package was created.
-	CreatedAt *time.Time
+	CreatedAt time.Time
 	// DeletedAt is the timestamp when the agent package was soft deleted.
 	// If nil, the agent package is not deleted.
 	DeletedAt *time.Time

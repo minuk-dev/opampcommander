@@ -116,7 +116,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 	return &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name:       domainAgentGroup.Metadata.Name,
-			CreatedAt:  p(v1.NewTime(domainAgentGroup.Metadata.CreatedAt)),
+			CreatedAt:  v1.NewTime(domainAgentGroup.Metadata.CreatedAt),
 			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
 		},
@@ -220,17 +220,11 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1
 		deletedAt = &t
 	}
 
-	var createdAt *v1.Time
-	if agentPackage.Metadata.CreatedAt != nil {
-		t := v1.NewTime(*agentPackage.Metadata.CreatedAt)
-		createdAt = &t
-	}
-
 	return &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       agentPackage.Metadata.Name,
 			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
-			CreatedAt:  createdAt,
+			CreatedAt:  v1.NewTime(agentPackage.Metadata.CreatedAt),
 			DeletedAt:  deletedAt,
 		},
 		Spec: v1.AgentPackageSpec{
@@ -254,7 +248,7 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 		Metadata: model.AgentPackageMetadata{
 			Name:       apiModel.Metadata.Name,
 			Attributes: model.OfAttributes(apiModel.Metadata.Attributes),
-			CreatedAt:  &apiModel.Metadata.CreatedAt.Time,
+			CreatedAt:  apiModel.Metadata.CreatedAt.Time,
 			DeletedAt:  nil,
 		},
 		Spec: model.AgentPackageSpec{
@@ -285,7 +279,7 @@ func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certifi
 		Metadata: v1.CertificateMetadata{
 			Name:       domain.Metadata.Name,
 			Attributes: v1.Attributes(domain.Metadata.Attributes),
-			CreatedAt:  p(v1.NewTime(domain.Metadata.CreatedAt)),
+			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
 			DeletedAt:  p(v1.NewTime(domain.Metadata.DeletedAt)),
 		},
 		Spec: v1.CertificateSpec{
@@ -305,11 +299,6 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificat
 		return nil
 	}
 
-	var createdAt time.Time
-	if api.Metadata.CreatedAt != nil {
-		createdAt = api.Metadata.CreatedAt.Time
-	}
-
 	var deletedAt time.Time
 	if api.Metadata.DeletedAt != nil {
 		deletedAt = api.Metadata.DeletedAt.Time
@@ -319,7 +308,7 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificat
 		Metadata: model.CertificateMetadata{
 			Name:       api.Metadata.Name,
 			Attributes: model.Attributes(api.Metadata.Attributes),
-			CreatedAt:  createdAt,
+			CreatedAt:  api.Metadata.CreatedAt.Time,
 			DeletedAt:  deletedAt,
 		},
 		Spec: model.CertificateSpec{

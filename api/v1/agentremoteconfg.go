@@ -11,7 +11,7 @@ type AgentRemoteConfig struct {
 type AgentRemoteConfigMetadata struct {
 	Name       string     `json:"name"`
 	Attributes Attributes `json:"attributes"`
-	CreatedAt  *Time      `json:"createdAt,omitempty"`
+	CreatedAt  Time       `json:"createdAt"`
 } // @name AgentRemoteConfigMetadata
 
 // AgentRemoteConfigSpec represents the specification of an agent remote config.
