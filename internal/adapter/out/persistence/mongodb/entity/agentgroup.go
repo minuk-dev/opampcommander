@@ -26,6 +26,7 @@ type AgentGroup struct {
 type AgentGroupMetadata struct {
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes"`
+	CreatedAt  *time.Time        `bson:"createdAt,omitempty"`
 	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
@@ -110,9 +111,15 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 		deletedAt = *s.DeletedAt
 	}
 
+	var createdAt time.Time
+	if s.CreatedAt != nil {
+		createdAt = *s.CreatedAt
+	}
+
 	return model.AgentGroupMetadata{
 		Name:       s.Name,
 		Attributes: s.Attributes,
+		CreatedAt:  createdAt,
 		DeletedAt:  deletedAt,
 	}
 }
@@ -205,9 +212,15 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 		deletedAt = &metadata.DeletedAt
 	}
 
+	var createdAt *time.Time
+	if !metadata.CreatedAt.IsZero() {
+		createdAt = &metadata.CreatedAt
+	}
+
 	return AgentGroupMetadata{
 		Name:       metadata.Name,
 		Attributes: metadata.Attributes,
+		CreatedAt:  createdAt,
 		DeletedAt:  deletedAt,
 	}
 }

@@ -37,6 +37,8 @@ func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 type CertificateMetadata struct {
 	Name       string
 	Attributes Attributes
+	// CreatedAt is the timestamp when the certificate was created.
+	CreatedAt time.Time
 	// DeletedAt is the timestamp when the certificate was soft deleted.
 	// If zero, the certificate is not deleted.
 	DeletedAt time.Time

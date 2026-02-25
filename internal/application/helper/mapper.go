@@ -116,6 +116,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 	return &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name:       domainAgentGroup.Metadata.Name,
+			CreatedAt:  p(v1.NewTime(domainAgentGroup.Metadata.CreatedAt)),
 			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
 		},
@@ -219,10 +220,17 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1
 		deletedAt = &t
 	}
 
+	var createdAt *v1.Time
+	if agentPackage.Metadata.CreatedAt != nil {
+		t := v1.NewTime(*agentPackage.Metadata.CreatedAt)
+		createdAt = &t
+	}
+
 	return &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       agentPackage.Metadata.Name,
 			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
+			CreatedAt:  createdAt,
 			DeletedAt:  deletedAt,
 		},
 		Spec: v1.AgentPackageSpec{
@@ -276,6 +284,7 @@ func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certifi
 		Metadata: v1.CertificateMetadata{
 			Name:       domain.Metadata.Name,
 			Attributes: v1.Attributes(domain.Metadata.Attributes),
+			CreatedAt:  p(v1.NewTime(domain.Metadata.CreatedAt)),
 			DeletedAt:  p(v1.NewTime(domain.Metadata.DeletedAt)),
 		},
 		Spec: v1.CertificateSpec{

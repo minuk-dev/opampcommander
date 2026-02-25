@@ -27,6 +27,7 @@ type AgentPackage struct {
 type AgentPackageMetadata struct {
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
+	CreatedAt  *time.Time        `bson:"createdAt,omitempty"`
 	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
@@ -59,6 +60,7 @@ func (m *AgentPackageMetadata) toDomain() domainmodel.AgentPackageMetadata {
 	return domainmodel.AgentPackageMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
+		CreatedAt:  m.CreatedAt,
 		DeletedAt:  m.DeletedAt,
 	}
 }
@@ -100,6 +102,7 @@ func agentPackageMetadataFromDomain(m domainmodel.AgentPackageMetadata) AgentPac
 	return AgentPackageMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
+		CreatedAt:  m.CreatedAt,
 		DeletedAt:  m.DeletedAt,
 	}
 }
@@ -141,6 +144,7 @@ type AgentRemoteConfigResourceEntity struct {
 // AgentRemoteConfigResourceMetadata represents the metadata of an agent remote config resource.
 type AgentRemoteConfigResourceMetadata struct {
 	Attributes map[string]string `bson:"attributes,omitempty"`
+	CreatedAt  *time.Time        `bson:"createdAt,omitempty"`
 }
 
 // AgentRemoteConfigResourceSpec represents the specification of an agent remote config resource.
@@ -160,6 +164,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 		Metadata: domainmodel.AgentRemoteConfigMetadata{
 			Name:       arc.Name,
 			Attributes: arc.Metadata.Attributes,
+			CreatedAt:  arc.Metadata.CreatedAt,
 			DeletedAt:  nil,
 		},
 		Spec: domainmodel.AgentRemoteConfigSpec{
@@ -183,6 +188,7 @@ func AgentRemoteConfigResourceEntityFromDomain(
 		Name: arc.Metadata.Name,
 		Metadata: AgentRemoteConfigResourceMetadata{
 			Attributes: arc.Metadata.Attributes,
+			CreatedAt:  arc.Metadata.CreatedAt,
 		},
 		Spec: AgentRemoteConfigResourceSpec{
 			Value:       arc.Spec.Value,

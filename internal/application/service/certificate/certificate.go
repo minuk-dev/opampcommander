@@ -92,6 +92,9 @@ func (s *Service) CreateCertificate(
 		createdBy = security.NewAnonymousUser()
 	}
 
+	// Set the CreatedAt timestamp in metadata
+	domainModel.Metadata.CreatedAt = now
+
 	domainModel.Status.Conditions = append(domainModel.Status.Conditions, model.Condition{
 		Type:               model.ConditionTypeCreated,
 		Status:             model.ConditionStatusTrue,
