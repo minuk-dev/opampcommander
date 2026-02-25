@@ -204,8 +204,10 @@ func (opt *CommandOptions) toFormattedAgentPackage(
 	agentPackage v1.AgentPackage,
 ) formattedAgentPackage {
 	// Extract timestamps from metadata first, then fallback to conditions
-	var createdAt *time.Time
-	var createdBy string
+	var (
+		createdAt *time.Time
+		createdBy string
+	)
 
 	if agentPackage.Metadata.CreatedAt != nil && !agentPackage.Metadata.CreatedAt.IsZero() {
 		createdAt = &agentPackage.Metadata.CreatedAt.Time

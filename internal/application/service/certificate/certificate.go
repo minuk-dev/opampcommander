@@ -123,6 +123,10 @@ func (s *Service) UpdateCertificate(
 	}
 
 	domainModel := s.mapper.MapAPIToCertificate(certificate)
+
+	// Preserve createdAt from existing certificate (immutable field)
+	domainModel.Metadata.CreatedAt = existingDomainModel.Metadata.CreatedAt
+
 	domainModel.Status = existingDomainModel.Status
 
 	now := s.clock.Now()

@@ -214,8 +214,10 @@ func (opt *CommandOptions) toFormattedAgentGroup(
 	agentGroup v1.AgentGroup,
 ) formattedAgentGroup {
 	// Extract timestamps from metadata first, then fallback to conditions
-	var createdAt time.Time
-	var createdBy string
+	var (
+		createdAt time.Time
+		createdBy string
+	)
 
 	if agentGroup.Metadata.CreatedAt != nil && !agentGroup.Metadata.CreatedAt.IsZero() {
 		createdAt = agentGroup.Metadata.CreatedAt.Time

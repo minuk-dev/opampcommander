@@ -205,8 +205,10 @@ func (opt *CommandOptions) toFormattedCertificate(
 	certificate v1.Certificate,
 ) formattedCertificate {
 	// Extract timestamps from metadata first, then fallback to conditions
-	var createdAt time.Time
-	var createdBy string
+	var (
+		createdAt time.Time
+		createdBy string
+	)
 
 	if certificate.Metadata.CreatedAt != nil && !certificate.Metadata.CreatedAt.IsZero() {
 		createdAt = certificate.Metadata.CreatedAt.Time

@@ -254,6 +254,7 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 		Metadata: model.AgentPackageMetadata{
 			Name:       apiModel.Metadata.Name,
 			Attributes: model.OfAttributes(apiModel.Metadata.Attributes),
+			CreatedAt:  &apiModel.Metadata.CreatedAt.Time,
 			DeletedAt:  nil,
 		},
 		Spec: model.AgentPackageSpec{
@@ -304,6 +305,11 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificat
 		return nil
 	}
 
+	var createdAt time.Time
+	if api.Metadata.CreatedAt != nil {
+		createdAt = api.Metadata.CreatedAt.Time
+	}
+
 	var deletedAt time.Time
 	if api.Metadata.DeletedAt != nil {
 		deletedAt = api.Metadata.DeletedAt.Time
@@ -313,6 +319,7 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificat
 		Metadata: model.CertificateMetadata{
 			Name:       api.Metadata.Name,
 			Attributes: model.Attributes(api.Metadata.Attributes),
+			CreatedAt:  createdAt,
 			DeletedAt:  deletedAt,
 		},
 		Spec: model.CertificateSpec{

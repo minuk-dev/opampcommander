@@ -206,8 +206,10 @@ func (opt *CommandOptions) toFormattedAgentRemoteConfig(
 	agentRemoteConfig v1.AgentRemoteConfig,
 ) formattedAgentRemoteConfig {
 	// Extract timestamps from metadata first, then fallback to conditions
-	var createdAt time.Time
-	var createdBy string
+	var (
+		createdAt time.Time
+		createdBy string
+	)
 
 	if agentRemoteConfig.Metadata.CreatedAt != nil && !agentRemoteConfig.Metadata.CreatedAt.IsZero() {
 		createdAt = agentRemoteConfig.Metadata.CreatedAt.Time
