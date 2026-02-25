@@ -198,15 +198,15 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	//exhaustruct:ignore
 	_, err := opampClient.AgentGroupService.CreateAgentGroup(ctx, &v1.AgentGroup{
 		Metadata: v1.Metadata{
-			Name:     groupAlphaName,
+			Name: groupAlphaName,
+		},
+		Spec: v1.Spec{
 			Priority: 10,
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes: map[string]string{
 					"service.name": "service-alpha",
 				},
 			},
-		},
-		Spec: v1.Spec{
 			AgentConfig: &v1.AgentConfig{
 				AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
 					AgentRemoteConfigName: &commonConfigName,
@@ -225,15 +225,15 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	//exhaustruct:ignore
 	_, err = opampClient.AgentGroupService.CreateAgentGroup(ctx, &v1.AgentGroup{
 		Metadata: v1.Metadata{
-			Name:     groupBetaName,
+			Name: groupBetaName,
+		},
+		Spec: v1.Spec{
 			Priority: 10,
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes: map[string]string{
 					"service.name": "service-beta",
 				},
 			},
-		},
-		Spec: v1.Spec{
 			AgentConfig: &v1.AgentConfig{
 				AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
 					AgentRemoteConfigName: &commonConfigName,
