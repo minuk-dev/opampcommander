@@ -51,14 +51,14 @@ builds:
 
 dockers:
   - image_templates:
-      - "minukdev/opampcommander:{{ .Version }}-amd64"
+      - "ghcr.io/minuk-dev/opampcommander:{{ .Version }}-amd64"
     use: buildx
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
     dockerfile: build/docker/apiserver/Dockerfile
   - image_templates:
-      - "minukdev/opampcommander:{{ .Version }}-arm64"
+      - "ghcr.io/minuk-dev/opampcommander:{{ .Version }}-arm64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -66,10 +66,10 @@ dockers:
     goarch: arm64
     dockerfile: build/docker/apiserver/Dockerfile
 docker_manifests:
-  - name_template: "minukdev/opampcommander:{{ .Version }}"
+  - name_template: "ghcr.io/minuk-dev/opampcommander:{{ .Version }}"
     image_templates:
-      - "minukdev/opampcommander:{{ .Version }}-amd64"
-      - "minukdev/opampcommander:{{ .Version }}-arm64"
+      - "ghcr.io/minuk-dev/opampcommander:{{ .Version }}-amd64"
+      - "ghcr.io/minuk-dev/opampcommander:{{ .Version }}-arm64"
 
 release:
   github:
