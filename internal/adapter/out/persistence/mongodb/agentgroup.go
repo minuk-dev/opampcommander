@@ -139,7 +139,7 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	agentGroupEntity *entity.AgentGroup,
 ) (*entity.AgentGroupStatistics, error) {
 	// Build filter conditions for agents matching this agent group's selector
-	selector := agentGroupEntity.Metadata.Selector
+	selector := agentGroupEntity.Spec.Selector
 	allConditions := SelectorToMatchConditions(selector)
 
 	// Build match filter

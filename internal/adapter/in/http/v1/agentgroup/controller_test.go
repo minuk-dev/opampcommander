@@ -40,12 +40,13 @@ func TestAgentGroupController_List(t *testing.T) {
 				Metadata: v1.Metadata{
 					Name:       "g1",
 					Attributes: v1.Attributes{},
+				},
+				Spec: v1.Spec{
 					Selector: v1.AgentSelector{
 						IdentifyingAttributes:    map[string]string{},
 						NonIdentifyingAttributes: map[string]string{},
 					},
 				},
-				Spec: v1.Spec{},
 				Status: v1.Status{
 					Conditions: []v1.Condition{
 						{
@@ -61,12 +62,13 @@ func TestAgentGroupController_List(t *testing.T) {
 				Metadata: v1.Metadata{
 					Name:       "g2",
 					Attributes: v1.Attributes{},
+				},
+				Spec: v1.Spec{
 					Selector: v1.AgentSelector{
 						IdentifyingAttributes:    map[string]string{},
 						NonIdentifyingAttributes: map[string]string{},
 					},
 				},
-				Spec: v1.Spec{},
 				Status: v1.Status{
 					Conditions: []v1.Condition{
 						{
@@ -155,12 +157,13 @@ func TestAgentGroupController_Get(t *testing.T) {
 		Metadata: v1.Metadata{
 			Name:       "g1",
 			Attributes: v1.Attributes{},
+		},
+		Spec: v1.Spec{
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    map[string]string{},
 				NonIdentifyingAttributes: map[string]string{},
 			},
 		},
-		Spec: v1.Spec{},
 		Status: v1.Status{
 			Conditions: []v1.Condition{
 				{
@@ -228,12 +231,13 @@ func TestAgentGroupController_Create(t *testing.T) {
 		Metadata: v1.Metadata{
 			Name:       name,
 			Attributes: v1.Attributes{},
+		},
+		Spec: v1.Spec{
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    map[string]string{},
 				NonIdentifyingAttributes: map[string]string{},
 			},
 		},
-		Spec: v1.Spec{},
 		Status: v1.Status{
 			Conditions: []v1.Condition{
 				{
@@ -250,6 +254,8 @@ func TestAgentGroupController_Create(t *testing.T) {
 		Metadata: v1.Metadata{
 			Name:       name,
 			Attributes: v1.Attributes{},
+		},
+		Spec: v1.Spec{
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    map[string]string{},
 				NonIdentifyingAttributes: map[string]string{},
@@ -314,6 +320,8 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 		Metadata: v1.Metadata{
 			Name:       "g1",
 			Attributes: v1.Attributes{},
+		},
+		Spec: v1.Spec{
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    map[string]string{},
 				NonIdentifyingAttributes: map[string]string{},
@@ -350,12 +358,13 @@ func TestAgentGroupController_Update(t *testing.T) {
 		Metadata: v1.Metadata{
 			Name:       "g1",
 			Attributes: v1.Attributes{},
+		},
+		Spec: v1.Spec{
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    map[string]string{},
 				NonIdentifyingAttributes: map[string]string{},
 			},
 		},
-		Spec: v1.Spec{},
 		Status: v1.Status{
 			Conditions: []v1.Condition{
 				{
@@ -423,12 +432,13 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 		Metadata: v1.Metadata{
 			Name:       name,
 			Attributes: v1.Attributes{},
+		},
+		Spec: v1.Spec{
 			Selector: v1.AgentSelector{
 				IdentifyingAttributes:    map[string]string{},
 				NonIdentifyingAttributes: map[string]string{},
 			},
 		},
-		Spec: v1.Spec{},
 		Status: v1.Status{
 			Conditions: []v1.Condition{
 				{

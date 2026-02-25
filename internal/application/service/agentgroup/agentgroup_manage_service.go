@@ -91,7 +91,7 @@ func (s *ManageService) ListAgentsByAgentGroup(
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Metadata.Selector, options)
+	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Spec.Selector, options)
 	if err != nil {
 		return nil, fmt.Errorf("list agents by agent group: %w", err)
 	}

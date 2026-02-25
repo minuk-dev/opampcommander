@@ -159,7 +159,7 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 	agentGroup *model.AgentGroup,
 	options *model.ListOptions,
 ) (*model.ListResponse[*model.Agent], error) {
-	agentSelector := agentGroup.Metadata.Selector
+	agentSelector := agentGroup.Spec.Selector
 
 	listResp, err := s.agentUsecase.ListAgentsBySelector(
 		ctx,
@@ -192,7 +192,7 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 			continue
 		}
 
-		if matchesSelector(agent, group.Metadata.Selector) {
+		if matchesSelector(agent, group.Spec.Selector) {
 			matchingGroups = append(matchingGroups, group)
 		}
 	}

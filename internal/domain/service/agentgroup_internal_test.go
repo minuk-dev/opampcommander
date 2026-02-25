@@ -631,11 +631,11 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		agentGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
 				Name: "production",
+			},
+			Spec: model.AgentGroupSpec{
 				Selector: model.AgentSelector{
 					IdentifyingAttributes: map[string]string{"service.name": "my-service"},
 				},
-			},
-			Spec: model.AgentGroupSpec{
 				AgentRemoteConfigs: []model.AgentGroupAgentRemoteConfig{
 					{AgentRemoteConfigRef: &refName},
 				},
@@ -648,7 +648,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 			RemainingItemCount: 0,
 		}
 
-		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Metadata.Selector, mock.Anything).
+		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(referencedConfig, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *model.Agent) bool {
@@ -684,11 +684,11 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		agentGroup := &model.AgentGroup{
 			Metadata: model.AgentGroupMetadata{
 				Name: "staging",
+			},
+			Spec: model.AgentGroupSpec{
 				Selector: model.AgentSelector{
 					IdentifyingAttributes: map[string]string{"service.name": "my-service"},
 				},
-			},
-			Spec: model.AgentGroupSpec{
 				AgentRemoteConfigs: []model.AgentGroupAgentRemoteConfig{
 					{
 						AgentRemoteConfigName: &inlineName,
@@ -707,7 +707,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 			RemainingItemCount: 0,
 		}
 
-		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Metadata.Selector, mock.Anything).
+		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *model.Agent) bool {
 			// Verify the config has the prefixed name
