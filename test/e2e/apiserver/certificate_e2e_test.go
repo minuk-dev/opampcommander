@@ -203,19 +203,9 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 		err := opampClient.CertificateService.DeleteCertificate(ctx, certName)
 		require.NoError(t, err, "Failed to delete certificate")
 
-		// Verify deletion (soft delete - should still exist but marked as deleted)
-		cert, err := opampClient.CertificateService.GetCertificate(ctx, certName)
-		require.NoError(t, err, "Certificate should still be retrievable after soft delete")
-
-		// Check that it has a deleted condition
-		hasDeletedCondition := false
-		for _, condition := range cert.Status.Conditions {
-			if condition.Type == v1.ConditionTypeDeleted && condition.Status == v1.ConditionStatusTrue {
-				hasDeletedCondition = true
-				break
-			}
-		}
-		assert.True(t, hasDeletedCondition, "Certificate should have deleted condition")
+		// Verify deletion - soft deleted certificates should not be retrievable via normal Get
+		_, err = opampClient.CertificateService.GetCertificate(ctx, certName)
+		assert.Error(t, err, "Soft deleted certificate should not be retrievable")
 
 		t.Logf("Deleted certificate: %s", certName)
 	})
