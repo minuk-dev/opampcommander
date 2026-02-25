@@ -1521,12 +1521,6 @@
                 },
                 "name": {
                     "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                },
-                "selector": {
-                    "$ref": "#/definitions/api_v1.AgentSelector"
                 }
             }
         },
@@ -1535,6 +1529,12 @@
             "properties": {
                 "agentConfig": {
                     "$ref": "#/definitions/api_v1.AgentConfig"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "selector": {
+                    "$ref": "#/definitions/api_v1.AgentSelector"
                 }
             }
         },

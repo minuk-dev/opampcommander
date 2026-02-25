@@ -106,15 +106,15 @@ definitions:
         type: string
       name:
         type: string
-      priority:
-        type: integer
-      selector:
-        $ref: '#/definitions/api_v1.AgentSelector'
     type: object
   AgentGroupSpec:
     properties:
       agentConfig:
         $ref: '#/definitions/api_v1.AgentConfig'
+      priority:
+        type: integer
+      selector:
+        $ref: '#/definitions/api_v1.AgentSelector'
     type: object
   AgentGroupStatus:
     properties:

@@ -1529,12 +1529,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "priority": {
-                    "type": "integer"
-                },
-                "selector": {
-                    "$ref": "#/definitions/api_v1.AgentSelector"
                 }
             }
         },
@@ -1543,6 +1537,12 @@ const docTemplate = `{
             "properties": {
                 "agentConfig": {
                     "$ref": "#/definitions/api_v1.AgentConfig"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "selector": {
+                    "$ref": "#/definitions/api_v1.AgentSelector"
                 }
             }
         },
