@@ -146,71 +146,52 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 	matchFilter := buildFilter(allConditions)
 
 	// MongoDB aggregation pipeline to calculate agent statistics
+	// NOTE: Do NOT query status.conditions field - it can be null and causes MongoDB aggregation errors.
+	// Use status.connected (bool) and status.componentHealth.healthy (bool) fields instead.
+	// These fields are indexed for efficient querying.
 	pipeline := []bson.M{
 		// Match agents that belong to this agent group
 		{"$match": matchFilter},
 
-		// Add computed fields for agent conditions
-		{
-			"$addFields": bson.M{
-				"isConnected": bson.M{
-					"$anyElementTrue": bson.M{
-						"$map": bson.M{
-							"input": "$status.conditions",
-							"as":    "condition",
-							"in": bson.M{
-								"$and": []bson.M{
-									{"$eq": []any{"$$condition.type", "Connected"}},
-									{"$eq": []any{"$$condition.status", "True"}},
-								},
-							},
-						},
-					},
-				},
-				"isHealthy": bson.M{
-					"$anyElementTrue": bson.M{
-						"$map": bson.M{
-							"input": "$status.conditions",
-							"as":    "condition",
-							"in": bson.M{
-								"$and": []bson.M{
-									{"$eq": []any{"$$condition.type", "Healthy"}},
-									{"$eq": []any{"$$condition.status", "True"}},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-
-		// Group and count by different conditions
+		// Group and count by status fields
+		// - status.connected: boolean field indicating connection status
+		// - status.componentHealth.healthy: boolean field indicating health status
 		{
 			"$group": bson.M{
 				"_id":       nil,
 				"numAgents": bson.M{"$sum": 1},
 				"numConnectedAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []any{"$isConnected", 1, 0},
+						"$cond": []any{
+							bson.M{"$eq": []any{"$status.connected", true}}, 1, 0,
+						},
 					},
 				},
 				"numHealthyAgents": bson.M{
 					"$sum": bson.M{
 						"$cond": []any{
-							bson.M{"$and": []any{"$isConnected", "$isHealthy"}}, 1, 0,
+							bson.M{"$and": []any{
+								bson.M{"$eq": []any{"$status.connected", true}},
+								bson.M{"$eq": []any{"$status.componentHealth.healthy", true}},
+							}}, 1, 0,
 						},
 					},
 				},
 				"numUnhealthyAgents": bson.M{
 					"$sum": bson.M{
 						"$cond": []any{
-							bson.M{"$and": []any{"$isConnected", bson.M{"$not": "$isHealthy"}}}, 1, 0,
+							bson.M{"$and": []any{
+								bson.M{"$eq": []any{"$status.connected", true}},
+								bson.M{"$ne": []any{"$status.componentHealth.healthy", true}},
+							}}, 1, 0,
 						},
 					},
 				},
 				"numNotConnectedAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []any{bson.M{"$not": "$isConnected"}, 1, 0},
+						"$cond": []any{
+							bson.M{"$ne": []any{"$status.connected", true}}, 1, 0,
+						},
 					},
 				},
 			},

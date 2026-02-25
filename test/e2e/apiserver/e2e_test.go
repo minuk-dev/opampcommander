@@ -1244,3 +1244,186 @@ func deleteAgentPackage(t *testing.T, baseURL, name string) {
 
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
+
+// TestE2E_AgentGroup_StatisticsAggregation tests that AgentGroup statistics aggregation
+// works correctly using status.connected and status.componentHealth.healthy fields.
+// This test verifies:
+// - Aggregation uses indexed boolean fields instead of status.conditions
+// - Statistics are correctly calculated for agents with various status field states
+func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
+	t.Parallel()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	if testing.Short() {
+		t.Skip("Skipping E2E test in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	base := testutil.NewBase(t)
+
+	// Given: Infrastructure is set up (MongoDB + API Server)
+	mongoContainer, mongoURI := startMongoDB(t)
+	defer func() { _ = mongoContainer.Terminate(ctx) }()
+
+	apiPort := base.GetFreeTCPPort()
+	dbName := "opampcommander_e2e_stats_aggregation_test"
+
+	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
+	defer stopServer()
+
+	waitForAPIServerReady(t, apiBaseURL)
+
+	// Given: Insert agents directly into MongoDB with null status.conditions
+	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	require.NoError(t, err)
+	defer func() { _ = mongoClient.Disconnect(ctx) }()
+
+	collection := mongoClient.Database(dbName).Collection("agents")
+
+	agent1UID := uuid.New()
+	agent2UID := uuid.New()
+	agent3UID := uuid.New()
+
+	// Insert agents with various status field states to test the aggregation:
+	// - agent1: no connected/healthy fields (defaults to false)
+	// - agent2: connected=false, componentHealth.healthy=false
+	// - agent3: connected=true, componentHealth.healthy=true
+	// Note: identifyingAttributes must be in KeyValuePairs format (array of {key, value})
+	agents := []interface{}{
+		// Agent with no status fields set (defaults to not connected/healthy)
+		bson.M{
+			"metadata": bson.M{
+				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent1UID[:]},
+				"instanceUidString": agent1UID.String(),
+				"description": bson.M{
+					"identifyingAttributes": []bson.M{
+						{"key": "service.name", "value": "stats-test-service"},
+					},
+				},
+			},
+			"status": bson.M{
+				// connected and componentHealth are intentionally omitted
+			},
+			"spec": bson.M{},
+		},
+		// Agent with connected=false
+		bson.M{
+			"metadata": bson.M{
+				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent2UID[:]},
+				"instanceUidString": agent2UID.String(),
+				"description": bson.M{
+					"identifyingAttributes": []bson.M{
+						{"key": "service.name", "value": "stats-test-service"},
+					},
+				},
+			},
+			"status": bson.M{
+				"connected": false,
+				"componentHealth": bson.M{
+					"healthy": false,
+				},
+			},
+			"spec": bson.M{},
+		},
+		// Agent with connected=true and healthy=true
+		bson.M{
+			"metadata": bson.M{
+				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent3UID[:]},
+				"instanceUidString": agent3UID.String(),
+				"description": bson.M{
+					"identifyingAttributes": []bson.M{
+						{"key": "service.name", "value": "stats-test-service"},
+					},
+				},
+			},
+			"status": bson.M{
+				"connected": true,
+				"componentHealth": bson.M{
+					"healthy": true,
+				},
+			},
+			"spec": bson.M{},
+		},
+	}
+
+	_, err = collection.InsertMany(ctx, agents)
+	require.NoError(t, err)
+
+	t.Logf("Inserted 3 agents: no status fields, disconnected, connected+healthy")
+
+	// When: Create an AgentGroup that matches these agents
+	token := getAuthToken(t, apiBaseURL)
+
+	agentGroupReq := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"name": "stats-aggregation-group",
+		},
+		"spec": map[string]interface{}{
+			"priority": 10,
+			"selector": map[string]interface{}{
+				"identifyingAttributes": map[string]string{
+					"service.name": "stats-test-service",
+				},
+			},
+		},
+	}
+
+	body, err := json.Marshal(agentGroupReq)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest(http.MethodPost, apiBaseURL+"/api/v1/agentgroups", strings.NewReader(string(body))) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	// Then: AgentGroup should be created successfully
+	respBody, _ := io.ReadAll(resp.Body)
+	require.Equal(t, http.StatusCreated, resp.StatusCode,
+		"AgentGroup creation should succeed. Response: %s", string(respBody))
+
+	var agentGroup v1.AgentGroup
+	err = json.Unmarshal(respBody, &agentGroup)
+	require.NoError(t, err)
+
+	// Then: Statistics should be calculated correctly using status.connected and status.componentHealth.healthy
+	assert.Equal(t, 3, agentGroup.Status.NumAgents, "Should count all 3 agents")
+	assert.Equal(t, 1, agentGroup.Status.NumConnectedAgents, "Only agent3 has connected=true")
+	assert.Equal(t, 1, agentGroup.Status.NumHealthyAgents, "Only agent3 has connected=true AND componentHealth.healthy=true")
+	assert.Equal(t, 2, agentGroup.Status.NumNotConnectedAgents, "agent1 and agent2 are not connected")
+
+	t.Logf("AgentGroup created with stats: NumAgents=%d, NumConnected=%d, NumHealthy=%d, NumNotConnected=%d",
+		agentGroup.Status.NumAgents,
+		agentGroup.Status.NumConnectedAgents,
+		agentGroup.Status.NumHealthyAgents,
+		agentGroup.Status.NumNotConnectedAgents)
+
+	// When: Get the AgentGroup again (also triggers aggregation)
+	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/agentgroups/stats-aggregation-group", nil) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	// Then: Get should also succeed
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Get AgentGroup should succeed")
+
+	// When: List AgentGroups (also triggers aggregation for each group)
+	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/agentgroups", nil) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	// Then: List should also succeed
+	require.Equal(t, http.StatusOK, resp.StatusCode, "List AgentGroups should succeed")
+}
