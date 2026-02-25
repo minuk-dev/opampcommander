@@ -213,8 +213,22 @@ func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.T
 func (opt *CommandOptions) toFormattedAgentGroup(
 	agentGroup v1.AgentGroup,
 ) formattedAgentGroup {
-	// Extract timestamps and users from conditions
-	createdAt, createdBy, deletedAt, deletedBy := extractConditionInfo(agentGroup.Status.Conditions)
+	// Extract timestamps from metadata first, then fallback to conditions
+	var createdAt time.Time
+	var createdBy string
+
+	if agentGroup.Metadata.CreatedAt != nil && !agentGroup.Metadata.CreatedAt.IsZero() {
+		createdAt = agentGroup.Metadata.CreatedAt.Time
+	}
+
+	// Get createdBy and deletedAt/deletedBy from conditions (createdBy is not in metadata)
+	condCreatedAt, condCreatedBy, deletedAt, deletedBy := extractConditionInfo(agentGroup.Status.Conditions)
+	createdBy = condCreatedBy
+
+	// Fallback to condition's createdAt if metadata doesn't have it
+	if createdAt.IsZero() {
+		createdAt = condCreatedAt
+	}
 
 	return formattedAgentGroup{
 		Name:                             agentGroup.Metadata.Name,

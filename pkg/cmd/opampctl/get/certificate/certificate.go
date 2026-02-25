@@ -204,8 +204,22 @@ func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.T
 func (opt *CommandOptions) toFormattedCertificate(
 	certificate v1.Certificate,
 ) formattedCertificate {
-	// Extract timestamps and users from conditions
-	createdAt, createdBy, deletedAt, deletedBy := extractConditionInfo(certificate.Status.Conditions)
+	// Extract timestamps from metadata first, then fallback to conditions
+	var createdAt time.Time
+	var createdBy string
+
+	if certificate.Metadata.CreatedAt != nil && !certificate.Metadata.CreatedAt.IsZero() {
+		createdAt = certificate.Metadata.CreatedAt.Time
+	}
+
+	// Get createdBy and deletedAt/deletedBy from conditions (createdBy is not in metadata)
+	condCreatedAt, condCreatedBy, deletedAt, deletedBy := extractConditionInfo(certificate.Status.Conditions)
+	createdBy = condCreatedBy
+
+	// Fallback to condition's createdAt if metadata doesn't have it
+	if createdAt.IsZero() {
+		createdAt = condCreatedAt
+	}
 
 	return formattedCertificate{
 		Name:       certificate.Metadata.Name,

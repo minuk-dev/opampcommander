@@ -163,23 +163,71 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 
 //nolint:lll
 type formattedAgentPackage struct {
-	Name        string            `json:"name"                short:"name"    text:"name"                yaml:"name"`
-	Attributes  map[string]string `json:"attributes"          short:"-"       text:"-"                   yaml:"attributes"`
-	PackageType string            `json:"packageType"         short:"type"    text:"packageType"         yaml:"packageType"`
-	Version     string            `json:"version"             short:"version" text:"version"             yaml:"version"`
-	DownloadURL string            `json:"downloadUrl"         short:"-"       text:"downloadUrl"         yaml:"downloadUrl"`
-	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"-"       text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	Name        string            `json:"name"                short:"name"      text:"name"                yaml:"name"`
+	Attributes  map[string]string `json:"attributes"          short:"-"         text:"-"                   yaml:"attributes"`
+	PackageType string            `json:"packageType"         short:"type"      text:"packageType"         yaml:"packageType"`
+	Version     string            `json:"version"             short:"version"   text:"version"             yaml:"version"`
+	DownloadURL string            `json:"downloadUrl"         short:"-"         text:"downloadUrl"         yaml:"downloadUrl"`
+	CreatedAt   *time.Time        `json:"createdAt,omitempty" short:"createdAt" text:"createdAt,omitempty" yaml:"createdAt,omitempty"`
+	CreatedBy   string            `json:"createdBy,omitempty" short:"createdBy" text:"createdBy,omitempty" yaml:"createdBy,omitempty"`
+	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"-"         text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+}
+
+func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.Time, *string) {
+	var (
+		createdAt time.Time
+		createdBy string
+		deletedAt *time.Time
+		deletedBy *string
+	)
+
+	for _, condition := range conditions {
+		switch condition.Type { //nolint:exhaustive // Only handle Created and Deleted conditions
+		case v1.ConditionTypeCreated:
+			if condition.Status == v1.ConditionStatusTrue {
+				createdAt = condition.LastTransitionTime.Time
+				createdBy = condition.Reason
+			}
+		case v1.ConditionTypeDeleted:
+			if condition.Status == v1.ConditionStatusTrue {
+				t := condition.LastTransitionTime.Time
+				deletedAt = &t
+				deletedBy = &condition.Reason
+			}
+		}
+	}
+
+	return createdAt, createdBy, deletedAt, deletedBy
 }
 
 func (opt *CommandOptions) toFormattedAgentPackage(
 	agentPackage v1.AgentPackage,
 ) formattedAgentPackage {
+	// Extract timestamps from metadata first, then fallback to conditions
+	var createdAt *time.Time
+	var createdBy string
+
+	if agentPackage.Metadata.CreatedAt != nil && !agentPackage.Metadata.CreatedAt.IsZero() {
+		createdAt = &agentPackage.Metadata.CreatedAt.Time
+	}
+
+	// Get createdBy from conditions (createdBy is not in metadata)
+	condCreatedAt, condCreatedBy, _, _ := extractConditionInfo(agentPackage.Status.Conditions)
+	createdBy = condCreatedBy
+
+	// Fallback to condition's createdAt if metadata doesn't have it
+	if createdAt == nil && !condCreatedAt.IsZero() {
+		createdAt = &condCreatedAt
+	}
+
 	return formattedAgentPackage{
 		Name:        agentPackage.Metadata.Name,
 		Attributes:  agentPackage.Metadata.Attributes,
 		PackageType: agentPackage.Spec.PackageType,
 		Version:     agentPackage.Spec.Version,
 		DownloadURL: agentPackage.Spec.DownloadURL,
+		CreatedAt:   createdAt,
+		CreatedBy:   createdBy,
 		DeletedAt:   switchToNilIfZero(agentPackage.Metadata.DeletedAt),
 	}
 }

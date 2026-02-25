@@ -205,8 +205,22 @@ func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.T
 func (opt *CommandOptions) toFormattedAgentRemoteConfig(
 	agentRemoteConfig v1.AgentRemoteConfig,
 ) formattedAgentRemoteConfig {
-	// Extract timestamps and users from conditions
-	createdAt, createdBy, deletedAt, deletedBy := extractConditionInfo(agentRemoteConfig.Status.Conditions)
+	// Extract timestamps from metadata first, then fallback to conditions
+	var createdAt time.Time
+	var createdBy string
+
+	if agentRemoteConfig.Metadata.CreatedAt != nil && !agentRemoteConfig.Metadata.CreatedAt.IsZero() {
+		createdAt = agentRemoteConfig.Metadata.CreatedAt.Time
+	}
+
+	// Get createdBy and deletedAt/deletedBy from conditions (createdBy is not in metadata)
+	condCreatedAt, condCreatedBy, deletedAt, deletedBy := extractConditionInfo(agentRemoteConfig.Status.Conditions)
+	createdBy = condCreatedBy
+
+	// Fallback to condition's createdAt if metadata doesn't have it
+	if createdAt.IsZero() {
+		createdAt = condCreatedAt
+	}
 
 	return formattedAgentRemoteConfig{
 		Name:        agentRemoteConfig.Metadata.Name,
