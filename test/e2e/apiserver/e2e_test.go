@@ -1290,6 +1290,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	// - agent1: no connected/healthy fields (defaults to false)
 	// - agent2: connected=false, componentHealth.healthy=false
 	// - agent3: connected=true, componentHealth.healthy=true
+	// Note: identifyingAttributes must be in KeyValuePairs format (array of {key, value})
 	agents := []interface{}{
 		// Agent with no status fields set (defaults to not connected/healthy)
 		bson.M{
@@ -1297,8 +1298,8 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent1UID[:]},
 				"instanceUidString": agent1UID.String(),
 				"description": bson.M{
-					"identifyingAttributes": bson.M{
-						"service.name": "null-conditions-service",
+					"identifyingAttributes": []bson.M{
+						{"key": "service.name", "value": "stats-test-service"},
 					},
 				},
 			},
@@ -1313,8 +1314,8 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent2UID[:]},
 				"instanceUidString": agent2UID.String(),
 				"description": bson.M{
-					"identifyingAttributes": bson.M{
-						"service.name": "null-conditions-service",
+					"identifyingAttributes": []bson.M{
+						{"key": "service.name", "value": "stats-test-service"},
 					},
 				},
 			},
@@ -1332,8 +1333,8 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent3UID[:]},
 				"instanceUidString": agent3UID.String(),
 				"description": bson.M{
-					"identifyingAttributes": bson.M{
-						"service.name": "null-conditions-service",
+					"identifyingAttributes": []bson.M{
+						{"key": "service.name", "value": "stats-test-service"},
 					},
 				},
 			},
@@ -1363,7 +1364,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 			"priority": 10,
 			"selector": map[string]interface{}{
 				"identifyingAttributes": map[string]string{
-					"service.name": "null-conditions-service",
+					"service.name": "stats-test-service",
 				},
 			},
 		},
