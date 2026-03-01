@@ -4,6 +4,7 @@ package agentremoteconfig
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ type CommandOptions struct {
 	name        string
 	attributes  map[string]string
 	value       string
-	valueFile   string
+	file        string
 	contentType string
 	formatType  string
 
@@ -55,14 +56,14 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the agent remote config (required)")
 	cmd.Flags().StringToStringVar(
 		&options.attributes, "attributes", nil, "Attributes of the agent remote config (key=value)")
-	cmd.Flags().StringVar(&options.value, "value", "", "Configuration value (alternative to --value-file)")
-	cmd.Flags().StringVar(&options.valueFile, "value-file", "", "Path to configuration value file (alternative to --value)")
+	cmd.Flags().StringVar(&options.value, "value", "", "Configuration value (alternative to --file)")
+	cmd.Flags().StringVarP(&options.file, "file", "f", "", "Path to configuration file (alternative to --value)")
 	cmd.Flags().StringVar(
-		&options.contentType, "content-type", "", "Content type of the configuration (e.g., application/yaml)")
+		&options.contentType, "content-type", "",
+		"Content type of the configuration (auto-detected from file extension if .yaml/.yml/.json)")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
 
-	cmd.MarkFlagRequired("name")        //nolint:errcheck,gosec
-	cmd.MarkFlagRequired("contentType") //nolint:errcheck,gosec
+	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
 
 	return cmd
 }
@@ -88,6 +89,11 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	contentType, err := opt.resolveContentType()
+	if err != nil {
+		return err
+	}
+
 	//exhaustruct:ignore
 	createRequest := &v1.AgentRemoteConfig{
 		Metadata: v1.AgentRemoteConfigMetadata{
@@ -96,7 +102,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		},
 		Spec: v1.AgentRemoteConfigSpec{
 			Value:       valueContent,
-			ContentType: opt.contentType,
+			ContentType: contentType,
 		},
 	}
 
@@ -128,20 +134,40 @@ type formattedAgentRemoteConfig struct {
 }
 
 func (opt *CommandOptions) loadValueContent() (string, error) {
-	if opt.valueFile != "" {
-		content, err := os.ReadFile(opt.valueFile)
+	if opt.file != "" {
+		content, err := os.ReadFile(opt.file)
 		if err != nil {
-			return "", fmt.Errorf("failed to read value file: %w", err)
+			return "", fmt.Errorf("failed to read file: %w", err)
 		}
 
 		return string(content), nil
 	}
 
 	if opt.value == "" {
-		return "", fmt.Errorf("either --value or --value-file must be specified")
+		return "", fmt.Errorf("either --value or --file must be specified")
 	}
 
 	return opt.value, nil
+}
+
+func (opt *CommandOptions) resolveContentType() (string, error) {
+	if opt.contentType != "" {
+		return opt.contentType, nil
+	}
+
+	if opt.file == "" {
+		return "", fmt.Errorf("--content-type is required when using --value")
+	}
+
+	ext := filepath.Ext(opt.file)
+	switch ext {
+	case ".yaml", ".yml":
+		return "application/yaml", nil
+	case ".json":
+		return "application/json", nil
+	default:
+		return "", fmt.Errorf("--content-type is required for file extension %q", ext)
+	}
 }
 
 func toFormattedAgentRemoteConfig(agentRemoteConfig *v1.AgentRemoteConfig) *formattedAgentRemoteConfig {
