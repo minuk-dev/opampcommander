@@ -2,6 +2,7 @@
 package agentremoteconfig
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,15 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
+)
+
+var (
+	// ErrValueOrFileRequired is returned when neither --value nor --file is specified.
+	ErrValueOrFileRequired = errors.New("either --value or --file must be specified")
+	// ErrContentTypeRequired is returned when --content-type is required but not specified.
+	ErrContentTypeRequired = errors.New("--content-type is required when using --value")
+	// ErrContentTypeRequiredForExt is returned when --content-type is required for unknown file extension.
+	ErrContentTypeRequiredForExt = errors.New("--content-type is required for unknown file extension")
 )
 
 // CommandOptions contains the options for the create agentremoteconfig command.
@@ -144,7 +154,7 @@ func (opt *CommandOptions) loadValueContent() (string, error) {
 	}
 
 	if opt.value == "" {
-		return "", fmt.Errorf("either --value or --file must be specified")
+		return "", ErrValueOrFileRequired
 	}
 
 	return opt.value, nil
@@ -156,7 +166,7 @@ func (opt *CommandOptions) resolveContentType() (string, error) {
 	}
 
 	if opt.file == "" {
-		return "", fmt.Errorf("--content-type is required when using --value")
+		return "", ErrContentTypeRequired
 	}
 
 	ext := filepath.Ext(opt.file)
@@ -166,7 +176,7 @@ func (opt *CommandOptions) resolveContentType() (string, error) {
 	case ".json":
 		return "application/json", nil
 	default:
-		return "", fmt.Errorf("--content-type is required for file extension %q", ext)
+		return "", fmt.Errorf("%w: %s", ErrContentTypeRequiredForExt, ext)
 	}
 }
 
