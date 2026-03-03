@@ -27,8 +27,9 @@ func (f *Sanity) Sanitize(
 	// Preserve immutable metadata fields
 	updated.Metadata.CreatedAt = existing.Metadata.CreatedAt
 
-	// Preserve existing conditions (caller will append Updated condition)
-	updated.Status.Conditions = existing.Status.Conditions
+	// Preserve existing conditions (caller will append Updated condition).
+	// Clone the slice to keep the existing model immutable.
+	updated.Status.Conditions = append(existing.Status.Conditions[:0:0], existing.Status.Conditions...)
 
 	return updated
 }
