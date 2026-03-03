@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
+	"github.com/minuk-dev/opampcommander/internal/application/service/certificate/filter"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
@@ -23,6 +24,7 @@ var _ port.CertificateManageUsecase = (*Service)(nil)
 type Service struct {
 	certificateUsecase domainport.CertificateUsecase
 	mapper             *helper.Mapper
+	sanityFilter       *filter.Sanity
 	clock              clock.Clock
 	logger             *slog.Logger
 }
@@ -35,6 +37,7 @@ func NewCertificateService(
 	return &Service{
 		certificateUsecase: certificateUsecase,
 		mapper:             helper.NewMapper(),
+		sanityFilter:       filter.NewSanity(),
 		clock:              clock.NewRealClock(),
 		logger:             logger,
 	}
@@ -124,10 +127,8 @@ func (s *Service) UpdateCertificate(
 
 	domainModel := s.mapper.MapAPIToCertificate(certificate)
 
-	// Preserve createdAt from existing certificate (immutable field)
-	domainModel.Metadata.CreatedAt = existingDomainModel.Metadata.CreatedAt
-
-	domainModel.Status = existingDomainModel.Status
+	// Sanitize: preserve immutable fields from existing certificate
+	domainModel = s.sanityFilter.Sanitize(existingDomainModel, domainModel)
 
 	now := s.clock.Now()
 

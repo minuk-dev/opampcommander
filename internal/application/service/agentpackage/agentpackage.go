@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
+	"github.com/minuk-dev/opampcommander/internal/application/service/agentpackage/filter"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
@@ -23,6 +24,7 @@ var _ port.AgentPackageManageUsecase = (*Service)(nil)
 type Service struct {
 	agentpackageUsecase domainport.AgentPackageUsecase
 	mapper              *helper.Mapper
+	sanityFilter        *filter.Sanity
 	clock               clock.Clock
 	logger              *slog.Logger
 }
@@ -35,6 +37,7 @@ func NewAgentPackageService(
 	return &Service{
 		agentpackageUsecase: agentpackageUsecase,
 		mapper:              helper.NewMapper(),
+		sanityFilter:        filter.NewSanity(),
 		clock:               clock.NewRealClock(),
 		logger:              logger,
 	}
@@ -115,10 +118,8 @@ func (a *Service) UpdateAgentPackage(
 
 	domainModel := a.mapper.MapAPIToAgentPackage(agentPackage)
 
-	// Preserve createdAt from existing agent package (immutable field)
-	domainModel.Metadata.CreatedAt = existingDomainModel.Metadata.CreatedAt
-
-	domainModel.Status = existingDomainModel.Status
+	// Sanitize: preserve immutable fields from existing agent package
+	domainModel = a.sanityFilter.Sanitize(existingDomainModel, domainModel)
 
 	updated, err := a.agentpackageUsecase.SaveAgentPackage(ctx, domainModel)
 	if err != nil {

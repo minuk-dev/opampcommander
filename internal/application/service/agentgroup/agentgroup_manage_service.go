@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
+	"github.com/minuk-dev/opampcommander/internal/application/service/agentgroup/filter"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
@@ -28,6 +29,7 @@ type ManageService struct {
 	agentgroupUsecase domainport.AgentGroupUsecase
 	agentUsecase      domainport.AgentUsecase
 	mapper            *helper.Mapper
+	sanityFilter      *filter.Sanity
 	clock             clock.Clock
 	logger            *slog.Logger
 }
@@ -42,6 +44,7 @@ func NewManageService(
 		agentgroupUsecase: agentgroupUsecase,
 		agentUsecase:      agentUsecase,
 		mapper:            helper.NewMapper(),
+		sanityFilter:      filter.NewSanity(),
 		clock:             clock.NewRealClock(),
 		logger:            logger,
 	}
@@ -171,11 +174,8 @@ func (s *ManageService) UpdateAgentGroup(
 
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
 
-	// Preserve createdAt from existing agent group (immutable field)
-	domainAgentGroup.Metadata.CreatedAt = existingAgentGroup.Metadata.CreatedAt
-
-	// Preserve existing conditions and add/update the Updated condition
-	domainAgentGroup.Status.Conditions = existingAgentGroup.Status.Conditions
+	// Sanitize: preserve immutable fields from existing agent group
+	domainAgentGroup = s.sanityFilter.Sanitize(existingAgentGroup, domainAgentGroup)
 
 	now := s.clock.Now()
 	updatedCondition := model.Condition{
