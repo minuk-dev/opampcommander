@@ -2,7 +2,10 @@
 package agentremoteconfig
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -14,6 +17,15 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
+var (
+	// ErrValueOrFileRequired is returned when neither --value nor --file is specified.
+	ErrValueOrFileRequired = errors.New("either --value or --file must be specified")
+	// ErrContentTypeRequired is returned when --content-type is required but not specified.
+	ErrContentTypeRequired = errors.New("--content-type is required when using --value")
+	// ErrContentTypeRequiredForExt is returned when --content-type is required for unknown file extension.
+	ErrContentTypeRequiredForExt = errors.New("--content-type is required for unknown file extension")
+)
+
 // CommandOptions contains the options for the create agentremoteconfig command.
 type CommandOptions struct {
 	*config.GlobalConfig
@@ -22,6 +34,7 @@ type CommandOptions struct {
 	name        string
 	attributes  map[string]string
 	value       string
+	file        string
 	contentType string
 	formatType  string
 
@@ -53,14 +66,14 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the agent remote config (required)")
 	cmd.Flags().StringToStringVar(
 		&options.attributes, "attributes", nil, "Attributes of the agent remote config (key=value)")
-	cmd.Flags().StringVar(&options.value, "value", "", "Configuration value (required)")
+	cmd.Flags().StringVar(&options.value, "value", "", "Configuration value (alternative to --file)")
+	cmd.Flags().StringVarP(&options.file, "file", "f", "", "Path to configuration file (alternative to --value)")
 	cmd.Flags().StringVar(
-		&options.contentType, "content-type", "", "Content type of the configuration (e.g., application/yaml)")
+		&options.contentType, "content-type", "",
+		"Content type of the configuration (auto-detected from file extension if .yaml/.yml/.json)")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
 
-	cmd.MarkFlagRequired("name")        //nolint:errcheck,gosec
-	cmd.MarkFlagRequired("value")       //nolint:errcheck,gosec
-	cmd.MarkFlagRequired("contentType") //nolint:errcheck,gosec
+	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
 
 	return cmd
 }
@@ -81,6 +94,16 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	agentRemoteConfigService := opt.client.AgentRemoteConfigService
 
+	valueContent, err := opt.loadValueContent()
+	if err != nil {
+		return err
+	}
+
+	contentType, err := opt.resolveContentType()
+	if err != nil {
+		return err
+	}
+
 	//exhaustruct:ignore
 	createRequest := &v1.AgentRemoteConfig{
 		Metadata: v1.AgentRemoteConfigMetadata{
@@ -88,8 +111,8 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			Attributes: opt.attributes,
 		},
 		Spec: v1.AgentRemoteConfigSpec{
-			Value:       opt.value,
-			ContentType: opt.contentType,
+			Value:       valueContent,
+			ContentType: contentType,
 		},
 	}
 
@@ -118,6 +141,43 @@ type formattedAgentRemoteConfig struct {
 	CreatedBy   string            `json:"createdBy"           short:"createdBy"           text:"createdBy"           yaml:"createdBy"`
 	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"deletedAt,omitempty" text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
 	DeletedBy   *string           `json:"deletedBy,omitempty" short:"deletedBy,omitempty" text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
+}
+
+func (opt *CommandOptions) loadValueContent() (string, error) {
+	if opt.file != "" {
+		content, err := os.ReadFile(opt.file)
+		if err != nil {
+			return "", fmt.Errorf("failed to read file: %w", err)
+		}
+
+		return string(content), nil
+	}
+
+	if opt.value == "" {
+		return "", ErrValueOrFileRequired
+	}
+
+	return opt.value, nil
+}
+
+func (opt *CommandOptions) resolveContentType() (string, error) {
+	if opt.contentType != "" {
+		return opt.contentType, nil
+	}
+
+	if opt.file == "" {
+		return "", ErrContentTypeRequired
+	}
+
+	ext := filepath.Ext(opt.file)
+	switch ext {
+	case ".yaml", ".yml":
+		return "application/yaml", nil
+	case ".json":
+		return "application/json", nil
+	default:
+		return "", fmt.Errorf("%w: %s", ErrContentTypeRequiredForExt, ext)
+	}
 }
 
 func toFormattedAgentRemoteConfig(agentRemoteConfig *v1.AgentRemoteConfig) *formattedAgentRemoteConfig {
