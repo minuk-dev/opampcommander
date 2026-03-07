@@ -47,7 +47,7 @@ type ServerEventReceiverPort interface {
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.
 type AgentGroupPersistencePort interface {
 	// GetAgentGroup retrieves an agent group by its ID.
-	GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error)
+	GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*model.AgentGroup, error)
 	// PutAgentGroup saves the agent group.
 	PutAgentGroup(ctx context.Context, name string, agentGroup *model.AgentGroup) (*model.AgentGroup, error)
 	// ListAgentGroups retrieves a list of agent groups with pagination options.
