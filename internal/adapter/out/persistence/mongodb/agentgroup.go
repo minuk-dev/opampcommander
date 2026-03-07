@@ -55,9 +55,9 @@ func NewAgentGroupRepository(
 
 // GetAgentGroup implements port.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) GetAgentGroup(
-	ctx context.Context, name string,
+	ctx context.Context, name string, options *model.GetOptions,
 ) (*model.AgentGroup, error) {
-	entity, err := a.common.get(ctx, name)
+	entity, err := a.common.get(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}

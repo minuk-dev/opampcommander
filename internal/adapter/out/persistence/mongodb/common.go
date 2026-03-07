@@ -50,8 +50,18 @@ func newCommonAdapter[Entity any, KeyType any](
 	}
 }
 
-func (a *commonEntityAdapter[Entity, KeyType]) get(ctx context.Context, key KeyType) (*Entity, error) {
-	filter := a.filterByKeyExcludingDeleted(key)
+func (a *commonEntityAdapter[Entity, KeyType]) get(
+	ctx context.Context,
+	key KeyType,
+	options *domainmodel.GetOptions,
+) (*Entity, error) {
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = a.filterByKey(key)
+	} else {
+		filter = a.filterByKeyExcludingDeleted(key)
+	}
+
 	result := a.collection.FindOne(ctx, filter)
 
 	err := result.Err()
@@ -102,8 +112,13 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	// Build filter that excludes soft-deleted documents
-	baseFilter := a.excludeDeletedFilter()
+	// Build filter that optionally excludes soft-deleted documents
+	var baseFilter bson.M
+	if options.IncludeDeleted {
+		baseFilter = nil
+	} else {
+		baseFilter = a.excludeDeletedFilter()
+	}
 
 	queryWg.Go(func() {
 		entities, err := a.listWithContinueTokenAndLimit(ctx, continueTokenObjectID, options.Limit, baseFilter)
