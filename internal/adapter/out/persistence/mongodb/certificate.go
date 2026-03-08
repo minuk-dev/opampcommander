@@ -52,7 +52,7 @@ func NewCertificateRepository(
 func (c *CertificateMongoAdapter) GetCertificate(
 	ctx context.Context, name string,
 ) (*model.Certificate, error) {
-	en, err := c.common.get(ctx, name)
+	en, err := c.common.get(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get certificate: %w", err)
 	}

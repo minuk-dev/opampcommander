@@ -48,6 +48,8 @@ type ListSettings struct {
 	limit *int
 	// continue token for pagination
 	continueToken *string
+	// include deleted resources
+	includeDeleted *bool
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -73,5 +75,38 @@ func WithLimit(limit int) ListOption {
 func WithContinueToken(token string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.continueToken = &token
+	})
+}
+
+// WithIncludeDeleted sets whether to include deleted resources.
+func WithIncludeDeleted(includeDeleted bool) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.includeDeleted = &includeDeleted
+	})
+}
+
+// GetOption is an interface for options that can be applied to get operations.
+type GetOption interface {
+	Apply(settings *GetSettings)
+}
+
+// GetSettings holds the settings for getting a single resource.
+type GetSettings struct {
+	// include deleted resources
+	includeDeleted *bool
+}
+
+// GetOptionFunc is a function type that implements the GetOption interface.
+type GetOptionFunc func(*GetSettings)
+
+// Apply applies the GetOptionFunc to the GetSettings.
+func (f GetOptionFunc) Apply(opt *GetSettings) {
+	f(opt)
+}
+
+// WithGetIncludeDeleted sets whether to include deleted resources for get operations.
+func WithGetIncludeDeleted(includeDeleted bool) GetOption {
+	return GetOptionFunc(func(opt *GetSettings) {
+		opt.includeDeleted = &includeDeleted
 	})
 }

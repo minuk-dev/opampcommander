@@ -81,6 +81,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {object} v1.ListResponse[v1.AgentGroup]
 // @Param limit query int false "Maximum number of agent groups to return"
 // @Param continue query string false "Token to continue listing agent groups"
+// @Param includeDeleted query bool false "Include soft-deleted agent groups"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/agentgroups [get].
@@ -94,9 +95,17 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
 	response, err := c.agentGroupUsecase.ListAgentGroups(ctx.Request.Context(), &model.ListOptions{
-		Limit:    limit,
-		Continue: continueToken,
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agent groups", "error", err.Error())
@@ -117,6 +126,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Produce json
 // @Success 200 {object} AgentGroup
 // @Param name path string true "Agent Group Name"
+// @Param includeDeleted query bool false "Include soft-deleted agent group"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
@@ -129,7 +139,16 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), name)
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), name, &model.GetOptions{
+		IncludeDeleted: includeDeleted,
+	})
 	if err != nil {
 		c.logger.Error("failed to get agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent group.")

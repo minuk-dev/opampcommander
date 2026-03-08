@@ -51,8 +51,8 @@ func NewManageService(
 }
 
 // GetAgentGroup returns an agent group by its UUID.
-func (s *ManageService) GetAgentGroup(ctx context.Context, name string) (*v1.AgentGroup, error) {
-	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+func (s *ManageService) GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*v1.AgentGroup, error) {
+	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -89,7 +89,7 @@ func (s *ManageService) ListAgentsByAgentGroup(
 	agentGroupName string,
 	options *model.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
-	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, agentGroupName)
+	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, agentGroupName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -119,7 +119,7 @@ func (s *ManageService) CreateAgentGroup(
 ) (*v1.AgentGroup, error) {
 	name := agentGroup.Metadata.Name
 
-	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx, name, nil)
 	if getErr == nil && existingAgentGroup != nil {
 		return nil, fmt.Errorf("%w: %s", ErrAgentGroupAlreadyExists, name)
 	}
@@ -160,7 +160,7 @@ func (s *ManageService) UpdateAgentGroup(
 	apiAgentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
 	// Check if the agent group exists
-	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name)
+	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group for update: %w", err)
 	}

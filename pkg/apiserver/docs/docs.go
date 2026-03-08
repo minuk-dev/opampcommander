@@ -35,6 +35,12 @@ const docTemplate = `{
                         "description": "Token to continue listing agent groups",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent groups",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -125,6 +131,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent group",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {

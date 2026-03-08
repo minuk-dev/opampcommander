@@ -125,7 +125,7 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	}
 
 	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.
-	newAgentGroup, err := a.GetAgentGroup(ctx, name)
+	newAgentGroup, err := a.GetAgentGroup(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group after put: %w", err)
 	}
