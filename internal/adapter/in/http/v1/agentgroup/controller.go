@@ -186,8 +186,9 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	}
 
 	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), name, &model.ListOptions{
-		Limit:    limit,
-		Continue: continueToken,
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: false,
 	})
 	if err != nil {
 		c.logger.Error("failed to get agents by agent group", "error", err.Error())

@@ -1427,3 +1427,161 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	// Then: List should also succeed
 	require.Equal(t, http.StatusOK, resp.StatusCode, "List AgentGroups should succeed")
 }
+
+// TestE2E_AgentGroup_IncludeDeleted tests that deleted agent groups can be retrieved
+// using the includeDeleted query parameter.
+func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
+	t.Parallel()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	if testing.Short() {
+		t.Skip("Skipping E2E test in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	base := testutil.NewBase(t)
+
+	// Given: Infrastructure is set up (MongoDB + API Server)
+	mongoContainer, mongoURI := startMongoDB(t)
+	defer func() { _ = mongoContainer.Terminate(ctx) }()
+
+	apiPort := base.GetFreeTCPPort()
+	dbName := "opampcommander_e2e_include_deleted_test"
+
+	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
+	defer stopServer()
+
+	waitForAPIServerReady(t, apiBaseURL)
+
+	// Get auth token
+	token := getAuthToken(t, apiBaseURL)
+
+	// Step 1: Create an AgentGroup
+	agentGroupName := "test-deleted-group"
+	createReqBody := fmt.Sprintf(`{
+		"metadata": {"name": "%s"},
+		"spec": {
+			"selector": {
+				"identifyingAttributes": {"service.name": "test-service"}
+			}
+		}
+	}`, agentGroupName)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/api/v1/agentgroups", strings.NewReader(createReqBody))
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusCreated, resp.StatusCode, "Create AgentGroup should succeed")
+
+	// Step 2: Verify the AgentGroup is in the list
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var listResp v1.ListResponse[v1.AgentGroup]
+	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(listResp.Items), 1, "Should have at least 1 agent group")
+
+	found := false
+	for _, ag := range listResp.Items {
+		if ag.Metadata.Name == agentGroupName {
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "Created agent group should be in the list")
+
+	// Step 3: Delete the AgentGroup
+	req, err = http.NewRequestWithContext(ctx, http.MethodDelete, apiBaseURL+"/api/v1/agentgroups/"+agentGroupName, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusNoContent, resp.StatusCode, "Delete AgentGroup should succeed")
+
+	// Step 4: Verify the AgentGroup is NOT in the regular list
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	require.NoError(t, err)
+
+	found = false
+	for _, ag := range listResp.Items {
+		if ag.Metadata.Name == agentGroupName {
+			found = true
+			break
+		}
+	}
+	require.False(t, found, "Deleted agent group should NOT be in the regular list")
+
+	// Step 5: Verify the AgentGroup IS in the list when using includeDeleted=true
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups?includeDeleted=true", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	require.NoError(t, err)
+
+	found = false
+	for _, ag := range listResp.Items {
+		if ag.Metadata.Name == agentGroupName {
+			found = true
+			// Verify it has DeletedAt set
+			require.NotNil(t, ag.Metadata.DeletedAt, "Deleted agent group should have DeletedAt")
+			break
+		}
+	}
+	require.True(t, found, "Deleted agent group should be in the list when includeDeleted=true")
+
+	// Step 6: Verify the deleted AgentGroup can be retrieved by name with includeDeleted=true
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups/"+agentGroupName+"?includeDeleted=true", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusOK, resp.StatusCode, "Get deleted AgentGroup with includeDeleted=true should succeed")
+
+	var agentGroup v1.AgentGroup
+	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
+	require.NoError(t, err)
+	require.Equal(t, agentGroupName, agentGroup.Metadata.Name)
+	require.NotNil(t, agentGroup.Metadata.DeletedAt, "Retrieved deleted agent group should have DeletedAt")
+
+	// Step 7: Verify the deleted AgentGroup returns 404 without includeDeleted
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups/"+agentGroupName, nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err = http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusNotFound, resp.StatusCode, "Get deleted AgentGroup without includeDeleted should return 404")
+}

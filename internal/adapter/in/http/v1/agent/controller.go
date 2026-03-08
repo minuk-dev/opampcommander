@@ -87,8 +87,9 @@ func (c *Controller) List(ctx *gin.Context) {
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), &model.ListOptions{
-		Limit:    limit,
-		Continue: continueToken,
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: false,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
@@ -132,8 +133,9 @@ func (c *Controller) Search(ctx *gin.Context) {
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), query, &model.ListOptions{
-		Limit:    limit,
-		Continue: continueToken,
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: false,
 	})
 	if err != nil {
 		c.logger.Error("failed to search agents", "error", err.Error())

@@ -345,7 +345,7 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 
 		// then - should not be retrievable via normal get (soft deleted)
 		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
-		assert.ErrorIs(t, err, domainport.ErrResourceNotExist)
+		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
 
 		// but should be retrievable with includeDeleted option
 		deletedGroup, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, &model.GetOptions{IncludeDeleted: true})

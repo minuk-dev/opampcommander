@@ -242,8 +242,9 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 
 	for {
 		agentsResp, err := s.ListAgentsByAgentGroup(ctx, agentGroup, &model.ListOptions{
-			Limit:    PropagationChunkSize,
-			Continue: continueToken,
+			Limit:          PropagationChunkSize,
+			Continue:       continueToken,
+			IncludeDeleted: false,
 		})
 		if err != nil {
 			return fmt.Errorf("list agents by agent group: %w", err)

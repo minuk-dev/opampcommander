@@ -51,7 +51,11 @@ func NewManageService(
 }
 
 // GetAgentGroup returns an agent group by its UUID.
-func (s *ManageService) GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*v1.AgentGroup, error) {
+func (s *ManageService) GetAgentGroup(
+	ctx context.Context,
+	name string,
+	options *model.GetOptions,
+) (*v1.AgentGroup, error) {
 	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)

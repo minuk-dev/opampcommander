@@ -175,7 +175,7 @@ func TestAgentGroupController_Get(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(agentGroup, nil)
+	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(agentGroup, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/g1", nil)
@@ -192,7 +192,7 @@ func TestAgentGroupController_Get_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
+	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/notfound", nil)
@@ -209,7 +209,7 @@ func TestAgentGroupController_Get_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/g1", nil)
