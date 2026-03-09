@@ -48,8 +48,9 @@ func (s *ConnectionService) ListConnections(
 		s.service,
 		ListConnectionsPath,
 		ListSettings{
-			limit:         listSettings.limit,
-			continueToken: listSettings.continueToken,
+			limit:          listSettings.limit,
+			continueToken:  listSettings.continueToken,
+			includeDeleted: listSettings.includeDeleted,
 		},
 	)
 }

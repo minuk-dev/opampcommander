@@ -29,8 +29,9 @@ type MockAgentGroupPersistencePort struct {
 func (m *MockAgentGroupPersistencePort) GetAgentGroup(
 	ctx context.Context,
 	name string,
+	options *model.GetOptions,
 ) (*model.AgentGroup, error) {
-	args := m.Called(ctx, name)
+	args := m.Called(ctx, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -310,9 +311,9 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 			},
 		}
 
-		mockPersistence.On("GetAgentGroup", ctx, "test-group").Return(expectedGroup, nil)
+		mockPersistence.On("GetAgentGroup", ctx, "test-group", (*model.GetOptions)(nil)).Return(expectedGroup, nil)
 
-		result, err := svc.GetAgentGroup(ctx, "test-group")
+		result, err := svc.GetAgentGroup(ctx, "test-group", nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, "test-group", result.Metadata.Name)
@@ -332,9 +333,9 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 		svc := service.NewAgentGroupService(
 			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
-		mockPersistence.On("GetAgentGroup", ctx, "non-existent").Return(nil, errAgentGroupNotFound)
+		mockPersistence.On("GetAgentGroup", ctx, "non-existent", (*model.GetOptions)(nil)).Return(nil, errAgentGroupNotFound)
 
-		result, err := svc.GetAgentGroup(ctx, "non-existent")
+		result, err := svc.GetAgentGroup(ctx, "non-existent", nil)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

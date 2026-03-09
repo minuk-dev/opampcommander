@@ -29,7 +29,11 @@ func (f *Sanity) Sanitize(
 
 	// Preserve existing conditions (caller will append Updated condition).
 	// Clone the slice to keep the existing model immutable.
-	updated.Status.Conditions = append(existing.Status.Conditions[:0:0], existing.Status.Conditions...)
+	if len(existing.Status.Conditions) > 0 {
+		clonedConditions := make([]model.Condition, len(existing.Status.Conditions))
+		copy(clonedConditions, existing.Status.Conditions)
+		updated.Status.Conditions = clonedConditions
+	}
 
 	return updated
 }

@@ -52,7 +52,7 @@ func NewAgentPackageRepository(
 func (a *AgentPackageMongoAdapter) GetAgentPackage(
 	ctx context.Context, name string,
 ) (*model.AgentPackage, error) {
-	en, err := a.common.get(ctx, name)
+	en, err := a.common.get(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent package: %w", err)
 	}

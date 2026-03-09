@@ -58,8 +58,9 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 		s.service,
 		ListAgentRemoteConfigURL,
 		ListSettings{
-			limit:         listSettings.limit,
-			continueToken: listSettings.continueToken,
+			limit:          listSettings.limit,
+			continueToken:  listSettings.continueToken,
+			includeDeleted: listSettings.includeDeleted,
 		},
 	)
 }

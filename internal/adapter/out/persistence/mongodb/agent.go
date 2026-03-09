@@ -74,7 +74,7 @@ func NewAgentRepository(
 
 // GetAgent implements port.AgentPersistencePort.
 func (a *AgentRepository) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
-	entity, err := a.common.get(ctx, instanceUID)
+	entity, err := a.common.get(ctx, instanceUID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
 	}

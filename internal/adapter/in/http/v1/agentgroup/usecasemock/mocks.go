@@ -165,8 +165,8 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.C
 }
 
 // GetAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetAgentGroup(ctx context.Context, name string) (*v1.AgentGroup, error) {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockUsecase) GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*v1.AgentGroup, error) {
+	ret := _mock.Called(ctx, name, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAgentGroup")
@@ -174,18 +174,18 @@ func (_mock *MockUsecase) GetAgentGroup(ctx context.Context, name string) (*v1.A
 
 	var r0 *v1.AgentGroup
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*v1.AgentGroup, error)); ok {
-		return returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.GetOptions) (*v1.AgentGroup, error)); ok {
+		return returnFunc(ctx, name, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *v1.AgentGroup); ok {
-		r0 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.GetOptions) *v1.AgentGroup); ok {
+		r0 = returnFunc(ctx, name, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.AgentGroup)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *model.GetOptions) error); ok {
+		r1 = returnFunc(ctx, name, options)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -200,11 +200,12 @@ type MockUsecase_GetAgentGroup_Call struct {
 // GetAgentGroup is a helper method to define mock.On call
 //   - ctx context.Context
 //   - name string
-func (_e *MockUsecase_Expecter) GetAgentGroup(ctx interface{}, name interface{}) *MockUsecase_GetAgentGroup_Call {
-	return &MockUsecase_GetAgentGroup_Call{Call: _e.mock.On("GetAgentGroup", ctx, name)}
+//   - options *model.GetOptions
+func (_e *MockUsecase_Expecter) GetAgentGroup(ctx interface{}, name interface{}, options interface{}) *MockUsecase_GetAgentGroup_Call {
+	return &MockUsecase_GetAgentGroup_Call{Call: _e.mock.On("GetAgentGroup", ctx, name, options)}
 }
 
-func (_c *MockUsecase_GetAgentGroup_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_GetAgentGroup_Call {
+func (_c *MockUsecase_GetAgentGroup_Call) Run(run func(ctx context.Context, name string, options *model.GetOptions)) *MockUsecase_GetAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -214,9 +215,14 @@ func (_c *MockUsecase_GetAgentGroup_Call) Run(run func(ctx context.Context, name
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 *model.GetOptions
+		if args[2] != nil {
+			arg2 = args[2].(*model.GetOptions)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -227,7 +233,7 @@ func (_c *MockUsecase_GetAgentGroup_Call) Return(agentGroup *v1.AgentGroup, err 
 	return _c
 }
 
-func (_c *MockUsecase_GetAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string) (*v1.AgentGroup, error)) *MockUsecase_GetAgentGroup_Call {
+func (_c *MockUsecase_GetAgentGroup_Call) RunAndReturn(run func(ctx context.Context, name string, options *model.GetOptions) (*v1.AgentGroup, error)) *MockUsecase_GetAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }

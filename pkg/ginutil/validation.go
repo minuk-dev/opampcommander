@@ -74,6 +74,22 @@ func BindJSON(c *gin.Context, obj any) error {
 	return nil
 }
 
+// ParseBool parses bool from query parameter and validates it.
+// Returns error if validation fails - caller must handle error response.
+func ParseBool(c *gin.Context, paramName string, defaultValue bool) (bool, error) {
+	value := c.Query(paramName)
+	if value == "" {
+		return defaultValue, nil
+	}
+
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return false, ErrInvalidFormat
+	}
+
+	return parsed, nil
+}
+
 // HandleValidationError handles validation errors and sends appropriate RFC 9457 response.
 func HandleValidationError(gCtx *gin.Context, paramName, paramValue string, err error, isPathParam bool) {
 	switch {

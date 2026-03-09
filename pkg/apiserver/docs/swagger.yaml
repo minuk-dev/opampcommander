@@ -850,6 +850,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted agent groups
+        in: query
+        name: includeDeleted
+        type: boolean
       responses:
         "200":
           description: OK
@@ -934,6 +938,10 @@ paths:
         name: name
         required: true
         type: string
+      - description: Include soft-deleted agent group
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:

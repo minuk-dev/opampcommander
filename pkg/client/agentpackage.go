@@ -58,8 +58,9 @@ func (s *AgentPackageService) ListAgentPackages(
 		s.service,
 		ListAgentPackageURL,
 		ListSettings{
-			limit:         listSettings.limit,
-			continueToken: listSettings.continueToken,
+			limit:          listSettings.limit,
+			continueToken:  listSettings.continueToken,
+			includeDeleted: listSettings.includeDeleted,
 		},
 	)
 }
