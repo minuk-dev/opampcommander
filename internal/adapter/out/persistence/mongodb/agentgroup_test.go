@@ -65,7 +65,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
+		loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
 
 		// then
 		require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		})
 
 		// when
-		got, err := adapter.GetAgentGroup(ctx, "non-exist-group")
+		got, err := adapter.GetAgentGroup(ctx, "non-exist-group", nil)
 
 		// then
 		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
@@ -262,7 +262,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify agent group was saved
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
 		require.NoError(t, err)
 		assert.Equal(t, putResult, got)
 		assert.Equal(t, agentGroup.Metadata.Name, got.Metadata.Name)
@@ -300,7 +300,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		require.NoError(t, err)
 
 		// then
-		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Metadata.Name)
+		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Metadata.Name, nil)
 		require.NoError(t, err)
 		assert.Equal(t, updatedGroup.Metadata.Name, got.Metadata.Name)
 		assert.Equal(t, updatedGroup.Metadata.Attributes, got.Metadata.Attributes)
@@ -331,7 +331,7 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify it's initially retrievable
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
 		require.NoError(t, err)
 		assert.False(t, got.IsDeleted())
 
@@ -344,8 +344,13 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 		assert.True(t, savedGroup.IsDeleted())
 
 		// then - should not be retrievable via normal get (soft deleted)
-		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name)
-		assert.ErrorIs(t, err, domainport.ErrResourceNotExist)
+		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
+		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
+
+		// but should be retrievable with includeDeleted option
+		deletedGroup, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, &model.GetOptions{IncludeDeleted: true})
+		require.NoError(t, err)
+		assert.True(t, deletedGroup.IsDeleted())
 	})
 }
 
@@ -384,7 +389,7 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 	_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
 	require.NoError(t, err)
 
-	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Metadata.Name)
+	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Metadata.Name, nil)
 	require.NoError(t, err)
 
 	// then

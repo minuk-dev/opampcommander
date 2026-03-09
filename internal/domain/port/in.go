@@ -78,7 +78,7 @@ type AgentRemoteConfigUsecase interface {
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its name
-	GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error)
+	GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*model.AgentGroup, error)
 	// SaveAgentGroup saves the agent group.
 	ListAgentGroups(
 		ctx context.Context, options *model.ListOptions,

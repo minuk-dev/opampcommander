@@ -27,7 +27,8 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType     string
+	includeDeleted bool
 
 	// internal
 	client *client.Client
@@ -54,6 +55,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted agent groups")
 
 	return cmd
 }
@@ -95,7 +97,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agentgroups, err := clientutil.ListAgentGroupFully(cmd.Context(), opt.client)
+	listOpts := []client.ListOption{}
+	if opt.includeDeleted {
+		listOpts = append(listOpts, client.WithIncludeDeleted(true))
+	}
+
+	agentgroups, err := clientutil.ListAgentGroupFully(cmd.Context(), opt.client, listOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -120,8 +127,13 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		Err        error
 	}
 
+	getOpts := []client.GetOption{}
+	if opt.includeDeleted {
+		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
+	}
+
 	agentGroupsWithErr := lo.Map(names, func(name string, _ int) AgentGroupWithErr {
-		agent, err := opt.client.AgentGroupService.GetAgentGroup(cmd.Context(), name)
+		agent, err := opt.client.AgentGroupService.GetAgentGroup(cmd.Context(), name, getOpts...)
 
 		return AgentGroupWithErr{
 			AgentGroup: agent,

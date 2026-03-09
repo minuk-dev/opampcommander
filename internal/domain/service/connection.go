@@ -94,8 +94,9 @@ func (s *Service) ListConnections(
 ) (*model.ListResponse[*model.Connection], error) {
 	if options == nil {
 		options = &model.ListOptions{
-			Limit:    0,  // 0 means no limit
-			Continue: "", // empty continue token means start from the beginning
+			Limit:          0,  // 0 means no limit
+			Continue:       "", // empty continue token means start from the beginning
+			IncludeDeleted: false,
 		}
 	}
 

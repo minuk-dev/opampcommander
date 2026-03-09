@@ -47,7 +47,7 @@ func NewServerAdapter(logger *slog.Logger, database *mongo.Database) *ServerAdap
 
 // GetServer retrieves a server by its ID.
 func (a *ServerAdapter) GetServer(ctx context.Context, id string) (*domainmodel.Server, error) {
-	e, err := a.get(ctx, id)
+	e, err := a.get(ctx, id, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server from mongodb: %w", err)
 	}

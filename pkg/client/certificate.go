@@ -58,8 +58,9 @@ func (s *CertificateService) ListCertificates(
 		s.service,
 		ListCertificateURL,
 		ListSettings{
-			limit:         listSettings.limit,
-			continueToken: listSettings.continueToken,
+			limit:          listSettings.limit,
+			continueToken:  listSettings.continueToken,
+			includeDeleted: listSettings.includeDeleted,
 		},
 	)
 }

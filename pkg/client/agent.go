@@ -54,8 +54,9 @@ func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*Age
 		s.service,
 		ListAgentURL,
 		ListSettings{
-			limit:         listSettings.limit,
-			continueToken: listSettings.continueToken,
+			limit:          listSettings.limit,
+			continueToken:  listSettings.continueToken,
+			includeDeleted: listSettings.includeDeleted,
 		},
 	)
 }

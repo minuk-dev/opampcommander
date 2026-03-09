@@ -22,8 +22,12 @@ type mockAgentGroupPersistence struct {
 	mock.Mock
 }
 
-func (m *mockAgentGroupPersistence) GetAgentGroup(ctx context.Context, name string) (*model.AgentGroup, error) {
-	args := m.Called(ctx, name)
+func (m *mockAgentGroupPersistence) GetAgentGroup(
+	ctx context.Context,
+	name string,
+	options *model.GetOptions,
+) (*model.AgentGroup, error) {
+	args := m.Called(ctx, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}

@@ -152,6 +152,10 @@ func listResources[T any](
 		req.SetQueryParam("continue", *option.continueToken)
 	}
 
+	if option.includeDeleted != nil && *option.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
 	res, err := req.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resources(restyError): %w", err)

@@ -39,8 +39,37 @@ func NewAgentGroupService(service *service) *AgentGroupService {
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
 	name string,
+	opts ...GetOption,
 ) (*v1.AgentGroup, error) {
-	return getResource[v1.AgentGroup](ctx, s.service, GetAgentGroupURL, name)
+	var getSettings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&getSettings)
+	}
+
+	var agentGroup v1.AgentGroup
+
+	req := s.service.Resty.R().
+		SetContext(ctx).
+		SetResult(&agentGroup).
+		SetPathParam("id", name)
+
+	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	res, err := req.Get(GetAgentGroupURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent group(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to get agent group(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return &agentGroup, nil
 }
 
 // AgentGroupListResponse represents a list of agent groups with metadata.
@@ -61,8 +90,9 @@ func (s *AgentGroupService) ListAgentGroups(
 		s.service,
 		ListAgentGroupURL,
 		ListSettings{
-			limit:         listSettings.limit,
-			continueToken: listSettings.continueToken,
+			limit:          listSettings.limit,
+			continueToken:  listSettings.continueToken,
+			includeDeleted: listSettings.includeDeleted,
 		},
 	)
 }

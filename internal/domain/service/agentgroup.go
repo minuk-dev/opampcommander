@@ -90,8 +90,9 @@ func (s *AgentGroupService) Run(ctx context.Context) error {
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
 	name string,
+	options *model.GetOptions,
 ) (*model.AgentGroup, error) {
-	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name)
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -138,7 +139,7 @@ func (s *AgentGroupService) DeleteAgentGroup(
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name)
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get agent group: %w", err)
 	}
@@ -241,8 +242,9 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 
 	for {
 		agentsResp, err := s.ListAgentsByAgentGroup(ctx, agentGroup, &model.ListOptions{
-			Limit:    PropagationChunkSize,
-			Continue: continueToken,
+			Limit:          PropagationChunkSize,
+			Continue:       continueToken,
+			IncludeDeleted: false,
 		})
 		if err != nil {
 			return fmt.Errorf("list agents by agent group: %w", err)

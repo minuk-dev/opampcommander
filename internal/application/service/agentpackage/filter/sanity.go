@@ -30,7 +30,7 @@ func (f *Sanity) Sanitize(
 	// Preserve existing status (struct) but avoid sharing mutable slices.
 	updated.Status = existing.Status
 	if existing.Status.Conditions != nil {
-		clonedConditions := make([]model.AgentPackageCondition, len(existing.Status.Conditions))
+		clonedConditions := make([]model.Condition, len(existing.Status.Conditions))
 		copy(clonedConditions, existing.Status.Conditions)
 		updated.Status.Conditions = clonedConditions
 	}

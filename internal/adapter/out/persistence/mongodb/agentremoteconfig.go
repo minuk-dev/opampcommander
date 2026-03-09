@@ -51,7 +51,7 @@ func NewAgentRemoteConfigRepository(
 func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 	ctx context.Context, name string,
 ) (*model.AgentRemoteConfig, error) {
-	en, err := a.common.get(ctx, name)
+	en, err := a.common.get(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent remote config: %w", err)
 	}

@@ -109,18 +109,20 @@ func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1.Connecti
 
 // ListAgentGroupFully lists all agent groups and applies the provided function to each agent group.
 // It continues to fetch agent groups until there are no more agent groups to fetch.
-func ListAgentGroupFully(ctx context.Context, cli *client.Client) ([]v1.AgentGroup, error) {
+func ListAgentGroupFully(ctx context.Context, cli *client.Client, opts ...client.ListOption) ([]v1.AgentGroup, error) {
 	var agentGroups []v1.AgentGroup
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
 	for {
-		// List agent groups with the current continue token
-		resp, err := cli.AgentGroupService.ListAgentGroups(
-			ctx,
+		// Build options for each request
+		requestOpts := append([]client.ListOption{
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
-		)
+		}, opts...)
+
+		// List agent groups with the current continue token
+		resp, err := cli.AgentGroupService.ListAgentGroups(ctx, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agent groups: %w", err)
 		}
