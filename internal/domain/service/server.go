@@ -15,10 +15,17 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
+	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var (
 	_ port.ServerUsecase = (*ServerService)(nil)
+)
+
+const (
+	// DefaultServerCacheTTL is the default time-to-live for server cache entries.
+	// Using a short TTL to ensure server state stays relatively fresh while still reducing DB load.
+	DefaultServerCacheTTL = 30 * time.Second
 )
 
 // ServerService is a struct that implements the ServerUsecase interface.
@@ -27,7 +34,7 @@ type ServerService struct {
 	clock            clock.Clock
 	heartbeatTimeout time.Duration
 
-	cachedServers sync.Map // map[string]*model.Server
+	serverCache *xsync.TTLCache[string, *model.Server]
 
 	serverPersistencePort   port.ServerPersistencePort
 	serverEventSenderPort   port.ServerEventSenderPort
@@ -48,7 +55,7 @@ func NewServerService(
 	service := &ServerService{
 		logger:                  logger,
 		clock:                   clock.NewRealClock(),
-		cachedServers:           sync.Map{},
+		serverCache:            xsync.NewTTLCache[string, *model.Server](DefaultServerCacheTTL),
 		serverPersistencePort:   serverPersistencePort,
 		serverEventSenderPort:   serverEventSenderPort,
 		serverEventReceiverPort: serverEventReceiverPort,
@@ -68,6 +75,14 @@ func (s *ServerService) Name() string {
 // SetClock sets the clock for testing purposes.
 func (s *ServerService) SetClock(c clock.Clock) {
 	s.clock = c
+	s.serverCache.SetNowFunc(c.Now)
+}
+
+// Shutdown releases resources held by the service.
+// This should be called during graceful shutdown.
+func (s *ServerService) Shutdown() {
+	s.logger.Info("shutting down server service, clearing cache")
+	s.serverCache.Shutdown()
 }
 
 // Run starts the server service.
@@ -269,24 +284,23 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 }
 
 func (s *ServerService) getCachedServer(id string) (*model.Server, bool) {
-	if cachedServer, ok := s.cachedServers.Load(id); ok {
-		server, ok := cachedServer.(*model.Server)
-		if ok {
-			if server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
-				return server.Clone(), true
-			}
-
-			s.invalidateCachedServer(id) // Remove dead server from cache
-		}
+	server, ok := s.serverCache.Get(id)
+	if !ok {
+		return nil, false
 	}
 
-	return nil, false
+	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+		s.invalidateCachedServer(id)
+		return nil, false
+	}
+
+	return server.Clone(), true
 }
 
 func (s *ServerService) invalidateCachedServer(id string) {
-	s.cachedServers.Delete(id)
+	s.serverCache.Delete(id)
 }
 
 func (s *ServerService) updateCachedServer(server *model.Server) {
-	s.cachedServers.Store(server.ID, server)
+	s.serverCache.Set(server.ID, server)
 }

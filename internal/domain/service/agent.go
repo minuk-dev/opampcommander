@@ -5,19 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var _ port.AgentUsecase = (*AgentService)(nil)
+
+const (
+	// DefaultAgentCacheTTL is the default time-to-live for agent cache entries.
+	// Using a short TTL to ensure agent state stays relatively fresh while still reducing DB load.
+	DefaultAgentCacheTTL = 30 * time.Second
+)
 
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
 	logger               *slog.Logger
+	agentCache           *xsync.TTLCache[uuid.UUID, *model.Agent]
 }
 
 // NewAgentService creates a new instance of AgentService.
@@ -28,15 +37,36 @@ func NewAgentService(
 	return &AgentService{
 		agentPersistencePort: agentPersistencePort,
 		logger:               logger,
+		agentCache:           xsync.NewTTLCache[uuid.UUID, *model.Agent](DefaultAgentCacheTTL),
 	}
+}
+
+// Shutdown releases resources held by the service.
+// This should be called during graceful shutdown.
+func (s *AgentService) Shutdown() {
+	s.logger.Info("shutting down agent service, clearing cache")
+	s.agentCache.Shutdown()
+}
+
+// InvalidateCache removes a specific agent from the cache.
+func (s *AgentService) InvalidateCache(instanceUID uuid.UUID) {
+	s.agentCache.Delete(instanceUID)
 }
 
 // GetAgent retrieves an agent by its instance UID.
 func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+	// Try cache first
+	if agent, ok := s.agentCache.Get(instanceUID); ok {
+		return agent, nil
+	}
+
 	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
 	}
+
+	// Cache the result
+	s.agentCache.Set(instanceUID, agent)
 
 	return agent, nil
 }
@@ -62,6 +92,9 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 	if err != nil {
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
 	}
+
+	// Update cache with the saved agent
+	s.agentCache.Set(agent.Metadata.InstanceUID, agent)
 
 	return nil
 }
