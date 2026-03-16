@@ -84,6 +84,7 @@ linters:
             - gopkg.in/yaml.v3
             - github.com/puzpuzpuz/xsync/v3
             - github.com/spf13/pflag
+            - github.com/jellydator/ttlcache/v3
             # authentication
             - golang.org/x/oauth2
             - golang.org/x/oauth2/github

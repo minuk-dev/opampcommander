@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jellydator/ttlcache/v3"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
@@ -14,28 +16,125 @@ import (
 
 var _ port.AgentUsecase = (*AgentService)(nil)
 
+const (
+	// DefaultAgentCacheTTL is the default time-to-live for agent cache entries.
+	DefaultAgentCacheTTL = 30 * time.Second
+	// DefaultAgentCacheCapacity is the default maximum number of agent cache entries.
+	DefaultAgentCacheCapacity int64 = 1000
+)
+
+// AgentCacheConfig holds the configuration for agent caching.
+type AgentCacheConfig struct {
+	Enabled     bool
+	TTL         time.Duration
+	MaxCapacity int64
+}
+
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
 	agentPersistencePort port.AgentPersistencePort
 	logger               *slog.Logger
+	agentCache           *ttlcache.Cache[uuid.UUID, *model.Agent]
+	cacheEnabled         bool
 }
 
-// NewAgentService creates a new instance of AgentService.
+// NewAgentService creates a new instance of AgentService with default cache configuration.
 func NewAgentService(
 	agentPersistencePort port.AgentPersistencePort,
 	logger *slog.Logger,
 ) *AgentService {
+	return NewAgentServiceWithConfig(agentPersistencePort, logger, AgentCacheConfig{
+		Enabled:     true,
+		TTL:         DefaultAgentCacheTTL,
+		MaxCapacity: DefaultAgentCacheCapacity,
+	})
+}
+
+// NewAgentServiceWithConfig creates a new instance of AgentService with custom cache configuration.
+func NewAgentServiceWithConfig(
+	agentPersistencePort port.AgentPersistencePort,
+	logger *slog.Logger,
+	cacheConfig AgentCacheConfig,
+) *AgentService {
+	if !cacheConfig.Enabled {
+		logger.Info("agent cache disabled")
+
+		return &AgentService{
+			agentPersistencePort: agentPersistencePort,
+			logger:               logger,
+			agentCache:           nil,
+			cacheEnabled:         false,
+		}
+	}
+
+	ttl := cacheConfig.TTL
+	if ttl <= 0 {
+		ttl = DefaultAgentCacheTTL
+	}
+
+	capacity := cacheConfig.MaxCapacity
+	if capacity <= 0 {
+		capacity = DefaultAgentCacheCapacity
+	}
+
+	//nolint:gosec // capacity is validated to be positive above
+	agentCache := ttlcache.New[uuid.UUID, *model.Agent](
+		ttlcache.WithTTL[uuid.UUID, *model.Agent](ttl),
+		ttlcache.WithCapacity[uuid.UUID, *model.Agent](uint64(capacity)),
+	)
+
+	logger.Info("agent cache initialized",
+		slog.Duration("ttl", ttl),
+		slog.Int64("maxCapacity", capacity),
+	)
+
 	return &AgentService{
 		agentPersistencePort: agentPersistencePort,
 		logger:               logger,
+		agentCache:           agentCache,
+		cacheEnabled:         true,
 	}
+}
+
+// Shutdown releases resources held by the service.
+// This should be called during graceful shutdown.
+func (s *AgentService) Shutdown() {
+	if !s.cacheEnabled {
+		return
+	}
+
+	s.logger.Info("shutting down agent service, clearing cache")
+	s.agentCache.DeleteAll()
+	s.agentCache.Stop()
+}
+
+// InvalidateCache removes a specific agent from the cache.
+func (s *AgentService) InvalidateCache(instanceUID uuid.UUID) {
+	if !s.cacheEnabled {
+		return
+	}
+
+	s.agentCache.Delete(instanceUID)
 }
 
 // GetAgent retrieves an agent by its instance UID.
 func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+	// Try cache first
+	if s.cacheEnabled {
+		item := s.agentCache.Get(instanceUID)
+		if item != nil {
+			return item.Value(), nil
+		}
+	}
+
 	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
+	}
+
+	// Cache the result
+	if s.cacheEnabled {
+		s.agentCache.Set(instanceUID, agent, ttlcache.DefaultTTL)
 	}
 
 	return agent, nil
@@ -61,6 +160,11 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 	err := s.agentPersistencePort.PutAgent(ctx, agent)
 	if err != nil {
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
+	}
+
+	// Update cache with the saved agent
+	if s.cacheEnabled {
+		s.agentCache.Set(agent.Metadata.InstanceUID, agent, ttlcache.DefaultTTL)
 	}
 
 	return nil

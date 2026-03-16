@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jellydator/ttlcache/v3"
 	"github.com/open-telemetry/opamp-go/protobufs"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -21,13 +22,20 @@ var (
 	_ port.ServerUsecase = (*ServerService)(nil)
 )
 
+const (
+	// DefaultServerCacheTTL is the default time-to-live for server cache entries.
+	DefaultServerCacheTTL = 30 * time.Second
+	// DefaultServerCacheCapacity is the default maximum number of server cache entries.
+	DefaultServerCacheCapacity = 100
+)
+
 // ServerService is a struct that implements the ServerUsecase interface.
 type ServerService struct {
 	logger           *slog.Logger
 	clock            clock.Clock
 	heartbeatTimeout time.Duration
 
-	cachedServers sync.Map // map[string]*model.Server
+	serverCache *ttlcache.Cache[string, *model.Server]
 
 	serverPersistencePort   port.ServerPersistencePort
 	serverEventSenderPort   port.ServerEventSenderPort
@@ -45,10 +53,20 @@ func NewServerService(
 	connectionUsecase port.ConnectionUsecase,
 	agentUsecase port.AgentUsecase,
 ) *ServerService {
-	service := &ServerService{
+	serverCache := ttlcache.New[string, *model.Server](
+		ttlcache.WithTTL[string, *model.Server](DefaultServerCacheTTL),
+		ttlcache.WithCapacity[string, *model.Server](DefaultServerCacheCapacity),
+	)
+
+	logger.Info("server cache initialized",
+		slog.Duration("ttl", DefaultServerCacheTTL),
+		slog.Int64("maxCapacity", DefaultServerCacheCapacity),
+	)
+
+	return &ServerService{
 		logger:                  logger,
 		clock:                   clock.NewRealClock(),
-		cachedServers:           sync.Map{},
+		serverCache:             serverCache,
 		serverPersistencePort:   serverPersistencePort,
 		serverEventSenderPort:   serverEventSenderPort,
 		serverEventReceiverPort: serverEventReceiverPort,
@@ -56,8 +74,6 @@ func NewServerService(
 		connectionUsecase:       connectionUsecase,
 		agentUsecase:            agentUsecase,
 	}
-
-	return service
 }
 
 // Name returns the name of the runner.
@@ -68,6 +84,14 @@ func (s *ServerService) Name() string {
 // SetClock sets the clock for testing purposes.
 func (s *ServerService) SetClock(c clock.Clock) {
 	s.clock = c
+}
+
+// Shutdown releases resources held by the service.
+// This should be called during graceful shutdown.
+func (s *ServerService) Shutdown() {
+	s.logger.Info("shutting down server service, clearing cache")
+	s.serverCache.DeleteAll()
+	s.serverCache.Stop()
 }
 
 // Run starts the server service.
@@ -269,24 +293,25 @@ func (s *ServerService) buildServerToAgentMessage(agent *model.Agent) *protobufs
 }
 
 func (s *ServerService) getCachedServer(id string) (*model.Server, bool) {
-	if cachedServer, ok := s.cachedServers.Load(id); ok {
-		server, ok := cachedServer.(*model.Server)
-		if ok {
-			if server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
-				return server.Clone(), true
-			}
-
-			s.invalidateCachedServer(id) // Remove dead server from cache
-		}
+	item := s.serverCache.Get(id)
+	if item == nil {
+		return nil, false
 	}
 
-	return nil, false
+	server := item.Value()
+	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
+		s.invalidateCachedServer(id)
+
+		return nil, false
+	}
+
+	return server.Clone(), true
 }
 
 func (s *ServerService) invalidateCachedServer(id string) {
-	s.cachedServers.Delete(id)
+	s.serverCache.Delete(id)
 }
 
 func (s *ServerService) updateCachedServer(server *model.Server) {
-	s.cachedServers.Store(server.ID, server)
+	s.serverCache.Set(server.ID, server, ttlcache.DefaultTTL)
 }

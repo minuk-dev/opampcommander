@@ -322,6 +322,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				},
 			},
 		},
+		CacheSettings: appconfig.DefaultCacheSettings(),
 	})
 
 	return nil
