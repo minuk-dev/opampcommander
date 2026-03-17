@@ -60,15 +60,22 @@ func provideAgentService(
 	logger *slog.Logger,
 	settings *config.ServerSettings,
 ) *domainservice.AgentService {
-	cacheSettings := settings.CacheSettings.Agent
+	// Apply default cache settings if not explicitly configured
+	cacheSettings := settings.CacheSettings
+	//nolint:exhaustruct // Intentionally comparing with zero value to check if not configured
+	if cacheSettings == (config.CacheSettings{}) {
+		cacheSettings = config.DefaultCacheSettings()
+	}
+
+	agentCacheSettings := cacheSettings.Agent
 
 	return domainservice.NewAgentServiceWithConfig(
 		agentPersistencePort,
 		logger,
 		domainservice.AgentCacheConfig{
-			Enabled:     cacheSettings.Enabled,
-			TTL:         cacheSettings.TTL,
-			MaxCapacity: cacheSettings.MaxCapacity,
+			Enabled:     agentCacheSettings.Enabled,
+			TTL:         agentCacheSettings.TTL,
+			MaxCapacity: agentCacheSettings.MaxCapacity,
 		},
 	)
 }

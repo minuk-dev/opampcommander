@@ -123,7 +123,8 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*mo
 	if s.cacheEnabled {
 		item := s.agentCache.Get(instanceUID)
 		if item != nil {
-			return item.Value(), nil
+			// Return a clone to prevent callers from mutating cached data
+			return item.Value().Clone(), nil
 		}
 	}
 
@@ -132,9 +133,9 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*mo
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
 	}
 
-	// Cache the result
+	// Cache a clone to prevent external mutations from affecting cache
 	if s.cacheEnabled {
-		s.agentCache.Set(instanceUID, agent, ttlcache.DefaultTTL)
+		s.agentCache.Set(instanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
 	return agent, nil
@@ -162,9 +163,9 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *model.Agent) error 
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
 	}
 
-	// Update cache with the saved agent
+	// Cache a clone to prevent external mutations from affecting cache
 	if s.cacheEnabled {
-		s.agentCache.Set(agent.Metadata.InstanceUID, agent, ttlcache.DefaultTTL)
+		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
 	return nil
