@@ -2,10 +2,14 @@
 package domain
 
 import (
+	"context"
+	"log/slog"
+
 	"go.uber.org/fx"
 
 	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
@@ -13,7 +17,11 @@ import (
 func New() fx.Option {
 	components := []any{
 		fx.Annotate(domainservice.NewConnectionService, fx.As(new(domainport.ConnectionUsecase))),
-		fx.Annotate(domainservice.NewAgentService, fx.As(new(domainport.AgentUsecase))),
+		provideAgentService,
+		fx.Annotate(
+			Identity[*domainservice.AgentService],
+			fx.As(new(domainport.AgentUsecase)),
+		),
 		domainservice.NewAgentGroupService,
 		fx.Annotate(
 			Identity[*domainservice.AgentGroupService],
@@ -43,7 +51,50 @@ func New() fx.Option {
 	return fx.Module(
 		"domain",
 		fx.Provide(components...),
+		fx.Invoke(registerShutdownHooks),
 	)
+}
+
+func provideAgentService(
+	agentPersistencePort domainport.AgentPersistencePort,
+	logger *slog.Logger,
+	settings *config.ServerSettings,
+) *domainservice.AgentService {
+	// Apply default cache settings if not explicitly configured
+	cacheSettings := settings.CacheSettings
+	//nolint:exhaustruct // Intentionally comparing with zero value to check if not configured
+	if cacheSettings == (config.CacheSettings{}) {
+		cacheSettings = config.DefaultCacheSettings()
+	}
+
+	agentCacheSettings := cacheSettings.Agent
+
+	return domainservice.NewAgentServiceWithConfig(
+		agentPersistencePort,
+		logger,
+		domainservice.AgentCacheConfig{
+			Enabled:     agentCacheSettings.Enabled,
+			TTL:         agentCacheSettings.TTL,
+			MaxCapacity: agentCacheSettings.MaxCapacity,
+		},
+	)
+}
+
+// registerShutdownHooks registers shutdown hooks for services with caches.
+func registerShutdownHooks(
+	lifecycle fx.Lifecycle,
+	agentService *domainservice.AgentService,
+	serverService *domainservice.ServerService,
+) {
+	lifecycle.Append(fx.Hook{
+		OnStart: nil,
+		OnStop: func(_ context.Context) error {
+			agentService.Shutdown()
+			serverService.Shutdown()
+
+			return nil
+		},
+	})
 }
 
 // Identity is a generic function that returns the input value.

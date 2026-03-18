@@ -1145,3 +1145,316 @@ func (a *Agent) HasNewPackages() bool {
 	return a.Metadata.Capabilities.HasAcceptsPackages() &&
 		len(a.Spec.PackagesAvailable.Packages) > 0
 }
+
+// Clone creates a deep copy of the Agent.
+// This is useful for caching to prevent callers from mutating cached data.
+func (a *Agent) Clone() *Agent {
+	if a == nil {
+		return nil
+	}
+
+	clone := &Agent{
+		Metadata: a.cloneMetadata(),
+		Spec:     a.cloneSpec(),
+		Status:   a.cloneStatus(),
+	}
+
+	return clone
+}
+
+func (a *Agent) cloneMetadata() AgentMetadata {
+	metadata := AgentMetadata{
+		InstanceUID:  a.Metadata.InstanceUID,
+		Description:  a.cloneDescription(),
+		Capabilities: a.Metadata.Capabilities,
+		CustomCapabilities: AgentCustomCapabilities{
+			Capabilities: cloneStringSlice(a.Metadata.CustomCapabilities.Capabilities),
+		},
+	}
+
+	return metadata
+}
+
+func (a *Agent) cloneDescription() agent.Description {
+	return agent.Description{
+		IdentifyingAttributes:    maps.Clone(a.Metadata.Description.IdentifyingAttributes),
+		NonIdentifyingAttributes: maps.Clone(a.Metadata.Description.NonIdentifyingAttributes),
+	}
+}
+
+func (a *Agent) cloneSpec() AgentSpec {
+	spec := AgentSpec{
+		NewInstanceUID:    a.Spec.NewInstanceUID,
+		RestartInfo:       a.cloneRestartInfo(),
+		ConnectionInfo:    a.cloneConnectionInfo(),
+		RemoteConfig:      a.cloneRemoteConfig(),
+		PackagesAvailable: a.clonePackagesAvailable(),
+	}
+
+	return spec
+}
+
+func (a *Agent) cloneRestartInfo() *AgentRestartInfo {
+	if a.Spec.RestartInfo == nil {
+		return nil
+	}
+
+	return &AgentRestartInfo{
+		RequiredRestartedAt: a.Spec.RestartInfo.RequiredRestartedAt,
+	}
+}
+
+func (a *Agent) cloneConnectionInfo() *ConnectionInfo {
+	if a.Spec.ConnectionInfo == nil {
+		return nil
+	}
+
+	return &ConnectionInfo{
+		Hash:             cloneByteSlice(a.Spec.ConnectionInfo.Hash),
+		opamp:            cloneOpAMPConnectionSettings(a.Spec.ConnectionInfo.opamp),
+		ownMetrics:       cloneTelemetryConnectionSettings(a.Spec.ConnectionInfo.ownMetrics),
+		ownLogs:          cloneTelemetryConnectionSettings(a.Spec.ConnectionInfo.ownLogs),
+		ownTraces:        cloneTelemetryConnectionSettings(a.Spec.ConnectionInfo.ownTraces),
+		otherConnections: cloneOtherConnections(a.Spec.ConnectionInfo.otherConnections),
+	}
+}
+
+func cloneOpAMPConnectionSettings(settings *AgentOpAMPConnectionSettings) *AgentOpAMPConnectionSettings {
+	if settings == nil {
+		return nil
+	}
+
+	return &AgentOpAMPConnectionSettings{
+		DestinationEndpoint: settings.DestinationEndpoint,
+		Headers:             cloneHeaders(settings.Headers),
+		Certificate:         cloneCertificate(settings.Certificate),
+	}
+}
+
+func cloneTelemetryConnectionSettings(settings *AgentTelemetryConnectionSettings) *AgentTelemetryConnectionSettings {
+	if settings == nil {
+		return nil
+	}
+
+	return &AgentTelemetryConnectionSettings{
+		DestinationEndpoint: settings.DestinationEndpoint,
+		Headers:             cloneHeaders(settings.Headers),
+		Certificate:         cloneCertificate(settings.Certificate),
+	}
+}
+
+func cloneOtherConnections(
+	connections map[string]AgentOtherConnectionSettings,
+) map[string]AgentOtherConnectionSettings {
+	if connections == nil {
+		return nil
+	}
+
+	clone := make(map[string]AgentOtherConnectionSettings, len(connections))
+	for name, conn := range connections {
+		clone[name] = AgentOtherConnectionSettings{
+			DestinationEndpoint: conn.DestinationEndpoint,
+			Headers:             cloneHeaders(conn.Headers),
+			Certificate:         cloneCertificate(conn.Certificate),
+		}
+	}
+
+	return clone
+}
+
+func cloneHeaders(headers map[string][]string) map[string][]string {
+	if headers == nil {
+		return nil
+	}
+
+	clone := make(map[string][]string, len(headers))
+	for key, values := range headers {
+		clone[key] = cloneStringSlice(values)
+	}
+
+	return clone
+}
+
+func cloneCertificate(cert *AgentCertificate) *AgentCertificate {
+	if cert == nil {
+		return nil
+	}
+
+	return &AgentCertificate{
+		Cert:       cloneByteSlice(cert.Cert),
+		PrivateKey: cloneByteSlice(cert.PrivateKey),
+		CaCert:     cloneByteSlice(cert.CaCert),
+	}
+}
+
+func (a *Agent) cloneRemoteConfig() *AgentSpecRemoteConfig {
+	if a.Spec.RemoteConfig == nil {
+		return nil
+	}
+
+	configMap := make(map[string]AgentConfigFile, len(a.Spec.RemoteConfig.ConfigMap.ConfigMap))
+	for k, v := range a.Spec.RemoteConfig.ConfigMap.ConfigMap {
+		configMap[k] = AgentConfigFile{
+			Body:        cloneByteSlice(v.Body),
+			ContentType: v.ContentType,
+		}
+	}
+
+	return &AgentSpecRemoteConfig{
+		ConfigMap: AgentConfigMap{
+			ConfigMap: configMap,
+		},
+	}
+}
+
+func (a *Agent) clonePackagesAvailable() *AgentSpecPackage {
+	if a.Spec.PackagesAvailable == nil {
+		return nil
+	}
+
+	return &AgentSpecPackage{
+		Packages: cloneStringSlice(a.Spec.PackagesAvailable.Packages),
+	}
+}
+
+func (a *Agent) cloneStatus() AgentStatus {
+	return AgentStatus{
+		RemoteConfigStatus:       a.cloneRemoteConfigStatus(),
+		ConnectionSettingsStatus: a.cloneConnectionSettingsStatus(),
+		EffectiveConfig:          a.cloneEffectiveConfig(),
+		PackageStatuses:          a.clonePackageStatuses(),
+		ComponentHealth:          a.cloneComponentHealth(a.Status.ComponentHealth),
+		AvailableComponents:      a.cloneAvailableComponents(),
+		Conditions:               a.cloneConditions(),
+		Connected:                a.Status.Connected,
+		ConnectionType:           a.Status.ConnectionType,
+		SequenceNum:              a.Status.SequenceNum,
+		LastReportedAt:           a.Status.LastReportedAt,
+		LastReportedTo:           a.Status.LastReportedTo,
+	}
+}
+
+func (a *Agent) cloneRemoteConfigStatus() AgentRemoteConfigStatus {
+	return AgentRemoteConfigStatus{
+		LastRemoteConfigHash: cloneByteSlice(a.Status.RemoteConfigStatus.LastRemoteConfigHash),
+		Status:               a.Status.RemoteConfigStatus.Status,
+		ErrorMessage:         a.Status.RemoteConfigStatus.ErrorMessage,
+		LastUpdatedAt:        a.Status.RemoteConfigStatus.LastUpdatedAt,
+	}
+}
+
+func (a *Agent) cloneConnectionSettingsStatus() AgentConnectionSettingsStatus {
+	return AgentConnectionSettingsStatus{
+		LastConnectionSettingsHash: cloneByteSlice(a.Status.ConnectionSettingsStatus.LastConnectionSettingsHash),
+		Status:                     a.Status.ConnectionSettingsStatus.Status,
+		ErrorMessage:               a.Status.ConnectionSettingsStatus.ErrorMessage,
+	}
+}
+
+func (a *Agent) cloneEffectiveConfig() AgentEffectiveConfig {
+	configMap := make(map[string]AgentConfigFile, len(a.Status.EffectiveConfig.ConfigMap.ConfigMap))
+	for k, v := range a.Status.EffectiveConfig.ConfigMap.ConfigMap {
+		configMap[k] = AgentConfigFile{
+			Body:        cloneByteSlice(v.Body),
+			ContentType: v.ContentType,
+		}
+	}
+
+	return AgentEffectiveConfig{
+		ConfigMap: AgentConfigMap{
+			ConfigMap: configMap,
+		},
+	}
+}
+
+func (a *Agent) clonePackageStatuses() AgentPackageStatuses {
+	packages := make(map[string]AgentPackageStatusEntry, len(a.Status.PackageStatuses.Packages))
+	for name, status := range a.Status.PackageStatuses.Packages {
+		packages[name] = AgentPackageStatusEntry{
+			Name:                 status.Name,
+			AgentHasVersion:      status.AgentHasVersion,
+			AgentHasHash:         cloneByteSlice(status.AgentHasHash),
+			ServerOfferedVersion: status.ServerOfferedVersion,
+			Status:               status.Status,
+			ErrorMessage:         status.ErrorMessage,
+		}
+	}
+
+	return AgentPackageStatuses{
+		Packages:                     packages,
+		ServerProvidedAllPackgesHash: cloneByteSlice(a.Status.PackageStatuses.ServerProvidedAllPackgesHash),
+		ErrorMessage:                 a.Status.PackageStatuses.ErrorMessage,
+	}
+}
+
+func (a *Agent) cloneComponentHealth(health AgentComponentHealth) AgentComponentHealth {
+	componentHealthMap := make(map[string]AgentComponentHealth, len(health.ComponentHealthMap))
+	for name, subHealth := range health.ComponentHealthMap {
+		componentHealthMap[name] = a.cloneComponentHealth(subHealth)
+	}
+
+	return AgentComponentHealth{
+		Healthy:            health.Healthy,
+		StartTime:          health.StartTime,
+		LastError:          health.LastError,
+		Status:             health.Status,
+		StatusTime:         health.StatusTime,
+		ComponentHealthMap: componentHealthMap,
+	}
+}
+
+func (a *Agent) cloneAvailableComponents() AgentAvailableComponents {
+	return AgentAvailableComponents{
+		Components: cloneComponentDetails(a.Status.AvailableComponents.Components),
+		Hash:       cloneByteSlice(a.Status.AvailableComponents.Hash),
+	}
+}
+
+func cloneComponentDetails(components map[string]ComponentDetails) map[string]ComponentDetails {
+	if components == nil {
+		return nil
+	}
+
+	clone := make(map[string]ComponentDetails, len(components))
+	for name, details := range components {
+		clone[name] = ComponentDetails{
+			Metadata:        maps.Clone(details.Metadata),
+			SubComponentMap: cloneComponentDetails(details.SubComponentMap),
+		}
+	}
+
+	return clone
+}
+
+func (a *Agent) cloneConditions() []AgentCondition {
+	if a.Status.Conditions == nil {
+		return nil
+	}
+
+	conditions := make([]AgentCondition, len(a.Status.Conditions))
+	copy(conditions, a.Status.Conditions)
+
+	return conditions
+}
+
+func cloneByteSlice(data []byte) []byte {
+	if data == nil {
+		return nil
+	}
+
+	clone := make([]byte, len(data))
+	copy(clone, data)
+
+	return clone
+}
+
+func cloneStringSlice(slice []string) []string {
+	if slice == nil {
+		return nil
+	}
+
+	clone := make([]string, len(slice))
+	copy(clone, slice)
+
+	return clone
+}

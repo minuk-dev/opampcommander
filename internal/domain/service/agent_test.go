@@ -565,3 +565,132 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		mockPort.AssertExpectations(t)
 	})
 }
+
+func TestAgentService_GetAgent_CacheHit(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := model.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Once()
+
+	svc := service.NewAgentService(mockPersistence, slog.Default())
+
+	// First call - should hit persistence
+	agent1, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, instanceUID, agent1.Metadata.InstanceUID)
+
+	// Second call - should hit cache
+	agent2, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, instanceUID, agent2.Metadata.InstanceUID)
+
+	// Persistence should only be called once
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 1)
+}
+
+func TestAgentService_GetAgent_DatabaseError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(nil, errDatabaseConnection)
+
+	svc := service.NewAgentService(mockPersistence, slog.Default())
+
+	_, err := svc.GetAgent(ctx, instanceUID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "database connection error")
+
+	mockPersistence.AssertExpectations(t)
+}
+
+func TestAgentService_SaveAgent_UpdatesCache(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := model.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("PutAgent", ctx, mockAgent).Return(nil)
+
+	svc := service.NewAgentService(mockPersistence, slog.Default())
+
+	// Save the agent
+	err := svc.SaveAgent(ctx, mockAgent)
+	require.NoError(t, err)
+
+	// Get should hit cache, not persistence
+	agent, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, instanceUID, agent.Metadata.InstanceUID)
+
+	mockPersistence.AssertExpectations(t)
+	// GetAgent should not be called because it's in cache
+	mockPersistence.AssertNotCalled(t, "GetAgent")
+}
+
+func TestAgentService_InvalidateCache(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := model.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
+
+	svc := service.NewAgentService(mockPersistence, slog.Default())
+
+	// First call - caches the agent
+	_, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// Invalidate cache
+	svc.InvalidateCache(instanceUID)
+
+	// Second call - should hit persistence again
+	_, err = svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}
+
+func TestAgentService_Shutdown(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := model.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
+
+	svc := service.NewAgentService(mockPersistence, slog.Default())
+
+	// First call - caches the agent
+	_, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// Shutdown clears cache
+	svc.Shutdown()
+
+	// Second call - should hit persistence again
+	_, err = svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}

@@ -21,6 +21,7 @@ type ServerSettings struct {
 	AuthSettings       AuthSettings
 	ManagementSettings ManagementSettings
 	EventSettings      EventSettings
+	CacheSettings      CacheSettings
 }
 
 // String returns a JSON representation of the ServerSettings struct.
