@@ -14,7 +14,7 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/open-telemetry/opamp-go v0.23.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/samber/lo v1.52.0
+	github.com/samber/lo v1.53.0
 	github.com/samber/slog-gin v1.21.0
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
