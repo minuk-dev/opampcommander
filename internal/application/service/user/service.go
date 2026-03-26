@@ -20,17 +20,26 @@ var _ applicationport.UserManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the UserManageUsecase interface.
 type Service struct {
-	userUsecase domainport.UserUsecase
-	mapper      *helper.Mapper
-	logger      *slog.Logger
+	userUsecase     domainport.UserUsecase
+	userRoleUsecase domainport.UserRoleUsecase
+	rbacUsecase     domainport.RBACUsecase
+	mapper          *helper.Mapper
+	logger          *slog.Logger
 }
 
 // New creates a new instance of the Service struct.
-func New(userUsecase domainport.UserUsecase, logger *slog.Logger) *Service {
+func New(
+	userUsecase domainport.UserUsecase,
+	userRoleUsecase domainport.UserRoleUsecase,
+	rbacUsecase domainport.RBACUsecase,
+	logger *slog.Logger,
+) *Service {
 	return &Service{
-		userUsecase: userUsecase,
-		mapper:      helper.NewMapper(),
-		logger:      logger,
+		userUsecase:     userUsecase,
+		userRoleUsecase: userRoleUsecase,
+		rbacUsecase:     rbacUsecase,
+		mapper:          helper.NewMapper(),
+		logger:          logger,
 	}
 }
 
@@ -39,6 +48,16 @@ func (s *Service) GetUser(ctx context.Context, uid uuid.UUID) (*v1.User, error) 
 	user, err := s.userUsecase.GetUser(ctx, uid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return s.mapper.MapUserToAPI(user), nil
+}
+
+// GetUserByEmail implements [applicationport.UserManageUsecase].
+func (s *Service) GetUserByEmail(ctx context.Context, email string) (*v1.User, error) {
+	user, err := s.userUsecase.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 
 	return s.mapper.MapUserToAPI(user), nil
@@ -87,4 +106,34 @@ func (s *Service) DeleteUser(ctx context.Context, uid uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// GetUserProfile implements [applicationport.UserManageUsecase].
+func (s *Service) GetUserProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error) {
+	user, err := s.userUsecase.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	roles, err := s.userRoleUsecase.GetUserRoles(ctx, user.Metadata.UID)
+	if err != nil {
+		s.logger.Warn("failed to get user roles", slog.String("email", email), slog.String("error", err.Error()))
+		roles = []*model.Role{}
+	}
+
+	permissions, err := s.rbacUsecase.GetUserPermissions(ctx, user.Metadata.UID)
+	if err != nil {
+		s.logger.Warn("failed to get user permissions", slog.String("email", email), slog.String("error", err.Error()))
+		permissions = []*model.Permission{}
+	}
+
+	return &v1.UserProfileResponse{
+		User: *s.mapper.MapUserToAPI(user),
+		Roles: lo.Map(roles, func(r *model.Role, _ int) v1.Role {
+			return *s.mapper.MapRoleToAPI(r)
+		}),
+		Permissions: lo.Map(permissions, func(p *model.Permission, _ int) v1.Permission {
+			return *s.mapper.MapPermissionToAPI(p)
+		}),
+	}, nil
 }

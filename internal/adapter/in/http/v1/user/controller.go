@@ -9,6 +9,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
@@ -34,6 +35,12 @@ func NewController(
 // RoutesInfo returns the routes information for the user controller.
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/users/me",
+			Handler:     "http.v1.user.Me",
+			HandlerFunc: c.Me,
+		},
 		{
 			Method:      http.MethodGet,
 			Path:        "/api/v1/users",
@@ -191,4 +198,36 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// Me retrieves the current user's profile with roles and permissions.
+//
+// @Summary  Get Current User Profile
+// @Tags user
+// @Description Retrieve the current authenticated user's profile with roles and permissions.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.UserProfileResponse
+// @Failure 401 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/users/me [get].
+func (c *Controller) Me(ctx *gin.Context) {
+	secUser, err := security.GetUser(ctx)
+	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
+		})
+
+		return
+	}
+
+	profile, err := c.userUsecase.GetUserProfile(ctx.Request.Context(), *secUser.Email)
+	if err != nil {
+		c.logger.Error("failed to get user profile", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the user profile.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, profile)
 }

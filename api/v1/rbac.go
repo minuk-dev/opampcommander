@@ -214,3 +214,13 @@ type CheckPermissionResponse struct {
 	// Allowed indicates whether the user has the permission.
 	Allowed bool `json:"allowed"`
 } // @name CheckPermissionResponse
+
+// UserProfileResponse represents a user's profile with their roles and permissions.
+type UserProfileResponse struct {
+	// User contains the user information.
+	User User `json:"user"`
+	// Roles contains the roles assigned to the user.
+	Roles []Role `json:"roles"`
+	// Permissions contains the effective permissions for the user.
+	Permissions []Permission `json:"permissions"`
+} // @name UserProfileResponse

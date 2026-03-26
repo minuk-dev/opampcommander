@@ -2,6 +2,7 @@
 package github
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,23 +12,28 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
 // Controller is a struct that implements the GitHub OAuth2 authentication controller.
 type Controller struct {
-	logger  *slog.Logger
-	service *security.Service
+	logger      *slog.Logger
+	service     *security.Service
+	userUsecase domainport.UserUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
 	logger *slog.Logger,
 	service *security.Service,
+	userUsecase domainport.UserUsecase,
 ) *Controller {
 	return &Controller{
-		logger:  logger,
-		service: service,
+		logger:      logger,
+		service:     service,
+		userUsecase: userUsecase,
 	}
 }
 
@@ -133,7 +139,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 	state := ctx.Query("state")
 	code := ctx.Query("code")
 
-	token, err := c.service.Exchange(ctx.Request.Context(), state, code)
+	result, err := c.service.Exchange(ctx.Request.Context(), state, code)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "failed to exchange code for token",
@@ -143,8 +149,10 @@ func (c *Controller) Callback(ctx *gin.Context) {
 		return
 	}
 
+	c.ensureUser(ctx.Request.Context(), result.Email, model.IdentityProviderGitHub)
+
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
-		Token: token,
+		Token: result.Token,
 	})
 }
 
@@ -212,7 +220,7 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		}
 	}
 
-	token, err := c.service.ExchangeDeviceAuth(
+	result, err := c.service.ExchangeDeviceAuth(
 		ctx.Request.Context(),
 		deviceCode,
 		expiryTime,
@@ -226,7 +234,36 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		return
 	}
 
+	c.ensureUser(ctx.Request.Context(), result.Email, model.IdentityProviderGitHub)
+
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
-		Token: token,
+		Token: result.Token,
 	})
+}
+
+// ensureUser creates or updates a user record on login.
+// Failures are logged but do not block the login flow.
+func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
+	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
+	if err == nil && existing != nil {
+		existing.Metadata.UpdatedAt = time.Now()
+
+		if saveErr := c.userUsecase.SaveUser(ctx, existing); saveErr != nil {
+			c.logger.Warn("failed to update user on login",
+				slog.String("email", email),
+				slog.Any("error", saveErr),
+			)
+		}
+
+		return
+	}
+
+	newUser := model.NewUserWithIdentity(provider, email, email, email)
+
+	if saveErr := c.userUsecase.SaveUser(ctx, newUser); saveErr != nil {
+		c.logger.Warn("failed to create user on login",
+			slog.String("email", email),
+			slog.Any("error", saveErr),
+		)
+	}
 }

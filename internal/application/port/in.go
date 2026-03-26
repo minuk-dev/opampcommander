@@ -71,9 +71,11 @@ type CertificateManageUsecase interface {
 // UserManageUsecase is a use case that handles user management operations.
 type UserManageUsecase interface {
 	GetUser(ctx context.Context, uid uuid.UUID) (*v1.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*v1.User, error)
 	ListUsers(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.User], error)
 	CreateUser(ctx context.Context, user *v1.User) (*v1.User, error)
 	DeleteUser(ctx context.Context, uid uuid.UUID) error
+	GetUserProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error)
 }
 
 // RoleManageUsecase is a use case that handles role management operations.
