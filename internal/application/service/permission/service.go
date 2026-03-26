@@ -13,20 +13,21 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
 var _ applicationport.PermissionManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the PermissionManageUsecase interface.
 type Service struct {
-	permissionUsecase domainport.PermissionUsecase
+	permissionUsecase userport.PermissionUsecase
 	mapper            *helper.Mapper
 	logger            *slog.Logger
 }
 
 // New creates a new instance of the Service struct.
-func New(permissionUsecase domainport.PermissionUsecase, logger *slog.Logger) *Service {
+func New(permissionUsecase userport.PermissionUsecase, logger *slog.Logger) *Service {
 	return &Service{
 		permissionUsecase: permissionUsecase,
 		mapper:            helper.NewMapper(),
@@ -61,7 +62,7 @@ func (s *Service) ListPermissions(
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-		Items: lo.Map(response.Items, func(permission *model.Permission, _ int) v1.Permission {
+		Items: lo.Map(response.Items, func(permission *usermodel.Permission, _ int) v1.Permission {
 			return *s.mapper.MapPermissionToAPI(permission)
 		}),
 	}, nil

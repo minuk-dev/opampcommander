@@ -12,8 +12,9 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/application/service/certificate/filter"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -22,7 +23,7 @@ var _ port.CertificateManageUsecase = (*Service)(nil)
 
 // Service is a service for managing certificates.
 type Service struct {
-	certificateUsecase domainport.CertificateUsecase
+	certificateUsecase agentport.CertificateUsecase
 	mapper             *helper.Mapper
 	sanityFilter       *filter.Sanity
 	clock              clock.Clock
@@ -31,7 +32,7 @@ type Service struct {
 
 // NewCertificateService creates a new CertificateService.
 func NewCertificateService(
-	certificateUsecase domainport.CertificateUsecase,
+	certificateUsecase agentport.CertificateUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -73,7 +74,7 @@ func (s *Service) ListCertificates(
 			Continue:           certificates.Continue,
 			RemainingItemCount: certificates.RemainingItemCount,
 		},
-		Items: lo.Map(certificates.Items, func(item *model.Certificate, _ int) v1.Certificate {
+		Items: lo.Map(certificates.Items, func(item *agentmodel.Certificate, _ int) v1.Certificate {
 			return *s.mapper.MapCertificateToAPI(item)
 		}),
 	}, nil

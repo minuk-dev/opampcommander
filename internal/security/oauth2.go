@@ -155,7 +155,7 @@ func (s *Service) validateState(state string) error {
 	token, err := jwt.ParseWithClaims(state,
 		//exhaustruct:ignore
 		&OAuthStateClaims{}, // only to convey the type of claims we expect
-		func(_ *jwt.Token) (interface{}, error) {
+		func(_ *jwt.Token) (any, error) {
 			return []byte(s.oauthStateSettings.SigningKey), nil
 		})
 	if err != nil {

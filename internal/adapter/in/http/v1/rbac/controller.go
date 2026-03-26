@@ -15,9 +15,9 @@ import (
 // unassignRoleRequest represents a request to unassign a role from a user.
 type unassignRoleRequest struct {
 	// UserID is the ID of the user to unassign the role from.
-	UserID string `json:"userID"`
+	UserID string `json:"userId"`
 	// RoleID is the ID of the role to unassign.
-	RoleID string `json:"roleID"`
+	RoleID string `json:"roleId"`
 }
 
 // Controller is a struct that implements the RBAC controller.

@@ -7,8 +7,10 @@ import (
 
 	"go.uber.org/fx"
 
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
-	domainservice "github.com/minuk-dev/opampcommander/internal/domain/service"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/internal/domain/agent/service"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
+	userservice "github.com/minuk-dev/opampcommander/internal/domain/user/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
@@ -16,43 +18,43 @@ import (
 // New creates a new module for domain services.
 func New() fx.Option {
 	components := []any{
-		fx.Annotate(domainservice.NewConnectionService, fx.As(new(domainport.ConnectionUsecase))),
+		fx.Annotate(agentservice.NewConnectionService, fx.As(new(agentport.ConnectionUsecase))),
 		provideAgentService,
 		fx.Annotate(
-			Identity[*domainservice.AgentService],
-			fx.As(new(domainport.AgentUsecase)),
+			Identity[*agentservice.AgentService],
+			fx.As(new(agentport.AgentUsecase)),
 		),
-		domainservice.NewAgentGroupService,
+		agentservice.NewAgentGroupService,
 		fx.Annotate(
-			Identity[*domainservice.AgentGroupService],
-			fx.As(new(domainport.AgentGroupUsecase)),
-			fx.As(new(domainport.AgentGroupRelatedUsecase)),
+			Identity[*agentservice.AgentGroupService],
+			fx.As(new(agentport.AgentGroupUsecase)),
+			fx.As(new(agentport.AgentGroupRelatedUsecase)),
 		),
-		fx.Annotate(domainservice.NewAgentPackageService, fx.As(new(domainport.AgentPackageUsecase))),
-		fx.Annotate(domainservice.NewAgentRemoteConfigService, fx.As(new(domainport.AgentRemoteConfigUsecase))),
-		fx.Annotate(domainservice.NewCertificateService, fx.As(new(domainport.CertificateUsecase))),
-		domainservice.NewServerService,
+		fx.Annotate(agentservice.NewAgentPackageService, fx.As(new(agentport.AgentPackageUsecase))),
+		fx.Annotate(agentservice.NewAgentRemoteConfigService, fx.As(new(agentport.AgentRemoteConfigUsecase))),
+		fx.Annotate(agentservice.NewCertificateService, fx.As(new(agentport.CertificateUsecase))),
+		agentservice.NewServerService,
 		fx.Annotate(
-			Identity[*domainservice.ServerService],
-			fx.As(new(domainport.ServerUsecase)),
-			fx.As(new(domainport.ServerMessageUsecase)),
+			Identity[*agentservice.ServerService],
+			fx.As(new(agentport.ServerUsecase)),
+			fx.As(new(agentport.ServerMessageUsecase)),
 		),
-		domainservice.NewServerIdentityService,
+		agentservice.NewServerIdentityService,
 		fx.Annotate(
-			Identity[*domainservice.ServerIdentityService],
-			fx.As(new(domainport.ServerIdentityProvider)),
+			Identity[*agentservice.ServerIdentityService],
+			fx.As(new(agentport.ServerIdentityProvider)),
 		),
-		fx.Annotate(domainservice.NewAgentNotificationService, fx.As(new(domainport.AgentNotificationUsecase))),
+		fx.Annotate(agentservice.NewAgentNotificationService, fx.As(new(agentport.AgentNotificationUsecase))),
 		// RBAC domain services
-		fx.Annotate(domainservice.NewUserService, fx.As(new(domainport.UserUsecase))),
-		fx.Annotate(domainservice.NewRoleService, fx.As(new(domainport.RoleUsecase))),
-		fx.Annotate(domainservice.NewPermissionService, fx.As(new(domainport.PermissionUsecase))),
-		fx.Annotate(domainservice.NewUserRoleService, fx.As(new(domainport.UserRoleUsecase))),
-		fx.Annotate(domainservice.NewRBACService, fx.As(new(domainport.RBACUsecase))),
-		fx.Annotate(domainservice.NewOrgRoleMappingService, fx.As(new(domainport.OrgRoleMappingUsecase))),
-		helper.AsRunner(Identity[*domainservice.AgentGroupService]),
-		helper.AsRunner(Identity[*domainservice.ServerService]),
-		helper.AsRunner(Identity[*domainservice.ServerIdentityService]),
+		fx.Annotate(userservice.NewUserService, fx.As(new(userport.UserUsecase))),
+		fx.Annotate(userservice.NewRoleService, fx.As(new(userport.RoleUsecase))),
+		fx.Annotate(userservice.NewPermissionService, fx.As(new(userport.PermissionUsecase))),
+		fx.Annotate(userservice.NewUserRoleService, fx.As(new(userport.UserRoleUsecase))),
+		fx.Annotate(userservice.NewRBACService, fx.As(new(userport.RBACUsecase))),
+		fx.Annotate(userservice.NewOrgRoleMappingService, fx.As(new(userport.OrgRoleMappingUsecase))),
+		helper.AsRunner(Identity[*agentservice.AgentGroupService]),
+		helper.AsRunner(Identity[*agentservice.ServerService]),
+		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),
 	}
 
 	return fx.Module(
@@ -63,10 +65,10 @@ func New() fx.Option {
 }
 
 func provideAgentService(
-	agentPersistencePort domainport.AgentPersistencePort,
+	agentPersistencePort agentport.AgentPersistencePort,
 	logger *slog.Logger,
 	settings *config.ServerSettings,
-) *domainservice.AgentService {
+) *agentservice.AgentService {
 	// Apply default cache settings if not explicitly configured
 	cacheSettings := settings.CacheSettings
 	//nolint:exhaustruct // Intentionally comparing with zero value to check if not configured
@@ -76,10 +78,10 @@ func provideAgentService(
 
 	agentCacheSettings := cacheSettings.Agent
 
-	return domainservice.NewAgentServiceWithConfig(
+	return agentservice.NewAgentServiceWithConfig(
 		agentPersistencePort,
 		logger,
-		domainservice.AgentCacheConfig{
+		agentservice.AgentCacheConfig{
 			Enabled:     agentCacheSettings.Enabled,
 			TTL:         agentCacheSettings.TTL,
 			MaxCapacity: agentCacheSettings.MaxCapacity,
@@ -90,8 +92,8 @@ func provideAgentService(
 // registerShutdownHooks registers shutdown hooks for services with caches.
 func registerShutdownHooks(
 	lifecycle fx.Lifecycle,
-	agentService *domainservice.AgentService,
-	serverService *domainservice.ServerService,
+	agentService *agentservice.AgentService,
+	serverService *agentservice.ServerService,
 ) {
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,

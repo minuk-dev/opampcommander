@@ -12,28 +12,28 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
 var _ applicationport.RBACManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the RBACManageUsecase interface.
 type Service struct {
-	userRoleUsecase   domainport.UserRoleUsecase
-	rbacUsecase       domainport.RBACUsecase
-	roleUsecase       domainport.RoleUsecase
-	permissionUsecase domainport.PermissionUsecase
+	userRoleUsecase   userport.UserRoleUsecase
+	rbacUsecase       userport.RBACUsecase
+	roleUsecase       userport.RoleUsecase
+	permissionUsecase userport.PermissionUsecase
 	mapper            *helper.Mapper
 	logger            *slog.Logger
 }
 
 // New creates a new instance of the Service struct.
 func New(
-	userRoleUsecase domainport.UserRoleUsecase,
-	rbacUsecase domainport.RBACUsecase,
-	roleUsecase domainport.RoleUsecase,
-	permissionUsecase domainport.PermissionUsecase,
+	userRoleUsecase userport.UserRoleUsecase,
+	rbacUsecase userport.RBACUsecase,
+	roleUsecase userport.RoleUsecase,
+	permissionUsecase userport.PermissionUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -114,7 +114,8 @@ func (s *Service) GetUserRoles(
 	return &v1.ListResponse[v1.Role]{
 		Kind:       v1.RoleKind,
 		APIVersion: v1.APIVersion,
-		Items: lo.Map(roles, func(role *model.Role, _ int) v1.Role {
+		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
+		Items: lo.Map(roles, func(role *usermodel.Role, _ int) v1.Role {
 			return *s.mapper.MapRoleToAPI(role)
 		}),
 	}, nil
@@ -133,7 +134,8 @@ func (s *Service) GetUserPermissions(
 	return &v1.ListResponse[v1.Permission]{
 		Kind:       v1.PermissionKind,
 		APIVersion: v1.APIVersion,
-		Items: lo.Map(permissions, func(permission *model.Permission, _ int) v1.Permission {
+		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
+		Items: lo.Map(permissions, func(permission *usermodel.Permission, _ int) v1.Permission {
 			return *s.mapper.MapPermissionToAPI(permission)
 		}),
 	}, nil

@@ -13,9 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -54,7 +55,7 @@ func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 		ctx := t.Context()
 		instanceUID := uuid.New()
 		// given
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 		err := agentRepository.PutAgent(ctx, agent)
 		require.NoError(t, err)
 
@@ -76,7 +77,7 @@ func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 		got, err := agentRepository.GetAgent(ctx, instanceUID)
 
 		// then
-		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
 		assert.Nil(t, got)
 	})
 }
@@ -140,7 +141,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		instanceUID := uuid.New()
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 		err = agentRepository.PutAgent(ctx, agent)
 		require.NoError(t, err)
 
@@ -177,11 +178,11 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// Create multiple agents
-		agents := make([]*model.Agent, 3)
+		agents := make([]*agentmodel.Agent, 3)
 
 		for idx := range 3 {
 			instanceUID := uuid.New()
-			agent := model.NewAgent(instanceUID)
+			agent := agentmodel.NewAgent(instanceUID)
 			agents[idx] = agent
 			err = agentRepository.PutAgent(ctx, agent)
 			require.NoError(t, err)
@@ -231,7 +232,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		// Create 5 agents
 		for range 5 {
 			instanceUID := uuid.New()
-			agent := model.NewAgent(instanceUID)
+			agent := agentmodel.NewAgent(instanceUID)
 			err = agentRepository.PutAgent(ctx, agent)
 			require.NoError(t, err)
 		}
@@ -283,7 +284,7 @@ func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		instanceUID := uuid.New()
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 
 		// when
 		err = agentRepository.PutAgent(ctx, agent)
@@ -324,10 +325,10 @@ func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 
 	instanceUID := uuid.New()
 	// when
-	originalAgent := model.NewAgent(instanceUID)
-	originalAgent.Status.EffectiveConfig = model.AgentEffectiveConfig{
-		ConfigMap: model.AgentConfigMap{
-			ConfigMap: map[string]model.AgentConfigFile{
+	originalAgent := agentmodel.NewAgent(instanceUID)
+	originalAgent.Status.EffectiveConfig = agentmodel.AgentEffectiveConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
+			ConfigMap: map[string]agentmodel.AgentConfigFile{
 				"config.yaml": {
 					Body:        []byte("key: value"),
 					ContentType: "application/yaml",
@@ -379,7 +380,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 
 		// Create an agent with different attributes
 		instanceUID := uuid.New()
-		agent := model.NewAgent(instanceUID, model.WithDescription(&agent.Description{
+		agent := agentmodel.NewAgent(instanceUID, agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "other-service",
 			},
@@ -391,7 +392,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - search for non-existent selector
-		selector := model.AgentSelector{
+		selector := agentmodel.AgentSelector{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
 			},
@@ -430,7 +431,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// Create agents with matching identifying attributes
-		matchingAgent1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		matchingAgent1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
 			},
@@ -441,7 +442,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		err = agentRepository.PutAgent(ctx, matchingAgent1)
 		require.NoError(t, err)
 
-		matchingAgent2 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		matchingAgent2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
 			},
@@ -453,7 +454,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create agent with different identifying attributes
-		nonMatchingAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		nonMatchingAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "other-service",
 			},
@@ -465,7 +466,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		selector := model.AgentSelector{
+		selector := agentmodel.AgentSelector{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
 			},
@@ -511,7 +512,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// Create agents with matching non-identifying attributes
-		matchingAgent1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		matchingAgent1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "service-a",
 			},
@@ -522,7 +523,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		err = agentRepository.PutAgent(ctx, matchingAgent1)
 		require.NoError(t, err)
 
-		matchingAgent2 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		matchingAgent2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "service-b",
 			},
@@ -534,7 +535,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create agent with different non-identifying attributes
-		nonMatchingAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		nonMatchingAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "service-c",
 			},
@@ -546,7 +547,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		selector := model.AgentSelector{
+		selector := agentmodel.AgentSelector{
 			IdentifyingAttributes: map[string]string{},
 			NonIdentifyingAttributes: map[string]string{
 				"os.type": "linux",
@@ -592,7 +593,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// Create agent that matches both attributes
-		matchingAgent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		matchingAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name":      "test-service",
 				"service.namespace": "production",
@@ -606,7 +607,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create agent that only matches identifying attributes
-		partialMatch1 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		partialMatch1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name":      "test-service",
 				"service.namespace": "production",
@@ -620,7 +621,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create agent that only matches non-identifying attributes
-		partialMatch2 := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+		partialMatch2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
 				"service.name":      "other-service",
 				"service.namespace": "staging",
@@ -634,7 +635,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		selector := model.AgentSelector{
+		selector := agentmodel.AgentSelector{
 			IdentifyingAttributes: map[string]string{
 				"service.name":      "test-service",
 				"service.namespace": "production",
@@ -677,7 +678,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 
 		// Create 5 agents with same selector
 		for range 5 {
-			agent := model.NewAgent(uuid.New(), model.WithDescription(&agent.Description{
+			agent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 				IdentifyingAttributes: map[string]string{
 					"service.name": "test-service",
 				},
@@ -690,7 +691,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		}
 
 		// when - list with limit of 3
-		selector := model.AgentSelector{
+		selector := agentmodel.AgentSelector{
 			IdentifyingAttributes: map[string]string{
 				"service.name": "test-service",
 			},
@@ -741,7 +742,7 @@ func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// when
-		selector := model.AgentSelector{
+		selector := agentmodel.AgentSelector{
 			IdentifyingAttributes:    map[string]string{},
 			NonIdentifyingAttributes: map[string]string{},
 		}
@@ -788,7 +789,7 @@ func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 		// given
 		instanceUID := uuid.New()
 		newInstanceUID := uuid.New()
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 		agent.Spec.NewInstanceUID = newInstanceUID
 
 		// when - Save agent
@@ -829,7 +830,7 @@ func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
 
 		// given
 		instanceUID := uuid.New()
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 		// NewInstanceUID is not set (default nil/empty)
 
 		// when - Save agent
@@ -876,8 +877,8 @@ func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
 		instanceUID := uuid.New()
 
 		// given - Create agent and set sequence number
-		agent := model.NewAgent(instanceUID)
-		server := &model.Server{
+		agent := agentmodel.NewAgent(instanceUID)
+		server := &agentmodel.Server{
 			ID: "test-server",
 		}
 		agent.RecordLastReported(server, time.Now(), 42)
@@ -900,7 +901,7 @@ func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
 		instanceUID := uuid.New()
 
 		// given - Create agent with default sequence number (0)
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 		assert.Equal(t, uint64(0), agent.Status.SequenceNum)
 
 		// when - Save to database
@@ -920,9 +921,9 @@ func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
 		instanceUID := uuid.New()
 
 		// given - Create agent with large sequence number
-		agent := model.NewAgent(instanceUID)
+		agent := agentmodel.NewAgent(instanceUID)
 		largeSeqNum := uint64(9223372036854775807) // Max int64 (safe for MongoDB)
-		server := &model.Server{
+		server := &agentmodel.Server{
 			ID: "test-server",
 		}
 		agent.RecordLastReported(server, time.Now(), largeSeqNum)
@@ -944,8 +945,8 @@ func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
 		instanceUID := uuid.New()
 
 		// given - Create agent
-		agent := model.NewAgent(instanceUID)
-		server := &model.Server{
+		agent := agentmodel.NewAgent(instanceUID)
+		server := &agentmodel.Server{
 			ID: "test-server",
 		}
 
@@ -1006,9 +1007,9 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// given - Create agents with known UUIDs
-		agent1 := model.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
-		agent2 := model.NewAgent(uuid.MustParse("12345678-5678-5678-5678-567856785678"))
-		agent3 := model.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
+		agent1 := agentmodel.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
+		agent2 := agentmodel.NewAgent(uuid.MustParse("12345678-5678-5678-5678-567856785678"))
+		agent3 := agentmodel.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
 
 		err = agentRepository.PutAgent(ctx, agent1)
 		require.NoError(t, err)
@@ -1050,7 +1051,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// given - Create an agent
-		agent := model.NewAgent(uuid.New())
+		agent := agentmodel.NewAgent(uuid.New())
 		err = agentRepository.PutAgent(ctx, agent)
 		require.NoError(t, err)
 
@@ -1087,7 +1088,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 
 		// given - Create multiple agents with same prefix
 		for i := range 5 {
-			agent := model.NewAgent(uuid.MustParse("aaaaaaaa-" + string(rune('0'+i)) + "000-1000-1000-100000000000"))
+			agent := agentmodel.NewAgent(uuid.MustParse("aaaaaaaa-" + string(rune('0'+i)) + "000-1000-1000-100000000000"))
 			err = agentRepository.PutAgent(ctx, agent)
 			require.NoError(t, err)
 		}
@@ -1125,7 +1126,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// given - Create agent with lowercase UUID
-		agent := model.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
+		agent := agentmodel.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
 		err = agentRepository.PutAgent(ctx, agent)
 		require.NoError(t, err)
 
@@ -1162,7 +1163,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// given - Create an agent
-		agent := model.NewAgent(uuid.New())
+		agent := agentmodel.NewAgent(uuid.New())
 		err = agentRepository.PutAgent(ctx, agent)
 		require.NoError(t, err)
 
@@ -1198,8 +1199,8 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// given - Create agents
-		agent1 := model.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
-		agent2 := model.NewAgent(uuid.MustParse("87654321-4321-4321-4321-210987654321"))
+		agent1 := agentmodel.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
+		agent2 := agentmodel.NewAgent(uuid.MustParse("87654321-4321-4321-4321-210987654321"))
 		err = agentRepository.PutAgent(ctx, agent1)
 		require.NoError(t, err)
 		err = agentRepository.PutAgent(ctx, agent2)

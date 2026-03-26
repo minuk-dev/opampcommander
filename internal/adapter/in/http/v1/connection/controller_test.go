@@ -16,6 +16,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -43,22 +44,22 @@ func TestConnectionController_List(t *testing.T) {
 		agent2UID := uuid.New()
 		now := time.Now()
 
-		connections := []*model.Connection{
+		connections := []*agentmodel.Connection{
 			{
 				UID:                conn1UID,
 				InstanceUID:        agent1UID,
-				Type:               model.ConnectionTypeWebSocket,
+				Type:               agentmodel.ConnectionTypeWebSocket,
 				LastCommunicatedAt: now,
 			},
 			{
 				UID:                conn2UID,
 				InstanceUID:        agent2UID,
-				Type:               model.ConnectionTypeHTTP,
+				Type:               agentmodel.ConnectionTypeHTTP,
 				LastCommunicatedAt: now,
 			},
 		}
 		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
-			Return(&model.ListResponse[*model.Connection]{
+			Return(&model.ListResponse[*agentmodel.Connection]{
 				RemainingItemCount: 0,
 				Continue:           "",
 				Items:              connections,
@@ -96,7 +97,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		// given
 		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
-			Return((*model.ListResponse[*model.Connection])(nil), assert.AnError)
+			Return((*model.ListResponse[*agentmodel.Connection])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -145,10 +146,10 @@ func newMockAdminUsecase(t *testing.T) *mockAdminUsecase {
 func (m *mockAdminUsecase) ListConnections(
 	ctx context.Context,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Connection], error) {
+) (*model.ListResponse[*agentmodel.Connection], error) {
 	args := m.Called(ctx, options)
 
-	return args.Get(0).(*model.ListResponse[*model.Connection]), args.Error(1)
+	return args.Get(0).(*model.ListResponse[*agentmodel.Connection]), args.Error(1)
 }
 
 //nolint:wrapcheck

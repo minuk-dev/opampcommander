@@ -13,8 +13,9 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/application/service/agentgroup/filter"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -26,8 +27,8 @@ var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
 
 // ManageService implements port.AgentGroupManageUsecase. You can inject repository or other dependencies as needed.
 type ManageService struct {
-	agentgroupUsecase domainport.AgentGroupUsecase
-	agentUsecase      domainport.AgentUsecase
+	agentgroupUsecase agentport.AgentGroupUsecase
+	agentUsecase      agentport.AgentUsecase
 	mapper            *helper.Mapper
 	sanityFilter      *filter.Sanity
 	clock             clock.Clock
@@ -36,8 +37,8 @@ type ManageService struct {
 
 // NewManageService returns a new ManageService.
 func NewManageService(
-	agentgroupUsecase domainport.AgentGroupUsecase,
-	agentUsecase domainport.AgentUsecase,
+	agentgroupUsecase agentport.AgentGroupUsecase,
+	agentUsecase agentport.AgentUsecase,
 	logger *slog.Logger,
 ) *ManageService {
 	return &ManageService{
@@ -81,7 +82,7 @@ func (s *ManageService) ListAgentGroups(
 			Continue:           domainResp.Continue,
 			RemainingItemCount: domainResp.RemainingItemCount,
 		},
-		Items: lo.Map(domainResp.Items, func(agentGroup *model.AgentGroup, _ int) v1.AgentGroup {
+		Items: lo.Map(domainResp.Items, func(agentGroup *agentmodel.AgentGroup, _ int) v1.AgentGroup {
 			return *s.mapper.MapAgentGroupToAPI(agentGroup)
 		}),
 	}, nil
@@ -110,7 +111,7 @@ func (s *ManageService) ListAgentsByAgentGroup(
 			Continue:           domainResp.Continue,
 			RemainingItemCount: domainResp.RemainingItemCount,
 		},
-		Items: lo.Map(domainResp.Items, func(agent *model.Agent, _ int) v1.Agent {
+		Items: lo.Map(domainResp.Items, func(agent *agentmodel.Agent, _ int) v1.Agent {
 			return *s.mapper.MapAgentToAPI(agent)
 		}),
 	}, nil

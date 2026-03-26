@@ -1,6 +1,7 @@
 package xsync
 
 import (
+	"maps"
 	"strings"
 	"sync"
 )
@@ -66,9 +67,7 @@ func (m *MultiMap[T]) KeyValues() map[string]T {
 	defer m.mu.RUnlock()
 
 	keyValues := make(map[string]T, len(m.byID))
-	for key, value := range m.byID {
-		keyValues[key] = value
-	}
+	maps.Copy(keyValues, m.byID)
 
 	return keyValues
 }

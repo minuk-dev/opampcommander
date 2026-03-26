@@ -1,4 +1,3 @@
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
@@ -14,9 +13,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.OrgRoleMappingPersistencePort = (*OrgRoleMappingMongoAdapter)(nil)
+var _ userport.OrgRoleMappingPersistencePort = (*OrgRoleMappingMongoAdapter)(nil)
 
 const (
 	orgRoleMappingCollectionName = "org_role_mappings"
@@ -53,10 +54,10 @@ func NewOrgRoleMappingRepository(
 	}
 }
 
-// GetOrgRoleMapping implements port.OrgRoleMappingPersistencePort.
+// GetOrgRoleMapping implements userport.OrgRoleMappingPersistencePort.
 func (a *OrgRoleMappingMongoAdapter) GetOrgRoleMapping(
 	ctx context.Context, uid uuid.UUID,
-) (*model.OrgRoleMapping, error) {
+) (*usermodel.OrgRoleMapping, error) {
 	en, err := a.common.get(ctx, uid.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get org role mapping: %w", err)
@@ -65,10 +66,10 @@ func (a *OrgRoleMappingMongoAdapter) GetOrgRoleMapping(
 	return en.ToDomain(), nil
 }
 
-// PutOrgRoleMapping implements port.OrgRoleMappingPersistencePort.
+// PutOrgRoleMapping implements userport.OrgRoleMappingPersistencePort.
 func (a *OrgRoleMappingMongoAdapter) PutOrgRoleMapping(
-	ctx context.Context, mapping *model.OrgRoleMapping,
-) (*model.OrgRoleMapping, error) {
+	ctx context.Context, mapping *usermodel.OrgRoleMapping,
+) (*usermodel.OrgRoleMapping, error) {
 	en := entity.OrgRoleMappingFromDomain(mapping)
 
 	err := a.common.put(ctx, en)
@@ -79,31 +80,31 @@ func (a *OrgRoleMappingMongoAdapter) PutOrgRoleMapping(
 	return mapping, nil
 }
 
-// ListOrgRoleMappings implements port.OrgRoleMappingPersistencePort.
+// ListOrgRoleMappings implements userport.OrgRoleMappingPersistencePort.
 func (a *OrgRoleMappingMongoAdapter) ListOrgRoleMappings(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.OrgRoleMapping], error) {
+) (*model.ListResponse[*usermodel.OrgRoleMapping], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.OrgRoleMapping, 0, len(resp.Items))
+	items := make([]*usermodel.OrgRoleMapping, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.OrgRoleMapping]{
+	return &model.ListResponse[*usermodel.OrgRoleMapping]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// ListOrgRoleMappingsByProvider implements port.OrgRoleMappingPersistencePort.
+// ListOrgRoleMappingsByProvider implements userport.OrgRoleMappingPersistencePort.
 func (a *OrgRoleMappingMongoAdapter) ListOrgRoleMappingsByProvider(
 	ctx context.Context, provider string,
-) ([]*model.OrgRoleMapping, error) {
+) ([]*usermodel.OrgRoleMapping, error) {
 	filter := bson.M{
 		"spec.provider":      provider,
 		"metadata.deletedAt": nil,
@@ -128,7 +129,7 @@ func (a *OrgRoleMappingMongoAdapter) ListOrgRoleMappingsByProvider(
 		return nil, fmt.Errorf("decode org role mappings by provider: %w", err)
 	}
 
-	mappings := make([]*model.OrgRoleMapping, 0, len(entities))
+	mappings := make([]*usermodel.OrgRoleMapping, 0, len(entities))
 	for i := range entities {
 		mappings = append(mappings, entities[i].ToDomain())
 	}
@@ -136,11 +137,11 @@ func (a *OrgRoleMappingMongoAdapter) ListOrgRoleMappingsByProvider(
 	return mappings, nil
 }
 
-// DeleteOrgRoleMapping implements port.OrgRoleMappingPersistencePort.
+// DeleteOrgRoleMapping implements userport.OrgRoleMappingPersistencePort.
 func (a *OrgRoleMappingMongoAdapter) DeleteOrgRoleMapping(
 	ctx context.Context, uid uuid.UUID,
 ) error {
-	en, err := a.common.get(ctx, uid.String(), nil)
+	mappingEntity, err := a.common.get(ctx, uid.String(), nil)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return port.ErrResourceNotExist
@@ -149,7 +150,7 @@ func (a *OrgRoleMappingMongoAdapter) DeleteOrgRoleMapping(
 		return fmt.Errorf("get org role mapping for delete: %w", err)
 	}
 
-	domainMapping := en.ToDomain()
+	domainMapping := mappingEntity.ToDomain()
 	domainMapping.Delete()
 
 	deletedEn := entity.OrgRoleMappingFromDomain(domainMapping)

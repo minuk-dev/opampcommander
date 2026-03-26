@@ -8,8 +8,10 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 )
 
 // Mapper is a struct that provides methods to map between domain models and API models.
@@ -21,34 +23,34 @@ func NewMapper() *Mapper {
 }
 
 // MapAPIToAgentGroup maps an API model AgentGroup to a domain model AgentGroup.
-func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.AgentGroup {
+func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *agentmodel.AgentGroup {
 	if apiAgentGroup == nil {
 		return nil
 	}
 
-	var agentRemoteConfig *model.AgentGroupAgentRemoteConfig
+	var agentRemoteConfig *agentmodel.AgentGroupAgentRemoteConfig
 
 	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.AgentRemoteConfig != nil {
 		apiRemoteConfig := apiAgentGroup.Spec.AgentConfig.AgentRemoteConfig
 
-		agentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
+		agentRemoteConfig = &agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: apiRemoteConfig.AgentRemoteConfigName,
 			AgentRemoteConfigRef:  apiRemoteConfig.AgentRemoteConfigRef,
 			AgentRemoteConfigSpec: nil,
 		}
 		if apiRemoteConfig.AgentRemoteConfigSpec != nil {
-			agentRemoteConfig.AgentRemoteConfigSpec = &model.AgentRemoteConfigSpec{
+			agentRemoteConfig.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
 				Value:       []byte(apiRemoteConfig.AgentRemoteConfigSpec.Value),
 				ContentType: apiRemoteConfig.AgentRemoteConfigSpec.ContentType,
 			}
 		}
 	}
 
-	var agentConnectionConfig *model.AgentGroupConnectionConfig
+	var agentConnectionConfig *agentmodel.AgentGroupConnectionConfig
 
 	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.ConnectionSettings != nil {
 		connSettings := apiAgentGroup.Spec.AgentConfig.ConnectionSettings
-		agentConnectionConfig = &model.AgentGroupConnectionConfig{
+		agentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
 			OpAMPConnection:  mapper.mapOpAMPConnectionFromAPI(connSettings.OpAMP),
 			OwnMetrics:       mapper.mapTelemetryConnectionFromAPI(connSettings.OwnMetrics),
 			OwnLogs:          mapper.mapTelemetryConnectionFromAPI(connSettings.OwnLogs),
@@ -58,14 +60,14 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 	}
 
 	//exhaustruct:ignore
-	return &model.AgentGroup{
-		Metadata: model.AgentGroupMetadata{
+	return &agentmodel.AgentGroup{
+		Metadata: agentmodel.AgentGroupMetadata{
 			Name:       apiAgentGroup.Metadata.Name,
-			Attributes: model.OfAttributes(apiAgentGroup.Metadata.Attributes),
+			Attributes: agentmodel.OfAttributes(apiAgentGroup.Metadata.Attributes),
 		},
-		Spec: model.AgentGroupSpec{
+		Spec: agentmodel.AgentGroupSpec{
 			Priority: apiAgentGroup.Spec.Priority,
-			Selector: model.AgentSelector{
+			Selector: agentmodel.AgentSelector{
 				IdentifyingAttributes:    apiAgentGroup.Spec.Selector.IdentifyingAttributes,
 				NonIdentifyingAttributes: apiAgentGroup.Spec.Selector.NonIdentifyingAttributes,
 			},
@@ -77,26 +79,34 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *model.Ag
 }
 
 // MapAgentGroupToAPI maps a domain model AgentGroup to an API model AgentGroup.
-func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1.AgentGroup {
+func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *agentmodel.AgentGroup) *v1.AgentGroup {
 	if domainAgentGroup == nil {
 		return nil
 	}
 
 	var agentConfig *v1.AgentConfig
 
+	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
 	if domainAgentGroup.Spec.AgentRemoteConfig != nil || domainAgentGroup.Spec.AgentConnectionConfig != nil {
 		//exhaustruct:ignore
 		agentConfig = &v1.AgentConfig{}
 
+		//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
 		if domainAgentGroup.Spec.AgentRemoteConfig != nil {
 			agentConfig.AgentRemoteConfig = &v1.AgentGroupRemoteConfig{
+				//nolint:staticcheck // backward compat
 				AgentRemoteConfigName: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigName,
+				//nolint:staticcheck // backward compat
 				AgentRemoteConfigRef:  domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigRef,
 				AgentRemoteConfigSpec: nil,
 			}
+
+			//nolint:staticcheck // backward compatibility
 			if domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
 				agentConfig.AgentRemoteConfig.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
-					Value:       string(domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value),
+					//nolint:staticcheck // backward compat
+					Value: string(domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value),
+					//nolint:staticcheck // backward compat
 					ContentType: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
 				}
 			}
@@ -140,10 +150,10 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *model.AgentGroup) *v1
 }
 
 // MapAPIToAgent maps an API model Agent to a domain model Agent.
-func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
+func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *agentmodel.Agent {
 	//exhaustruct:ignore
-	return &model.Agent{
-		Metadata: model.AgentMetadata{
+	return &agentmodel.Agent{
+		Metadata: agentmodel.AgentMetadata{
 			InstanceUID: apiAgent.Metadata.InstanceUID,
 			Description: agent.Description{
 				IdentifyingAttributes:    apiAgent.Metadata.Description.IdentifyingAttributes,
@@ -153,7 +163,7 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
 			CustomCapabilities: mapper.mapCustomCapabilitiesFromAPI(&apiAgent.Metadata.CustomCapabilities),
 		},
 		//exhaustruct:ignore
-		Spec: model.AgentSpec{
+		Spec: agentmodel.AgentSpec{
 			NewInstanceUID:    mapper.mapNewInstanceUIDFromAPI(apiAgent.Spec.NewInstanceUID),
 			RemoteConfig:      mapper.mapRemoteConfigFromAPI(&apiAgent.Spec.RemoteConfig),
 			PackagesAvailable: mapper.mapPackagesAvailableFromAPI(&apiAgent.Spec.PackagesAvailable),
@@ -164,7 +174,7 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *model.Agent {
 }
 
 // MapAgentToAPI maps a domain model Agent to an API model Agent.
-func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
+func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 	return &v1.Agent{
 		Metadata: v1.AgentMetadata{
 			InstanceUID: agent.Metadata.InstanceUID,
@@ -186,14 +196,14 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 			EffectiveConfig: v1.AgentEffectiveConfig{
 				ConfigMap: v1.AgentConfigMap{
 					ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
-						func(value model.AgentConfigFile, _ string) v1.AgentConfigFile {
+						func(value agentmodel.AgentConfigFile, _ string) v1.AgentConfigFile {
 							return mapper.mapConfigFileToAPI(value)
 						}),
 				},
 			},
 			PackageStatuses: v1.AgentPackageStatuses{
 				Packages: lo.MapValues(agent.Status.PackageStatuses.Packages,
-					func(value model.AgentPackageStatusEntry, _ string) v1.AgentStatusPackageEntry {
+					func(value agentmodel.AgentPackageStatusEntry, _ string) v1.AgentStatusPackageEntry {
 						return v1.AgentStatusPackageEntry{
 							Name: value.Name,
 						}
@@ -213,8 +223,9 @@ func (mapper *Mapper) MapAgentToAPI(agent *model.Agent) *v1.Agent {
 }
 
 // MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.
-func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1.AgentPackage {
+func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *agentmodel.AgentPackage) *v1.AgentPackage {
 	var deletedAt *v1.Time
+
 	if agentPackage.Metadata.DeletedAt != nil {
 		t := v1.NewTime(*agentPackage.Metadata.DeletedAt)
 		deletedAt = &t
@@ -243,15 +254,15 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *model.AgentPackage) *v1
 }
 
 // MapAPIToAgentPackage maps an API model AgentPackage to a domain model AgentPackage.
-func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.AgentPackage {
-	return &model.AgentPackage{
-		Metadata: model.AgentPackageMetadata{
+func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *agentmodel.AgentPackage {
+	return &agentmodel.AgentPackage{
+		Metadata: agentmodel.AgentPackageMetadata{
 			Name:       apiModel.Metadata.Name,
-			Attributes: model.OfAttributes(apiModel.Metadata.Attributes),
+			Attributes: agentmodel.OfAttributes(apiModel.Metadata.Attributes),
 			CreatedAt:  apiModel.Metadata.CreatedAt.Time,
 			DeletedAt:  nil,
 		},
-		Spec: model.AgentPackageSpec{
+		Spec: agentmodel.AgentPackageSpec{
 			PackageType: apiModel.Spec.PackageType,
 			Version:     apiModel.Spec.Version,
 			DownloadURL: apiModel.Spec.DownloadURL,
@@ -260,7 +271,7 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 			Headers:     apiModel.Spec.Headers,
 			Hash:        apiModel.Spec.Hash,
 		},
-		Status: model.AgentPackageStatus{
+		Status: agentmodel.AgentPackageStatus{
 			// Skip mapping conditions as they are usually managed by the system.
 			Conditions: nil,
 		},
@@ -268,7 +279,7 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *model.Age
 }
 
 // MapCertificateToAPI maps a domain model Certificate to an API model Certificate.
-func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certificate {
+func (mapper *Mapper) MapCertificateToAPI(domain *agentmodel.Certificate) *v1.Certificate {
 	if domain == nil {
 		return nil
 	}
@@ -294,7 +305,7 @@ func (mapper *Mapper) MapCertificateToAPI(domain *model.Certificate) *v1.Certifi
 }
 
 // MapAPIToCertificate maps an API model Certificate to a domain model Certificate.
-func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificate {
+func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *agentmodel.Certificate {
 	if api == nil {
 		return nil
 	}
@@ -304,20 +315,129 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *model.Certificat
 		deletedAt = api.Metadata.DeletedAt.Time
 	}
 
-	return &model.Certificate{
-		Metadata: model.CertificateMetadata{
+	return &agentmodel.Certificate{
+		Metadata: agentmodel.CertificateMetadata{
 			Name:       api.Metadata.Name,
-			Attributes: model.Attributes(api.Metadata.Attributes),
+			Attributes: agentmodel.Attributes(api.Metadata.Attributes),
 			CreatedAt:  api.Metadata.CreatedAt.Time,
 			DeletedAt:  deletedAt,
 		},
-		Spec: model.CertificateSpec{
+		Spec: agentmodel.CertificateSpec{
 			Cert:       []byte(api.Spec.Cert),
 			PrivateKey: []byte(api.Spec.PrivateKey),
 			CaCert:     []byte(api.Spec.CaCert),
 		},
-		Status: model.CertificateStatus{
+		Status: agentmodel.CertificateStatus{
 			Conditions: nil,
+		},
+	}
+}
+
+// MapUserToAPI maps a domain model User to an API model User.
+func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.User{
+		Kind:       v1.UserKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.UserMetadata{
+			UID:       domain.Metadata.UID.String(),
+			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
+			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
+			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+		},
+		Spec: v1.UserSpec{
+			Email:    domain.Spec.Email,
+			Username: domain.Spec.Username,
+			IsActive: domain.Spec.IsActive,
+		},
+		Status: v1.UserStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+			Roles:      domain.Status.Roles,
+		},
+	}
+}
+
+// MapRoleToAPI maps a domain model Role to an API model Role.
+func (mapper *Mapper) MapRoleToAPI(domain *usermodel.Role) *v1.Role {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.Role{
+		Kind:       v1.RoleKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.RoleMetadata{
+			UID:       domain.Metadata.UID.String(),
+			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
+			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
+			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+		},
+		Spec: v1.RoleSpec{
+			DisplayName: domain.Spec.DisplayName,
+			Description: domain.Spec.Description,
+			Permissions: domain.Spec.Permissions,
+			IsBuiltIn:   domain.Spec.IsBuiltIn,
+		},
+		Status: v1.RoleStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapPermissionToAPI maps a domain model Permission to an API model Permission.
+func (mapper *Mapper) MapPermissionToAPI(domain *usermodel.Permission) *v1.Permission {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.Permission{
+		Kind:       v1.PermissionKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.PermissionMetadata{
+			UID:       domain.Metadata.UID.String(),
+			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
+			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
+			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+		},
+		Spec: v1.PermissionSpec{
+			Name:        domain.Spec.Name,
+			Description: domain.Spec.Description,
+			Resource:    domain.Spec.Resource,
+			Action:      domain.Spec.Action,
+			IsBuiltIn:   domain.Spec.IsBuiltIn,
+		},
+		Status: v1.PermissionStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapUserRoleToAPI maps a domain model UserRole to an API model UserRole.
+func (mapper *Mapper) MapUserRoleToAPI(domain *usermodel.UserRole) *v1.UserRole {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.UserRole{
+		Kind:       v1.UserRoleKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.UserRoleMetadata{
+			UID:       domain.Metadata.UID.String(),
+			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
+			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
+			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+		},
+		Spec: v1.UserRoleSpec{
+			UserID:     domain.Spec.UserID.String(),
+			RoleID:     domain.Spec.RoleID.String(),
+			AssignedAt: v1.NewTime(domain.Spec.AssignedAt),
+			AssignedBy: domain.Spec.AssignedBy.String(),
+		},
+		Status: v1.UserRoleStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
 		},
 	}
 }
@@ -339,31 +459,31 @@ const (
 
 func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
 	apiCustomCapabilities *v1.AgentCustomCapabilities,
-) model.AgentCustomCapabilities {
-	return model.AgentCustomCapabilities{
+) agentmodel.AgentCustomCapabilities {
+	return agentmodel.AgentCustomCapabilities{
 		Capabilities: apiCustomCapabilities.Capabilities,
 	}
 }
 
 func (mapper *Mapper) mapRemoteConfigFromAPI(
 	apiRemoteConfig *v1.AgentSpecRemoteConfig,
-) *model.AgentSpecRemoteConfig {
+) *agentmodel.AgentSpecRemoteConfig {
 	if apiRemoteConfig == nil || len(apiRemoteConfig.RemoteConfigNames) == 0 {
 		return nil
 	}
 
 	// Convert RemoteConfigNames to ConfigMap with empty placeholders
 	// The actual config values will be fetched when needed
-	configMap := make(map[string]model.AgentConfigFile)
+	configMap := make(map[string]agentmodel.AgentConfigFile)
 	for _, name := range apiRemoteConfig.RemoteConfigNames {
-		configMap[name] = model.AgentConfigFile{
+		configMap[name] = agentmodel.AgentConfigFile{
 			Body:        nil,
 			ContentType: "",
 		}
 	}
 
-	return &model.AgentSpecRemoteConfig{
-		ConfigMap: model.AgentConfigMap{
+	return &agentmodel.AgentSpecRemoteConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
 			ConfigMap: configMap,
 		},
 	}
@@ -382,12 +502,12 @@ func (mapper *Mapper) mapNewInstanceUIDFromAPI(newInstanceUID string) uuid.UUID 
 	return uid
 }
 
-func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) *model.AgentRestartInfo {
+func (mapper *Mapper) mapRestartInfoFromAPI(restartRequiredAt *v1.Time) *agentmodel.AgentRestartInfo {
 	if restartRequiredAt == nil || restartRequiredAt.IsZero() {
 		return nil
 	}
 
-	return &model.AgentRestartInfo{
+	return &agentmodel.AgentRestartInfo{
 		RequiredRestartedAt: restartRequiredAt.Time,
 	}
 }
@@ -400,7 +520,7 @@ func (mapper *Mapper) formatTime(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
-func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth) v1.AgentComponentHealth {
+func (mapper *Mapper) mapComponentHealthToAPI(health *agentmodel.AgentComponentHealth) v1.AgentComponentHealth {
 	componentsMap := make(map[string]string)
 	for name, comp := range health.ComponentHealthMap {
 		componentsMap[name] = comp.Status
@@ -416,7 +536,7 @@ func (mapper *Mapper) mapComponentHealthToAPI(health *model.AgentComponentHealth
 	}
 }
 
-func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.AgentSpecRemoteConfig) v1.AgentSpecRemoteConfig {
+func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *agentmodel.AgentSpecRemoteConfig) v1.AgentSpecRemoteConfig {
 	if remoteConfig == nil || len(remoteConfig.ConfigMap.ConfigMap) == 0 {
 		//exhaustruct:ignore
 		return v1.AgentSpecRemoteConfig{}
@@ -434,7 +554,7 @@ func (mapper *Mapper) mapRemoteConfigToAPI(remoteConfig *model.AgentSpecRemoteCo
 }
 
 func (mapper *Mapper) mapPackagesAvailableToAPI(
-	packagesAvailable *model.AgentSpecPackage,
+	packagesAvailable *agentmodel.AgentSpecPackage,
 ) v1.AgentSpecPackages {
 	if packagesAvailable == nil {
 		//exhaustruct:ignore
@@ -446,7 +566,7 @@ func (mapper *Mapper) mapPackagesAvailableToAPI(
 	}
 }
 
-func (mapper *Mapper) mapRestartRequiredAtToAPI(restartInfo *model.AgentRestartInfo) *v1.Time {
+func (mapper *Mapper) mapRestartRequiredAtToAPI(restartInfo *agentmodel.AgentRestartInfo) *v1.Time {
 	if restartInfo == nil || restartInfo.RequiredRestartedAt.IsZero() {
 		return nil
 	}
@@ -457,7 +577,7 @@ func (mapper *Mapper) mapRestartRequiredAtToAPI(restartInfo *model.AgentRestartI
 }
 
 func (mapper *Mapper) mapCustomCapabilitiesToAPI(
-	customCapabilities *model.AgentCustomCapabilities,
+	customCapabilities *agentmodel.AgentCustomCapabilities,
 ) v1.AgentCustomCapabilities {
 	return v1.AgentCustomCapabilities{
 		Capabilities: customCapabilities.Capabilities,
@@ -466,21 +586,21 @@ func (mapper *Mapper) mapCustomCapabilitiesToAPI(
 
 func (mapper *Mapper) mapPackagesAvailableFromAPI(
 	apiPackages *v1.AgentSpecPackages,
-) *model.AgentSpecPackage {
+) *agentmodel.AgentSpecPackage {
 	if apiPackages == nil {
 		return nil
 	}
 
-	return &model.AgentSpecPackage{
+	return &agentmodel.AgentSpecPackage{
 		Packages: apiPackages.Packages,
 	}
 }
 
 func (mapper *Mapper) mapAvailableComponentsToAPI(
-	availableComponents *model.AgentAvailableComponents,
+	availableComponents *agentmodel.AgentAvailableComponents,
 ) v1.AgentAvailableComponents {
 	components := lo.MapValues(availableComponents.Components,
-		func(value model.ComponentDetails, _ string) v1.AgentComponentDetails {
+		func(value agentmodel.ComponentDetails, _ string) v1.AgentComponentDetails {
 			// Extract type and version from metadata if available
 			componentType := value.Metadata["type"]
 			version := value.Metadata["version"]
@@ -496,7 +616,7 @@ func (mapper *Mapper) mapAvailableComponentsToAPI(
 	}
 }
 
-func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1.AgentConfigFile {
+func (mapper *Mapper) mapConfigFileToAPI(configFile agentmodel.AgentConfigFile) v1.AgentConfigFile {
 	switch configFile.ContentType {
 	case TextJSON,
 		TextYAML,
@@ -513,8 +633,8 @@ func (mapper *Mapper) mapConfigFileToAPI(configFile model.AgentConfigFile) v1.Ag
 	}
 }
 
-func (mapper *Mapper) mapAgentConditionsToAPI(conditions []model.AgentCondition) []v1.Condition {
-	return lo.Map(conditions, func(condition model.AgentCondition, _ int) v1.Condition {
+func (mapper *Mapper) mapAgentConditionsToAPI(conditions []agentmodel.AgentCondition) []v1.Condition {
+	return lo.Map(conditions, func(condition agentmodel.AgentCondition, _ int) v1.Condition {
 		return v1.Condition{
 			Type:               v1.ConditionType(condition.Type),
 			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
@@ -545,8 +665,10 @@ func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
 	return string(newInstanceUID)
 }
 
-func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettings) *model.OpAMPConnectionSettings {
-	return &model.OpAMPConnectionSettings{
+func (mapper *Mapper) mapOpAMPConnectionFromAPI(
+	apiConn v1.OpAMPConnectionSettings,
+) *agentmodel.OpAMPConnectionSettings {
+	return &agentmodel.OpAMPConnectionSettings{
 		DestinationEndpoint: apiConn.DestinationEndpoint,
 		Headers:             apiConn.Headers,
 		CertificateName:     apiConn.CertificateName,
@@ -555,8 +677,8 @@ func (mapper *Mapper) mapOpAMPConnectionFromAPI(apiConn v1.OpAMPConnectionSettin
 
 func (mapper *Mapper) mapTelemetryConnectionFromAPI(
 	apiConn v1.TelemetryConnectionSettings,
-) *model.TelemetryConnectionSettings {
-	return &model.TelemetryConnectionSettings{
+) *agentmodel.TelemetryConnectionSettings {
+	return &agentmodel.TelemetryConnectionSettings{
 		DestinationEndpoint: apiConn.DestinationEndpoint,
 		Headers:             apiConn.Headers,
 		CertificateName:     apiConn.CertificateName,
@@ -565,15 +687,15 @@ func (mapper *Mapper) mapTelemetryConnectionFromAPI(
 
 func (mapper *Mapper) mapOtherConnectionsFromAPI(
 	apiConns map[string]v1.OtherConnectionSettings,
-) map[string]model.OtherConnectionSettings {
+) map[string]agentmodel.OtherConnectionSettings {
 	if apiConns == nil {
 		return nil
 	}
 
-	result := make(map[string]model.OtherConnectionSettings)
+	result := make(map[string]agentmodel.OtherConnectionSettings)
 
 	for name, conn := range apiConns {
-		result[name] = model.OtherConnectionSettings{
+		result[name] = agentmodel.OtherConnectionSettings{
 			DestinationEndpoint: conn.DestinationEndpoint,
 			Headers:             conn.Headers,
 			CertificateName:     conn.CertificateName,
@@ -583,7 +705,7 @@ func (mapper *Mapper) mapOtherConnectionsFromAPI(
 	return result
 }
 
-func (mapper *Mapper) mapOpAMPConnectionToAPI(conn *model.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
+func (mapper *Mapper) mapOpAMPConnectionToAPI(conn *agentmodel.OpAMPConnectionSettings) v1.OpAMPConnectionSettings {
 	if conn == nil {
 		return v1.OpAMPConnectionSettings{
 			DestinationEndpoint: "",
@@ -600,7 +722,7 @@ func (mapper *Mapper) mapOpAMPConnectionToAPI(conn *model.OpAMPConnectionSetting
 }
 
 func (mapper *Mapper) mapTelemetryConnectionToAPI(
-	conn *model.TelemetryConnectionSettings,
+	conn *agentmodel.TelemetryConnectionSettings,
 ) v1.TelemetryConnectionSettings {
 	if conn == nil {
 		return v1.TelemetryConnectionSettings{
@@ -618,7 +740,7 @@ func (mapper *Mapper) mapTelemetryConnectionToAPI(
 }
 
 func (mapper *Mapper) mapOtherConnectionsToAPI(
-	conns map[string]model.OtherConnectionSettings,
+	conns map[string]agentmodel.OtherConnectionSettings,
 ) map[string]v1.OtherConnectionSettings {
 	if conns == nil {
 		return nil
@@ -667,113 +789,4 @@ func mapDeletedAtPtrToAPI(t *time.Time) *v1.Time {
 	}
 
 	return p(v1.NewTime(*t))
-}
-
-// MapUserToAPI maps a domain model User to an API model User.
-func (mapper *Mapper) MapUserToAPI(domain *model.User) *v1.User {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.User{
-		Kind:       v1.UserKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.UserMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.UserSpec{
-			Email:    domain.Spec.Email,
-			Username: domain.Spec.Username,
-			IsActive: domain.Spec.IsActive,
-		},
-		Status: v1.UserStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-			Roles:      domain.Status.Roles,
-		},
-	}
-}
-
-// MapRoleToAPI maps a domain model Role to an API model Role.
-func (mapper *Mapper) MapRoleToAPI(domain *model.Role) *v1.Role {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.Role{
-		Kind:       v1.RoleKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.RoleMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.RoleSpec{
-			DisplayName: domain.Spec.DisplayName,
-			Description: domain.Spec.Description,
-			Permissions: domain.Spec.Permissions,
-			IsBuiltIn:   domain.Spec.IsBuiltIn,
-		},
-		Status: v1.RoleStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
-// MapPermissionToAPI maps a domain model Permission to an API model Permission.
-func (mapper *Mapper) MapPermissionToAPI(domain *model.Permission) *v1.Permission {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.Permission{
-		Kind:       v1.PermissionKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.PermissionMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.PermissionSpec{
-			Name:        domain.Spec.Name,
-			Description: domain.Spec.Description,
-			Resource:    domain.Spec.Resource,
-			Action:      domain.Spec.Action,
-			IsBuiltIn:   domain.Spec.IsBuiltIn,
-		},
-		Status: v1.PermissionStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
-// MapUserRoleToAPI maps a domain model UserRole to an API model UserRole.
-func (mapper *Mapper) MapUserRoleToAPI(domain *model.UserRole) *v1.UserRole {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.UserRole{
-		Kind:       v1.UserRoleKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.UserRoleMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.UserRoleSpec{
-			UserID:     domain.Spec.UserID.String(),
-			RoleID:     domain.Spec.RoleID.String(),
-			AssignedAt: v1.NewTime(domain.Spec.AssignedAt),
-			AssignedBy: domain.Spec.AssignedBy.String(),
-		},
-		Status: v1.UserRoleStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 )
 
 const (
@@ -46,16 +47,16 @@ type PermissionStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (p *Permission) ToDomain() *model.Permission {
-	return &model.Permission{
+func (p *Permission) ToDomain() *usermodel.Permission {
+	return &usermodel.Permission{
 		Metadata: p.Metadata.toDomain(),
 		Spec:     p.Spec.toDomain(),
 		Status:   p.Status.toDomain(),
 	}
 }
 
-func (m *PermissionMetadata) toDomain() model.PermissionMetadata {
-	return model.PermissionMetadata{
+func (m *PermissionMetadata) toDomain() usermodel.PermissionMetadata {
+	return usermodel.PermissionMetadata{
 		UID:       uuid.MustParse(m.UID),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
@@ -63,8 +64,8 @@ func (m *PermissionMetadata) toDomain() model.PermissionMetadata {
 	}
 }
 
-func (s *PermissionSpec) toDomain() model.PermissionSpec {
-	return model.PermissionSpec{
+func (s *PermissionSpec) toDomain() usermodel.PermissionSpec {
+	return usermodel.PermissionSpec{
 		Name:        s.Name,
 		Description: s.Description,
 		Resource:    s.Resource,
@@ -73,8 +74,8 @@ func (s *PermissionSpec) toDomain() model.PermissionSpec {
 	}
 }
 
-func (s *PermissionStatus) toDomain() model.PermissionStatus {
-	return model.PermissionStatus{
+func (s *PermissionStatus) toDomain() usermodel.PermissionStatus {
+	return usermodel.PermissionStatus{
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
@@ -82,7 +83,7 @@ func (s *PermissionStatus) toDomain() model.PermissionStatus {
 }
 
 // PermissionFromDomain converts domain model to entity.
-func PermissionFromDomain(domain *model.Permission) *Permission {
+func PermissionFromDomain(domain *usermodel.Permission) *Permission {
 	return &Permission{
 		Common: Common{
 			Version: VersionV1,
@@ -94,7 +95,7 @@ func PermissionFromDomain(domain *model.Permission) *Permission {
 	}
 }
 
-func permissionMetadataFromDomain(m model.PermissionMetadata) PermissionMetadata {
+func permissionMetadataFromDomain(m usermodel.PermissionMetadata) PermissionMetadata {
 	return PermissionMetadata{
 		UID:       m.UID.String(),
 		CreatedAt: m.CreatedAt,
@@ -103,17 +104,17 @@ func permissionMetadataFromDomain(m model.PermissionMetadata) PermissionMetadata
 	}
 }
 
-func permissionSpecFromDomain(s model.PermissionSpec) PermissionSpec {
+func permissionSpecFromDomain(spec usermodel.PermissionSpec) PermissionSpec {
 	return PermissionSpec{
-		Name:        s.Name,
-		Description: s.Description,
-		Resource:    s.Resource,
-		Action:      s.Action,
-		IsBuiltIn:   s.IsBuiltIn,
+		Name:        spec.Name,
+		Description: spec.Description,
+		Resource:    spec.Resource,
+		Action:      spec.Action,
+		IsBuiltIn:   spec.IsBuiltIn,
 	}
 }
 
-func permissionStatusFromDomain(s model.PermissionStatus) PermissionStatus {
+func permissionStatusFromDomain(s usermodel.PermissionStatus) PermissionStatus {
 	return PermissionStatus{
 		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)

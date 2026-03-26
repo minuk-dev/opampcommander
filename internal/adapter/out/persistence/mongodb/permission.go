@@ -14,9 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.PermissionPersistencePort = (*PermissionMongoAdapter)(nil)
+var _ userport.PermissionPersistencePort = (*PermissionMongoAdapter)(nil)
 
 const (
 	permissionCollectionName = "permissions"
@@ -51,10 +53,10 @@ func NewPermissionRepository(
 	}
 }
 
-// GetPermission implements port.PermissionPersistencePort.
+// GetPermission implements userport.PermissionPersistencePort.
 func (a *PermissionMongoAdapter) GetPermission(
 	ctx context.Context, uid uuid.UUID,
-) (*model.Permission, error) {
+) (*usermodel.Permission, error) {
 	en, err := a.common.get(ctx, uid.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get permission: %w", err)
@@ -63,10 +65,10 @@ func (a *PermissionMongoAdapter) GetPermission(
 	return en.ToDomain(), nil
 }
 
-// GetPermissionByName implements port.PermissionPersistencePort.
+// GetPermissionByName implements userport.PermissionPersistencePort.
 func (a *PermissionMongoAdapter) GetPermissionByName(
 	ctx context.Context, name string,
-) (*model.Permission, error) {
+) (*usermodel.Permission, error) {
 	filter := bson.M{
 		"spec.name":          name,
 		"metadata.deletedAt": nil,
@@ -83,20 +85,20 @@ func (a *PermissionMongoAdapter) GetPermissionByName(
 		return nil, fmt.Errorf("get permission by name: %w", err)
 	}
 
-	var en entity.Permission
+	var permEntity entity.Permission
 
-	err = result.Decode(&en)
+	err = result.Decode(&permEntity)
 	if err != nil {
 		return nil, fmt.Errorf("decode permission by name: %w", err)
 	}
 
-	return en.ToDomain(), nil
+	return permEntity.ToDomain(), nil
 }
 
-// PutPermission implements port.PermissionPersistencePort.
+// PutPermission implements userport.PermissionPersistencePort.
 func (a *PermissionMongoAdapter) PutPermission(
-	ctx context.Context, permission *model.Permission,
-) (*model.Permission, error) {
+	ctx context.Context, permission *usermodel.Permission,
+) (*usermodel.Permission, error) {
 	en := entity.PermissionFromDomain(permission)
 
 	err := a.common.put(ctx, en)
@@ -107,28 +109,28 @@ func (a *PermissionMongoAdapter) PutPermission(
 	return permission, nil
 }
 
-// ListPermissions implements port.PermissionPersistencePort.
+// ListPermissions implements userport.PermissionPersistencePort.
 func (a *PermissionMongoAdapter) ListPermissions(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.Permission], error) {
+) (*model.ListResponse[*usermodel.Permission], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.Permission, 0, len(resp.Items))
+	items := make([]*usermodel.Permission, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.Permission]{
+	return &model.ListResponse[*usermodel.Permission]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// DeletePermission implements port.PermissionPersistencePort.
+// DeletePermission implements userport.PermissionPersistencePort.
 func (a *PermissionMongoAdapter) DeletePermission(
 	ctx context.Context, uid uuid.UUID,
 ) error {

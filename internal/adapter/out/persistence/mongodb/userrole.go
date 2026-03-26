@@ -1,3 +1,4 @@
+//nolint:dupl // MongoDB adapter pattern - similar query structures are intentional.
 package mongodb
 
 import (
@@ -13,9 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.UserRolePersistencePort = (*UserRoleMongoAdapter)(nil)
+var _ userport.UserRolePersistencePort = (*UserRoleMongoAdapter)(nil)
 
 const (
 	userRoleCollectionName = "user_roles"
@@ -23,10 +26,10 @@ const (
 
 // UserRoleMongoAdapter is a struct that implements the UserRolePersistencePort interface.
 type UserRoleMongoAdapter struct {
-	common          commonEntityAdapter[entity.UserRole, string]
-	roleCollection  *mongo.Collection
-	userCollection  *mongo.Collection
-	logger          *slog.Logger
+	common         commonEntityAdapter[entity.UserRole, string]
+	roleCollection *mongo.Collection
+	userCollection *mongo.Collection
+	logger         *slog.Logger
 }
 
 // NewUserRoleRepository creates a new instance of UserRoleMongoAdapter.
@@ -56,10 +59,10 @@ func NewUserRoleRepository(
 	}
 }
 
-// GetUserRole implements port.UserRolePersistencePort.
+// GetUserRole implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) GetUserRole(
 	ctx context.Context, uid uuid.UUID,
-) (*model.UserRole, error) {
+) (*usermodel.UserRole, error) {
 	en, err := a.common.get(ctx, uid.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get user role: %w", err)
@@ -68,19 +71,19 @@ func (a *UserRoleMongoAdapter) GetUserRole(
 	return en.ToDomain(), nil
 }
 
-// GetUserRoleByUserAndRole implements port.UserRolePersistencePort.
+// GetUserRoleByUserAndRole implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) GetUserRoleByUserAndRole(
 	ctx context.Context, userID, roleID uuid.UUID,
-) (*model.UserRole, error) {
+) (*usermodel.UserRole, error) {
 	filter := bson.M{
 		"spec.userID":        userID.String(),
 		"spec.roleID":        roleID.String(),
 		"metadata.deletedAt": nil,
 	}
 
-	var en entity.UserRole
+	var userRoleEntity entity.UserRole
 
-	err := a.common.collection.FindOne(ctx, filter).Decode(&en)
+	err := a.common.collection.FindOne(ctx, filter).Decode(&userRoleEntity)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, port.ErrResourceNotExist
@@ -89,13 +92,13 @@ func (a *UserRoleMongoAdapter) GetUserRoleByUserAndRole(
 		return nil, fmt.Errorf("find user role by user and role: %w", err)
 	}
 
-	return en.ToDomain(), nil
+	return userRoleEntity.ToDomain(), nil
 }
 
-// PutUserRole implements port.UserRolePersistencePort.
+// PutUserRole implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) PutUserRole(
-	ctx context.Context, userRole *model.UserRole,
-) (*model.UserRole, error) {
+	ctx context.Context, userRole *usermodel.UserRole,
+) (*usermodel.UserRole, error) {
 	en := entity.UserRoleFromDomain(userRole)
 
 	err := a.common.put(ctx, en)
@@ -106,38 +109,38 @@ func (a *UserRoleMongoAdapter) PutUserRole(
 	return userRole, nil
 }
 
-// ListUserRoles implements port.UserRolePersistencePort.
+// ListUserRoles implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) ListUserRoles(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.UserRole], error) {
+) (*model.ListResponse[*usermodel.UserRole], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.UserRole, 0, len(resp.Items))
+	items := make([]*usermodel.UserRole, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.UserRole]{
+	return &model.ListResponse[*usermodel.UserRole]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// GetUserRoles implements port.UserRolePersistencePort.
+// GetUserRoles implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) GetUserRoles(
 	ctx context.Context, userID uuid.UUID,
-) ([]*model.Role, error) {
+) ([]*usermodel.Role, error) {
 	roleIDs, err := a.findRoleIDsByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(roleIDs) == 0 {
-		return []*model.Role{}, nil
+		return []*usermodel.Role{}, nil
 	}
 
 	filter := bson.M{
@@ -164,7 +167,7 @@ func (a *UserRoleMongoAdapter) GetUserRoles(
 		return nil, fmt.Errorf("decode roles for user: %w", err)
 	}
 
-	roles := make([]*model.Role, 0, len(roleEntities))
+	roles := make([]*usermodel.Role, 0, len(roleEntities))
 	for i := range roleEntities {
 		roles = append(roles, roleEntities[i].ToDomain())
 	}
@@ -172,17 +175,17 @@ func (a *UserRoleMongoAdapter) GetUserRoles(
 	return roles, nil
 }
 
-// GetRoleUsers implements port.UserRolePersistencePort.
+// GetRoleUsers implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) GetRoleUsers(
 	ctx context.Context, roleID uuid.UUID,
-) ([]*model.User, error) {
+) ([]*usermodel.User, error) {
 	userIDs, err := a.findUserIDsByRoleID(ctx, roleID)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(userIDs) == 0 {
-		return []*model.User{}, nil
+		return []*usermodel.User{}, nil
 	}
 
 	filter := bson.M{
@@ -209,7 +212,7 @@ func (a *UserRoleMongoAdapter) GetRoleUsers(
 		return nil, fmt.Errorf("decode users for role: %w", err)
 	}
 
-	users := make([]*model.User, 0, len(userEntities))
+	users := make([]*usermodel.User, 0, len(userEntities))
 	for i := range userEntities {
 		users = append(users, userEntities[i].ToDomain())
 	}
@@ -217,7 +220,7 @@ func (a *UserRoleMongoAdapter) GetRoleUsers(
 	return users, nil
 }
 
-// DeleteUserRole implements port.UserRolePersistencePort.
+// DeleteUserRole implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) DeleteUserRole(
 	ctx context.Context, uid uuid.UUID,
 ) error {
@@ -239,7 +242,7 @@ func (a *UserRoleMongoAdapter) DeleteUserRole(
 	return nil
 }
 
-// DeleteUserRoles implements port.UserRolePersistencePort.
+// DeleteUserRoles implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) DeleteUserRoles(
 	ctx context.Context, userID uuid.UUID,
 ) error {
@@ -249,7 +252,7 @@ func (a *UserRoleMongoAdapter) DeleteUserRoles(
 	})
 }
 
-// DeleteRoleUsers implements port.UserRolePersistencePort.
+// DeleteRoleUsers implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) DeleteRoleUsers(
 	ctx context.Context, roleID uuid.UUID,
 ) error {

@@ -14,20 +14,21 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
 var _ applicationport.RoleManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the RoleManageUsecase interface.
 type Service struct {
-	roleUsecase domainport.RoleUsecase
+	roleUsecase userport.RoleUsecase
 	mapper      *helper.Mapper
 	logger      *slog.Logger
 }
 
 // New creates a new instance of the Service struct.
-func New(roleUsecase domainport.RoleUsecase, logger *slog.Logger) *Service {
+func New(roleUsecase userport.RoleUsecase, logger *slog.Logger) *Service {
 	return &Service{
 		roleUsecase: roleUsecase,
 		mapper:      helper.NewMapper(),
@@ -62,7 +63,7 @@ func (s *Service) ListRoles(
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-		Items: lo.Map(response.Items, func(role *model.Role, _ int) v1.Role {
+		Items: lo.Map(response.Items, func(role *usermodel.Role, _ int) v1.Role {
 			return *s.mapper.MapRoleToAPI(role)
 		}),
 	}, nil
@@ -70,7 +71,7 @@ func (s *Service) ListRoles(
 
 // CreateRole implements [applicationport.RoleManageUsecase].
 func (s *Service) CreateRole(ctx context.Context, apiRole *v1.Role) (*v1.Role, error) {
-	domainRole := model.NewRole(apiRole.Spec.DisplayName, apiRole.Spec.IsBuiltIn)
+	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, apiRole.Spec.IsBuiltIn)
 	domainRole.Spec.Description = apiRole.Spec.Description
 	domainRole.Spec.Permissions = apiRole.Spec.Permissions
 

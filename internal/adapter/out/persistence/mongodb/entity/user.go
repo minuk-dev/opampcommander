@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 )
 
 const (
@@ -54,16 +55,16 @@ type UserStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (u *User) ToDomain() *model.User {
-	return &model.User{
+func (u *User) ToDomain() *usermodel.User {
+	return &usermodel.User{
 		Metadata: u.Metadata.toDomain(),
 		Spec:     u.Spec.toDomain(),
 		Status:   u.Status.toDomain(),
 	}
 }
 
-func (m *UserMetadata) toDomain() model.UserMetadata {
-	return model.UserMetadata{
+func (m *UserMetadata) toDomain() usermodel.UserMetadata {
+	return usermodel.UserMetadata{
 		UID:       uuid.MustParse(m.UID),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
@@ -71,9 +72,9 @@ func (m *UserMetadata) toDomain() model.UserMetadata {
 	}
 }
 
-func (s *UserSpec) toDomain() model.UserSpec {
-	identities := lo.Map(s.Identities, func(id UserIdentity, _ int) model.UserIdentity {
-		return model.UserIdentity{
+func (s *UserSpec) toDomain() usermodel.UserSpec {
+	identities := lo.Map(s.Identities, func(id UserIdentity, _ int) usermodel.UserIdentity {
+		return usermodel.UserIdentity{
 			Provider:       id.Provider,
 			ProviderUserID: id.ProviderUserID,
 			Email:          id.Email,
@@ -81,7 +82,7 @@ func (s *UserSpec) toDomain() model.UserSpec {
 		}
 	})
 
-	return model.UserSpec{
+	return usermodel.UserSpec{
 		Email:      s.Email,
 		Username:   s.Username,
 		IsActive:   s.IsActive,
@@ -89,8 +90,8 @@ func (s *UserSpec) toDomain() model.UserSpec {
 	}
 }
 
-func (s *UserStatus) toDomain() model.UserStatus {
-	return model.UserStatus{
+func (s *UserStatus) toDomain() usermodel.UserStatus {
+	return usermodel.UserStatus{
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
@@ -99,7 +100,7 @@ func (s *UserStatus) toDomain() model.UserStatus {
 }
 
 // UserFromDomain converts domain model to entity.
-func UserFromDomain(domain *model.User) *User {
+func UserFromDomain(domain *usermodel.User) *User {
 	return &User{
 		Common: Common{
 			Version: VersionV1,
@@ -111,7 +112,7 @@ func UserFromDomain(domain *model.User) *User {
 	}
 }
 
-func userMetadataFromDomain(m model.UserMetadata) UserMetadata {
+func userMetadataFromDomain(m usermodel.UserMetadata) UserMetadata {
 	return UserMetadata{
 		UID:       m.UID.String(),
 		CreatedAt: m.CreatedAt,
@@ -120,8 +121,8 @@ func userMetadataFromDomain(m model.UserMetadata) UserMetadata {
 	}
 }
 
-func userSpecFromDomain(s model.UserSpec) UserSpec {
-	identities := lo.Map(s.Identities, func(id model.UserIdentity, _ int) UserIdentity {
+func userSpecFromDomain(spec usermodel.UserSpec) UserSpec {
+	identities := lo.Map(spec.Identities, func(id usermodel.UserIdentity, _ int) UserIdentity {
 		return UserIdentity{
 			Provider:       id.Provider,
 			ProviderUserID: id.ProviderUserID,
@@ -131,14 +132,14 @@ func userSpecFromDomain(s model.UserSpec) UserSpec {
 	})
 
 	return UserSpec{
-		Email:      s.Email,
-		Username:   s.Username,
-		IsActive:   s.IsActive,
+		Email:      spec.Email,
+		Username:   spec.Username,
+		IsActive:   spec.IsActive,
 		Identities: identities,
 	}
 }
 
-func userStatusFromDomain(s model.UserStatus) UserStatus {
+func userStatusFromDomain(s usermodel.UserStatus) UserStatus {
 	return UserStatus{
 		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)

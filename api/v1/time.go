@@ -172,7 +172,7 @@ func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 // MarshalYAML implements [yaml.Marshaler].
 //
 //nolint:mnd
-func (t Time) MarshalYAML() (interface{}, error) {
+func (t Time) MarshalYAML() (any, error) {
 	if t.IsZero() {
 		// Encode unset/nil objects as JSON's "null".
 		return []byte("null"), nil

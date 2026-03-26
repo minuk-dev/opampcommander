@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/internal/application/service/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -21,13 +22,13 @@ type MockAgentUsecase struct {
 	mock.Mock
 }
 
-func (m *MockAgentUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+func (m *MockAgentUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	args := m.Called(ctx, instanceUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	agent, ok := args.Get(0).(*model.Agent)
+	agent, ok := args.Get(0).(*agentmodel.Agent)
 	if !ok {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -35,13 +36,13 @@ func (m *MockAgentUsecase) GetAgent(ctx context.Context, instanceUID uuid.UUID) 
 	return agent, args.Error(1) //nolint:wrapcheck // mock error
 }
 
-func (m *MockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+func (m *MockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	args := m.Called(ctx, instanceUID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	agent, ok := args.Get(0).(*model.Agent)
+	agent, ok := args.Get(0).(*agentmodel.Agent)
 	if !ok {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -51,15 +52,15 @@ func (m *MockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uui
 
 func (m *MockAgentUsecase) ListAgentsBySelector(
 	ctx context.Context,
-	selector model.AgentSelector,
+	selector agentmodel.AgentSelector,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	args := m.Called(ctx, selector, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	resp, ok := args.Get(0).(*model.ListResponse[*model.Agent])
+	resp, ok := args.Get(0).(*model.ListResponse[*agentmodel.Agent])
 	if !ok {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -67,7 +68,7 @@ func (m *MockAgentUsecase) ListAgentsBySelector(
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
 }
 
-func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agnt *model.Agent) error {
+func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agnt *agentmodel.Agent) error {
 	args := m.Called(ctx, agnt)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
@@ -76,33 +77,35 @@ func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agnt *model.Agent) err
 func (m *MockAgentUsecase) ListAgents(
 	ctx context.Context,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	args := m.Called(ctx, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck, forcetypeassert // mock error
+	//nolint:wrapcheck, forcetypeassert // mock error
+	return args.Get(0).(*model.ListResponse[*agentmodel.Agent]), args.Error(1)
 }
 
 func (m *MockAgentUsecase) SearchAgents(
 	ctx context.Context,
 	query string,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	args := m.Called(ctx, query, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
 
-	return args.Get(0).(*model.ListResponse[*model.Agent]), args.Error(1) //nolint:wrapcheck,forcetypeassert // mock error
+	//nolint:wrapcheck,forcetypeassert // mock error
+	return args.Get(0).(*model.ListResponse[*agentmodel.Agent]), args.Error(1)
 }
 
 type MockAgentNotificationUsecase struct {
 	mock.Mock
 }
 
-func (m *MockAgentNotificationUsecase) NotifyAgentUpdated(ctx context.Context, agnt *model.Agent) error {
+func (m *MockAgentNotificationUsecase) NotifyAgentUpdated(ctx context.Context, agnt *agentmodel.Agent) error {
 	args := m.Called(ctx, agnt)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
@@ -127,10 +130,10 @@ func TestService_SearchAgents(t *testing.T) {
 		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
 
 		instanceUID := uuid.New()
-		domainAgents := []*model.Agent{
-			model.NewAgent(instanceUID),
+		domainAgents := []*agentmodel.Agent{
+			agentmodel.NewAgent(instanceUID),
 		}
-		domainResponse := &model.ListResponse[*model.Agent]{
+		domainResponse := &model.ListResponse[*agentmodel.Agent]{
 			Items:              domainAgents,
 			Continue:           "",
 			RemainingItemCount: 0,
@@ -179,11 +182,11 @@ func TestService_SearchAgents(t *testing.T) {
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
 		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
 
-		domainAgents := []*model.Agent{
-			model.NewAgent(uuid.New()),
-			model.NewAgent(uuid.New()),
+		domainAgents := []*agentmodel.Agent{
+			agentmodel.NewAgent(uuid.New()),
+			agentmodel.NewAgent(uuid.New()),
 		}
-		domainResponse := &model.ListResponse[*model.Agent]{
+		domainResponse := &model.ListResponse[*agentmodel.Agent]{
 			Items:              domainAgents,
 			Continue:           "next-token",
 			RemainingItemCount: 10,

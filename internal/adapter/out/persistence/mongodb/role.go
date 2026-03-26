@@ -14,9 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.RolePersistencePort = (*RoleMongoAdapter)(nil)
+var _ userport.RolePersistencePort = (*RoleMongoAdapter)(nil)
 
 const (
 	roleCollectionName = "roles"
@@ -51,10 +53,10 @@ func NewRoleRepository(
 	}
 }
 
-// GetRole implements port.RolePersistencePort.
+// GetRole implements userport.RolePersistencePort.
 func (a *RoleMongoAdapter) GetRole(
 	ctx context.Context, uid uuid.UUID,
-) (*model.Role, error) {
+) (*usermodel.Role, error) {
 	en, err := a.common.get(ctx, uid.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get role: %w", err)
@@ -63,10 +65,10 @@ func (a *RoleMongoAdapter) GetRole(
 	return en.ToDomain(), nil
 }
 
-// GetRoleByName implements port.RolePersistencePort.
+// GetRoleByName implements userport.RolePersistencePort.
 func (a *RoleMongoAdapter) GetRoleByName(
 	ctx context.Context, displayName string,
-) (*model.Role, error) {
+) (*usermodel.Role, error) {
 	filter := bson.M{
 		"spec.displayName":   displayName,
 		"metadata.deletedAt": nil,
@@ -83,20 +85,20 @@ func (a *RoleMongoAdapter) GetRoleByName(
 		return nil, fmt.Errorf("get role by name: %w", err)
 	}
 
-	var en entity.Role
+	var roleEntity entity.Role
 
-	err = result.Decode(&en)
+	err = result.Decode(&roleEntity)
 	if err != nil {
 		return nil, fmt.Errorf("decode role by name: %w", err)
 	}
 
-	return en.ToDomain(), nil
+	return roleEntity.ToDomain(), nil
 }
 
-// PutRole implements port.RolePersistencePort.
+// PutRole implements userport.RolePersistencePort.
 func (a *RoleMongoAdapter) PutRole(
-	ctx context.Context, role *model.Role,
-) (*model.Role, error) {
+	ctx context.Context, role *usermodel.Role,
+) (*usermodel.Role, error) {
 	en := entity.RoleFromDomain(role)
 
 	err := a.common.put(ctx, en)
@@ -107,28 +109,28 @@ func (a *RoleMongoAdapter) PutRole(
 	return role, nil
 }
 
-// ListRoles implements port.RolePersistencePort.
+// ListRoles implements userport.RolePersistencePort.
 func (a *RoleMongoAdapter) ListRoles(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.Role], error) {
+) (*model.ListResponse[*usermodel.Role], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.Role, 0, len(resp.Items))
+	items := make([]*usermodel.Role, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.Role]{
+	return &model.ListResponse[*usermodel.Role]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// DeleteRole implements port.RolePersistencePort.
+// DeleteRole implements userport.RolePersistencePort.
 func (a *RoleMongoAdapter) DeleteRole(
 	ctx context.Context, uid uuid.UUID,
 ) error {

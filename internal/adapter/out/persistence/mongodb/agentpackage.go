@@ -9,11 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ port.AgentPackagePersistencePort = (*AgentPackageMongoAdapter)(nil)
+var _ agentport.AgentPackagePersistencePort = (*AgentPackageMongoAdapter)(nil)
 
 const (
 	agentPackageCollectionName = "agentpackages"
@@ -48,10 +49,10 @@ func NewAgentPackageRepository(
 	}
 }
 
-// GetAgentPackage implements port.AgentPackagePersistencePort.
+// GetAgentPackage implements agentport.AgentPackagePersistencePort.
 func (a *AgentPackageMongoAdapter) GetAgentPackage(
 	ctx context.Context, name string,
-) (*model.AgentPackage, error) {
+) (*agentmodel.AgentPackage, error) {
 	en, err := a.common.get(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent package: %w", err)
@@ -60,31 +61,31 @@ func (a *AgentPackageMongoAdapter) GetAgentPackage(
 	return en.ToDomain(), nil
 }
 
-// ListAgentPackages implements port.AgentPackagePersistencePort.
+// ListAgentPackages implements agentport.AgentPackagePersistencePort.
 func (a *AgentPackageMongoAdapter) ListAgentPackages(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.AgentPackage], error) {
+) (*model.ListResponse[*agentmodel.AgentPackage], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.AgentPackage, 0, len(resp.Items))
+	items := make([]*agentmodel.AgentPackage, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.AgentPackage]{
+	return &model.ListResponse[*agentmodel.AgentPackage]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// PutAgentPackage implements port.AgentPackagePersistencePort.
+// PutAgentPackage implements agentport.AgentPackagePersistencePort.
 func (a *AgentPackageMongoAdapter) PutAgentPackage(
-	ctx context.Context, agentPackage *model.AgentPackage,
-) (*model.AgentPackage, error) {
+	ctx context.Context, agentPackage *agentmodel.AgentPackage,
+) (*agentmodel.AgentPackage, error) {
 	en := entity.AgentPackageFromDomain(agentPackage)
 
 	err := a.common.put(ctx, en)

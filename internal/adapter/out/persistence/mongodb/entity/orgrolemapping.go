@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 )
 
 const (
@@ -38,15 +38,15 @@ type OrgRoleMappingSpec struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (o *OrgRoleMapping) ToDomain() *model.OrgRoleMapping {
-	return &model.OrgRoleMapping{
+func (o *OrgRoleMapping) ToDomain() *usermodel.OrgRoleMapping {
+	return &usermodel.OrgRoleMapping{
 		Metadata: o.Metadata.toDomain(),
 		Spec:     o.Spec.toDomain(),
 	}
 }
 
-func (m *OrgRoleMappingMetadata) toDomain() model.OrgRoleMappingMetadata {
-	return model.OrgRoleMappingMetadata{
+func (m *OrgRoleMappingMetadata) toDomain() usermodel.OrgRoleMappingMetadata {
+	return usermodel.OrgRoleMappingMetadata{
 		UID:       uuid.MustParse(m.UID),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
@@ -54,8 +54,8 @@ func (m *OrgRoleMappingMetadata) toDomain() model.OrgRoleMappingMetadata {
 	}
 }
 
-func (s *OrgRoleMappingSpec) toDomain() model.OrgRoleMappingSpec {
-	return model.OrgRoleMappingSpec{
+func (s *OrgRoleMappingSpec) toDomain() usermodel.OrgRoleMappingSpec {
+	return usermodel.OrgRoleMappingSpec{
 		Provider:     s.Provider,
 		Organization: s.Organization,
 		Team:         s.Team,
@@ -64,7 +64,7 @@ func (s *OrgRoleMappingSpec) toDomain() model.OrgRoleMappingSpec {
 }
 
 // OrgRoleMappingFromDomain converts domain model to entity.
-func OrgRoleMappingFromDomain(domain *model.OrgRoleMapping) *OrgRoleMapping {
+func OrgRoleMappingFromDomain(domain *usermodel.OrgRoleMapping) *OrgRoleMapping {
 	return &OrgRoleMapping{
 		Common: Common{
 			Version: VersionV1,
@@ -75,7 +75,7 @@ func OrgRoleMappingFromDomain(domain *model.OrgRoleMapping) *OrgRoleMapping {
 	}
 }
 
-func orgRoleMappingMetadataFromDomain(m model.OrgRoleMappingMetadata) OrgRoleMappingMetadata {
+func orgRoleMappingMetadataFromDomain(m usermodel.OrgRoleMappingMetadata) OrgRoleMappingMetadata {
 	return OrgRoleMappingMetadata{
 		UID:       m.UID.String(),
 		CreatedAt: m.CreatedAt,
@@ -84,7 +84,7 @@ func orgRoleMappingMetadataFromDomain(m model.OrgRoleMappingMetadata) OrgRoleMap
 	}
 }
 
-func orgRoleMappingSpecFromDomain(s model.OrgRoleMappingSpec) OrgRoleMappingSpec {
+func orgRoleMappingSpecFromDomain(s usermodel.OrgRoleMappingSpec) OrgRoleMappingSpec {
 	return OrgRoleMappingSpec{
 		Provider:     s.Provider,
 		Organization: s.Organization,

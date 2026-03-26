@@ -13,18 +13,18 @@ import (
 	"github.com/cloudevents/sdk-go/v2/event"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/internal/adapter/common/kafka"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var (
-	_ port.ServerEventReceiverPort = (*EventReceiverAdapter)(nil)
+	_ agentport.ServerEventReceiverPort = (*EventReceiverAdapter)(nil)
 )
 
-// EventReceiverAdapter implements port.ServerEventReceiverPort using Kafka CloudEvents receiver.
+// EventReceiverAdapter implements agentport.ServerEventReceiverPort using Kafka CloudEvents receiver.
 type EventReceiverAdapter struct {
-	serverIdentityProvider port.ServerIdentityProvider
+	serverIdentityProvider agentport.ServerIdentityProvider
 	receiver               cloudevents.Client
 	logger                 *slog.Logger
 	clock                  clock.Clock
@@ -32,7 +32,7 @@ type EventReceiverAdapter struct {
 
 // NewEventReceiverAdapter creates a new EventReceiverAdapter.
 func NewEventReceiverAdapter(
-	serverIdentityProvider port.ServerIdentityProvider,
+	serverIdentityProvider agentport.ServerIdentityProvider,
 	protocolConsumer *cekafka.Consumer,
 	logger *slog.Logger,
 ) (*EventReceiverAdapter, error) {
@@ -41,7 +41,7 @@ func NewEventReceiverAdapter(
 	// https://github.com/cloudevents/sdk-go/pull/1202
 	otelService := observabilityClient.NewOTelObservabilityService()
 
-	var opts []client.Option
+	opts := make([]client.Option, 0, 1)
 
 	opts = append(opts, client.WithObservabilityService(otelService))
 
@@ -58,10 +58,10 @@ func NewEventReceiverAdapter(
 	}, nil
 }
 
-// StartReceiver implements port.ServerEventReceiverPort.
+// StartReceiver implements agentport.ServerEventReceiverPort.
 func (e *EventReceiverAdapter) StartReceiver(
 	ctx context.Context,
-	handler port.ReceiveServerEventHandler,
+	handler agentport.ReceiveServerEventHandler,
 ) error {
 	err := e.receiver.StartReceiver(ctx, func(ctx context.Context, event event.Event) {
 		logArgs := []any{

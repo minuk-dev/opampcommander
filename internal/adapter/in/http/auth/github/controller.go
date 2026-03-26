@@ -12,8 +12,8 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
@@ -21,14 +21,14 @@ import (
 type Controller struct {
 	logger      *slog.Logger
 	service     *security.Service
-	userUsecase domainport.UserUsecase
+	userUsecase userport.UserUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
 	logger *slog.Logger,
 	service *security.Service,
-	userUsecase domainport.UserUsecase,
+	userUsecase userport.UserUsecase,
 ) *Controller {
 	return &Controller{
 		logger:      logger,
@@ -149,7 +149,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, model.IdentityProviderGitHub)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -234,7 +234,7 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, model.IdentityProviderGitHub)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -248,7 +248,8 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 	if err == nil && existing != nil {
 		existing.Metadata.UpdatedAt = time.Now()
 
-		if saveErr := c.userUsecase.SaveUser(ctx, existing); saveErr != nil {
+		saveErr := c.userUsecase.SaveUser(ctx, existing)
+		if saveErr != nil {
 			c.logger.Warn("failed to update user on login",
 				slog.String("email", email),
 				slog.Any("error", saveErr),
@@ -258,9 +259,10 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 		return
 	}
 
-	newUser := model.NewUserWithIdentity(provider, email, email, email)
+	newUser := usermodel.NewUserWithIdentity(provider, email, email, email)
 
-	if saveErr := c.userUsecase.SaveUser(ctx, newUser); saveErr != nil {
+	saveErr := c.userUsecase.SaveUser(ctx, newUser)
+	if saveErr != nil {
 		c.logger.Warn("failed to create user on login",
 			slog.String("email", email),
 			slog.Any("error", saveErr),

@@ -8,11 +8,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ port.AgentRemoteConfigPersistencePort = (*AgentRemoteConfigMongoAdapter)(nil)
+var _ agentport.AgentRemoteConfigPersistencePort = (*AgentRemoteConfigMongoAdapter)(nil)
 
 const (
 	agentRemoteConfigCollectionName = "agentremoteconfigs"
@@ -47,10 +48,10 @@ func NewAgentRemoteConfigRepository(
 	}
 }
 
-// GetAgentRemoteConfig implements port.AgentRemoteConfigPersistencePort.
+// GetAgentRemoteConfig implements agentport.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 	ctx context.Context, name string,
-) (*model.AgentRemoteConfig, error) {
+) (*agentmodel.AgentRemoteConfig, error) {
 	en, err := a.common.get(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent remote config: %w", err)
@@ -59,31 +60,31 @@ func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 	return en.ToDomain(), nil
 }
 
-// ListAgentRemoteConfigs implements port.AgentRemoteConfigPersistencePort.
+// ListAgentRemoteConfigs implements agentport.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) ListAgentRemoteConfigs(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.AgentRemoteConfig], error) {
+) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.AgentRemoteConfig, 0, len(resp.Items))
+	items := make([]*agentmodel.AgentRemoteConfig, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.AgentRemoteConfig]{
+	return &model.ListResponse[*agentmodel.AgentRemoteConfig]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// PutAgentRemoteConfig implements port.AgentRemoteConfigPersistencePort.
+// PutAgentRemoteConfig implements agentport.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) PutAgentRemoteConfig(
-	ctx context.Context, config *model.AgentRemoteConfig,
-) (*model.AgentRemoteConfig, error) {
+	ctx context.Context, config *agentmodel.AgentRemoteConfig,
+) (*agentmodel.AgentRemoteConfig, error) {
 	en := entity.AgentRemoteConfigResourceEntityFromDomain(config)
 
 	err := a.common.put(ctx, en)

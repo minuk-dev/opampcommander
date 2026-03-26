@@ -5,6 +5,7 @@ import (
 
 	"github.com/samber/lo"
 
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -43,16 +44,16 @@ type CertificateStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (c *Certificate) ToDomain() *model.Certificate {
-	return &model.Certificate{
+func (c *Certificate) ToDomain() *agentmodel.Certificate {
+	return &agentmodel.Certificate{
 		Metadata: c.Metadata.toDomain(),
 		Spec:     c.Spec.toDomain(),
 		Status:   c.Status.toDomain(),
 	}
 }
 
-func (m *CertificateMetadata) toDomain() model.CertificateMetadata {
-	return model.CertificateMetadata{
+func (m *CertificateMetadata) toDomain() agentmodel.CertificateMetadata {
+	return agentmodel.CertificateMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
 		CreatedAt:  m.CreatedAt,
@@ -60,16 +61,16 @@ func (m *CertificateMetadata) toDomain() model.CertificateMetadata {
 	}
 }
 
-func (s *CertificateSpec) toDomain() model.CertificateSpec {
-	return model.CertificateSpec{
+func (s *CertificateSpec) toDomain() agentmodel.CertificateSpec {
+	return agentmodel.CertificateSpec{
 		Cert:       s.Cert,
 		PrivateKey: s.PrivateKey,
 		CaCert:     s.CaCert,
 	}
 }
 
-func (s *CertificateStatus) toDomain() model.CertificateStatus {
-	return model.CertificateStatus{
+func (s *CertificateStatus) toDomain() agentmodel.CertificateStatus {
+	return agentmodel.CertificateStatus{
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
@@ -77,7 +78,7 @@ func (s *CertificateStatus) toDomain() model.CertificateStatus {
 }
 
 // CertificateFromDomain converts domain model to entity.
-func CertificateFromDomain(domain *model.Certificate) *Certificate {
+func CertificateFromDomain(domain *agentmodel.Certificate) *Certificate {
 	return &Certificate{
 		Common: Common{
 			Version: VersionV1,
@@ -89,7 +90,7 @@ func CertificateFromDomain(domain *model.Certificate) *Certificate {
 	}
 }
 
-func certificateMetadataFromDomain(m model.CertificateMetadata) CertificateMetadata {
+func certificateMetadataFromDomain(m agentmodel.CertificateMetadata) CertificateMetadata {
 	return CertificateMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
@@ -98,7 +99,7 @@ func certificateMetadataFromDomain(m model.CertificateMetadata) CertificateMetad
 	}
 }
 
-func certificateSpecFromDomain(s model.CertificateSpec) CertificateSpec {
+func certificateSpecFromDomain(s agentmodel.CertificateSpec) CertificateSpec {
 	return CertificateSpec{
 		Cert:       s.Cert,
 		PrivateKey: s.PrivateKey,
@@ -106,7 +107,7 @@ func certificateSpecFromDomain(s model.CertificateSpec) CertificateSpec {
 	}
 }
 
-func certificateStatusFromDomain(s model.CertificateStatus) CertificateStatus {
+func certificateStatusFromDomain(s agentmodel.CertificateStatus) CertificateStatus {
 	return CertificateStatus{
 		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)

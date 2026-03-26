@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/minuk-dev/opampcommander/internal/application/service/agentpackage/filter"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -18,21 +19,21 @@ func TestSanity_Sanitize(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		existing *model.AgentPackage
-		updated  *model.AgentPackage
-		want     *model.AgentPackage
+		existing *agentmodel.AgentPackage
+		updated  *agentmodel.AgentPackage
+		want     *agentmodel.AgentPackage
 	}{
 		{
 			name:     "nil existing returns updated as-is",
 			existing: nil,
-			updated: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			updated: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: newTime,
 				},
 			},
-			want: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			want: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: newTime,
 				},
@@ -40,8 +41,8 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "nil updated returns nil",
-			existing: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			existing: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: fixedTime,
 				},
@@ -51,12 +52,12 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "preserves createdAt from existing",
-			existing: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			existing: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: fixedTime,
 				},
-				Status: model.AgentPackageStatus{
+				Status: agentmodel.AgentPackageStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -66,24 +67,24 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			updated: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			updated: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: newTime,
 				},
-				Spec: model.AgentPackageSpec{
+				Spec: agentmodel.AgentPackageSpec{
 					Version: "2.0.0",
 				},
 			},
-			want: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			want: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: fixedTime,
 				},
-				Spec: model.AgentPackageSpec{
+				Spec: agentmodel.AgentPackageSpec{
 					Version: "2.0.0",
 				},
-				Status: model.AgentPackageStatus{
+				Status: agentmodel.AgentPackageStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -96,12 +97,12 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "preserves status from existing",
-			existing: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			existing: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: fixedTime,
 				},
-				Status: model.AgentPackageStatus{
+				Status: agentmodel.AgentPackageStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -116,12 +117,12 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			updated: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			updated: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: newTime,
 				},
-				Status: model.AgentPackageStatus{
+				Status: agentmodel.AgentPackageStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -131,12 +132,12 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			want: &model.AgentPackage{
-				Metadata: model.AgentPackageMetadata{
+			want: &agentmodel.AgentPackage{
+				Metadata: agentmodel.AgentPackageMetadata{
 					Name:      "test-package",
 					CreatedAt: fixedTime,
 				},
-				Status: model.AgentPackageStatus{
+				Status: agentmodel.AgentPackageStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,

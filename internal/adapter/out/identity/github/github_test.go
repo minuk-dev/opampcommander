@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/identity/github"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 )
 
 var (
 	errGitHubAPI = errors.New("github api error")
 )
 
-// mockGitHubClient implements github.GitHubClient for testing.
+// mockGitHubClient implements github.Client for testing.
 type mockGitHubClient struct {
 	user   *gogithub.User
 	emails []*gogithub.UserEmail
@@ -45,8 +45,8 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func newTestProvider(client github.GitHubClient) *github.IdentityProvider {
-	factory := func(_ context.Context, _ string) github.GitHubClient {
+func newTestProvider(client github.Client) *github.IdentityProvider {
+	factory := func(_ context.Context, _ string) github.Client {
 		return client
 	}
 
@@ -57,7 +57,7 @@ func TestIdentityProvider_ProviderName(t *testing.T) {
 	t.Parallel()
 
 	provider := newTestProvider(nil)
-	assert.Equal(t, model.IdentityProviderGitHub, provider.ProviderName())
+	assert.Equal(t, usermodel.IdentityProviderGitHub, provider.ProviderName())
 }
 
 func TestIdentityProvider_ResolveIdentity(t *testing.T) {
@@ -89,7 +89,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, identity)
-		assert.Equal(t, model.IdentityProviderGitHub, identity.Provider)
+		assert.Equal(t, usermodel.IdentityProviderGitHub, identity.Provider)
 		assert.Equal(t, "12345", identity.ProviderUserID)
 		assert.Equal(t, "test@example.com", identity.Email)
 		assert.Equal(t, "testuser", identity.DisplayName)

@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 )
 
 const (
@@ -45,16 +46,16 @@ type RoleStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (r *Role) ToDomain() *model.Role {
-	return &model.Role{
+func (r *Role) ToDomain() *usermodel.Role {
+	return &usermodel.Role{
 		Metadata: r.Metadata.toDomain(),
 		Spec:     r.Spec.toDomain(),
 		Status:   r.Status.toDomain(),
 	}
 }
 
-func (m *RoleMetadata) toDomain() model.RoleMetadata {
-	return model.RoleMetadata{
+func (m *RoleMetadata) toDomain() usermodel.RoleMetadata {
+	return usermodel.RoleMetadata{
 		UID:       uuid.MustParse(m.UID),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
@@ -62,8 +63,8 @@ func (m *RoleMetadata) toDomain() model.RoleMetadata {
 	}
 }
 
-func (s *RoleSpec) toDomain() model.RoleSpec {
-	return model.RoleSpec{
+func (s *RoleSpec) toDomain() usermodel.RoleSpec {
+	return usermodel.RoleSpec{
 		DisplayName: s.DisplayName,
 		Description: s.Description,
 		Permissions: s.Permissions,
@@ -71,8 +72,8 @@ func (s *RoleSpec) toDomain() model.RoleSpec {
 	}
 }
 
-func (s *RoleStatus) toDomain() model.RoleStatus {
-	return model.RoleStatus{
+func (s *RoleStatus) toDomain() usermodel.RoleStatus {
+	return usermodel.RoleStatus{
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
@@ -80,7 +81,7 @@ func (s *RoleStatus) toDomain() model.RoleStatus {
 }
 
 // RoleFromDomain converts domain model to entity.
-func RoleFromDomain(domain *model.Role) *Role {
+func RoleFromDomain(domain *usermodel.Role) *Role {
 	return &Role{
 		Common: Common{
 			Version: VersionV1,
@@ -92,7 +93,7 @@ func RoleFromDomain(domain *model.Role) *Role {
 	}
 }
 
-func roleMetadataFromDomain(m model.RoleMetadata) RoleMetadata {
+func roleMetadataFromDomain(m usermodel.RoleMetadata) RoleMetadata {
 	return RoleMetadata{
 		UID:       m.UID.String(),
 		CreatedAt: m.CreatedAt,
@@ -101,7 +102,7 @@ func roleMetadataFromDomain(m model.RoleMetadata) RoleMetadata {
 	}
 }
 
-func roleSpecFromDomain(s model.RoleSpec) RoleSpec {
+func roleSpecFromDomain(s usermodel.RoleSpec) RoleSpec {
 	return RoleSpec{
 		DisplayName: s.DisplayName,
 		Description: s.Description,
@@ -110,7 +111,7 @@ func roleSpecFromDomain(s model.RoleSpec) RoleSpec {
 	}
 }
 
-func roleStatusFromDomain(s model.RoleStatus) RoleStatus {
+func roleStatusFromDomain(s usermodel.RoleStatus) RoleStatus {
 	return RoleStatus{
 		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)

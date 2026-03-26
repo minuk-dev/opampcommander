@@ -1192,6 +1192,503 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/rbac/assign": {
+            "post": {
+                "description": "Assign a role to a user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "Assign Role",
+                "parameters": [
+                    {
+                        "description": "Role assignment request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AssignRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/check": {
+            "post": {
+                "description": "Check whether a user has a specific permission.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "Check Permission",
+                "parameters": [
+                    {
+                        "description": "Permission check request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CheckPermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CheckPermissionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/sync": {
+            "post": {
+                "description": "Synchronize RBAC policies.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "Sync Policies",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/unassign": {
+            "post": {
+                "description": "Unassign a role from a user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "Unassign Role",
+                "parameters": [
+                    {
+                        "description": "Role unassignment request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_adapter_in_http_v1_rbac.unassignRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/users/{id}/permissions": {
+            "get": {
+                "description": "Retrieve the permissions of a user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "Get User Permissions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the user",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Permission"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/rbac/users/{id}/roles": {
+            "get": {
+                "description": "Retrieve the roles assigned to a user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rbac"
+                ],
+                "summary": "Get User Roles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the user",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/roles": {
+            "get": {
+                "description": "Retrieve a list of roles.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "role"
+                ],
+                "summary": "List Roles",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of roles to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing roles",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "role"
+                ],
+                "summary": "Create Role",
+                "parameters": [
+                    {
+                        "description": "Role to create",
+                        "name": "role",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Role"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/roles/{id}": {
+            "get": {
+                "description": "Retrieve a role by its UID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "role"
+                ],
+                "summary": "Get Role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the role",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "role"
+                ],
+                "summary": "Update Role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the role",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated role",
+                        "name": "role",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Role"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Role"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a role by its UID.",
+                "tags": [
+                    "role"
+                ],
+                "summary": "Delete Role",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the role",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/servers": {
             "get": {
                 "description": "Retrieve a list of all alive servers.",
@@ -1217,6 +1714,223 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users": {
+            "get": {
+                "description": "Retrieve a list of users.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "List Users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of users to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing users",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Create User",
+                "parameters": [
+                    {
+                        "description": "User to create",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/User"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/me": {
+            "get": {
+                "description": "Retrieve the current authenticated user's profile with roles and permissions.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get Current User Profile",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UserProfileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/{id}": {
+            "get": {
+                "description": "Retrieve a user by its UID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get User",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the user",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/user.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a user by its UID.",
+                "tags": [
+                    "user"
+                ],
+                "summary": "Delete User",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UID of the user",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -1849,6 +2563,23 @@ const docTemplate = `{
                 }
             }
         },
+        "AssignRoleRequest": {
+            "type": "object",
+            "properties": {
+                "assignedBy": {
+                    "description": "AssignedBy is the ID of the user performing the assignment.",
+                    "type": "string"
+                },
+                "roleId": {
+                    "description": "RoleID is the ID of the role to assign.",
+                    "type": "string"
+                },
+                "userId": {
+                    "description": "UserID is the ID of the user to assign the role to.",
+                    "type": "string"
+                }
+            }
+        },
         "AuthnTokenResponse": {
             "type": "object",
             "properties": {
@@ -1946,6 +2677,32 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/Condition"
                     }
+                }
+            }
+        },
+        "CheckPermissionRequest": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action is the action to check access for.",
+                    "type": "string"
+                },
+                "resource": {
+                    "description": "Resource is the resource to check access for.",
+                    "type": "string"
+                },
+                "userId": {
+                    "description": "UserID is the ID of the user to check.",
+                    "type": "string"
+                }
+            }
+        },
+        "CheckPermissionResponse": {
+            "type": "object",
+            "properties": {
+                "allowed": {
+                    "description": "Allowed indicates whether the user has the permission.",
+                    "type": "boolean"
                 }
             }
         },
@@ -2265,6 +3022,46 @@ const docTemplate = `{
                 }
             }
         },
+        "ListResponse-Permission": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Permission"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-Role": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Role"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "ListResponse-Server": {
             "type": "object",
             "properties": {
@@ -2275,6 +3072,26 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/Server"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-User": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/User"
                     }
                 },
                 "kind": {
@@ -2340,12 +3157,201 @@ const docTemplate = `{
                 }
             }
         },
+        "Permission": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "description": "APIVersion is the version of the API.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is the type of the resource.",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Metadata contains the metadata of the permission.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/PermissionMetadata"
+                        }
+                    ]
+                },
+                "spec": {
+                    "description": "Spec contains the specification of the permission.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/PermissionSpec"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "Status contains the status of the permission.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/PermissionStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "PermissionMetadata": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "description": "CreatedAt is the timestamp when the permission was created.",
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "description": "DeletedAt is the timestamp when the permission was soft deleted.",
+                    "type": "string"
+                },
+                "uid": {
+                    "description": "UID is the unique identifier of the permission.",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "description": "UpdatedAt is the timestamp when the permission was last updated.",
+                    "type": "string"
+                }
+            }
+        },
+        "PermissionSpec": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Action is the action this permission grants.",
+                    "type": "string"
+                },
+                "description": {
+                    "description": "Description is the description of the permission.",
+                    "type": "string"
+                },
+                "isBuiltIn": {
+                    "description": "IsBuiltIn indicates whether the permission is a built-in permission.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "Name is the name of the permission (e.g., \"agent:read\").",
+                    "type": "string"
+                },
+                "resource": {
+                    "description": "Resource is the resource this permission applies to.",
+                    "type": "string"
+                }
+            }
+        },
+        "PermissionStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "description": "Conditions contains the conditions of the permission.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
+                }
+            }
+        },
         "PingResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "description": "Message is the response message.",
                     "type": "string"
+                }
+            }
+        },
+        "Role": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "description": "APIVersion is the version of the API.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is the type of the resource.",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Metadata contains the metadata of the role.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleMetadata"
+                        }
+                    ]
+                },
+                "spec": {
+                    "description": "Spec contains the specification of the role.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleSpec"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "Status contains the status of the role.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "RoleMetadata": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "description": "CreatedAt is the timestamp when the role was created.",
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "description": "DeletedAt is the timestamp when the role was soft deleted.",
+                    "type": "string"
+                },
+                "uid": {
+                    "description": "UID is the unique identifier of the role.",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "description": "UpdatedAt is the timestamp when the role was last updated.",
+                    "type": "string"
+                }
+            }
+        },
+        "RoleSpec": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "Description is the description of the role.",
+                    "type": "string"
+                },
+                "displayName": {
+                    "description": "DisplayName is the display name of the role.",
+                    "type": "string"
+                },
+                "isBuiltIn": {
+                    "description": "IsBuiltIn indicates whether the role is a built-in role.",
+                    "type": "boolean"
+                },
+                "permissions": {
+                    "description": "Permissions contains the permission IDs assigned to the role.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "RoleStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "description": "Conditions contains the conditions of the role.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
                 }
             }
         },
@@ -2429,6 +3435,127 @@ const docTemplate = `{
                         "items": {
                             "type": "string"
                         }
+                    }
+                }
+            }
+        },
+        "User": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "description": "APIVersion is the version of the API.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is the type of the resource.",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Metadata contains the metadata of the user.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/UserMetadata"
+                        }
+                    ]
+                },
+                "spec": {
+                    "description": "Spec contains the specification of the user.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/UserSpec"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "Status contains the status of the user.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/UserStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "UserMetadata": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "description": "CreatedAt is the timestamp when the user was created.",
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "description": "DeletedAt is the timestamp when the user was soft deleted.",
+                    "type": "string"
+                },
+                "uid": {
+                    "description": "UID is the unique identifier of the user.",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "description": "UpdatedAt is the timestamp when the user was last updated.",
+                    "type": "string"
+                }
+            }
+        },
+        "UserProfileResponse": {
+            "type": "object",
+            "properties": {
+                "permissions": {
+                    "description": "Permissions contains the effective permissions for the user.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Permission"
+                    }
+                },
+                "roles": {
+                    "description": "Roles contains the roles assigned to the user.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Role"
+                    }
+                },
+                "user": {
+                    "description": "User contains the user information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/User"
+                        }
+                    ]
+                }
+            }
+        },
+        "UserSpec": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "description": "Email is the email address of the user.",
+                    "type": "string"
+                },
+                "isActive": {
+                    "description": "IsActive indicates whether the user is active.",
+                    "type": "boolean"
+                },
+                "username": {
+                    "description": "Username is the username of the user.",
+                    "type": "string"
+                }
+            }
+        },
+        "UserStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "description": "Conditions contains the conditions of the user.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
+                },
+                "roles": {
+                    "description": "Roles contains the role IDs assigned to the user.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }
@@ -2595,6 +3722,44 @@ const docTemplate = `{
             "type": "object",
             "additionalProperties": {
                 "type": "string"
+            }
+        },
+        "internal_adapter_in_http_v1_rbac.unassignRoleRequest": {
+            "type": "object",
+            "properties": {
+                "roleId": {
+                    "description": "RoleID is the ID of the role to unassign.",
+                    "type": "string"
+                },
+                "userId": {
+                    "description": "UserID is the ID of the user to unassign the role from.",
+                    "type": "string"
+                }
+            }
+        },
+        "user.User": {
+            "type": "object",
+            "properties": {
+                "gid": {
+                    "description": "Gid is the primary group ID.\nOn POSIX systems, this is a decimal number representing the gid.\nOn Windows, this is a SID in a string format.\nOn Plan 9, this is the contents of /dev/user.",
+                    "type": "string"
+                },
+                "homeDir": {
+                    "description": "HomeDir is the path to the user's home directory (if they have one).",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the user's real or display name.\nIt might be blank.\nOn POSIX systems, this is the first (or only) entry in the GECOS field\nlist.\nOn Windows, this is the user's display name.\nOn Plan 9, this is the contents of /dev/user.",
+                    "type": "string"
+                },
+                "uid": {
+                    "description": "Uid is the user ID.\nOn POSIX systems, this is a decimal number representing the uid.\nOn Windows, this is a security identifier (SID) in a string format.\nOn Plan 9, this is the contents of /dev/user.",
+                    "type": "string"
+                },
+                "username": {
+                    "description": "Username is the login name.",
+                    "type": "string"
+                }
             }
         }
     }

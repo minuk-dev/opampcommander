@@ -91,8 +91,9 @@ func (c *Controller) List(ctx *gin.Context) {
 	continueToken := ctx.Query("continue")
 
 	response, err := c.roleUsecase.ListRoles(ctx.Request.Context(), &model.ListOptions{
-		Limit:    limit,
-		Continue: continueToken,
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: false,
 	})
 	if err != nil {
 		c.logger.Error("failed to list roles", "error", err.Error())

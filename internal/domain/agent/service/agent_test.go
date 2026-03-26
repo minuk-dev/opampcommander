@@ -1,0 +1,697 @@
+package agentservice_test
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
+	agentservice "github.com/minuk-dev/opampcommander/internal/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+)
+
+var (
+	errDatabaseConnection = errors.New("database connection error")
+	errUnexpectedType     = errors.New("unexpected type")
+)
+
+type MockAgentPersistencePort struct {
+	mock.Mock
+}
+
+func (m *MockAgentPersistencePort) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
+	args := m.Called(ctx, instanceUID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	agnt, ok := args.Get(0).(*agentmodel.Agent)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return agnt, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentPersistencePort) PutAgent(ctx context.Context, agnt *agentmodel.Agent) error {
+	args := m.Called(ctx, agnt)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentPersistencePort) ListAgents(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.Agent], error) {
+	args := m.Called(ctx, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*agentmodel.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentPersistencePort) ListAgentsBySelector(
+	ctx context.Context,
+	selector agentmodel.AgentSelector,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.Agent], error) {
+	args := m.Called(ctx, selector, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*agentmodel.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentPersistencePort) SearchAgents(
+	ctx context.Context,
+	query string,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.Agent], error) {
+	args := m.Called(ctx, query, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*agentmodel.Agent])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+// MockServerMessageUsecase is a mock implementation of ServerMessageUsecase.
+type MockServerMessageUsecase struct {
+	mock.Mock
+}
+
+func (m *MockServerMessageUsecase) SendMessageToServerByServerID(
+	ctx context.Context,
+	serverID string,
+	message serverevent.Message,
+) error {
+	args := m.Called(ctx, serverID, message)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+func (m *MockServerMessageUsecase) SendMessageToServer(
+	ctx context.Context,
+	server *agentmodel.Server,
+	message serverevent.Message,
+) error {
+	args := m.Called(ctx, server, message)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+// MockServerIdentityProvider is a mock implementation of ServerIdentityProvider.
+type MockServerIdentityProvider struct {
+	mock.Mock
+}
+
+func (m *MockServerIdentityProvider) CurrentServer(ctx context.Context) (*agentmodel.Server, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	server, ok := args.Get(0).(*agentmodel.Server)
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return server, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func TestAgentService_ListAgentsBySelector(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Successfully list agents by selector", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := context.Background()
+
+		mockAgentPersistence := new(MockAgentPersistencePort)
+		logger := slog.Default()
+
+		agentService := agentservice.NewAgentService(
+			mockAgentPersistence,
+			logger,
+		)
+
+		agent1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+
+		agent2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "darwin",
+			},
+		}))
+
+		expectedResponse := &model.ListResponse[*agentmodel.Agent]{
+			Items: []*agentmodel.Agent{
+				agent1,
+				agent2,
+			},
+			Continue:           "",
+			RemainingItemCount: 0,
+		}
+
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+
+		options := &model.ListOptions{
+			Limit:    10,
+			Continue: "",
+		}
+
+		mockAgentPersistence.On("ListAgentsBySelector", ctx, selector, options).
+			Return(expectedResponse, nil)
+
+		listResponse, err := agentService.ListAgentsBySelector(ctx, selector, options)
+
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+		assert.Equal(t, agent1.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+		assert.Equal(t, agent2.Metadata.InstanceUID, listResponse.Items[1].Metadata.InstanceUID)
+
+		mockAgentPersistence.AssertExpectations(t)
+	})
+
+	t.Run("Empty result when no agents match selector", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := context.Background()
+
+		mockAgentPersistence := new(MockAgentPersistencePort)
+		logger := slog.Default()
+
+		agentService := agentservice.NewAgentService(
+			mockAgentPersistence,
+			logger,
+		)
+
+		expectedResponse := &model.ListResponse[*agentmodel.Agent]{
+			Items:              []*agentmodel.Agent{},
+			Continue:           "",
+			RemainingItemCount: 0,
+		}
+
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "non-existent-service",
+			},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+
+		options := &model.ListOptions{
+			Limit:    10,
+			Continue: "",
+		}
+
+		mockAgentPersistence.On("ListAgentsBySelector", ctx, selector, options).
+			Return(expectedResponse, nil)
+
+		listResponse, err := agentService.ListAgentsBySelector(ctx, selector, options)
+
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+
+		mockAgentPersistence.AssertExpectations(t)
+	})
+
+	t.Run("Error from persistence layer is propagated", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := context.Background()
+
+		mockAgentPersistence := new(MockAgentPersistencePort)
+		logger := slog.Default()
+
+		agentService := agentservice.NewAgentService(
+			mockAgentPersistence,
+			logger,
+		)
+
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+
+		options := &model.ListOptions{
+			Limit:    10,
+			Continue: "",
+		}
+
+		mockAgentPersistence.On("ListAgentsBySelector", ctx, selector, options).
+			Return(nil, errDatabaseConnection)
+
+		listResponse, err := agentService.ListAgentsBySelector(ctx, selector, options)
+
+		require.Error(t, err)
+		assert.Nil(t, listResponse)
+		assert.Contains(t, err.Error(), "failed to list agents by selector")
+
+		mockAgentPersistence.AssertExpectations(t)
+	})
+
+	t.Run("List with pagination options", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := context.Background()
+
+		mockAgentPersistence := new(MockAgentPersistencePort)
+		logger := slog.Default()
+
+		agentService := agentservice.NewAgentService(
+			mockAgentPersistence,
+			logger,
+		)
+
+		agents := make([]*agentmodel.Agent, 3)
+		for idx := range 3 {
+			agents[idx] = agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+				IdentifyingAttributes: map[string]string{
+					"service.name": "test-service",
+				},
+				NonIdentifyingAttributes: map[string]string{
+					"os.type": "linux",
+				},
+			}))
+		}
+
+		expectedResponse := &model.ListResponse[*agentmodel.Agent]{
+			Items:              agents,
+			Continue:           "some-continue-token",
+			RemainingItemCount: 2,
+		}
+
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+
+		options := &model.ListOptions{
+			Limit:    3,
+			Continue: "",
+		}
+
+		mockAgentPersistence.On("ListAgentsBySelector", ctx, selector, options).
+			Return(expectedResponse, nil)
+
+		listResponse, err := agentService.ListAgentsBySelector(ctx, selector, options)
+
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 3)
+		assert.Equal(t, "some-continue-token", listResponse.Continue)
+		assert.Equal(t, int64(2), listResponse.RemainingItemCount)
+
+		mockAgentPersistence.AssertExpectations(t)
+	})
+
+	t.Run("Match by non-identifying attributes only", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := context.Background()
+
+		mockAgentPersistence := new(MockAgentPersistencePort)
+		logger := slog.Default()
+
+		agentService := agentservice.NewAgentService(
+			mockAgentPersistence,
+			logger,
+		)
+
+		agent1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-a",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+
+		agent2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-b",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+
+		expectedResponse := &model.ListResponse[*agentmodel.Agent]{
+			Items: []*agentmodel.Agent{
+				agent1,
+				agent2,
+			},
+			Continue:           "",
+			RemainingItemCount: 0,
+		}
+
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+
+		options := &model.ListOptions{
+			Limit:    10,
+			Continue: "",
+		}
+
+		mockAgentPersistence.On("ListAgentsBySelector", ctx, selector, options).
+			Return(expectedResponse, nil)
+
+		listResponse, err := agentService.ListAgentsBySelector(ctx, selector, options)
+
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+
+		mockAgentPersistence.AssertExpectations(t)
+	})
+}
+
+// Test for the ApplyRemoteConfig priority logic.
+func TestAgent_ApplyRemoteConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Remote config should be added to ConfigMap", func(t *testing.T) {
+		t.Parallel()
+
+		//exhaustruct:ignore
+		agent := &agentmodel.Agent{}
+
+		configFile := agentmodel.AgentConfigFile{
+			Body:        []byte("test-config"),
+			ContentType: "application/yaml",
+		}
+		err := agent.ApplyRemoteConfig("config-1", configFile)
+		require.NoError(t, err)
+		assert.Contains(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, "config-1")
+		assert.Equal(t, configFile, agent.Spec.RemoteConfig.ConfigMap.ConfigMap["config-1"])
+	})
+
+	t.Run("Multiple remote configs should be added to ConfigMap", func(t *testing.T) {
+		t.Parallel()
+
+		//exhaustruct:ignore
+		agent := &agentmodel.Agent{}
+
+		configFileA := agentmodel.AgentConfigFile{Body: []byte("config-a"), ContentType: "application/yaml"}
+		configFileB := agentmodel.AgentConfigFile{Body: []byte("config-b"), ContentType: "application/yaml"}
+
+		err := agent.ApplyRemoteConfig("config-b", configFileB)
+		require.NoError(t, err)
+		err = agent.ApplyRemoteConfig("config-a", configFileA)
+		require.NoError(t, err)
+
+		assert.Len(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, 2)
+		assert.Contains(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, "config-a")
+		assert.Contains(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, "config-b")
+	})
+
+	t.Run("Duplicate remote config names should be overwritten", func(t *testing.T) {
+		t.Parallel()
+
+		//exhaustruct:ignore
+		agent := &agentmodel.Agent{}
+
+		configFile1 := agentmodel.AgentConfigFile{Body: []byte("version-1"), ContentType: "application/yaml"}
+		configFile2 := agentmodel.AgentConfigFile{Body: []byte("version-2"), ContentType: "application/yaml"}
+
+		err := agent.ApplyRemoteConfig("config-1", configFile1)
+		require.NoError(t, err)
+		err = agent.ApplyRemoteConfig("config-1", configFile2)
+		require.NoError(t, err)
+
+		assert.Len(t, agent.Spec.RemoteConfig.ConfigMap.ConfigMap, 1)
+		assert.Equal(t, configFile2, agent.Spec.RemoteConfig.ConfigMap.ConfigMap["config-1"])
+	})
+}
+
+func TestAgentService_SearchAgents(t *testing.T) {
+	t.Parallel()
+
+	t.Run("SearchAgents returns matching agents", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := context.Background()
+		mockPort := new(MockAgentPersistencePort)
+		agentService := agentservice.NewAgentService(mockPort, slog.Default())
+
+		instanceUID := uuid.New()
+		expectedAgents := []*agentmodel.Agent{
+			agentmodel.NewAgent(instanceUID),
+		}
+		expectedResponse := &model.ListResponse[*agentmodel.Agent]{
+			Items:              expectedAgents,
+			Continue:           "",
+			RemainingItemCount: 0,
+		}
+
+		mockPort.On("SearchAgents", ctx, "1234", mock.Anything).Return(expectedResponse, nil)
+
+		// when
+		response, err := agentService.SearchAgents(ctx, "1234", &model.ListOptions{})
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Len(t, response.Items, 1)
+		assert.Equal(t, instanceUID, response.Items[0].Metadata.InstanceUID)
+		mockPort.AssertExpectations(t)
+	})
+
+	t.Run("SearchAgents returns error on persistence failure", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := context.Background()
+		mockPort := new(MockAgentPersistencePort)
+		agentService := agentservice.NewAgentService(mockPort, slog.Default())
+
+		mockPort.On("SearchAgents", ctx, "test", mock.Anything).Return(nil, errDatabaseConnection)
+
+		// when
+		response, err := agentService.SearchAgents(ctx, "test", &model.ListOptions{})
+
+		// then
+		require.Error(t, err)
+		assert.Nil(t, response)
+		assert.Contains(t, err.Error(), "failed to search agents")
+		mockPort.AssertExpectations(t)
+	})
+
+	t.Run("SearchAgents with pagination", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := context.Background()
+		mockPort := new(MockAgentPersistencePort)
+		agentService := agentservice.NewAgentService(mockPort, slog.Default())
+
+		expectedAgents := []*agentmodel.Agent{
+			agentmodel.NewAgent(uuid.New()),
+			agentmodel.NewAgent(uuid.New()),
+		}
+		expectedResponse := &model.ListResponse[*agentmodel.Agent]{
+			Items:              expectedAgents,
+			Continue:           "next-token",
+			RemainingItemCount: 10,
+		}
+
+		options := &model.ListOptions{
+			Limit:    2,
+			Continue: "",
+		}
+
+		mockPort.On("SearchAgents", ctx, "abcd", options).Return(expectedResponse, nil)
+
+		// when
+		response, err := agentService.SearchAgents(ctx, "abcd", options)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, response)
+		assert.Len(t, response.Items, 2)
+		assert.Equal(t, "next-token", response.Continue)
+		assert.Equal(t, int64(10), response.RemainingItemCount)
+		mockPort.AssertExpectations(t)
+	})
+}
+
+func TestAgentService_GetAgent_CacheHit(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := agentmodel.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Once()
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	// First call - should hit persistence
+	agent1, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, instanceUID, agent1.Metadata.InstanceUID)
+
+	// Second call - should hit cache
+	agent2, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, instanceUID, agent2.Metadata.InstanceUID)
+
+	// Persistence should only be called once
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 1)
+}
+
+func TestAgentService_GetAgent_DatabaseError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(nil, errDatabaseConnection)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	_, err := svc.GetAgent(ctx, instanceUID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "database connection error")
+
+	mockPersistence.AssertExpectations(t)
+}
+
+func TestAgentService_SaveAgent_UpdatesCache(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := agentmodel.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("PutAgent", ctx, mockAgent).Return(nil)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	// Save the agent
+	err := svc.SaveAgent(ctx, mockAgent)
+	require.NoError(t, err)
+
+	// Get should hit cache, not persistence
+	agent, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, instanceUID, agent.Metadata.InstanceUID)
+
+	mockPersistence.AssertExpectations(t)
+	// GetAgent should not be called because it's in cache
+	mockPersistence.AssertNotCalled(t, "GetAgent")
+}
+
+func TestAgentService_InvalidateCache(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := agentmodel.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	// First call - caches the agent
+	_, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// Invalidate cache
+	svc.InvalidateCache(instanceUID)
+
+	// Second call - should hit persistence again
+	_, err = svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}
+
+func TestAgentService_Shutdown(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceUID := uuid.New()
+
+	mockAgent := agentmodel.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	// First call - caches the agent
+	_, err := svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// Shutdown clears cache
+	svc.Shutdown()
+
+	// Second call - should hit persistence again
+	_, err = svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}

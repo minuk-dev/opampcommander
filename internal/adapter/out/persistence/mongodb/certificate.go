@@ -9,11 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ port.CertificatePersistencePort = (*CertificateMongoAdapter)(nil)
+var _ agentport.CertificatePersistencePort = (*CertificateMongoAdapter)(nil)
 
 const (
 	certificateCollectionName = "certificates"
@@ -48,10 +49,10 @@ func NewCertificateRepository(
 	}
 }
 
-// GetCertificate implements port.CertificatePersistencePort.
+// GetCertificate implements agentport.CertificatePersistencePort.
 func (c *CertificateMongoAdapter) GetCertificate(
 	ctx context.Context, name string,
-) (*model.Certificate, error) {
+) (*agentmodel.Certificate, error) {
 	en, err := c.common.get(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get certificate: %w", err)
@@ -60,31 +61,31 @@ func (c *CertificateMongoAdapter) GetCertificate(
 	return en.ToDomain(), nil
 }
 
-// ListCertificate implements port.CertificatePersistencePort.
+// ListCertificate implements agentport.CertificatePersistencePort.
 func (c *CertificateMongoAdapter) ListCertificate(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.Certificate], error) {
+) (*model.ListResponse[*agentmodel.Certificate], error) {
 	resp, err := c.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.Certificate, 0, len(resp.Items))
+	items := make([]*agentmodel.Certificate, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.Certificate]{
+	return &model.ListResponse[*agentmodel.Certificate]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// PutCertificate implements port.CertificatePersistencePort.
+// PutCertificate implements agentport.CertificatePersistencePort.
 func (c *CertificateMongoAdapter) PutCertificate(
-	ctx context.Context, certificate *model.Certificate,
-) (*model.Certificate, error) {
+	ctx context.Context, certificate *agentmodel.Certificate,
+) (*agentmodel.Certificate, error) {
 	en := entity.CertificateFromDomain(certificate)
 
 	err := c.common.put(ctx, en)

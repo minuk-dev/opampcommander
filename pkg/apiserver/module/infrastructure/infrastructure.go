@@ -3,8 +3,10 @@ package infrastructure
 
 import (
 	"context"
+	"fmt"
 	"net"
 
+	casbinModel "github.com/casbin/casbin/v2/model"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/basic"
@@ -23,7 +25,8 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	casbinEnforcer "github.com/minuk-dev/opampcommander/internal/adapter/out/rbac/casbin"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
@@ -89,18 +92,18 @@ func provideDatabaseComponents() fx.Option {
 			NewMongoDBClient,
 			NewMongoDatabase,
 			helper.AsHealthIndicator(NewMongoDBHealthIndicator),
-			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(port.AgentPersistencePort))),
-			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(port.AgentGroupPersistencePort))),
-			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(port.ServerPersistencePort))),
-			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(port.AgentPackagePersistencePort))),
-			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(port.AgentRemoteConfigPersistencePort))),
-			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(port.CertificatePersistencePort))),
+			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(agentport.AgentPersistencePort))),
+			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
+			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(agentport.ServerPersistencePort))),
+			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(agentport.AgentPackagePersistencePort))),
+			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(agentport.AgentRemoteConfigPersistencePort))),
+			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(agentport.CertificatePersistencePort))),
 			// RBAC MongoDB adapters
-			fx.Annotate(mongodb.NewUserRepository, fx.As(new(port.UserPersistencePort))),
-			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(port.RolePersistencePort))),
-			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(port.PermissionPersistencePort))),
-			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(port.UserRolePersistencePort))),
-			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(port.OrgRoleMappingPersistencePort))),
+			fx.Annotate(mongodb.NewUserRepository, fx.As(new(userport.UserPersistencePort))),
+			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),
+			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
+			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
+			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(userport.OrgRoleMappingPersistencePort))),
 		),
 	)
 }
@@ -119,20 +122,50 @@ func provideRBACComponents() fx.Option {
 		fx.Provide(
 			provideCasbinEnforcer,
 			fx.Annotate(
-				Identity[*casbinEnforcer.CasbinEnforcer],
-				fx.As(new(port.RBACEnforcerPort)),
+				Identity[*casbinEnforcer.Enforcer],
+				fx.As(new(userport.RBACEnforcerPort)),
 			),
 		),
 	)
 }
 
-func provideCasbinEnforcer(settings *config.ServerSettings) (*casbinEnforcer.CasbinEnforcer, error) {
+func provideCasbinEnforcer(settings *config.ServerSettings) (*casbinEnforcer.Enforcer, error) {
 	modelPath := settings.RBACModelPath
 	if modelPath == "" {
 		modelPath = "configs/rbac_model.conf"
 	}
 
-	return casbinEnforcer.NewCasbinEnforcer(modelPath)
+	enforcer, err := casbinEnforcer.NewEnforcer(modelPath)
+	if err != nil {
+		// Fall back to embedded default model when file not found.
+		enforcer, err = casbinEnforcer.NewEnforcerFromModel(defaultRBACModel())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
+		}
+	}
+
+	return enforcer, nil
+}
+
+func defaultRBACModel() casbinModel.Model {
+	rbacModel, _ := casbinModel.NewModelFromString(`
+[request_definition]
+r = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_definition]
+p = sub, obj, act
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+`)
+
+	return rbacModel
 }
 
 // Identity is a generic function that returns the input value.

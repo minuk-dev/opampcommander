@@ -13,8 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -54,9 +55,9 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		})
 
 		// given
-		agentGroup := model.NewAgentGroup(
+		agentGroup := agentmodel.NewAgentGroup(
 			"group-a",
-			model.OfAttributes(map[string]string{"env": "prod", "team": "core"}),
+			agentmodel.OfAttributes(map[string]string{"env": "prod", "team": "core"}),
 			time.Now(),
 			"tester",
 		)
@@ -88,7 +89,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		got, err := adapter.GetAgentGroup(ctx, "non-exist-group", nil)
 
 		// then
-		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
 		assert.Nil(t, got)
 	})
 }
@@ -125,9 +126,9 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		})
 
 		// given
-		agentGroup := model.NewAgentGroup(
+		agentGroup := agentmodel.NewAgentGroup(
 			"group-single",
-			model.OfAttributes(map[string]string{"env": "test"}),
+			agentmodel.OfAttributes(map[string]string{"env": "test"}),
 			time.Now(),
 			"tester",
 		)
@@ -155,11 +156,12 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		})
 
 		// given - create multiple groups
-		agentGroups := make([]*model.AgentGroup, 3)
+		agentGroups := make([]*agentmodel.AgentGroup, 3)
+
 		for idx := range 3 {
-			agentGroup := model.NewAgentGroup(
+			agentGroup := agentmodel.NewAgentGroup(
 				"group-"+uuid.NewString()[:8],
-				model.OfAttributes(map[string]string{"idx": uuid.NewString()}),
+				agentmodel.OfAttributes(map[string]string{"idx": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
@@ -200,9 +202,9 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 
 		// given - create 5 groups
 		for range 5 {
-			agentGroup := model.NewAgentGroup(
+			agentGroup := agentmodel.NewAgentGroup(
 				"group-"+uuid.NewString()[:8],
-				model.OfAttributes(map[string]string{"i": uuid.NewString()}),
+				agentmodel.OfAttributes(map[string]string{"i": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
@@ -248,9 +250,9 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		})
 
 		// given
-		agentGroup := model.NewAgentGroup(
+		agentGroup := agentmodel.NewAgentGroup(
 			"group-new",
-			model.OfAttributes(map[string]string{"env": "staging", "version": "v1.0"}),
+			agentmodel.OfAttributes(map[string]string{"env": "staging", "version": "v1.0"}),
 			time.Now(),
 			"creator",
 		)
@@ -280,9 +282,9 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		})
 
 		// given - create initial agent group
-		originalGroup := model.NewAgentGroup(
+		originalGroup := agentmodel.NewAgentGroup(
 			"group-update",
-			model.OfAttributes(map[string]string{"env": "dev"}),
+			agentmodel.OfAttributes(map[string]string{"env": "dev"}),
 			time.Now(),
 			"creator",
 		)
@@ -290,9 +292,9 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - update with new attributes
-		updatedGroup := model.NewAgentGroup(
+		updatedGroup := agentmodel.NewAgentGroup(
 			"group-update-new-name",
-			model.OfAttributes(map[string]string{"env": "prod", "team": "backend"}),
+			agentmodel.OfAttributes(map[string]string{"env": "prod", "team": "backend"}),
 			time.Now(),
 			"updater",
 		)
@@ -321,9 +323,9 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 		})
 
 		// given
-		agentGroup := model.NewAgentGroup(
+		agentGroup := agentmodel.NewAgentGroup(
 			"group-to-delete",
-			model.OfAttributes(map[string]string{"env": "test"}),
+			agentmodel.OfAttributes(map[string]string{"env": "test"}),
 			time.Now(),
 			"creator",
 		)
@@ -345,7 +347,7 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 
 		// then - should not be retrievable via normal get (soft deleted)
 		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
-		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
 
 		// but should be retrievable with includeDeleted option
 		deletedGroup, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, &model.GetOptions{IncludeDeleted: true})
@@ -378,9 +380,9 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 		"unicode":       "테스트-값",
 	}
 
-	originalGroup := model.NewAgentGroup(
+	originalGroup := agentmodel.NewAgentGroup(
 		"complex-group",
-		model.OfAttributes(complexAttributes),
+		agentmodel.OfAttributes(complexAttributes),
 		time.Now(),
 		"system-admin",
 	)

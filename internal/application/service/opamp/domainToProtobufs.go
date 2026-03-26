@@ -3,11 +3,11 @@ package opamp
 import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 )
 
 // connectionInfoToProtobuf converts ConnectionInfo to protobuf ConnectionSettingsOffers.
-func connectionInfoToProtobuf(connectionInfo *model.ConnectionInfo) *protobufs.ConnectionSettingsOffers {
+func connectionInfoToProtobuf(connectionInfo *agentmodel.ConnectionInfo) *protobufs.ConnectionSettingsOffers {
 	if connectionInfo == nil || !connectionInfo.HasConnectionSettings() {
 		return nil
 	}
@@ -49,7 +49,7 @@ func connectionInfoToProtobuf(connectionInfo *model.ConnectionInfo) *protobufs.C
 }
 
 func opampConnectionSettingsToProtobuf(
-	domain *model.AgentOpAMPConnectionSettings,
+	domain *agentmodel.AgentOpAMPConnectionSettings,
 ) *protobufs.OpAMPConnectionSettings {
 	//exhaustruct:ignore
 	return &protobufs.OpAMPConnectionSettings{
@@ -60,7 +60,7 @@ func opampConnectionSettingsToProtobuf(
 }
 
 func telemetryConnectionSettingsToProtobuf(
-	domain *model.AgentTelemetryConnectionSettings,
+	domain *agentmodel.AgentTelemetryConnectionSettings,
 ) *protobufs.TelemetryConnectionSettings {
 	//exhaustruct:ignore
 	return &protobufs.TelemetryConnectionSettings{
@@ -71,7 +71,7 @@ func telemetryConnectionSettingsToProtobuf(
 }
 
 func otherConnectionSettingsToProtobuf(
-	domain *model.AgentOtherConnectionSettings,
+	domain *agentmodel.AgentOtherConnectionSettings,
 ) *protobufs.OtherConnectionSettings {
 	//exhaustruct:ignore
 	return &protobufs.OtherConnectionSettings{
@@ -81,7 +81,7 @@ func otherConnectionSettingsToProtobuf(
 	}
 }
 
-func agentCertificateToProtobuf(cert *model.AgentCertificate) *protobufs.TLSCertificate {
+func agentCertificateToProtobuf(cert *agentmodel.AgentCertificate) *protobufs.TLSCertificate {
 	if cert == nil {
 		return nil
 	}

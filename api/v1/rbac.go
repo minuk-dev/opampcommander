@@ -22,7 +22,7 @@ type User struct {
 	// Spec contains the specification of the user.
 	Spec UserSpec `json:"spec"`
 	// Status contains the status of the user.
-	Status UserStatus `json:"status,omitempty"`
+	Status UserStatus `json:"status,omitzero"`
 } // @name User
 
 // UserMetadata represents metadata for a user.
@@ -66,7 +66,7 @@ type Role struct {
 	// Spec contains the specification of the role.
 	Spec RoleSpec `json:"spec"`
 	// Status contains the status of the role.
-	Status RoleStatus `json:"status,omitempty"`
+	Status RoleStatus `json:"status,omitzero"`
 } // @name Role
 
 // RoleMetadata represents metadata for a role.
@@ -110,7 +110,7 @@ type Permission struct {
 	// Spec contains the specification of the permission.
 	Spec PermissionSpec `json:"spec"`
 	// Status contains the status of the permission.
-	Status PermissionStatus `json:"status,omitempty"`
+	Status PermissionStatus `json:"status,omitzero"`
 } // @name Permission
 
 // PermissionMetadata represents metadata for a permission.
@@ -156,7 +156,7 @@ type UserRole struct {
 	// Spec contains the specification of the user role assignment.
 	Spec UserRoleSpec `json:"spec"`
 	// Status contains the status of the user role assignment.
-	Status UserRoleStatus `json:"status,omitempty"`
+	Status UserRoleStatus `json:"status,omitzero"`
 } // @name UserRole
 
 // UserRoleMetadata represents metadata for a user role assignment.
@@ -174,9 +174,9 @@ type UserRoleMetadata struct {
 // UserRoleSpec represents the specification of a user role assignment.
 type UserRoleSpec struct {
 	// UserID is the ID of the user.
-	UserID string `json:"userID"`
+	UserID string `json:"userId"`
 	// RoleID is the ID of the role.
-	RoleID string `json:"roleID"`
+	RoleID string `json:"roleId"`
 	// AssignedAt is the timestamp when the role was assigned.
 	AssignedAt Time `json:"assignedAt"`
 	// AssignedBy is the ID of the user who assigned the role.
@@ -192,9 +192,9 @@ type UserRoleStatus struct {
 // AssignRoleRequest represents a request to assign a role to a user.
 type AssignRoleRequest struct {
 	// UserID is the ID of the user to assign the role to.
-	UserID string `json:"userID"`
+	UserID string `json:"userId"`
 	// RoleID is the ID of the role to assign.
-	RoleID string `json:"roleID"`
+	RoleID string `json:"roleId"`
 	// AssignedBy is the ID of the user performing the assignment.
 	AssignedBy string `json:"assignedBy"`
 } // @name AssignRoleRequest
@@ -202,7 +202,7 @@ type AssignRoleRequest struct {
 // CheckPermissionRequest represents a request to check a user's permission.
 type CheckPermissionRequest struct {
 	// UserID is the ID of the user to check.
-	UserID string `json:"userID"`
+	UserID string `json:"userId"`
 	// Resource is the resource to check access for.
 	Resource string `json:"resource"`
 	// Action is the action to check access for.

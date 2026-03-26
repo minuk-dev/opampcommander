@@ -44,6 +44,8 @@ linters:
         - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
         - "github.com/minuk-dev/opampcommander/internal/domain/port.ServerEventSenderPort" # cannot handle without interface
         - "github.com/minuk-dev/opampcommander/internal/domain/port.ServerEventReceiverPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/internal/domain/agent/port.ServerEventSenderPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/internal/domain/agent/port.ServerEventReceiverPort" # cannot handle without interface
         - "k8s.io/utils/clock.Timer"
         - "github.com/minuk-dev/opampcommander/pkg/utils/clock.Timer"
         # test
@@ -138,6 +140,7 @@ linters:
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/mongodb
             - github.com/testcontainers/testcontainers-go/wait
+            - github.com/google/go-github/v72/github
 formatters:
   enable:
     - gci

@@ -41,13 +41,13 @@ type AgentSpec struct {
 	NewInstanceUID string `json:"newInstanceUid,omitempty"`
 
 	// ConnectionSettings contains connection settings for the agent.
-	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitempty"`
+	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitzero"`
 
 	// RemoteConfig is the remote configuration of the agent.
 	RemoteConfig AgentSpecRemoteConfig `json:"remoteConfig"`
 
 	// PackagesAvailable is the packages available for the agent to download.
-	PackagesAvailable AgentSpecPackages `json:"packagesAvailable,omitempty"`
+	PackagesAvailable AgentSpecPackages `json:"packagesAvailable,omitzero"`
 
 	// RestartRequiredAt is the time when a restart was requested.
 	// If this time is after the agent's start time, the agent should be restarted.
@@ -127,10 +127,10 @@ type AgentPackageStatuses struct {
 // AgentComponentHealth represents the health status of the agent's components.
 type AgentComponentHealth struct {
 	Healthy       bool              `json:"healthy"`
-	StartTime     Time              `json:"startTime,omitempty"`
+	StartTime     Time              `json:"startTime,omitzero"`
 	LastError     string            `json:"lastError,omitempty"`
 	Status        string            `json:"status,omitempty"`
-	StatusTime    Time              `json:"statusTime,omitempty"`
+	StatusTime    Time              `json:"statusTime,omitzero"`
 	ComponentsMap map[string]string `json:"componentsMap,omitempty"`
 } // @name AgentComponentHealth
 
@@ -165,13 +165,13 @@ type AgentSpecPackages struct {
 // ConnectionSettings represents connection settings for the agent.
 type ConnectionSettings struct {
 	// OpAMP contains OpAMP server connection settings.
-	OpAMP OpAMPConnectionSettings `json:"opamp,omitempty"`
+	OpAMP OpAMPConnectionSettings `json:"opamp,omitzero"`
 	// OwnMetrics contains own metrics connection settings.
-	OwnMetrics TelemetryConnectionSettings `json:"ownMetrics,omitempty"`
+	OwnMetrics TelemetryConnectionSettings `json:"ownMetrics,omitzero"`
 	// OwnLogs contains own logs connection settings.
-	OwnLogs TelemetryConnectionSettings `json:"ownLogs,omitempty"`
+	OwnLogs TelemetryConnectionSettings `json:"ownLogs,omitzero"`
 	// OwnTraces contains own traces connection settings.
-	OwnTraces TelemetryConnectionSettings `json:"ownTraces,omitempty"`
+	OwnTraces TelemetryConnectionSettings `json:"ownTraces,omitzero"`
 	// OtherConnections contains other connection settings mapped by name.
 	OtherConnections map[string]OtherConnectionSettings `json:"otherConnections,omitempty"`
 } // @name ConnectionSettings

@@ -2,57 +2,57 @@
 package basic
 
 import (
-"context"
-"errors"
-"fmt"
-"log/slog"
-"net/http"
-"time"
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"time"
 
-"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 
-v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
-"github.com/minuk-dev/opampcommander/internal/domain/model"
-domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
-"github.com/minuk-dev/opampcommander/internal/security"
+	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
+	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
 // Controller is a struct that implements the basic authentication controller for the opampcommander API client.
 type Controller struct {
-logger      *slog.Logger
-service     *security.Service
-userUsecase domainport.UserUsecase
+	logger      *slog.Logger
+	service     *security.Service
+	userUsecase userport.UserUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
-logger *slog.Logger,
-service *security.Service,
-userUsecase domainport.UserUsecase,
+	logger *slog.Logger,
+	service *security.Service,
+	userUsecase userport.UserUsecase,
 ) *Controller {
-return &Controller{
-logger:      logger,
-service:     service,
-userUsecase: userUsecase,
-}
+	return &Controller{
+		logger:      logger,
+		service:     service,
+		userUsecase: userUsecase,
+	}
 }
 
 // RoutesInfo returns the routes information for the basic authentication controller.
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
-return gin.RoutesInfo{
-{
-Method:      "GET",
-Path:        "/api/v1/auth/basic",
-Handler:     "http.github.BasicAuth",
-HandlerFunc: c.BasicAuth,
-},
-{
-Method:      "GET",
-Path:        "/api/v1/auth/info",
-Handler:     "http.github.Info",
-HandlerFunc: c.Info,
-},
-}
+	return gin.RoutesInfo{
+		{
+			Method:      "GET",
+			Path:        "/api/v1/auth/basic",
+			Handler:     "http.github.BasicAuth",
+			HandlerFunc: c.BasicAuth,
+		},
+		{
+			Method:      "GET",
+			Path:        "/api/v1/auth/info",
+			Handler:     "http.github.Info",
+			HandlerFunc: c.Info,
+		},
+	}
 }
 
 // BasicAuth handles the HTTP request for basic authentication.
@@ -67,65 +67,38 @@ HandlerFunc: c.Info,
 // @Failure 401 {object} map[string]any
 // @Router /api/v1/auth/basic [get].
 func (c *Controller) BasicAuth(ctx *gin.Context) {
-username, password, ok := ctx.Request.BasicAuth()
-if !ok {
-ctx.JSON(http.StatusUnauthorized, gin.H{
-"error": "missing basic auth credentials",
-})
+	username, password, ok := ctx.Request.BasicAuth()
+	if !ok {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "missing basic auth credentials",
+		})
 
-return
-}
+		return
+	}
 
-result, err := c.service.BasicAuth(username, password)
-if err != nil {
-if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
-ctx.JSON(http.StatusUnauthorized, gin.H{
-"error": "invalid username or password",
-})
+	result, err := c.service.BasicAuth(username, password)
+	if err != nil {
+		if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
+			ctx.JSON(http.StatusUnauthorized, gin.H{
+				"error": "invalid username or password",
+			})
 
-return
-}
+			return
+		}
 
-ctx.JSON(http.StatusInternalServerError, gin.H{
-"error":   "failed to authenticate",
-"details": fmt.Sprintf("error: %v", err),
-})
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to authenticate",
+			"details": fmt.Sprintf("error: %v", err),
+		})
 
-return
-}
+		return
+	}
 
-c.ensureUser(ctx.Request.Context(), result.Email, model.IdentityProviderBasic)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderBasic)
 
-ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
-Token: result.Token,
-})
-}
-
-// ensureUser creates or updates a user record on login.
-// Failures are logged but do not block the login flow.
-func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
-existing, err := c.userUsecase.GetUserByEmail(ctx, email)
-if err == nil && existing != nil {
-existing.Metadata.UpdatedAt = time.Now()
-
-if saveErr := c.userUsecase.SaveUser(ctx, existing); saveErr != nil {
-c.logger.Warn("failed to update user on login",
-slog.String("email", email),
-slog.Any("error", saveErr),
-)
-}
-
-return
-}
-
-newUser := model.NewUserWithIdentity(provider, email, email, email)
-
-if saveErr := c.userUsecase.SaveUser(ctx, newUser); saveErr != nil {
-c.logger.Warn("failed to create user on login",
-slog.String("email", email),
-slog.Any("error", saveErr),
-)
-}
+	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
+		Token: result.Token,
+	})
 }
 
 // Info handles the HTTP request to get auth info.
@@ -138,21 +111,50 @@ slog.Any("error", saveErr),
 // @Failure 401 {object} map[string]any
 // @Router /api/v1/auth/info [get].
 func (c *Controller) Info(ctx *gin.Context) {
-user, err := security.GetUser(ctx)
-if err != nil {
-c.logger.Error("failed to get user from context",
-slog.String("ip", ctx.ClientIP()),
-slog.String("error", err.Error()),
-)
-ctx.JSON(http.StatusUnauthorized, gin.H{
-"error": "unauthorized",
-})
+	user, err := security.GetUser(ctx)
+	if err != nil {
+		c.logger.Error("failed to get user from context",
+			slog.String("ip", ctx.ClientIP()),
+			slog.String("error", err.Error()),
+		)
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
+		})
 
-return
+		return
+	}
+
+	ctx.JSON(http.StatusOK, v1auth.InfoResponse{
+		Authenticated: user.Authenticated,
+		Email:         user.Email,
+	})
 }
 
-ctx.JSON(http.StatusOK, v1auth.InfoResponse{
-Authenticated: user.Authenticated,
-Email:         user.Email,
-})
+// ensureUser creates or updates a user record on login.
+// Failures are logged but do not block the login flow.
+func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
+	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
+	if err == nil && existing != nil {
+		existing.Metadata.UpdatedAt = time.Now()
+
+		saveErr := c.userUsecase.SaveUser(ctx, existing)
+		if saveErr != nil {
+			c.logger.Warn("failed to update user on login",
+				slog.String("email", email),
+				slog.Any("error", saveErr),
+			)
+		}
+
+		return
+	}
+
+	newUser := usermodel.NewUserWithIdentity(provider, email, email, email)
+
+	saveErr := c.userUsecase.SaveUser(ctx, newUser)
+	if saveErr != nil {
+		c.logger.Warn("failed to create user on login",
+			slog.String("email", email),
+			slog.Any("error", saveErr),
+		)
+	}
 }

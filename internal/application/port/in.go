@@ -9,6 +9,7 @@ import (
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -25,7 +26,7 @@ type OpAMPUsecase interface {
 
 // AdminUsecase is a use case that handles admin operations.
 type AdminUsecase interface {
-	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Connection], error)
+	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Connection], error)
 }
 
 // AgentPackageManageUsecase is a use case that handles agent package operations.

@@ -71,15 +71,11 @@ func TestCommand(t *testing.T) {
 
 	var waitGroup sync.WaitGroup
 
-	waitGroup.Add(1)
-
-	go func() {
-		defer waitGroup.Done()
-
+	waitGroup.Go(func() {
 		// when
 		err := cmd.ExecuteContext(ctx)
 		assert.NoError(t, err)
-	}()
+	})
 
 	// then
 	assert.Eventually(t, func() bool {

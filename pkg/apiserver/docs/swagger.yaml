@@ -313,6 +313,18 @@ definitions:
           message.
         type: integer
     type: object
+  AssignRoleRequest:
+    properties:
+      assignedBy:
+        description: AssignedBy is the ID of the user performing the assignment.
+        type: string
+      roleId:
+        description: RoleID is the ID of the role to assign.
+        type: string
+      userId:
+        description: UserID is the ID of the user to assign the role to.
+        type: string
+    type: object
   AuthnTokenResponse:
     properties:
       token:
@@ -377,6 +389,24 @@ definitions:
         items:
           $ref: '#/definitions/Condition'
         type: array
+    type: object
+  CheckPermissionRequest:
+    properties:
+      action:
+        description: Action is the action to check access for.
+        type: string
+      resource:
+        description: Resource is the resource to check access for.
+        type: string
+      userId:
+        description: UserID is the ID of the user to check.
+        type: string
+    type: object
+  CheckPermissionResponse:
+    properties:
+      allowed:
+        description: Allowed indicates whether the user has the permission.
+        type: boolean
     type: object
   ComponentDetails:
     properties:
@@ -604,6 +634,32 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
+  ListResponse-Permission:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Permission'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Role:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Role'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   ListResponse-Server:
     properties:
       apiVersion:
@@ -611,6 +667,19 @@ definitions:
       items:
         items:
           $ref: '#/definitions/Server'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-User:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/User'
         type: array
       kind:
         type: string
@@ -655,11 +724,134 @@ definitions:
         description: Headers are HTTP headers to include in requests.
         type: object
     type: object
+  Permission:
+    properties:
+      apiVersion:
+        description: APIVersion is the version of the API.
+        type: string
+      kind:
+        description: Kind is the type of the resource.
+        type: string
+      metadata:
+        allOf:
+        - $ref: '#/definitions/PermissionMetadata'
+        description: Metadata contains the metadata of the permission.
+      spec:
+        allOf:
+        - $ref: '#/definitions/PermissionSpec'
+        description: Spec contains the specification of the permission.
+      status:
+        allOf:
+        - $ref: '#/definitions/PermissionStatus'
+        description: Status contains the status of the permission.
+    type: object
+  PermissionMetadata:
+    properties:
+      createdAt:
+        description: CreatedAt is the timestamp when the permission was created.
+        type: string
+      deletedAt:
+        description: DeletedAt is the timestamp when the permission was soft deleted.
+        type: string
+      uid:
+        description: UID is the unique identifier of the permission.
+        type: string
+      updatedAt:
+        description: UpdatedAt is the timestamp when the permission was last updated.
+        type: string
+    type: object
+  PermissionSpec:
+    properties:
+      action:
+        description: Action is the action this permission grants.
+        type: string
+      description:
+        description: Description is the description of the permission.
+        type: string
+      isBuiltIn:
+        description: IsBuiltIn indicates whether the permission is a built-in permission.
+        type: boolean
+      name:
+        description: Name is the name of the permission (e.g., "agent:read").
+        type: string
+      resource:
+        description: Resource is the resource this permission applies to.
+        type: string
+    type: object
+  PermissionStatus:
+    properties:
+      conditions:
+        description: Conditions contains the conditions of the permission.
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
   PingResponse:
     properties:
       message:
         description: Message is the response message.
         type: string
+    type: object
+  Role:
+    properties:
+      apiVersion:
+        description: APIVersion is the version of the API.
+        type: string
+      kind:
+        description: Kind is the type of the resource.
+        type: string
+      metadata:
+        allOf:
+        - $ref: '#/definitions/RoleMetadata'
+        description: Metadata contains the metadata of the role.
+      spec:
+        allOf:
+        - $ref: '#/definitions/RoleSpec'
+        description: Spec contains the specification of the role.
+      status:
+        allOf:
+        - $ref: '#/definitions/RoleStatus'
+        description: Status contains the status of the role.
+    type: object
+  RoleMetadata:
+    properties:
+      createdAt:
+        description: CreatedAt is the timestamp when the role was created.
+        type: string
+      deletedAt:
+        description: DeletedAt is the timestamp when the role was soft deleted.
+        type: string
+      uid:
+        description: UID is the unique identifier of the role.
+        type: string
+      updatedAt:
+        description: UpdatedAt is the timestamp when the role was last updated.
+        type: string
+    type: object
+  RoleSpec:
+    properties:
+      description:
+        description: Description is the description of the role.
+        type: string
+      displayName:
+        description: DisplayName is the display name of the role.
+        type: string
+      isBuiltIn:
+        description: IsBuiltIn indicates whether the role is a built-in role.
+        type: boolean
+      permissions:
+        description: Permissions contains the permission IDs assigned to the role.
+        items:
+          type: string
+        type: array
+    type: object
+  RoleStatus:
+    properties:
+      conditions:
+        description: Conditions contains the conditions of the role.
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
     type: object
   Server:
     properties:
@@ -718,6 +910,84 @@ definitions:
           type: array
         description: Headers are HTTP headers to include in requests.
         type: object
+    type: object
+  User:
+    properties:
+      apiVersion:
+        description: APIVersion is the version of the API.
+        type: string
+      kind:
+        description: Kind is the type of the resource.
+        type: string
+      metadata:
+        allOf:
+        - $ref: '#/definitions/UserMetadata'
+        description: Metadata contains the metadata of the user.
+      spec:
+        allOf:
+        - $ref: '#/definitions/UserSpec'
+        description: Spec contains the specification of the user.
+      status:
+        allOf:
+        - $ref: '#/definitions/UserStatus'
+        description: Status contains the status of the user.
+    type: object
+  UserMetadata:
+    properties:
+      createdAt:
+        description: CreatedAt is the timestamp when the user was created.
+        type: string
+      deletedAt:
+        description: DeletedAt is the timestamp when the user was soft deleted.
+        type: string
+      uid:
+        description: UID is the unique identifier of the user.
+        type: string
+      updatedAt:
+        description: UpdatedAt is the timestamp when the user was last updated.
+        type: string
+    type: object
+  UserProfileResponse:
+    properties:
+      permissions:
+        description: Permissions contains the effective permissions for the user.
+        items:
+          $ref: '#/definitions/Permission'
+        type: array
+      roles:
+        description: Roles contains the roles assigned to the user.
+        items:
+          $ref: '#/definitions/Role'
+        type: array
+      user:
+        allOf:
+        - $ref: '#/definitions/User'
+        description: User contains the user information.
+    type: object
+  UserSpec:
+    properties:
+      email:
+        description: Email is the email address of the user.
+        type: string
+      isActive:
+        description: IsActive indicates whether the user is active.
+        type: boolean
+      username:
+        description: Username is the username of the user.
+        type: string
+    type: object
+  UserStatus:
+    properties:
+      conditions:
+        description: Conditions contains the conditions of the user.
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+      roles:
+        description: Roles contains the role IDs assigned to the user.
+        items:
+          type: string
+        type: array
     type: object
   VersionInfo:
     properties:
@@ -829,6 +1099,48 @@ definitions:
   github_com_minuk-dev_opampcommander_api_v1.Attributes:
     additionalProperties:
       type: string
+    type: object
+  internal_adapter_in_http_v1_rbac.unassignRoleRequest:
+    properties:
+      roleId:
+        description: RoleID is the ID of the role to unassign.
+        type: string
+      userId:
+        description: UserID is the ID of the user to unassign the role from.
+        type: string
+    type: object
+  user.User:
+    properties:
+      gid:
+        description: |-
+          Gid is the primary group ID.
+          On POSIX systems, this is a decimal number representing the gid.
+          On Windows, this is a SID in a string format.
+          On Plan 9, this is the contents of /dev/user.
+        type: string
+      homeDir:
+        description: HomeDir is the path to the user's home directory (if they have
+          one).
+        type: string
+      name:
+        description: |-
+          Name is the user's real or display name.
+          It might be blank.
+          On POSIX systems, this is the first (or only) entry in the GECOS field
+          list.
+          On Windows, this is the user's display name.
+          On Plan 9, this is the contents of /dev/user.
+        type: string
+      uid:
+        description: |-
+          Uid is the user ID.
+          On POSIX systems, this is a decimal number representing the uid.
+          On Windows, this is a security identifier (SID) in a string format.
+          On Plan 9, this is the contents of /dev/user.
+        type: string
+      username:
+        description: Username is the login name.
+        type: string
     type: object
 info:
   contact: {}
@@ -1629,6 +1941,333 @@ paths:
       summary: Ping
       tags:
       - ping
+  /api/v1/rbac/assign:
+    post:
+      consumes:
+      - application/json
+      description: Assign a role to a user.
+      parameters:
+      - description: Role assignment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/AssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Assign Role
+      tags:
+      - rbac
+  /api/v1/rbac/check:
+    post:
+      consumes:
+      - application/json
+      description: Check whether a user has a specific permission.
+      parameters:
+      - description: Permission check request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CheckPermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CheckPermissionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Check Permission
+      tags:
+      - rbac
+  /api/v1/rbac/sync:
+    post:
+      consumes:
+      - application/json
+      description: Synchronize RBAC policies.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Sync Policies
+      tags:
+      - rbac
+  /api/v1/rbac/unassign:
+    post:
+      consumes:
+      - application/json
+      description: Unassign a role from a user.
+      parameters:
+      - description: Role unassignment request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_adapter_in_http_v1_rbac.unassignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Unassign Role
+      tags:
+      - rbac
+  /api/v1/rbac/users/{id}/permissions:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the permissions of a user.
+      parameters:
+      - description: UID of the user
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Permission'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get User Permissions
+      tags:
+      - rbac
+  /api/v1/rbac/users/{id}/roles:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the roles assigned to a user.
+      parameters:
+      - description: UID of the user
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get User Roles
+      tags:
+      - rbac
+  /api/v1/roles:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of roles.
+      parameters:
+      - description: Maximum number of roles to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing roles
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Roles
+      tags:
+      - role
+    post:
+      consumes:
+      - application/json
+      description: Create a new role.
+      parameters:
+      - description: Role to create
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/Role'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Create Role
+      tags:
+      - role
+  /api/v1/roles/{id}:
+    delete:
+      description: Delete a role by its UID.
+      parameters:
+      - description: UID of the role
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Delete Role
+      tags:
+      - role
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a role by its UID.
+      parameters:
+      - description: UID of the role
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get Role
+      tags:
+      - role
+    put:
+      consumes:
+      - application/json
+      description: Update an existing role.
+      parameters:
+      - description: UID of the role
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated role
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/Role'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Role'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Update Role
+      tags:
+      - role
   /api/v1/servers:
     get:
       consumes:
@@ -1649,6 +2288,150 @@ paths:
       summary: List Servers
       tags:
       - server
+  /api/v1/users:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of users.
+      parameters:
+      - description: Maximum number of users to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing users
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Users
+      tags:
+      - user
+    post:
+      consumes:
+      - application/json
+      description: Create a new user.
+      parameters:
+      - description: User to create
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/User'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Create User
+      tags:
+      - user
+  /api/v1/users/{id}:
+    delete:
+      description: Delete a user by its UID.
+      parameters:
+      - description: UID of the user
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Delete User
+      tags:
+      - user
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a user by its UID.
+      parameters:
+      - description: UID of the user
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/user.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get User
+      tags:
+      - user
+  /api/v1/users/me:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the current authenticated user's profile with roles and
+        permissions.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserProfileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get Current User Profile
+      tags:
+      - user
   /api/v1/version:
     get:
       consumes:

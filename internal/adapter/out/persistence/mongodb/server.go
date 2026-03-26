@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 )
 
 const serverCollectionName = "servers"
@@ -18,11 +18,11 @@ var _ ServerPersistencePort = (*ServerAdapter)(nil)
 // ServerPersistencePort is an interface that defines the methods for server persistence.
 type ServerPersistencePort interface {
 	// GetServer retrieves a server by its ID.
-	GetServer(ctx context.Context, id string) (*domainmodel.Server, error)
+	GetServer(ctx context.Context, id string) (*agentmodel.Server, error)
 	// PutServer saves or updates a server.
-	PutServer(ctx context.Context, server *domainmodel.Server) error
+	PutServer(ctx context.Context, server *agentmodel.Server) error
 	// ListServers retrieves a list of all servers.
-	ListServers(ctx context.Context) ([]*domainmodel.Server, error)
+	ListServers(ctx context.Context) ([]*agentmodel.Server, error)
 }
 
 // ServerAdapter is an adapter for server persistence in MongoDB.
@@ -46,7 +46,7 @@ func NewServerAdapter(logger *slog.Logger, database *mongo.Database) *ServerAdap
 }
 
 // GetServer retrieves a server by its ID.
-func (a *ServerAdapter) GetServer(ctx context.Context, id string) (*domainmodel.Server, error) {
+func (a *ServerAdapter) GetServer(ctx context.Context, id string) (*agentmodel.Server, error) {
 	e, err := a.get(ctx, id, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server from mongodb: %w", err)
@@ -56,7 +56,7 @@ func (a *ServerAdapter) GetServer(ctx context.Context, id string) (*domainmodel.
 }
 
 // PutServer saves or updates a server.
-func (a *ServerAdapter) PutServer(ctx context.Context, server *domainmodel.Server) error {
+func (a *ServerAdapter) PutServer(ctx context.Context, server *agentmodel.Server) error {
 	e := entity.ToServerEntity(server)
 
 	err := a.put(ctx, e)
@@ -68,13 +68,13 @@ func (a *ServerAdapter) PutServer(ctx context.Context, server *domainmodel.Serve
 }
 
 // ListServers retrieves a list of all servers.
-func (a *ServerAdapter) ListServers(ctx context.Context) ([]*domainmodel.Server, error) {
+func (a *ServerAdapter) ListServers(ctx context.Context) ([]*agentmodel.Server, error) {
 	response, err := a.list(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers from mongodb: %w", err)
 	}
 
-	servers := make([]*domainmodel.Server, 0, len(response.Items))
+	servers := make([]*agentmodel.Server, 0, len(response.Items))
 	for _, e := range response.Items {
 		servers = append(servers, e.ToDomainModel())
 	}

@@ -17,9 +17,9 @@ import (
 
 	kafkamodel "github.com/minuk-dev/opampcommander/internal/adapter/common/kafka"
 	inkafka "github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/kafka"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -202,8 +202,8 @@ type mockServerIdentityProvider struct {
 	serverID string
 }
 
-func (m *mockServerIdentityProvider) CurrentServer(_ context.Context) (*model.Server, error) {
-	return &model.Server{
+func (m *mockServerIdentityProvider) CurrentServer(_ context.Context) (*agentmodel.Server, error) {
+	return &agentmodel.Server{
 		ID: m.serverID,
 	}, nil
 }
@@ -286,4 +286,4 @@ func sendTestMessage(
 	require.NoError(t, err)
 }
 
-var _ port.ServerIdentityProvider = (*mockServerIdentityProvider)(nil)
+var _ agentport.ServerIdentityProvider = (*mockServerIdentityProvider)(nil)

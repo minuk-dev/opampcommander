@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 )
 
 var (
-	_ port.ServerEventSenderPort   = (*EventSenderAdapter)(nil)
-	_ port.ServerEventReceiverPort = (*EventSenderAdapter)(nil)
+	_ agentport.ServerEventSenderPort   = (*EventSenderAdapter)(nil)
+	_ agentport.ServerEventReceiverPort = (*EventSenderAdapter)(nil)
 )
 
-// EventSenderAdapter implements port.ServerEventSenderPort and port.ServerEventReceiverPort
+// EventSenderAdapter implements agentport.ServerEventSenderPort and agentport.ServerEventReceiverPort
 // using in-memory no-op behavior.
 // This adapter is used when event communication is disabled for standalone server mode.
 type EventSenderAdapter struct {
@@ -33,7 +33,7 @@ func NewEventHubAdapter(
 	}
 }
 
-// SendMessageToServer implements port.ServerEventSenderPort.
+// SendMessageToServer implements agentport.ServerEventSenderPort.
 // In standalone mode, this is a no-op as there are no other servers to communicate with.
 func (e *EventSenderAdapter) SendMessageToServer(
 	ctx context.Context,
@@ -50,8 +50,8 @@ func (e *EventSenderAdapter) SendMessageToServer(
 	}
 }
 
-// StartReceiver implements port.ServerEventReceiverPort.
-func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler port.ReceiveServerEventHandler) error {
+// StartReceiver implements agentport.ServerEventReceiverPort.
+func (e *EventSenderAdapter) StartReceiver(ctx context.Context, handler agentport.ReceiveServerEventHandler) error {
 	for {
 		select {
 		case msg := <-e.messageCh:

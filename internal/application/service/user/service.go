@@ -13,25 +13,26 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
 var _ applicationport.UserManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the UserManageUsecase interface.
 type Service struct {
-	userUsecase     domainport.UserUsecase
-	userRoleUsecase domainport.UserRoleUsecase
-	rbacUsecase     domainport.RBACUsecase
+	userUsecase     userport.UserUsecase
+	userRoleUsecase userport.UserRoleUsecase
+	rbacUsecase     userport.RBACUsecase
 	mapper          *helper.Mapper
 	logger          *slog.Logger
 }
 
 // New creates a new instance of the Service struct.
 func New(
-	userUsecase domainport.UserUsecase,
-	userRoleUsecase domainport.UserRoleUsecase,
-	rbacUsecase domainport.RBACUsecase,
+	userUsecase userport.UserUsecase,
+	userRoleUsecase userport.UserRoleUsecase,
+	rbacUsecase userport.RBACUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -80,7 +81,7 @@ func (s *Service) ListUsers(
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-		Items: lo.Map(response.Items, func(user *model.User, _ int) v1.User {
+		Items: lo.Map(response.Items, func(user *usermodel.User, _ int) v1.User {
 			return *s.mapper.MapUserToAPI(user)
 		}),
 	}, nil
@@ -88,7 +89,7 @@ func (s *Service) ListUsers(
 
 // CreateUser implements [applicationport.UserManageUsecase].
 func (s *Service) CreateUser(ctx context.Context, apiUser *v1.User) (*v1.User, error) {
-	domainUser := model.NewUser(apiUser.Spec.Email, apiUser.Spec.Username)
+	domainUser := usermodel.NewUser(apiUser.Spec.Email, apiUser.Spec.Username)
 
 	err := s.userUsecase.SaveUser(ctx, domainUser)
 	if err != nil {
@@ -118,21 +119,23 @@ func (s *Service) GetUserProfile(ctx context.Context, email string) (*v1.UserPro
 	roles, err := s.userRoleUsecase.GetUserRoles(ctx, user.Metadata.UID)
 	if err != nil {
 		s.logger.Warn("failed to get user roles", slog.String("email", email), slog.String("error", err.Error()))
-		roles = []*model.Role{}
+
+		roles = []*usermodel.Role{}
 	}
 
 	permissions, err := s.rbacUsecase.GetUserPermissions(ctx, user.Metadata.UID)
 	if err != nil {
 		s.logger.Warn("failed to get user permissions", slog.String("email", email), slog.String("error", err.Error()))
-		permissions = []*model.Permission{}
+
+		permissions = []*usermodel.Permission{}
 	}
 
 	return &v1.UserProfileResponse{
 		User: *s.mapper.MapUserToAPI(user),
-		Roles: lo.Map(roles, func(r *model.Role, _ int) v1.Role {
+		Roles: lo.Map(roles, func(r *usermodel.Role, _ int) v1.Role {
 			return *s.mapper.MapRoleToAPI(r)
 		}),
-		Permissions: lo.Map(permissions, func(p *model.Permission, _ int) v1.Permission {
+		Permissions: lo.Map(permissions, func(p *usermodel.Permission, _ int) v1.Permission {
 			return *s.mapper.MapPermissionToAPI(p)
 		}),
 	}, nil

@@ -5,23 +5,28 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/google/go-github/v72/github"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.IdentityProviderUsecase = (*IdentityProvider)(nil)
+var _ userport.IdentityProviderUsecase = (*IdentityProvider)(nil)
 
-// GitHubClientFactory creates a GitHub API client from an OAuth access token.
+// ErrNoPrimaryEmail is returned when no primary verified email is found.
+var ErrNoPrimaryEmail = errors.New("no primary verified email found")
+
+// ClientFactory creates a GitHub API client from an OAuth access token.
 // This abstraction enables testing without real HTTP calls.
-type GitHubClientFactory func(ctx context.Context, accessToken string) GitHubClient
+type ClientFactory func(ctx context.Context, accessToken string) Client
 
-// GitHubClient abstracts the GitHub API calls needed by the identity provider.
-type GitHubClient interface {
+// Client abstracts the GitHub API calls needed by the identity provider.
+type Client interface {
 	// GetUser returns the authenticated user.
 	GetUser(ctx context.Context) (*github.User, error)
 	// ListEmails returns the authenticated user's email addresses.
@@ -30,15 +35,15 @@ type GitHubClient interface {
 	ListOrgs(ctx context.Context) ([]*github.Organization, error)
 }
 
-// IdentityProvider implements port.IdentityProviderUsecase for GitHub.
+// IdentityProvider implements userport.IdentityProviderUsecase for GitHub.
 type IdentityProvider struct {
-	clientFactory GitHubClientFactory
+	clientFactory ClientFactory
 	logger        *slog.Logger
 }
 
 // NewIdentityProvider creates a new GitHub identity provider.
 func NewIdentityProvider(
-	clientFactory GitHubClientFactory,
+	clientFactory ClientFactory,
 	logger *slog.Logger,
 ) *IdentityProvider {
 	return &IdentityProvider{
@@ -47,16 +52,16 @@ func NewIdentityProvider(
 	}
 }
 
-// ProviderName implements [port.IdentityProviderUsecase].
+// ProviderName implements [userport.IdentityProviderUsecase].
 func (p *IdentityProvider) ProviderName() string {
-	return model.IdentityProviderGitHub
+	return usermodel.IdentityProviderGitHub
 }
 
-// ResolveIdentity implements [port.IdentityProviderUsecase].
+// ResolveIdentity implements [userport.IdentityProviderUsecase].
 func (p *IdentityProvider) ResolveIdentity(
 	ctx context.Context,
 	accessToken string,
-) (*model.ExternalIdentity, error) {
+) (*usermodel.ExternalIdentity, error) {
 	client := p.clientFactory(ctx, accessToken)
 
 	user, err := client.GetUser(ctx)
@@ -71,7 +76,7 @@ func (p *IdentityProvider) ResolveIdentity(
 
 	primaryEmail := findPrimaryEmail(emails)
 	if primaryEmail == "" {
-		return nil, fmt.Errorf("no primary verified email found for GitHub user %s", user.GetLogin())
+		return nil, fmt.Errorf("%w for GitHub user %s", ErrNoPrimaryEmail, user.GetLogin())
 	}
 
 	orgs, err := client.ListOrgs(ctx)
@@ -96,9 +101,9 @@ func (p *IdentityProvider) ResolveIdentity(
 		"html_url":   user.GetHTMLURL(),
 	}
 
-	return &model.ExternalIdentity{
-		Provider:       model.IdentityProviderGitHub,
-		ProviderUserID: fmt.Sprintf("%d", user.GetID()),
+	return &usermodel.ExternalIdentity{
+		Provider:       usermodel.IdentityProviderGitHub,
+		ProviderUserID: strconv.FormatInt(user.GetID(), 10),
 		Email:          primaryEmail,
 		DisplayName:    user.GetLogin(),
 		AvatarURL:      user.GetAvatarURL(),
@@ -107,7 +112,7 @@ func (p *IdentityProvider) ResolveIdentity(
 	}, nil
 }
 
-// ListOrganizations implements [port.IdentityProviderUsecase].
+// ListOrganizations implements [userport.IdentityProviderUsecase].
 func (p *IdentityProvider) ListOrganizations(
 	ctx context.Context,
 	accessToken string,

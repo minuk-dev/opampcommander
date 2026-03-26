@@ -14,9 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.UserPersistencePort = (*UserMongoAdapter)(nil)
+var _ userport.UserPersistencePort = (*UserMongoAdapter)(nil)
 
 const (
 	userCollectionName = "users"
@@ -51,10 +53,10 @@ func NewUserRepository(
 	}
 }
 
-// GetUser implements port.UserPersistencePort.
+// GetUser implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) GetUser(
 	ctx context.Context, uid uuid.UUID,
-) (*model.User, error) {
+) (*usermodel.User, error) {
 	en, err := a.common.get(ctx, uid.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
@@ -63,12 +65,12 @@ func (a *UserMongoAdapter) GetUser(
 	return en.ToDomain(), nil
 }
 
-// GetUserByEmail implements port.UserPersistencePort.
+// GetUserByEmail implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) GetUserByEmail(
 	ctx context.Context, email string,
-) (*model.User, error) {
+) (*usermodel.User, error) {
 	filter := bson.M{
-		"spec.email":       email,
+		"spec.email":         email,
 		"metadata.deletedAt": nil,
 	}
 
@@ -83,20 +85,20 @@ func (a *UserMongoAdapter) GetUserByEmail(
 		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
-	var en entity.User
+	var userEntity entity.User
 
-	err = result.Decode(&en)
+	err = result.Decode(&userEntity)
 	if err != nil {
 		return nil, fmt.Errorf("decode user by email: %w", err)
 	}
 
-	return en.ToDomain(), nil
+	return userEntity.ToDomain(), nil
 }
 
-// PutUser implements port.UserPersistencePort.
+// PutUser implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) PutUser(
-	ctx context.Context, user *model.User,
-) (*model.User, error) {
+	ctx context.Context, user *usermodel.User,
+) (*usermodel.User, error) {
 	en := entity.UserFromDomain(user)
 
 	err := a.common.put(ctx, en)
@@ -107,28 +109,28 @@ func (a *UserMongoAdapter) PutUser(
 	return user, nil
 }
 
-// ListUsers implements port.UserPersistencePort.
+// ListUsers implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) ListUsers(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.User], error) {
+) (*model.ListResponse[*usermodel.User], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*model.User, 0, len(resp.Items))
+	items := make([]*usermodel.User, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		items = append(items, item.ToDomain())
 	}
 
-	return &model.ListResponse[*model.User]{
+	return &model.ListResponse[*usermodel.User]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// DeleteUser implements port.UserPersistencePort.
+// DeleteUser implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) DeleteUser(
 	ctx context.Context, uid uuid.UUID,
 ) error {

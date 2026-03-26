@@ -13,16 +13,16 @@ import (
 	"github.com/google/uuid"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/internal/adapter/common/kafka"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var (
-	_ port.ServerEventSenderPort = (*EventSenderAdapter)(nil)
+	_ agentport.ServerEventSenderPort = (*EventSenderAdapter)(nil)
 )
 
-// EventSenderAdapter implements port.ServerEventSenderPort using Kafka CloudEvents sender.
+// EventSenderAdapter implements agentport.ServerEventSenderPort using Kafka CloudEvents sender.
 type EventSenderAdapter struct {
 	sender cloudevents.Client
 	logger *slog.Logger
@@ -39,7 +39,7 @@ func NewEventSenderAdapter(
 	// https://github.com/cloudevents/sdk-go/pull/1202
 	otelService := observabilityClient.NewOTelObservabilityService()
 
-	var opts []client.Option
+	opts := make([]client.Option, 0, 1)
 
 	opts = append(opts, client.WithObservabilityService(otelService))
 
@@ -56,7 +56,7 @@ func NewEventSenderAdapter(
 	}, nil
 }
 
-// SendMessageToServer implements port.ServerEventSenderPort.
+// SendMessageToServer implements agentport.ServerEventSenderPort.
 func (e *EventSenderAdapter) SendMessageToServer(
 	ctx context.Context,
 	serverID string,

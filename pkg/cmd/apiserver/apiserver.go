@@ -323,6 +323,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			},
 		},
 		CacheSettings: appconfig.DefaultCacheSettings(),
+		RBACModelPath: "",
 	})
 
 	return nil

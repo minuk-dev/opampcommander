@@ -1,6 +1,7 @@
 package ginutil_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -126,9 +127,10 @@ func TestParseInt64(t *testing.T) {
 			ctx, _ := gin.CreateTestContext(w)
 
 			if tt.paramValue != "" {
-				ctx.Request = httptest.NewRequest(http.MethodGet, "/test?limit="+tt.paramValue, nil)
+				ctx.Request = httptest.NewRequestWithContext(
+					context.Background(), http.MethodGet, "/test?limit="+tt.paramValue, nil)
 			} else {
-				ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+				ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 			}
 
 			result, err := ginutil.ParseInt64(ctx, "limit", tt.defaultValue)
@@ -240,7 +242,8 @@ func TestBindJSON(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
-			ctx.Request = httptest.NewRequest(http.MethodPost, "/test", strings.NewReader(tt.requestBody))
+			ctx.Request = httptest.NewRequestWithContext(
+				context.Background(), http.MethodPost, "/test", strings.NewReader(tt.requestBody))
 			ctx.Request.Header.Set("Content-Type", "application/json")
 
 			var obj TestStruct
@@ -351,7 +354,7 @@ func TestHandleValidationError(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
-			ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+			ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
 
 			ginutil.HandleValidationError(ctx, tt.paramName, tt.paramValue, tt.err, tt.isPathParam)
 
@@ -415,7 +418,7 @@ func TestHandleValidationError_CompleteErrorResponse(t *testing.T) {
 				url += "?" + tt.paramName + "=" + tt.paramValue
 			}
 
-			ctx.Request = httptest.NewRequest(http.MethodGet, url, nil)
+			ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 
 			if tt.isPathParam {
 				ctx.AddParam(tt.paramName, tt.paramValue)

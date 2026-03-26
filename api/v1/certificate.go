@@ -16,7 +16,7 @@ type Certificate struct {
 	// Spec contains the specification of the certificate.
 	Spec CertificateSpec `json:"spec"`
 	// Status contains the status of the certificate.
-	Status CertificateStatus `json:"status,omitempty"`
+	Status CertificateStatus `json:"status,omitzero"`
 } // @name Certificate
 
 // CertificateMetadata represents metadata for a certificate.

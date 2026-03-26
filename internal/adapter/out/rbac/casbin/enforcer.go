@@ -12,30 +12,41 @@ import (
 	"github.com/casbin/casbin/v2/persist"
 	"github.com/google/uuid"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-var _ port.RBACEnforcerPort = (*CasbinEnforcer)(nil)
+var _ userport.RBACEnforcerPort = (*Enforcer)(nil)
 
-// CasbinEnforcer wraps a Casbin enforcer to implement RBACEnforcerPort.
-type CasbinEnforcer struct {
+// Enforcer wraps a Casbin enforcer to implement RBACEnforcerPort.
+type Enforcer struct {
 	enforcer *casbin.Enforcer
 }
 
-// NewCasbinEnforcer creates a new CasbinEnforcer using a model config file.
+// NewEnforcer creates a new Enforcer using a model config file.
 // Policies are stored in-memory only.
-func NewCasbinEnforcer(modelPath string) (*CasbinEnforcer, error) {
+func NewEnforcer(modelPath string) (*Enforcer, error) {
 	e, err := casbin.NewEnforcer(modelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
 	}
 
-	return &CasbinEnforcer{enforcer: e}, nil
+	return &Enforcer{enforcer: e}, nil
 }
 
-// NewCasbinEnforcerWithAdapter creates a new CasbinEnforcer with a custom
+// NewEnforcerFromModel creates a new Enforcer using a pre-loaded model.
+// Policies are stored in-memory only.
+func NewEnforcerFromModel(m model.Model) (*Enforcer, error) {
+	e, err := casbin.NewEnforcer(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
+	}
+
+	return &Enforcer{enforcer: e}, nil
+}
+
+// NewEnforcerWithAdapter creates a new Enforcer with a custom
 // policy adapter (e.g., MongoDB) for persistent policy storage.
-func NewCasbinEnforcerWithAdapter(modelPath string, adapter persist.Adapter) (*CasbinEnforcer, error) {
+func NewEnforcerWithAdapter(modelPath string, adapter persist.Adapter) (*Enforcer, error) {
 	m, err := model.NewModelFromFile(modelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load casbin model: %w", err)
@@ -46,10 +57,11 @@ func NewCasbinEnforcerWithAdapter(modelPath string, adapter persist.Adapter) (*C
 		return nil, fmt.Errorf("failed to create casbin enforcer with adapter: %w", err)
 	}
 
-	return &CasbinEnforcer{enforcer: e}, nil
+	return &Enforcer{enforcer: e}, nil
 }
 
-func (c *CasbinEnforcer) CheckPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
+// CheckPermission checks whether a user has the given permission on a resource.
+func (c *Enforcer) CheckPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
 	allowed, err := c.enforcer.Enforce(userID.String(), resource, action)
 	if err != nil {
 		return false, fmt.Errorf("failed to check permission: %w", err)
@@ -65,23 +77,28 @@ func (c *CasbinEnforcer) CheckPermission(_ context.Context, userID uuid.UUID, re
 	return allowed, nil
 }
 
-func (c *CasbinEnforcer) LoadPolicy(_ context.Context) error {
-	if err := c.enforcer.LoadPolicy(); err != nil {
+// LoadPolicy reloads all policies from the storage adapter.
+func (c *Enforcer) LoadPolicy(_ context.Context) error {
+	err := c.enforcer.LoadPolicy()
+	if err != nil {
 		return fmt.Errorf("failed to load policy: %w", err)
 	}
 
 	return nil
 }
 
-func (c *CasbinEnforcer) SavePolicy(_ context.Context) error {
-	if err := c.enforcer.SavePolicy(); err != nil {
+// SavePolicy persists all current policies to the storage adapter.
+func (c *Enforcer) SavePolicy(_ context.Context) error {
+	err := c.enforcer.SavePolicy()
+	if err != nil {
 		return fmt.Errorf("failed to save policy: %w", err)
 	}
 
 	return nil
 }
 
-func (c *CasbinEnforcer) AddGroupingPolicy(_ context.Context, params ...interface{}) (bool, error) {
+// AddGroupingPolicy adds a role inheritance (grouping) policy rule.
+func (c *Enforcer) AddGroupingPolicy(_ context.Context, params ...any) (bool, error) {
 	added, err := c.enforcer.AddGroupingPolicy(params...)
 	if err != nil {
 		return false, fmt.Errorf("failed to add grouping policy: %w", err)
@@ -90,7 +107,8 @@ func (c *CasbinEnforcer) AddGroupingPolicy(_ context.Context, params ...interfac
 	return added, nil
 }
 
-func (c *CasbinEnforcer) RemoveGroupingPolicy(_ context.Context, params ...interface{}) (bool, error) {
+// RemoveGroupingPolicy removes a role inheritance (grouping) policy rule.
+func (c *Enforcer) RemoveGroupingPolicy(_ context.Context, params ...any) (bool, error) {
 	removed, err := c.enforcer.RemoveGroupingPolicy(params...)
 	if err != nil {
 		return false, fmt.Errorf("failed to remove grouping policy: %w", err)
@@ -99,7 +117,8 @@ func (c *CasbinEnforcer) RemoveGroupingPolicy(_ context.Context, params ...inter
 	return removed, nil
 }
 
-func (c *CasbinEnforcer) GetGroupingPolicy() [][]string {
+// GetGroupingPolicy returns all role inheritance (grouping) policy rules.
+func (c *Enforcer) GetGroupingPolicy() [][]string {
 	policies, err := c.enforcer.GetGroupingPolicy()
 	if err != nil {
 		slog.Error("failed to get grouping policy", slog.Any("error", err))
@@ -110,7 +129,8 @@ func (c *CasbinEnforcer) GetGroupingPolicy() [][]string {
 	return policies
 }
 
-func (c *CasbinEnforcer) AddNamedPolicy(_ context.Context, ptype string, params ...interface{}) (bool, error) {
+// AddNamedPolicy adds a named policy rule of the given policy type.
+func (c *Enforcer) AddNamedPolicy(_ context.Context, ptype string, params ...any) (bool, error) {
 	added, err := c.enforcer.AddNamedPolicy(ptype, params...)
 	if err != nil {
 		return false, fmt.Errorf("failed to add named policy: %w", err)
@@ -119,7 +139,8 @@ func (c *CasbinEnforcer) AddNamedPolicy(_ context.Context, ptype string, params 
 	return added, nil
 }
 
-func (c *CasbinEnforcer) RemoveNamedPolicy(_ context.Context, ptype string, params ...interface{}) (bool, error) {
+// RemoveNamedPolicy removes a named policy rule of the given policy type.
+func (c *Enforcer) RemoveNamedPolicy(_ context.Context, ptype string, params ...any) (bool, error) {
 	removed, err := c.enforcer.RemoveNamedPolicy(ptype, params...)
 	if err != nil {
 		return false, fmt.Errorf("failed to remove named policy: %w", err)
@@ -128,7 +149,8 @@ func (c *CasbinEnforcer) RemoveNamedPolicy(_ context.Context, ptype string, para
 	return removed, nil
 }
 
-func (c *CasbinEnforcer) GetNamedPolicy(ptype string) [][]string {
+// GetNamedPolicy returns all policy rules of the given policy type.
+func (c *Enforcer) GetNamedPolicy(ptype string) [][]string {
 	policies, err := c.enforcer.GetNamedPolicy(ptype)
 	if err != nil {
 		slog.Error("failed to get named policy", slog.String("ptype", ptype), slog.Any("error", err))
