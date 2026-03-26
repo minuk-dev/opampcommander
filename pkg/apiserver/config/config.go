@@ -22,6 +22,7 @@ type ServerSettings struct {
 	ManagementSettings ManagementSettings
 	EventSettings      EventSettings
 	CacheSettings      CacheSettings
+	RBACModelPath      string
 }
 
 // String returns a JSON representation of the ServerSettings struct.

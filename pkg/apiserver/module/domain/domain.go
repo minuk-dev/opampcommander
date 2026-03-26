@@ -43,6 +43,13 @@ func New() fx.Option {
 			fx.As(new(domainport.ServerIdentityProvider)),
 		),
 		fx.Annotate(domainservice.NewAgentNotificationService, fx.As(new(domainport.AgentNotificationUsecase))),
+		// RBAC domain services
+		fx.Annotate(domainservice.NewUserService, fx.As(new(domainport.UserUsecase))),
+		fx.Annotate(domainservice.NewRoleService, fx.As(new(domainport.RoleUsecase))),
+		fx.Annotate(domainservice.NewPermissionService, fx.As(new(domainport.PermissionUsecase))),
+		fx.Annotate(domainservice.NewUserRoleService, fx.As(new(domainport.UserRoleUsecase))),
+		fx.Annotate(domainservice.NewRBACService, fx.As(new(domainport.RBACUsecase))),
+		fx.Annotate(domainservice.NewOrgRoleMappingService, fx.As(new(domainport.OrgRoleMappingUsecase))),
 		helper.AsRunner(Identity[*domainservice.AgentGroupService]),
 		helper.AsRunner(Identity[*domainservice.ServerService]),
 		helper.AsRunner(Identity[*domainservice.ServerIdentityService]),

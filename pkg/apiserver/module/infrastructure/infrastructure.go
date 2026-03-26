@@ -16,10 +16,15 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	rbaccontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rbac"
+	rolecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/role"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
+	usercontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
+	casbinEnforcer "github.com/minuk-dev/opampcommander/internal/adapter/out/rbac/casbin"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
@@ -36,6 +41,9 @@ func New() fx.Option {
 
 		// Messaging (NATS or in-memory)
 		provideMessagingComponents(),
+
+		// RBAC (Casbin enforcer)
+		provideRBACComponents(),
 	)
 }
 
@@ -60,6 +68,10 @@ func provideHTTPComponents() fx.Option {
 			server.NewController, helper.AsController(Identity[*server.Controller]),
 			github.NewController, helper.AsController(Identity[*github.Controller]),
 			basic.NewController, helper.AsController(Identity[*basic.Controller]),
+			// RBAC controllers
+			usercontroller.NewController, helper.AsController(Identity[*usercontroller.Controller]),
+			rolecontroller.NewController, helper.AsController(Identity[*rolecontroller.Controller]),
+			rbaccontroller.NewController, helper.AsController(Identity[*rbaccontroller.Controller]),
 		),
 		// OpAMP specific connection context
 		fx.Provide(
@@ -83,6 +95,12 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(port.AgentPackagePersistencePort))),
 			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(port.AgentRemoteConfigPersistencePort))),
 			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(port.CertificatePersistencePort))),
+			// RBAC MongoDB adapters
+			fx.Annotate(mongodb.NewUserRepository, fx.As(new(port.UserPersistencePort))),
+			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(port.RolePersistencePort))),
+			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(port.PermissionPersistencePort))),
+			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(port.UserRolePersistencePort))),
+			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(port.OrgRoleMappingPersistencePort))),
 		),
 	)
 }
@@ -93,6 +111,28 @@ func provideMessagingComponents() fx.Option {
 		// Provide the event hub adapter
 		fx.Provide(newEventSenderAndReceiver),
 	)
+}
+
+// provideRBACComponents provides RBAC enforcer components.
+func provideRBACComponents() fx.Option {
+	return fx.Options(
+		fx.Provide(
+			provideCasbinEnforcer,
+			fx.Annotate(
+				Identity[*casbinEnforcer.CasbinEnforcer],
+				fx.As(new(port.RBACEnforcerPort)),
+			),
+		),
+	)
+}
+
+func provideCasbinEnforcer(settings *config.ServerSettings) (*casbinEnforcer.CasbinEnforcer, error) {
+	modelPath := settings.RBACModelPath
+	if modelPath == "" {
+		modelPath = "configs/rbac_model.conf"
+	}
+
+	return casbinEnforcer.NewCasbinEnforcer(modelPath)
 }
 
 // Identity is a generic function that returns the input value.

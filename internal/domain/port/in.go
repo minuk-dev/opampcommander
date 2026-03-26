@@ -159,3 +159,100 @@ type ConnectionUsecase interface {
 	// SendServerToAgent sends a ServerToAgent message to the agent via WebSocket connection.
 	SendServerToAgent(ctx context.Context, instanceUID uuid.UUID, message *protobufs.ServerToAgent) error
 }
+
+// UserUsecase is an interface that defines the methods for user use cases.
+type UserUsecase interface {
+	// GetUser retrieves a user by their UID.
+	GetUser(ctx context.Context, uid uuid.UUID) (*model.User, error)
+	// GetUserByEmail retrieves a user by their email.
+	GetUserByEmail(ctx context.Context, email string) (*model.User, error)
+	// ListUsers lists all users.
+	ListUsers(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.User], error)
+	// SaveUser saves the user.
+	SaveUser(ctx context.Context, user *model.User) error
+	// DeleteUser deletes the user.
+	DeleteUser(ctx context.Context, uid uuid.UUID) error
+}
+
+// RoleUsecase is an interface that defines the methods for role use cases.
+type RoleUsecase interface {
+	// GetRole retrieves a role by its UID.
+	GetRole(ctx context.Context, uid uuid.UUID) (*model.Role, error)
+	// GetRoleByName retrieves a role by its display name.
+	GetRoleByName(ctx context.Context, displayName string) (*model.Role, error)
+	// ListRoles lists all roles.
+	ListRoles(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Role], error)
+	// SaveRole saves the role.
+	SaveRole(ctx context.Context, role *model.Role) error
+	// DeleteRole deletes the role (only if it's not built-in).
+	DeleteRole(ctx context.Context, uid uuid.UUID) error
+}
+
+// PermissionUsecase is an interface that defines the methods for permission use cases.
+type PermissionUsecase interface {
+	// GetPermission retrieves a permission by its UID.
+	GetPermission(ctx context.Context, uid uuid.UUID) (*model.Permission, error)
+	// GetPermissionByName retrieves a permission by its name (e.g., "agent:read").
+	GetPermissionByName(ctx context.Context, name string) (*model.Permission, error)
+	// ListPermissions lists all permissions.
+	ListPermissions(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Permission], error)
+	// SavePermission saves the permission.
+	SavePermission(ctx context.Context, permission *model.Permission) error
+	// DeletePermission deletes the permission (only if it's not built-in).
+	DeletePermission(ctx context.Context, uid uuid.UUID) error
+}
+
+// UserRoleUsecase is an interface that defines the methods for user role use cases.
+type UserRoleUsecase interface {
+	// AssignRole assigns a role to a user.
+	AssignRole(ctx context.Context, userID, roleID, assignedBy uuid.UUID) error
+	// UnassignRole removes a role from a user.
+	UnassignRole(ctx context.Context, userID, roleID uuid.UUID) error
+	// GetUserRoles returns all roles assigned to a user.
+	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*model.Role, error)
+	// GetRoleUsers returns all users assigned to a role.
+	GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]*model.User, error)
+	// ListUserRoles lists all user role assignments.
+	ListUserRoles(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.UserRole], error)
+}
+
+// RBACUsecase is an interface that defines RBAC authorization methods.
+type RBACUsecase interface {
+	// CheckPermission checks if a user has a specific permission.
+	CheckPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
+	// GetUserPermissions returns all permissions available to a user through their roles.
+	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]*model.Permission, error)
+	// GetEffectivePermissions returns all effective permissions for a user (including inherited).
+	GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]*model.Permission, error)
+	// SyncPolicies synchronizes RBAC policies with the Casbin enforcer.
+	SyncPolicies(ctx context.Context) error
+}
+
+// IdentityProviderUsecase is a provider-agnostic interface for resolving external identities.
+// Each authentication provider (GitHub, Google, LDAP, etc.) implements this interface
+// to translate provider-specific identity into the common ExternalIdentity model.
+type IdentityProviderUsecase interface {
+	// ProviderName returns the unique name of this identity provider (e.g., "github", "google").
+	ProviderName() string
+	// ResolveIdentity resolves an authenticated token/credential into an ExternalIdentity.
+	ResolveIdentity(ctx context.Context, accessToken string) (*model.ExternalIdentity, error)
+	// ListOrganizations returns the organizations/groups the user belongs to.
+	ListOrganizations(ctx context.Context, accessToken string) ([]string, error)
+}
+
+// OrgRoleMappingUsecase manages mappings from external org/group memberships to internal roles.
+type OrgRoleMappingUsecase interface {
+	// GetOrgRoleMapping retrieves a mapping by its UID.
+	GetOrgRoleMapping(ctx context.Context, uid uuid.UUID) (*model.OrgRoleMapping, error)
+	// ListOrgRoleMappings lists all org-role mappings.
+	ListOrgRoleMappings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.OrgRoleMapping], error)
+	// ListOrgRoleMappingsByProvider lists mappings for a specific provider.
+	ListOrgRoleMappingsByProvider(ctx context.Context, provider string) ([]*model.OrgRoleMapping, error)
+	// SaveOrgRoleMapping saves an org-role mapping.
+	SaveOrgRoleMapping(ctx context.Context, mapping *model.OrgRoleMapping) error
+	// DeleteOrgRoleMapping deletes an org-role mapping.
+	DeleteOrgRoleMapping(ctx context.Context, uid uuid.UUID) error
+	// ResolveRolesForIdentity resolves which roles should be assigned based on
+	// an external identity's org/group memberships and the configured mappings.
+	ResolveRolesForIdentity(ctx context.Context, identity *model.ExternalIdentity) ([]*model.Role, error)
+}
