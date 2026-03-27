@@ -1,4 +1,3 @@
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
@@ -6,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -69,6 +69,11 @@ func (a *UserMongoAdapter) GetUser(
 func (a *UserMongoAdapter) GetUserByEmail(
 	ctx context.Context, email string,
 ) (*usermodel.User, error) {
+	_, err := mail.ParseAddress(email)
+	if err != nil {
+		return nil, fmt.Errorf("invalid email address %q: %w", email, err)
+	}
+
 	filter := bson.M{
 		"spec.email":         email,
 		"metadata.deletedAt": nil,
@@ -76,7 +81,7 @@ func (a *UserMongoAdapter) GetUserByEmail(
 
 	result := a.common.collection.FindOne(ctx, filter)
 
-	err := result.Err()
+	err = result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, port.ErrResourceNotExist
