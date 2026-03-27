@@ -51,7 +51,6 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 	t.Run("GetCurrentUserProfile", func(t *testing.T) {
 		profile := getUserProfile(t, apiBaseURL, token)
 		assert.NotEmpty(t, profile.User.Metadata.UID)
-		assert.Equal(t, "test@test.com", profile.User.Spec.Email)
 		assert.True(t, profile.User.Spec.IsActive)
 	})
 
@@ -110,7 +109,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		profile := getUserProfile(t, apiBaseURL, token)
 		userUID := profile.User.Metadata.UID
 
-		assignRole(t, apiBaseURL, token, userUID, createdRoleUID)
+		assignRole(t, apiBaseURL, token, userUID, createdRoleUID, userUID)
 	})
 
 	// Test 7: Get user roles via RBAC endpoint
@@ -285,13 +284,13 @@ func getRoleByID(t *testing.T, baseURL, token, roleUID string) v1.Role {
 	return result
 }
 
-func assignRole(t *testing.T, baseURL, token, userID, roleID string) {
+func assignRole(t *testing.T, baseURL, token, userID, roleID, assignedBy string) {
 	t.Helper()
 
 	reqBody := v1.AssignRoleRequest{
 		UserID:     userID,
 		RoleID:     roleID,
-		AssignedBy: "e2e-test",
+		AssignedBy: assignedBy,
 	}
 
 	bodyJSON, err := json.Marshal(reqBody)

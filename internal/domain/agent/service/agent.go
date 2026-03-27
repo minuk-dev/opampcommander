@@ -81,7 +81,7 @@ func NewAgentServiceWithConfig(
 
 	agentCache := ttlcache.New[uuid.UUID, *agentmodel.Agent](
 		ttlcache.WithTTL[uuid.UUID, *agentmodel.Agent](ttl),
-		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(capacity)),
+		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(max(capacity, 0))),
 	)
 
 	logger.Info("agent cache initialized",
