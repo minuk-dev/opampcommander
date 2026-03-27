@@ -28,7 +28,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -51,6 +51,8 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 	t.Run("GetCurrentUserProfile", func(t *testing.T) {
 		profile := getUserProfile(t, apiBaseURL, token)
 		assert.NotEmpty(t, profile.User.Metadata.UID)
+		assert.Equal(t, "test@test.com", profile.User.Spec.Email)
+		assert.Equal(t, "test-admin", profile.User.Spec.Username)
 		assert.True(t, profile.User.Spec.IsActive)
 	})
 

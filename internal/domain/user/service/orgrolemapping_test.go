@@ -205,7 +205,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Resolves admin role from GitHub org membership", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -239,7 +239,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Resolves multiple roles from multiple org memberships", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -271,7 +271,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Returns empty roles when no org matches", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -300,7 +300,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Returns empty roles for user with no groups", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -327,7 +327,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Returns nil for nil identity", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -343,7 +343,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Deduplicates roles when multiple orgs map to same role", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -373,7 +373,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Skips roles that fail to resolve but continues", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -406,7 +406,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Fails when listing mappings fails", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -431,7 +431,7 @@ func TestOrgRoleMappingService_ResolveRolesForIdentity(t *testing.T) {
 	t.Run("Does not match mappings from different providers", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -461,7 +461,7 @@ func TestOrgRoleMappingService_SaveOrgRoleMapping(t *testing.T) {
 	t.Run("Successfully saves mapping", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -482,7 +482,7 @@ func TestOrgRoleMappingService_SaveOrgRoleMapping(t *testing.T) {
 	t.Run("Persistence error", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -508,7 +508,7 @@ func TestOrgRoleMappingService_DeleteOrgRoleMapping(t *testing.T) {
 	t.Run("Successfully deletes mapping", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()
@@ -527,7 +527,7 @@ func TestOrgRoleMappingService_DeleteOrgRoleMapping(t *testing.T) {
 	t.Run("Persistence error", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockMappingPort := new(MockOrgRoleMappingPersistencePort)
 		mockRolePort := new(MockRolePersistencePort)
 		logger := slog.Default()

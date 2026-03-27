@@ -87,7 +87,7 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 	t.Run("Successfully get certificate", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -120,7 +120,7 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 	t.Run("Certificate not found", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -139,7 +139,7 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 	t.Run("Persistence error", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -161,7 +161,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 	t.Run("Successfully list certificates", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -202,7 +202,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 	t.Run("Empty list", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -228,7 +228,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 	t.Run("With pagination", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -259,7 +259,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 	t.Run("Persistence error", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -283,7 +283,7 @@ func TestCertificateService_SaveCertificate(t *testing.T) {
 	t.Run("Successfully save certificate", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -320,7 +320,7 @@ func TestCertificateService_SaveCertificate(t *testing.T) {
 	t.Run("Persistence error", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -347,7 +347,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 	t.Run("Successfully delete certificate", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -393,7 +393,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 	t.Run("Certificate not found for deletion", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 
@@ -412,7 +412,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 	t.Run("Error updating certificate during deletion", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockCertificatePersistencePort)
 		logger := slog.Default()
 

@@ -1,7 +1,6 @@
 package ginutil_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -100,7 +99,7 @@ func TestGetQueryInt64(t *testing.T) {
 				url += "?" + tt.query
 			}
 
-			ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+			ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 
 			result, err := ginutil.GetQueryInt64(ctx, tt.key, tt.defaultValue)
 
@@ -178,7 +177,7 @@ func TestGetErrorTypeURI(t *testing.T) {
 			})
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(context.Background(), tt.method, tt.path, nil)
+			req := httptest.NewRequestWithContext(t.Context(), tt.method, tt.path, nil)
 			req.Host = tt.host
 
 			router.ServeHTTP(w, req)
@@ -236,7 +235,7 @@ func TestGetErrorTypeURI_WithDifferentRoutePatterns(t *testing.T) {
 			})
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, tt.requestPath, nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, tt.requestPath, nil)
 			req.Host = tt.host
 
 			router.ServeHTTP(w, req)

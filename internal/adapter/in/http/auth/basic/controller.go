@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
@@ -94,7 +95,7 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderBasic)
+	c.ensureUser(ctx.Request.Context(), username, result.Email, usermodel.IdentityProviderBasic)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -132,9 +133,11 @@ func (c *Controller) Info(ctx *gin.Context) {
 
 // ensureUser creates or updates a user record on login.
 // Failures are logged but do not block the login flow.
-func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
+func (c *Controller) ensureUser(ctx context.Context, username, email, provider string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
-	if err == nil && existing != nil {
+
+	switch {
+	case err == nil && existing != nil:
 		existing.Metadata.UpdatedAt = time.Now()
 
 		saveErr := c.userUsecase.SaveUser(ctx, existing)
@@ -146,9 +149,16 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 		}
 
 		return
+	case err != nil && !errors.Is(err, port.ErrResourceNotExist):
+		c.logger.Warn("failed to check user existence on login",
+			slog.String("email", email),
+			slog.Any("error", err),
+		)
+
+		return
 	}
 
-	newUser := usermodel.NewUserWithIdentity(provider, email, email, email)
+	newUser := usermodel.NewUserWithIdentity(provider, username, email, username)
 
 	saveErr := c.userUsecase.SaveUser(ctx, newUser)
 	if saveErr != nil {

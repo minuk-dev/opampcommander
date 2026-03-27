@@ -85,7 +85,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		identity, err := provider.ResolveIdentity(context.Background(), "test-token")
+		identity, err := provider.ResolveIdentity(t.Context(), "test-token")
 
 		require.NoError(t, err)
 		require.NotNil(t, identity)
@@ -114,7 +114,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		identity, err := provider.ResolveIdentity(context.Background(), "test-token")
+		identity, err := provider.ResolveIdentity(t.Context(), "test-token")
 
 		require.NoError(t, err)
 		require.NotNil(t, identity)
@@ -137,7 +137,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		identity, err := provider.ResolveIdentity(context.Background(), "test-token")
+		identity, err := provider.ResolveIdentity(t.Context(), "test-token")
 
 		require.NoError(t, err)
 		require.NotNil(t, identity)
@@ -154,7 +154,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		identity, err := provider.ResolveIdentity(context.Background(), "test-token")
+		identity, err := provider.ResolveIdentity(t.Context(), "test-token")
 
 		require.Error(t, err)
 		assert.Nil(t, identity)
@@ -174,7 +174,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		identity, err := provider.ResolveIdentity(context.Background(), "test-token")
+		identity, err := provider.ResolveIdentity(t.Context(), "test-token")
 
 		require.Error(t, err)
 		assert.Nil(t, identity)
@@ -197,7 +197,7 @@ func TestIdentityProvider_ResolveIdentity(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		identity, err := provider.ResolveIdentity(context.Background(), "test-token")
+		identity, err := provider.ResolveIdentity(t.Context(), "test-token")
 
 		require.Error(t, err)
 		assert.Nil(t, identity)
@@ -221,7 +221,7 @@ func TestIdentityProvider_ListOrganizations(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		orgs, err := provider.ListOrganizations(context.Background(), "test-token")
+		orgs, err := provider.ListOrganizations(t.Context(), "test-token")
 
 		require.NoError(t, err)
 		assert.Equal(t, []string{"alpha-org", "beta-org", "gamma-org"}, orgs)
@@ -236,7 +236,7 @@ func TestIdentityProvider_ListOrganizations(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		orgs, err := provider.ListOrganizations(context.Background(), "test-token")
+		orgs, err := provider.ListOrganizations(t.Context(), "test-token")
 
 		require.NoError(t, err)
 		assert.Empty(t, orgs)
@@ -255,7 +255,7 @@ func TestIdentityProvider_ListOrganizations(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		orgs, err := provider.ListOrganizations(context.Background(), "test-token")
+		orgs, err := provider.ListOrganizations(t.Context(), "test-token")
 
 		require.NoError(t, err)
 		assert.Equal(t, []string{"real-org"}, orgs)
@@ -270,7 +270,7 @@ func TestIdentityProvider_ListOrganizations(t *testing.T) {
 
 		provider := newTestProvider(client)
 
-		orgs, err := provider.ListOrganizations(context.Background(), "test-token")
+		orgs, err := provider.ListOrganizations(t.Context(), "test-token")
 
 		require.Error(t, err)
 		assert.Nil(t, orgs)

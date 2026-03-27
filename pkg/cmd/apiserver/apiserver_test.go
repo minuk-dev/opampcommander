@@ -28,7 +28,7 @@ func TestCommand(t *testing.T) {
 	t.Parallel()
 	base := testutil.NewBase(t)
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Start MongoDB container
 	mongodbContainer, err := mongodb.Run(ctx, "mongo:4.4")

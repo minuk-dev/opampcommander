@@ -1,7 +1,6 @@
 package mongodb_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ func TestServerAdapter_GetServer(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)
@@ -76,7 +75,7 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)
@@ -117,7 +116,7 @@ func TestServerAdapter_ListServers(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)

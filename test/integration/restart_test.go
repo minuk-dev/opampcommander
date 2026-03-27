@@ -26,7 +26,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 		t.Parallel()
 
 		// Setup
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Create mock usecases
 		agentUsecase := &mockAgentUsecase{
@@ -83,7 +83,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 		t.Parallel()
 
 		// Setup
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Create mock usecases
 		agentUsecase := &mockAgentUsecase{

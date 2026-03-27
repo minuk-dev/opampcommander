@@ -3,6 +3,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
@@ -245,7 +247,9 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 // Failures are logged but do not block the login flow.
 func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
-	if err == nil && existing != nil {
+
+	switch {
+	case err == nil && existing != nil:
 		existing.Metadata.UpdatedAt = time.Now()
 
 		saveErr := c.userUsecase.SaveUser(ctx, existing)
@@ -255,6 +259,13 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 				slog.Any("error", saveErr),
 			)
 		}
+
+		return
+	case err != nil && !errors.Is(err, port.ErrResourceNotExist):
+		c.logger.Warn("failed to check user existence on login",
+			slog.String("email", email),
+			slog.Any("error", err),
+		)
 
 		return
 	}

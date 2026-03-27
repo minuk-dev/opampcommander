@@ -288,7 +288,7 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 	t.Run("Successfully resolves referenced AgentRemoteConfig", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -326,7 +326,7 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 	t.Run("Returns error when referenced config not found", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -356,7 +356,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 	t.Run("Inline config gets AgentGroupName prefix", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -389,7 +389,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 	t.Run("Returns error when spec is nil", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -413,7 +413,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 	t.Run("Returns error when name is nil", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -443,7 +443,7 @@ func TestApplyRemoteConfigs(t *testing.T) {
 	t.Run("Applies ref config to agent without prefix", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -489,7 +489,7 @@ func TestApplyRemoteConfigs(t *testing.T) {
 	t.Run("Applies inline config to agent with AgentGroupName prefix", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -536,7 +536,7 @@ func TestNameCollisionPrevention(t *testing.T) {
 	t.Run("Same config name in different groups produces different keys", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -611,7 +611,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 	t.Run("Full propagation flow with ref config", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)
@@ -672,7 +672,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 	t.Run("Full propagation flow with inline config", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		mockRemoteConfigPort := new(mockRemoteConfigPersistence)

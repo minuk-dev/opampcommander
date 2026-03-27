@@ -103,16 +103,53 @@ func (s *RBACService) GetEffectivePermissions(
 
 // SyncPolicies implements [userport.RBACUsecase].
 func (s *RBACService) SyncPolicies(ctx context.Context) error {
-	// Clear existing policies to prevent duplicate accumulation
-	s.rbacEnforcerPort.ClearPolicy(ctx)
-
-	// Load all roles with their permissions
-	rolesResp, err := s.rolePersistencePort.ListRoles(ctx, nil)
+	// Phase 1: Build all policies in memory before modifying the enforcer
+	policies, groupings, err := s.collectPolicies(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to list roles from persistence: %w", err)
+		return err
 	}
 
-	// Add role-permission policies (named policies with ptype "p")
+	// Phase 2: All data loaded successfully — now clear and apply atomically
+	s.rbacEnforcerPort.ClearPolicy(ctx)
+
+	for _, p := range policies {
+		_, err = s.rbacEnforcerPort.AddNamedPolicy(ctx, "p", p.roleID, p.resource, p.action)
+		if err != nil {
+			return fmt.Errorf("failed to add named policy: %w", err)
+		}
+	}
+
+	for _, g := range groupings {
+		_, err = s.rbacEnforcerPort.AddGroupingPolicy(ctx, g.userID, g.roleID)
+		if err != nil {
+			return fmt.Errorf("failed to add grouping policy: %w", err)
+		}
+	}
+
+	err = s.rbacEnforcerPort.SavePolicy(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to save policies: %w", err)
+	}
+
+	return nil
+}
+
+type namedPolicy struct {
+	roleID, resource, action string
+}
+
+type groupingPolicy struct {
+	userID, roleID string
+}
+
+func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []groupingPolicy, error) {
+	rolesResp, err := s.rolePersistencePort.ListRoles(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list roles from persistence: %w", err)
+	}
+
+	var policies []namedPolicy
+
 	for _, role := range rolesResp.Items {
 		for _, permissionID := range role.Spec.Permissions {
 			permission, err := s.permissionPersistencePort.GetPermissionByName(ctx, permissionID)
@@ -125,34 +162,26 @@ func (s *RBACService) SyncPolicies(ctx context.Context) error {
 				continue
 			}
 
-			_, err = s.rbacEnforcerPort.AddNamedPolicy(ctx, "p",
-				role.Metadata.UID.String(), permission.Spec.Resource, permission.Spec.Action)
-			if err != nil {
-				return fmt.Errorf("failed to add named policy: %w", err)
-			}
+			policies = append(policies, namedPolicy{
+				roleID:   role.Metadata.UID.String(),
+				resource: permission.Spec.Resource,
+				action:   permission.Spec.Action,
+			})
 		}
 	}
 
-	// Load all user-role assignments
 	userRolesResp, err := s.userRolePersistencePort.ListUserRoles(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to list user roles from persistence: %w", err)
+		return nil, nil, fmt.Errorf("failed to list user roles from persistence: %w", err)
 	}
 
-	// Add user-role grouping policies
+	groupings := make([]groupingPolicy, 0, len(userRolesResp.Items))
 	for _, userRole := range userRolesResp.Items {
-		_, err = s.rbacEnforcerPort.AddGroupingPolicy(ctx,
-			userRole.Spec.UserID.String(), userRole.Spec.RoleID.String())
-		if err != nil {
-			return fmt.Errorf("failed to add grouping policy: %w", err)
-		}
+		groupings = append(groupings, groupingPolicy{
+			userID: userRole.Spec.UserID.String(),
+			roleID: userRole.Spec.RoleID.String(),
+		})
 	}
 
-	// Save policies to persistence
-	err = s.rbacEnforcerPort.SavePolicy(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to save policies: %w", err)
-	}
-
-	return nil
+	return policies, groupings, nil
 }

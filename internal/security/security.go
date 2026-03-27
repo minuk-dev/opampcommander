@@ -151,7 +151,7 @@ func (s *Service) BasicAuth(username, password string) (LoginResult, error) {
 	}
 
 	s.logger.Debug("Authenticated user with basic auth", slog.String("username", username))
-	claims := s.newOPAMPClaims(username)
+	claims := s.newOPAMPClaims(s.adminSettings.Email)
 
 	tokenString, err := s.createToken(claims)
 	if err != nil {

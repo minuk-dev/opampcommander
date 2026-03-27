@@ -296,7 +296,7 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 	t.Run("Successfully get agent group", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
@@ -324,7 +324,7 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 	t.Run("Error when agent group not found", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
@@ -351,7 +351,7 @@ func TestAgentGroupService_ListAgentGroups(t *testing.T) {
 	t.Run("Successfully list agent groups", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
@@ -387,7 +387,7 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 	t.Run("Successfully list agents by agent group", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
@@ -440,7 +440,7 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 	t.Run("Returns matching agent groups", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
@@ -504,7 +504,7 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 	t.Run("Returns empty when no groups match", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPersistence := new(MockAgentGroupPersistencePort)
 		mockAgentUsecase := new(MockAgentUsecaseForGroup)
 		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)

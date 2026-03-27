@@ -1,7 +1,6 @@
 package ginutil_test
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +25,7 @@ func TestInvalidQueryParamError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test?limit=invalid", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test?limit=invalid", nil)
 
 	ginutil.InvalidQueryParamError(ctx, "limit", "invalid", "must be a valid integer")
 
@@ -42,7 +41,7 @@ func TestInvalidPathParamError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/agents/invalid-uuid", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/agents/invalid-uuid", nil)
 	ctx.AddParam("id", "invalid-uuid")
 
 	ginutil.InvalidPathParamError(ctx, "id", "invalid-uuid", "invalid UUID format")
@@ -56,7 +55,7 @@ func TestInvalidRequestBodyError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/test", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/test", nil)
 
 	testErr := errInvalidJSONFormat
 	ginutil.InvalidRequestBodyError(ctx, testErr)
@@ -70,7 +69,7 @@ func TestHandleDomainError_ResourceNotExist(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/agents/123", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/agents/123", nil)
 
 	ginutil.HandleDomainError(ctx, port.ErrResourceNotExist, "Agent not found")
 
@@ -83,7 +82,7 @@ func TestHandleDomainError_InternalServerError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/agents", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/agents", nil)
 
 	testErr := errDatabaseConnectionFailed
 	ginutil.HandleDomainError(ctx, testErr, "Failed to retrieve agents")
@@ -97,7 +96,7 @@ func TestInternalServerError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 	testErr := errSomethingWentWrong
 	ginutil.InternalServerError(ctx, testErr, "An unexpected error occurred")
@@ -111,7 +110,7 @@ func TestResourceNotFoundError(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/agents/123", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/agents/123", nil)
 	ctx.AddParam("id", "123")
 
 	ginutil.ResourceNotFoundError(ctx, "agent", "123")
@@ -125,7 +124,7 @@ func TestErrorResponse(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 	errorInfo := &ginutil.ErrorInfo{
 		Type:     ginutil.ErrorTypeInvalidQuery,
@@ -150,7 +149,7 @@ func TestErrorResponseStructure(t *testing.T) {
 		ginutil.InvalidQueryParamError(ctx, "limit", "invalid", "must be a valid integer")
 	})
 
-	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test?limit=invalid", nil)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test?limit=invalid", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -182,7 +181,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 					{Key: "id", Value: "test-id"},
 					{Key: "name", Value: "test-name"},
 				}
-				ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/agents/test-id", nil)
+				ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/agents/test-id", nil)
 
 				return ctx
 			},
@@ -195,7 +194,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
 				ctx.Request = httptest.NewRequestWithContext(
-					context.Background(), http.MethodGet, "/agents?limit=invalid&offset=0", nil)
+					t.Context(), http.MethodGet, "/agents?limit=invalid&offset=0", nil)
 
 				return ctx
 			},
@@ -208,7 +207,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
 				ctx.Request = httptest.NewRequestWithContext(
-					context.Background(), http.MethodGet, "/test?filter=abc&search=abc", nil)
+					t.Context(), http.MethodGet, "/test?filter=abc&search=abc", nil)
 
 				return ctx
 			},
@@ -224,7 +223,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 					{Key: "id", Value: "other-value"},
 				}
 				ctx.Request = httptest.NewRequestWithContext(
-					context.Background(), http.MethodGet, "/agents/other-value?limit=10", nil)
+					t.Context(), http.MethodGet, "/agents/other-value?limit=10", nil)
 
 				return ctx
 			},
@@ -236,7 +235,7 @@ func TestDetermineLocationFromURL(t *testing.T) {
 			setupContext: func() *gin.Context {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
-				ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+				ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 				return ctx
 			},
@@ -314,7 +313,7 @@ func TestGetErrorDetails(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			ctx, _ := gin.CreateTestContext(w)
-			ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+			ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 			errorInfo := &ginutil.ErrorInfo{
 				Type:     tt.errorType,
@@ -340,7 +339,7 @@ func TestErrorResponse_UnknownErrorType(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/test", nil)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 	// Use an undefined error type (should default to unknown error)
 	errorInfo := &ginutil.ErrorInfo{

@@ -30,7 +30,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -148,7 +148,7 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)

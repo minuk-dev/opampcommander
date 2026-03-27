@@ -124,7 +124,7 @@ func TestService_SearchAgents(t *testing.T) {
 		t.Parallel()
 
 		// given
-		ctx := context.Background()
+		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
 		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
@@ -156,7 +156,7 @@ func TestService_SearchAgents(t *testing.T) {
 		t.Parallel()
 
 		// given
-		ctx := context.Background()
+		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
 		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
@@ -177,7 +177,7 @@ func TestService_SearchAgents(t *testing.T) {
 		t.Parallel()
 
 		// given
-		ctx := context.Background()
+		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
 		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())

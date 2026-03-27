@@ -150,7 +150,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Run("Successfully list agents by selector", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
@@ -216,7 +216,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Run("Empty result when no agents match selector", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
@@ -259,7 +259,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Run("Error from persistence layer is propagated", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
@@ -296,7 +296,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Run("List with pagination options", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
@@ -355,7 +355,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Run("Match by non-identifying attributes only", func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
@@ -482,7 +482,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		t.Parallel()
 
 		// given
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockAgentPersistencePort)
 		agentService := agentservice.NewAgentService(mockPort, slog.Default())
 
@@ -513,7 +513,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		t.Parallel()
 
 		// given
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockAgentPersistencePort)
 		agentService := agentservice.NewAgentService(mockPort, slog.Default())
 
@@ -533,7 +533,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		t.Parallel()
 
 		// given
-		ctx := context.Background()
+		ctx := t.Context()
 		mockPort := new(MockAgentPersistencePort)
 		agentService := agentservice.NewAgentService(mockPort, slog.Default())
 
@@ -570,7 +570,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 func TestAgentService_GetAgent_CacheHit(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	instanceUID := uuid.New()
 
 	mockAgent := agentmodel.NewAgent(instanceUID)
@@ -598,7 +598,7 @@ func TestAgentService_GetAgent_CacheHit(t *testing.T) {
 func TestAgentService_GetAgent_DatabaseError(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	instanceUID := uuid.New()
 
 	mockPersistence := new(MockAgentPersistencePort)
@@ -616,7 +616,7 @@ func TestAgentService_GetAgent_DatabaseError(t *testing.T) {
 func TestAgentService_SaveAgent_UpdatesCache(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	instanceUID := uuid.New()
 
 	mockAgent := agentmodel.NewAgent(instanceUID)
@@ -643,7 +643,7 @@ func TestAgentService_SaveAgent_UpdatesCache(t *testing.T) {
 func TestAgentService_InvalidateCache(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	instanceUID := uuid.New()
 
 	mockAgent := agentmodel.NewAgent(instanceUID)
@@ -671,7 +671,7 @@ func TestAgentService_InvalidateCache(t *testing.T) {
 func TestAgentService_Shutdown(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	instanceUID := uuid.New()
 
 	mockAgent := agentmodel.NewAgent(instanceUID)

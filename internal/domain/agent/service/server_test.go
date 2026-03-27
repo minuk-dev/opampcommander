@@ -331,7 +331,7 @@ func (m *MockAgentUsecase) SearchAgents(
 func TestServerService_GetServer_CacheHit(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	serverID := testServerID
 	now := time.Now()
 
@@ -375,7 +375,7 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	serverID := testServerID
 	now := time.Now()
 
@@ -419,7 +419,7 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 func TestServerService_GetServer_DatabaseError(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	serverID := testServerID
 
 	mockPersistence := new(MockServerPersistencePort)
@@ -449,7 +449,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	serverID := testServerID
 	now := time.Now()
 

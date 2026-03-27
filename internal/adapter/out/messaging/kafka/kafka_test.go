@@ -29,7 +29,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
 	// Given: Kafka is running
