@@ -71,7 +71,8 @@ func (s *Service) ListRoles(
 
 // CreateRole implements [applicationport.RoleManageUsecase].
 func (s *Service) CreateRole(ctx context.Context, apiRole *v1.Role) (*v1.Role, error) {
-	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, apiRole.Spec.IsBuiltIn)
+	// User-created roles cannot be marked as built-in
+	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, false)
 	domainRole.Spec.Description = apiRole.Spec.Description
 	domainRole.Spec.Permissions = apiRole.Spec.Permissions
 
@@ -93,6 +94,7 @@ func (s *Service) UpdateRole(ctx context.Context, uid uuid.UUID, apiRole *v1.Rol
 	existing.Spec.DisplayName = apiRole.Spec.DisplayName
 	existing.Spec.Description = apiRole.Spec.Description
 	existing.Spec.Permissions = apiRole.Spec.Permissions
+	// IsBuiltIn is immutable — not updated from the request
 	existing.Metadata.UpdatedAt = time.Now()
 
 	err = s.roleUsecase.SaveRole(ctx, existing)

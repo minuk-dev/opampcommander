@@ -123,15 +123,13 @@ func (c *Enforcer) RemoveGroupingPolicy(_ context.Context, params ...any) (bool,
 }
 
 // GetGroupingPolicy returns all role inheritance (grouping) policy rules.
-func (c *Enforcer) GetGroupingPolicy() [][]string {
+func (c *Enforcer) GetGroupingPolicy() ([][]string, error) {
 	policies, err := c.enforcer.GetGroupingPolicy()
 	if err != nil {
-		c.logger.Error("failed to get grouping policy", slog.Any("error", err))
-
-		return nil
+		return nil, fmt.Errorf("failed to get grouping policy: %w", err)
 	}
 
-	return policies
+	return policies, nil
 }
 
 // AddNamedPolicy adds a named policy rule of the given policy type.
@@ -155,15 +153,16 @@ func (c *Enforcer) RemoveNamedPolicy(_ context.Context, ptype string, params ...
 }
 
 // GetNamedPolicy returns all policy rules of the given policy type.
-func (c *Enforcer) GetNamedPolicy(ptype string) [][]string {
+func (c *Enforcer) GetNamedPolicy(ptype string) ([][]string, error) {
 	policies, err := c.enforcer.GetNamedPolicy(ptype)
 	if err != nil {
-		c.logger.Error("failed to get named policy",
-			slog.String("ptype", ptype), slog.Any("error", err),
-		)
-
-		return nil
+		return nil, fmt.Errorf("failed to get named policy: %w", err)
 	}
 
-	return policies
+	return policies, nil
+}
+
+// ClearPolicy removes all policies from the enforcer.
+func (c *Enforcer) ClearPolicy(_ context.Context) {
+	c.enforcer.ClearPolicy()
 }

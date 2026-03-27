@@ -840,7 +840,8 @@ definitions:
         description: IsBuiltIn indicates whether the role is a built-in role.
         type: boolean
       permissions:
-        description: Permissions contains the permission IDs assigned to the role.
+        description: Permissions contains the permission names assigned to the role
+          (e.g., "agent:read").
         items:
           type: string
         type: array

@@ -103,6 +103,9 @@ func (s *RBACService) GetEffectivePermissions(
 
 // SyncPolicies implements [userport.RBACUsecase].
 func (s *RBACService) SyncPolicies(ctx context.Context) error {
+	// Clear existing policies to prevent duplicate accumulation
+	s.rbacEnforcerPort.ClearPolicy(ctx)
+
 	// Load all roles with their permissions
 	rolesResp, err := s.rolePersistencePort.ListRoles(ctx, nil)
 	if err != nil {

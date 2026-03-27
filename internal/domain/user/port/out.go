@@ -86,13 +86,15 @@ type RBACEnforcerPort interface {
 	// RemoveGroupingPolicy removes a grouping (role) policy from the enforcer.
 	RemoveGroupingPolicy(ctx context.Context, params ...any) (bool, error)
 	// GetGroupingPolicy gets all grouping policies.
-	GetGroupingPolicy() [][]string
+	GetGroupingPolicy() ([][]string, error)
 	// AddNamedPolicy adds a named policy to the enforcer.
 	AddNamedPolicy(ctx context.Context, ptype string, params ...any) (bool, error)
 	// RemoveNamedPolicy removes a named policy from the enforcer.
 	RemoveNamedPolicy(ctx context.Context, ptype string, params ...any) (bool, error)
 	// GetNamedPolicy gets all named policies.
-	GetNamedPolicy(ptype string) [][]string
+	GetNamedPolicy(ptype string) ([][]string, error)
+	// ClearPolicy removes all policies from the enforcer.
+	ClearPolicy(ctx context.Context)
 }
 
 // OrgRoleMappingPersistencePort is an interface for org-role mapping persistence.

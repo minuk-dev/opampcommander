@@ -87,7 +87,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	req := &v1.AssignRoleRequest{
 		UserID:     opt.userID,
 		RoleID:     opt.roleID,
-		AssignedBy: "opampctl",
+		AssignedBy: "", // Server-side: overridden with authenticated user's identity
 	}
 
 	err := opt.client.RBACService.AssignRole(cmd.Context(), req)

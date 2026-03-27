@@ -87,7 +87,7 @@ type RoleSpec struct {
 	DisplayName string `json:"displayName"`
 	// Description is the description of the role.
 	Description string `json:"description"`
-	// Permissions contains the permission IDs assigned to the role.
+	// Permissions contains the permission names assigned to the role (e.g., "agent:read").
 	Permissions []string `json:"permissions,omitempty"`
 	// IsBuiltIn indicates whether the role is a built-in role.
 	IsBuiltIn bool `json:"isBuiltIn"`

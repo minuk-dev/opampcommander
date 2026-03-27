@@ -28,7 +28,7 @@ type RoleMetadata struct {
 type RoleSpec struct {
 	DisplayName string
 	Description string
-	Permissions []string // Permission IDs
+	Permissions []string // Permission names (e.g., "agent:read")
 	IsBuiltIn   bool
 }
 

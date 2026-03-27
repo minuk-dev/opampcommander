@@ -3335,7 +3335,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "permissions": {
-                    "description": "Permissions contains the permission IDs assigned to the role.",
+                    "description": "Permissions contains the permission names assigned to the role (e.g., \"agent:read\").",
                     "type": "array",
                     "items": {
                         "type": "string"

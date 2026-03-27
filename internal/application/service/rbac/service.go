@@ -24,6 +24,7 @@ type Service struct {
 	rbacUsecase       userport.RBACUsecase
 	roleUsecase       userport.RoleUsecase
 	permissionUsecase userport.PermissionUsecase
+	userUsecase       userport.UserUsecase
 	mapper            *helper.Mapper
 	logger            *slog.Logger
 }
@@ -34,6 +35,7 @@ func New(
 	rbacUsecase userport.RBACUsecase,
 	roleUsecase userport.RoleUsecase,
 	permissionUsecase userport.PermissionUsecase,
+	userUsecase userport.UserUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -41,6 +43,7 @@ func New(
 		rbacUsecase:       rbacUsecase,
 		roleUsecase:       roleUsecase,
 		permissionUsecase: permissionUsecase,
+		userUsecase:       userUsecase,
 		mapper:            helper.NewMapper(),
 		logger:            logger,
 	}
@@ -58,12 +61,13 @@ func (s *Service) AssignRole(ctx context.Context, req *v1.AssignRoleRequest) err
 		return fmt.Errorf("failed to parse role ID: %w", err)
 	}
 
-	assignedBy, err := uuid.Parse(req.AssignedBy)
+	// AssignedBy is now an email from the security context; resolve to user UID
+	assigner, err := s.userUsecase.GetUserByEmail(ctx, req.AssignedBy)
 	if err != nil {
-		return fmt.Errorf("failed to parse assigned by ID: %w", err)
+		return fmt.Errorf("failed to resolve assigner identity: %w", err)
 	}
 
-	err = s.userRoleUsecase.AssignRole(ctx, userID, roleID, assignedBy)
+	err = s.userRoleUsecase.AssignRole(ctx, userID, roleID, assigner.Metadata.UID)
 	if err != nil {
 		return fmt.Errorf("failed to assign role: %w", err)
 	}

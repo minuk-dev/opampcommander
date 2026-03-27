@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
@@ -102,6 +103,16 @@ func (c *Controller) AssignRole(ctx *gin.Context) {
 
 		return
 	}
+
+	// Override AssignedBy with the authenticated user's identity
+	secUser, err := security.GetUser(ctx)
+	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+
+		return
+	}
+
+	req.AssignedBy = *secUser.Email
 
 	err = c.rbacUsecase.AssignRole(ctx.Request.Context(), &req)
 	if err != nil {
