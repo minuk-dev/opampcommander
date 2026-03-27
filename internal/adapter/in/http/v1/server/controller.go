@@ -24,9 +24,12 @@ type Controller struct {
 }
 
 // NewController creates a new instance of the Controller struct.
-func NewController(serverUsecase agentport.ServerUsecase) *Controller {
+func NewController(
+	logger *slog.Logger,
+	serverUsecase agentport.ServerUsecase,
+) *Controller {
 	return &Controller{
-		logger:        slog.Default(),
+		logger:        logger,
 		serverUsecase: serverUsecase,
 	}
 }

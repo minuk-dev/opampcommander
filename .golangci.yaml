@@ -94,6 +94,7 @@ linters:
             - github.com/google/go-github/v72/github
             # RBAC
             - github.com/casbin/casbin/v2
+            - github.com/casbin/mongodb-adapter/v4
             # documentation
             - github.com/swaggo/files
             - github.com/swaggo/gin-swagger

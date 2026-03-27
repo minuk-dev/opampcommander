@@ -24,6 +24,8 @@ github.com/casbin/casbin/v2 v2.135.0 h1:6BLkMQiGotYyS5yYeWgW19vxqugUlvHFkFiLnLR/
 github.com/casbin/casbin/v2 v2.135.0/go.mod h1:FmcfntdXLTcYXv/hxgNntcRPqAbwOG9xsism0yXT+18=
 github.com/casbin/govaluate v1.3.0 h1:VA0eSY0M2lA86dYd5kPPuNZMUD9QkWnOCnavGrw9myc=
 github.com/casbin/govaluate v1.3.0/go.mod h1:G/UnbIjZk/0uMNaLwZZmFQrR72tYRZWQkO70si/iR7A=
+github.com/casbin/mongodb-adapter/v4 v4.3.0 h1:yYXky9v1by6vj/0QK7OyHyd/xpz4vzh0lCi7JKrS4qQ=
+github.com/casbin/mongodb-adapter/v4 v4.3.0/go.mod h1:bOTSYZUjX7I9E0ExEvgq46m3mcDNRII7g8iWjrM1BHE=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cenkalti/backoff/v5 v5.0.3 h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=

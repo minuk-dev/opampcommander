@@ -2,6 +2,7 @@ package connection_test
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,7 +34,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		ctrlBase := testutil.NewBase(t).ForController()
 		adminUsecase := newMockAdminUsecase(t)
-		controller := connection.NewController(adminUsecase)
+		controller := connection.NewController(slog.Default(), adminUsecase)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
@@ -91,7 +92,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		ctrlBase := testutil.NewBase(t).ForController()
 		adminUsecase := newMockAdminUsecase(t)
-		controller := connection.NewController(adminUsecase)
+		controller := connection.NewController(slog.Default(), adminUsecase)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
@@ -114,7 +115,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		ctrlBase := testutil.NewBase(t).ForController()
 		adminUsecase := newMockAdminUsecase(t)
-		controller := connection.NewController(adminUsecase)
+		controller := connection.NewController(slog.Default(), adminUsecase)
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 

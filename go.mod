@@ -54,6 +54,7 @@ require (
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/casbin/casbin/v2 v2.135.0 // indirect
 	github.com/casbin/govaluate v1.3.0 // indirect
+	github.com/casbin/mongodb-adapter/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

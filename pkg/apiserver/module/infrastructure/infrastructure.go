@@ -4,9 +4,12 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 
 	casbinModel "github.com/casbin/casbin/v2/model"
+	mongodbadapter "github.com/casbin/mongodb-adapter/v4"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/basic"
@@ -129,19 +132,49 @@ func provideRBACComponents() fx.Option {
 	)
 }
 
-func provideCasbinEnforcer(settings *config.ServerSettings) (*casbinEnforcer.Enforcer, error) {
-	modelPath := settings.RBACModelPath
-	if modelPath == "" {
-		modelPath = "configs/rbac_model.conf"
+func provideCasbinEnforcer(
+	logger *slog.Logger,
+	settings *config.ServerSettings,
+	mongoClient *mongo.Client,
+) (*casbinEnforcer.Enforcer, error) {
+	rbacModel := defaultRBACModel()
+
+	databaseName := settings.DatabaseSettings.DatabaseName
+	if databaseName == "" {
+		databaseName = "opampcommander"
 	}
 
-	enforcer, err := casbinEnforcer.NewEnforcer(modelPath)
+	adapter, err := mongodbadapter.NewAdapterByDB(
+		mongoClient, &mongodbadapter.AdapterConfig{
+			DatabaseName:   databaseName,
+			CollectionName: "casbin_rules",
+			Timeout:        0,
+			IsFiltered:     false,
+		},
+	)
 	if err != nil {
-		// Fall back to embedded default model when file not found.
-		enforcer, err = casbinEnforcer.NewEnforcerFromModel(defaultRBACModel())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
+		logger.Warn("failed to create MongoDB adapter for Casbin, "+
+			"falling back to in-memory",
+			slog.Any("error", err),
+		)
+
+		fallback, fallbackErr := casbinEnforcer.NewEnforcerFromModel(
+			logger, rbacModel,
+		)
+		if fallbackErr != nil {
+			return nil, fmt.Errorf(
+				"failed to create fallback casbin enforcer: %w", fallbackErr,
+			)
 		}
+
+		return fallback, nil
+	}
+
+	enforcer, err := casbinEnforcer.NewEnforcerWithAdapter(
+		logger, rbacModel, adapter,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
 	}
 
 	return enforcer, nil

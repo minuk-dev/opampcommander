@@ -26,9 +26,12 @@ type Controller struct {
 }
 
 // NewController creates a new instance of the Controller struct.
-func NewController(adminUsecase applicationport.AdminUsecase) *Controller {
+func NewController(
+	logger *slog.Logger,
+	adminUsecase applicationport.AdminUsecase,
+) *Controller {
 	controller := &Controller{
-		logger:       slog.Default(),
+		logger:       logger,
 		clock:        clock.NewRealClock(),
 		adminUsecase: adminUsecase,
 	}

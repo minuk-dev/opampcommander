@@ -20,44 +20,49 @@ var _ userport.RBACEnforcerPort = (*Enforcer)(nil)
 // Enforcer wraps a Casbin enforcer to implement RBACEnforcerPort.
 type Enforcer struct {
 	enforcer *casbin.Enforcer
+	logger   *slog.Logger
 }
 
 // NewEnforcer creates a new Enforcer using a model config file.
 // Policies are stored in-memory only.
-func NewEnforcer(modelPath string) (*Enforcer, error) {
-	e, err := casbin.NewEnforcer(modelPath)
+func NewEnforcer(logger *slog.Logger, modelPath string) (*Enforcer, error) {
+	casbinEnforcer, err := casbin.NewEnforcer(modelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
 	}
 
-	return &Enforcer{enforcer: e}, nil
+	return &Enforcer{enforcer: casbinEnforcer, logger: logger}, nil
 }
 
 // NewEnforcerFromModel creates a new Enforcer using a pre-loaded model.
 // Policies are stored in-memory only.
-func NewEnforcerFromModel(m model.Model) (*Enforcer, error) {
-	e, err := casbin.NewEnforcer(m)
+func NewEnforcerFromModel(
+	logger *slog.Logger,
+	casbinModel model.Model,
+) (*Enforcer, error) {
+	casbinEnforcer, err := casbin.NewEnforcer(casbinModel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
 	}
 
-	return &Enforcer{enforcer: e}, nil
+	return &Enforcer{enforcer: casbinEnforcer, logger: logger}, nil
 }
 
 // NewEnforcerWithAdapter creates a new Enforcer with a custom
 // policy adapter (e.g., MongoDB) for persistent policy storage.
-func NewEnforcerWithAdapter(modelPath string, adapter persist.Adapter) (*Enforcer, error) {
-	m, err := model.NewModelFromFile(modelPath)
+func NewEnforcerWithAdapter(
+	logger *slog.Logger,
+	casbinModel model.Model,
+	adapter persist.Adapter,
+) (*Enforcer, error) {
+	casbinEnforcer, err := casbin.NewEnforcer(casbinModel, adapter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load casbin model: %w", err)
+		return nil, fmt.Errorf(
+			"failed to create casbin enforcer with adapter: %w", err,
+		)
 	}
 
-	e, err := casbin.NewEnforcer(m, adapter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create casbin enforcer with adapter: %w", err)
-	}
-
-	return &Enforcer{enforcer: e}, nil
+	return &Enforcer{enforcer: casbinEnforcer, logger: logger}, nil
 }
 
 // CheckPermission checks whether a user has the given permission on a resource.
@@ -67,7 +72,7 @@ func (c *Enforcer) CheckPermission(_ context.Context, userID uuid.UUID, resource
 		return false, fmt.Errorf("failed to check permission: %w", err)
 	}
 
-	slog.Debug("permission check",
+	c.logger.Debug("permission check",
 		slog.String("user_id", userID.String()),
 		slog.String("resource", resource),
 		slog.String("action", action),
@@ -121,7 +126,7 @@ func (c *Enforcer) RemoveGroupingPolicy(_ context.Context, params ...any) (bool,
 func (c *Enforcer) GetGroupingPolicy() [][]string {
 	policies, err := c.enforcer.GetGroupingPolicy()
 	if err != nil {
-		slog.Error("failed to get grouping policy", slog.Any("error", err))
+		c.logger.Error("failed to get grouping policy", slog.Any("error", err))
 
 		return nil
 	}
@@ -153,7 +158,9 @@ func (c *Enforcer) RemoveNamedPolicy(_ context.Context, ptype string, params ...
 func (c *Enforcer) GetNamedPolicy(ptype string) [][]string {
 	policies, err := c.enforcer.GetNamedPolicy(ptype)
 	if err != nil {
-		slog.Error("failed to get named policy", slog.String("ptype", ptype), slog.Any("error", err))
+		c.logger.Error("failed to get named policy",
+			slog.String("ptype", ptype), slog.Any("error", err),
+		)
 
 		return nil
 	}
