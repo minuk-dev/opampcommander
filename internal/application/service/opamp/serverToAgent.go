@@ -137,7 +137,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *agentmodel
 		ConnectionSettings:  connectionSettings,
 		PackagesAvailable:   packagesAvailable,
 		Flags:               flags,
-		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
+		Capabilities:        uint64(capabilities), // safe: int32 to uint64
 		AgentIdentification: agentIdentification,
 		Command:             command,
 		CustomCapabilities:  nil,
