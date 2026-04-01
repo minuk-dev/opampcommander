@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/mail"
+	"regexp"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -19,6 +19,9 @@ import (
 )
 
 var _ userport.UserPersistencePort = (*UserMongoAdapter)(nil)
+
+// emailRegex validates and extracts a safe email string to prevent query injection.
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 const (
 	userCollectionName = "users"
@@ -69,22 +72,19 @@ func (a *UserMongoAdapter) GetUser(
 func (a *UserMongoAdapter) GetUserByEmail(
 	ctx context.Context, email string,
 ) (*usermodel.User, error) {
-	addr, err := mail.ParseAddress(email)
-	if err != nil {
-		return nil, fmt.Errorf("invalid email address %q: %w", email, err)
+	sanitized := emailRegex.FindString(email)
+	if sanitized == "" {
+		return nil, fmt.Errorf("invalid email address %q: %w", email, port.ErrResourceNotExist)
 	}
 
-	// Use the parsed address to break taint flow for CodeQL
-	sanitizedEmail := addr.Address
-
 	filter := bson.M{
-		"spec.email":         sanitizedEmail,
+		"spec.email":         sanitized,
 		"metadata.deletedAt": nil,
 	}
 
 	result := a.common.collection.FindOne(ctx, filter)
 
-	err = result.Err()
+	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, port.ErrResourceNotExist
