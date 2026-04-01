@@ -2248,7 +2248,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attributes": {
-                    "$ref": "#/definitions/api_v1.Attributes"
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
                 },
                 "createdAt": {
                     "type": "string"
@@ -2265,13 +2265,13 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "agentConfig": {
-                    "$ref": "#/definitions/api_v1.AgentConfig"
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentConfig"
                 },
                 "priority": {
                     "type": "integer"
                 },
                 "selector": {
-                    "$ref": "#/definitions/api_v1.AgentSelector"
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentSelector"
                 }
             }
         },
@@ -3590,72 +3590,6 @@ const docTemplate = `{
                 "platform": {
                     "type": "string"
                 }
-            }
-        },
-        "api_v1.AgentConfig": {
-            "type": "object",
-            "properties": {
-                "agentRemoteConfig": {
-                    "$ref": "#/definitions/api_v1.AgentGroupRemoteConfig"
-                },
-                "connectionSettings": {
-                    "$ref": "#/definitions/ConnectionSettings"
-                }
-            }
-        },
-        "api_v1.AgentGroupRemoteConfig": {
-            "type": "object",
-            "properties": {
-                "agentRemoteConfigName": {
-                    "description": "AgentRemoteConfigName is the name of a standalone remote configuration resource.",
-                    "type": "string"
-                },
-                "agentRemoteConfigRef": {
-                    "description": "AgentRemoteConfigRef is a reference to a standalone remote configuration resource.",
-                    "type": "string"
-                },
-                "agentRemoteConfigSpec": {
-                    "description": "AgentRemoteConfigSpec is the remote configuration to be applied to agents in this group.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/api_v1.AgentRemoteConfigSpec"
-                        }
-                    ]
-                }
-            }
-        },
-        "api_v1.AgentRemoteConfigSpec": {
-            "type": "object",
-            "properties": {
-                "contentType": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "api_v1.AgentSelector": {
-            "type": "object",
-            "properties": {
-                "identifyingAttributes": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "nonIdentifyingAttributes": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "api_v1.Attributes": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
             }
         },
         "github_com_minuk-dev_opampcommander_api_v1.AgentConfig": {
