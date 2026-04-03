@@ -25,6 +25,9 @@ type Client struct {
 	CertificateService       *CertificateService
 	ConnectionService        *ConnectionService
 	AuthService              *AuthService
+	UserService              *UserService
+	RoleService              *RoleService
+	RBACService              *RBACService
 }
 
 type service struct {
@@ -48,6 +51,9 @@ func New(endpoint string, opt ...Option) *Client {
 		CertificateService:       nil,
 		ConnectionService:        nil,
 		AuthService:              nil,
+		UserService:              nil,
+		RoleService:              nil,
+		RBACService:              nil,
 	}
 
 	for _, o := range opt {
@@ -61,6 +67,9 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AgentPackageService = NewAgentPackageService(&service)
 	client.AgentRemoteConfigService = NewAgentRemoteConfigService(&service)
 	client.CertificateService = NewCertificateService(&service)
+	client.UserService = NewUserService(&service)
+	client.RoleService = NewRoleService(&service)
+	client.RBACService = NewRBACService(&service)
 
 	return client
 }

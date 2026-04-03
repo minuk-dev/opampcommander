@@ -7,8 +7,8 @@ import (
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
 )
 
 const (
@@ -216,8 +216,8 @@ type ComponentDetails struct {
 }
 
 // ToDomain converts the Agent to domain model.
-func (a *Agent) ToDomain() *domainmodel.Agent {
-	return &domainmodel.Agent{
+func (a *Agent) ToDomain() *agentmodel.Agent {
+	return &agentmodel.Agent{
 		Metadata: a.Metadata.ToDmain(),
 		Spec:     a.Spec.ToDomain(),
 		Status:   a.Status.ToDomain(),
@@ -225,8 +225,8 @@ func (a *Agent) ToDomain() *domainmodel.Agent {
 }
 
 // ToDmain converts the AgentMetadata to domain model.
-func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
-	return domainmodel.AgentMetadata{
+func (metadata *AgentMetadata) ToDmain() agentmodel.AgentMetadata {
+	return agentmodel.AgentMetadata{
 		InstanceUID: uuid.UUID(metadata.InstanceUID.Data),
 		Description: switchIfNil(
 			metadata.Description.ToDomain(),
@@ -240,13 +240,13 @@ func (metadata *AgentMetadata) ToDmain() domainmodel.AgentMetadata {
 		CustomCapabilities: switchIfNil(
 			metadata.CustomCapabilities.ToDomain(),
 			//exhaustruct:ignore
-			domainmodel.AgentCustomCapabilities{},
+			agentmodel.AgentCustomCapabilities{},
 		),
 	}
 }
 
 // ToDomain converts the AgentSpec to domain model.
-func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
+func (spec *AgentSpec) ToDomain() agentmodel.AgentSpec {
 	var uid uuid.UUID
 
 	const uuidSize = 16
@@ -256,9 +256,9 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 	}
 
 	//exhaustruct:ignore
-	agentSpec := domainmodel.AgentSpec{}
+	agentSpec := agentmodel.AgentSpec{}
 	agentSpec.NewInstanceUID = uid
-	agentSpec.RestartInfo = &domainmodel.AgentRestartInfo{
+	agentSpec.RestartInfo = &agentmodel.AgentRestartInfo{
 		RequiredRestartedAt: time.Time{},
 	}
 	agentSpec.ConnectionInfo = nil
@@ -268,45 +268,45 @@ func (spec *AgentSpec) ToDomain() domainmodel.AgentSpec {
 }
 
 // ToDomain converts the AgentStatus to domain model.
-func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
-	conditions := make([]domainmodel.AgentCondition, len(status.Conditions))
+func (status *AgentStatus) ToDomain() agentmodel.AgentStatus {
+	conditions := make([]agentmodel.AgentCondition, len(status.Conditions))
 	for i, condition := range status.Conditions {
-		conditions[i] = domainmodel.AgentCondition{
-			Type:               domainmodel.AgentConditionType(condition.Type),
+		conditions[i] = agentmodel.AgentCondition{
+			Type:               agentmodel.AgentConditionType(condition.Type),
 			LastTransitionTime: condition.LastTransitionTime.Time(),
-			Status:             domainmodel.AgentConditionStatus(condition.Status),
+			Status:             agentmodel.AgentConditionStatus(condition.Status),
 			Reason:             condition.Reason,
 			Message:            condition.Message,
 		}
 	}
 
 	//exhaustruct:ignore
-	return domainmodel.AgentStatus{
+	return agentmodel.AgentStatus{
 		EffectiveConfig: switchIfNil(
 			status.EffectiveConfig.ToDomain(),
 			//exhaustruct:ignore
-			domainmodel.AgentEffectiveConfig{},
+			agentmodel.AgentEffectiveConfig{},
 		),
 		PackageStatuses: switchIfNil(
 			status.PackageStatuses.ToDomain(),
 			//exhaustruct:ignore
-			domainmodel.AgentPackageStatuses{},
+			agentmodel.AgentPackageStatuses{},
 		),
 		ComponentHealth: switchIfNil(
 			status.ComponentHealth.ToDomain(),
 			//exhaustruct:ignore
-			domainmodel.AgentComponentHealth{},
+			agentmodel.AgentComponentHealth{},
 		),
 		AvailableComponents: switchIfNil(
 			status.AvailableComponents.ToDomain(),
 			//exhaustruct:ignore
-			domainmodel.AgentAvailableComponents{},
+			agentmodel.AgentAvailableComponents{},
 		),
-		RemoteConfigStatus: func() domainmodel.AgentRemoteConfigStatus {
+		RemoteConfigStatus: func() agentmodel.AgentRemoteConfigStatus {
 			if status.RemoteConfigStatus == nil {
-				return domainmodel.AgentRemoteConfigStatus{
+				return agentmodel.AgentRemoteConfigStatus{
 					LastRemoteConfigHash: nil,
-					Status:               domainmodel.RemoteConfigStatusUnset,
+					Status:               agentmodel.RemoteConfigStatusUnset,
 					ErrorMessage:         "",
 					LastUpdatedAt:        time.Time{},
 				}
@@ -314,14 +314,14 @@ func (status *AgentStatus) ToDomain() domainmodel.AgentStatus {
 
 			return status.RemoteConfigStatus.ToDomain()
 		}(),
-		ConnectionSettingsStatus: domainmodel.AgentConnectionSettingsStatus{
+		ConnectionSettingsStatus: agentmodel.AgentConnectionSettingsStatus{
 			LastConnectionSettingsHash: nil,
-			Status:                     domainmodel.ConnectionSettingsStatusUnset,
+			Status:                     agentmodel.ConnectionSettingsStatusUnset,
 			ErrorMessage:               "",
 		},
 		Conditions:     conditions,
 		Connected:      status.Connected,
-		ConnectionType: domainmodel.ConnectionTypeFromString(status.ConnectionType),
+		ConnectionType: agentmodel.ConnectionTypeFromString(status.ConnectionType),
 		SequenceNum:    status.SequenceNum,
 		LastReportedAt: status.LastCommunicatedAt.Time(),
 		LastReportedTo: status.LastCommunicatedTo,
@@ -350,15 +350,15 @@ func (ad *AgentDescription) ToDomain() *agent.Description {
 }
 
 // ToDomain converts the AgentEffectiveConfig to domain model.
-func (ae *AgentEffectiveConfig) ToDomain() *domainmodel.AgentEffectiveConfig {
+func (ae *AgentEffectiveConfig) ToDomain() *agentmodel.AgentEffectiveConfig {
 	if ae == nil {
 		return nil
 	}
 
-	return &domainmodel.AgentEffectiveConfig{
-		ConfigMap: domainmodel.AgentConfigMap{
-			ConfigMap: lo.MapValues(ae.ConfigMap.ConfigMap, func(acf AgentConfigFile, _ string) domainmodel.AgentConfigFile {
-				return domainmodel.AgentConfigFile{
+	return &agentmodel.AgentEffectiveConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
+			ConfigMap: lo.MapValues(ae.ConfigMap.ConfigMap, func(acf AgentConfigFile, _ string) agentmodel.AgentConfigFile {
+				return agentmodel.AgentConfigFile{
 					Body:        acf.Body.Data,
 					ContentType: acf.ContentType,
 				}
@@ -368,19 +368,19 @@ func (ae *AgentEffectiveConfig) ToDomain() *domainmodel.AgentEffectiveConfig {
 }
 
 // ToDomain converts the AgentPackageStatuses to domain model.
-func (ap *AgentPackageStatuses) ToDomain() *domainmodel.AgentPackageStatuses {
+func (ap *AgentPackageStatuses) ToDomain() *agentmodel.AgentPackageStatuses {
 	if ap == nil {
 		return nil
 	}
 
-	return &domainmodel.AgentPackageStatuses{
-		Packages: lo.MapValues(ap.Packages, func(aps AgentPackageStatus, _ string) domainmodel.AgentPackageStatusEntry {
-			return domainmodel.AgentPackageStatusEntry{
+	return &agentmodel.AgentPackageStatuses{
+		Packages: lo.MapValues(ap.Packages, func(aps AgentPackageStatus, _ string) agentmodel.AgentPackageStatusEntry {
+			return agentmodel.AgentPackageStatusEntry{
 				Name:                 aps.Name,
 				AgentHasVersion:      aps.AgentHasVersion,
 				AgentHasHash:         aps.AgentHasHash.Data,
 				ServerOfferedVersion: aps.ServerOfferedVersion,
-				Status:               domainmodel.AgentPackageStatusEnum(aps.Status),
+				Status:               agentmodel.AgentPackageStatusEnum(aps.Status),
 				ErrorMessage:         aps.ErrorMessage,
 			}
 		}),
@@ -390,92 +390,92 @@ func (ap *AgentPackageStatuses) ToDomain() *domainmodel.AgentPackageStatuses {
 }
 
 // ToDomain converts the AgentComponentHealth to domain model.
-func (ach *AgentComponentHealth) ToDomain() *domainmodel.AgentComponentHealth {
+func (ach *AgentComponentHealth) ToDomain() *agentmodel.AgentComponentHealth {
 	if ach == nil {
 		return nil
 	}
 
-	return &domainmodel.AgentComponentHealth{
+	return &agentmodel.AgentComponentHealth{
 		Healthy:    ach.Healthy,
 		StartTime:  time.UnixMilli(ach.StartTimeUnixMilli),
 		LastError:  ach.LastError,
 		Status:     ach.Status,
 		StatusTime: time.UnixMilli(ach.StatusTimeUnixMilli),
 		ComponentHealthMap: lo.MapValues(ach.ComponentHealthMap,
-			func(ach AgentComponentHealth, _ string) domainmodel.AgentComponentHealth {
+			func(ach AgentComponentHealth, _ string) agentmodel.AgentComponentHealth {
 				return *ach.ToDomain()
 			}),
 	}
 }
 
 // ToDomain converts the AgentSpecRemoteConfig to domain model.
-func (asrc *AgentSpecRemoteConfig) ToDomain() domainmodel.AgentSpecRemoteConfig {
+func (asrc *AgentSpecRemoteConfig) ToDomain() agentmodel.AgentSpecRemoteConfig {
 	if asrc == nil || len(asrc.RemoteConfig) == 0 {
-		return domainmodel.AgentSpecRemoteConfig{
-			ConfigMap: domainmodel.AgentConfigMap{
+		return agentmodel.AgentSpecRemoteConfig{
+			ConfigMap: agentmodel.AgentConfigMap{
 				ConfigMap: nil,
 			},
 		}
 	}
 
 	// Convert RemoteConfig names to ConfigMap with empty placeholders
-	configMap := make(map[string]domainmodel.AgentConfigFile)
+	configMap := make(map[string]agentmodel.AgentConfigFile)
 	for _, name := range asrc.RemoteConfig {
-		configMap[name] = domainmodel.AgentConfigFile{
+		configMap[name] = agentmodel.AgentConfigFile{
 			Body:        nil,
 			ContentType: "",
 		}
 	}
 
-	return domainmodel.AgentSpecRemoteConfig{
-		ConfigMap: domainmodel.AgentConfigMap{
+	return agentmodel.AgentSpecRemoteConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
 			ConfigMap: configMap,
 		},
 	}
 }
 
 // ToDomainPtr converts the AgentSpecRemoteConfig to domain model pointer.
-func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *domainmodel.AgentSpecRemoteConfig {
+func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *agentmodel.AgentSpecRemoteConfig {
 	if asrc == nil || len(asrc.RemoteConfig) == 0 {
 		return nil
 	}
 
 	// Convert RemoteConfig names to ConfigMap with empty placeholders
-	configMap := make(map[string]domainmodel.AgentConfigFile)
+	configMap := make(map[string]agentmodel.AgentConfigFile)
 	for _, name := range asrc.RemoteConfig {
-		configMap[name] = domainmodel.AgentConfigFile{
+		configMap[name] = agentmodel.AgentConfigFile{
 			Body:        nil,
 			ContentType: "",
 		}
 	}
 
-	return &domainmodel.AgentSpecRemoteConfig{
-		ConfigMap: domainmodel.AgentConfigMap{
+	return &agentmodel.AgentSpecRemoteConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
 			ConfigMap: configMap,
 		},
 	}
 }
 
 // ToDomain converts the AgentCustomCapabilities to domain model.
-func (acc *AgentCustomCapabilities) ToDomain() *domainmodel.AgentCustomCapabilities {
+func (acc *AgentCustomCapabilities) ToDomain() *agentmodel.AgentCustomCapabilities {
 	if acc == nil {
 		return nil
 	}
 
-	return &domainmodel.AgentCustomCapabilities{
+	return &agentmodel.AgentCustomCapabilities{
 		Capabilities: acc.Capabilities,
 	}
 }
 
 // ToDomain converts the AgentAvailableComponents to domain model.
-func (avv *AgentAvailableComponents) ToDomain() *domainmodel.AgentAvailableComponents {
+func (avv *AgentAvailableComponents) ToDomain() *agentmodel.AgentAvailableComponents {
 	if avv == nil {
 		return nil
 	}
 
-	return &domainmodel.AgentAvailableComponents{
+	return &agentmodel.AgentAvailableComponents{
 		Components: lo.MapValues(avv.Components,
-			func(component ComponentDetails, _ string) domainmodel.ComponentDetails {
+			func(component ComponentDetails, _ string) agentmodel.ComponentDetails {
 				return *component.ToDomain()
 			}),
 		Hash: avv.Hash.Data,
@@ -483,22 +483,22 @@ func (avv *AgentAvailableComponents) ToDomain() *domainmodel.AgentAvailableCompo
 }
 
 // ToDomain converts the ComponentDetails to domain model.
-func (cd *ComponentDetails) ToDomain() *domainmodel.ComponentDetails {
+func (cd *ComponentDetails) ToDomain() *agentmodel.ComponentDetails {
 	if cd == nil {
 		return nil
 	}
 
-	return &domainmodel.ComponentDetails{
+	return &agentmodel.ComponentDetails{
 		Metadata: cd.Metadata,
 		SubComponentMap: lo.MapValues(cd.SubComponentMap,
-			func(subComp ComponentDetails, _ string) domainmodel.ComponentDetails {
+			func(subComp ComponentDetails, _ string) agentmodel.ComponentDetails {
 				return *subComp.ToDomain()
 			}),
 	}
 }
 
 // AgentFromDomain converts domain model to persistence model.
-func AgentFromDomain(agent *domainmodel.Agent) *Agent {
+func AgentFromDomain(agent *agentmodel.Agent) *Agent {
 	var newInstanceUID *bson.Binary
 	if agent.Spec.NewInstanceUID != uuid.Nil {
 		newInstanceUID = &bson.Binary{
@@ -543,7 +543,7 @@ func AgentFromDomain(agent *domainmodel.Agent) *Agent {
 	}
 }
 
-func agentRestartInfoToBsonDateTime(restartInfo *domainmodel.AgentRestartInfo) bson.DateTime {
+func agentRestartInfoToBsonDateTime(restartInfo *agentmodel.AgentRestartInfo) bson.DateTime {
 	if restartInfo == nil {
 		return bson.NewDateTimeFromTime(time.Time{})
 	}
@@ -573,7 +573,7 @@ func AgentDescriptionFromDomain(ads *agent.Description) *AgentDescription {
 }
 
 // AgentEffectiveConfigFromDomain converts domain model to persistence model.
-func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *AgentEffectiveConfig {
+func AgentEffectiveConfigFromDomain(aec *agentmodel.AgentEffectiveConfig) *AgentEffectiveConfig {
 	if aec == nil {
 		return nil
 	}
@@ -581,7 +581,7 @@ func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *Agen
 	return &AgentEffectiveConfig{
 		ConfigMap: AgentConfigMap{
 			ConfigMap: lo.MapValues(aec.ConfigMap.ConfigMap,
-				func(configFile domainmodel.AgentConfigFile, _ string) AgentConfigFile {
+				func(configFile agentmodel.AgentConfigFile, _ string) AgentConfigFile {
 					return AgentConfigFile{
 						Body: bson.Binary{
 							Subtype: bson.TypeBinaryGeneric,
@@ -595,14 +595,14 @@ func AgentEffectiveConfigFromDomain(aec *domainmodel.AgentEffectiveConfig) *Agen
 }
 
 // AgentPackageStatusesFromDomain converts domain model to persistence model.
-func AgentPackageStatusesFromDomain(aps *domainmodel.AgentPackageStatuses) *AgentPackageStatuses {
+func AgentPackageStatusesFromDomain(aps *agentmodel.AgentPackageStatuses) *AgentPackageStatuses {
 	if aps == nil {
 		return nil
 	}
 
 	return &AgentPackageStatuses{
 		Packages: lo.MapValues(aps.Packages,
-			func(pss domainmodel.AgentPackageStatusEntry, _ string) AgentPackageStatus {
+			func(pss agentmodel.AgentPackageStatusEntry, _ string) AgentPackageStatus {
 				return AgentPackageStatus{
 					Name:            pss.Name,
 					AgentHasVersion: pss.AgentHasVersion,
@@ -624,7 +624,7 @@ func AgentPackageStatusesFromDomain(aps *domainmodel.AgentPackageStatuses) *Agen
 }
 
 // AgentComponentHealthFromDomain converts domain model to persistence model.
-func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *AgentComponentHealth {
+func AgentComponentHealthFromDomain(ach *agentmodel.AgentComponentHealth) *AgentComponentHealth {
 	if ach == nil {
 		return nil
 	}
@@ -636,14 +636,14 @@ func AgentComponentHealthFromDomain(ach *domainmodel.AgentComponentHealth) *Agen
 		Status:              ach.Status,
 		StatusTimeUnixMilli: ach.StatusTime.UnixMilli(),
 		ComponentHealthMap: lo.MapValues(ach.ComponentHealthMap,
-			func(ach domainmodel.AgentComponentHealth, _ string) AgentComponentHealth {
+			func(ach agentmodel.AgentComponentHealth, _ string) AgentComponentHealth {
 				return *AgentComponentHealthFromDomain(&ach)
 			}),
 	}
 }
 
 // AgentSpecRemoteConfigFromDomain converts domain model to persistence model.
-func AgentSpecRemoteConfigFromDomain(arc *domainmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
+func AgentSpecRemoteConfigFromDomain(arc *agentmodel.AgentSpecRemoteConfig) *AgentSpecRemoteConfig {
 	if arc == nil || len(arc.ConfigMap.ConfigMap) == 0 {
 		return nil
 	}
@@ -660,7 +660,7 @@ func AgentSpecRemoteConfigFromDomain(arc *domainmodel.AgentSpecRemoteConfig) *Ag
 }
 
 // AgentCustomCapabilitiesFromDomain converts domain model to persistence model.
-func AgentCustomCapabilitiesFromDomain(acc *domainmodel.AgentCustomCapabilities) *AgentCustomCapabilities {
+func AgentCustomCapabilitiesFromDomain(acc *agentmodel.AgentCustomCapabilities) *AgentCustomCapabilities {
 	if acc == nil {
 		return nil
 	}
@@ -671,25 +671,25 @@ func AgentCustomCapabilitiesFromDomain(acc *domainmodel.AgentCustomCapabilities)
 }
 
 // ComponentDetailsFromDomain converts domain model to persistence model.
-func ComponentDetailsFromDomain(cd *domainmodel.ComponentDetails) *ComponentDetails {
+func ComponentDetailsFromDomain(cd *agentmodel.ComponentDetails) *ComponentDetails {
 	return &ComponentDetails{
 		Metadata: cd.Metadata,
 		SubComponentMap: lo.MapValues(cd.SubComponentMap,
-			func(subComp domainmodel.ComponentDetails, _ string) ComponentDetails {
+			func(subComp agentmodel.ComponentDetails, _ string) ComponentDetails {
 				return *ComponentDetailsFromDomain(&subComp)
 			}),
 	}
 }
 
 // AgentAvailableComponentsFromDomain converts domain model to persistence model.
-func AgentAvailableComponentsFromDomain(acc *domainmodel.AgentAvailableComponents) *AgentAvailableComponents {
+func AgentAvailableComponentsFromDomain(acc *agentmodel.AgentAvailableComponents) *AgentAvailableComponents {
 	if acc == nil {
 		return nil
 	}
 
 	return &AgentAvailableComponents{
 		Components: lo.MapValues(acc.Components,
-			func(cd domainmodel.ComponentDetails, _ string) ComponentDetails {
+			func(cd agentmodel.ComponentDetails, _ string) ComponentDetails {
 				return *ComponentDetailsFromDomain(&cd)
 			}),
 		Hash: bson.Binary{
@@ -700,11 +700,11 @@ func AgentAvailableComponentsFromDomain(acc *domainmodel.AgentAvailableComponent
 }
 
 // ToDomain converts the AgentRemoteConfigStatus to domain model.
-func (arcs *AgentRemoteConfigStatus) ToDomain() domainmodel.AgentRemoteConfigStatus {
+func (arcs *AgentRemoteConfigStatus) ToDomain() agentmodel.AgentRemoteConfigStatus {
 	if arcs == nil {
-		return domainmodel.AgentRemoteConfigStatus{
+		return agentmodel.AgentRemoteConfigStatus{
 			LastRemoteConfigHash: nil,
-			Status:               domainmodel.RemoteConfigStatusUnset,
+			Status:               agentmodel.RemoteConfigStatusUnset,
 			ErrorMessage:         "",
 			LastUpdatedAt:        time.Time{},
 		}
@@ -715,16 +715,16 @@ func (arcs *AgentRemoteConfigStatus) ToDomain() domainmodel.AgentRemoteConfigSta
 		lastRemoteConfigHash = arcs.LastRemoteConfigHash.Data
 	}
 
-	return domainmodel.AgentRemoteConfigStatus{
+	return agentmodel.AgentRemoteConfigStatus{
 		LastRemoteConfigHash: lastRemoteConfigHash,
-		Status:               domainmodel.RemoteConfigStatus(arcs.Status),
+		Status:               agentmodel.RemoteConfigStatus(arcs.Status),
 		ErrorMessage:         arcs.ErrorMessage,
 		LastUpdatedAt:        time.Time{},
 	}
 }
 
 // AgentRemoteConfigStatusFromDomain converts domain model to persistence model.
-func AgentRemoteConfigStatusFromDomain(arcs *domainmodel.AgentRemoteConfigStatus) *AgentRemoteConfigStatus {
+func AgentRemoteConfigStatusFromDomain(arcs *agentmodel.AgentRemoteConfigStatus) *AgentRemoteConfigStatus {
 	if arcs == nil {
 		return nil
 	}
@@ -745,7 +745,7 @@ func AgentRemoteConfigStatusFromDomain(arcs *domainmodel.AgentRemoteConfigStatus
 }
 
 // AgentConditionsFromDomain converts domain conditions to persistence model.
-func AgentConditionsFromDomain(conditions []domainmodel.AgentCondition) []AgentCondition {
+func AgentConditionsFromDomain(conditions []agentmodel.AgentCondition) []AgentCondition {
 	if len(conditions) == 0 {
 		return nil
 	}

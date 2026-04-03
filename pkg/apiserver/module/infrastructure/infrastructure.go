@@ -3,8 +3,13 @@ package infrastructure
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net"
 
+	casbinModel "github.com/casbin/casbin/v2/model"
+	mongodbadapter "github.com/casbin/mongodb-adapter/v4"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/basic"
@@ -16,10 +21,16 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	rbaccontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rbac"
+	rolecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/role"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
+	usercontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	casbinEnforcer "github.com/minuk-dev/opampcommander/internal/adapter/out/rbac/casbin"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
@@ -36,6 +47,9 @@ func New() fx.Option {
 
 		// Messaging (NATS or in-memory)
 		provideMessagingComponents(),
+
+		// RBAC (Casbin enforcer)
+		provideRBACComponents(),
 	)
 }
 
@@ -60,6 +74,10 @@ func provideHTTPComponents() fx.Option {
 			server.NewController, helper.AsController(Identity[*server.Controller]),
 			github.NewController, helper.AsController(Identity[*github.Controller]),
 			basic.NewController, helper.AsController(Identity[*basic.Controller]),
+			// RBAC controllers
+			usercontroller.NewController, helper.AsController(Identity[*usercontroller.Controller]),
+			rolecontroller.NewController, helper.AsController(Identity[*rolecontroller.Controller]),
+			rbaccontroller.NewController, helper.AsController(Identity[*rbaccontroller.Controller]),
 		),
 		// OpAMP specific connection context
 		fx.Provide(
@@ -77,12 +95,18 @@ func provideDatabaseComponents() fx.Option {
 			NewMongoDBClient,
 			NewMongoDatabase,
 			helper.AsHealthIndicator(NewMongoDBHealthIndicator),
-			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(port.AgentPersistencePort))),
-			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(port.AgentGroupPersistencePort))),
-			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(port.ServerPersistencePort))),
-			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(port.AgentPackagePersistencePort))),
-			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(port.AgentRemoteConfigPersistencePort))),
-			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(port.CertificatePersistencePort))),
+			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(agentport.AgentPersistencePort))),
+			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
+			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(agentport.ServerPersistencePort))),
+			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(agentport.AgentPackagePersistencePort))),
+			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(agentport.AgentRemoteConfigPersistencePort))),
+			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(agentport.CertificatePersistencePort))),
+			// RBAC MongoDB adapters
+			fx.Annotate(mongodb.NewUserRepository, fx.As(new(userport.UserPersistencePort))),
+			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),
+			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
+			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
+			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(userport.OrgRoleMappingPersistencePort))),
 		),
 	)
 }
@@ -93,6 +117,88 @@ func provideMessagingComponents() fx.Option {
 		// Provide the event hub adapter
 		fx.Provide(newEventSenderAndReceiver),
 	)
+}
+
+// provideRBACComponents provides RBAC enforcer components.
+func provideRBACComponents() fx.Option {
+	return fx.Options(
+		fx.Provide(
+			provideCasbinEnforcer,
+			fx.Annotate(
+				Identity[*casbinEnforcer.Enforcer],
+				fx.As(new(userport.RBACEnforcerPort)),
+			),
+		),
+	)
+}
+
+func provideCasbinEnforcer(
+	logger *slog.Logger,
+	settings *config.ServerSettings,
+	mongoClient *mongo.Client,
+) (*casbinEnforcer.Enforcer, error) {
+	rbacModel := defaultRBACModel()
+
+	databaseName := settings.DatabaseSettings.DatabaseName
+	if databaseName == "" {
+		databaseName = "opampcommander"
+	}
+
+	adapter, err := mongodbadapter.NewAdapterByDB(
+		mongoClient, &mongodbadapter.AdapterConfig{
+			DatabaseName:   databaseName,
+			CollectionName: "casbin_rules",
+			Timeout:        0,
+			IsFiltered:     false,
+		},
+	)
+	if err != nil {
+		logger.Warn("failed to create MongoDB adapter for Casbin, "+
+			"falling back to in-memory",
+			slog.Any("error", err),
+		)
+
+		fallback, fallbackErr := casbinEnforcer.NewEnforcerFromModel(
+			logger, rbacModel,
+		)
+		if fallbackErr != nil {
+			return nil, fmt.Errorf(
+				"failed to create fallback casbin enforcer: %w", fallbackErr,
+			)
+		}
+
+		return fallback, nil
+	}
+
+	enforcer, err := casbinEnforcer.NewEnforcerWithAdapter(
+		logger, rbacModel, adapter,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create casbin enforcer: %w", err)
+	}
+
+	return enforcer, nil
+}
+
+func defaultRBACModel() casbinModel.Model {
+	rbacModel, _ := casbinModel.NewModelFromString(`
+[request_definition]
+r = sub, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_definition]
+p = sub, obj, act
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+`)
+
+	return rbacModel
 }
 
 // Identity is a generic function that returns the input value.

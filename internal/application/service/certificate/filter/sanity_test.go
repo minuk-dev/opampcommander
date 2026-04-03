@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/minuk-dev/opampcommander/internal/application/service/certificate/filter"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -18,21 +19,21 @@ func TestSanity_Sanitize(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		existing *model.Certificate
-		updated  *model.Certificate
-		want     *model.Certificate
+		existing *agentmodel.Certificate
+		updated  *agentmodel.Certificate
+		want     *agentmodel.Certificate
 	}{
 		{
 			name:     "nil existing returns updated as-is",
 			existing: nil,
-			updated: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			updated: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: newTime,
 				},
 			},
-			want: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			want: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: newTime,
 				},
@@ -40,8 +41,8 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "nil updated returns nil",
-			existing: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			existing: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: fixedTime,
 				},
@@ -51,12 +52,12 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "preserves createdAt from existing",
-			existing: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			existing: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: fixedTime,
 				},
-				Status: model.CertificateStatus{
+				Status: agentmodel.CertificateStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -66,24 +67,24 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			updated: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			updated: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: newTime,
 				},
-				Spec: model.CertificateSpec{
+				Spec: agentmodel.CertificateSpec{
 					Cert: []byte("new-cert-data"),
 				},
 			},
-			want: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			want: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: fixedTime,
 				},
-				Spec: model.CertificateSpec{
+				Spec: agentmodel.CertificateSpec{
 					Cert: []byte("new-cert-data"),
 				},
-				Status: model.CertificateStatus{
+				Status: agentmodel.CertificateStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -96,12 +97,12 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "preserves status from existing",
-			existing: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			existing: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: fixedTime,
 				},
-				Status: model.CertificateStatus{
+				Status: agentmodel.CertificateStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -116,12 +117,12 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			updated: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			updated: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: newTime,
 				},
-				Status: model.CertificateStatus{
+				Status: agentmodel.CertificateStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -131,12 +132,12 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			want: &model.Certificate{
-				Metadata: model.CertificateMetadata{
+			want: &agentmodel.Certificate{
+				Metadata: agentmodel.CertificateMetadata{
 					Name:      "test-cert",
 					CreatedAt: fixedTime,
 				},
-				Status: model.CertificateStatus{
+				Status: agentmodel.CertificateStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,

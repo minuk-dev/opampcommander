@@ -2,6 +2,7 @@
 package filter
 
 import (
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -17,9 +18,9 @@ func NewSanity() *Sanity {
 // Sanitize preserves immutable fields from the existing AgentPackage to the updated one.
 // Immutable fields: Metadata.CreatedAt, Status (preserved entirely).
 func (f *Sanity) Sanitize(
-	existing *model.AgentPackage,
-	updated *model.AgentPackage,
-) *model.AgentPackage {
+	existing *agentmodel.AgentPackage,
+	updated *agentmodel.AgentPackage,
+) *agentmodel.AgentPackage {
 	if existing == nil || updated == nil {
 		return updated
 	}

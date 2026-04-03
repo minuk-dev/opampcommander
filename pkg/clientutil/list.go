@@ -224,3 +224,61 @@ func ListCertificateFully(ctx context.Context, cli *client.Client) ([]v1.Certifi
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
 	}
 }
+
+// ListUserFully lists all users.
+// It continues to fetch users until there are no more users to fetch.
+func ListUserFully(ctx context.Context, cli *client.Client) ([]v1.User, error) {
+	var users []v1.User
+
+	continueToken := ""
+
+	for {
+		opts := []client.ListOption{
+			client.WithLimit(ChunkSize),
+		}
+		if continueToken != "" {
+			opts = append(opts, client.WithContinueToken(continueToken))
+		}
+
+		resp, err := cli.UserService.ListUsers(ctx, opts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list users: %w", err)
+		}
+
+		if len(resp.Items) == 0 {
+			return users, nil
+		}
+
+		users = append(users, resp.Items...)
+		continueToken = resp.Metadata.Continue
+	}
+}
+
+// ListRoleFully lists all roles.
+// It continues to fetch roles until there are no more roles to fetch.
+func ListRoleFully(ctx context.Context, cli *client.Client) ([]v1.Role, error) {
+	var roles []v1.Role
+
+	continueToken := ""
+
+	for {
+		opts := []client.ListOption{
+			client.WithLimit(ChunkSize),
+		}
+		if continueToken != "" {
+			opts = append(opts, client.WithContinueToken(continueToken))
+		}
+
+		resp, err := cli.RoleService.ListRoles(ctx, opts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list roles: %w", err)
+		}
+
+		if len(resp.Items) == 0 {
+			return roles, nil
+		}
+
+		roles = append(roles, resp.Items...)
+		continueToken = resp.Metadata.Continue
+	}
+}

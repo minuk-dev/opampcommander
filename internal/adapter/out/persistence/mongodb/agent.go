@@ -14,12 +14,13 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var (
-	_ domainport.AgentPersistencePort = (*AgentRepository)(nil)
+	_ agentport.AgentPersistencePort = (*AgentRepository)(nil)
 
 	// ErrQueryTooLong is returned when the search query exceeds the maximum length.
 	ErrQueryTooLong = errors.New("query too long: maximum length is 100 characters")
@@ -72,8 +73,8 @@ func NewAgentRepository(
 	return repo
 }
 
-// GetAgent implements port.AgentPersistencePort.
-func (a *AgentRepository) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+// GetAgent implements agentport.AgentPersistencePort.
+func (a *AgentRepository) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	entity, err := a.common.get(ctx, instanceUID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
@@ -82,18 +83,18 @@ func (a *AgentRepository) GetAgent(ctx context.Context, instanceUID uuid.UUID) (
 	return entity.ToDomain(), nil
 }
 
-// ListAgents implements port.AgentPersistencePort.
+// ListAgents implements agentport.AgentPersistencePort.
 func (a *AgentRepository) ListAgents(
 	ctx context.Context,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents from persistence: %w", err)
 	}
 
-	return &model.ListResponse[*model.Agent]{
-		Items: lo.Map(resp.Items, func(item *entity.Agent, _ int) *model.Agent {
+	return &model.ListResponse[*agentmodel.Agent]{
+		Items: lo.Map(resp.Items, func(item *entity.Agent, _ int) *agentmodel.Agent {
 			return item.ToDomain()
 		}),
 		Continue:           resp.Continue,
@@ -101,8 +102,8 @@ func (a *AgentRepository) ListAgents(
 	}, nil
 }
 
-// PutAgent implements port.AgentPersistencePort.
-func (a *AgentRepository) PutAgent(ctx context.Context, agent *model.Agent) error {
+// PutAgent implements agentport.AgentPersistencePort.
+func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent) error {
 	entity := entity.AgentFromDomain(agent)
 
 	err := a.common.put(ctx, entity)
@@ -113,14 +114,14 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *model.Agent) erro
 	return nil
 }
 
-// ListAgentsBySelector implements port.AgentPersistencePort.
+// ListAgentsBySelector implements agentport.AgentPersistencePort.
 //
 //nolint:funlen // Reason: unavoidable.
 func (a *AgentRepository) ListAgentsBySelector(
 	ctx context.Context,
-	selector model.AgentSelector,
+	selector agentmodel.AgentSelector,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	var (
 		// To prevent shadowing in goroutines, we use retval suffix.
 		countRetval         int64
@@ -207,8 +208,8 @@ func (a *AgentRepository) ListAgentsBySelector(
 		return nil, fmt.Errorf("list by selector operation failed: %w %w", fErr, lErr)
 	}
 
-	return &model.ListResponse[*model.Agent]{
-		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *model.Agent {
+	return &model.ListResponse[*agentmodel.Agent]{
+		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *agentmodel.Agent {
 			return item.ToDomain()
 		}),
 		Continue:           continueTokenRetval,
@@ -217,7 +218,7 @@ func (a *AgentRepository) ListAgentsBySelector(
 }
 
 // AgentSelectorToEntity converts a domain AgentSelector to a persistence entity AgentSelector.
-func AgentSelectorToEntity(selector model.AgentSelector) entity.AgentSelector {
+func AgentSelectorToEntity(selector agentmodel.AgentSelector) entity.AgentSelector {
 	return entity.AgentSelector{
 		IdentifyingAttributes:    selector.IdentifyingAttributes,
 		NonIdentifyingAttributes: selector.NonIdentifyingAttributes,
@@ -236,12 +237,12 @@ func buildFilter(conditions []bson.M) bson.M {
 	}
 }
 
-// SearchAgents implements port.AgentPersistencePort.
+// SearchAgents implements agentport.AgentPersistencePort.
 func (a *AgentRepository) SearchAgents(
 	ctx context.Context,
 	query string,
 	options *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	if options == nil {
 		//exhaustruct:ignore
 		options = &model.ListOptions{}
@@ -255,8 +256,8 @@ func (a *AgentRepository) SearchAgents(
 
 	// Return empty result for empty query
 	if query == "" {
-		return &model.ListResponse[*model.Agent]{
-			Items:              []*model.Agent{},
+		return &model.ListResponse[*agentmodel.Agent]{
+			Items:              []*agentmodel.Agent{},
 			Continue:           "",
 			RemainingItemCount: 0,
 		}, nil
@@ -275,8 +276,8 @@ func (a *AgentRepository) SearchAgents(
 	}
 
 	// Convert to domain models
-	return &model.ListResponse[*model.Agent]{
-		Items: lo.Map(entities, func(item *entity.Agent, _ int) *model.Agent {
+	return &model.ListResponse[*agentmodel.Agent]{
+		Items: lo.Map(entities, func(item *entity.Agent, _ int) *agentmodel.Agent {
 			return item.ToDomain()
 		}),
 		Continue:           continueToken,

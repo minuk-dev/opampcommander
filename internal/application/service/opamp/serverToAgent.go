@@ -8,7 +8,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/samber/lo"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
@@ -20,7 +20,7 @@ var (
 // fetchServerToAgent creates a ServerToAgent message from the agent.
 //
 //nolint:funlen // Complex message building requires multiple fields
-func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agent) *protobufs.ServerToAgent {
+func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *agentmodel.Agent) *protobufs.ServerToAgent {
 	var flags uint64
 
 	instanceUID := agentModel.Metadata.InstanceUID
@@ -70,6 +70,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 	}
 
 	var packagesAvailable *protobufs.PackagesAvailable
+
 	if agentModel.HasNewPackages() {
 		agentPackages := lo.OmitByValues(
 			lo.SliceToMap(agentModel.Spec.PackagesAvailable.Packages,
@@ -136,7 +137,7 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *model.Agen
 		ConnectionSettings:  connectionSettings,
 		PackagesAvailable:   packagesAvailable,
 		Flags:               flags,
-		Capabilities:        uint64(capabilities), //nolint:gosec // safe conversion from int32 to uint64
+		Capabilities:        uint64(capabilities), // safe: int32 to uint64
 		AgentIdentification: agentIdentification,
 		Command:             command,
 		CustomCapabilities:  nil,

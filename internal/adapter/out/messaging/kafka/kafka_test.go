@@ -18,7 +18,7 @@ import (
 
 	kafkamodel "github.com/minuk-dev/opampcommander/internal/adapter/common/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/internal/adapter/out/messaging/kafka"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -29,7 +29,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
 	// Given: Kafka is running

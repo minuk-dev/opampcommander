@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/minuk-dev/opampcommander/internal/application/service/agentgroup/filter"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -18,21 +19,21 @@ func TestSanity_Sanitize(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		existing *model.AgentGroup
-		updated  *model.AgentGroup
-		want     *model.AgentGroup
+		existing *agentmodel.AgentGroup
+		updated  *agentmodel.AgentGroup
+		want     *agentmodel.AgentGroup
 	}{
 		{
 			name:     "nil existing returns updated as-is",
 			existing: nil,
-			updated: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			updated: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: newTime,
 				},
 			},
-			want: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			want: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: newTime,
 				},
@@ -40,8 +41,8 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "nil updated returns nil",
-			existing: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			existing: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: fixedTime,
 				},
@@ -51,12 +52,12 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "preserves createdAt from existing",
-			existing: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			existing: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: fixedTime,
 				},
-				Status: model.AgentGroupStatus{
+				Status: agentmodel.AgentGroupStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -66,24 +67,24 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			updated: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			updated: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: newTime,
 				},
-				Spec: model.AgentGroupSpec{
+				Spec: agentmodel.AgentGroupSpec{
 					Priority: 10,
 				},
 			},
-			want: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			want: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: fixedTime,
 				},
-				Spec: model.AgentGroupSpec{
+				Spec: agentmodel.AgentGroupSpec{
 					Priority: 10,
 				},
-				Status: model.AgentGroupStatus{
+				Status: agentmodel.AgentGroupStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -96,12 +97,12 @@ func TestSanity_Sanitize(t *testing.T) {
 		},
 		{
 			name: "preserves conditions from existing",
-			existing: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			existing: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: fixedTime,
 				},
-				Status: model.AgentGroupStatus{
+				Status: agentmodel.AgentGroupStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -116,12 +117,12 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			updated: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			updated: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: newTime,
 				},
-				Status: model.AgentGroupStatus{
+				Status: agentmodel.AgentGroupStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,
@@ -131,12 +132,12 @@ func TestSanity_Sanitize(t *testing.T) {
 					},
 				},
 			},
-			want: &model.AgentGroup{
-				Metadata: model.AgentGroupMetadata{
+			want: &agentmodel.AgentGroup{
+				Metadata: agentmodel.AgentGroupMetadata{
 					Name:      "test-group",
 					CreatedAt: fixedTime,
 				},
-				Status: model.AgentGroupStatus{
+				Status: agentmodel.AgentGroupStatus{
 					Conditions: []model.Condition{
 						{
 							Type:    model.ConditionTypeCreated,

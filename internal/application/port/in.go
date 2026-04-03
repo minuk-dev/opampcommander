@@ -9,6 +9,7 @@ import (
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -25,7 +26,7 @@ type OpAMPUsecase interface {
 
 // AdminUsecase is a use case that handles admin operations.
 type AdminUsecase interface {
-	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*model.Connection], error)
+	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Connection], error)
 }
 
 // AgentPackageManageUsecase is a use case that handles agent package operations.
@@ -66,4 +67,39 @@ type CertificateManageUsecase interface {
 	CreateCertificate(ctx context.Context, certificate *v1.Certificate) (*v1.Certificate, error)
 	UpdateCertificate(ctx context.Context, name string, certificate *v1.Certificate) (*v1.Certificate, error)
 	DeleteCertificate(ctx context.Context, name string) error
+}
+
+// UserManageUsecase is a use case that handles user management operations.
+type UserManageUsecase interface {
+	GetUser(ctx context.Context, uid uuid.UUID) (*v1.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*v1.User, error)
+	ListUsers(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.User], error)
+	CreateUser(ctx context.Context, user *v1.User) (*v1.User, error)
+	DeleteUser(ctx context.Context, uid uuid.UUID) error
+	GetUserProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error)
+}
+
+// RoleManageUsecase is a use case that handles role management operations.
+type RoleManageUsecase interface {
+	GetRole(ctx context.Context, uid uuid.UUID) (*v1.Role, error)
+	ListRoles(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Role], error)
+	CreateRole(ctx context.Context, role *v1.Role) (*v1.Role, error)
+	UpdateRole(ctx context.Context, uid uuid.UUID, role *v1.Role) (*v1.Role, error)
+	DeleteRole(ctx context.Context, uid uuid.UUID) error
+}
+
+// PermissionManageUsecase is a use case that handles permission management operations.
+type PermissionManageUsecase interface {
+	GetPermission(ctx context.Context, uid uuid.UUID) (*v1.Permission, error)
+	ListPermissions(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Permission], error)
+}
+
+// RBACManageUsecase is a use case that handles RBAC management operations.
+type RBACManageUsecase interface {
+	AssignRole(ctx context.Context, req *v1.AssignRoleRequest) error
+	UnassignRole(ctx context.Context, userID, roleID uuid.UUID) error
+	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
+	GetUserRoles(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Role], error)
+	GetUserPermissions(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Permission], error)
+	SyncPolicies(ctx context.Context) error
 }

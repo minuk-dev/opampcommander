@@ -12,8 +12,9 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	"github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/application/service/agentpackage/filter"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -22,7 +23,7 @@ var _ port.AgentPackageManageUsecase = (*Service)(nil)
 
 // Service is a service for managing agent packages.
 type Service struct {
-	agentpackageUsecase domainport.AgentPackageUsecase
+	agentpackageUsecase agentport.AgentPackageUsecase
 	mapper              *helper.Mapper
 	sanityFilter        *filter.Sanity
 	clock               clock.Clock
@@ -31,7 +32,7 @@ type Service struct {
 
 // NewAgentPackageService creates a new AgentPackageService.
 func NewAgentPackageService(
-	agentpackageUsecase domainport.AgentPackageUsecase,
+	agentpackageUsecase agentport.AgentPackageUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -73,7 +74,7 @@ func (a *Service) ListAgentPackages(
 			Continue:           agentPackages.Continue,
 			RemainingItemCount: agentPackages.RemainingItemCount,
 		},
-		Items: lo.Map(agentPackages.Items, func(item *model.AgentPackage, _ int) v1.AgentPackage {
+		Items: lo.Map(agentPackages.Items, func(item *agentmodel.AgentPackage, _ int) v1.AgentPackage {
 			return *a.mapper.MapAgentPackageToAPI(item)
 		}),
 	}, nil

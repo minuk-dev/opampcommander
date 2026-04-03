@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/internal/adapter/common/kafka"
-	"github.com/minuk-dev/opampcommander/internal/domain/model/serverevent"
+	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
 )
 
 func TestEventTypeFromMessageType(t *testing.T) {

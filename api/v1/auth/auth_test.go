@@ -51,8 +51,8 @@ func TestDeviceAuthnTokenResponse_ZeroTimeSerialization(t *testing.T) {
 		Interval:        5,
 	}
 
-	// Test JSON marshaling - zero time should serialize as null
+	// Test JSON marshaling - zero time should be omitted with omitzero
 	data, err := json.Marshal(response)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), `"expiry":null`)
+	assert.NotContains(t, string(data), `"expiry"`)
 }

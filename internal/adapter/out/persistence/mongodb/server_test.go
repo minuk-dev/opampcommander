@@ -1,7 +1,6 @@
 package mongodb_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -13,8 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -22,7 +22,7 @@ func TestServerAdapter_GetServer(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)
@@ -45,7 +45,7 @@ func TestServerAdapter_GetServer(t *testing.T) {
 		ctx := t.Context()
 
 		now := time.Now()
-		server := &model.Server{
+		server := &agentmodel.Server{
 			ID:              "test-server-1",
 			LastHeartbeatAt: now,
 			Conditions:      []model.Condition{},
@@ -66,7 +66,7 @@ func TestServerAdapter_GetServer(t *testing.T) {
 		ctx := t.Context()
 
 		server, err := adapter.GetServer(ctx, "non-existing-server")
-		require.ErrorIs(t, err, domainport.ErrResourceNotExist)
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
 		assert.Nil(t, server)
 	})
 }
@@ -75,7 +75,7 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestServerAdapter_PutServer(t *testing.T) {
 	adapter := mongodb.NewServerAdapter(base.Logger, database)
 
 	now := time.Now()
-	server := &model.Server{
+	server := &agentmodel.Server{
 		ID:              "test-server",
 		LastHeartbeatAt: now,
 		Conditions:      []model.Condition{},
@@ -116,7 +116,7 @@ func TestServerAdapter_ListServers(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
 	base := testutil.NewBase(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestServerAdapter_ListServers(t *testing.T) {
 	// Add multiple servers
 	now := time.Now()
 	for i := 1; i <= 3; i++ {
-		server := &model.Server{
+		server := &agentmodel.Server{
 			ID:              "test-server-" + string(rune('0'+i)),
 			LastHeartbeatAt: now,
 			Conditions:      []model.Condition{},
@@ -160,13 +160,13 @@ func TestServer_IsAlive(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		server      *model.Server
+		server      *agentmodel.Server
 		checkTime   time.Time
 		expectedVal bool
 	}{
 		{
 			name: "Server is alive - recent heartbeat",
-			server: &model.Server{
+			server: &agentmodel.Server{
 				ID:              "server-1",
 				LastHeartbeatAt: now.Add(-30 * time.Second),
 				Conditions:      []model.Condition{},
@@ -176,7 +176,7 @@ func TestServer_IsAlive(t *testing.T) {
 		},
 		{
 			name: "Server is dead - old heartbeat",
-			server: &model.Server{
+			server: &agentmodel.Server{
 				ID:              "server-2",
 				LastHeartbeatAt: now.Add(-2 * time.Minute),
 				Conditions:      []model.Condition{},
@@ -186,7 +186,7 @@ func TestServer_IsAlive(t *testing.T) {
 		},
 		{
 			name: "Server is barely alive - exactly at timeout",
-			server: &model.Server{
+			server: &agentmodel.Server{
 				ID:              "server-3",
 				LastHeartbeatAt: now.Add(-59 * time.Second),
 				Conditions:      []model.Condition{},

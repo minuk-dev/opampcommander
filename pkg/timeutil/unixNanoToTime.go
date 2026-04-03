@@ -5,7 +5,7 @@ import "time"
 
 // UnixNanoToTime converts a Unix timestamp in nanoseconds to a time.Time object.
 //
-//nolint:mnd,gosec
+//nolint:mnd
 func UnixNanoToTime(nsec uint64) time.Time {
 	sec := nsec / 1e9
 	nsec %= 1e9

@@ -11,9 +11,9 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	modelagent "github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -26,29 +26,29 @@ const (
 type Service struct {
 	clock                    clock.Clock
 	logger                   *slog.Logger
-	agentUsecase             domainport.AgentUsecase
-	agentGroupUsecase        domainport.AgentGroupUsecase
-	agentPackageUsecase      domainport.AgentPackageUsecase
-	agentRemoteConfigUsecase domainport.AgentRemoteConfigUsecase
-	serverIdentityProvider   domainport.ServerIdentityProvider
+	agentUsecase             agentport.AgentUsecase
+	agentGroupUsecase        agentport.AgentGroupUsecase
+	agentPackageUsecase      agentport.AgentPackageUsecase
+	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
+	serverIdentityProvider   agentport.ServerIdentityProvider
 
-	agentNotificationUsecase domainport.AgentNotificationUsecase
+	agentNotificationUsecase agentport.AgentNotificationUsecase
 
 	closedConnectionCh chan types.Connection
 
-	connectionUsecase        domainport.ConnectionUsecase
+	connectionUsecase        agentport.ConnectionUsecase
 	onConnectionCloseTimeout time.Duration
 }
 
 // New creates a new instance of the OpAMP service.
 func New(
-	agentUsecase domainport.AgentUsecase,
-	connectionUsecase domainport.ConnectionUsecase,
-	serverIdentityProvider domainport.ServerIdentityProvider,
-	agentGroupUsecase domainport.AgentGroupUsecase,
-	agentNotificationUsecase domainport.AgentNotificationUsecase,
-	agentPackageUsecase domainport.AgentPackageUsecase,
-	agentRemoteConfigUsecase domainport.AgentRemoteConfigUsecase,
+	agentUsecase agentport.AgentUsecase,
+	connectionUsecase agentport.ConnectionUsecase,
+	serverIdentityProvider agentport.ServerIdentityProvider,
+	agentGroupUsecase agentport.AgentGroupUsecase,
+	agentNotificationUsecase agentport.AgentNotificationUsecase,
+	agentPackageUsecase agentport.AgentPackageUsecase,
+	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -93,6 +93,7 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // OnConnected implements port.OpAMPUsecase.
+//
 // Deprecated: Use OnConnectedWithType instead for proper connection type detection.
 func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 	// Default to unknown type for backward compatibility
@@ -113,12 +114,12 @@ func (s *Service) OnConnectedWithType(ctx context.Context, conn types.Connection
 	logger.Info("start")
 
 	// Create connection with the correct type
-	connectionType := model.ConnectionTypeHTTP
+	connectionType := agentmodel.ConnectionTypeHTTP
 	if isWebSocket {
-		connectionType = model.ConnectionTypeWebSocket
+		connectionType = agentmodel.ConnectionTypeWebSocket
 	}
 
-	connection := model.NewConnection(conn, connectionType)
+	connection := agentmodel.NewConnection(conn, connectionType)
 
 	err := s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
@@ -131,10 +132,10 @@ func (s *Service) OnConnectedWithType(ctx context.Context, conn types.Connection
 }
 
 // OnMessage implements port.OpAMPUsecase.
-// [1] find domainmodel.Connection by types.Connection
+// [1] find agentmodel.Connection by types.Connection
 // [1-1] if not found, unexpected case because all connections should be created when OnConnected is called.
 // so, leave error log and skip connection processing.
-// [2] find domainmodel.Agent by instanceUID in message
+// [2] find agentmodel.Agent by instanceUID in message
 // [2-1] if not found, this is the first time the agent connects, so create a new agent with default values.
 // [3] process the message and update agent state accordingly
 // [4] save the updated agent
@@ -242,9 +243,9 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 }
 
 func (s *Service) report(
-	agent *model.Agent,
+	agent *agentmodel.Agent,
 	agentToServer *protobufs.AgentToServer,
-	by *model.Server,
+	by *agentmodel.Server,
 ) error {
 	// Update communication info
 	agent.RecordLastReported(by, s.clock.Now(), agentToServer.GetSequenceNum())
@@ -261,7 +262,7 @@ func (s *Service) report(
 
 	capabilities := agentToServer.GetCapabilities()
 
-	err = agent.ReportCapabilities((*agentmodel.Capabilities)(&capabilities))
+	err = agent.ReportCapabilities((*modelagent.Capabilities)(&capabilities))
 	if err != nil {
 		return fmt.Errorf("failed to report capabilities: %w", err)
 	}
@@ -341,7 +342,7 @@ func (s *Service) injectInstanceUIDToConnection(
 	ctx context.Context,
 	conn types.Connection,
 	instanceUID uuid.UUID,
-) (*model.Connection, error) {
+) (*agentmodel.Connection, error) {
 	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 	// Even if the connection is not found, we should still process the message
 	if err != nil {

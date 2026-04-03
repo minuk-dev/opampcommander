@@ -17,6 +17,12 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
+// LoginResult contains the result of a successful authentication.
+type LoginResult struct {
+	Token string
+	Email string
+}
+
 // Usecase defines the use case for the security package.
 type Usecase interface {
 	// ValidateToken validates the provided JWT token string and returns the claims if valid.
@@ -31,7 +37,7 @@ type Usecase interface {
 // AdminUsecase defines the use case for admin authentication.
 type AdminUsecase interface {
 	// BasicAuth authenticates the user using basic authentication with username and password.
-	BasicAuth(username, password string) (string, error)
+	BasicAuth(username, password string) (LoginResult, error)
 }
 
 // OAuth2Usecase defines the use case for OAuth2 authentication.
@@ -39,7 +45,7 @@ type OAuth2Usecase interface {
 	// AuthCodeURL generates the OAuth2 authorization URL with a unique state parameter.
 	AuthCodeURL() (string, error)
 	// Exchange exchanges the OAuth2 authorization code for an access token.
-	Exchange(ctx context.Context, state, code string) (string, error)
+	Exchange(ctx context.Context, state, code string) (LoginResult, error)
 }
 
 var _ Usecase = (*Service)(nil)
@@ -139,22 +145,22 @@ func (s *Service) AuthCodeURL() (string, error) {
 }
 
 // BasicAuth authenticates the user using basic authentication with username and password.
-func (s *Service) BasicAuth(username, password string) (string, error) {
+func (s *Service) BasicAuth(username, password string) (LoginResult, error) {
 	if username != s.adminSettings.Username || password != s.adminSettings.Password {
-		return "", ErrInvalidUsernameOrPassword
+		return LoginResult{}, ErrInvalidUsernameOrPassword
 	}
 
 	s.logger.Debug("Authenticated user with basic auth", slog.String("username", username))
-	claims := s.newOPAMPClaims(username)
+	claims := s.newOPAMPClaims(s.adminSettings.Email)
 
 	tokenString, err := s.createToken(claims)
 	if err != nil {
-		return "", fmt.Errorf("failed to create JWT token: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to create JWT token: %w", err)
 	}
 
 	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
 
-	return tokenString, nil
+	return LoginResult{Token: tokenString, Email: claims.Email}, nil
 }
 
 func (s *Service) newOPAMPClaims(email string) *OPAMPClaims {

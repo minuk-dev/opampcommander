@@ -13,8 +13,9 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/service/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	modelagent "github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
@@ -25,11 +26,11 @@ func TestRestartAgentIntegration(t *testing.T) {
 		t.Parallel()
 
 		// Setup
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Create mock usecases
 		agentUsecase := &mockAgentUsecase{
-			agents: make(map[uuid.UUID]*model.Agent),
+			agents: make(map[uuid.UUID]*agentmodel.Agent),
 		}
 		agentNotificationUsecase := &mockAgentNotificationUsecase{}
 
@@ -42,10 +43,10 @@ func TestRestartAgentIntegration(t *testing.T) {
 
 		// Create test agent with restart capability
 		instanceUID := uuid.New()
-		capabilities := agentmodel.Capabilities(agentmodel.AgentCapabilityAcceptsRestartCommand)
-		testAgent := model.NewAgent(instanceUID,
-			model.WithCapabilities(&capabilities),
-			model.WithComponentHealth(&model.AgentComponentHealth{
+		capabilities := modelagent.Capabilities(modelagent.AgentCapabilityAcceptsRestartCommand)
+		testAgent := agentmodel.NewAgent(instanceUID,
+			agentmodel.WithCapabilities(&capabilities),
+			agentmodel.WithComponentHealth(&agentmodel.AgentComponentHealth{
 				StartTime: time.Now().Add(-1 * time.Hour), // Started 1 hour ago
 				Healthy:   true,
 			}),
@@ -82,11 +83,11 @@ func TestRestartAgentIntegration(t *testing.T) {
 		t.Parallel()
 
 		// Setup
-		ctx := context.Background()
+		ctx := t.Context()
 
 		// Create mock usecases
 		agentUsecase := &mockAgentUsecase{
-			agents: make(map[uuid.UUID]*model.Agent),
+			agents: make(map[uuid.UUID]*agentmodel.Agent),
 		}
 		agentNotificationUsecase := &mockAgentNotificationUsecase{}
 
@@ -99,9 +100,9 @@ func TestRestartAgentIntegration(t *testing.T) {
 
 		// Create test agent WITHOUT restart capability
 		instanceUID := uuid.New()
-		capabilities := agentmodel.Capabilities(agentmodel.AgentCapabilityReportsStatus) // Only status capability
-		testAgent := model.NewAgent(instanceUID,
-			model.WithCapabilities(&capabilities),
+		capabilities := modelagent.Capabilities(modelagent.AgentCapabilityReportsStatus) // Only status capability
+		testAgent := agentmodel.NewAgent(instanceUID,
+			agentmodel.WithCapabilities(&capabilities),
 		)
 
 		agentUsecase.agents[instanceUID] = testAgent
@@ -130,10 +131,10 @@ func TestRestartAgentIntegration(t *testing.T) {
 
 // Mock implementations.
 type mockAgentUsecase struct {
-	agents map[uuid.UUID]*model.Agent
+	agents map[uuid.UUID]*agentmodel.Agent
 }
 
-func (m *mockAgentUsecase) GetAgent(_ context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+func (m *mockAgentUsecase) GetAgent(_ context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	agent, exists := m.agents[instanceUID]
 	if !exists {
 		return nil, port.ErrResourceNotExist
@@ -142,7 +143,7 @@ func (m *mockAgentUsecase) GetAgent(_ context.Context, instanceUID uuid.UUID) (*
 	return agent, nil
 }
 
-func (m *mockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*model.Agent, error) {
+func (m *mockAgentUsecase) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	return m.GetAgent(ctx, instanceUID)
 }
 
@@ -150,13 +151,13 @@ var errNotImplemented = errors.New("not implemented")
 
 func (m *mockAgentUsecase) ListAgentsBySelector(
 	_ context.Context,
-	_ model.AgentSelector,
+	_ agentmodel.AgentSelector,
 	_ *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	return nil, errNotImplemented
 }
 
-func (m *mockAgentUsecase) SaveAgent(_ context.Context, agent *model.Agent) error {
+func (m *mockAgentUsecase) SaveAgent(_ context.Context, agent *agentmodel.Agent) error {
 	m.agents[agent.Metadata.InstanceUID] = agent
 
 	return nil
@@ -165,7 +166,7 @@ func (m *mockAgentUsecase) SaveAgent(_ context.Context, agent *model.Agent) erro
 func (m *mockAgentUsecase) ListAgents(
 	_ context.Context,
 	_ *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	return nil, errNotImplemented
 }
 
@@ -173,7 +174,7 @@ func (m *mockAgentUsecase) SearchAgents(
 	_ context.Context,
 	_ string,
 	_ *model.ListOptions,
-) (*model.ListResponse[*model.Agent], error) {
+) (*model.ListResponse[*agentmodel.Agent], error) {
 	return nil, errNotImplemented
 }
 
@@ -181,7 +182,7 @@ type mockAgentNotificationUsecase struct {
 	notificationCalled bool
 }
 
-func (m *mockAgentNotificationUsecase) NotifyAgentUpdated(_ context.Context, _ *model.Agent) error {
+func (m *mockAgentNotificationUsecase) NotifyAgentUpdated(_ context.Context, _ *agentmodel.Agent) error {
 	m.notificationCalled = true
 
 	return nil

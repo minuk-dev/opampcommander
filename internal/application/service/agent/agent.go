@@ -14,8 +14,9 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var (
@@ -28,8 +29,8 @@ var _ applicationport.AgentManageUsecase = (*Service)(nil)
 // Service is a struct that implements the AgentManageUsecase interface.
 type Service struct {
 	// domain usecases
-	agentUsecase             domainport.AgentUsecase
-	agentNotificationUsecase domainport.AgentNotificationUsecase
+	agentUsecase             agentport.AgentUsecase
+	agentNotificationUsecase agentport.AgentNotificationUsecase
 
 	// mapper
 	mapper *helper.Mapper
@@ -39,8 +40,8 @@ type Service struct {
 
 // New creates a new instance of the Service struct.
 func New(
-	agentUsecase domainport.AgentUsecase,
-	agentNotificationUsecase domainport.AgentNotificationUsecase,
+	agentUsecase agentport.AgentUsecase,
+	agentNotificationUsecase agentport.AgentNotificationUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -80,7 +81,7 @@ func (s *Service) ListAgents(
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-		Items: lo.Map(response.Items, func(agent *model.Agent, _ int) v1.Agent {
+		Items: lo.Map(response.Items, func(agent *agentmodel.Agent, _ int) v1.Agent {
 			return *s.mapper.MapAgentToAPI(agent)
 		}),
 	}, nil
@@ -104,7 +105,7 @@ func (s *Service) SearchAgents(
 			Continue:           response.Continue,
 			RemainingItemCount: response.RemainingItemCount,
 		},
-		Items: lo.Map(response.Items, func(agent *model.Agent, _ int) v1.Agent {
+		Items: lo.Map(response.Items, func(agent *agentmodel.Agent, _ int) v1.Agent {
 			return *s.mapper.MapAgentToAPI(agent)
 		}),
 	}, nil

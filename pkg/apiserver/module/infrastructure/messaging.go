@@ -13,7 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/inmemory"
 	inkafka "github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/internal/adapter/out/messaging/kafka"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
@@ -48,8 +48,8 @@ func newEventSenderAndReceiver(
 	settings *config.EventSettings,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
-	serverIdentityProvider port.ServerIdentityProvider,
-) (port.ServerEventSenderPort, port.ServerEventReceiverPort, error) {
+	serverIdentityProvider agentport.ServerIdentityProvider,
+) (agentport.ServerEventSenderPort, agentport.ServerEventReceiverPort, error) {
 	switch settings.ProtocolType {
 	case config.EventProtocolTypeKafka:
 		sender, err := createKafkaSender(settings, lifecycle)

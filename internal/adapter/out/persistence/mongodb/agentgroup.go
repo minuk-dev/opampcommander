@@ -9,11 +9,12 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
-var _ port.AgentGroupPersistencePort = (*AgentGroupMongoAdapter)(nil)
+var _ agentport.AgentGroupPersistencePort = (*AgentGroupMongoAdapter)(nil)
 
 const (
 	agentGroupCollectionName = "agentgroups"
@@ -53,10 +54,10 @@ func NewAgentGroupRepository(
 	}
 }
 
-// GetAgentGroup implements port.AgentGroupPersistencePort.
+// GetAgentGroup implements agentport.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	ctx context.Context, name string, options *model.GetOptions,
-) (*model.AgentGroup, error) {
+) (*agentmodel.AgentGroup, error) {
 	entity, err := a.common.get(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
@@ -73,17 +74,17 @@ func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	return domainModel, nil
 }
 
-// ListAgentGroups implements port.AgentGroupPersistencePort.
+// ListAgentGroups implements agentport.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) ListAgentGroups(
 	ctx context.Context, options *model.ListOptions,
-) (*model.ListResponse[*model.AgentGroup], error) {
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
 	resp, err := a.common.list(ctx, options)
 	if err != nil {
 		return nil, err
 	}
 
 	// Convert entities to domain models with statistics
-	items := make([]*model.AgentGroup, 0, len(resp.Items))
+	items := make([]*agentmodel.AgentGroup, 0, len(resp.Items))
 	for _, item := range resp.Items {
 		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
 		if err != nil {
@@ -95,19 +96,19 @@ func (a *AgentGroupMongoAdapter) ListAgentGroups(
 		items = append(items, domainModel)
 	}
 
-	return &model.ListResponse[*model.AgentGroup]{
+	return &model.ListResponse[*agentmodel.AgentGroup]{
 		Items:              items,
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }
 
-// PutAgentGroup implements port.AgentGroupPersistencePort.
+// PutAgentGroup implements agentport.AgentGroupPersistencePort.
 //
 //nolint:godox // Reason: TODO comment.
 func (a *AgentGroupMongoAdapter) PutAgentGroup(
-	ctx context.Context, name string, agentGroup *model.AgentGroup,
-) (*model.AgentGroup, error) {
+	ctx context.Context, name string, agentGroup *agentmodel.AgentGroup,
+) (*agentmodel.AgentGroup, error) {
 	// TODO: name should be used to save the agent group with the given name.
 	// ref. https://github.com/minuk-dev/opampcommander/issues/145
 	// Because some update operations may change the name of the agent group.

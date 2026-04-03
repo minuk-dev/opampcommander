@@ -1,5 +1,7 @@
 package sets
 
+import "slices"
+
 // String is a set of strings.
 type String map[string]Empty
 
@@ -55,13 +57,7 @@ func (s String) HasAll(items ...string) bool {
 
 // HasAny checks if the set contains any of the items.
 func (s String) HasAny(items ...string) bool {
-	for _, item := range items {
-		if s.Has(item) {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(items, s.Has)
 }
 
 // List returns the items in the set as a slice.

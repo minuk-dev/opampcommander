@@ -2,31 +2,39 @@
 package basic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 )
 
 // Controller is a struct that implements the basic authentication controller for the opampcommander API client.
 type Controller struct {
-	logger  *slog.Logger
-	service *security.Service
+	logger      *slog.Logger
+	service     *security.Service
+	userUsecase userport.UserUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
 	logger *slog.Logger,
 	service *security.Service,
+	userUsecase userport.UserUsecase,
 ) *Controller {
 	return &Controller{
-		logger:  logger,
-		service: service,
+		logger:      logger,
+		service:     service,
+		userUsecase: userUsecase,
 	}
 }
 
@@ -69,7 +77,7 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
-	token, err := c.service.BasicAuth(username, password)
+	result, err := c.service.BasicAuth(username, password)
 	if err != nil {
 		if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
 			ctx.JSON(http.StatusUnauthorized, gin.H{
@@ -87,8 +95,10 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
+	c.ensureUser(ctx.Request.Context(), username, result.Email, usermodel.IdentityProviderBasic)
+
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
-		Token: token,
+		Token: result.Token,
 	})
 }
 
@@ -119,4 +129,42 @@ func (c *Controller) Info(ctx *gin.Context) {
 		Authenticated: user.Authenticated,
 		Email:         user.Email,
 	})
+}
+
+// ensureUser creates or updates a user record on login.
+// Failures are logged but do not block the login flow.
+func (c *Controller) ensureUser(ctx context.Context, username, email, provider string) {
+	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
+
+	switch {
+	case err == nil && existing != nil:
+		existing.Metadata.UpdatedAt = time.Now()
+
+		saveErr := c.userUsecase.SaveUser(ctx, existing)
+		if saveErr != nil {
+			c.logger.Warn("failed to update user on login",
+				slog.String("email", email),
+				slog.Any("error", saveErr),
+			)
+		}
+
+		return
+	case err != nil && !errors.Is(err, port.ErrResourceNotExist):
+		c.logger.Warn("failed to check user existence on login",
+			slog.String("email", email),
+			slog.Any("error", err),
+		)
+
+		return
+	}
+
+	newUser := usermodel.NewUserWithIdentity(provider, username, email, username)
+
+	saveErr := c.userUsecase.SaveUser(ctx, newUser)
+	if saveErr != nil {
+		c.logger.Warn("failed to create user on login",
+			slog.String("email", email),
+			slog.Any("error", saveErr),
+		)
+	}
 }

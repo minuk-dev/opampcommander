@@ -124,7 +124,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Description Retrieve an agent group by its ID.
 // @Accept json
 // @Produce json
-// @Success 200 {object} AgentGroup
+// @Success 200 {object} v1.AgentGroup
 // @Param name path string true "Agent Group Name"
 // @Param includeDeleted query bool false "Include soft-deleted agent group"
 // @Failure 400 {object} map[string]any
@@ -207,8 +207,8 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 // @Description Create a new agent group.
 // @Accept json
 // @Produce json
-// @Param agentGroup body AgentGroup true "Agent Group to create"
-// @Success 201 {object} AgentGroup
+// @Param agentGroup body v1.AgentGroup true "Agent Group to create"
+// @Success 201 {object} v1.AgentGroup
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/agentgroups [post].
@@ -242,8 +242,8 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param name path string true "Agent Group Name"
-// @Param agentGroup body AgentGroup true "Updated Agent Group"
-// @Success 200 {object} AgentGroup
+// @Param agentGroup body v1.AgentGroup true "Updated Agent Group"
+// @Success 200 {object} v1.AgentGroup
 // @Failure 400 {object} ErrorModel
 // @Failure 404 {object} ErrorModel
 // @Failure 500 {object} ErrorModel

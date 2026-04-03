@@ -10,6 +10,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
@@ -25,9 +26,12 @@ type Controller struct {
 }
 
 // NewController creates a new instance of the Controller struct.
-func NewController(adminUsecase applicationport.AdminUsecase) *Controller {
+func NewController(
+	logger *slog.Logger,
+	adminUsecase applicationport.AdminUsecase,
+) *Controller {
 	controller := &Controller{
-		logger:       slog.Default(),
+		logger:       logger,
 		clock:        clock.NewRealClock(),
 		adminUsecase: adminUsecase,
 	}
@@ -82,7 +86,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	}
 
 	connectionResponse := v1.NewConnectionListResponse(
-		lo.Map(response.Items, func(connection *model.Connection, _ int) v1.Connection {
+		lo.Map(response.Items, func(connection *agentmodel.Connection, _ int) v1.Connection {
 			return v1.Connection{
 				ID:                 connection.UID,
 				InstanceUID:        connection.InstanceUID,

@@ -6,7 +6,8 @@ import (
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 const (
@@ -48,16 +49,16 @@ type AgentPackageResourceStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (ap *AgentPackage) ToDomain() *domainmodel.AgentPackage {
-	return &domainmodel.AgentPackage{
+func (ap *AgentPackage) ToDomain() *agentmodel.AgentPackage {
+	return &agentmodel.AgentPackage{
 		Metadata: ap.Metadata.toDomain(),
 		Spec:     ap.Spec.toDomain(),
 		Status:   ap.Status.toDomain(),
 	}
 }
 
-func (m *AgentPackageMetadata) toDomain() domainmodel.AgentPackageMetadata {
-	return domainmodel.AgentPackageMetadata{
+func (m *AgentPackageMetadata) toDomain() agentmodel.AgentPackageMetadata {
+	return agentmodel.AgentPackageMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
 		CreatedAt:  m.CreatedAt,
@@ -65,8 +66,8 @@ func (m *AgentPackageMetadata) toDomain() domainmodel.AgentPackageMetadata {
 	}
 }
 
-func (s *AgentPackageSpec) toDomain() domainmodel.AgentPackageSpec {
-	return domainmodel.AgentPackageSpec{
+func (s *AgentPackageSpec) toDomain() agentmodel.AgentPackageSpec {
+	return agentmodel.AgentPackageSpec{
 		PackageType: s.PackageType,
 		Version:     s.Version,
 		DownloadURL: s.DownloadURL,
@@ -77,16 +78,16 @@ func (s *AgentPackageSpec) toDomain() domainmodel.AgentPackageSpec {
 	}
 }
 
-func (s *AgentPackageResourceStatus) toDomain() domainmodel.AgentPackageStatus {
-	return domainmodel.AgentPackageStatus{
-		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) domainmodel.Condition {
+func (s *AgentPackageResourceStatus) toDomain() agentmodel.AgentPackageStatus {
+	return agentmodel.AgentPackageStatus{
+		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
 	}
 }
 
 // AgentPackageFromDomain converts domain model to entity.
-func AgentPackageFromDomain(domain *domainmodel.AgentPackage) *AgentPackage {
+func AgentPackageFromDomain(domain *agentmodel.AgentPackage) *AgentPackage {
 	return &AgentPackage{
 		Common: Common{
 			Version: VersionV1,
@@ -98,7 +99,7 @@ func AgentPackageFromDomain(domain *domainmodel.AgentPackage) *AgentPackage {
 	}
 }
 
-func agentPackageMetadataFromDomain(m domainmodel.AgentPackageMetadata) AgentPackageMetadata {
+func agentPackageMetadataFromDomain(m agentmodel.AgentPackageMetadata) AgentPackageMetadata {
 	return AgentPackageMetadata{
 		Name:       m.Name,
 		Attributes: m.Attributes,
@@ -107,7 +108,7 @@ func agentPackageMetadataFromDomain(m domainmodel.AgentPackageMetadata) AgentPac
 	}
 }
 
-func agentPackageSpecFromDomain(domain domainmodel.AgentPackageSpec) AgentPackageSpec {
+func agentPackageSpecFromDomain(domain agentmodel.AgentPackageSpec) AgentPackageSpec {
 	return AgentPackageSpec{
 		PackageType: domain.PackageType,
 		Version:     domain.Version,
@@ -119,9 +120,9 @@ func agentPackageSpecFromDomain(domain domainmodel.AgentPackageSpec) AgentPackag
 	}
 }
 
-func agentPackageStatusFromDomain(s domainmodel.AgentPackageStatus) AgentPackageResourceStatus {
+func agentPackageStatusFromDomain(s agentmodel.AgentPackageStatus) AgentPackageResourceStatus {
 	return AgentPackageResourceStatus{
-		Conditions: lo.Map(s.Conditions, func(c domainmodel.Condition, _ int) Condition {
+		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)
 		}),
 	}
@@ -159,20 +160,20 @@ type AgentRemoteConfigResourceEntityStatus struct {
 }
 
 // ToDomain converts the entity to domain model.
-func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteConfig {
-	return &domainmodel.AgentRemoteConfig{
-		Metadata: domainmodel.AgentRemoteConfigMetadata{
+func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteConfig {
+	return &agentmodel.AgentRemoteConfig{
+		Metadata: agentmodel.AgentRemoteConfigMetadata{
 			Name:       arc.Name,
 			Attributes: arc.Metadata.Attributes,
 			CreatedAt:  arc.Metadata.CreatedAt,
 			DeletedAt:  nil,
 		},
-		Spec: domainmodel.AgentRemoteConfigSpec{
+		Spec: agentmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,
 			ContentType: arc.Spec.ContentType,
 		},
-		Status: domainmodel.AgentRemoteConfigResourceStatus{
-			Conditions: lo.Map(arc.Status.Conditions, func(c Condition, _ int) domainmodel.Condition {
+		Status: agentmodel.AgentRemoteConfigResourceStatus{
+			Conditions: lo.Map(arc.Status.Conditions, func(c Condition, _ int) model.Condition {
 				return c.ToDomain()
 			}),
 		},
@@ -181,7 +182,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *domainmodel.AgentRemoteC
 
 // AgentRemoteConfigResourceEntityFromDomain converts domain model to entity.
 func AgentRemoteConfigResourceEntityFromDomain(
-	arc *domainmodel.AgentRemoteConfig,
+	arc *agentmodel.AgentRemoteConfig,
 ) *AgentRemoteConfigResourceEntity {
 	//nolint:exhaustruct // ID is set by MongoDB
 	return &AgentRemoteConfigResourceEntity{
@@ -195,7 +196,7 @@ func AgentRemoteConfigResourceEntityFromDomain(
 			ContentType: arc.Spec.ContentType,
 		},
 		Status: AgentRemoteConfigResourceEntityStatus{
-			Conditions: lo.Map(arc.Status.Conditions, func(c domainmodel.Condition, _ int) Condition {
+			Conditions: lo.Map(arc.Status.Conditions, func(c model.Condition, _ int) Condition {
 				return NewConditionFromDomain(c)
 			}),
 		},

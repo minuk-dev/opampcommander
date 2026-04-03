@@ -22,10 +22,10 @@ const (
 
 // Exchange exchanges the OAuth2 authorization code for an access token.
 // It validates the state parameter to prevent CSRF attacks.
-func (s *Service) Exchange(ctx context.Context, state, code string) (string, error) {
+func (s *Service) Exchange(ctx context.Context, state, code string) (LoginResult, error) {
 	err := s.validateState(state)
 	if err != nil {
-		return "", fmt.Errorf("invalid state: %w", err)
+		return LoginResult{}, fmt.Errorf("invalid state: %w", err)
 	}
 
 	// Use context with custom HTTP client for tracing
@@ -33,26 +33,26 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 
 	token, err := s.oauth2Config.Exchange(ctx, code)
 	if err != nil {
-		return "", fmt.Errorf("failed to exchange OAuth2 code for token: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to exchange OAuth2 code for token: %w", err)
 	}
 
 	s.logger.Debug("Exchanged OAuth2 code for token", slog.String("token", token.AccessToken))
 
 	tokenType := strings.ToLower(token.TokenType)
 	if tokenType != "bearer" {
-		return "", &UnsupportedTokenTypeError{TokenType: tokenType}
+		return LoginResult{}, &UnsupportedTokenTypeError{TokenType: tokenType}
 	}
 
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
-		return "", ErrOAuth2ClientCreationFailed
+		return LoginResult{}, ErrOAuth2ClientCreationFailed
 	}
 
 	client := github.NewClient(authClient)
 
 	emails, resp, err := client.Users.ListEmails(ctx, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to list user emails: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to list user emails: %w", err)
 	}
 
 	defer closeSilently(resp.Body)
@@ -61,19 +61,19 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (string, err
 		return email != nil && email.GetPrimary() && email.GetVerified() && email.GetEmail() != ""
 	})
 	if !found {
-		return "", ErrNoPrimaryEmailFound
+		return LoginResult{}, ErrNoPrimaryEmailFound
 	}
 
 	claims := s.newOPAMPClaims(email.GetEmail())
 
 	tokenString, err := s.createToken(claims)
 	if err != nil {
-		return "", fmt.Errorf("failed to create JWT token: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to create JWT token: %w", err)
 	}
 
 	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
 
-	return tokenString, nil
+	return LoginResult{Token: tokenString, Email: claims.Email}, nil
 }
 
 // DeviceAuth initiates the OAuth2 device authorization flow.
@@ -97,7 +97,7 @@ func (s *Service) ExchangeDeviceAuth(
 	ctx context.Context,
 	deviceCode string,
 	expiry time.Time,
-) (string, error) {
+) (LoginResult, error) {
 	// Use context with custom HTTP client for tracing
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, s.httpClient)
 
@@ -108,26 +108,26 @@ func (s *Service) ExchangeDeviceAuth(
 			Expiry:     expiry,
 		})
 	if err != nil {
-		return "", fmt.Errorf("failed to exchange device code for token: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to exchange device code for token: %w", err)
 	}
 
 	s.logger.Debug("Exchanged OAuth2 code for token", slog.String("token", token.AccessToken))
 
 	tokenType := strings.ToLower(token.TokenType)
 	if tokenType != "bearer" {
-		return "", &UnsupportedTokenTypeError{TokenType: tokenType}
+		return LoginResult{}, &UnsupportedTokenTypeError{TokenType: tokenType}
 	}
 
 	authClient := s.oauth2Config.Client(ctx, token)
 	if authClient == nil {
-		return "", ErrOAuth2ClientCreationFailed
+		return LoginResult{}, ErrOAuth2ClientCreationFailed
 	}
 
 	client := github.NewClient(authClient)
 
 	emails, resp, err := client.Users.ListEmails(ctx, nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to list user emails: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to list user emails: %w", err)
 	}
 
 	defer closeSilently(resp.Body)
@@ -136,26 +136,26 @@ func (s *Service) ExchangeDeviceAuth(
 		return email != nil && email.GetPrimary() && email.GetVerified() && email.GetEmail() != ""
 	})
 	if !found {
-		return "", ErrNoPrimaryEmailFound
+		return LoginResult{}, ErrNoPrimaryEmailFound
 	}
 
 	claims := s.newOPAMPClaims(email.GetEmail())
 
 	tokenString, err := s.createToken(claims)
 	if err != nil {
-		return "", fmt.Errorf("failed to create JWT token: %w", err)
+		return LoginResult{}, fmt.Errorf("failed to create JWT token: %w", err)
 	}
 
 	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
 
-	return tokenString, nil
+	return LoginResult{Token: tokenString, Email: claims.Email}, nil
 }
 
 func (s *Service) validateState(state string) error {
 	token, err := jwt.ParseWithClaims(state,
 		//exhaustruct:ignore
 		&OAuthStateClaims{}, // only to convey the type of claims we expect
-		func(_ *jwt.Token) (interface{}, error) {
+		func(_ *jwt.Token) (any, error) {
 			return []byte(s.oauthStateSettings.SigningKey), nil
 		})
 	if err != nil {

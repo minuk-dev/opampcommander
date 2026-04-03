@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/minuk-dev/opampcommander/api"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 // ErrorType represents common error types.
@@ -68,7 +69,7 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	baseURL := GetErrorTypeURI(ctx)
 
-	if errors.Is(err, domainport.ErrResourceNotExist) {
+	if errors.Is(err, port.ErrResourceNotExist) {
 		ctx.JSON(http.StatusNotFound, &api.ErrorModel{
 			Type:     baseURL,
 			Title:    "Not Found",
@@ -175,10 +176,8 @@ func determineLocationFromURL(ctx *gin.Context, identifier string) string {
 
 	// Check if identifier is in query parameters
 	for key, values := range ctx.Request.URL.Query() {
-		for _, value := range values {
-			if value == identifier {
-				return "query." + key
-			}
+		if slices.Contains(values, identifier) {
+			return "query." + key
 		}
 	}
 

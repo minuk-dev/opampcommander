@@ -6,7 +6,8 @@ import (
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
 // Server represents a server entity in MongoDB.
@@ -22,22 +23,22 @@ type Server struct {
 }
 
 // ToDomainModel converts the Server entity to a domain model.
-func (s *Server) ToDomainModel() *domainmodel.Server {
+func (s *Server) ToDomainModel() *agentmodel.Server {
 	if s == nil {
 		return nil
 	}
 
-	return &domainmodel.Server{
+	return &agentmodel.Server{
 		ID:              s.ServerID,
 		LastHeartbeatAt: s.LastHeartbeatAt,
-		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) domainmodel.Condition {
+		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
 	}
 }
 
 // ToServerEntity converts a domain model to a Server entity.
-func ToServerEntity(server *domainmodel.Server) *Server {
+func ToServerEntity(server *agentmodel.Server) *Server {
 	if server == nil {
 		return nil
 	}
@@ -46,7 +47,7 @@ func ToServerEntity(server *domainmodel.Server) *Server {
 		ID:              nil,
 		ServerID:        server.ID,
 		LastHeartbeatAt: server.LastHeartbeatAt,
-		Conditions: lo.Map(server.Conditions, func(c domainmodel.Condition, _ int) Condition {
+		Conditions: lo.Map(server.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)
 		}),
 	}

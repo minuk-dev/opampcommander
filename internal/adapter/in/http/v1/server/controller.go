@@ -9,8 +9,9 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
 
@@ -19,13 +20,16 @@ type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	serverUsecase domainport.ServerUsecase
+	serverUsecase agentport.ServerUsecase
 }
 
 // NewController creates a new instance of the Controller struct.
-func NewController(serverUsecase domainport.ServerUsecase) *Controller {
+func NewController(
+	logger *slog.Logger,
+	serverUsecase agentport.ServerUsecase,
+) *Controller {
 	return &Controller{
-		logger:        slog.Default(),
+		logger:        logger,
 		serverUsecase: serverUsecase,
 	}
 }
@@ -62,7 +66,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	}
 
 	serverResponse := v1.NewServerListResponse(
-		lo.Map(servers, func(server *model.Server, _ int) v1.Server {
+		lo.Map(servers, func(server *agentmodel.Server, _ int) v1.Server {
 			return v1.Server{
 				ID:              server.ID,
 				LastHeartbeatAt: v1.NewTime(server.LastHeartbeatAt),

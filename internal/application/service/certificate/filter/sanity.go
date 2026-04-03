@@ -2,7 +2,7 @@
 package filter
 
 import (
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 )
 
 // Sanity provides methods to sanitize Certificate during update operations.
@@ -17,9 +17,9 @@ func NewSanity() *Sanity {
 // Sanitize preserves immutable fields from the existing Certificate to the updated one.
 // Immutable fields: Metadata.CreatedAt, Status (preserved entirely).
 func (f *Sanity) Sanitize(
-	existing *model.Certificate,
-	updated *model.Certificate,
-) *model.Certificate {
+	existing *agentmodel.Certificate,
+	updated *agentmodel.Certificate,
+) *agentmodel.Certificate {
 	if existing == nil || updated == nil {
 		return updated
 	}

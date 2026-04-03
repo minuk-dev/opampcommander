@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"reflect"
 	"sync"
 
@@ -12,8 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
-	domainmodel "github.com/minuk-dev/opampcommander/internal/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var (
@@ -53,7 +54,7 @@ func newCommonAdapter[Entity any, KeyType any](
 func (a *commonEntityAdapter[Entity, KeyType]) get(
 	ctx context.Context,
 	key KeyType,
-	options *domainmodel.GetOptions,
+	options *model.GetOptions,
 ) (*Entity, error) {
 	var filter bson.M
 	if options != nil && options.IncludeDeleted {
@@ -67,7 +68,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) get(
 	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, domainport.ErrResourceNotExist
+			return nil, port.ErrResourceNotExist
 		}
 
 		return nil, fmt.Errorf("failed to get resource from mongodb: %w", err)
@@ -86,8 +87,8 @@ func (a *commonEntityAdapter[Entity, KeyType]) get(
 //nolint:funlen // Reason: unavoidable.
 func (a *commonEntityAdapter[Entity, KeyType]) list(
 	ctx context.Context,
-	options *domainmodel.ListOptions,
-) (*domainmodel.ListResponse[*Entity], error) {
+	options *model.ListOptions,
+) (*model.ListResponse[*Entity], error) {
 	var (
 		// To prevent shadowing in goroutines, we use retval suffix.
 		countRetval         int64
@@ -99,7 +100,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 
 	if options == nil {
 		//exhaustruct:ignore
-		options = &domainmodel.ListOptions{}
+		options = &model.ListOptions{}
 	}
 
 	var (
@@ -156,7 +157,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 		return nil, fmt.Errorf("list operation failed: %w %w", fErr, lErr)
 	}
 
-	return &domainmodel.ListResponse[*Entity]{
+	return &model.ListResponse[*Entity]{
 		Items:              entitiesRetval,
 		Continue:           continueTokenRetval,
 		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
@@ -242,9 +243,7 @@ func combineFilters(filters ...bson.M) bson.M {
 	result := bson.M{}
 
 	for _, filter := range filters {
-		for k, v := range filter {
-			result[k] = v
-		}
+		maps.Copy(result, filter)
 	}
 
 	return result

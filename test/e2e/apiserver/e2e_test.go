@@ -44,7 +44,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -599,7 +599,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 func setupMongoDBClient(t *testing.T, mongoURI string) (*mongo.Client, error) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	client, err := mongo.Connect(options.Client().ApplyURI(mongoURI))
@@ -619,7 +619,7 @@ func setupMongoDBClient(t *testing.T, mongoURI string) (*mongo.Client, error) {
 func verifySequenceNumInMongoDB(t *testing.T, client *mongo.Client, dbName string, agentUID uuid.UUID) {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
 	collection := client.Database(dbName).Collection("agents")
@@ -657,7 +657,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -781,7 +781,7 @@ func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v
 		url = fmt.Sprintf("%s&limit=%d", url, limit)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
 	require.NoError(t, err)
 
 	token := getAuthToken(t, apiBaseURL)
@@ -818,7 +818,7 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -1021,7 +1021,7 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -1258,7 +1258,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)
@@ -1438,7 +1438,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	base := testutil.NewBase(t)

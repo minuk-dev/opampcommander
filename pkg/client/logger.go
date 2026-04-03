@@ -15,21 +15,21 @@ type loggerWrapper struct {
 }
 
 //nolint:mnd
-func (logger *loggerWrapper) Errorf(format string, v ...interface{}) {
+func (logger *loggerWrapper) Errorf(format string, v ...any) {
 	_, f, l, _ := runtime.Caller(2)
 	source := slog.String("originSource", fmt.Sprintf("%s:%d", f, l))
 	logger.With(source).Error(fmt.Sprintf(format, v...))
 }
 
 //nolint:mnd
-func (logger *loggerWrapper) Warnf(format string, v ...interface{}) {
+func (logger *loggerWrapper) Warnf(format string, v ...any) {
 	_, f, l, _ := runtime.Caller(2)
 	source := slog.String("originSource", fmt.Sprintf("%s:%d", f, l))
 	logger.With(source).Warn(fmt.Sprintf(format, v...))
 }
 
 //nolint:mnd
-func (logger *loggerWrapper) Debugf(format string, v ...interface{}) {
+func (logger *loggerWrapper) Debugf(format string, v ...any) {
 	_, f, l, _ := runtime.Caller(2)
 	source := slog.String("originSource", fmt.Sprintf("%s:%d", f, l))
 	logger.With(source).Debug(fmt.Sprintf(format, v...))

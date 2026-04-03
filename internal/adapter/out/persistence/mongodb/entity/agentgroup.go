@@ -5,6 +5,7 @@ import (
 
 	"github.com/samber/lo"
 
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -88,8 +89,8 @@ type AgentGroupStatistics struct {
 }
 
 // ToDomain converts the AgentGroup entity to the domain model.
-func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGroup {
-	agentGroup := &model.AgentGroup{
+func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *agentmodel.AgentGroup {
+	agentGroup := &agentmodel.AgentGroup{
 		Metadata: e.Metadata.toDomain(),
 		Spec:     e.Spec.toDomain(),
 		Status:   e.Status.toDomain(),
@@ -105,13 +106,13 @@ func (e *AgentGroup) ToDomain(statistics *AgentGroupStatistics) *model.AgentGrou
 
 	return agentGroup
 }
-func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
+func (s *AgentGroupMetadata) toDomain() agentmodel.AgentGroupMetadata {
 	var deletedAt time.Time
 	if s.DeletedAt != nil {
 		deletedAt = *s.DeletedAt
 	}
 
-	return model.AgentGroupMetadata{
+	return agentmodel.AgentGroupMetadata{
 		Name:       s.Name,
 		Attributes: s.Attributes,
 		CreatedAt:  s.CreatedAt,
@@ -119,24 +120,26 @@ func (s *AgentGroupMetadata) toDomain() model.AgentGroupMetadata {
 	}
 }
 
-func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
+func (s *AgentGroupSpec) toDomain() agentmodel.AgentGroupSpec {
 	//nolint:exhaustruct // Fields are set conditionally below
-	spec := model.AgentGroupSpec{
+	spec := agentmodel.AgentGroupSpec{
 		Priority: s.Priority,
-		Selector: model.AgentSelector{
+		Selector: agentmodel.AgentSelector{
 			IdentifyingAttributes:    s.Selector.IdentifyingAttributes,
 			NonIdentifyingAttributes: s.Selector.NonIdentifyingAttributes,
 		},
 	}
 
 	if s.AgentRemoteConfig != nil {
-		spec.AgentRemoteConfig = &model.AgentGroupAgentRemoteConfig{
+		//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
+		spec.AgentRemoteConfig = &agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: s.AgentRemoteConfig.AgentRemoteConfigName,
 			AgentRemoteConfigRef:  s.AgentRemoteConfig.AgentRemoteConfigRef,
 			AgentRemoteConfigSpec: nil,
 		}
 		if s.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
-			spec.AgentRemoteConfig.AgentRemoteConfigSpec = &model.AgentRemoteConfigSpec{
+			//nolint:staticcheck // backward compat
+			spec.AgentRemoteConfig.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
 				Value:       s.AgentRemoteConfig.AgentRemoteConfigSpec.Value,
 				ContentType: s.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
 			}
@@ -144,30 +147,30 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 	}
 
 	if s.AgentConnectionConfig != nil {
-		spec.AgentConnectionConfig = &model.AgentGroupConnectionConfig{
-			OpAMPConnection: &model.OpAMPConnectionSettings{
+		spec.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+			OpAMPConnection: &agentmodel.OpAMPConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OpAMP.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OpAMP.Headers,
 				CertificateName:     s.AgentConnectionConfig.OpAMP.CertificateName,
 			},
-			OwnMetrics: &model.TelemetryConnectionSettings{
+			OwnMetrics: &agentmodel.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnMetrics.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnMetrics.Headers,
 				CertificateName:     s.AgentConnectionConfig.OwnMetrics.CertificateName,
 			},
-			OwnLogs: &model.TelemetryConnectionSettings{
+			OwnLogs: &agentmodel.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnLogs.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnLogs.Headers,
 				CertificateName:     s.AgentConnectionConfig.OwnLogs.CertificateName,
 			},
-			OwnTraces: &model.TelemetryConnectionSettings{
+			OwnTraces: &agentmodel.TelemetryConnectionSettings{
 				DestinationEndpoint: s.AgentConnectionConfig.OwnTraces.DestinationEndpoint,
 				Headers:             s.AgentConnectionConfig.OwnTraces.Headers,
 				CertificateName:     s.AgentConnectionConfig.OwnTraces.CertificateName,
 			},
 			OtherConnections: lo.MapValues(s.AgentConnectionConfig.OtherConnections,
-				func(v ConnectionSettings, _ string) model.OtherConnectionSettings {
-					return model.OtherConnectionSettings{
+				func(v ConnectionSettings, _ string) agentmodel.OtherConnectionSettings {
+					return agentmodel.OtherConnectionSettings{
 						DestinationEndpoint: v.DestinationEndpoint,
 						Headers:             v.Headers,
 						CertificateName:     v.CertificateName,
@@ -179,9 +182,9 @@ func (s *AgentGroupSpec) toDomain() model.AgentGroupSpec {
 	return spec
 }
 
-func (s *AgentGroupStatus) toDomain() model.AgentGroupStatus {
+func (s *AgentGroupStatus) toDomain() agentmodel.AgentGroupStatus {
 	//nolint:exhaustruct // Statistics fields are set by the caller
-	return model.AgentGroupStatus{
+	return agentmodel.AgentGroupStatus{
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
 		}),
@@ -189,7 +192,7 @@ func (s *AgentGroupStatus) toDomain() model.AgentGroupStatus {
 }
 
 // AgentGroupFromDomain converts the AgentGroup domain model to the entity representation.
-func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
+func AgentGroupFromDomain(agentgroup *agentmodel.AgentGroup) *AgentGroup {
 	return &AgentGroup{
 		Common: Common{
 			Version: VersionV1,
@@ -201,7 +204,7 @@ func AgentGroupFromDomain(agentgroup *model.AgentGroup) *AgentGroup {
 	}
 }
 
-func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupMetadata {
+func agentGroupMetadataFromDomain(metadata agentmodel.AgentGroupMetadata) AgentGroupMetadata {
 	var deletedAt *time.Time
 	if !metadata.DeletedAt.IsZero() {
 		deletedAt = &metadata.DeletedAt
@@ -215,7 +218,7 @@ func agentGroupMetadataFromDomain(metadata model.AgentGroupMetadata) AgentGroupM
 	}
 }
 
-func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
+func agentGroupSpecFromDomain(spec agentmodel.AgentGroupSpec) AgentGroupSpec {
 	//nolint:exhaustruct // Fields are set conditionally below
 	result := AgentGroupSpec{
 		Priority: spec.Priority,
@@ -225,16 +228,17 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 		},
 	}
 
-	if spec.AgentRemoteConfig != nil {
+	if spec.AgentRemoteConfig != nil { //nolint:staticcheck // backward compatibility
 		result.AgentRemoteConfig = &AgentGroupAgentRemoteConfig{
-			AgentRemoteConfigName: spec.AgentRemoteConfig.AgentRemoteConfigName,
-			AgentRemoteConfigRef:  spec.AgentRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigName: spec.AgentRemoteConfig.AgentRemoteConfigName, //nolint:staticcheck // backward compat
+			AgentRemoteConfigRef:  spec.AgentRemoteConfig.AgentRemoteConfigRef,  //nolint:staticcheck // backward compat
 			AgentRemoteConfigSpec: nil,
 		}
-		if spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
+
+		if spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil { //nolint:staticcheck // backward compat
 			result.AgentRemoteConfig.AgentRemoteConfigSpec = &AgentRemoteConfigSpec{
-				Value:       spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value,
-				ContentType: spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
+				Value:       spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value,       //nolint:staticcheck // backward compat
+				ContentType: spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType, //nolint:staticcheck // backward compat
 			}
 		}
 	}
@@ -262,7 +266,7 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 				CertificateName:     spec.AgentConnectionConfig.OwnTraces.CertificateName,
 			},
 			OtherConnections: lo.MapValues(spec.AgentConnectionConfig.OtherConnections,
-				func(v model.OtherConnectionSettings, _ string) ConnectionSettings {
+				func(v agentmodel.OtherConnectionSettings, _ string) ConnectionSettings {
 					return ConnectionSettings{
 						DestinationEndpoint: v.DestinationEndpoint,
 						Headers:             v.Headers,
@@ -275,7 +279,7 @@ func agentGroupSpecFromDomain(spec model.AgentGroupSpec) AgentGroupSpec {
 	return result
 }
 
-func agentGroupStatusFromDomain(status model.AgentGroupStatus) AgentGroupStatus {
+func agentGroupStatusFromDomain(status agentmodel.AgentGroupStatus) AgentGroupStatus {
 	return AgentGroupStatus{
 		Conditions: lo.Map(status.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)
