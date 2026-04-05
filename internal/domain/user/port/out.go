@@ -77,6 +77,8 @@ type UserRolePersistencePort interface {
 }
 
 // RBACEnforcerPort is an interface that defines the methods for Casbin enforcer operations.
+//
+//nolint:interfacebloat // Casbin enforcer adapter naturally requires many operations.
 type RBACEnforcerPort interface {
 	// CheckPermission checks if a user has a specific permission for a resource and action in a namespace.
 	CheckPermission(ctx context.Context, sub, dom, obj, act string) (bool, error)
@@ -98,6 +100,8 @@ type RBACEnforcerPort interface {
 	GetNamedPolicy(ptype string) ([][]string, error)
 	// ClearPolicy removes all policies from the enforcer.
 	ClearPolicy(ctx context.Context)
+	// BuildRoleLinks rebuilds the role inheritance links after policy changes.
+	BuildRoleLinks(ctx context.Context) error
 }
 
 // OrgRoleMappingPersistencePort is an interface for org-role mapping persistence.

@@ -192,19 +192,22 @@ func provideCasbinEnforcer(
 func defaultRBACModel() casbinModel.Model {
 	rbacModel, _ := casbinModel.NewModelFromString(`
 [request_definition]
-r = sub, obj, act
+r = sub, dom, obj, act
 
 [role_definition]
-g = _, _
+g = _, _, _
 
 [policy_definition]
-p = sub, obj, act
+p = sub, dom, obj, act
 
 [policy_effect]
 e = some(where (p.eft == allow))
 
 [matchers]
-m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+m = (g(r.sub, p.sub, r.dom) || g(r.sub, p.sub, "*")) && \
+  (p.dom == "*" || r.dom == p.dom) && \
+  (p.obj == "*" || r.obj == p.obj) && \
+  (p.act == "*" || r.act == p.act)
 `)
 
 	return rbacModel
