@@ -29,10 +29,11 @@ type MockAgentGroupPersistencePort struct {
 
 func (m *MockAgentGroupPersistencePort) GetAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	options *model.GetOptions,
 ) (*agentmodel.AgentGroup, error) {
-	args := m.Called(ctx, name, options)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -47,10 +48,11 @@ func (m *MockAgentGroupPersistencePort) GetAgentGroup(
 
 func (m *MockAgentGroupPersistencePort) PutAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	args := m.Called(ctx, name, agentGroup)
+	args := m.Called(ctx, namespace, name, agentGroup)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -145,9 +147,10 @@ func (m *MockAgentUsecaseForGroup) SaveAgent(ctx context.Context, agnt *agentmod
 
 func (m *MockAgentUsecaseForGroup) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -162,10 +165,11 @@ func (m *MockAgentUsecaseForGroup) ListAgents(
 
 func (m *MockAgentUsecaseForGroup) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, query, options)
+	args := m.Called(ctx, namespace, query, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -185,9 +189,10 @@ type MockAgentRemoteConfigPersistencePort struct {
 
 func (m *MockAgentRemoteConfigPersistencePort) GetAgentRemoteConfig(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	args := m.Called(ctx, name)
+	args := m.Called(ctx, namespace, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -241,9 +246,10 @@ type MockCertificatePersistencePortForGroup struct {
 
 func (m *MockCertificatePersistencePortForGroup) GetCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*agentmodel.Certificate, error) {
-	args := m.Called(ctx, name)
+	args := m.Called(ctx, namespace, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -312,9 +318,9 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 			},
 		}
 
-		mockPersistence.On("GetAgentGroup", ctx, "test-group", (*model.GetOptions)(nil)).Return(expectedGroup, nil)
+		mockPersistence.On("GetAgentGroup", ctx, "default", "test-group", (*model.GetOptions)(nil)).Return(expectedGroup, nil)
 
-		result, err := svc.GetAgentGroup(ctx, "test-group", nil)
+		result, err := svc.GetAgentGroup(ctx, "default", "test-group", nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, "test-group", result.Metadata.Name)
@@ -334,9 +340,11 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 		svc := agentservice.NewAgentGroupService(
 			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
 
-		mockPersistence.On("GetAgentGroup", ctx, "non-existent", (*model.GetOptions)(nil)).Return(nil, errAgentGroupNotFound)
+		mockPersistence.On(
+			"GetAgentGroup", ctx, "default", "non-existent", (*model.GetOptions)(nil),
+		).Return(nil, errAgentGroupNotFound)
 
-		result, err := svc.GetAgentGroup(ctx, "non-existent", nil)
+		result, err := svc.GetAgentGroup(ctx, "default", "non-existent", nil)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

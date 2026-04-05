@@ -25,10 +25,11 @@ type mockAgentGroupPersistence struct {
 
 func (m *mockAgentGroupPersistence) GetAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	options *model.GetOptions,
 ) (*agentmodel.AgentGroup, error) {
-	args := m.Called(ctx, name, options)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -43,10 +44,11 @@ func (m *mockAgentGroupPersistence) GetAgentGroup(
 
 func (m *mockAgentGroupPersistence) PutAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	ag *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	args := m.Called(ctx, name, ag)
+	args := m.Called(ctx, namespace, name, ag)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -135,9 +137,10 @@ func (m *mockAgentUsecase) SaveAgent(ctx context.Context, a *agentmodel.Agent) e
 
 func (m *mockAgentUsecase) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -152,10 +155,11 @@ func (m *mockAgentUsecase) ListAgents(
 
 func (m *mockAgentUsecase) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, query, options)
+	args := m.Called(ctx, namespace, query, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -175,9 +179,10 @@ type mockRemoteConfigPersistence struct {
 
 func (m *mockRemoteConfigPersistence) GetAgentRemoteConfig(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	args := m.Called(ctx, name)
+	args := m.Called(ctx, namespace, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -231,9 +236,10 @@ type mockCertPersistence struct {
 
 func (m *mockCertPersistence) GetCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*agentmodel.Certificate, error) {
-	args := m.Called(ctx, name)
+	args := m.Called(ctx, namespace, name)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -308,13 +314,13 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 			},
 		}
 
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(referencedConfig, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(referencedConfig, nil)
 
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigRef: &refName,
 		}
 
-		configFile, configName, err := svc.resolveRemoteConfig(ctx, "test-group", remoteConfig)
+		configFile, configName, err := svc.resolveRemoteConfig(ctx, "", "test-group", remoteConfig)
 
 		require.NoError(t, err)
 		assert.Equal(t, refName, configName) // No prefix for refs
@@ -336,13 +342,13 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		refName := "non-existent-config"
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(nil, errRemoteConfigNotFound)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(nil, errRemoteConfigNotFound)
 
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigRef: &refName,
 		}
 
-		_, _, err := svc.resolveRemoteConfig(ctx, "test-group", remoteConfig)
+		_, _, err := svc.resolveRemoteConfig(ctx, "", "test-group", remoteConfig)
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "get agent remote config")
@@ -377,7 +383,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 			},
 		}
 
-		configFile, resolvedName, err := svc.resolveRemoteConfig(ctx, "staging-group", remoteConfig)
+		configFile, resolvedName, err := svc.resolveRemoteConfig(ctx, "", "staging-group", remoteConfig)
 
 		require.NoError(t, err)
 		// Config name should be prefixed with AgentGroupName
@@ -404,7 +410,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 			AgentRemoteConfigSpec: nil, // Missing spec
 		}
 
-		_, _, err := svc.resolveRemoteConfig(ctx, "test-group", remoteConfig)
+		_, _, err := svc.resolveRemoteConfig(ctx, "", "test-group", remoteConfig)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrInvalidRemoteConfig)
@@ -430,7 +436,7 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 			},
 		}
 
-		_, _, err := svc.resolveRemoteConfig(ctx, "test-group", remoteConfig)
+		_, _, err := svc.resolveRemoteConfig(ctx, "", "test-group", remoteConfig)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, ErrInvalidRemoteConfig)
@@ -474,7 +480,7 @@ func TestApplyRemoteConfigs(t *testing.T) {
 			},
 		}
 
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(referencedConfig, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(referencedConfig, nil)
 
 		err := svc.applyRemoteConfigs(ctx, agentGroup, testAgent)
 
@@ -655,7 +661,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, refName).Return(referencedConfig, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(referencedConfig, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap[refName]
 

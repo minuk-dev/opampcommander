@@ -164,6 +164,87 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	}, nil
 }
 
+//nolint:funlen // Reason: unavoidable, mirrors list with additional filter.
+func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
+	ctx context.Context,
+	options *model.ListOptions,
+	extraFilter bson.M,
+) (*model.ListResponse[*Entity], error) {
+	var (
+		countRetval         int64
+		continueTokenRetval string
+		entitiesRetval      []*Entity
+	)
+
+	var queryWg sync.WaitGroup
+
+	if options == nil {
+		//exhaustruct:ignore
+		options = &model.ListOptions{}
+	}
+
+	var (
+		fErr error
+		lErr error
+	)
+
+	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
+	if err != nil && options.Continue != "" {
+		return nil, fmt.Errorf("invalid continue token: %w", err)
+	}
+
+	var baseFilter bson.M
+	if options.IncludeDeleted {
+		baseFilter = extraFilter
+	} else {
+		baseFilter = combineFilters(a.excludeDeletedFilter(), extraFilter)
+	}
+
+	queryWg.Go(func() {
+		entities, listErr := a.listWithContinueTokenAndLimit(
+			ctx, continueTokenObjectID, options.Limit, baseFilter,
+		)
+		if listErr != nil {
+			fErr = fmt.Errorf("failed to list resources from mongodb: %w", listErr)
+
+			return
+		}
+
+		continueToken, tokenErr := getContinueTokenFromEntities(entities)
+		if tokenErr != nil {
+			fErr = fmt.Errorf("failed to get continue token from entities: %w", tokenErr)
+
+			return
+		}
+
+		entitiesRetval = entities
+		continueTokenRetval = continueToken
+	})
+	queryWg.Go(func() {
+		filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
+
+		cnt, countErr := a.collection.CountDocuments(ctx, filter)
+		if countErr != nil {
+			lErr = fmt.Errorf("failed to count resources in mongodb: %w", countErr)
+
+			return
+		}
+
+		countRetval = cnt
+	})
+	queryWg.Wait()
+
+	if fErr != nil || lErr != nil {
+		return nil, fmt.Errorf("list operation failed: %w %w", fErr, lErr)
+	}
+
+	return &model.ListResponse[*Entity]{
+		Items:              entitiesRetval,
+		Continue:           continueTokenRetval,
+		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
+	}, nil
+}
+
 func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *Entity) error {
 	_, err := a.collection.ReplaceOne(ctx,
 		a.filterByKey(a.KeyFunc(entity)),

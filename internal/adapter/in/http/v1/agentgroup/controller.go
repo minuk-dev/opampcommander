@@ -36,37 +36,37 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentgroups",
+			Path:        "/api/v1/namespaces/:namespace/agentgroups",
 			Handler:     "http.v1.agentgroup.List",
 			HandlerFunc: c.List,
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentgroups/:name/agents",
+			Path:        "/api/v1/namespaces/:namespace/agentgroups/:name/agents",
 			Handler:     "http.v1.agentgroup.GetAgentByAgentGroup",
 			HandlerFunc: c.ListAgentsByAgentGroup,
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentgroups/:name",
+			Path:        "/api/v1/namespaces/:namespace/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Get",
 			HandlerFunc: c.Get,
 		},
 		{
 			Method:      http.MethodPost,
-			Path:        "/api/v1/agentgroups",
+			Path:        "/api/v1/namespaces/:namespace/agentgroups",
 			Handler:     "http.v1.agentgroup.Create",
 			HandlerFunc: c.Create,
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/agentgroups/:name",
+			Path:        "/api/v1/namespaces/:namespace/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/agentgroups/:name",
+			Path:        "/api/v1/namespaces/:namespace/agentgroups/:name",
 			Handler:     "http.v1.agentgroup.Delete",
 			HandlerFunc: c.Delete,
 		},
@@ -84,7 +84,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param includeDeleted query bool false "Include soft-deleted agent groups"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups [get].
+// @Router /api/v1/namespaces/{namespace}/agentgroups [get].
 func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
@@ -126,12 +126,20 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Produce json
 // @Success 200 {object} v1.AgentGroup
 // @Param name path string true "Agent Group Name"
+// @Param namespace path string true "Namespace"
 // @Param includeDeleted query bool false "Include soft-deleted agent group"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentgroups/{name} [get].
+// @Router /api/v1/namespaces/{namespace}/agentgroups/{name} [get].
 func (c *Controller) Get(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -146,7 +154,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), name, &model.GetOptions{
+	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), namespace, name, &model.GetOptions{
 		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
@@ -167,6 +175,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.ListResponse[v1.Agent]
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Agent Group Name".
 func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
@@ -178,6 +187,13 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -185,7 +201,7 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 		return
 	}
 
-	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), name, &model.ListOptions{
+	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), namespace, name, &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: false,
@@ -207,20 +223,30 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 // @Description Create a new agent group.
 // @Accept json
 // @Produce json
+// @Param namespace path string true "Namespace"
 // @Param agentGroup body v1.AgentGroup true "Agent Group to create"
 // @Success 201 {object} v1.AgentGroup
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
-// @Router /api/v1/agentgroups [post].
+// @Router /api/v1/namespaces/{namespace}/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	var req v1.AgentGroup
 
-	err := ginutil.BindJSON(ctx, &req)
+	err = ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
 
 		return
 	}
+
+	req.Metadata.Namespace = namespace
 
 	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &req)
 	if err != nil {
@@ -230,7 +256,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/agentgroups/"+created.Metadata.Name)
+	ctx.Header("Location", "/api/v1/namespaces/"+namespace+"/agentgroups/"+created.Metadata.Name)
 	ctx.JSON(http.StatusCreated, created)
 }
 
@@ -241,14 +267,22 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Description Update an existing agent group.
 // @Accept json
 // @Produce json
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Agent Group Name"
 // @Param agentGroup body v1.AgentGroup true "Updated Agent Group"
 // @Success 200 {object} v1.AgentGroup
 // @Failure 400 {object} ErrorModel
 // @Failure 404 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
-// @Router /api/v1/agentgroups/{name} [put].
+// @Router /api/v1/namespaces/{namespace}/agentgroups/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -265,7 +299,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx.Request.Context(), name, &req)
+	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx.Request.Context(), namespace, name, &req)
 	if err != nil {
 		c.logger.Error("failed to update agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent group.")
@@ -281,13 +315,21 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Summary Delete Agent Group
 // @Tags agentgroup
 // @Description Mark an agent group as deleted.
-// @Param name path string true "Agent Group ID"
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Agent Group Name"
 // @Success 204 "No Content"
 // @Failure 400 {object} ErrorModel
 // @Failure 404 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
-// @Router /api/v1/agentgroups/{name} [delete].
+// @Router /api/v1/namespaces/{namespace}/agentgroups/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -295,7 +337,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), name)
+	err = c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), namespace, name)
 	if err != nil {
 		c.logger.Error("failed to delete agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent group.")

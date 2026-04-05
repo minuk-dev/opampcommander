@@ -110,7 +110,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 
 		// when
-		listResponse, err := agentRepository.ListAgents(ctx, nil)
+		listResponse, err := agentRepository.ListAgents(ctx, "default", nil)
 
 		// then
 		require.NoError(t, err)
@@ -146,7 +146,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		listResponse, err := agentRepository.ListAgents(ctx, nil)
+		listResponse, err := agentRepository.ListAgents(ctx, "default", nil)
 
 		// then
 		require.NoError(t, err)
@@ -189,7 +189,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		}
 
 		// when
-		listResponse, err := agentRepository.ListAgents(ctx, nil)
+		listResponse, err := agentRepository.ListAgents(ctx, "default", nil)
 
 		// then
 		require.NoError(t, err)
@@ -242,7 +242,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 			Limit:    3,
 			Continue: "",
 		}
-		listResponse, err := agentRepository.ListAgents(ctx, listOptions)
+		listResponse, err := agentRepository.ListAgents(ctx, "default", listOptions)
 
 		// then
 		require.NoError(t, err)
@@ -1019,7 +1019,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - Search by prefix "12345678-1234"
-		listResponse, err := agentRepository.SearchAgents(ctx, "12345678-1234", &model.ListOptions{})
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "12345678-1234", &model.ListOptions{})
 
 		// then - Should return only agent1
 		require.NoError(t, err)
@@ -1056,7 +1056,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - Search for non-existent prefix
-		listResponse, err := agentRepository.SearchAgents(ctx, "zzzzz", &model.ListOptions{})
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "zzzzz", &model.ListOptions{})
 
 		// then - Should return empty list
 		require.NoError(t, err)
@@ -1094,7 +1094,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		}
 
 		// when - Search with limit
-		listResponse, err := agentRepository.SearchAgents(ctx, "aaaa", &model.ListOptions{Limit: 2})
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "aaaa", &model.ListOptions{Limit: 2})
 
 		// then - Should return limited results
 		require.NoError(t, err)
@@ -1131,7 +1131,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - Search with uppercase
-		listResponse, err := agentRepository.SearchAgents(ctx, "ABCD", &model.ListOptions{})
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "ABCD", &model.ListOptions{})
 
 		// then - Should find the agent
 		require.NoError(t, err)
@@ -1168,7 +1168,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - Search with empty query
-		listResponse, err := agentRepository.SearchAgents(ctx, "", &model.ListOptions{})
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "", &model.ListOptions{})
 
 		// then - Should return empty list
 		require.NoError(t, err)
@@ -1207,7 +1207,7 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		require.NoError(t, err)
 
 		// when - Search with regex special characters (should be treated as literal)
-		listResponse, err := agentRepository.SearchAgents(ctx, "1234.*", &model.ListOptions{})
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "1234.*", &model.ListOptions{})
 
 		// then - Should not match as regex pattern, should treat as literal string
 		require.NoError(t, err)

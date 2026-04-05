@@ -25,6 +25,9 @@ type AgentMetadata struct {
 	// InstanceUID is a unique identifier for the agent instance.
 	InstanceUID uuid.UUID `json:"instanceUid"`
 
+	// Namespace is the namespace the agent belongs to.
+	Namespace string `json:"namespace"`
+
 	// Description is a human-readable description of the agent.
 	Description AgentDescription `json:"description"`
 

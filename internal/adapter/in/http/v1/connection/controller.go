@@ -44,25 +44,27 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      "GET",
-			Path:        "/api/v1/connections",
+			Path:        "/api/v1/namespaces/:namespace/connections",
 			Handler:     "http.v1.connection.List",
 			HandlerFunc: c.List,
 		},
 	}
 }
 
-// List handles the request to list all connections.
+// List handles the request to list all connections in a namespace.
 //
 // @Summary List Connections
 // @Tags connection
-// @Description  Retrieve a list of all connections.
+// @Description  Retrieve a list of connections in a namespace.
 // @Accept  json
 // @Produce json
+// @Param namespace path string true "Namespace"
 // @Success 200 {object} v1.ListResponse[v1.Connection]
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/connections [get].
+// @Router /api/v1/namespaces/{namespace}/connections [get].
 func (c *Controller) List(ctx *gin.Context) {
 	now := c.clock.Now()
+	namespace := ctx.Param("namespace")
 
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
@@ -73,7 +75,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.adminUsecase.ListConnections(ctx.Request.Context(), &model.ListOptions{
+	response, err := c.adminUsecase.ListConnections(ctx.Request.Context(), namespace, &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: false,
@@ -90,6 +92,7 @@ func (c *Controller) List(ctx *gin.Context) {
 			return v1.Connection{
 				ID:                 connection.UID,
 				InstanceUID:        connection.InstanceUID,
+				Namespace:          connection.Namespace,
 				Type:               connection.Type.String(),
 				Alive:              connection.IsAlive(now),
 				LastCommunicatedAt: v1.NewTime(connection.LastCommunicatedAt),

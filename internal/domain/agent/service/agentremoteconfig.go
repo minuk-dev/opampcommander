@@ -27,9 +27,10 @@ func NewAgentRemoteConfigService(persistence agentport.AgentRemoteConfigPersiste
 // GetAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
 func (s *AgentRemoteConfigService) GetAgentRemoteConfig(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	resource, err := s.persistence.GetAgentRemoteConfig(ctx, name)
+	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent remote config: %w", err)
 	}
@@ -72,11 +73,12 @@ func (s *AgentRemoteConfigService) SaveAgentRemoteConfig(
 // DeleteAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
 func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	ctx context.Context,
+	namespace string,
 	name string,
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	resource, err := s.persistence.GetAgentRemoteConfig(ctx, name)
+	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name)
 	if err != nil {
 		return fmt.Errorf("failed to get agent remote config for deletion: %w", err)
 	}

@@ -59,7 +59,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 
 	// Wait for collector to register
 	assert.Eventually(t, func() bool {
-		agents, err := opampClient.AgentService.ListAgents(ctx)
+		agents, err := opampClient.AgentService.ListAgents(ctx, "default")
 		if err != nil {
 			return false
 		}
@@ -76,7 +76,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
     endpoint: localhost:4317`
 
 	//exhaustruct:ignore
-	agentGroup, err := opampClient.AgentGroupService.CreateAgentGroup(ctx, &v1.AgentGroup{
+	agentGroup, err := opampClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name: agentGroupName,
 		},
@@ -108,7 +108,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	expectedConfigName := fmt.Sprintf("%s/%s", agentGroupName, inlineConfigName)
 
 	assert.Eventually(t, func() bool {
-		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, agentGroupName)
+		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, "default", agentGroupName)
 		if err != nil {
 			t.Logf("Failed to list agents by group: %v", err)
 			return false
@@ -134,7 +134,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	}, 2*time.Minute, 2*time.Second, "Agent should receive remote config with prefixed name")
 
 	// Cleanup
-	err = opampClient.AgentGroupService.DeleteAgentGroup(ctx, agentGroupName)
+	err = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", agentGroupName)
 	require.NoError(t, err)
 }
 
@@ -183,7 +183,7 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 
 	// Wait for both collectors to register
 	assert.Eventually(t, func() bool {
-		agents, err := opampClient.AgentService.ListAgents(ctx)
+		agents, err := opampClient.AgentService.ListAgents(ctx, "default")
 		if err != nil {
 			return false
 		}
@@ -196,7 +196,7 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	// Group Alpha
 	groupAlphaName := "group-alpha"
 	//exhaustruct:ignore
-	_, err := opampClient.AgentGroupService.CreateAgentGroup(ctx, &v1.AgentGroup{
+	_, err := opampClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name: groupAlphaName,
 		},
@@ -223,7 +223,7 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	// Group Beta
 	groupBetaName := "group-beta"
 	//exhaustruct:ignore
-	_, err = opampClient.AgentGroupService.CreateAgentGroup(ctx, &v1.AgentGroup{
+	_, err = opampClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name: groupBetaName,
 		},
@@ -255,7 +255,7 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 
 	// Verify alpha agent
 	assert.Eventually(t, func() bool {
-		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, groupAlphaName)
+		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, "default", groupAlphaName)
 		if err != nil || len(agents.Items) == 0 {
 			return false
 		}
@@ -272,7 +272,7 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 
 	// Verify beta agent
 	assert.Eventually(t, func() bool {
-		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, groupBetaName)
+		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, "default", groupBetaName)
 		if err != nil || len(agents.Items) == 0 {
 			return false
 		}
@@ -288,8 +288,8 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	}, 2*time.Minute, 2*time.Second, "Beta agent should have prefixed config")
 
 	// Cleanup
-	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, groupAlphaName)
-	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, groupBetaName)
+	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupAlphaName)
+	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupBetaName)
 }
 
 // Helper functions

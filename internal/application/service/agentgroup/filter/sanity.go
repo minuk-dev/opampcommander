@@ -26,6 +26,7 @@ func (f *Sanity) Sanitize(
 	}
 
 	// Preserve immutable metadata fields
+	updated.Metadata.Namespace = existing.Metadata.Namespace
 	updated.Metadata.CreatedAt = existing.Metadata.CreatedAt
 
 	// Preserve existing conditions (caller will append Updated condition).

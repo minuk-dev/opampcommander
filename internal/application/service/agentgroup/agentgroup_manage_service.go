@@ -51,13 +51,14 @@ func NewManageService(
 	}
 }
 
-// GetAgentGroup returns an agent group by its UUID.
+// GetAgentGroup returns an agent group by its namespace and name.
 func (s *ManageService) GetAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	options *model.GetOptions,
 ) (*v1.AgentGroup, error) {
-	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name, options)
+	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -91,10 +92,11 @@ func (s *ManageService) ListAgentGroups(
 // ListAgentsByAgentGroup implements port.AgentGroupManageUsecase.
 func (s *ManageService) ListAgentsByAgentGroup(
 	ctx context.Context,
+	namespace string,
 	agentGroupName string,
 	options *model.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
-	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, agentGroupName, nil)
+	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, agentGroupName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -122,11 +124,12 @@ func (s *ManageService) CreateAgentGroup(
 	ctx context.Context,
 	agentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
+	namespace := agentGroup.Metadata.Namespace
 	name := agentGroup.Metadata.Name
 
-	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx, name, nil)
+	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, nil)
 	if getErr == nil && existingAgentGroup != nil {
-		return nil, fmt.Errorf("%w: %s", ErrAgentGroupAlreadyExists, name)
+		return nil, fmt.Errorf("%w: %s/%s", ErrAgentGroupAlreadyExists, namespace, name)
 	}
 
 	createdBy, err := security.GetUser(ctx)
@@ -150,7 +153,7 @@ func (s *ManageService) CreateAgentGroup(
 		},
 	}
 
-	domainAgentGroup, err = s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
+	domainAgentGroup, err = s.agentgroupUsecase.SaveAgentGroup(ctx, namespace, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("create agent group: %w", err)
 	}
@@ -161,11 +164,12 @@ func (s *ManageService) CreateAgentGroup(
 // UpdateAgentGroup updates an existing agent group.
 func (s *ManageService) UpdateAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	apiAgentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
 	// Check if the agent group exists
-	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, name, nil)
+	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group for update: %w", err)
 	}
@@ -207,7 +211,7 @@ func (s *ManageService) UpdateAgentGroup(
 		domainAgentGroup.Status.Conditions = append(domainAgentGroup.Status.Conditions, updatedCondition)
 	}
 
-	updatedAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, name, domainAgentGroup)
+	updatedAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, namespace, name, domainAgentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("update agent group: %w", err)
 	}
@@ -218,6 +222,7 @@ func (s *ManageService) UpdateAgentGroup(
 // DeleteAgentGroup marks an agent group as deleted.
 func (s *ManageService) DeleteAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) error {
 	deletedBy, err := security.GetUser(ctx)
@@ -229,7 +234,7 @@ func (s *ManageService) DeleteAgentGroup(
 
 	deletedAt := s.clock.Now()
 
-	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, name, deletedAt, deletedBy.String())
+	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, namespace, name, deletedAt, deletedBy.String())
 	if err != nil {
 		return fmt.Errorf("get agent group for delete: %w", err)
 	}

@@ -36,6 +36,7 @@ type Agent struct {
 type AgentMetadata struct {
 	InstanceUID        bson.Binary              `bson:"instanceUid"`
 	InstanceUIDString  string                   `bson:"instanceUidString"` // String representation for searching
+	Namespace          string                   `bson:"namespace"`
 	Capabilities       *AgentCapabilities       `bson:"capabilities,omitempty"`
 	Description        *AgentDescription        `bson:"description,omitempty"`
 	CustomCapabilities *AgentCustomCapabilities `bson:"customCapabilities,omitempty"`
@@ -228,6 +229,7 @@ func (a *Agent) ToDomain() *agentmodel.Agent {
 func (metadata *AgentMetadata) ToDmain() agentmodel.AgentMetadata {
 	return agentmodel.AgentMetadata{
 		InstanceUID: uuid.UUID(metadata.InstanceUID.Data),
+		Namespace:   metadata.Namespace,
 		Description: switchIfNil(
 			metadata.Description.ToDomain(),
 			//exhaustruct:ignore
@@ -518,6 +520,7 @@ func AgentFromDomain(agent *agentmodel.Agent) *Agent {
 				Data:    agent.Metadata.InstanceUID[:],
 			},
 			InstanceUIDString:  agent.Metadata.InstanceUID.String(),
+			Namespace:          agent.Metadata.Namespace,
 			Capabilities:       AgentCapabilitiesFromDomain(&agent.Metadata.Capabilities),
 			Description:        AgentDescriptionFromDomain(&agent.Metadata.Description),
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),

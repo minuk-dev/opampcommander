@@ -25,8 +25,12 @@ func NewAgentPackageService(persistence agentport.AgentPackagePersistencePort) *
 }
 
 // GetAgentPackage implements [agentport.AgentPackageUsecase].
-func (s *AgentPackageService) GetAgentPackage(ctx context.Context, name string) (*agentmodel.AgentPackage, error) {
-	agentPackage, err := s.persistence.GetAgentPackage(ctx, name)
+func (s *AgentPackageService) GetAgentPackage(
+	ctx context.Context,
+	namespace string,
+	name string,
+) (*agentmodel.AgentPackage, error) {
+	agentPackage, err := s.persistence.GetAgentPackage(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent package: %w", err)
 	}
@@ -63,11 +67,12 @@ func (s *AgentPackageService) SaveAgentPackage(
 // DeleteAgentPackage implements [agentport.AgentPackageUsecase].
 func (s *AgentPackageService) DeleteAgentPackage(
 	ctx context.Context,
+	namespace string,
 	name string,
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	agentPackage, err := s.persistence.GetAgentPackage(ctx, name)
+	agentPackage, err := s.persistence.GetAgentPackage(ctx, namespace, name)
 	if err != nil {
 		return fmt.Errorf("failed to get agent package for deletion: %w", err)
 	}

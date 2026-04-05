@@ -47,9 +47,10 @@ func NewAgentPackageService(
 // GetAgentPackage implements [port.AgentPackageManageUsecase].
 func (a *Service) GetAgentPackage(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*v1.AgentPackage, error) {
-	agentPackage, err := a.agentpackageUsecase.GetAgentPackage(ctx, name)
+	agentPackage, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("get agent package: %w", err)
 	}
@@ -109,10 +110,11 @@ func (a *Service) CreateAgentPackage(
 // UpdateAgentPackage implements [port.AgentPackageManageUsecase].
 func (a *Service) UpdateAgentPackage(
 	ctx context.Context,
+	namespace string,
 	name string,
 	agentPackage *v1.AgentPackage,
 ) (*v1.AgentPackage, error) {
-	existingDomainModel, err := a.agentpackageUsecase.GetAgentPackage(ctx, name)
+	existingDomainModel, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("get existing agent package: %w", err)
 	}
@@ -133,6 +135,7 @@ func (a *Service) UpdateAgentPackage(
 // DeleteAgentPackage implements [port.AgentPackageManageUsecase].
 func (a *Service) DeleteAgentPackage(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) error {
 	deletedBy, err := security.GetUser(ctx)
@@ -142,7 +145,9 @@ func (a *Service) DeleteAgentPackage(
 		deletedBy = security.NewAnonymousUser()
 	}
 
-	err = a.agentpackageUsecase.DeleteAgentPackage(ctx, name, a.clock.Now(), deletedBy.String())
+	err = a.agentpackageUsecase.DeleteAgentPackage(
+		ctx, namespace, name, a.clock.Now(), deletedBy.String(),
+	)
 	if err != nil {
 		return fmt.Errorf("delete agent package: %w", err)
 	}

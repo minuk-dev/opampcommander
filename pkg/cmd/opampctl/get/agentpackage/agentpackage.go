@@ -2,6 +2,7 @@
 package agentpackage
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +28,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType    string
+	namespace     string
+	allNamespaces bool
 
 	// internal
 	client *client.Client
@@ -54,6 +57,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent package")
+	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	return cmd
 }
@@ -95,7 +100,17 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agent packages.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agentpackages, err := clientutil.ListAgentPackageFully(cmd.Context(), opt.client)
+	var (
+		agentpackages []v1.AgentPackage
+		err           error
+	)
+
+	if opt.allNamespaces {
+		agentpackages, err = opt.listAllNamespaces(cmd)
+	} else {
+		agentpackages, err = clientutil.ListAgentPackageFully(cmd.Context(), opt.client, opt.namespace)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to list agent packages: %w", err)
 	}
@@ -121,7 +136,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	}
 
 	agentPackagesWithErr := lo.Map(names, func(name string, _ int) AgentPackageWithErr {
-		agentPackage, err := opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), name)
+		agentPackage, err := opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), opt.namespace, name)
 
 		return AgentPackageWithErr{
 			AgentPackage: agentPackage,
@@ -161,8 +176,23 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	return nil
 }
 
+func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.AgentPackage, error) {
+	agentpackages, err := clientutil.ListAcrossNamespaces(
+		cmd.Context(), opt.client,
+		func(ctx context.Context, namespace string) ([]v1.AgentPackage, error) {
+			return clientutil.ListAgentPackageFully(ctx, opt.client, namespace)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agent packages across all namespaces: %w", err)
+	}
+
+	return agentpackages, nil
+}
+
 //nolint:lll
 type formattedAgentPackage struct {
+	Namespace   string            `json:"namespace"           short:"namespace" text:"namespace"           yaml:"namespace"`
 	Name        string            `json:"name"                short:"name"      text:"name"                yaml:"name"`
 	Attributes  map[string]string `json:"attributes"          short:"-"         text:"-"                   yaml:"attributes"`
 	PackageType string            `json:"packageType"         short:"type"      text:"packageType"         yaml:"packageType"`
@@ -215,6 +245,7 @@ func (opt *CommandOptions) toFormattedAgentPackage(
 	}
 
 	return formattedAgentPackage{
+		Namespace:   agentPackage.Metadata.Namespace,
 		Name:        agentPackage.Metadata.Name,
 		Attributes:  agentPackage.Metadata.Attributes,
 		PackageType: agentPackage.Spec.PackageType,

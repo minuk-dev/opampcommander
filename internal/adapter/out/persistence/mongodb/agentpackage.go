@@ -1,28 +1,38 @@
 //nolint:dupl // MongoDB adapter pattern - similar structure is intentional
+//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var _ agentport.AgentPackagePersistencePort = (*AgentPackageMongoAdapter)(nil)
 
 const (
-	agentPackageCollectionName = "agentpackages"
+	agentPackageCollectionName     = "agentpackages"
+	agentPackageNamespaceFieldName = "metadata.namespace"
+	agentPackageNameFieldName      = "metadata.name"
+	agentPackageDeletedAtFieldName = "metadata.deletedAt"
 )
 
 // AgentPackageMongoAdapter is a struct that implements the AgentPackagePersistencePort interface.
 type AgentPackageMongoAdapter struct {
-	common commonEntityAdapter[entity.AgentPackage, string]
+	collection *mongo.Collection
+	common     commonEntityAdapter[entity.AgentPackage, string]
+	logger     *slog.Logger
 }
 
 // NewAgentPackageRepository creates a new instance of AgentPackageMongoAdapter.
@@ -39,10 +49,12 @@ func NewAgentPackageRepository(
 	}
 
 	return &AgentPackageMongoAdapter{
+		collection: collection,
+		logger:     logger,
 		common: newCommonAdapter(
 			logger,
 			collection,
-			entity.AgentPackageKeyFieldName,
+			entity.AgentPackageNameFieldName,
 			keyFunc,
 			keyQueryFunc,
 		),
@@ -51,14 +63,29 @@ func NewAgentPackageRepository(
 
 // GetAgentPackage implements agentport.AgentPackagePersistencePort.
 func (a *AgentPackageMongoAdapter) GetAgentPackage(
-	ctx context.Context, name string,
+	ctx context.Context, namespace string, name string,
 ) (*agentmodel.AgentPackage, error) {
-	en, err := a.common.get(ctx, name, nil)
+	filter := a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+
+	result := a.collection.FindOne(ctx, filter)
+
+	err := result.Err()
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, port.ErrResourceNotExist
+		}
+
 		return nil, fmt.Errorf("get agent package: %w", err)
 	}
 
-	return en.ToDomain(), nil
+	var agentPackageEntity entity.AgentPackage
+
+	err = result.Decode(&agentPackageEntity)
+	if err != nil {
+		return nil, fmt.Errorf("decode agent package: %w", err)
+	}
+
+	return agentPackageEntity.ToDomain(), nil
 }
 
 // ListAgentPackages implements agentport.AgentPackagePersistencePort.
@@ -86,14 +113,38 @@ func (a *AgentPackageMongoAdapter) ListAgentPackages(
 func (a *AgentPackageMongoAdapter) PutAgentPackage(
 	ctx context.Context, agentPackage *agentmodel.AgentPackage,
 ) (*agentmodel.AgentPackage, error) {
-	en := entity.AgentPackageFromDomain(agentPackage)
+	agentPackageEntity := entity.AgentPackageFromDomain(agentPackage)
+	namespace := agentPackage.Metadata.Namespace
+	name := agentPackage.Metadata.Name
 
-	err := a.common.put(ctx, en)
+	_, err := a.collection.ReplaceOne(ctx,
+		a.filterByNamespaceAndName(namespace, name),
+		agentPackageEntity,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("put agent package: %w", err)
 	}
 
 	// Return the domain model directly instead of querying again
-	// This avoids issues with soft-deleted documents not being found by GetAgentPackage
+	// This avoids issues with soft-deleted documents not being found
 	return agentPackage, nil
+}
+
+func (a *AgentPackageMongoAdapter) filterByNamespaceAndName(
+	namespace, name string,
+) bson.M {
+	return bson.M{
+		agentPackageNamespaceFieldName: sanitizeResourceName(namespace),
+		agentPackageNameFieldName:      sanitizeResourceName(name),
+	}
+}
+
+func (a *AgentPackageMongoAdapter) filterByNamespaceAndNameExcludingDeleted(
+	namespace, name string,
+) bson.M {
+	filter := a.filterByNamespaceAndName(namespace, name)
+	filter[agentPackageDeletedAtFieldName] = nil
+
+	return filter
 }

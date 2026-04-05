@@ -9,7 +9,9 @@ import (
 	agentApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agent"
 	agentgroupApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agentgroup"
 	agentpackageApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agentpackage"
+	agentremoteconfigApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/agentremoteconfig"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/certificate"
+	namespaceApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
 	permissionApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/permission"
 	rbacApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rbac"
@@ -40,8 +42,17 @@ func New() fx.Option {
 			agentpackageApplicationService.NewAgentPackageService,
 			fx.Annotate(Identity[*agentpackageApplicationService.Service], fx.As(new(port.AgentPackageManageUsecase))),
 
+			namespaceApplicationService.NewNamespaceService,
+			fx.Annotate(Identity[*namespaceApplicationService.Service], fx.As(new(port.NamespaceManageUsecase))),
+
 			certificateApplicationService.NewCertificateService,
 			fx.Annotate(Identity[*certificateApplicationService.Service], fx.As(new(port.CertificateManageUsecase))),
+
+			agentremoteconfigApplicationService.NewAgentRemoteConfigService,
+			fx.Annotate(
+				Identity[*agentremoteconfigApplicationService.Service],
+				fx.As(new(port.AgentRemoteConfigManageUsecase)),
+			),
 
 			// RBAC application services
 			userApplicationService.New,

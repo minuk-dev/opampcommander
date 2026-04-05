@@ -22,6 +22,7 @@ type CommandOptions struct {
 
 	// Flags
 	name                            string
+	namespace                       string
 	attributes                      map[string]string
 	priority                        int
 	identifyingAttributesSelector   map[string]string
@@ -55,6 +56,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the agent group (required)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent group")
 	cmd.Flags().StringToStringVar(&options.attributes, "attributes", nil, "Attributes of the agent group (key=value)")
 	cmd.Flags().StringToStringVar(&options.identifyingAttributesSelector, "identifying-attributes-selector",
 		nil, "Identifying attributes selector for the agent group (key=value)")
@@ -125,7 +127,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		},
 	}
 
-	agentGroup, err := agentGroupService.CreateAgentGroup(cmd.Context(), createRequest)
+	agentGroup, err := agentGroupService.CreateAgentGroup(cmd.Context(), opt.namespace, createRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create agent group: %w", err)
 	}
@@ -140,6 +142,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 
 //nolint:lll
 type formattedAgentGroup struct {
+	Namespace                        string            `json:"namespace"                        short:"namespace"           text:"namespace"           yaml:"namespace"`
 	Name                             string            `json:"name"                             short:"name"                text:"name"                yaml:"name"`
 	Attributes                       map[string]string `json:"attributes"                       short:"-"                   text:"-"                   yaml:"attributes"`
 	IdentifyingAttributesSelector    map[string]string `json:"identifyingAttributesSelector"    short:"-"                   text:"-"                   yaml:"identifyingAttributesSelector"`
@@ -149,6 +152,7 @@ type formattedAgentGroup struct {
 
 func toFormattedAgentGroup(agentGroup *v1.AgentGroup) *formattedAgentGroup {
 	return &formattedAgentGroup{
+		Namespace:                        agentGroup.Metadata.Namespace,
 		Name:                             agentGroup.Metadata.Name,
 		Attributes:                       agentGroup.Metadata.Attributes,
 		IdentifyingAttributesSelector:    agentGroup.Spec.Selector.IdentifyingAttributes,

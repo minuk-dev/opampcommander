@@ -25,6 +25,7 @@ type Client struct {
 	CertificateService       *CertificateService
 	ConnectionService        *ConnectionService
 	AuthService              *AuthService
+	NamespaceService         *NamespaceService
 	UserService              *UserService
 	RoleService              *RoleService
 	RBACService              *RBACService
@@ -51,6 +52,7 @@ func New(endpoint string, opt ...Option) *Client {
 		CertificateService:       nil,
 		ConnectionService:        nil,
 		AuthService:              nil,
+		NamespaceService:         nil,
 		UserService:              nil,
 		RoleService:              nil,
 		RBACService:              nil,
@@ -67,6 +69,7 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AgentPackageService = NewAgentPackageService(&service)
 	client.AgentRemoteConfigService = NewAgentRemoteConfigService(&service)
 	client.CertificateService = NewCertificateService(&service)
+	client.NamespaceService = NewNamespaceService(&service)
 	client.UserService = NewUserService(&service)
 	client.RoleService = NewRoleService(&service)
 	client.RBACService = NewRBACService(&service)

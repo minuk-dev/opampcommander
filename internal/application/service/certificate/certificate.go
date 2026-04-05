@@ -47,9 +47,10 @@ func NewCertificateService(
 // GetCertificate implements [port.CertificateManageUsecase].
 func (s *Service) GetCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*v1.Certificate, error) {
-	certificate, err := s.certificateUsecase.GetCertificate(ctx, name)
+	certificate, err := s.certificateUsecase.GetCertificate(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("get certificate: %w", err)
 	}
@@ -118,10 +119,11 @@ func (s *Service) CreateCertificate(
 // UpdateCertificate implements [port.CertificateManageUsecase].
 func (s *Service) UpdateCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 	certificate *v1.Certificate,
 ) (*v1.Certificate, error) {
-	existingDomainModel, err := s.certificateUsecase.GetCertificate(ctx, name)
+	existingDomainModel, err := s.certificateUsecase.GetCertificate(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("get existing certificate: %w", err)
 	}
@@ -159,6 +161,7 @@ func (s *Service) UpdateCertificate(
 // DeleteCertificate implements [port.CertificateManageUsecase].
 func (s *Service) DeleteCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) error {
 	deletedBy, err := security.GetUser(ctx)
@@ -168,7 +171,9 @@ func (s *Service) DeleteCertificate(
 		deletedBy = security.NewAnonymousUser()
 	}
 
-	_, err = s.certificateUsecase.DeleteCertificate(ctx, name, s.clock.Now(), deletedBy.String())
+	_, err = s.certificateUsecase.DeleteCertificate(
+		ctx, namespace, name, s.clock.Now(), deletedBy.String(),
+	)
 	if err != nil {
 		return fmt.Errorf("delete certificate: %w", err)
 	}

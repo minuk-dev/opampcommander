@@ -22,6 +22,8 @@ import (
 var (
 	// ErrRestartCapabilityNotSupported is returned when agent doesn't support restart capability.
 	ErrRestartCapabilityNotSupported = errors.New("agent does not support restart capability")
+	// ErrAgentNamespaceMismatch is returned when the agent does not belong to the specified namespace.
+	ErrAgentNamespaceMismatch = errors.New("agent does not belong to the specified namespace")
 )
 
 var _ applicationport.AgentManageUsecase = (*Service)(nil)
@@ -55,10 +57,18 @@ func New(
 }
 
 // GetAgent implements port.AgentManageUsecase.
-func (s *Service) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error) {
+func (s *Service) GetAgent(
+	ctx context.Context,
+	namespace string,
+	instanceUID uuid.UUID,
+) (*v1.Agent, error) {
 	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	if agent.Metadata.Namespace != namespace {
+		return nil, fmt.Errorf("failed to get agent: %w", ErrAgentNamespaceMismatch)
 	}
 
 	return s.mapper.MapAgentToAPI(agent), nil
@@ -67,9 +77,10 @@ func (s *Service) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agen
 // ListAgents implements port.AgentManageUsecase.
 func (s *Service) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
-	response, err := s.agentUsecase.ListAgents(ctx, options)
+	response, err := s.agentUsecase.ListAgents(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -90,10 +101,11 @@ func (s *Service) ListAgents(
 // SearchAgents implements port.AgentManageUsecase.
 func (s *Service) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
-	response, err := s.agentUsecase.SearchAgents(ctx, query, options)
+	response, err := s.agentUsecase.SearchAgents(ctx, namespace, query, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search agents: %w", err)
 	}
@@ -112,10 +124,19 @@ func (s *Service) SearchAgents(
 }
 
 // UpdateAgent implements [port.AgentManageUsecase].
-func (s *Service) UpdateAgent(ctx context.Context, instanceUID uuid.UUID, api *v1.Agent) (*v1.Agent, error) {
+func (s *Service) UpdateAgent(
+	ctx context.Context,
+	namespace string,
+	instanceUID uuid.UUID,
+	api *v1.Agent,
+) (*v1.Agent, error) {
 	existing, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	if existing.Metadata.Namespace != namespace {
+		return nil, fmt.Errorf("failed to update agent: %w", ErrAgentNamespaceMismatch)
 	}
 
 	agent := s.mapper.MapAPIToAgent(api)

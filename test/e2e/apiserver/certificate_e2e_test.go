@@ -121,7 +121,7 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 	certName := "test-cert-crud"
 	t.Run("Create Certificate", func(t *testing.T) {
 		//exhaustruct:ignore
-		cert, err := opampClient.CertificateService.CreateCertificate(ctx, &v1.Certificate{
+		cert, err := opampClient.CertificateService.CreateCertificate(ctx, "default", &v1.Certificate{
 			Metadata: v1.CertificateMetadata{
 				Name: certName,
 				Attributes: map[string]string{
@@ -146,7 +146,7 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 
 	// Test 2: Get certificate
 	t.Run("Get Certificate", func(t *testing.T) {
-		cert, err := opampClient.CertificateService.GetCertificate(ctx, certName)
+		cert, err := opampClient.CertificateService.GetCertificate(ctx, "default", certName)
 		require.NoError(t, err, "Failed to get certificate")
 		assert.Equal(t, certName, cert.Metadata.Name)
 		assert.Equal(t, "test", cert.Metadata.Attributes["environment"])
@@ -157,7 +157,7 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 
 	// Test 3: List certificates
 	t.Run("List Certificates", func(t *testing.T) {
-		certs, err := opampClient.CertificateService.ListCertificates(ctx)
+		certs, err := opampClient.CertificateService.ListCertificates(ctx, "default")
 		require.NoError(t, err, "Failed to list certificates")
 		assert.GreaterOrEqual(t, len(certs.Items), 1, "Should have at least one certificate")
 
@@ -178,7 +178,8 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 		//exhaustruct:ignore
 		updatedCert, err := opampClient.CertificateService.UpdateCertificate(ctx, &v1.Certificate{
 			Metadata: v1.CertificateMetadata{
-				Name: certName,
+				Name:      certName,
+				Namespace: "default",
 				Attributes: map[string]string{
 					"environment": "staging",
 					"team":        "platform",
@@ -200,11 +201,11 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 
 	// Test 5: Delete certificate
 	t.Run("Delete Certificate", func(t *testing.T) {
-		err := opampClient.CertificateService.DeleteCertificate(ctx, certName)
+		err := opampClient.CertificateService.DeleteCertificate(ctx, "default", certName)
 		require.NoError(t, err, "Failed to delete certificate")
 
 		// Verify deletion - soft deleted certificates should not be retrievable via normal Get
-		_, err = opampClient.CertificateService.GetCertificate(ctx, certName)
+		_, err = opampClient.CertificateService.GetCertificate(ctx, "default", certName)
 		assert.Error(t, err, "Soft deleted certificate should not be retrievable")
 
 		t.Logf("Deleted certificate: %s", certName)
@@ -244,7 +245,7 @@ func TestE2E_Certificate_MultipleCertificates(t *testing.T) {
 
 	for _, name := range certNames {
 		//exhaustruct:ignore
-		_, err := opampClient.CertificateService.CreateCertificate(ctx, &v1.Certificate{
+		_, err := opampClient.CertificateService.CreateCertificate(ctx, "default", &v1.Certificate{
 			Metadata: v1.CertificateMetadata{
 				Name: name,
 				Attributes: map[string]string{
@@ -260,7 +261,7 @@ func TestE2E_Certificate_MultipleCertificates(t *testing.T) {
 	}
 
 	// Verify all certificates are listed
-	certs, err := opampClient.CertificateService.ListCertificates(ctx)
+	certs, err := opampClient.CertificateService.ListCertificates(ctx, "default")
 	require.NoError(t, err)
 
 	foundCount := 0
@@ -276,7 +277,7 @@ func TestE2E_Certificate_MultipleCertificates(t *testing.T) {
 
 	// Cleanup
 	for _, name := range certNames {
-		err := opampClient.CertificateService.DeleteCertificate(ctx, name)
+		err := opampClient.CertificateService.DeleteCertificate(ctx, "default", name)
 		require.NoError(t, err, "Failed to delete certificate: %s", name)
 	}
 }
@@ -313,7 +314,7 @@ func TestE2E_Certificate_PartialData(t *testing.T) {
 	t.Run("Create Certificate without PrivateKey", func(t *testing.T) {
 		certName := "cert-public-only"
 		//exhaustruct:ignore
-		cert, err := opampClient.CertificateService.CreateCertificate(ctx, &v1.Certificate{
+		cert, err := opampClient.CertificateService.CreateCertificate(ctx, "default", &v1.Certificate{
 			Metadata: v1.CertificateMetadata{
 				Name: certName,
 			},
@@ -326,14 +327,14 @@ func TestE2E_Certificate_PartialData(t *testing.T) {
 		assert.Empty(t, cert.Spec.PrivateKey)
 
 		// Cleanup
-		_ = opampClient.CertificateService.DeleteCertificate(ctx, certName)
+		_ = opampClient.CertificateService.DeleteCertificate(ctx, "default", certName)
 	})
 
 	// Test: Create certificate with only CA cert
 	t.Run("Create Certificate with only CaCert", func(t *testing.T) {
 		certName := "cert-ca-only"
 		//exhaustruct:ignore
-		cert, err := opampClient.CertificateService.CreateCertificate(ctx, &v1.Certificate{
+		cert, err := opampClient.CertificateService.CreateCertificate(ctx, "default", &v1.Certificate{
 			Metadata: v1.CertificateMetadata{
 				Name: certName,
 			},
@@ -347,7 +348,7 @@ func TestE2E_Certificate_PartialData(t *testing.T) {
 		assert.Equal(t, testCerts.CaCertPEM, cert.Spec.CaCert)
 
 		// Cleanup
-		_ = opampClient.CertificateService.DeleteCertificate(ctx, certName)
+		_ = opampClient.CertificateService.DeleteCertificate(ctx, "default", certName)
 	})
 }
 
@@ -379,7 +380,7 @@ func TestE2E_Certificate_NotFound(t *testing.T) {
 	opampClient := createOpampClient(t, apiBaseURL)
 
 	// Test: Get non-existent certificate
-	_, err := opampClient.CertificateService.GetCertificate(ctx, "non-existent-cert")
+	_, err := opampClient.CertificateService.GetCertificate(ctx, "default", "non-existent-cert")
 	assert.Error(t, err, "Should return error for non-existent certificate")
 
 	t.Logf("Correctly received error for non-existent certificate: %v", err)
@@ -421,7 +422,7 @@ func TestE2E_Certificate_Pagination(t *testing.T) {
 		name := "cert-page-" + string(rune('a'+i))
 		createdNames[i] = name
 		//exhaustruct:ignore
-		_, err := opampClient.CertificateService.CreateCertificate(ctx, &v1.Certificate{
+		_, err := opampClient.CertificateService.CreateCertificate(ctx, "default", &v1.Certificate{
 			Metadata: v1.CertificateMetadata{
 				Name: name,
 			},
@@ -434,7 +435,7 @@ func TestE2E_Certificate_Pagination(t *testing.T) {
 
 	// Test: List with limit
 	t.Run("List with limit", func(t *testing.T) {
-		certs, err := opampClient.CertificateService.ListCertificates(ctx,
+		certs, err := opampClient.CertificateService.ListCertificates(ctx, "default",
 			client.WithLimit(2))
 		require.NoError(t, err)
 		assert.LessOrEqual(t, len(certs.Items), 2, "Should return at most 2 items")
@@ -442,13 +443,13 @@ func TestE2E_Certificate_Pagination(t *testing.T) {
 
 	// Test: List all (without pagination)
 	t.Run("List all", func(t *testing.T) {
-		certs, err := opampClient.CertificateService.ListCertificates(ctx)
+		certs, err := opampClient.CertificateService.ListCertificates(ctx, "default")
 		require.NoError(t, err)
 		assert.GreaterOrEqual(t, len(certs.Items), numCerts, "Should return all certificates")
 	})
 
 	// Cleanup
 	for _, name := range createdNames {
-		_ = opampClient.CertificateService.DeleteCertificate(ctx, name)
+		_ = opampClient.CertificateService.DeleteCertificate(ctx, "default", name)
 	}
 }

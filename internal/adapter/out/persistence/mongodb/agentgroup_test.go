@@ -56,17 +56,18 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 
 		// given
 		agentGroup := agentmodel.NewAgentGroup(
+			"default",
 			"group-a",
 			agentmodel.OfAttributes(map[string]string{"env": "prod", "team": "core"}),
 			time.Now(),
 			"tester",
 		)
 
-		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when
-		loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
+		loaded, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, nil)
 
 		// then
 		require.NoError(t, err)
@@ -86,7 +87,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		})
 
 		// when
-		got, err := adapter.GetAgentGroup(ctx, "non-exist-group", nil)
+		got, err := adapter.GetAgentGroup(ctx, "default", "non-exist-group", nil)
 
 		// then
 		require.ErrorIs(t, err, port.ErrResourceNotExist)
@@ -127,12 +128,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 
 		// given
 		agentGroup := agentmodel.NewAgentGroup(
+			"default",
 			"group-single",
 			agentmodel.OfAttributes(map[string]string{"env": "test"}),
 			time.Now(),
 			"tester",
 		)
-		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// when
@@ -160,13 +162,14 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 
 		for idx := range 3 {
 			agentGroup := agentmodel.NewAgentGroup(
+				"default",
 				"group-"+uuid.NewString()[:8],
 				agentmodel.OfAttributes(map[string]string{"idx": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
 			agentGroups[idx] = agentGroup
-			putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+			putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 			require.NoError(t, err)
 			assert.Equal(t, agentGroup.Metadata.Name, putResult.Metadata.Name)
 		}
@@ -203,12 +206,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		// given - create 5 groups
 		for range 5 {
 			agentGroup := agentmodel.NewAgentGroup(
+				"default",
 				"group-"+uuid.NewString()[:8],
 				agentmodel.OfAttributes(map[string]string{"i": uuid.NewString()}),
 				time.Now(),
 				"tester",
 			)
-			_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+			_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 			require.NoError(t, err)
 		}
 
@@ -251,6 +255,7 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 
 		// given
 		agentGroup := agentmodel.NewAgentGroup(
+			"default",
 			"group-new",
 			agentmodel.OfAttributes(map[string]string{"env": "staging", "version": "v1.0"}),
 			time.Now(),
@@ -258,13 +263,13 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 		)
 
 		// when
-		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		putResult, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 
 		// then
 		require.NoError(t, err)
 
 		// Verify agent group was saved
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, nil)
 		require.NoError(t, err)
 		assert.Equal(t, putResult, got)
 		assert.Equal(t, agentGroup.Metadata.Name, got.Metadata.Name)
@@ -283,26 +288,28 @@ func TestAgentGroupMongoAdapter_PutAgentGroup(t *testing.T) {
 
 		// given - create initial agent group
 		originalGroup := agentmodel.NewAgentGroup(
+			"default",
 			"group-update",
 			agentmodel.OfAttributes(map[string]string{"env": "dev"}),
 			time.Now(),
 			"creator",
 		)
-		_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
+		_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Namespace, originalGroup.Metadata.Name, originalGroup)
 		require.NoError(t, err)
 
 		// when - update with new attributes
 		updatedGroup := agentmodel.NewAgentGroup(
+			"default",
 			"group-update-new-name",
 			agentmodel.OfAttributes(map[string]string{"env": "prod", "team": "backend"}),
 			time.Now(),
 			"updater",
 		)
-		_, err = adapter.PutAgentGroup(ctx, updatedGroup.Metadata.Name, updatedGroup)
+		_, err = adapter.PutAgentGroup(ctx, updatedGroup.Metadata.Namespace, updatedGroup.Metadata.Name, updatedGroup)
 		require.NoError(t, err)
 
 		// then
-		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Metadata.Name, nil)
+		got, err := adapter.GetAgentGroup(ctx, updatedGroup.Metadata.Namespace, updatedGroup.Metadata.Name, nil)
 		require.NoError(t, err)
 		assert.Equal(t, updatedGroup.Metadata.Name, got.Metadata.Name)
 		assert.Equal(t, updatedGroup.Metadata.Attributes, got.Metadata.Attributes)
@@ -324,16 +331,17 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 
 		// given
 		agentGroup := agentmodel.NewAgentGroup(
+			"default",
 			"group-to-delete",
 			agentmodel.OfAttributes(map[string]string{"env": "test"}),
 			time.Now(),
 			"creator",
 		)
-		_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		_, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 
 		// verify it's initially retrievable
-		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
+		got, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, nil)
 		require.NoError(t, err)
 		assert.False(t, got.IsDeleted())
 
@@ -341,16 +349,19 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 		deletedBy := "deleter"
 		deletedAt := time.Now()
 		agentGroup.MarkDeleted(deletedAt, deletedBy)
-		savedGroup, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Name, agentGroup)
+		savedGroup, err := adapter.PutAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, agentGroup)
 		require.NoError(t, err)
 		assert.True(t, savedGroup.IsDeleted())
 
 		// then - should not be retrievable via normal get (soft deleted)
-		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, nil)
+		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, nil)
 		require.ErrorIs(t, err, port.ErrResourceNotExist)
 
 		// but should be retrievable with includeDeleted option
-		deletedGroup, err := adapter.GetAgentGroup(ctx, agentGroup.Metadata.Name, &model.GetOptions{IncludeDeleted: true})
+		deletedGroup, err := adapter.GetAgentGroup(
+			ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name,
+			&model.GetOptions{IncludeDeleted: true},
+		)
 		require.NoError(t, err)
 		assert.True(t, deletedGroup.IsDeleted())
 	})
@@ -381,6 +392,7 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 	}
 
 	originalGroup := agentmodel.NewAgentGroup(
+		"default",
 		"complex-group",
 		agentmodel.OfAttributes(complexAttributes),
 		time.Now(),
@@ -388,10 +400,10 @@ func TestAgentGroupMongoAdapter_AttributesShouldBeSameAfterSaveAndLoad(t *testin
 	)
 
 	// when
-	_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Name, originalGroup)
+	_, err := adapter.PutAgentGroup(ctx, originalGroup.Metadata.Namespace, originalGroup.Metadata.Name, originalGroup)
 	require.NoError(t, err)
 
-	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Metadata.Name, nil)
+	loadedGroup, err := adapter.GetAgentGroup(ctx, originalGroup.Metadata.Namespace, originalGroup.Metadata.Name, nil)
 	require.NoError(t, err)
 
 	// then

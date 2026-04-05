@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	// AgentPackageKeyFieldName is the key field name for agent package.
-	AgentPackageKeyFieldName = "metadata.name"
+	// AgentPackageNamespaceFieldName is the field name for agent package namespace in MongoDB.
+	AgentPackageNamespaceFieldName = "metadata.namespace"
+	// AgentPackageNameFieldName is the field name for agent package name in MongoDB.
+	AgentPackageNameFieldName = "metadata.name"
 )
 
 // AgentPackage is the MongoDB entity for agent package.
@@ -27,6 +29,7 @@ type AgentPackage struct {
 // AgentPackageMetadata represents the metadata of an agent package.
 type AgentPackageMetadata struct {
 	Name       string            `bson:"name"`
+	Namespace  string            `bson:"namespace"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
 	CreatedAt  time.Time         `bson:"createdAt"`
 	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
@@ -60,6 +63,7 @@ func (ap *AgentPackage) ToDomain() *agentmodel.AgentPackage {
 func (m *AgentPackageMetadata) toDomain() agentmodel.AgentPackageMetadata {
 	return agentmodel.AgentPackageMetadata{
 		Name:       m.Name,
+		Namespace:  m.Namespace,
 		Attributes: m.Attributes,
 		CreatedAt:  m.CreatedAt,
 		DeletedAt:  m.DeletedAt,
@@ -99,12 +103,13 @@ func AgentPackageFromDomain(domain *agentmodel.AgentPackage) *AgentPackage {
 	}
 }
 
-func agentPackageMetadataFromDomain(m agentmodel.AgentPackageMetadata) AgentPackageMetadata {
+func agentPackageMetadataFromDomain(metadata agentmodel.AgentPackageMetadata) AgentPackageMetadata {
 	return AgentPackageMetadata{
-		Name:       m.Name,
-		Attributes: m.Attributes,
-		CreatedAt:  m.CreatedAt,
-		DeletedAt:  m.DeletedAt,
+		Name:       metadata.Name,
+		Namespace:  metadata.Namespace,
+		Attributes: metadata.Attributes,
+		CreatedAt:  metadata.CreatedAt,
+		DeletedAt:  metadata.DeletedAt,
 	}
 }
 
@@ -130,13 +135,16 @@ func agentPackageStatusFromDomain(s agentmodel.AgentPackageStatus) AgentPackageR
 
 const (
 	// AgentRemoteConfigKeyFieldName is the key field name for agent remote config.
-	AgentRemoteConfigKeyFieldName = "name"
+	AgentRemoteConfigKeyFieldName = "metadata.name"
+	// AgentRemoteConfigNamespaceFieldName is the field name for namespace in MongoDB.
+	AgentRemoteConfigNamespaceFieldName = "metadata.namespace"
+	// AgentRemoteConfigNameFieldName is the field name for name in MongoDB.
+	AgentRemoteConfigNameFieldName = "metadata.name"
 )
 
 // AgentRemoteConfigResourceEntity is the MongoDB entity for agent remote config resource.
 type AgentRemoteConfigResourceEntity struct {
 	ID       *bson.ObjectID                        `bson:"_id,omitempty"`
-	Name     string                                `bson:"name"`
 	Metadata AgentRemoteConfigResourceMetadata     `bson:"metadata"`
 	Spec     AgentRemoteConfigResourceSpec         `bson:"spec"`
 	Status   AgentRemoteConfigResourceEntityStatus `bson:"status"`
@@ -144,8 +152,11 @@ type AgentRemoteConfigResourceEntity struct {
 
 // AgentRemoteConfigResourceMetadata represents the metadata of an agent remote config resource.
 type AgentRemoteConfigResourceMetadata struct {
+	Name       string            `bson:"name"`
+	Namespace  string            `bson:"namespace"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
 	CreatedAt  time.Time         `bson:"createdAt"`
+	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentRemoteConfigResourceSpec represents the specification of an agent remote config resource.
@@ -163,10 +174,11 @@ type AgentRemoteConfigResourceEntityStatus struct {
 func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteConfig {
 	return &agentmodel.AgentRemoteConfig{
 		Metadata: agentmodel.AgentRemoteConfigMetadata{
-			Name:       arc.Name,
+			Name:       arc.Metadata.Name,
+			Namespace:  arc.Metadata.Namespace,
 			Attributes: arc.Metadata.Attributes,
 			CreatedAt:  arc.Metadata.CreatedAt,
-			DeletedAt:  nil,
+			DeletedAt:  arc.Metadata.DeletedAt,
 		},
 		Spec: agentmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,
@@ -186,10 +198,12 @@ func AgentRemoteConfigResourceEntityFromDomain(
 ) *AgentRemoteConfigResourceEntity {
 	//nolint:exhaustruct // ID is set by MongoDB
 	return &AgentRemoteConfigResourceEntity{
-		Name: arc.Metadata.Name,
 		Metadata: AgentRemoteConfigResourceMetadata{
+			Name:       arc.Metadata.Name,
+			Namespace:  arc.Metadata.Namespace,
 			Attributes: arc.Metadata.Attributes,
 			CreatedAt:  arc.Metadata.CreatedAt,
+			DeletedAt:  arc.Metadata.DeletedAt,
 		},
 		Spec: AgentRemoteConfigResourceSpec{
 			Value:       arc.Spec.Value,

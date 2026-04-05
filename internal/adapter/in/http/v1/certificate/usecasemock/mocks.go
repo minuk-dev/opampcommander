@@ -108,16 +108,16 @@ func (_c *MockUsecase_CreateCertificate_Call) RunAndReturn(run func(ctx context.
 }
 
 // DeleteCertificate provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteCertificate(ctx context.Context, name string) error {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockUsecase) DeleteCertificate(ctx context.Context, namespace string, name string) error {
+	ret := _mock.Called(ctx, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteCertificate")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, namespace, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -131,12 +131,13 @@ type MockUsecase_DeleteCertificate_Call struct {
 
 // DeleteCertificate is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) DeleteCertificate(ctx interface{}, name interface{}) *MockUsecase_DeleteCertificate_Call {
-	return &MockUsecase_DeleteCertificate_Call{Call: _e.mock.On("DeleteCertificate", ctx, name)}
+func (_e *MockUsecase_Expecter) DeleteCertificate(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteCertificate_Call {
+	return &MockUsecase_DeleteCertificate_Call{Call: _e.mock.On("DeleteCertificate", ctx, namespace, name)}
 }
 
-func (_c *MockUsecase_DeleteCertificate_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_DeleteCertificate_Call {
+func (_c *MockUsecase_DeleteCertificate_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteCertificate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -146,9 +147,14 @@ func (_c *MockUsecase_DeleteCertificate_Call) Run(run func(ctx context.Context, 
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -159,14 +165,14 @@ func (_c *MockUsecase_DeleteCertificate_Call) Return(err error) *MockUsecase_Del
 	return _c
 }
 
-func (_c *MockUsecase_DeleteCertificate_Call) RunAndReturn(run func(ctx context.Context, name string) error) *MockUsecase_DeleteCertificate_Call {
+func (_c *MockUsecase_DeleteCertificate_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteCertificate_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetCertificate provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetCertificate(ctx context.Context, name string) (*v1.Certificate, error) {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockUsecase) GetCertificate(ctx context.Context, namespace string, name string) (*v1.Certificate, error) {
+	ret := _mock.Called(ctx, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCertificate")
@@ -174,18 +180,18 @@ func (_mock *MockUsecase) GetCertificate(ctx context.Context, name string) (*v1.
 
 	var r0 *v1.Certificate
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*v1.Certificate, error)); ok {
-		return returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*v1.Certificate, error)); ok {
+		return returnFunc(ctx, namespace, name)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *v1.Certificate); ok {
-		r0 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *v1.Certificate); ok {
+		r0 = returnFunc(ctx, namespace, name)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.Certificate)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, namespace, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -199,12 +205,13 @@ type MockUsecase_GetCertificate_Call struct {
 
 // GetCertificate is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) GetCertificate(ctx interface{}, name interface{}) *MockUsecase_GetCertificate_Call {
-	return &MockUsecase_GetCertificate_Call{Call: _e.mock.On("GetCertificate", ctx, name)}
+func (_e *MockUsecase_Expecter) GetCertificate(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_GetCertificate_Call {
+	return &MockUsecase_GetCertificate_Call{Call: _e.mock.On("GetCertificate", ctx, namespace, name)}
 }
 
-func (_c *MockUsecase_GetCertificate_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_GetCertificate_Call {
+func (_c *MockUsecase_GetCertificate_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_GetCertificate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -214,9 +221,14 @@ func (_c *MockUsecase_GetCertificate_Call) Run(run func(ctx context.Context, nam
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -227,7 +239,7 @@ func (_c *MockUsecase_GetCertificate_Call) Return(certificate *v1.Certificate, e
 	return _c
 }
 
-func (_c *MockUsecase_GetCertificate_Call) RunAndReturn(run func(ctx context.Context, name string) (*v1.Certificate, error)) *MockUsecase_GetCertificate_Call {
+func (_c *MockUsecase_GetCertificate_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) (*v1.Certificate, error)) *MockUsecase_GetCertificate_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -301,8 +313,8 @@ func (_c *MockUsecase_ListCertificates_Call) RunAndReturn(run func(ctx context.C
 }
 
 // UpdateCertificate provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) UpdateCertificate(ctx context.Context, name string, certificate *v1.Certificate) (*v1.Certificate, error) {
-	ret := _mock.Called(ctx, name, certificate)
+func (_mock *MockUsecase) UpdateCertificate(ctx context.Context, namespace string, name string, certificate *v1.Certificate) (*v1.Certificate, error) {
+	ret := _mock.Called(ctx, namespace, name, certificate)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateCertificate")
@@ -310,18 +322,18 @@ func (_mock *MockUsecase) UpdateCertificate(ctx context.Context, name string, ce
 
 	var r0 *v1.Certificate
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *v1.Certificate) (*v1.Certificate, error)); ok {
-		return returnFunc(ctx, name, certificate)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *v1.Certificate) (*v1.Certificate, error)); ok {
+		return returnFunc(ctx, namespace, name, certificate)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *v1.Certificate) *v1.Certificate); ok {
-		r0 = returnFunc(ctx, name, certificate)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *v1.Certificate) *v1.Certificate); ok {
+		r0 = returnFunc(ctx, namespace, name, certificate)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.Certificate)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *v1.Certificate) error); ok {
-		r1 = returnFunc(ctx, name, certificate)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *v1.Certificate) error); ok {
+		r1 = returnFunc(ctx, namespace, name, certificate)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -335,13 +347,14 @@ type MockUsecase_UpdateCertificate_Call struct {
 
 // UpdateCertificate is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - name string
 //   - certificate *v1.Certificate
-func (_e *MockUsecase_Expecter) UpdateCertificate(ctx interface{}, name interface{}, certificate interface{}) *MockUsecase_UpdateCertificate_Call {
-	return &MockUsecase_UpdateCertificate_Call{Call: _e.mock.On("UpdateCertificate", ctx, name, certificate)}
+func (_e *MockUsecase_Expecter) UpdateCertificate(ctx interface{}, namespace interface{}, name interface{}, certificate interface{}) *MockUsecase_UpdateCertificate_Call {
+	return &MockUsecase_UpdateCertificate_Call{Call: _e.mock.On("UpdateCertificate", ctx, namespace, name, certificate)}
 }
 
-func (_c *MockUsecase_UpdateCertificate_Call) Run(run func(ctx context.Context, name string, certificate *v1.Certificate)) *MockUsecase_UpdateCertificate_Call {
+func (_c *MockUsecase_UpdateCertificate_Call) Run(run func(ctx context.Context, namespace string, name string, certificate *v1.Certificate)) *MockUsecase_UpdateCertificate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -351,14 +364,19 @@ func (_c *MockUsecase_UpdateCertificate_Call) Run(run func(ctx context.Context, 
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 *v1.Certificate
+		var arg2 string
 		if args[2] != nil {
-			arg2 = args[2].(*v1.Certificate)
+			arg2 = args[2].(string)
+		}
+		var arg3 *v1.Certificate
+		if args[3] != nil {
+			arg3 = args[3].(*v1.Certificate)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -369,7 +387,7 @@ func (_c *MockUsecase_UpdateCertificate_Call) Return(certificate1 *v1.Certificat
 	return _c
 }
 
-func (_c *MockUsecase_UpdateCertificate_Call) RunAndReturn(run func(ctx context.Context, name string, certificate *v1.Certificate) (*v1.Certificate, error)) *MockUsecase_UpdateCertificate_Call {
+func (_c *MockUsecase_UpdateCertificate_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, certificate *v1.Certificate) (*v1.Certificate, error)) *MockUsecase_UpdateCertificate_Call {
 	_c.Call.Return(run)
 	return _c
 }
