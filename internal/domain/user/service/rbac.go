@@ -112,6 +112,12 @@ func (s *RBACService) SyncPolicies(ctx context.Context) error {
 	// Phase 2: All data loaded successfully — now clear and apply atomically
 	s.rbacEnforcerPort.ClearPolicy(ctx)
 
+	// Rebuild role links after clearing to reset the role inheritance graph.
+	err = s.rbacEnforcerPort.BuildRoleLinks(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to rebuild role links: %w", err)
+	}
+
 	for _, p := range policies {
 		_, err = s.rbacEnforcerPort.AddNamedPolicy(ctx, "p", p.roleID, p.dom, p.resource, p.action)
 		if err != nil {

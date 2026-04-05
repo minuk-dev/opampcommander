@@ -49,6 +49,7 @@ func NewEnforcerFromModel(
 
 // NewEnforcerWithAdapter creates a new Enforcer with a custom
 // policy adapter (e.g., MongoDB) for persistent policy storage.
+// Auto-save is disabled so policies are only persisted via explicit SavePolicy calls.
 func NewEnforcerWithAdapter(
 	logger *slog.Logger,
 	casbinModel model.Model,
@@ -60,6 +61,8 @@ func NewEnforcerWithAdapter(
 			"failed to create casbin enforcer with adapter: %w", err,
 		)
 	}
+
+	casbinEnforcer.EnableAutoSave(false)
 
 	return &Enforcer{enforcer: casbinEnforcer, logger: logger}, nil
 }
@@ -165,4 +168,14 @@ func (c *Enforcer) GetNamedPolicy(ptype string) ([][]string, error) {
 // ClearPolicy removes all policies from the enforcer.
 func (c *Enforcer) ClearPolicy(_ context.Context) {
 	c.enforcer.ClearPolicy()
+}
+
+// BuildRoleLinks rebuilds the role inheritance graph from current grouping policies.
+func (c *Enforcer) BuildRoleLinks(_ context.Context) error {
+	err := c.enforcer.BuildRoleLinks()
+	if err != nil {
+		return fmt.Errorf("failed to build role links: %w", err)
+	}
+
+	return nil
 }
