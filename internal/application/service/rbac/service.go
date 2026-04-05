@@ -67,6 +67,8 @@ func (s *Service) CheckPermission(
 }
 
 // GetUserRoles implements [applicationport.RBACManageUsecase].
+//
+//nolint:funlen // Nil-UID validation adds necessary safety checks that push length over the limit.
 func (s *Service) GetUserRoles(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -80,7 +82,25 @@ func (s *Service) GetUserRoles(
 	roleMap := make(map[uuid.UUID]*usermodel.Role)
 
 	for _, binding := range allBindings.Items {
+		if binding.Spec.Subject.UID == uuid.Nil {
+			s.logger.WarnContext(ctx, "skipping role binding with nil subject UID",
+				slog.String("namespace", binding.Metadata.Namespace),
+				slog.String("name", binding.Metadata.Name),
+			)
+
+			continue
+		}
+
 		if binding.Spec.Subject.UID != userID {
+			continue
+		}
+
+		if binding.Spec.RoleRef.UID == uuid.Nil {
+			s.logger.WarnContext(ctx, "skipping role binding with nil role ref UID",
+				slog.String("namespace", binding.Metadata.Namespace),
+				slog.String("name", binding.Metadata.Name),
+			)
+
 			continue
 		}
 
