@@ -15,6 +15,7 @@ type AgentPackage struct {
 // AgentPackageMetadata represents the metadata of an agent package.
 type AgentPackageMetadata struct {
 	Name       string     `json:"name"`
+	Namespace  string     `json:"namespace"`
 	Attributes Attributes `json:"attributes"`
 	CreatedAt  Time       `json:"createdAt"`
 	DeletedAt  *Time      `json:"deletedAt,omitempty"`

@@ -71,6 +71,10 @@ type Connection struct {
 	// InstanceUID is id of the agent.
 	InstanceUID uuid.UUID
 
+	// Namespace is the namespace the connection belongs to.
+	// It is derived from the connected agent's namespace.
+	Namespace string
+
 	// LastCommunicatedAt is the last time the connection was communicated with.
 	LastCommunicatedAt time.Time
 }
@@ -82,6 +86,7 @@ func NewConnection(id any, typ ConnectionType) *Connection {
 		Type:               typ,
 		UID:                uuid.New(),
 		InstanceUID:        uuid.Nil,
+		Namespace:          DefaultNamespaceName,
 		LastCommunicatedAt: time.Time{},
 	}
 }
@@ -120,4 +125,9 @@ func (conn *Connection) IsManaged() bool {
 // SetInstanceUID sets the instance UID of the connection.
 func (conn *Connection) SetInstanceUID(instanceUID uuid.UUID) {
 	conn.InstanceUID = instanceUID
+}
+
+// SetNamespace sets the namespace of the connection.
+func (conn *Connection) SetNamespace(namespace string) {
+	conn.Namespace = namespace
 }

@@ -317,7 +317,7 @@ func waitForAPIServerReady(t *testing.T, baseURL string) {
 func listAgents(t *testing.T, baseURL string) []v1.Agent {
 	t.Helper()
 
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/agents", nil) //nolint:noctx
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/namespaces/default/agents", nil) //nolint:noctx
 	require.NoError(t, err)
 
 	token := getAuthToken(t, baseURL)
@@ -351,7 +351,7 @@ func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1.Agent {
 }
 
 func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1.Agent, error) {
-	url := fmt.Sprintf("%s/api/v1/agents/%s", baseURL, uid)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agents/%s", baseURL, uid)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
 	if err != nil {
@@ -697,6 +697,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 			"metadata": bson.M{
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent1UID[:]},
 				"instanceUidString": agent1UID.String(),
+				"namespace":         "default",
 			},
 			"status": bson.M{
 				"connected": true,
@@ -707,6 +708,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 			"metadata": bson.M{
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent2UID[:]},
 				"instanceUidString": agent2UID.String(),
+				"namespace":         "default",
 			},
 			"status": bson.M{
 				"connected": true,
@@ -717,6 +719,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 			"metadata": bson.M{
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent3UID[:]},
 				"instanceUidString": agent3UID.String(),
+				"namespace":         "default",
 			},
 			"status": bson.M{
 				"connected": false,
@@ -776,7 +779,7 @@ func searchAgents(t *testing.T, apiBaseURL, query string) *v1.ListResponse[v1.Ag
 func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/agents/search?q=%s", apiBaseURL, query)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agents/search?q=%s", apiBaseURL, query)
 	if limit > 0 {
 		url = fmt.Sprintf("%s&limit=%d", url, limit)
 	}
@@ -895,7 +898,7 @@ func listConnections(t *testing.T, baseURL string) []connectionResponse {
 
 	token := getAuthToken(t, baseURL)
 
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/connections", nil) //nolint:noctx
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/namespaces/default/connections", nil) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1087,7 +1090,7 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 	// Test Get Non-Existent Package
 	t.Run("Get Non-Existent AgentPackage", func(t *testing.T) {
 		token := getAuthToken(t, apiBaseURL)
-		url := fmt.Sprintf("%s/api/v1/agentpackages/%s", apiBaseURL, "non-existent-package")
+		url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", apiBaseURL, "non-existent-package")
 
 		req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
 		require.NoError(t, err)
@@ -1122,7 +1125,7 @@ func createAgentPackage(t *testing.T, baseURL, name, packageType, version string
 	body, err := json.Marshal(pkg)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/agentpackages", //nolint:noctx
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/namespaces/default/agentpackages", //nolint:noctx
 		strings.NewReader(string(body)))
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -1149,7 +1152,7 @@ func listAgentPackages(t *testing.T, baseURL string) []v1.AgentPackage {
 
 	token := getAuthToken(t, baseURL)
 
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/agentpackages", nil) //nolint:noctx
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/namespaces/default/agentpackages", nil) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1176,7 +1179,7 @@ func getAgentPackage(t *testing.T, baseURL, name string) v1.AgentPackage {
 
 	token := getAuthToken(t, baseURL)
 
-	url := fmt.Sprintf("%s/api/v1/agentpackages/%s", baseURL, name)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", baseURL, name)
 	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -1205,7 +1208,7 @@ func updateAgentPackage(t *testing.T, baseURL, name string, pkg v1.AgentPackage)
 	body, err := json.Marshal(pkg)
 	require.NoError(t, err)
 
-	url := fmt.Sprintf("%s/api/v1/agentpackages/%s", baseURL, name)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", baseURL, name)
 	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(body))) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -1232,7 +1235,7 @@ func deleteAgentPackage(t *testing.T, baseURL, name string) {
 
 	token := getAuthToken(t, baseURL)
 
-	url := fmt.Sprintf("%s/api/v1/agentpackages/%s", baseURL, name)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", baseURL, name)
 	req, err := http.NewRequest(http.MethodDelete, url, nil) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -1373,7 +1376,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	body, err := json.Marshal(agentGroupReq)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodPost, apiBaseURL+"/api/v1/agentgroups", strings.NewReader(string(body))) //nolint:noctx
+	req, err := http.NewRequest(http.MethodPost, apiBaseURL+"/api/v1/namespaces/default/agentgroups", strings.NewReader(string(body))) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
@@ -1404,7 +1407,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		agentGroup.Status.NumNotConnectedAgents)
 
 	// When: Get the AgentGroup again (also triggers aggregation)
-	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/agentgroups/stats-aggregation-group", nil) //nolint:noctx
+	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups/stats-aggregation-group", nil) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1416,7 +1419,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode, "Get AgentGroup should succeed")
 
 	// When: List AgentGroups (also triggers aggregation for each group)
-	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/agentgroups", nil) //nolint:noctx
+	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups", nil) //nolint:noctx
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1469,7 +1472,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 		}
 	}`, agentGroupName)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/api/v1/agentgroups", strings.NewReader(createReqBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/api/v1/namespaces/default/agentgroups", strings.NewReader(createReqBody))
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
@@ -1480,7 +1483,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode, "Create AgentGroup should succeed")
 
 	// Step 2: Verify the AgentGroup is in the list
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups", nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1504,7 +1507,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.True(t, found, "Created agent group should be in the list")
 
 	// Step 3: Delete the AgentGroup
-	req, err = http.NewRequestWithContext(ctx, http.MethodDelete, apiBaseURL+"/api/v1/agentgroups/"+agentGroupName, nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodDelete, apiBaseURL+"/api/v1/namespaces/default/agentgroups/"+agentGroupName, nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1514,7 +1517,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, resp.StatusCode, "Delete AgentGroup should succeed")
 
 	// Step 4: Verify the AgentGroup is NOT in the regular list
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups", nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1536,7 +1539,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.False(t, found, "Deleted agent group should NOT be in the regular list")
 
 	// Step 5: Verify the AgentGroup IS in the list when using includeDeleted=true
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups?includeDeleted=true", nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups?includeDeleted=true", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1560,7 +1563,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.True(t, found, "Deleted agent group should be in the list when includeDeleted=true")
 
 	// Step 6: Verify the deleted AgentGroup can be retrieved by name with includeDeleted=true
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups/"+agentGroupName+"?includeDeleted=true", nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups/"+agentGroupName+"?includeDeleted=true", nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 
@@ -1576,7 +1579,7 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.NotNil(t, agentGroup.Metadata.DeletedAt, "Retrieved deleted agent group should have DeletedAt")
 
 	// Step 7: Verify the deleted AgentGroup returns 404 without includeDeleted
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/agentgroups/"+agentGroupName, nil)
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups/"+agentGroupName, nil)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
 

@@ -5,17 +5,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// sanitizeResourceName validates and returns a safe resource name for MongoDB queries.
+// Returns the matched string or empty string if the input contains invalid characters.
+func sanitizeResourceName(name string) string {
+	return validResourceName.FindString(name)
+}
+
 //nolint:gochecknoglobals // These are constants for collection names and indexes.
 var (
+	// validResourceName matches valid resource identifiers (namespace, name).
+	// Only allows alphanumeric characters, hyphens, dots, and underscores.
+	// This prevents NoSQL injection by ensuring query values cannot contain MongoDB operators.
+	validResourceName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+
 	collections = []string{
 		agentCollectionName,
 		agentGroupCollectionName,
+		agentPackageCollectionName,
+		agentRemoteConfigCollectionName,
+		certificateCollectionName,
+		namespaceCollectionName,
 		serverCollectionName,
 	}
 
@@ -26,6 +42,12 @@ var (
 				{
 					Keys: bson.D{
 						{Key: "metadata.instanceUid", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
 					},
 					Options: nil,
 				},
@@ -64,7 +86,79 @@ var (
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
+						{Key: "namespace", Value: 1},
 						{Key: "name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: certificateCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: agentPackageCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: agentRemoteConfigCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: namespaceCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.name", Value: 1},
 					},
 					Options: nil,
 				},

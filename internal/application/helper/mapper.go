@@ -62,6 +62,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *agentmod
 	//exhaustruct:ignore
 	return &agentmodel.AgentGroup{
 		Metadata: agentmodel.AgentGroupMetadata{
+			Namespace:  apiAgentGroup.Metadata.Namespace,
 			Name:       apiAgentGroup.Metadata.Name,
 			Attributes: agentmodel.OfAttributes(apiAgentGroup.Metadata.Attributes),
 		},
@@ -125,6 +126,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *agentmodel.AgentGroup
 
 	return &v1.AgentGroup{
 		Metadata: v1.Metadata{
+			Namespace:  domainAgentGroup.Metadata.Namespace,
 			Name:       domainAgentGroup.Metadata.Name,
 			CreatedAt:  v1.NewTime(domainAgentGroup.Metadata.CreatedAt),
 			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
@@ -155,6 +157,7 @@ func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *agentmodel.Agent {
 	return &agentmodel.Agent{
 		Metadata: agentmodel.AgentMetadata{
 			InstanceUID: apiAgent.Metadata.InstanceUID,
+			Namespace:   apiAgent.Metadata.Namespace,
 			Description: agent.Description{
 				IdentifyingAttributes:    apiAgent.Metadata.Description.IdentifyingAttributes,
 				NonIdentifyingAttributes: apiAgent.Metadata.Description.NonIdentifyingAttributes,
@@ -178,6 +181,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 	return &v1.Agent{
 		Metadata: v1.AgentMetadata{
 			InstanceUID: agent.Metadata.InstanceUID,
+			Namespace:   agent.Metadata.Namespace,
 			Description: v1.AgentDescription{
 				IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
 				NonIdentifyingAttributes: agent.Metadata.Description.NonIdentifyingAttributes,
@@ -234,6 +238,7 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *agentmodel.AgentPackage
 	return &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       agentPackage.Metadata.Name,
+			Namespace:  agentPackage.Metadata.Namespace,
 			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
 			CreatedAt:  v1.NewTime(agentPackage.Metadata.CreatedAt),
 			DeletedAt:  deletedAt,
@@ -258,6 +263,7 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *agentmode
 	return &agentmodel.AgentPackage{
 		Metadata: agentmodel.AgentPackageMetadata{
 			Name:       apiModel.Metadata.Name,
+			Namespace:  apiModel.Metadata.Namespace,
 			Attributes: agentmodel.OfAttributes(apiModel.Metadata.Attributes),
 			CreatedAt:  apiModel.Metadata.CreatedAt.Time,
 			DeletedAt:  nil,
@@ -289,6 +295,7 @@ func (mapper *Mapper) MapCertificateToAPI(domain *agentmodel.Certificate) *v1.Ce
 		APIVersion: v1.APIVersion,
 		Metadata: v1.CertificateMetadata{
 			Name:       domain.Metadata.Name,
+			Namespace:  domain.Metadata.Namespace,
 			Attributes: v1.Attributes(domain.Metadata.Attributes),
 			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
 			DeletedAt:  p(v1.NewTime(domain.Metadata.DeletedAt)),
@@ -318,6 +325,7 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *agentmodel.Certi
 	return &agentmodel.Certificate{
 		Metadata: agentmodel.CertificateMetadata{
 			Name:       api.Metadata.Name,
+			Namespace:  api.Metadata.Namespace,
 			Attributes: agentmodel.Attributes(api.Metadata.Attributes),
 			CreatedAt:  api.Metadata.CreatedAt.Time,
 			DeletedAt:  deletedAt,
@@ -328,6 +336,57 @@ func (mapper *Mapper) MapAPIToCertificate(api *v1.Certificate) *agentmodel.Certi
 			CaCert:     []byte(api.Spec.CaCert),
 		},
 		Status: agentmodel.CertificateStatus{
+			Conditions: nil,
+		},
+	}
+}
+
+// MapAgentRemoteConfigToAPI maps a domain model AgentRemoteConfig to an API model.
+func (mapper *Mapper) MapAgentRemoteConfigToAPI(
+	domain *agentmodel.AgentRemoteConfig,
+) *v1.AgentRemoteConfig {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.AgentRemoteConfig{
+		Metadata: v1.AgentRemoteConfigMetadata{
+			Name:       domain.Metadata.Name,
+			Namespace:  domain.Metadata.Namespace,
+			Attributes: v1.Attributes(domain.Metadata.Attributes),
+			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
+		},
+		Spec: v1.AgentRemoteConfigSpec{
+			Value:       string(domain.Spec.Value),
+			ContentType: domain.Spec.ContentType,
+		},
+		Status: v1.AgentRemoteConfigStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToAgentRemoteConfig maps an API model AgentRemoteConfig to a domain model.
+func (mapper *Mapper) MapAPIToAgentRemoteConfig(
+	api *v1.AgentRemoteConfig,
+) *agentmodel.AgentRemoteConfig {
+	if api == nil {
+		return nil
+	}
+
+	return &agentmodel.AgentRemoteConfig{
+		Metadata: agentmodel.AgentRemoteConfigMetadata{
+			Name:       api.Metadata.Name,
+			Namespace:  api.Metadata.Namespace,
+			Attributes: agentmodel.OfAttributes(api.Metadata.Attributes),
+			CreatedAt:  api.Metadata.CreatedAt.Time,
+			DeletedAt:  nil,
+		},
+		Spec: agentmodel.AgentRemoteConfigSpec{
+			Value:       []byte(api.Spec.Value),
+			ContentType: api.Spec.ContentType,
+		},
+		Status: agentmodel.AgentRemoteConfigResourceStatus{
 			Conditions: nil,
 		},
 	}
@@ -456,6 +515,44 @@ const (
 	// Due to spec miss, old otel-collector sends empty content type even though it should be YAML.
 	Empty = ""
 )
+
+// MapNamespaceToAPI maps a domain Namespace to an API Namespace.
+func (mapper *Mapper) MapNamespaceToAPI(
+	namespace *agentmodel.Namespace,
+) *v1.Namespace {
+	return &v1.Namespace{
+		Metadata: v1.NamespaceMetadata{
+			Name:        namespace.Metadata.Name,
+			Labels:      namespace.Metadata.Labels,
+			Annotations: namespace.Metadata.Annotations,
+			CreatedAt:   v1.NewTime(namespace.Metadata.CreatedAt),
+			DeletedAt:   mapDeletedAtPtrToAPI(namespace.Metadata.DeletedAt),
+		},
+		Status: v1.NamespaceStatus{
+			Conditions: mapper.mapConditionsToAPI(
+				namespace.Status.Conditions,
+			),
+		},
+	}
+}
+
+// MapAPIToNamespace maps an API Namespace to a domain Namespace.
+func (mapper *Mapper) MapAPIToNamespace(
+	apiModel *v1.Namespace,
+) *agentmodel.Namespace {
+	return &agentmodel.Namespace{
+		Metadata: agentmodel.NamespaceMetadata{
+			Name:        apiModel.Metadata.Name,
+			Labels:      apiModel.Metadata.Labels,
+			Annotations: apiModel.Metadata.Annotations,
+			CreatedAt:   apiModel.Metadata.CreatedAt.Time,
+			DeletedAt:   nil,
+		},
+		Status: agentmodel.NamespaceStatus{
+			Conditions: nil,
+		},
+	}
+}
 
 func (mapper *Mapper) mapCustomCapabilitiesFromAPI(
 	apiCustomCapabilities *v1.AgentCustomCapabilities,

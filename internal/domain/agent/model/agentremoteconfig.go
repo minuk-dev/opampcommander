@@ -17,6 +17,7 @@ type AgentRemoteConfig struct {
 // AgentRemoteConfigMetadata contains metadata for the agent remote config resource.
 type AgentRemoteConfigMetadata struct {
 	Name       string
+	Namespace  string
 	Attributes Attributes
 	CreatedAt  time.Time
 	DeletedAt  *time.Time

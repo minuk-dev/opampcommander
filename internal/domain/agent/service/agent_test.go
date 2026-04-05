@@ -49,9 +49,10 @@ func (m *MockAgentPersistencePort) PutAgent(ctx context.Context, agnt *agentmode
 
 func (m *MockAgentPersistencePort) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -84,10 +85,11 @@ func (m *MockAgentPersistencePort) ListAgentsBySelector(
 
 func (m *MockAgentPersistencePort) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, query, options)
+	args := m.Called(ctx, namespace, query, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -496,10 +498,10 @@ func TestAgentService_SearchAgents(t *testing.T) {
 			RemainingItemCount: 0,
 		}
 
-		mockPort.On("SearchAgents", ctx, "1234", mock.Anything).Return(expectedResponse, nil)
+		mockPort.On("SearchAgents", ctx, "default", "1234", mock.Anything).Return(expectedResponse, nil)
 
 		// when
-		response, err := agentService.SearchAgents(ctx, "1234", &model.ListOptions{})
+		response, err := agentService.SearchAgents(ctx, "default", "1234", &model.ListOptions{})
 
 		// then
 		require.NoError(t, err)
@@ -517,10 +519,10 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		mockPort := new(MockAgentPersistencePort)
 		agentService := agentservice.NewAgentService(mockPort, slog.Default())
 
-		mockPort.On("SearchAgents", ctx, "test", mock.Anything).Return(nil, errDatabaseConnection)
+		mockPort.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errDatabaseConnection)
 
 		// when
-		response, err := agentService.SearchAgents(ctx, "test", &model.ListOptions{})
+		response, err := agentService.SearchAgents(ctx, "default", "test", &model.ListOptions{})
 
 		// then
 		require.Error(t, err)
@@ -552,10 +554,10 @@ func TestAgentService_SearchAgents(t *testing.T) {
 			Continue: "",
 		}
 
-		mockPort.On("SearchAgents", ctx, "abcd", options).Return(expectedResponse, nil)
+		mockPort.On("SearchAgents", ctx, "default", "abcd", options).Return(expectedResponse, nil)
 
 		// when
-		response, err := agentService.SearchAgents(ctx, "abcd", options)
+		response, err := agentService.SearchAgents(ctx, "default", "abcd", options)
 
 		// then
 		require.NoError(t, err)

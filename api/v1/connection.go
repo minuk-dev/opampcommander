@@ -16,6 +16,9 @@ type Connection struct {
 	// InstanceUID is the unique identifier of the agent instance.
 	InstanceUID uuid.UUID `json:"instanceUid"`
 
+	// Namespace is the namespace the connection belongs to.
+	Namespace string `json:"namespace"`
+
 	// Type is the type of connection (e.g., "http", "websocket").
 	Type string `json:"type"`
 

@@ -31,6 +31,7 @@ type CommandOptions struct {
 
 	// flags
 	formatType string
+	namespace  string
 
 	targetInstanceUID uuid.UUID
 
@@ -68,6 +69,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "yaml", "Output format (yaml|json|table)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent")
 	cmd.Flags().StringVarP(&options.newInstanceUID, "new-instance-uid", "", "", "New instance UID to set for the agent")
 
 	return cmd
@@ -116,7 +118,9 @@ func (opts *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		NewInstanceUID: opts.parsedNewInstanceUID,
 	}
 
-	agent, err := opts.client.AgentService.SetAgentNewInstanceUID(cmd.Context(), opts.targetInstanceUID, request)
+	agent, err := opts.client.AgentService.SetAgentNewInstanceUID(
+		cmd.Context(), opts.namespace, opts.targetInstanceUID, request,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to set new instance UID: %w", err)
 	}
@@ -146,6 +150,7 @@ func (opts *CommandOptions) ValidArgsFunction(
 	instanceUids, err := cmdutil.AutoCompleteAgentInstanceUIDs(
 		cmd.Context(),
 		agentService,
+		opts.namespace,
 		toComplete,
 	)
 	if err != nil {

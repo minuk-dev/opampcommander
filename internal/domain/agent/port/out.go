@@ -19,16 +19,17 @@ type AgentPersistencePort interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error)
 	// PutAgent saves or updates an agent.
 	PutAgent(ctx context.Context, agent *agentmodel.Agent) error
-	// ListAgents retrieves a list of agents with pagination options.
-	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
+	// ListAgents retrieves a list of agents filtered by namespace with pagination options.
+	ListAgents(ctx context.Context, namespace string,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
 	// ListAgentsBySelector retrieves a list of agents matching the given selector.
 	ListAgentsBySelector(
 		ctx context.Context,
 		selector agentmodel.AgentSelector,
 		options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.Agent], error)
-	// SearchAgents searches agents by query with pagination options.
-	SearchAgents(ctx context.Context, query string,
+	// SearchAgents searches agents by query filtered by namespace with pagination options.
+	SearchAgents(ctx context.Context, namespace string, query string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
 }
 
@@ -44,13 +45,25 @@ type ServerEventReceiverPort interface {
 	StartReceiver(ctx context.Context, handler ReceiveServerEventHandler) error
 }
 
+// NamespacePersistencePort is an interface that defines the methods for namespace persistence.
+type NamespacePersistencePort interface {
+	// GetNamespace retrieves a namespace by its name.
+	GetNamespace(ctx context.Context, name string) (*agentmodel.Namespace, error)
+	// PutNamespace saves or updates a namespace.
+	PutNamespace(ctx context.Context,
+		namespace *agentmodel.Namespace) (*agentmodel.Namespace, error)
+	// ListNamespaces retrieves a list of namespaces with pagination options.
+	ListNamespaces(ctx context.Context,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Namespace], error)
+}
+
 // AgentGroupPersistencePort is an interface that defines the methods for agent group persistence.
 type AgentGroupPersistencePort interface {
-	// GetAgentGroup retrieves an agent group by its ID.
-	GetAgentGroup(ctx context.Context, name string,
+	// GetAgentGroup retrieves an agent group by its namespace and name.
+	GetAgentGroup(ctx context.Context, namespace string, name string,
 		options *model.GetOptions) (*agentmodel.AgentGroup, error)
 	// PutAgentGroup saves the agent group.
-	PutAgentGroup(ctx context.Context, name string,
+	PutAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error)
 	// ListAgentGroups retrieves a list of agent groups with pagination options.
 	ListAgentGroups(ctx context.Context,
@@ -69,8 +82,9 @@ type ServerPersistencePort interface {
 
 // AgentPackagePersistencePort is an interface that defines the methods for agent package persistence.
 type AgentPackagePersistencePort interface {
-	// GetAgentPackage retrieves an agent package by its name.
-	GetAgentPackage(ctx context.Context, name string) (*agentmodel.AgentPackage, error)
+	// GetAgentPackage retrieves an agent package by its namespace and name.
+	GetAgentPackage(ctx context.Context, namespace string,
+		name string) (*agentmodel.AgentPackage, error)
 	// PutAgentPackage saves or updates an agent package.
 	PutAgentPackage(ctx context.Context,
 		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
@@ -81,8 +95,9 @@ type AgentPackagePersistencePort interface {
 
 // AgentRemoteConfigPersistencePort is an interface that defines the methods for agent remote config persistence.
 type AgentRemoteConfigPersistencePort interface {
-	// GetAgentRemoteConfig retrieves an agent remote config by its name.
-	GetAgentRemoteConfig(ctx context.Context, name string) (*agentmodel.AgentRemoteConfig, error)
+	// GetAgentRemoteConfig retrieves an agent remote config by its namespace and name.
+	GetAgentRemoteConfig(ctx context.Context, namespace string,
+		name string) (*agentmodel.AgentRemoteConfig, error)
 	// PutAgentRemoteConfig saves or updates an agent remote config.
 	PutAgentRemoteConfig(
 		ctx context.Context,
@@ -97,7 +112,8 @@ type AgentRemoteConfigPersistencePort interface {
 
 // CertificatePersistencePort is an interface that defines the methods for certificate config persistence.
 type CertificatePersistencePort interface {
-	GetCertificate(ctx context.Context, name string) (*agentmodel.Certificate, error)
+	GetCertificate(ctx context.Context, namespace string,
+		name string) (*agentmodel.Certificate, error)
 	PutCertificate(ctx context.Context,
 		certificate *agentmodel.Certificate) (*agentmodel.Certificate, error)
 	ListCertificate(ctx context.Context,

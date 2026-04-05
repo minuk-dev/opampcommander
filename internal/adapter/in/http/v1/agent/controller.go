@@ -38,25 +38,25 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agents",
+			Path:        "/api/v1/namespaces/:namespace/agents",
 			Handler:     "http.v1.agent.List",
 			HandlerFunc: c.List,
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agents/search",
+			Path:        "/api/v1/namespaces/:namespace/agents/search",
 			Handler:     "http.v1.agent.Search",
 			HandlerFunc: c.Search,
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agents/:id",
+			Path:        "/api/v1/namespaces/:namespace/agents/:id",
 			Handler:     "http.v1.agent.Get",
 			HandlerFunc: c.Get,
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/agents/:id",
+			Path:        "/api/v1/namespaces/:namespace/agents/:id",
 			Handler:     "http.v1.agent.Update",
 			HandlerFunc: c.Update,
 		},
@@ -67,16 +67,24 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 //
 // @Summary  List Agents
 // @Tags agent
-// @Description Retrieve a list of agents.
+// @Description Retrieve a list of agents in a namespace.
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.ListResponse[v1.Agent]
+// @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
-// @Router /api/v1/agents [get].
+// @Router /api/v1/namespaces/{namespace}/agents [get].
 func (c *Controller) List(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
@@ -86,7 +94,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), &model.ListOptions{
+	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: false,
@@ -105,17 +113,25 @@ func (c *Controller) List(ctx *gin.Context) {
 //
 // @Summary  Search Agents
 // @Tags agent
-// @Description Search agents by instance UID query.
+// @Description Search agents by instance UID query in a namespace.
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.ListResponse[v1.Agent]
+// @Param namespace path string true "Namespace"
 // @Param q query string true "Search query for instance UID"
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
-// @Router /api/v1/agents/search [get].
+// @Router /api/v1/namespaces/{namespace}/agents/search [get].
 func (c *Controller) Search(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	query := ctx.Query("q")
 	if query == "" {
 		ginutil.HandleValidationError(ctx, "q", "", ginutil.ErrRequiredParam, false)
@@ -132,7 +148,7 @@ func (c *Controller) Search(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), query, &model.ListOptions{
+	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), namespace, query, &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: false,
@@ -151,16 +167,24 @@ func (c *Controller) Search(ctx *gin.Context) {
 //
 // @Summary  Get Agent
 // @Tags agent
-// @Description Retrieve an agent by its instance UID.
+// @Description Retrieve an agent by its instance UID in a namespace.
 // @Accept  json
 // @Produce  json
+// @Param  namespace path string true "Namespace"
 // @Param  id path string true "Instance UID of the agent"
 // @Success  200 {object} Agent
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
 // @Failure  500 {object} ErrorModel
-// @Router  /api/v1/agents/{id} [get].
+// @Router  /api/v1/namespaces/{namespace}/agents/{id} [get].
 func (c *Controller) Get(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
@@ -168,7 +192,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), instanceUID)
+	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), namespace, instanceUID)
 	if err != nil {
 		c.logger.Error("failed to get agent", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent.")
@@ -183,17 +207,25 @@ func (c *Controller) Get(ctx *gin.Context) {
 //
 // @Summary  Update Agent
 // @Tags agent
-// @Description Update an agent's metadata & spec.
+// @Description Update an agent's metadata & spec in a namespace.
 // @Accept  json
 // @Produce  json
+// @Param  namespace path string true "Namespace"
 // @Param  id path string true "Instance UID of the agent"
 // @Param  agent body v1.Agent true "Agent update request"
 // @Success  200 {object} v1.Agent
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
 // @Failure  500 {object} ErrorModel
-// @Router  /api/v1/agents/{id} [put].
+// @Router  /api/v1/namespaces/{namespace}/agents/{id} [put].
 func (c *Controller) Update(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	instanceUID, err := ginutil.ParseUUID(ctx, "id")
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
@@ -210,7 +242,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	updatedAgent, err := c.agentUsecase.UpdateAgent(ctx.Request.Context(), instanceUID, &req)
+	updatedAgent, err := c.agentUsecase.UpdateAgent(ctx.Request.Context(), namespace, instanceUID, &req)
 	if err != nil {
 		c.logger.Error("failed to update agent", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent.")

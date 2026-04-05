@@ -172,12 +172,13 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 	return nil
 }
 
-// ListAgents retrieves all agents from the persistence layer.
+// ListAgents retrieves agents filtered by namespace from the persistence layer.
 func (s *AgentService) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	res, err := s.agentPersistencePort.ListAgents(ctx, options)
+	res, err := s.agentPersistencePort.ListAgents(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -202,10 +203,11 @@ func (s *AgentService) ListAgentsBySelector(
 // SearchAgents implements agentport.AgentUsecase.
 func (s *AgentService) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	resp, err := s.agentPersistencePort.SearchAgents(ctx, query, options)
+	resp, err := s.agentPersistencePort.SearchAgents(ctx, namespace, query, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search agents: %w", err)
 	}

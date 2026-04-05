@@ -25,6 +25,7 @@ type AgentGroup struct {
 
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
+	Namespace  string            `bson:"namespace"`
 	Name       string            `bson:"name"`
 	Attributes map[string]string `bson:"attributes"`
 	CreatedAt  time.Time         `bson:"createdAt"`
@@ -113,6 +114,7 @@ func (s *AgentGroupMetadata) toDomain() agentmodel.AgentGroupMetadata {
 	}
 
 	return agentmodel.AgentGroupMetadata{
+		Namespace:  s.Namespace,
 		Name:       s.Name,
 		Attributes: s.Attributes,
 		CreatedAt:  s.CreatedAt,
@@ -211,6 +213,7 @@ func agentGroupMetadataFromDomain(metadata agentmodel.AgentGroupMetadata) AgentG
 	}
 
 	return AgentGroupMetadata{
+		Namespace:  metadata.Namespace,
 		Name:       metadata.Name,
 		Attributes: metadata.Attributes,
 		CreatedAt:  metadata.CreatedAt,

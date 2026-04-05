@@ -2,22 +2,28 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 )
 
 var _ agentport.AgentGroupPersistencePort = (*AgentGroupMongoAdapter)(nil)
 
 const (
-	agentGroupCollectionName = "agentgroups"
+	agentGroupCollectionName     = "agentgroups"
+	agentGroupNamespaceFieldName = "metadata.namespace"
+	agentGroupNameFieldName      = "metadata.name"
+	agentGroupDeletedAtFieldName = "metadata.deletedAt"
 )
 
 // AgentGroupMongoAdapter is a struct that implements the AgentGroupPersistencePort interface.
@@ -25,6 +31,7 @@ type AgentGroupMongoAdapter struct {
 	collection      *mongo.Collection
 	agentCollection *mongo.Collection
 	common          commonEntityAdapter[entity.AgentGroup, string]
+	logger          *slog.Logger
 }
 
 // NewAgentGroupRepository creates a new instance of AgentGroupMongoAdapter.
@@ -44,6 +51,7 @@ func NewAgentGroupRepository(
 	return &AgentGroupMongoAdapter{
 		collection:      collection,
 		agentCollection: agentCollection,
+		logger:          logger,
 		common: newCommonAdapter(
 			logger,
 			collection,
@@ -56,22 +64,39 @@ func NewAgentGroupRepository(
 
 // GetAgentGroup implements agentport.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) GetAgentGroup(
-	ctx context.Context, name string, options *model.GetOptions,
+	ctx context.Context, namespace string, name string, options *model.GetOptions,
 ) (*agentmodel.AgentGroup, error) {
-	entity, err := a.common.get(ctx, name, options)
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = a.filterByNamespaceAndName(namespace, name)
+	} else {
+		filter = a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	}
+
+	result := a.collection.FindOne(ctx, filter)
+
+	err := result.Err()
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, port.ErrResourceNotExist
+		}
+
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, entity)
+	var agentGroupEntity entity.AgentGroup
+
+	err = result.Decode(&agentGroupEntity)
+	if err != nil {
+		return nil, fmt.Errorf("decode agent group: %w", err)
+	}
+
+	agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, &agentGroupEntity)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group statistics: %w", err)
 	}
 
-	// Convert entity to domain model
-	domainModel := entity.ToDomain(agentGroupStatistics)
-
-	return domainModel, nil
+	return agentGroupEntity.ToDomain(agentGroupStatistics), nil
 }
 
 // ListAgentGroups implements agentport.AgentGroupPersistencePort.
@@ -107,14 +132,15 @@ func (a *AgentGroupMongoAdapter) ListAgentGroups(
 //
 //nolint:godox // Reason: TODO comment.
 func (a *AgentGroupMongoAdapter) PutAgentGroup(
-	ctx context.Context, name string, agentGroup *agentmodel.AgentGroup,
+	ctx context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	// TODO: name should be used to save the agent group with the given name.
-	// ref. https://github.com/minuk-dev/opampcommander/issues/145
-	// Because some update operations may change the name of the agent group.
 	en := entity.AgentGroupFromDomain(agentGroup)
 
-	err := a.common.put(ctx, en)
+	_, err := a.collection.ReplaceOne(ctx,
+		a.filterByNamespaceAndName(namespace, name),
+		en,
+		options.Replace().SetUpsert(true),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("put agent group: %w", err)
 	}
@@ -126,12 +152,26 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	}
 
 	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.
-	newAgentGroup, err := a.GetAgentGroup(ctx, name, nil)
+	newAgentGroup, err := a.GetAgentGroup(ctx, namespace, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group after put: %w", err)
 	}
 
 	return newAgentGroup, nil
+}
+
+func (a *AgentGroupMongoAdapter) filterByNamespaceAndName(namespace, name string) bson.M {
+	return bson.M{
+		agentGroupNamespaceFieldName: sanitizeResourceName(namespace),
+		agentGroupNameFieldName:      sanitizeResourceName(name),
+	}
+}
+
+func (a *AgentGroupMongoAdapter) filterByNamespaceAndNameExcludingDeleted(namespace, name string) bson.M {
+	filter := a.filterByNamespaceAndName(namespace, name)
+	filter[agentGroupDeletedAtFieldName] = nil
+
+	return filter
 }
 
 //nolint:funlen // Reason: mongodb aggregation pipeline is long.

@@ -17,9 +17,10 @@ type AgentGroup struct {
 	Status   AgentGroupStatus
 }
 
-// NewAgentGroup creates a new instance of AgentGroup with the provided name, attributes,
+// NewAgentGroup creates a new instance of AgentGroup with the provided namespace, name, attributes,
 // createdAt timestamp, and createdBy identifier.
 func NewAgentGroup(
+	namespace string,
 	name string,
 	attributes Attributes,
 	createdAt time.Time,
@@ -27,6 +28,7 @@ func NewAgentGroup(
 ) *AgentGroup {
 	return &AgentGroup{
 		Metadata: AgentGroupMetadata{
+			Namespace:  namespace,
 			Name:       name,
 			Attributes: attributes,
 			CreatedAt:  createdAt,
@@ -69,6 +71,9 @@ func (ag *AgentGroup) HasAgentConnectionConfig() bool {
 
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
+	// Namespace is the namespace of the agent group.
+	// Together with Name, it forms the unique identity of the agent group.
+	Namespace string
 	// Name is the name of the agent group.
 	Name string
 	// Attributes is a map of attributes associated with the agent group.

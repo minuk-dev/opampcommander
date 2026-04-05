@@ -91,6 +91,7 @@ func (s *Service) GetConnectionByInstanceUID(_ context.Context, instanceUID uuid
 // ListConnections implements agentport.ConnectionUsecase.
 func (s *Service) ListConnections(
 	_ context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Connection], error) {
 	if options == nil {
@@ -102,6 +103,14 @@ func (s *Service) ListConnections(
 	}
 
 	keyValues := s.connectionMap.KeyValues()
+
+	// Filter by namespace
+	for key, conn := range keyValues {
+		if conn.Namespace != namespace {
+			delete(keyValues, key)
+		}
+	}
+
 	keys := lo.Keys(keyValues)
 	sort.Strings(keys)
 

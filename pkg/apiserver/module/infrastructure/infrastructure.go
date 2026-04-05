@@ -17,8 +17,10 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentpackage"
+	agentremoteconfigcontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentremoteconfig"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/certificate"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
+	namespacecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/namespace"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	rbaccontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rbac"
@@ -50,6 +52,9 @@ func New() fx.Option {
 
 		// RBAC (Casbin enforcer)
 		provideRBACComponents(),
+
+		// Default namespace initialization
+		fx.Invoke(registerDefaultNamespaceHook),
 	)
 }
 
@@ -70,6 +75,9 @@ func provideHTTPComponents() fx.Option {
 			agent.NewController, helper.AsController(Identity[*agent.Controller]),
 			agentgroup.NewController, helper.AsController(Identity[*agentgroup.Controller]),
 			agentpackage.NewController, helper.AsController(Identity[*agentpackage.Controller]),
+			agentremoteconfigcontroller.NewController,
+			helper.AsController(Identity[*agentremoteconfigcontroller.Controller]),
+			namespacecontroller.NewController, helper.AsController(Identity[*namespacecontroller.Controller]),
 			certificate.NewController, helper.AsController(Identity[*certificate.Controller]),
 			server.NewController, helper.AsController(Identity[*server.Controller]),
 			github.NewController, helper.AsController(Identity[*github.Controller]),
@@ -99,6 +107,7 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
 			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(agentport.ServerPersistencePort))),
 			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(agentport.AgentPackagePersistencePort))),
+			fx.Annotate(mongodb.NewNamespaceRepository, fx.As(new(agentport.NamespacePersistencePort))),
 			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(agentport.AgentRemoteConfigPersistencePort))),
 			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(agentport.CertificatePersistencePort))),
 			// RBAC MongoDB adapters

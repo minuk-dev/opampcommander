@@ -26,47 +26,81 @@ type OpAMPUsecase interface {
 
 // AdminUsecase is a use case that handles admin operations.
 type AdminUsecase interface {
-	ListConnections(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Connection], error)
+	ListConnections(ctx context.Context, namespace string,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Connection], error)
+}
+
+// NamespaceManageUsecase is a use case that handles namespace management operations.
+type NamespaceManageUsecase interface {
+	GetNamespace(ctx context.Context, name string) (*v1.Namespace, error)
+	ListNamespaces(ctx context.Context,
+		options *model.ListOptions) (*v1.ListResponse[v1.Namespace], error)
+	CreateNamespace(ctx context.Context,
+		namespace *v1.Namespace) (*v1.Namespace, error)
+	UpdateNamespace(ctx context.Context, name string,
+		namespace *v1.Namespace) (*v1.Namespace, error)
+	DeleteNamespace(ctx context.Context, name string) error
 }
 
 // AgentPackageManageUsecase is a use case that handles agent package operations.
 type AgentPackageManageUsecase interface {
-	GetAgentPackage(ctx context.Context, name string) (*v1.AgentPackage, error)
+	GetAgentPackage(ctx context.Context, namespace string, name string) (*v1.AgentPackage, error)
 	ListAgentPackages(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)
 	CreateAgentPackage(ctx context.Context, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
-	UpdateAgentPackage(ctx context.Context, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
-	DeleteAgentPackage(ctx context.Context, name string) error
+	UpdateAgentPackage(ctx context.Context, namespace string, name string,
+		agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
+	DeleteAgentPackage(ctx context.Context, namespace string, name string) error
 }
 
 // AgentManageUsecase is a use case that handles agent management operations.
 type AgentManageUsecase interface {
-	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*v1.Agent, error)
-	ListAgents(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
-	SearchAgents(ctx context.Context, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
-	UpdateAgent(ctx context.Context, instanceUID uuid.UUID, agent *v1.Agent) (*v1.Agent, error)
+	GetAgent(ctx context.Context, namespace string, instanceUID uuid.UUID) (*v1.Agent, error)
+	ListAgents(ctx context.Context, namespace string,
+		options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+	SearchAgents(ctx context.Context, namespace string, query string,
+		options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+	UpdateAgent(ctx context.Context, namespace string, instanceUID uuid.UUID,
+		agent *v1.Agent) (*v1.Agent, error)
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
 type AgentGroupManageUsecase interface {
-	GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*v1.AgentGroup, error)
+	GetAgentGroup(ctx context.Context, namespace string, name string,
+		options *model.GetOptions) (*v1.AgentGroup, error)
 	ListAgentGroups(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.AgentGroup], error)
 	ListAgentsByAgentGroup(
 		ctx context.Context,
+		namespace string,
 		agentGroupName string,
 		options *model.ListOptions,
 	) (*v1.ListResponse[v1.Agent], error)
 	CreateAgentGroup(ctx context.Context, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
-	UpdateAgentGroup(ctx context.Context, name string, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
-	DeleteAgentGroup(ctx context.Context, name string) error
+	UpdateAgentGroup(ctx context.Context, namespace string, name string,
+		agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
+	DeleteAgentGroup(ctx context.Context, namespace string, name string) error
 }
 
 // CertificateManageUsecase is a use case that handles certificate management operations.
 type CertificateManageUsecase interface {
-	GetCertificate(ctx context.Context, name string) (*v1.Certificate, error)
+	GetCertificate(ctx context.Context, namespace string, name string) (*v1.Certificate, error)
 	ListCertificates(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Certificate], error)
 	CreateCertificate(ctx context.Context, certificate *v1.Certificate) (*v1.Certificate, error)
-	UpdateCertificate(ctx context.Context, name string, certificate *v1.Certificate) (*v1.Certificate, error)
-	DeleteCertificate(ctx context.Context, name string) error
+	UpdateCertificate(ctx context.Context, namespace string, name string,
+		certificate *v1.Certificate) (*v1.Certificate, error)
+	DeleteCertificate(ctx context.Context, namespace string, name string) error
+}
+
+// AgentRemoteConfigManageUsecase is a use case that handles agent remote config management operations.
+type AgentRemoteConfigManageUsecase interface {
+	GetAgentRemoteConfig(ctx context.Context, namespace string,
+		name string) (*v1.AgentRemoteConfig, error)
+	ListAgentRemoteConfigs(ctx context.Context,
+		options *model.ListOptions) (*v1.ListResponse[v1.AgentRemoteConfig], error)
+	CreateAgentRemoteConfig(ctx context.Context,
+		agentRemoteConfig *v1.AgentRemoteConfig) (*v1.AgentRemoteConfig, error)
+	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,
+		agentRemoteConfig *v1.AgentRemoteConfig) (*v1.AgentRemoteConfig, error)
+	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string) error
 }
 
 // UserManageUsecase is a use case that handles user management operations.

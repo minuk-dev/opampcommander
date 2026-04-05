@@ -108,16 +108,16 @@ func (_c *MockUsecase_CreateAgentPackage_Call) RunAndReturn(run func(ctx context
 }
 
 // DeleteAgentPackage provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentPackage(ctx context.Context, name string) error {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockUsecase) DeleteAgentPackage(ctx context.Context, namespace string, name string) error {
+	ret := _mock.Called(ctx, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentPackage")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, namespace, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -131,12 +131,13 @@ type MockUsecase_DeleteAgentPackage_Call struct {
 
 // DeleteAgentPackage is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) DeleteAgentPackage(ctx interface{}, name interface{}) *MockUsecase_DeleteAgentPackage_Call {
-	return &MockUsecase_DeleteAgentPackage_Call{Call: _e.mock.On("DeleteAgentPackage", ctx, name)}
+func (_e *MockUsecase_Expecter) DeleteAgentPackage(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteAgentPackage_Call {
+	return &MockUsecase_DeleteAgentPackage_Call{Call: _e.mock.On("DeleteAgentPackage", ctx, namespace, name)}
 }
 
-func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_DeleteAgentPackage_Call {
+func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteAgentPackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -146,9 +147,14 @@ func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context,
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -159,14 +165,14 @@ func (_c *MockUsecase_DeleteAgentPackage_Call) Return(err error) *MockUsecase_De
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentPackage_Call) RunAndReturn(run func(ctx context.Context, name string) error) *MockUsecase_DeleteAgentPackage_Call {
+func (_c *MockUsecase_DeleteAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteAgentPackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetAgentPackage provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetAgentPackage(ctx context.Context, name string) (*v1.AgentPackage, error) {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockUsecase) GetAgentPackage(ctx context.Context, namespace string, name string) (*v1.AgentPackage, error) {
+	ret := _mock.Called(ctx, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAgentPackage")
@@ -174,18 +180,18 @@ func (_mock *MockUsecase) GetAgentPackage(ctx context.Context, name string) (*v1
 
 	var r0 *v1.AgentPackage
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*v1.AgentPackage, error)); ok {
-		return returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*v1.AgentPackage, error)); ok {
+		return returnFunc(ctx, namespace, name)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *v1.AgentPackage); ok {
-		r0 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *v1.AgentPackage); ok {
+		r0 = returnFunc(ctx, namespace, name)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.AgentPackage)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, name)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = returnFunc(ctx, namespace, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -199,12 +205,13 @@ type MockUsecase_GetAgentPackage_Call struct {
 
 // GetAgentPackage is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) GetAgentPackage(ctx interface{}, name interface{}) *MockUsecase_GetAgentPackage_Call {
-	return &MockUsecase_GetAgentPackage_Call{Call: _e.mock.On("GetAgentPackage", ctx, name)}
+func (_e *MockUsecase_Expecter) GetAgentPackage(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_GetAgentPackage_Call {
+	return &MockUsecase_GetAgentPackage_Call{Call: _e.mock.On("GetAgentPackage", ctx, namespace, name)}
 }
 
-func (_c *MockUsecase_GetAgentPackage_Call) Run(run func(ctx context.Context, name string)) *MockUsecase_GetAgentPackage_Call {
+func (_c *MockUsecase_GetAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_GetAgentPackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -214,9 +221,14 @@ func (_c *MockUsecase_GetAgentPackage_Call) Run(run func(ctx context.Context, na
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -227,7 +239,7 @@ func (_c *MockUsecase_GetAgentPackage_Call) Return(agentPackage *v1.AgentPackage
 	return _c
 }
 
-func (_c *MockUsecase_GetAgentPackage_Call) RunAndReturn(run func(ctx context.Context, name string) (*v1.AgentPackage, error)) *MockUsecase_GetAgentPackage_Call {
+func (_c *MockUsecase_GetAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) (*v1.AgentPackage, error)) *MockUsecase_GetAgentPackage_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -301,8 +313,8 @@ func (_c *MockUsecase_ListAgentPackages_Call) RunAndReturn(run func(ctx context.
 }
 
 // UpdateAgentPackage provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) UpdateAgentPackage(ctx context.Context, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error) {
-	ret := _mock.Called(ctx, name, agentPackage)
+func (_mock *MockUsecase) UpdateAgentPackage(ctx context.Context, namespace string, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error) {
+	ret := _mock.Called(ctx, namespace, name, agentPackage)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateAgentPackage")
@@ -310,18 +322,18 @@ func (_mock *MockUsecase) UpdateAgentPackage(ctx context.Context, name string, a
 
 	var r0 *v1.AgentPackage
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *v1.AgentPackage) (*v1.AgentPackage, error)); ok {
-		return returnFunc(ctx, name, agentPackage)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *v1.AgentPackage) (*v1.AgentPackage, error)); ok {
+		return returnFunc(ctx, namespace, name, agentPackage)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *v1.AgentPackage) *v1.AgentPackage); ok {
-		r0 = returnFunc(ctx, name, agentPackage)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *v1.AgentPackage) *v1.AgentPackage); ok {
+		r0 = returnFunc(ctx, namespace, name, agentPackage)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.AgentPackage)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *v1.AgentPackage) error); ok {
-		r1 = returnFunc(ctx, name, agentPackage)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *v1.AgentPackage) error); ok {
+		r1 = returnFunc(ctx, namespace, name, agentPackage)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -335,13 +347,14 @@ type MockUsecase_UpdateAgentPackage_Call struct {
 
 // UpdateAgentPackage is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - name string
 //   - agentPackage *v1.AgentPackage
-func (_e *MockUsecase_Expecter) UpdateAgentPackage(ctx interface{}, name interface{}, agentPackage interface{}) *MockUsecase_UpdateAgentPackage_Call {
-	return &MockUsecase_UpdateAgentPackage_Call{Call: _e.mock.On("UpdateAgentPackage", ctx, name, agentPackage)}
+func (_e *MockUsecase_Expecter) UpdateAgentPackage(ctx interface{}, namespace interface{}, name interface{}, agentPackage interface{}) *MockUsecase_UpdateAgentPackage_Call {
+	return &MockUsecase_UpdateAgentPackage_Call{Call: _e.mock.On("UpdateAgentPackage", ctx, namespace, name, agentPackage)}
 }
 
-func (_c *MockUsecase_UpdateAgentPackage_Call) Run(run func(ctx context.Context, name string, agentPackage *v1.AgentPackage)) *MockUsecase_UpdateAgentPackage_Call {
+func (_c *MockUsecase_UpdateAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string, agentPackage *v1.AgentPackage)) *MockUsecase_UpdateAgentPackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -351,14 +364,19 @@ func (_c *MockUsecase_UpdateAgentPackage_Call) Run(run func(ctx context.Context,
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 *v1.AgentPackage
+		var arg2 string
 		if args[2] != nil {
-			arg2 = args[2].(*v1.AgentPackage)
+			arg2 = args[2].(string)
+		}
+		var arg3 *v1.AgentPackage
+		if args[3] != nil {
+			arg3 = args[3].(*v1.AgentPackage)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -369,7 +387,7 @@ func (_c *MockUsecase_UpdateAgentPackage_Call) Return(agentPackage1 *v1.AgentPac
 	return _c
 }
 
-func (_c *MockUsecase_UpdateAgentPackage_Call) RunAndReturn(run func(ctx context.Context, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)) *MockUsecase_UpdateAgentPackage_Call {
+func (_c *MockUsecase_UpdateAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)) *MockUsecase_UpdateAgentPackage_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -188,9 +188,10 @@ func (m *MockConnectionUsecase) GetConnectionByID(
 
 func (m *MockConnectionUsecase) ListConnections(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Connection], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -295,9 +296,10 @@ func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agent *agentmodel.Agen
 
 func (m *MockAgentUsecase) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -312,10 +314,11 @@ func (m *MockAgentUsecase) ListAgents(
 
 func (m *MockAgentUsecase) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, query, options)
+	args := m.Called(ctx, namespace, query, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}

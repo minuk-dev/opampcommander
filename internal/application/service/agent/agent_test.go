@@ -76,9 +76,10 @@ func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agnt *agentmodel.Agent
 
 func (m *MockAgentUsecase) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -89,10 +90,11 @@ func (m *MockAgentUsecase) ListAgents(
 
 func (m *MockAgentUsecase) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	args := m.Called(ctx, query, options)
+	args := m.Called(ctx, namespace, query, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -139,10 +141,10 @@ func TestService_SearchAgents(t *testing.T) {
 			RemainingItemCount: 0,
 		}
 
-		mockAgentUsecase.On("SearchAgents", ctx, "1234", mock.Anything).Return(domainResponse, nil)
+		mockAgentUsecase.On("SearchAgents", ctx, "default", "1234", mock.Anything).Return(domainResponse, nil)
 
 		// when
-		response, err := service.SearchAgents(ctx, "1234", &model.ListOptions{})
+		response, err := service.SearchAgents(ctx, "default", "1234", &model.ListOptions{})
 
 		// then
 		require.NoError(t, err)
@@ -161,10 +163,10 @@ func TestService_SearchAgents(t *testing.T) {
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
 		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
 
-		mockAgentUsecase.On("SearchAgents", ctx, "test", mock.Anything).Return(nil, errMockError)
+		mockAgentUsecase.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errMockError)
 
 		// when
-		response, err := service.SearchAgents(ctx, "test", &model.ListOptions{})
+		response, err := service.SearchAgents(ctx, "default", "test", &model.ListOptions{})
 
 		// then
 		require.Error(t, err)
@@ -197,10 +199,10 @@ func TestService_SearchAgents(t *testing.T) {
 			Continue: "",
 		}
 
-		mockAgentUsecase.On("SearchAgents", ctx, "abcd", options).Return(domainResponse, nil)
+		mockAgentUsecase.On("SearchAgents", ctx, "default", "abcd", options).Return(domainResponse, nil)
 
 		// when
-		response, err := service.SearchAgents(ctx, "abcd", options)
+		response, err := service.SearchAgents(ctx, "default", "abcd", options)
 
 		// then
 		require.NoError(t, err)

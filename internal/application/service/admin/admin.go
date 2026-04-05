@@ -37,12 +37,13 @@ func New(
 	}
 }
 
-// ListConnections lists all connections.
+// ListConnections lists connections filtered by namespace.
 func (s *Service) ListConnections(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Connection], error) {
-	response, err := s.connectionUsecase.ListConnections(ctx, options)
+	response, err := s.connectionUsecase.ListConnections(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}

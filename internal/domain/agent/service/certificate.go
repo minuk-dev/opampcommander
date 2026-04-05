@@ -33,9 +33,10 @@ func NewCertificateService(
 // GetCertificate implements [agentport.CertificateUsecase].
 func (c *CertificateService) GetCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 ) (*agentmodel.Certificate, error) {
-	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, name)
+	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate from persistence: %w", err)
 	}
@@ -72,11 +73,12 @@ func (c *CertificateService) SaveCertificate(
 // DeleteCertificate implements [agentport.CertificateUsecase].
 func (c *CertificateService) DeleteCertificate(
 	ctx context.Context,
+	namespace string,
 	name string,
 	deletedAt time.Time,
 	deletedBy string,
 ) (*agentmodel.Certificate, error) {
-	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, name)
+	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate from persistence: %w", err)
 	}

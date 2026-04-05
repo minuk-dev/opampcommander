@@ -2,6 +2,7 @@
 package agentremoteconfig
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +28,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType    string
+	namespace     string
+	allNamespaces bool
 
 	// internal
 	client *client.Client
@@ -54,6 +57,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
+	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	return cmd
 }
@@ -95,7 +100,17 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agent remote configs.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	agentRemoteConfigs, err := clientutil.ListAgentRemoteConfigFully(cmd.Context(), opt.client)
+	var (
+		agentRemoteConfigs []v1.AgentRemoteConfig
+		err                error
+	)
+
+	if opt.allNamespaces {
+		agentRemoteConfigs, err = opt.listAllNamespaces(cmd)
+	} else {
+		agentRemoteConfigs, err = clientutil.ListAgentRemoteConfigFully(cmd.Context(), opt.client, opt.namespace)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to list agent remote configs: %w", err)
 	}
@@ -121,7 +136,8 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	}
 
 	agentRemoteConfigsWithErr := lo.Map(names, func(name string, _ int) AgentRemoteConfigWithErr {
-		agentRemoteConfig, err := opt.client.AgentRemoteConfigService.GetAgentRemoteConfig(cmd.Context(), name)
+		agentRemoteConfig, err := opt.client.AgentRemoteConfigService.GetAgentRemoteConfig(
+			cmd.Context(), opt.namespace, name)
 
 		return AgentRemoteConfigWithErr{
 			AgentRemoteConfig: agentRemoteConfig,
@@ -164,8 +180,23 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	return nil
 }
 
+func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.AgentRemoteConfig, error) {
+	configs, err := clientutil.ListAcrossNamespaces(
+		cmd.Context(), opt.client,
+		func(ctx context.Context, namespace string) ([]v1.AgentRemoteConfig, error) {
+			return clientutil.ListAgentRemoteConfigFully(ctx, opt.client, namespace)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agent remote configs across all namespaces: %w", err)
+	}
+
+	return configs, nil
+}
+
 //nolint:lll
 type formattedAgentRemoteConfig struct {
+	Namespace   string            `json:"namespace"           short:"namespace"   text:"namespace"           yaml:"namespace"`
 	Name        string            `json:"name"                short:"name"        text:"name"                yaml:"name"`
 	Attributes  map[string]string `json:"attributes"          short:"-"           text:"-"                   yaml:"attributes"`
 	ContentType string            `json:"contentType"         short:"contentType" text:"contentType"         yaml:"contentType"`
@@ -217,6 +248,7 @@ func (opt *CommandOptions) toFormattedAgentRemoteConfig(
 	}
 
 	return formattedAgentRemoteConfig{
+		Namespace:   agentRemoteConfig.Metadata.Namespace,
 		Name:        agentRemoteConfig.Metadata.Name,
 		Attributes:  agentRemoteConfig.Metadata.Attributes,
 		ContentType: agentRemoteConfig.Spec.ContentType,

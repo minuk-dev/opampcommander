@@ -34,10 +34,11 @@ type AgentUsecase interface {
 	) (*model.ListResponse[*agentmodel.Agent], error)
 	// SaveAgent saves the agent.
 	SaveAgent(ctx context.Context, agent *agentmodel.Agent) error
-	// ListAgents lists all agents.
-	ListAgents(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
-	// SearchAgents searches agents by instance UID prefix.
-	SearchAgents(ctx context.Context, query string,
+	// ListAgents lists agents filtered by namespace.
+	ListAgents(ctx context.Context, namespace string,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
+	// SearchAgents searches agents by instance UID prefix filtered by namespace.
+	SearchAgents(ctx context.Context, namespace string, query string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
 }
 
@@ -49,24 +50,42 @@ type AgentNotificationUsecase interface {
 	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 }
 
+// NamespaceUsecase is an interface that defines the methods for namespace use cases.
+type NamespaceUsecase interface {
+	// GetNamespace retrieves a namespace by its name.
+	GetNamespace(ctx context.Context, name string) (*agentmodel.Namespace, error)
+	// ListNamespaces lists all namespaces.
+	ListNamespaces(ctx context.Context,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Namespace], error)
+	// SaveNamespace saves the namespace.
+	SaveNamespace(ctx context.Context,
+		namespace *agentmodel.Namespace) (*agentmodel.Namespace, error)
+	// DeleteNamespace deletes the namespace by its name.
+	DeleteNamespace(ctx context.Context, name string,
+		deletedAt time.Time, deletedBy string) error
+}
+
 // AgentPackageUsecase is an interface that defines the methods for agent package use cases.
 type AgentPackageUsecase interface {
-	// GetAgentPackage retrieves an agent package by its name.
-	GetAgentPackage(ctx context.Context, name string) (*agentmodel.AgentPackage, error)
+	// GetAgentPackage retrieves an agent package by its namespace and name.
+	GetAgentPackage(ctx context.Context, namespace string,
+		name string) (*agentmodel.AgentPackage, error)
 	// ListAgentPackages lists all agent packages.
 	ListAgentPackages(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentPackage], error)
 	// SaveAgentPackage saves the agent package.
 	SaveAgentPackage(ctx context.Context,
 		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
-	// DeleteAgentPackage deletes the agent package by its name.
-	DeleteAgentPackage(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
+	// DeleteAgentPackage deletes the agent package by its namespace and name.
+	DeleteAgentPackage(ctx context.Context, namespace string, name string,
+		deletedAt time.Time, deletedBy string) error
 }
 
 // AgentRemoteConfigUsecase is an interface that defines the methods for agent remote config use cases.
 type AgentRemoteConfigUsecase interface {
-	// GetAgentRemoteConfig retrieves an agent remote config by its name.
-	GetAgentRemoteConfig(ctx context.Context, name string) (*agentmodel.AgentRemoteConfig, error)
+	// GetAgentRemoteConfig retrieves an agent remote config by its namespace and name.
+	GetAgentRemoteConfig(ctx context.Context, namespace string,
+		name string) (*agentmodel.AgentRemoteConfig, error)
 	// ListAgentRemoteConfigs lists all agent remote configs.
 	ListAgentRemoteConfigs(
 		ctx context.Context, options *model.ListOptions,
@@ -75,23 +94,26 @@ type AgentRemoteConfigUsecase interface {
 	SaveAgentRemoteConfig(
 		ctx context.Context, agentRemoteConfig *agentmodel.AgentRemoteConfig,
 	) (*agentmodel.AgentRemoteConfig, error)
-	// DeleteAgentRemoteConfig deletes the agent remote config by its name.
-	DeleteAgentRemoteConfig(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
+	// DeleteAgentRemoteConfig deletes the agent remote config by its namespace and name.
+	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string,
+		deletedAt time.Time, deletedBy string) error
 }
 
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
-	// GetAgentGroup retrieves an agent group by its name.
-	GetAgentGroup(ctx context.Context, name string, options *model.GetOptions) (*agentmodel.AgentGroup, error)
+	// GetAgentGroup retrieves an agent group by its namespace and name.
+	GetAgentGroup(ctx context.Context, namespace string, name string,
+		options *model.GetOptions) (*agentmodel.AgentGroup, error)
 	// ListAgentGroups lists all agent groups.
 	ListAgentGroups(
 		ctx context.Context, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentGroup], error)
 	// SaveAgentGroup saves the agent group.
-	SaveAgentGroup(ctx context.Context, name string,
+	SaveAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error)
-	// DeleteAgentGroup deletes the agent group by its ID.
-	DeleteAgentGroup(ctx context.Context, name string, deletedAt time.Time, deletedBy string) error
+	// DeleteAgentGroup deletes the agent group by its namespace and name.
+	DeleteAgentGroup(ctx context.Context, namespace string, name string,
+		deletedAt time.Time, deletedBy string) error
 	// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.
 	GetAgentGroupsForAgent(ctx context.Context, agent *agentmodel.Agent) ([]*agentmodel.AgentGroup, error)
 }
@@ -108,13 +130,14 @@ type AgentGroupRelatedUsecase interface {
 
 // CertificateUsecase defines the interface for certificate use cases.
 type CertificateUsecase interface {
-	GetCertificate(ctx context.Context, name string) (*agentmodel.Certificate, error)
+	GetCertificate(ctx context.Context, namespace string,
+		name string) (*agentmodel.Certificate, error)
 	SaveCertificate(ctx context.Context,
 		certificate *agentmodel.Certificate) (*agentmodel.Certificate, error)
 	ListCertificate(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Certificate], error)
-	DeleteCertificate(ctx context.Context, name string, deletedAt time.Time,
-		deletedBy string) (*agentmodel.Certificate, error)
+	DeleteCertificate(ctx context.Context, namespace string, name string,
+		deletedAt time.Time, deletedBy string) (*agentmodel.Certificate, error)
 }
 
 // ServerUsecase is an interface that defines the methods for server use cases.
@@ -155,8 +178,8 @@ type ConnectionUsecase interface {
 	GetOrCreateConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error)
 	// GetConnectionByID returns the connection for the given ID.
 	GetConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error)
-	// ListConnections returns the list of connections.
-	ListConnections(ctx context.Context,
+	// ListConnections returns the list of connections filtered by namespace.
+	ListConnections(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Connection], error)
 	// SaveConnection saves the connection.
 	SaveConnection(ctx context.Context, connection *agentmodel.Connection) error

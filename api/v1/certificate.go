@@ -23,6 +23,8 @@ type Certificate struct {
 type CertificateMetadata struct {
 	// Name is the unique name of the certificate.
 	Name string `json:"name"`
+	// Namespace is the namespace the certificate belongs to.
+	Namespace string `json:"namespace"`
 	// Attributes are optional key-value pairs for the certificate.
 	Attributes Attributes `json:"attributes,omitempty"`
 	// CreatedAt is the timestamp when the certificate was created.

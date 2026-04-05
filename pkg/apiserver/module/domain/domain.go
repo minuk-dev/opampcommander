@@ -31,6 +31,7 @@ func New() fx.Option {
 			fx.As(new(agentport.AgentGroupRelatedUsecase)),
 		),
 		fx.Annotate(agentservice.NewAgentPackageService, fx.As(new(agentport.AgentPackageUsecase))),
+		fx.Annotate(agentservice.NewNamespaceService, fx.As(new(agentport.NamespaceUsecase))),
 		fx.Annotate(agentservice.NewAgentRemoteConfigService, fx.As(new(agentport.AgentRemoteConfigUsecase))),
 		fx.Annotate(agentservice.NewCertificateService, fx.As(new(agentport.CertificateUsecase))),
 		agentservice.NewServerService,

@@ -21,6 +21,7 @@ type CommandOptions struct {
 
 	// Flags
 	name       string
+	namespace  string
 	attributes map[string]string
 	certFile   string
 	keyFile    string
@@ -56,6 +57,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the certificate (required)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the certificate")
 	cmd.Flags().StringToStringVar(&options.attributes, "attributes", nil, "Attributes of the certificate (key=value)")
 	cmd.Flags().StringVar(&options.certFile, "cert-file", "", "Path to the certificate file (PEM)")
 	cmd.Flags().StringVar(&options.keyFile, "key-file", "", "Path to the private key file (PEM)")
@@ -106,6 +108,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	createRequest := &v1.Certificate{
 		Metadata: v1.CertificateMetadata{
 			Name:       opt.name,
+			Namespace:  opt.namespace,
 			Attributes: opt.attributes,
 		},
 		Spec: v1.CertificateSpec{
@@ -115,7 +118,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		},
 	}
 
-	certificate, err := certificateService.CreateCertificate(cmd.Context(), createRequest)
+	certificate, err := certificateService.CreateCertificate(cmd.Context(), opt.namespace, createRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create certificate: %w", err)
 	}

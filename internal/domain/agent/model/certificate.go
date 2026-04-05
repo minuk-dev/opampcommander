@@ -39,7 +39,9 @@ func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 
 // CertificateMetadata represents metadata information for a certificate.
 type CertificateMetadata struct {
-	Name       string
+	Name      string
+	Namespace string
+	// Attributes are optional key-value pairs for the certificate.
 	Attributes Attributes
 	// CreatedAt is the timestamp when the certificate was created.
 	CreatedAt time.Time
