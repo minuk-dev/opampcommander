@@ -67,7 +67,12 @@ func (s *Service) AssignRole(ctx context.Context, req *v1.AssignRoleRequest) err
 		return fmt.Errorf("failed to resolve assigner identity: %w", err)
 	}
 
-	err = s.userRoleUsecase.AssignRole(ctx, userID, roleID, assigner.Metadata.UID)
+	namespace := req.Namespace
+	if namespace == "" {
+		namespace = "*"
+	}
+
+	err = s.userRoleUsecase.AssignRole(ctx, userID, roleID, assigner.Metadata.UID, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to assign role: %w", err)
 	}
@@ -76,8 +81,12 @@ func (s *Service) AssignRole(ctx context.Context, req *v1.AssignRoleRequest) err
 }
 
 // UnassignRole implements [applicationport.RBACManageUsecase].
-func (s *Service) UnassignRole(ctx context.Context, userID, roleID uuid.UUID) error {
-	err := s.userRoleUsecase.UnassignRole(ctx, userID, roleID)
+func (s *Service) UnassignRole(ctx context.Context, userID, roleID uuid.UUID, namespace string) error {
+	if namespace == "" {
+		namespace = "*"
+	}
+
+	err := s.userRoleUsecase.UnassignRole(ctx, userID, roleID, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to unassign role: %w", err)
 	}
@@ -95,7 +104,7 @@ func (s *Service) CheckPermission(
 		return nil, fmt.Errorf("failed to parse user ID: %w", err)
 	}
 
-	allowed, err := s.rbacUsecase.CheckPermission(ctx, userID, req.Resource, req.Action)
+	allowed, err := s.rbacUsecase.CheckPermission(ctx, userID, req.Namespace, req.Resource, req.Action)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check permission: %w", err)
 	}

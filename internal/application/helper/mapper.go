@@ -492,6 +492,7 @@ func (mapper *Mapper) MapUserRoleToAPI(domain *usermodel.UserRole) *v1.UserRole 
 		Spec: v1.UserRoleSpec{
 			UserID:     domain.Spec.UserID.String(),
 			RoleID:     domain.Spec.RoleID.String(),
+			Namespace:  domain.Spec.Namespace,
 			AssignedAt: v1.NewTime(domain.Spec.AssignedAt),
 			AssignedBy: domain.Spec.AssignedBy.String(),
 		},

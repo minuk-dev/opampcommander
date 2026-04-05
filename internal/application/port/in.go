@@ -131,7 +131,7 @@ type PermissionManageUsecase interface {
 // RBACManageUsecase is a use case that handles RBAC management operations.
 type RBACManageUsecase interface {
 	AssignRole(ctx context.Context, req *v1.AssignRoleRequest) error
-	UnassignRole(ctx context.Context, userID, roleID uuid.UUID) error
+	UnassignRole(ctx context.Context, userID, roleID uuid.UUID, namespace string) error
 	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
 	GetUserRoles(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Role], error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Permission], error)

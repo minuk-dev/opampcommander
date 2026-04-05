@@ -10,7 +10,6 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
-	"github.com/google/uuid"
 
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
@@ -65,17 +64,18 @@ func NewEnforcerWithAdapter(
 	return &Enforcer{enforcer: casbinEnforcer, logger: logger}, nil
 }
 
-// CheckPermission checks whether a user has the given permission on a resource.
-func (c *Enforcer) CheckPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
-	allowed, err := c.enforcer.Enforce(userID.String(), resource, action)
+// CheckPermission checks whether a user has the given permission on a resource in a namespace.
+func (c *Enforcer) CheckPermission(_ context.Context, sub, dom, obj, act string) (bool, error) {
+	allowed, err := c.enforcer.Enforce(sub, dom, obj, act)
 	if err != nil {
 		return false, fmt.Errorf("failed to check permission: %w", err)
 	}
 
 	c.logger.Debug("permission check",
-		slog.String("user_id", userID.String()),
-		slog.String("resource", resource),
-		slog.String("action", action),
+		slog.String("sub", sub),
+		slog.String("dom", dom),
+		slog.String("obj", obj),
+		slog.String("act", act),
 		slog.Bool("allowed", allowed),
 	)
 

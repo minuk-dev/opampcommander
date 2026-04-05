@@ -42,9 +42,10 @@ func NewUserRoleService(
 func (s *UserRoleService) AssignRole(
 	ctx context.Context,
 	userID, roleID, assignedBy uuid.UUID,
+	namespace string,
 ) error {
-	// Check if the role is already assigned
-	existing, err := s.userRolePersistencePort.GetUserRoleByUserAndRole(ctx, userID, roleID)
+	// Check if the role is already assigned in this namespace
+	existing, err := s.userRolePersistencePort.GetUserRoleByUserAndRole(ctx, userID, roleID, namespace)
 	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
 		return fmt.Errorf("failed to check existing role assignment: %w", err)
 	}
@@ -53,7 +54,7 @@ func (s *UserRoleService) AssignRole(
 		return ErrRoleAlreadyAssigned
 	}
 
-	userRole := usermodel.NewUserRole(userID, roleID, assignedBy)
+	userRole := usermodel.NewUserRole(userID, roleID, assignedBy, namespace)
 
 	_, err = s.userRolePersistencePort.PutUserRole(ctx, userRole)
 	if err != nil {
@@ -67,8 +68,9 @@ func (s *UserRoleService) AssignRole(
 func (s *UserRoleService) UnassignRole(
 	ctx context.Context,
 	userID, roleID uuid.UUID,
+	namespace string,
 ) error {
-	existing, err := s.userRolePersistencePort.GetUserRoleByUserAndRole(ctx, userID, roleID)
+	existing, err := s.userRolePersistencePort.GetUserRoleByUserAndRole(ctx, userID, roleID, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to find user role assignment: %w", err)
 	}
@@ -89,6 +91,20 @@ func (s *UserRoleService) GetUserRoles(
 	roles, err := s.userRolePersistencePort.GetUserRoles(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user roles from persistence: %w", err)
+	}
+
+	return roles, nil
+}
+
+// GetUserRolesInNamespace implements [userport.UserRoleUsecase].
+func (s *UserRoleService) GetUserRolesInNamespace(
+	ctx context.Context,
+	userID uuid.UUID,
+	namespace string,
+) ([]*usermodel.Role, error) {
+	roles, err := s.userRolePersistencePort.GetUserRolesInNamespace(ctx, userID, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user roles in namespace from persistence: %w", err)
 	}
 
 	return roles, nil

@@ -55,13 +55,15 @@ func (s *RBACService) AssignRole(ctx context.Context, req *v1.AssignRoleRequest)
 }
 
 // UnassignRole unassigns a role from a user.
-func (s *RBACService) UnassignRole(ctx context.Context, userID, roleID string) error {
+func (s *RBACService) UnassignRole(ctx context.Context, userID, roleID, namespace string) error {
 	req := struct {
-		UserID string `json:"userId"`
-		RoleID string `json:"roleId"`
+		UserID    string `json:"userId"`
+		RoleID    string `json:"roleId"`
+		Namespace string `json:"namespace"`
 	}{
-		UserID: userID,
-		RoleID: roleID,
+		UserID:    userID,
+		RoleID:    roleID,
+		Namespace: namespace,
 	}
 
 	res, err := s.service.Resty.R().
