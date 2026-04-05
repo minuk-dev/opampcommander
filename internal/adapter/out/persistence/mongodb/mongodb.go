@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
+	"strings"
 
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -13,18 +13,33 @@ import (
 )
 
 // sanitizeResourceName validates and returns a safe resource name for MongoDB queries.
-// Returns the matched string or empty string if the input contains invalid characters.
+// Each rune is checked against a whitelist and copied to a new string, preventing
+// NoSQL injection by ensuring the output cannot contain MongoDB operators.
 func sanitizeResourceName(name string) string {
-	return validResourceName.FindString(name)
+	var builder strings.Builder
+
+	builder.Grow(len(name))
+
+	for _, r := range name {
+		if isAllowedResourceNameRune(r) {
+			builder.WriteRune(r)
+		} else {
+			return ""
+		}
+	}
+
+	return builder.String()
+}
+
+func isAllowedResourceNameRune(r rune) bool {
+	return (r >= 'a' && r <= 'z') ||
+		(r >= 'A' && r <= 'Z') ||
+		(r >= '0' && r <= '9') ||
+		r == '.' || r == '-' || r == '_'
 }
 
 //nolint:gochecknoglobals // These are constants for collection names and indexes.
 var (
-	// validResourceName matches valid resource identifiers (namespace, name).
-	// Only allows alphanumeric characters, hyphens, dots, and underscores.
-	// This prevents NoSQL injection by ensuring query values cannot contain MongoDB operators.
-	validResourceName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
-
 	collections = []string{
 		agentCollectionName,
 		agentGroupCollectionName,
