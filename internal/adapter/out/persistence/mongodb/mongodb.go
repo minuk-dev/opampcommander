@@ -5,17 +5,48 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
+// sanitizeResourceName validates and returns a safe resource name for MongoDB queries.
+// Each rune is checked against a whitelist and copied to a new string, preventing
+// NoSQL injection by ensuring the output cannot contain MongoDB operators.
+func sanitizeResourceName(name string) string {
+	var builder strings.Builder
+
+	builder.Grow(len(name))
+
+	for _, r := range name {
+		if isAllowedResourceNameRune(r) {
+			builder.WriteRune(r)
+		} else {
+			return ""
+		}
+	}
+
+	return builder.String()
+}
+
+func isAllowedResourceNameRune(r rune) bool {
+	return (r >= 'a' && r <= 'z') ||
+		(r >= 'A' && r <= 'Z') ||
+		(r >= '0' && r <= '9') ||
+		r == '.' || r == '-' || r == '_'
+}
+
 //nolint:gochecknoglobals // These are constants for collection names and indexes.
 var (
 	collections = []string{
 		agentCollectionName,
 		agentGroupCollectionName,
+		agentPackageCollectionName,
+		agentRemoteConfigCollectionName,
+		certificateCollectionName,
+		namespaceCollectionName,
 		serverCollectionName,
 	}
 
@@ -26,6 +57,12 @@ var (
 				{
 					Keys: bson.D{
 						{Key: "metadata.instanceUid", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
 					},
 					Options: nil,
 				},
@@ -64,7 +101,79 @@ var (
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
+						{Key: "namespace", Value: 1},
 						{Key: "name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: certificateCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: agentPackageCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: agentRemoteConfigCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: namespaceCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.name", Value: 1},
 					},
 					Options: nil,
 				},

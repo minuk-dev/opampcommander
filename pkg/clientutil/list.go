@@ -13,9 +13,9 @@ const (
 	ChunkSize = 100
 )
 
-// ListAgentFully lists all agents and applies the provided function to each agent.
+// ListAgentFully lists all agents in a namespace and applies the provided function to each agent.
 // It continues to fetch agents until there are no more agents to fetch.
-func ListAgentFully(ctx context.Context, cli *client.Client) ([]v1.Agent, error) {
+func ListAgentFully(ctx context.Context, cli *client.Client, namespace string) ([]v1.Agent, error) {
 	var agents []v1.Agent
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -28,7 +28,7 @@ func ListAgentFully(ctx context.Context, cli *client.Client) ([]v1.Agent, error)
 			opts = append(opts, client.WithContinueToken(continueToken))
 		}
 		// List agents with the current continue token
-		resp, err := cli.AgentService.ListAgents(ctx, opts...)
+		resp, err := cli.AgentService.ListAgents(ctx, namespace, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agents: %w", err)
 		}
@@ -49,6 +49,7 @@ func ListAgentFully(ctx context.Context, cli *client.Client) ([]v1.Agent, error)
 func ListAgentFullyByAgentGroup(
 	ctx context.Context,
 	cli *client.Client,
+	namespace string,
 	agentGroupName string,
 ) ([]v1.Agent, error) {
 	var agents []v1.Agent
@@ -63,7 +64,7 @@ func ListAgentFullyByAgentGroup(
 			opts = append(opts, client.WithContinueToken(continueToken))
 		}
 		// List agents with the current continue token
-		resp, err := cli.AgentGroupService.ListAgentsByAgentGroup(ctx, agentGroupName, opts...)
+		resp, err := cli.AgentGroupService.ListAgentsByAgentGroup(ctx, namespace, agentGroupName, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
 		}
@@ -78,9 +79,13 @@ func ListAgentFullyByAgentGroup(
 	}
 }
 
-// ListConnectionFully lists all connections and applies the provided function to each connection.
+// ListConnectionFully lists all connections in a namespace.
 // It continues to fetch connections until there are no more connections to fetch.
-func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1.Connection, error) {
+func ListConnectionFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+) ([]v1.Connection, error) {
 	var connections []v1.Connection
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -89,6 +94,7 @@ func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1.Connecti
 		// List connections with the current continue token
 		resp, err := cli.ConnectionService.ListConnections(
 			ctx,
+			namespace,
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
 		)
@@ -109,7 +115,12 @@ func ListConnectionFully(ctx context.Context, cli *client.Client) ([]v1.Connecti
 
 // ListAgentGroupFully lists all agent groups and applies the provided function to each agent group.
 // It continues to fetch agent groups until there are no more agent groups to fetch.
-func ListAgentGroupFully(ctx context.Context, cli *client.Client, opts ...client.ListOption) ([]v1.AgentGroup, error) {
+func ListAgentGroupFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+	opts ...client.ListOption,
+) ([]v1.AgentGroup, error) {
 	var agentGroups []v1.AgentGroup
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -122,7 +133,7 @@ func ListAgentGroupFully(ctx context.Context, cli *client.Client, opts ...client
 		}, opts...)
 
 		// List agent groups with the current continue token
-		resp, err := cli.AgentGroupService.ListAgentGroups(ctx, requestOpts...)
+		resp, err := cli.AgentGroupService.ListAgentGroups(ctx, namespace, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agent groups: %w", err)
 		}
@@ -140,7 +151,11 @@ func ListAgentGroupFully(ctx context.Context, cli *client.Client, opts ...client
 
 // ListAgentPackageFully lists all agent packages and applies the provided function to each agent package.
 // It continues to fetch agent packages until there are no more agent packages to fetch.
-func ListAgentPackageFully(ctx context.Context, cli *client.Client) ([]v1.AgentPackage, error) {
+func ListAgentPackageFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+) ([]v1.AgentPackage, error) {
 	var agentPackages []v1.AgentPackage
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -149,6 +164,7 @@ func ListAgentPackageFully(ctx context.Context, cli *client.Client) ([]v1.AgentP
 		// List agent packages with the current continue token
 		resp, err := cli.AgentPackageService.ListAgentPackages(
 			ctx,
+			namespace,
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
 		)
@@ -167,9 +183,13 @@ func ListAgentPackageFully(ctx context.Context, cli *client.Client) ([]v1.AgentP
 	}
 }
 
-// ListAgentRemoteConfigFully lists all agent remote configs.
+// ListAgentRemoteConfigFully lists all agent remote configs in a namespace.
 // It continues to fetch agent remote configs until there are no more to fetch.
-func ListAgentRemoteConfigFully(ctx context.Context, cli *client.Client) ([]v1.AgentRemoteConfig, error) {
+func ListAgentRemoteConfigFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+) ([]v1.AgentRemoteConfig, error) {
 	var agentRemoteConfigs []v1.AgentRemoteConfig
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -178,6 +198,7 @@ func ListAgentRemoteConfigFully(ctx context.Context, cli *client.Client) ([]v1.A
 		// List agent remote configs with the current continue token
 		resp, err := cli.AgentRemoteConfigService.ListAgentRemoteConfigs(
 			ctx,
+			namespace,
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
 		)
@@ -196,9 +217,13 @@ func ListAgentRemoteConfigFully(ctx context.Context, cli *client.Client) ([]v1.A
 	}
 }
 
-// ListCertificateFully lists all certificates.
+// ListCertificateFully lists all certificates in a namespace.
 // It continues to fetch certificates until there are no more to fetch.
-func ListCertificateFully(ctx context.Context, cli *client.Client) ([]v1.Certificate, error) {
+func ListCertificateFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+) ([]v1.Certificate, error) {
 	var certificates []v1.Certificate
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -207,6 +232,7 @@ func ListCertificateFully(ctx context.Context, cli *client.Client) ([]v1.Certifi
 		// List certificates with the current continue token
 		resp, err := cli.CertificateService.ListCertificates(
 			ctx,
+			namespace,
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
 		)
@@ -223,6 +249,61 @@ func ListCertificateFully(ctx context.Context, cli *client.Client) ([]v1.Certifi
 
 		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
 	}
+}
+
+// ListNamespaceFully lists all namespaces.
+// It continues to fetch namespaces until there are no more namespaces to fetch.
+func ListNamespaceFully(ctx context.Context, cli *client.Client) ([]v1.Namespace, error) {
+	var namespaces []v1.Namespace
+
+	continueToken := ""
+
+	for {
+		opts := []client.ListOption{
+			client.WithLimit(ChunkSize),
+		}
+		if continueToken != "" {
+			opts = append(opts, client.WithContinueToken(continueToken))
+		}
+
+		resp, err := cli.NamespaceService.ListNamespaces(ctx, opts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list namespaces: %w", err)
+		}
+
+		if len(resp.Items) == 0 {
+			return namespaces, nil
+		}
+
+		namespaces = append(namespaces, resp.Items...)
+		continueToken = resp.Metadata.Continue
+	}
+}
+
+// ListAcrossNamespaces lists resources across all namespaces by iterating
+// over each namespace and calling the provided list function.
+func ListAcrossNamespaces[T any](
+	ctx context.Context,
+	cli *client.Client,
+	listFn func(ctx context.Context, namespace string) ([]T, error),
+) ([]T, error) {
+	namespaces, err := ListNamespaceFully(ctx, cli)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list namespaces: %w", err)
+	}
+
+	var result []T
+
+	for _, namespace := range namespaces {
+		items, err := listFn(ctx, namespace.Metadata.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources in namespace %s: %w", namespace.Metadata.Name, err)
+		}
+
+		result = append(result, items...)
+	}
+
+	return result, nil
 }
 
 // ListUserFully lists all users.

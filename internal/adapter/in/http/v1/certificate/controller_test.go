@@ -23,6 +23,7 @@ import (
 
 const (
 	testCertName = "test-cert"
+	testBasePath = "/api/v1/namespaces/default/certificates"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
@@ -89,7 +90,7 @@ func TestCertificateController_List(t *testing.T) {
 		}, nil)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/certificates", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath, nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
@@ -104,7 +105,7 @@ func TestCertificateController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/certificates?limit=invalid", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"?limit=invalid", nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -135,7 +136,7 @@ func TestCertificateController_List(t *testing.T) {
 		usecase.EXPECT().ListCertificates(mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/certificates", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath, nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -169,10 +170,10 @@ func TestCertificateController_Get(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything).Return(cert, nil)
+	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything).Return(cert, nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/certificates/"+testCertName, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/"+testCertName, nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusOK, recorder.Code)
@@ -186,10 +187,10 @@ func TestCertificateController_Get_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
+	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/certificates/notfound", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/notfound", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -203,10 +204,10 @@ func TestCertificateController_Get_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/certificates/"+testCertName, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/"+testCertName, nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -260,13 +261,13 @@ func TestCertificateController_Create(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/certificates",
+		testBasePath,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusCreated, recorder.Code)
-	assert.Equal(t, "/api/v1/certificates/"+name, recorder.Header().Get("Location"))
+	assert.Equal(t, testBasePath+"/"+name, recorder.Header().Get("Location"))
 }
 
 func TestCertificateController_Create_InvalidBody(t *testing.T) {
@@ -280,7 +281,7 @@ func TestCertificateController_Create_InvalidBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/certificates",
+		testBasePath,
 		strings.NewReader("invalid"),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -323,7 +324,7 @@ func TestCertificateController_Create_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/certificates",
+		testBasePath,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -358,7 +359,7 @@ func TestCertificateController_Update(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().UpdateCertificate(mock.Anything, mock.Anything, mock.Anything).Return(cert, nil)
+	usecase.EXPECT().UpdateCertificate(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(cert, nil)
 	jsonBody, err := json.Marshal(cert)
 	require.NoError(t, err)
 
@@ -366,7 +367,7 @@ func TestCertificateController_Update(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/certificates/"+name,
+		testBasePath+"/"+name,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -385,7 +386,7 @@ func TestCertificateController_Update_InvalidBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/certificates/something",
+		testBasePath+"/something",
 		strings.NewReader("invalid"),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -430,7 +431,9 @@ func TestCertificateController_Update_InternalError(t *testing.T) {
 		},
 	}
 
-	usecase.EXPECT().UpdateCertificate(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().UpdateCertificate(
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+	).Return(nil, assert.AnError)
 
 	jsonBody, err := json.Marshal(cert)
 	require.NoError(t, err)
@@ -439,7 +442,7 @@ func TestCertificateController_Update_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/certificates/"+name,
+		testBasePath+"/"+name,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -456,10 +459,10 @@ func TestCertificateController_Delete(t *testing.T) {
 	router := ctrlBase.Router
 	name := testCertName
 
-	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything).Return(nil)
+	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/certificates/"+name, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBasePath+"/"+name, nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
@@ -473,10 +476,10 @@ func TestCertificateController_Delete_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
+	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/certificates/something", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBasePath+"/something", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -490,10 +493,10 @@ func TestCertificateController_Delete_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything).Return(assert.AnError)
+	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/certificates/something", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBasePath+"/something", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)

@@ -86,9 +86,10 @@ func (a *AgentRepository) GetAgent(ctx context.Context, instanceUID uuid.UUID) (
 // ListAgents implements agentport.AgentPersistencePort.
 func (a *AgentRepository) ListAgents(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	resp, err := a.common.list(ctx, options)
+	resp, err := a.common.listWithFilter(ctx, options, bson.M{"metadata.namespace": sanitizeResourceName(namespace)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents from persistence: %w", err)
 	}
@@ -240,6 +241,7 @@ func buildFilter(conditions []bson.M) bson.M {
 // SearchAgents implements agentport.AgentPersistencePort.
 func (a *AgentRepository) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
@@ -264,7 +266,7 @@ func (a *AgentRepository) SearchAgents(
 	}
 
 	// Build search filter
-	filter, err := a.buildSearchFilter(query, options)
+	filter, err := a.buildSearchFilter(namespace, query, options)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +308,11 @@ func validateSearchQuery(query string) error {
 	return nil
 }
 
-func (a *AgentRepository) buildSearchFilter(query string, options *model.ListOptions) (bson.M, error) {
+func (a *AgentRepository) buildSearchFilter(
+	namespace string,
+	query string,
+	options *model.ListOptions,
+) (bson.M, error) {
 	if query == "" {
 		return bson.M{}, nil
 	}
@@ -320,6 +326,7 @@ func (a *AgentRepository) buildSearchFilter(query string, options *model.ListOpt
 	safeQuery := escapeRegexLiteral(query)
 
 	conditions := []bson.M{
+		{"metadata.namespace": namespace},
 		{"metadata.instanceUidString": bson.M{"$regex": "^" + safeQuery, "$options": "i"}},
 	}
 

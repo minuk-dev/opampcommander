@@ -49,17 +49,19 @@ func TestConnectionController_List(t *testing.T) {
 			{
 				UID:                conn1UID,
 				InstanceUID:        agent1UID,
+				Namespace:          "default",
 				Type:               agentmodel.ConnectionTypeWebSocket,
 				LastCommunicatedAt: now,
 			},
 			{
 				UID:                conn2UID,
 				InstanceUID:        agent2UID,
+				Namespace:          "default",
 				Type:               agentmodel.ConnectionTypeHTTP,
 				LastCommunicatedAt: now,
 			},
 		}
-		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
+		adminUsecase.On("ListConnections", mock.Anything, "default", mock.Anything).
 			Return(&model.ListResponse[*agentmodel.Connection]{
 				RemainingItemCount: 0,
 				Continue:           "",
@@ -68,7 +70,9 @@ func TestConnectionController_List(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/connections", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/connections", nil,
+		)
 		require.NoError(t, err)
 
 		// then
@@ -97,12 +101,14 @@ func TestConnectionController_List(t *testing.T) {
 		router := ctrlBase.Router
 
 		// given
-		adminUsecase.On("ListConnections", mock.Anything, mock.Anything).
+		adminUsecase.On("ListConnections", mock.Anything, "default", mock.Anything).
 			Return((*model.ListResponse[*agentmodel.Connection])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/connections", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/connections", nil,
+		)
 		require.NoError(t, err)
 
 		// then
@@ -121,7 +127,12 @@ func TestConnectionController_List(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/connections?limit=invalid", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"/api/v1/namespaces/default/connections?limit=invalid",
+			nil,
+		)
 		require.NoError(t, err)
 
 		// then
@@ -146,9 +157,10 @@ func newMockAdminUsecase(t *testing.T) *mockAdminUsecase {
 //nolint:forcetypeassert,wrapcheck
 func (m *mockAdminUsecase) ListConnections(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Connection], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 
 	return args.Get(0).(*model.ListResponse[*agentmodel.Connection]), args.Error(1)
 }

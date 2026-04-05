@@ -2,6 +2,7 @@
 package agentgroup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +30,8 @@ type CommandOptions struct {
 	// flags
 	formatType     string
 	includeDeleted bool
+	namespace      string
+	allNamespaces  bool
 
 	// internal
 	client *client.Client
@@ -56,6 +59,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted agent groups")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent group")
+	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	return cmd
 }
@@ -102,7 +107,17 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		listOpts = append(listOpts, client.WithIncludeDeleted(true))
 	}
 
-	agentgroups, err := clientutil.ListAgentGroupFully(cmd.Context(), opt.client, listOpts...)
+	var (
+		agentgroups []v1.AgentGroup
+		err         error
+	)
+
+	if opt.allNamespaces {
+		agentgroups, err = opt.listAllNamespaces(cmd, listOpts...)
+	} else {
+		agentgroups, err = clientutil.ListAgentGroupFully(cmd.Context(), opt.client, opt.namespace, listOpts...)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -133,7 +148,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	}
 
 	agentGroupsWithErr := lo.Map(names, func(name string, _ int) AgentGroupWithErr {
-		agent, err := opt.client.AgentGroupService.GetAgentGroup(cmd.Context(), name, getOpts...)
+		agent, err := opt.client.AgentGroupService.GetAgentGroup(cmd.Context(), opt.namespace, name, getOpts...)
 
 		return AgentGroupWithErr{
 			AgentGroup: agent,
@@ -173,8 +188,25 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	return nil
 }
 
+func (opt *CommandOptions) listAllNamespaces(
+	cmd *cobra.Command, listOpts ...client.ListOption,
+) ([]v1.AgentGroup, error) {
+	agentgroups, err := clientutil.ListAcrossNamespaces(
+		cmd.Context(), opt.client,
+		func(ctx context.Context, namespace string) ([]v1.AgentGroup, error) {
+			return clientutil.ListAgentGroupFully(ctx, opt.client, namespace, listOpts...)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agent groups across all namespaces: %w", err)
+	}
+
+	return agentgroups, nil
+}
+
 //nolint:lll
 type formattedAgentGroup struct {
+	Namespace                        string            `json:"namespace"                        short:"namespace" text:"namespace"           yaml:"namespace"`
 	Name                             string            `json:"name"                             short:"name"      text:"name"                yaml:"name"`
 	NumTotalAgents                   int               `json:"numTotalAgents"                   short:"-"         text:"totalAgents"         yaml:"numTotalAgents"`
 	NumConnectedHealthyAgents        int               `json:"numConnectedHealthyAgents"        short:"-"         text:"connected"           yaml:"numConnectedHealthyAgents"`
@@ -237,6 +269,7 @@ func (opt *CommandOptions) toFormattedAgentGroup(
 	}
 
 	return formattedAgentGroup{
+		Namespace:                        agentGroup.Metadata.Namespace,
 		Name:                             agentGroup.Metadata.Name,
 		NumTotalAgents:                   agentGroup.Status.NumAgents,
 		NumConnectedHealthyAgents:        agentGroup.Status.NumHealthyAgents,

@@ -38,31 +38,31 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/certificates",
+			Path:        "/api/v1/namespaces/:namespace/certificates",
 			Handler:     "http.v1.certificate.List",
 			HandlerFunc: c.List,
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/certificates/:name",
+			Path:        "/api/v1/namespaces/:namespace/certificates/:name",
 			Handler:     "http.v1.certificate.Get",
 			HandlerFunc: c.Get,
 		},
 		{
 			Method:      http.MethodPost,
-			Path:        "/api/v1/certificates",
+			Path:        "/api/v1/namespaces/:namespace/certificates",
 			Handler:     "http.v1.certificate.Create",
 			HandlerFunc: c.Create,
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/certificates/:name",
+			Path:        "/api/v1/namespaces/:namespace/certificates/:name",
 			Handler:     "http.v1.certificate.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/certificates/:name",
+			Path:        "/api/v1/namespaces/:namespace/certificates/:name",
 			Handler:     "http.v1.certificate.Delete",
 			HandlerFunc: c.Delete,
 		},
@@ -75,11 +75,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Tags certificate
 // @Description Retrieve a list of certificates.
 // @Success 200 {object} v1.ListResponse[v1.Certificate]
+// @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of certificates to return"
 // @Param continue query string false "Token to continue listing certificates"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/certificates [get].
+// @Router /api/v1/namespaces/{namespace}/certificates [get].
 func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
@@ -111,12 +112,20 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Tags certificate
 // @Description Retrieve a certificate by its name.
 // @Success 200 {object} v1.Certificate
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the certificate"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/certificates/{name} [get].
+// @Router /api/v1/namespaces/{namespace}/certificates/{name} [get].
 func (c *Controller) Get(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -124,7 +133,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	certificate, err := c.certificateUsecase.GetCertificate(ctx.Request.Context(), name)
+	certificate, err := c.certificateUsecase.GetCertificate(ctx.Request.Context(), namespace, name)
 	if err != nil {
 		c.logger.Error("failed to get certificate", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the certificate.")
@@ -143,19 +152,29 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 201 {object} v1.Certificate
+// @Param namespace path string true "Namespace"
 // @Param certificate body v1.Certificate true "Certificate to create"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/certificates [post].
+// @Router /api/v1/namespaces/{namespace}/certificates [post].
 func (c *Controller) Create(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	var req v1.Certificate
 
-	err := ginutil.BindJSON(ctx, &req)
+	err = ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
 
 		return
 	}
+
+	req.Metadata.Namespace = namespace
 
 	created, err := c.certificateUsecase.CreateCertificate(ctx.Request.Context(), &req)
 	if err != nil {
@@ -165,7 +184,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/certificates/"+created.Metadata.Name)
+	ctx.Header("Location", "/api/v1/namespaces/"+namespace+"/certificates/"+created.Metadata.Name)
 	ctx.JSON(http.StatusCreated, created)
 }
 
@@ -177,13 +196,21 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.Certificate
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the certificate"
 // @Param certificate body v1.Certificate true "Updated Certificate"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/certificates/{name} [put].
+// @Router /api/v1/namespaces/{namespace}/certificates/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -200,7 +227,9 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	updated, err := c.certificateUsecase.UpdateCertificate(ctx.Request.Context(), name, &req)
+	updated, err := c.certificateUsecase.UpdateCertificate(
+		ctx.Request.Context(), namespace, name, &req,
+	)
 	if err != nil {
 		c.logger.Error("failed to update certificate", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the certificate.")
@@ -216,13 +245,21 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Summary  Delete Certificate
 // @Tags certificate
 // @Description Delete a certificate by its name.
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the certificate"
 // @Success 204
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/certificates/{name} [delete].
+// @Router /api/v1/namespaces/{namespace}/certificates/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -230,7 +267,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.certificateUsecase.DeleteCertificate(ctx.Request.Context(), name)
+	err = c.certificateUsecase.DeleteCertificate(ctx.Request.Context(), namespace, name)
 	if err != nil {
 		c.logger.Error("failed to delete certificate", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the certificate.")

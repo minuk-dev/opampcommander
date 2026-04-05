@@ -38,31 +38,31 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentpackages",
+			Path:        "/api/v1/namespaces/:namespace/agentpackages",
 			Handler:     "http.v1.agentpackage.List",
 			HandlerFunc: c.List,
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/agentpackages/:name",
+			Path:        "/api/v1/namespaces/:namespace/agentpackages/:name",
 			Handler:     "http.v1.agentpackage.Get",
 			HandlerFunc: c.Get,
 		},
 		{
 			Method:      http.MethodPost,
-			Path:        "/api/v1/agentpackages",
+			Path:        "/api/v1/namespaces/:namespace/agentpackages",
 			Handler:     "http.v1.agentpackage.Create",
 			HandlerFunc: c.Create,
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/agentpackages/:name",
+			Path:        "/api/v1/namespaces/:namespace/agentpackages/:name",
 			Handler:     "http.v1.agentpackage.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/agentpackages/:name",
+			Path:        "/api/v1/namespaces/:namespace/agentpackages/:name",
 			Handler:     "http.v1.agentpackage.Delete",
 			HandlerFunc: c.Delete,
 		},
@@ -75,11 +75,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Tags agentpackage
 // @Description Retrieve a list of agent packages.
 // @Success 200 {object} v1.ListResponse[v1.AgentPackage]
+// @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of agent packages to return"
 // @Param continue query string false "Token to continue listing agent packages"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentpackages [get].
+// @Router /api/v1/namespaces/{namespace}/agentpackages [get].
 func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
@@ -111,12 +112,20 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Tags agentpackage
 // @Description Retrieve an agent package by its name.
 // @Success 200 {object} v1.AgentPackage
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the agent package"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentpackages/{name} [get].
+// @Router /api/v1/namespaces/{namespace}/agentpackages/{name} [get].
 func (c *Controller) Get(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -124,7 +133,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agentPackage, err := c.agentpackageUsecase.GetAgentPackage(ctx.Request.Context(), name)
+	agentPackage, err := c.agentpackageUsecase.GetAgentPackage(ctx.Request.Context(), namespace, name)
 	if err != nil {
 		c.logger.Error("failed to get agent package", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent package.")
@@ -143,19 +152,29 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 201 {object} v1.AgentPackage
+// @Param namespace path string true "Namespace"
 // @Param agentPackage body v1.AgentPackage true "Agent Package to create"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentpackages [post].
+// @Router /api/v1/namespaces/{namespace}/agentpackages [post].
 func (c *Controller) Create(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	var req v1.AgentPackage
 
-	err := ginutil.BindJSON(ctx, &req)
+	err = ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
 
 		return
 	}
+
+	req.Metadata.Namespace = namespace
 
 	created, err := c.agentpackageUsecase.CreateAgentPackage(ctx.Request.Context(), &req)
 	if err != nil {
@@ -165,7 +184,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header("Location", "/api/v1/agentpackages/"+created.Metadata.Name)
+	ctx.Header("Location", "/api/v1/namespaces/"+namespace+"/agentpackages/"+created.Metadata.Name)
 	ctx.JSON(http.StatusCreated, created)
 }
 
@@ -177,13 +196,21 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.AgentPackage
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the agent package"
 // @Param agentPackage body v1.AgentPackage true "Updated Agent Package"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentpackages/{name} [put].
+// @Router /api/v1/namespaces/{namespace}/agentpackages/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -200,7 +227,9 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
-	updated, err := c.agentpackageUsecase.UpdateAgentPackage(ctx.Request.Context(), name, &req)
+	updated, err := c.agentpackageUsecase.UpdateAgentPackage(
+		ctx.Request.Context(), namespace, name, &req,
+	)
 	if err != nil {
 		c.logger.Error("failed to update agent package", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent package.")
@@ -216,13 +245,21 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Summary  Delete Agent Package
 // @Tags agentpackage
 // @Description Delete an agent package by its name.
+// @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the agent package"
 // @Success 204
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
-// @Router /api/v1/agentpackages/{name} [delete].
+// @Router /api/v1/namespaces/{namespace}/agentpackages/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	name, err := ginutil.ParseString(ctx, "name", true)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
@@ -230,7 +267,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.agentpackageUsecase.DeleteAgentPackage(ctx.Request.Context(), name)
+	err = c.agentpackageUsecase.DeleteAgentPackage(ctx.Request.Context(), namespace, name)
 	if err != nil {
 		c.logger.Error("failed to delete agent package", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent package.")

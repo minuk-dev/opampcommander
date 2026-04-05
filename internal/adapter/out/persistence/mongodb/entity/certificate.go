@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	// CertificateKeyFieldName is the key field name for certificate.
-	CertificateKeyFieldName = "metadata.name"
+	// CertificateNamespaceFieldName is the field name for certificate namespace in MongoDB.
+	CertificateNamespaceFieldName = "metadata.namespace"
+	// CertificateNameFieldName is the field name for certificate name in MongoDB.
+	CertificateNameFieldName = "metadata.name"
 )
 
 // Certificate is the MongoDB entity for certificate.
@@ -26,6 +28,7 @@ type Certificate struct {
 // CertificateMetadata represents the metadata of a certificate.
 type CertificateMetadata struct {
 	Name       string            `bson:"name"`
+	Namespace  string            `bson:"namespace"`
 	Attributes map[string]string `bson:"attributes,omitempty"`
 	CreatedAt  time.Time         `bson:"createdAt,omitempty"`
 	DeletedAt  time.Time         `bson:"deletedAt,omitempty"`
@@ -55,6 +58,7 @@ func (c *Certificate) ToDomain() *agentmodel.Certificate {
 func (m *CertificateMetadata) toDomain() agentmodel.CertificateMetadata {
 	return agentmodel.CertificateMetadata{
 		Name:       m.Name,
+		Namespace:  m.Namespace,
 		Attributes: m.Attributes,
 		CreatedAt:  m.CreatedAt,
 		DeletedAt:  m.DeletedAt,
@@ -90,12 +94,13 @@ func CertificateFromDomain(domain *agentmodel.Certificate) *Certificate {
 	}
 }
 
-func certificateMetadataFromDomain(m agentmodel.CertificateMetadata) CertificateMetadata {
+func certificateMetadataFromDomain(metadata agentmodel.CertificateMetadata) CertificateMetadata {
 	return CertificateMetadata{
-		Name:       m.Name,
-		Attributes: m.Attributes,
-		CreatedAt:  m.CreatedAt,
-		DeletedAt:  m.DeletedAt,
+		Name:       metadata.Name,
+		Namespace:  metadata.Namespace,
+		Attributes: metadata.Attributes,
+		CreatedAt:  metadata.CreatedAt,
+		DeletedAt:  metadata.DeletedAt,
 	}
 }
 

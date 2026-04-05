@@ -175,6 +175,8 @@ func (s *Service) OnMessage(
 		return s.createFallbackServerToAgent(instanceUID)
 	}
 
+	s.syncConnectionNamespace(ctx, logger, connection, agent)
+
 	// Update agent connection status
 	agent.UpdateLastCommunicationInfo(s.clock.Now(), connection)
 
@@ -362,4 +364,27 @@ func (s *Service) injectInstanceUIDToConnection(
 	}
 
 	return connection, nil
+}
+
+func (s *Service) syncConnectionNamespace(
+	ctx context.Context,
+	logger *slog.Logger,
+	connection *agentmodel.Connection,
+	agent *agentmodel.Agent,
+) {
+	if connection == nil || agent == nil {
+		return
+	}
+
+	if connection.Namespace == agent.Metadata.Namespace {
+		return
+	}
+
+	connection.SetNamespace(agent.Metadata.Namespace)
+
+	err := s.connectionUsecase.SaveConnection(ctx, connection)
+	if err != nil {
+		logger.Error("failed to sync connection namespace",
+			slog.String("error", err.Error()))
+	}
 }

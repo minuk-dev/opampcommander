@@ -87,13 +87,14 @@ func (s *AgentGroupService) Run(ctx context.Context) error {
 	// unreachable
 }
 
-// GetAgentGroup retrieves an agent group by its ID.
+// GetAgentGroup retrieves an agent group by its namespace and name.
 func (s *AgentGroupService) GetAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	options *model.GetOptions,
 ) (*agentmodel.AgentGroup, error) {
-	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name, options)
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -104,10 +105,11 @@ func (s *AgentGroupService) GetAgentGroup(
 // SaveAgentGroup saves the agent group.
 func (s *AgentGroupService) SaveAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	agentGroup, err := s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
+	agentGroup, err := s.persistencePort.PutAgentGroup(ctx, namespace, name, agentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("save agent group: %w", err)
 	}
@@ -136,18 +138,19 @@ func (s *AgentGroupService) ListAgentGroups(
 // DeleteAgentGroup marks an agent group as deleted.
 func (s *AgentGroupService) DeleteAgentGroup(
 	ctx context.Context,
+	namespace string,
 	name string,
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, name, nil)
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, namespace, name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get agent group: %w", err)
 	}
 
 	agentGroup.MarkDeleted(deletedAt, deletedBy)
 
-	_, err = s.persistencePort.PutAgentGroup(ctx, name, agentGroup)
+	_, err = s.persistencePort.PutAgentGroup(ctx, namespace, name, agentGroup)
 	if err != nil {
 		return fmt.Errorf("failed to delete agent group: %w", err)
 	}
@@ -302,13 +305,14 @@ func (s *AgentGroupService) applyRemoteConfigs(
 	agent *agentmodel.Agent,
 ) error {
 	agentGroupName := agentGroup.Metadata.Name
+	namespace := agentGroup.Metadata.Namespace
 
 	// Handle single remote config (API compatibility)
 	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
 	if agentGroup.Spec.AgentRemoteConfig != nil {
 		//nolint:staticcheck // backward compatibility
 		configFile, configName, err := s.resolveRemoteConfig(
-			ctx, agentGroupName, *agentGroup.Spec.AgentRemoteConfig)
+			ctx, namespace, agentGroupName, *agentGroup.Spec.AgentRemoteConfig)
 		if err != nil {
 			return err
 		}
@@ -321,7 +325,7 @@ func (s *AgentGroupService) applyRemoteConfigs(
 
 	// Handle multiple remote configs
 	for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
-		configFile, configName, err := s.resolveRemoteConfig(ctx, agentGroupName, remoteConfig)
+		configFile, configName, err := s.resolveRemoteConfig(ctx, namespace, agentGroupName, remoteConfig)
 		if err != nil {
 			return err
 		}
@@ -337,12 +341,14 @@ func (s *AgentGroupService) applyRemoteConfigs(
 
 func (s *AgentGroupService) resolveRemoteConfig(
 	ctx context.Context,
+	namespace string,
 	agentGroupName string,
 	remoteConfig agentmodel.AgentGroupAgentRemoteConfig,
 ) (agentmodel.AgentConfigFile, string, error) {
 	// Case 1: Reference to existing AgentRemoteConfig resource
 	if remoteConfig.AgentRemoteConfigRef != nil {
-		arc, err := s.remoteConfigPersistencePort.GetAgentRemoteConfig(ctx, *remoteConfig.AgentRemoteConfigRef)
+		arc, err := s.remoteConfigPersistencePort.GetAgentRemoteConfig(
+			ctx, namespace, *remoteConfig.AgentRemoteConfigRef)
 		if err != nil {
 			return agentmodel.AgentConfigFile{}, "", fmt.Errorf("get agent remote config %s: %w",
 				*remoteConfig.AgentRemoteConfigRef, err)
@@ -391,11 +397,21 @@ func (s *AgentGroupService) applyConnectionSettings(
 		return nil
 	}
 
-	opampConnection := s.buildOpAMPConnection(ctx, conn.OpAMPConnection, logger)
-	ownMetrics := s.buildTelemetryConnection(ctx, conn.OwnMetrics, logger)
-	ownLogs := s.buildTelemetryConnection(ctx, conn.OwnLogs, logger)
-	ownTraces := s.buildTelemetryConnection(ctx, conn.OwnTraces, logger)
-	otherConnections := s.buildOtherConnections(ctx, conn.OtherConnections, logger)
+	opampConnection := s.buildOpAMPConnection(
+		ctx, agentGroup.Metadata.Namespace, conn.OpAMPConnection, logger,
+	)
+	ownMetrics := s.buildTelemetryConnection(
+		ctx, agentGroup.Metadata.Namespace, conn.OwnMetrics, logger,
+	)
+	ownLogs := s.buildTelemetryConnection(
+		ctx, agentGroup.Metadata.Namespace, conn.OwnLogs, logger,
+	)
+	ownTraces := s.buildTelemetryConnection(
+		ctx, agentGroup.Metadata.Namespace, conn.OwnTraces, logger,
+	)
+	otherConnections := s.buildOtherConnections(
+		ctx, agentGroup.Metadata.Namespace, conn.OtherConnections, logger,
+	)
 
 	err := agent.ApplyConnectionSettings(opampConnection, ownMetrics, ownLogs, ownTraces, otherConnections)
 	if err != nil {
@@ -407,6 +423,7 @@ func (s *AgentGroupService) applyConnectionSettings(
 
 func (s *AgentGroupService) buildOpAMPConnection(
 	ctx context.Context,
+	namespace string,
 	conn *agentmodel.OpAMPConnectionSettings,
 	logger *slog.Logger,
 ) *agentmodel.AgentOpAMPConnectionSettings {
@@ -421,7 +438,7 @@ func (s *AgentGroupService) buildOpAMPConnection(
 	}
 
 	if conn.CertificateName != nil {
-		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, *conn.CertificateName)
+		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName)
 		if err != nil {
 			logger.Warn("failed to get certificate for OpAMP connection",
 				slog.String("certificateName", *conn.CertificateName),
@@ -437,6 +454,7 @@ func (s *AgentGroupService) buildOpAMPConnection(
 
 func (s *AgentGroupService) buildTelemetryConnection(
 	ctx context.Context,
+	namespace string,
 	conn *agentmodel.TelemetryConnectionSettings,
 	logger *slog.Logger,
 ) *agentmodel.AgentTelemetryConnectionSettings {
@@ -451,7 +469,7 @@ func (s *AgentGroupService) buildTelemetryConnection(
 	}
 
 	if conn.CertificateName != nil {
-		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, *conn.CertificateName)
+		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName)
 		if err != nil {
 			logger.Warn("failed to get certificate for telemetry connection",
 				slog.String("certificateName", *conn.CertificateName),
@@ -469,6 +487,7 @@ func (s *AgentGroupService) buildTelemetryConnection(
 
 func (s *AgentGroupService) buildOtherConnections(
 	ctx context.Context,
+	namespace string,
 	conns map[string]agentmodel.OtherConnectionSettings,
 	logger *slog.Logger,
 ) map[string]agentmodel.AgentOtherConnectionSettings {
@@ -481,7 +500,7 @@ func (s *AgentGroupService) buildOtherConnections(
 			}
 
 			if conn.CertificateName != nil {
-				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, *conn.CertificateName)
+				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName)
 				if err != nil {
 					logger.Warn("failed to get certificate for other connection",
 						slog.String("certificateName", *conn.CertificateName),

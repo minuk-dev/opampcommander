@@ -14,6 +14,7 @@ type AgentGroup struct {
 
 // Metadata represents metadata information for an agent group.
 type Metadata struct {
+	Namespace  string     `json:"namespace"`
 	Name       string     `json:"name"`
 	Attributes Attributes `json:"attributes"`
 	CreatedAt  Time       `json:"createdAt"`

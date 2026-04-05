@@ -75,7 +75,9 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *agentmodel
 		agentPackages := lo.OmitByValues(
 			lo.SliceToMap(agentModel.Spec.PackagesAvailable.Packages,
 				func(pkgName string) (string, *protobufs.PackageAvailable) {
-					agentPackage, err := s.agentPackageUsecase.GetAgentPackage(ctx, pkgName)
+					agentPackage, err := s.agentPackageUsecase.GetAgentPackage(
+						ctx, agentModel.Metadata.Namespace, pkgName,
+					)
 					if err != nil {
 						s.logger.Error("failed to get agent package", "name", pkgName, "error", err)
 

@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	// ListAgentURL is the path to list all agents.
-	ListAgentURL = "/api/v1/agents"
-	// SearchAgentURL is the path to search agents.
-	SearchAgentURL = "/api/v1/agents/search"
-	// GetAgentURL is the path to get an agent by ID.
-	GetAgentURL = "/api/v1/agents/{id}"
-	// UpdateAgentURL is the path to update an agent.
-	UpdateAgentURL = "/api/v1/agents/{id}"
+	// ListAgentURL is the path to list all agents in a namespace.
+	ListAgentURL = "/api/v1/namespaces/{namespace}/agents"
+	// SearchAgentURL is the path to search agents in a namespace.
+	SearchAgentURL = "/api/v1/namespaces/{namespace}/agents/search"
+	// GetAgentURL is the path to get an agent by ID in a namespace.
+	GetAgentURL = "/api/v1/namespaces/{namespace}/agents/{id}"
+	// UpdateAgentURL is the path to update an agent in a namespace.
+	UpdateAgentURL = "/api/v1/namespaces/{namespace}/agents/{id}"
 )
 
 // AgentService provides methods to interact with agents.
@@ -34,36 +34,86 @@ func NewAgentService(service *service) *AgentService {
 	}
 }
 
-// GetAgent retrieves an agent by its ID.
-func (s *AgentService) GetAgent(ctx context.Context, id uuid.UUID) (*v1.Agent, error) {
-	return getResource[v1.Agent](ctx, s.service, GetAgentURL, id.String())
+// GetAgent retrieves an agent by its namespace and ID.
+func (s *AgentService) GetAgent(
+	ctx context.Context,
+	namespace string,
+	id uuid.UUID,
+) (*v1.Agent, error) {
+	var result v1.Agent
+
+	res, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("namespace", namespace).
+		SetPathParam("id", id.String()).
+		SetResult(&result).
+		Get(GetAgentURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to get agent: %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return &result, nil
 }
 
 // AgentListResponse represents a list of agents with metadata.
 type AgentListResponse = v1.ListResponse[v1.Agent]
 
-// ListAgents lists all agents.
-func (s *AgentService) ListAgents(ctx context.Context, opts ...ListOption) (*AgentListResponse, error) {
+// ListAgents lists all agents in a namespace.
+func (s *AgentService) ListAgents(
+	ctx context.Context,
+	namespace string,
+	opts ...ListOption,
+) (*AgentListResponse, error) {
 	var listSettings ListSettings
 	for _, opt := range opts {
 		opt.Apply(&listSettings)
 	}
 
-	return listResources[v1.Agent](
-		ctx,
-		s.service,
-		ListAgentURL,
-		ListSettings{
-			limit:          listSettings.limit,
-			continueToken:  listSettings.continueToken,
-			includeDeleted: listSettings.includeDeleted,
-		},
-	)
+	var result AgentListResponse
+
+	req := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("namespace", namespace).
+		SetResult(&result)
+
+	if listSettings.limit != nil && *listSettings.limit > 0 {
+		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
+	}
+
+	if listSettings.continueToken != nil && *listSettings.continueToken != "" {
+		req.SetQueryParam("continue", *listSettings.continueToken)
+	}
+
+	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	response, err := req.Get(ListAgentURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	if response.IsError() {
+		return nil, &ResponseError{
+			StatusCode:   response.StatusCode(),
+			ErrorMessage: response.String(),
+		}
+	}
+
+	return &result, nil
 }
 
-// SearchAgents searches agents by query.
+// SearchAgents searches agents by query in a namespace.
 func (s *AgentService) SearchAgents(
 	ctx context.Context,
+	namespace string,
 	query string,
 	opts ...ListOption,
 ) (*AgentListResponse, error) {
@@ -76,6 +126,7 @@ func (s *AgentService) SearchAgents(
 
 	req := s.service.Resty.R().
 		SetContext(ctx).
+		SetPathParam("namespace", namespace).
 		SetQueryParam("q", query).
 		SetResult(&result)
 
@@ -107,12 +158,18 @@ type SetNewInstanceUIDRequest struct {
 	NewInstanceUID uuid.UUID `binding:"required" json:"newInstanceUid"`
 }
 
-// UpdateAgent updates an agent with the given spec.
-func (s *AgentService) UpdateAgent(ctx context.Context, id uuid.UUID, agent *v1.Agent) (*v1.Agent, error) {
+// UpdateAgent updates an agent with the given spec in a namespace.
+func (s *AgentService) UpdateAgent(
+	ctx context.Context,
+	namespace string,
+	id uuid.UUID,
+	agent *v1.Agent,
+) (*v1.Agent, error) {
 	var result v1.Agent
 
 	response, err := s.service.Resty.R().
 		SetContext(ctx).
+		SetPathParam("namespace", namespace).
 		SetPathParam("id", id.String()).
 		SetBody(agent).
 		SetResult(&result).
@@ -134,6 +191,7 @@ func (s *AgentService) UpdateAgent(ctx context.Context, id uuid.UUID, agent *v1.
 // SetAgentNewInstanceUID sets a new instance UID for an agent.
 func (s *AgentService) SetAgentNewInstanceUID(
 	ctx context.Context,
+	namespace string,
 	id uuid.UUID,
 	request SetNewInstanceUIDRequest,
 ) (*v1.Agent, error) {
@@ -144,11 +202,15 @@ func (s *AgentService) SetAgentNewInstanceUID(
 		},
 	}
 
-	return s.UpdateAgent(ctx, id, agent)
+	return s.UpdateAgent(ctx, namespace, id, agent)
 }
 
 // RestartAgent restarts an agent by its ID.
-func (s *AgentService) RestartAgent(ctx context.Context, id uuid.UUID) (*v1.Agent, error) {
+func (s *AgentService) RestartAgent(
+	ctx context.Context,
+	namespace string,
+	id uuid.UUID,
+) (*v1.Agent, error) {
 	now := v1.NewTime(time.Now())
 	//exhaustruct:ignore
 	agent := &v1.Agent{
@@ -157,5 +219,5 @@ func (s *AgentService) RestartAgent(ctx context.Context, id uuid.UUID) (*v1.Agen
 		},
 	}
 
-	return s.UpdateAgent(ctx, id, agent)
+	return s.UpdateAgent(ctx, namespace, id, agent)
 }

@@ -430,7 +430,7 @@ func setupAPIServerWithKafka(
 func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]string) {
 	t.Helper()
 
-	url := baseURL + "/api/v1/agentgroups"
+	url := baseURL + "/api/v1/namespaces/default/agentgroups"
 	t.Logf("Creating AgentGroup at URL: %s with name: %s", url, name)
 
 	reqBody := map[string]interface{}{
@@ -475,7 +475,7 @@ func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]st
 func agentGroupExistsOnServer(t *testing.T, baseURL, name string) bool {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/agentgroups/%s", baseURL, name)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentgroups/%s", baseURL, name)
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
@@ -499,7 +499,7 @@ func agentGroupExistsOnServer(t *testing.T, baseURL, name string) bool {
 func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]string) {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/agentgroups/%s", baseURL, name)
+	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentgroups/%s", baseURL, name)
 	t.Logf("Updating AgentGroup at URL: %s", url)
 
 	// First get the current AgentGroup

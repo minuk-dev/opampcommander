@@ -29,6 +29,9 @@ var (
 type CommandOptions struct {
 	*config.GlobalConfig
 
+	// flags
+	namespace string
+
 	// internal
 	client *client.Client
 }
@@ -54,6 +57,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent package")
 
 	return cmd
 }
@@ -84,7 +89,7 @@ func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
 	results := lo.Map(names, func(name string, _ int) deleteResult {
 		return deleteResult{
 			name: name,
-			err:  o.client.AgentPackageService.DeleteAgentPackage(cmd.Context(), name),
+			err:  o.client.AgentPackageService.DeleteAgentPackage(cmd.Context(), o.namespace, name),
 		}
 	})
 
@@ -119,7 +124,7 @@ func (o *CommandOptions) ValidArgsFunction(
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	agentPackages, err := clientutil.ListAgentPackageFully(cmd.Context(), client)
+	agentPackages, err := clientutil.ListAgentPackageFully(cmd.Context(), client, o.namespace)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveError
 	}

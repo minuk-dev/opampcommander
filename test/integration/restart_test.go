@@ -62,7 +62,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 				RestartRequiredAt: &restartTime,
 			},
 		}
-		updatedAgent, err := agentService.UpdateAgent(ctx, instanceUID, updateReq)
+		updatedAgent, err := agentService.UpdateAgent(ctx, "default", instanceUID, updateReq)
 		require.NoError(t, err)
 
 		// Verify agent was updated with restart flag
@@ -115,7 +115,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 				RestartRequiredAt: &restartTime,
 			},
 		}
-		_, err := agentService.UpdateAgent(ctx, instanceUID, updateReq)
+		_, err := agentService.UpdateAgent(ctx, "default", instanceUID, updateReq)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unsupported agent operation")
 
@@ -165,6 +165,7 @@ func (m *mockAgentUsecase) SaveAgent(_ context.Context, agent *agentmodel.Agent)
 
 func (m *mockAgentUsecase) ListAgents(
 	_ context.Context,
+	_ string,
 	_ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
 	return nil, errNotImplemented
@@ -172,6 +173,7 @@ func (m *mockAgentUsecase) ListAgents(
 
 func (m *mockAgentUsecase) SearchAgents(
 	_ context.Context,
+	_ string,
 	_ string,
 	_ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {

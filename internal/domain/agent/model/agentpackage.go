@@ -45,6 +45,7 @@ func (a *AgentPackage) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 // AgentPackageMetadata represents the metadata of an agent package.
 type AgentPackageMetadata struct {
 	Name       string
+	Namespace  string
 	Attributes Attributes
 	// CreatedAt is the timestamp when the agent package was created.
 	CreatedAt time.Time

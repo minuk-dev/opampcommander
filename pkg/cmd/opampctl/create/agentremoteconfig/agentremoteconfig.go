@@ -32,6 +32,7 @@ type CommandOptions struct {
 
 	// Flags
 	name        string
+	namespace   string
 	attributes  map[string]string
 	value       string
 	file        string
@@ -64,6 +65,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the agent remote config (required)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
 	cmd.Flags().StringToStringVar(
 		&options.attributes, "attributes", nil, "Attributes of the agent remote config (key=value)")
 	cmd.Flags().StringVar(&options.value, "value", "", "Configuration value (alternative to --file)")
@@ -108,6 +110,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	createRequest := &v1.AgentRemoteConfig{
 		Metadata: v1.AgentRemoteConfigMetadata{
 			Name:       opt.name,
+			Namespace:  opt.namespace,
 			Attributes: opt.attributes,
 		},
 		Spec: v1.AgentRemoteConfigSpec{
@@ -116,7 +119,8 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		},
 	}
 
-	agentRemoteConfig, err := agentRemoteConfigService.CreateAgentRemoteConfig(cmd.Context(), createRequest)
+	agentRemoteConfig, err := agentRemoteConfigService.CreateAgentRemoteConfig(
+		cmd.Context(), opt.namespace, createRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create agent remote config: %w", err)
 	}

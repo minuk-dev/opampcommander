@@ -20,11 +20,13 @@ const (
 func AutoCompleteAgentInstanceUIDs(
 	ctx context.Context,
 	agentService *client.AgentService,
+	namespace string,
 	toComplete string,
 ) ([]string, error) {
 	// Use search API with the toComplete string as query
 	resp, err := agentService.SearchAgents(
 		ctx,
+		namespace,
 		toComplete,
 		client.WithLimit(MaxCompletionResults),
 	)

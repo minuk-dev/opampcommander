@@ -20,6 +20,7 @@ type CommandOptions struct {
 
 	// Flags
 	name        string
+	namespace   string
 	attributes  map[string]string
 	packageType string
 	version     string
@@ -55,6 +56,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&options.name, "name", "", "Name of the agent package (required)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent package")
 	cmd.Flags().StringToStringVar(&options.attributes, "attributes", nil, "Attributes of the agent package (key=value)")
 	cmd.Flags().StringVar(&options.packageType, "package-type", "", "Type of the package (e.g., TopLevelPackageName)")
 	cmd.Flags().StringVar(&options.version, "version", "", "Version of the package")
@@ -89,6 +91,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	createRequest := &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       opt.name,
+			Namespace:  opt.namespace,
 			Attributes: opt.attributes,
 		},
 		Spec: v1.AgentPackageSpec{
@@ -101,7 +104,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		},
 	}
 
-	agentPackage, err := agentPackageService.CreateAgentPackage(cmd.Context(), createRequest)
+	agentPackage, err := agentPackageService.CreateAgentPackage(cmd.Context(), opt.namespace, createRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create agent package: %w", err)
 	}

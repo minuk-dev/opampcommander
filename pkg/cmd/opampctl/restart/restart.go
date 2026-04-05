@@ -40,7 +40,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // newRestartAgentCommand creates a new restart agent command.
 func newRestartAgentCommand(options CommandOptions) *cobra.Command {
-	var agentID string
+	var (
+		agentID   string
+		namespace string
+	)
 
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
@@ -59,7 +62,7 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 				return fmt.Errorf("invalid agent ID format: %w", err)
 			}
 
-			_, err = client.AgentService.RestartAgent(ctx, agentUUID)
+			_, err = client.AgentService.RestartAgent(ctx, namespace, agentUUID)
 			if err != nil {
 				return fmt.Errorf("failed to restart agent: %w", err)
 			}
@@ -71,35 +74,39 @@ func newRestartAgentCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&agentID, "id", "", "agent ID to restart")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Namespace of the agent")
 	_ = cmd.MarkFlagRequired("id")
 
-	// Add completion for --id flag
-	_ = cmd.RegisterFlagCompletionFunc(
-		"id",
-		func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			cli, err := clientutil.NewClient(options.GlobalConfig)
-			if err != nil {
-				return nil, cobra.ShellCompDirectiveError
-			}
-
-			agentService := cli.AgentService
-
-			// Use search API with the toComplete string as query
-			resp, err := agentService.SearchAgents(
-				cmd.Context(),
-				toComplete,
-				client.WithLimit(MaxCompletionResults),
-			)
-			if err != nil {
-				return nil, cobra.ShellCompDirectiveError
-			}
-
-			instanceUIDs := lo.Map(resp.Items, func(agent v1.Agent, _ int) string {
-				return agent.Metadata.InstanceUID.String()
-			})
-
-			return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
-		})
+	_ = cmd.RegisterFlagCompletionFunc("id",
+		restartAgentIDCompletion(options, &namespace))
 
 	return cmd
+}
+
+func restartAgentIDCompletion(
+	options CommandOptions,
+	namespace *string,
+) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cli, err := clientutil.NewClient(options.GlobalConfig)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		resp, err := cli.AgentService.SearchAgents(
+			cmd.Context(),
+			*namespace,
+			toComplete,
+			client.WithLimit(MaxCompletionResults),
+		)
+		if err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
+
+		instanceUIDs := lo.Map(resp.Items, func(agent v1.Agent, _ int) string {
+			return agent.Metadata.InstanceUID.String()
+		})
+
+		return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
+	}
 }

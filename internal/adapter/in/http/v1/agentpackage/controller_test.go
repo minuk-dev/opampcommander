@@ -23,6 +23,8 @@ import (
 
 const (
 	testPackageName = "pkg1"
+	testNamespace   = "default"
+	testBaseURL     = "/api/v1/namespaces/default/agentpackages"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
@@ -93,7 +95,7 @@ func TestAgentPackageController_List(t *testing.T) {
 		}, nil)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentpackages", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL, nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
@@ -108,7 +110,8 @@ func TestAgentPackageController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentpackages?limit=invalid", nil)
+		listURL := testBaseURL + "?limit=invalid"
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, listURL, nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -139,7 +142,7 @@ func TestAgentPackageController_List(t *testing.T) {
 		usecase.EXPECT().ListAgentPackages(mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentpackages", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL, nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -175,10 +178,10 @@ func TestAgentPackageController_Get(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything).Return(agentPkg, nil)
+	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(agentPkg, nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentpackages/pkg1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL+"/pkg1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusOK, recorder.Code)
@@ -192,10 +195,10 @@ func TestAgentPackageController_Get_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
+	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentpackages/notfound", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL+"/notfound", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -209,10 +212,10 @@ func TestAgentPackageController_Get_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentpackages/pkg1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL+"/pkg1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -270,13 +273,13 @@ func TestAgentPackageController_Create(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/agentpackages",
+		testBaseURL,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusCreated, recorder.Code)
-	assert.Equal(t, "/api/v1/agentpackages/"+name, recorder.Header().Get("Location"))
+	assert.Equal(t, testBaseURL+"/"+name, recorder.Header().Get("Location"))
 }
 
 func TestAgentPackageController_Create_InvalidBody(t *testing.T) {
@@ -290,7 +293,7 @@ func TestAgentPackageController_Create_InvalidBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/agentpackages",
+		testBaseURL,
 		strings.NewReader("invalid"),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -334,7 +337,7 @@ func TestAgentPackageController_Create_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/agentpackages",
+		testBaseURL,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -371,7 +374,7 @@ func TestAgentPackageController_Update(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().UpdateAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(pkg, nil)
+	usecase.EXPECT().UpdateAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(pkg, nil)
 	jsonBody, err := json.Marshal(pkg)
 	require.NoError(t, err)
 
@@ -379,7 +382,7 @@ func TestAgentPackageController_Update(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentpackages/"+name,
+		testBaseURL+"/"+name,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -398,7 +401,7 @@ func TestAgentPackageController_Update_InvalidBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentpackages/something",
+		testBaseURL+"/something",
 		strings.NewReader("invalid"),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -444,7 +447,9 @@ func TestAgentPackageController_Update_InternalError(t *testing.T) {
 		},
 	}
 
-	usecase.EXPECT().UpdateAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().UpdateAgentPackage(
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+	).Return(nil, assert.AnError)
 
 	jsonBody, err := json.Marshal(pkg)
 	require.NoError(t, err)
@@ -453,7 +458,7 @@ func TestAgentPackageController_Update_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentpackages/"+name,
+		testBaseURL+"/"+name,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -470,10 +475,10 @@ func TestAgentPackageController_Delete(t *testing.T) {
 	router := ctrlBase.Router
 	name := testPackageName
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything).Return(nil)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentpackages/"+name, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/"+name, nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
@@ -487,10 +492,10 @@ func TestAgentPackageController_Delete_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentpackages/something", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -504,10 +509,10 @@ func TestAgentPackageController_Delete_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything).Return(assert.AnError)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentpackages/something", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)

@@ -2,6 +2,7 @@
 package connection
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -20,7 +21,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType    string
+	namespace     string
+	allNamespaces bool
 
 	// internal
 	client *client.Client
@@ -47,6 +50,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "format", "f", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
+	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	return cmd
 }
@@ -84,9 +89,19 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// List retrieves the connection information for all connections.
+// List retrieves the connection information for all connections in a namespace.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	connections, err := clientutil.ListConnectionFully(cmd.Context(), opt.client)
+	var (
+		connections []v1.Connection
+		err         error
+	)
+
+	if opt.allNamespaces {
+		connections, err = opt.listAllNamespaces(cmd)
+	} else {
+		connections, err = clientutil.ListConnectionFully(cmd.Context(), opt.client, opt.namespace)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to list connections: %w", err)
 	}
@@ -113,7 +128,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	})
 
 	for _, connectionID := range connectionIDs {
-		connection, err := opt.client.ConnectionService.GetConnection(cmd.Context(), connectionID)
+		connection, err := opt.client.ConnectionService.GetConnection(cmd.Context(), opt.namespace, connectionID)
 		if err != nil {
 			return fmt.Errorf("failed to get agent: %w", err)
 		}
@@ -124,4 +139,18 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	cmd.Println(connections)
 
 	return nil
+}
+
+func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Connection, error) {
+	connections, err := clientutil.ListAcrossNamespaces(
+		cmd.Context(), opt.client,
+		func(ctx context.Context, namespace string) ([]v1.Connection, error) {
+			return clientutil.ListConnectionFully(ctx, opt.client, namespace)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list connections across all namespaces: %w", err)
+	}
+
+	return connections, nil
 }

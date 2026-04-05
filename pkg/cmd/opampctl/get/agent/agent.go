@@ -2,6 +2,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -33,8 +34,10 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType   string
-	byAgentGroup string
+	formatType    string
+	byAgentGroup  string
+	namespace     string
+	allNamespaces bool
 
 	// internal
 	client *client.Client
@@ -63,6 +66,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
 	cmd.Flags().StringVar(&options.byAgentGroup, "agentgroup", "", "Filter agents by agent group name")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace for the agent group filter")
+	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	return cmd
 }
@@ -104,6 +109,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // ItemForCLI is a struct that represents an agent item for display.
 type ItemForCLI struct {
+	Namespace      string    `short:"Namespace"        text:"Namespace"`
 	InstanceUID    uuid.UUID `short:"Instance UID"     text:"Instance UID"`
 	ConnectionType string    `short:"Connection Type"  text:"Connection Type"`
 	Connected      bool      `short:"Connected"        text:"Connected"`
@@ -120,35 +126,17 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		err    error
 	)
 
-	if opt.byAgentGroup == "" {
-		agents, err = clientutil.ListAgentFully(cmd.Context(), opt.client)
-		if err != nil {
-			return fmt.Errorf("failed to list agents: %w", err)
-		}
+	if opt.allNamespaces {
+		agents, err = opt.listAllNamespaces(cmd)
 	} else {
-		agents, err = clientutil.ListAgentFullyByAgentGroup(cmd.Context(), opt.client, opt.byAgentGroup)
-		if err != nil {
-			return fmt.Errorf("failed to list agents by agent group: %w", err)
-		}
-	}
-
-	switch formatType := formatter.FormatType(opt.formatType); formatType {
-	case formatter.SHORT, formatter.TEXT:
-		displayedAgents := lo.Map(agents, func(agent v1.Agent, _ int) ItemForCLI {
-			return toShortItemForCLI(agent)
-		})
-		err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
-	case formatter.JSON, formatter.YAML:
-		err = formatter.Format(cmd.OutOrStdout(), agents, formatType)
-	default:
-		return fmt.Errorf("unsupported format type: %s, %w", opt.formatType, ErrCommandExecutionFailed)
+		agents, err = opt.listSingleNamespace(cmd)
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to format agents: %w", err)
+		return err
 	}
 
-	return nil
+	return opt.formatAgents(cmd, agents)
 }
 
 // Get retrieves the agent information for the given agent UIDs.
@@ -160,7 +148,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 
 	agentWithErrs := lo.Map(ids, func(id string, _ int) AgentWithErr {
 		instanceUID, _ := uuid.Parse(id)
-		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), instanceUID)
+		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), opt.namespace, instanceUID)
 
 		return AgentWithErr{
 			Agent: agent,
@@ -200,23 +188,6 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	return nil
 }
 
-func toShortItemForCLI(agent v1.Agent) ItemForCLI {
-	var startedAt string
-	if !agent.Status.ComponentHealth.StartTime.IsZero() {
-		startedAt = agent.Status.ComponentHealth.StartTime.Format(time.DateTime)
-	}
-
-	return ItemForCLI{
-		InstanceUID:    agent.Metadata.InstanceUID,
-		ConnectionType: agent.Status.ConnectionType,
-		Connected:      agent.Status.Connected,
-		Healthy:        agent.Status.ComponentHealth.Healthy,
-		SequenceNum:    agent.Status.SequenceNum,
-		StartedAt:      startedAt,
-		LastReportedAt: agent.Status.LastReportedAt,
-	}
-}
-
 // ValidArgsFunction provides dynamic completion for agent instance UIDs.
 func (opt *CommandOptions) ValidArgsFunction(
 	cmd *cobra.Command, _ []string, toComplete string,
@@ -231,6 +202,7 @@ func (opt *CommandOptions) ValidArgsFunction(
 	// Use search API with the toComplete string as query
 	resp, err := agentService.SearchAgents(
 		cmd.Context(),
+		opt.namespace,
 		toComplete,
 		client.WithLimit(MaxCompletionResults),
 	)
@@ -243,4 +215,83 @@ func (opt *CommandOptions) ValidArgsFunction(
 	})
 
 	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
+}
+
+func (opt *CommandOptions) listSingleNamespace(cmd *cobra.Command) ([]v1.Agent, error) {
+	if opt.byAgentGroup == "" {
+		agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client, opt.namespace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list agents: %w", err)
+		}
+
+		return agents, nil
+	}
+
+	agents, err := clientutil.ListAgentFullyByAgentGroup(
+		cmd.Context(), opt.client, opt.namespace, opt.byAgentGroup,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
+	}
+
+	return agents, nil
+}
+
+func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Agent, error) {
+	agents, err := clientutil.ListAcrossNamespaces(
+		cmd.Context(), opt.client,
+		func(ctx context.Context, namespace string) ([]v1.Agent, error) {
+			if opt.byAgentGroup == "" {
+				return clientutil.ListAgentFully(ctx, opt.client, namespace)
+			}
+
+			return clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, namespace, opt.byAgentGroup)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents across all namespaces: %w", err)
+	}
+
+	return agents, nil
+}
+
+func (opt *CommandOptions) formatAgents(cmd *cobra.Command, agents []v1.Agent) error {
+	switch formatType := formatter.FormatType(opt.formatType); formatType {
+	case formatter.SHORT, formatter.TEXT:
+		displayedAgents := lo.Map(agents, func(agent v1.Agent, _ int) ItemForCLI {
+			return toShortItemForCLI(agent)
+		})
+
+		err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
+		if err != nil {
+			return fmt.Errorf("failed to format agents: %w", err)
+		}
+	case formatter.JSON, formatter.YAML:
+		err := formatter.Format(cmd.OutOrStdout(), agents, formatType)
+		if err != nil {
+			return fmt.Errorf("failed to format agents: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported format type: %s, %w", opt.formatType, ErrCommandExecutionFailed)
+	}
+
+	return nil
+}
+
+func toShortItemForCLI(agent v1.Agent) ItemForCLI {
+	var startedAt string
+	if !agent.Status.ComponentHealth.StartTime.IsZero() {
+		startedAt = agent.Status.ComponentHealth.StartTime.Format(time.DateTime)
+	}
+
+	return ItemForCLI{
+		Namespace:      agent.Metadata.Namespace,
+		InstanceUID:    agent.Metadata.InstanceUID,
+		ConnectionType: agent.Status.ConnectionType,
+		Connected:      agent.Status.Connected,
+		Healthy:        agent.Status.ComponentHealth.Healthy,
+		SequenceNum:    agent.Status.SequenceNum,
+		StartedAt:      startedAt,
+		LastReportedAt: agent.Status.LastReportedAt,
+	}
 }

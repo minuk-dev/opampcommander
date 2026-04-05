@@ -92,7 +92,7 @@ func TestAgentGroupController_List(t *testing.T) {
 		}, nil)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/namespaces/default/agentgroups", nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusOK, recorder.Code)
@@ -107,7 +107,10 @@ func TestAgentGroupController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups?limit=invalid", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agentgroups?limit=invalid", nil,
+		)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -138,7 +141,7 @@ func TestAgentGroupController_List(t *testing.T) {
 		usecase.EXPECT().ListAgentGroups(mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups", nil)
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/namespaces/default/agentgroups", nil)
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -175,10 +178,10 @@ func TestAgentGroupController_Get(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(agentGroup, nil)
+	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(agentGroup, nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/g1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/namespaces/default/agentgroups/g1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusOK, recorder.Code)
@@ -192,10 +195,15 @@ func TestAgentGroupController_Get_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
+	usecase.EXPECT().
+		GetAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/notfound", nil)
+	req, err := http.NewRequestWithContext(
+		t.Context(), http.MethodGet,
+		"/api/v1/namespaces/default/agentgroups/notfound", nil,
+	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -209,10 +217,10 @@ func TestAgentGroupController_Get_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().GetAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agentgroups/g1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/namespaces/default/agentgroups/g1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -272,13 +280,13 @@ func TestAgentGroupController_Create(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/agentgroups",
+		"/api/v1/namespaces/default/agentgroups",
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusCreated, recorder.Code)
-	assert.Equal(t, "/api/v1/agentgroups/"+name, recorder.Header().Get("Location"))
+	assert.Equal(t, "/api/v1/namespaces/default/agentgroups/"+name, recorder.Header().Get("Location"))
 }
 
 func TestAgentGroupController_Create_InvalidBody(t *testing.T) {
@@ -292,7 +300,7 @@ func TestAgentGroupController_Create_InvalidBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/agentgroups",
+		"/api/v1/namespaces/default/agentgroups",
 		strings.NewReader("invalid"),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -338,7 +346,7 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"/api/v1/agentgroups",
+		"/api/v1/namespaces/default/agentgroups",
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -376,7 +384,7 @@ func TestAgentGroupController_Update(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().UpdateAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(group, nil)
+	usecase.EXPECT().UpdateAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(group, nil)
 	jsonBody, err := json.Marshal(group)
 	require.NoError(t, err)
 
@@ -384,7 +392,7 @@ func TestAgentGroupController_Update(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentgroups/"+uid.String(),
+		"/api/v1/namespaces/default/agentgroups/"+uid.String(),
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -403,7 +411,7 @@ func TestAgentGroupController_Update_InvalidBody(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentgroups/something",
+		"/api/v1/namespaces/default/agentgroups/something",
 		strings.NewReader("invalid"),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -451,7 +459,9 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 		},
 	}
 
-	usecase.EXPECT().UpdateAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().
+		UpdateAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, assert.AnError)
 
 	jsonBody, err := json.Marshal(group)
 	require.NoError(t, err)
@@ -460,7 +470,7 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 	req, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPut,
-		"/api/v1/agentgroups/"+name,
+		"/api/v1/namespaces/default/agentgroups/"+name,
 		strings.NewReader(string(jsonBody)),
 	)
 	require.NoError(t, err)
@@ -477,10 +487,13 @@ func TestAgentGroupController_Delete(t *testing.T) {
 	router := ctrlBase.Router
 	uid := uuid.New()
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything).Return(nil)
+	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/"+uid.String(), nil)
+	req, err := http.NewRequestWithContext(
+		t.Context(), http.MethodDelete,
+		"/api/v1/namespaces/default/agentgroups/"+uid.String(), nil,
+	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
@@ -494,10 +507,15 @@ func TestAgentGroupController_Delete_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
+	usecase.EXPECT().
+		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).
+		Return(port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/something", nil)
+	req, err := http.NewRequestWithContext(
+		t.Context(), http.MethodDelete,
+		"/api/v1/namespaces/default/agentgroups/something", nil,
+	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -511,10 +529,15 @@ func TestAgentGroupController_Delete_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything).Return(assert.AnError)
+	usecase.EXPECT().
+		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).
+		Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/agentgroups/something", nil)
+	req, err := http.NewRequestWithContext(
+		t.Context(), http.MethodDelete,
+		"/api/v1/namespaces/default/agentgroups/something", nil,
+	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)

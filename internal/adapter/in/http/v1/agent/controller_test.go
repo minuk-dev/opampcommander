@@ -56,7 +56,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 			},
 		}
 		agentUsecase.EXPECT().
-			ListAgents(mock.Anything, mock.Anything).
+			ListAgents(mock.Anything, "default", mock.Anything).
 			Return(&v1.ListResponse[v1.Agent]{
 				APIVersion: "v1",
 				Kind:       v1.AgentKind,
@@ -69,7 +69,9 @@ func TestAgentControllerListAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/agents", nil,
+		)
 		require.NoError(t, err)
 
 		// then
@@ -92,7 +94,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 
 		// given
 		agentUsecase.EXPECT().
-			ListAgents(mock.Anything, mock.Anything).
+			ListAgents(mock.Anything, "default", mock.Anything).
 			Return(&v1.ListResponse[v1.Agent]{
 				APIVersion: "v1",
 				Kind:       v1.AgentKind,
@@ -105,7 +107,9 @@ func TestAgentControllerListAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/agents", nil,
+		)
 		require.NoError(t, err)
 
 		// then
@@ -125,7 +129,9 @@ func TestAgentControllerListAgent(t *testing.T) {
 		router := ctrlBase.Router
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents?limit=invalid", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/agents?limit=invalid", nil,
+		)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -157,11 +163,13 @@ func TestAgentControllerListAgent(t *testing.T) {
 
 		// given
 		agentUsecase.EXPECT().
-			ListAgents(mock.Anything, mock.Anything).
+			ListAgents(mock.Anything, "default", mock.Anything).
 			Return(nil, assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/agents", nil,
+		)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -183,7 +191,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// given
 		instanceUID := uuid.New()
 		agentUsecase.EXPECT().
-			GetAgent(mock.Anything, mock.Anything).
+			GetAgent(mock.Anything, "default", mock.Anything).
 			Return(
 				//exhaustruct:ignore
 				&v1.Agent{
@@ -193,7 +201,10 @@ func TestAgentControllerGetAgent(t *testing.T) {
 				}, nil)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -216,11 +227,14 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		instanceUID := uuid.New()
 
 		agentUsecase.EXPECT().
-			GetAgent(mock.Anything, mock.Anything).
+			GetAgent(mock.Anything, "default", mock.Anything).
 			Return(nil, port.ErrResourceNotExist)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -246,7 +260,10 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/not-a-uuid", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/not-a-uuid", nil,
+		)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -280,11 +297,14 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		instanceUID := uuid.New()
 
 		agentUsecase.EXPECT().
-			GetAgent(mock.Anything, mock.Anything).
+			GetAgent(mock.Anything, "default", mock.Anything).
 			Return(nil, assert.AnError)
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/"+instanceUID.String(), nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
 		require.NoError(t, err)
 		// then
 		router.ServeHTTP(recorder, req)
@@ -315,7 +335,7 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 			},
 		}
 		agentUsecase.EXPECT().
-			SearchAgents(mock.Anything, "1234", mock.Anything).
+			SearchAgents(mock.Anything, "default", "1234", mock.Anything).
 			Return(&v1.ListResponse[v1.Agent]{
 				APIVersion: "v1",
 				Kind:       v1.AgentKind,
@@ -328,7 +348,10 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/search?q=1234", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/search?q=1234", nil,
+		)
 		require.NoError(t, err)
 
 		router.ServeHTTP(recorder, req)
@@ -354,7 +377,10 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/search", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/search", nil,
+		)
 		require.NoError(t, err)
 
 		router.ServeHTTP(recorder, req)
@@ -374,12 +400,15 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 
 		// given
 		agentUsecase.EXPECT().
-			SearchAgents(mock.Anything, "1234", mock.Anything).
+			SearchAgents(mock.Anything, "default", "1234", mock.Anything).
 			Return(nil, port.ErrResourceNotExist)
 
 		// when
 		recorder := httptest.NewRecorder()
-		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/agents/search?q=1234", nil)
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/search?q=1234", nil,
+		)
 		require.NoError(t, err)
 
 		router.ServeHTTP(recorder, req)

@@ -2,6 +2,7 @@
 package certificate
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,7 +28,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType    string
+	namespace     string
+	allNamespaces bool
 
 	// internal
 	client *client.Client
@@ -54,6 +57,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the certificate")
+	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
 	return cmd
 }
@@ -95,7 +100,17 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of certificates.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	certificates, err := clientutil.ListCertificateFully(cmd.Context(), opt.client)
+	var (
+		certificates []v1.Certificate
+		err          error
+	)
+
+	if opt.allNamespaces {
+		certificates, err = opt.listAllNamespaces(cmd)
+	} else {
+		certificates, err = clientutil.ListCertificateFully(cmd.Context(), opt.client, opt.namespace)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to list certificates: %w", err)
 	}
@@ -121,7 +136,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	}
 
 	certificatesWithErr := lo.Map(names, func(name string, _ int) CertificateWithErr {
-		certificate, err := opt.client.CertificateService.GetCertificate(cmd.Context(), name)
+		certificate, err := opt.client.CertificateService.GetCertificate(cmd.Context(), opt.namespace, name)
 
 		return CertificateWithErr{
 			Certificate: certificate,
@@ -161,8 +176,23 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	return nil
 }
 
+func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Certificate, error) {
+	certificates, err := clientutil.ListAcrossNamespaces(
+		cmd.Context(), opt.client,
+		func(ctx context.Context, namespace string) ([]v1.Certificate, error) {
+			return clientutil.ListCertificateFully(ctx, opt.client, namespace)
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list certificates across all namespaces: %w", err)
+	}
+
+	return certificates, nil
+}
+
 //nolint:lll
 type formattedCertificate struct {
+	Namespace  string            `json:"namespace"           short:"namespace" text:"namespace"           yaml:"namespace"`
 	Name       string            `json:"name"                short:"name"      text:"name"                yaml:"name"`
 	Attributes map[string]string `json:"attributes"          short:"-"         text:"-"                   yaml:"attributes"`
 	HasCert    bool              `json:"hasCert"             short:"hasCert"   text:"hasCert"             yaml:"hasCert"`
@@ -216,6 +246,7 @@ func (opt *CommandOptions) toFormattedCertificate(
 	}
 
 	return formattedCertificate{
+		Namespace:  certificate.Metadata.Namespace,
 		Name:       certificate.Metadata.Name,
 		Attributes: certificate.Metadata.Attributes,
 		HasCert:    certificate.Spec.Cert != "",
