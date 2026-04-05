@@ -80,6 +80,21 @@ type RBACUsecase interface {
 	SyncPolicies(ctx context.Context) error
 }
 
+// RoleBindingUsecase is an interface that defines the methods for role binding use cases.
+type RoleBindingUsecase interface {
+	// GetRoleBinding retrieves a role binding by namespace and name.
+	GetRoleBinding(ctx context.Context, namespace, name string) (*usermodel.RoleBinding, error)
+	// ListRoleBindings lists all role bindings.
+	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
+	// CreateRoleBinding creates a new role binding.
+	CreateRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
+	// UpdateRoleBinding updates an existing role binding.
+	UpdateRoleBinding(ctx context.Context, namespace, name string,
+		rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
+	// DeleteRoleBinding deletes a role binding by namespace and name.
+	DeleteRoleBinding(ctx context.Context, namespace, name string) error
+}
+
 // IdentityProviderUsecase is a provider-agnostic interface for resolving external identities.
 type IdentityProviderUsecase interface {
 	// ProviderName returns the unique name of this identity provider.

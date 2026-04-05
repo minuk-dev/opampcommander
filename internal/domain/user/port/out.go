@@ -76,6 +76,18 @@ type UserRolePersistencePort interface {
 	DeleteRoleUsers(ctx context.Context, roleID uuid.UUID) error
 }
 
+// RoleBindingPersistencePort is an interface that defines the methods for role binding persistence.
+type RoleBindingPersistencePort interface {
+	// GetRoleBinding retrieves a role binding by namespace and name.
+	GetRoleBinding(ctx context.Context, namespace, name string) (*usermodel.RoleBinding, error)
+	// PutRoleBinding saves or updates a role binding.
+	PutRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
+	// ListRoleBindings retrieves a list of role bindings with pagination options.
+	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
+	// DeleteRoleBinding deletes a role binding by namespace and name.
+	DeleteRoleBinding(ctx context.Context, namespace, name string) error
+}
+
 // RBACEnforcerPort is an interface that defines the methods for Casbin enforcer operations.
 //
 //nolint:interfacebloat // Casbin enforcer adapter naturally requires many operations.
