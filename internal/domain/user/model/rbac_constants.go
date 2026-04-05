@@ -19,6 +19,7 @@ const (
 	ResourceAgentPackage      = "agentpackage"
 	ResourceAgentRemoteConfig = "agentremoteconfig"
 	ResourceCertificate       = "certificate"
+	ResourceRoleBinding       = "rolebinding"
 )
 
 // Global resource types (not namespace-scoped).

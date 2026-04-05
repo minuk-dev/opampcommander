@@ -129,6 +129,8 @@ func getResourceSingular(plural string) (string, bool) {
 		return "certificate", true
 	case "agentremoteconfigs":
 		return "agentremoteconfig", true
+	case "rolebindings":
+		return "rolebinding", true
 	default:
 		return "", false
 	}

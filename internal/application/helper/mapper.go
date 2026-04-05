@@ -502,6 +502,60 @@ func (mapper *Mapper) MapUserRoleToAPI(domain *usermodel.UserRole) *v1.UserRole 
 	}
 }
 
+// MapRoleBindingToAPI maps a domain model RoleBinding to an API model RoleBinding.
+func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.RoleBinding {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.RoleBinding{
+		Kind:       v1.RoleBindingKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.RoleBindingMetadata{
+			Namespace: domain.Metadata.Namespace,
+			Name:      domain.Metadata.Name,
+			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
+			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
+			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+		},
+		Spec: v1.RoleBindingSpec{
+			RoleRef: v1.RoleBindingRoleRef{
+				Kind: domain.Spec.RoleRef.Kind,
+				Name: domain.Spec.RoleRef.Name,
+			},
+			Subject: v1.RoleBindingSubject{
+				Kind: domain.Spec.Subject.Kind,
+				Name: domain.Spec.Subject.Name,
+			},
+		},
+		Status: v1.RoleBindingStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToRoleBinding maps an API model RoleBinding to a domain model RoleBinding.
+func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.RoleBinding {
+	if apiRB == nil {
+		return nil
+	}
+
+	return usermodel.NewRoleBinding(
+		apiRB.Metadata.Namespace,
+		apiRB.Metadata.Name,
+		usermodel.RoleRef{
+			Kind: apiRB.Spec.RoleRef.Kind,
+			Name: apiRB.Spec.RoleRef.Name,
+			UID:  uuid.Nil,
+		},
+		usermodel.Subject{
+			Kind: apiRB.Spec.Subject.Kind,
+			Name: apiRB.Spec.Subject.Name,
+			UID:  uuid.Nil,
+		},
+	)
+}
+
 // --------------------------------------------------------------------------
 // Private helper methods (placed after all exported methods per funcorder)
 // --------------------------------------------------------------------------

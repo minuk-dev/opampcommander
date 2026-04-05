@@ -15,27 +15,27 @@ var _ userport.RBACUsecase = (*RBACService)(nil)
 
 // RBACService implements the RBACUsecase interface.
 type RBACService struct {
-	rbacEnforcerPort          userport.RBACEnforcerPort
-	userRolePersistencePort   userport.UserRolePersistencePort
-	rolePersistencePort       userport.RolePersistencePort
-	permissionPersistencePort userport.PermissionPersistencePort
-	logger                    *slog.Logger
+	rbacEnforcerPort           userport.RBACEnforcerPort
+	roleBindingPersistencePort userport.RoleBindingPersistencePort
+	rolePersistencePort        userport.RolePersistencePort
+	permissionPersistencePort  userport.PermissionPersistencePort
+	logger                     *slog.Logger
 }
 
 // NewRBACService creates a new instance of RBACService.
 func NewRBACService(
 	rbacEnforcerPort userport.RBACEnforcerPort,
-	userRolePersistencePort userport.UserRolePersistencePort,
+	roleBindingPersistencePort userport.RoleBindingPersistencePort,
 	rolePersistencePort userport.RolePersistencePort,
 	permissionPersistencePort userport.PermissionPersistencePort,
 	logger *slog.Logger,
 ) *RBACService {
 	return &RBACService{
-		rbacEnforcerPort:          rbacEnforcerPort,
-		userRolePersistencePort:   userRolePersistencePort,
-		rolePersistencePort:       rolePersistencePort,
-		permissionPersistencePort: permissionPersistencePort,
-		logger:                    logger,
+		rbacEnforcerPort:           rbacEnforcerPort,
+		roleBindingPersistencePort: roleBindingPersistencePort,
+		rolePersistencePort:        rolePersistencePort,
+		permissionPersistencePort:  permissionPersistencePort,
+		logger:                     logger,
 	}
 }
 
@@ -58,24 +58,39 @@ func (s *RBACService) GetUserPermissions(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]*usermodel.Permission, error) {
-	roles, err := s.userRolePersistencePort.GetUserRoles(ctx, userID)
+	// Find role bindings for this user
+	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user roles from persistence: %w", err)
+		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
 
 	permissionMap := make(map[string]*usermodel.Permission)
 
-	for _, role := range roles {
+	for _, binding := range allBindings.Items {
+		if binding.Spec.Subject.UID != userID {
+			continue
+		}
+
+		role, err := s.rolePersistencePort.GetRole(ctx, binding.Spec.RoleRef.UID)
+		if err != nil {
+			s.logger.WarnContext(ctx, "failed to get role for role binding",
+				slog.String("roleUID", binding.Spec.RoleRef.UID.String()),
+				slog.Any("error", err),
+			)
+
+			continue
+		}
+
 		for _, permissionID := range role.Spec.Permissions {
 			if _, exists := permissionMap[permissionID]; exists {
 				continue
 			}
 
-			permission, err := s.permissionPersistencePort.GetPermissionByName(ctx, permissionID)
-			if err != nil {
+			permission, permErr := s.permissionPersistencePort.GetPermissionByName(ctx, permissionID)
+			if permErr != nil {
 				s.logger.WarnContext(ctx, "failed to get permission by name",
 					slog.String("permissionID", permissionID),
-					slog.Any("error", err),
+					slog.Any("error", permErr),
 				)
 
 				continue
@@ -177,17 +192,17 @@ func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []gro
 		}
 	}
 
-	userRolesResp, err := s.userRolePersistencePort.ListUserRoles(ctx, nil)
+	userRolesResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list user roles from persistence: %w", err)
+		return nil, nil, fmt.Errorf("failed to list role bindings from persistence: %w", err)
 	}
 
 	groupings := make([]groupingPolicy, 0, len(userRolesResp.Items))
-	for _, userRole := range userRolesResp.Items {
+	for _, binding := range userRolesResp.Items {
 		groupings = append(groupings, groupingPolicy{
-			userID:    userRole.Spec.UserID.String(),
-			roleID:    userRole.Spec.RoleID.String(),
-			namespace: userRole.Spec.Namespace,
+			userID:    binding.Spec.Subject.UID.String(),
+			roleID:    binding.Spec.RoleRef.UID.String(),
+			namespace: binding.Metadata.Namespace,
 		})
 	}
 

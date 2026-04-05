@@ -25,6 +25,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	rbaccontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rbac"
 	rolecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/role"
+	rolebindingcontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rolebinding"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
 	usercontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
@@ -86,6 +87,7 @@ func provideHTTPComponents() fx.Option {
 			usercontroller.NewController, helper.AsController(Identity[*usercontroller.Controller]),
 			rolecontroller.NewController, helper.AsController(Identity[*rolecontroller.Controller]),
 			rbaccontroller.NewController, helper.AsController(Identity[*rbaccontroller.Controller]),
+			rolebindingcontroller.NewController, helper.AsController(Identity[*rolebindingcontroller.Controller]),
 		),
 		// OpAMP specific connection context
 		fx.Provide(
@@ -115,6 +117,7 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),
 			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
 			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
+			fx.Annotate(mongodb.NewRoleBindingRepository, fx.As(new(userport.RoleBindingPersistencePort))),
 			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(userport.OrgRoleMappingPersistencePort))),
 		),
 	)

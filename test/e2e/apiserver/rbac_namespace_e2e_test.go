@@ -221,8 +221,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// (like K8s RoleBinding)
 	// =================================================================
 	t.Run("Phase2_BindViewerToProduction", func(t *testing.T) {
-		assignRoleWithNamespace(t, apiBaseURL, token,
-			regularUserUID, agentViewerRole.Metadata.UID, "production")
+		createRoleBinding(t, apiBaseURL, token, "production", "viewer-production",
+			"Agent Viewer", "rbac-user@example.com")
 
 		syncPolicies(t, apiBaseURL, token)
 
@@ -255,8 +255,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// Phase 3: Additional RoleBinding — bind agent-editor to "staging"
 	// =================================================================
 	t.Run("Phase3_BindEditorToStaging", func(t *testing.T) {
-		assignRoleWithNamespace(t, apiBaseURL, token,
-			regularUserUID, agentEditorRole.Metadata.UID, "staging")
+		createRoleBinding(t, apiBaseURL, token, "staging", "editor-staging",
+			"Agent Editor", "rbac-user@example.com")
 
 		syncPolicies(t, apiBaseURL, token)
 
@@ -288,8 +288,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// namespace "*" (like K8s ClusterRoleBinding)
 	// =================================================================
 	t.Run("Phase4_BindAgentGroupAdminClusterWide", func(t *testing.T) {
-		assignRoleWithNamespace(t, apiBaseURL, token,
-			regularUserUID, agentgroupAdminRole.Metadata.UID, "*")
+		createRoleBinding(t, apiBaseURL, token, "*", "agentgroup-admin-cluster",
+			"AgentGroup Admin", "rbac-user@example.com")
 
 		syncPolicies(t, apiBaseURL, token)
 
@@ -319,8 +319,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// Phase 5: Unassign — remove viewer from production
 	// =================================================================
 	t.Run("Phase5_UnassignViewerFromProduction", func(t *testing.T) {
-		unassignRoleWithNamespace(t, apiBaseURL, token,
-			regularUserUID, agentViewerRole.Metadata.UID, "production")
+		deleteRoleBinding(t, apiBaseURL, token, "production", "viewer-production")
 
 		syncPolicies(t, apiBaseURL, token)
 
@@ -349,8 +348,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 		otherUserUID := otherUser.Metadata.UID
 
 		// Bind agent-viewer to other user in "staging" only.
-		assignRoleWithNamespace(t, apiBaseURL, token,
-			otherUserUID, agentViewerRole.Metadata.UID, "staging")
+		createRoleBinding(t, apiBaseURL, token, "staging", "viewer-staging-other",
+			"Agent Viewer", "other@example.com")
 
 		syncPolicies(t, apiBaseURL, token)
 
@@ -427,82 +426,6 @@ func createUser(
 	require.NoError(t, json.Unmarshal(body, &result))
 
 	return result
-}
-
-// assignRoleWithNamespace assigns a role to a user in a specific namespace.
-func assignRoleWithNamespace(
-	t *testing.T,
-	baseURL, token, userID, roleID, namespace string,
-) {
-	t.Helper()
-
-	reqBody := v1.AssignRoleRequest{
-		UserID:    userID,
-		RoleID:    roleID,
-		Namespace: namespace,
-		//exhaustruct:ignore
-		AssignedBy: "",
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/assign",
-		bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode,
-		"failed to assign role %s to user %s in namespace %s",
-		roleID, userID, namespace)
-}
-
-// unassignRoleWithNamespace removes a role from a user in a specific namespace.
-func unassignRoleWithNamespace(
-	t *testing.T,
-	baseURL, token, userID, roleID, namespace string,
-) {
-	t.Helper()
-
-	reqBody := struct {
-		UserID    string `json:"userId"`
-		RoleID    string `json:"roleId"`
-		Namespace string `json:"namespace"`
-	}{
-		UserID:    userID,
-		RoleID:    roleID,
-		Namespace: namespace,
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/unassign",
-		bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode,
-		"failed to unassign role %s from user %s in namespace %s",
-		roleID, userID, namespace)
 }
 
 // syncPolicies triggers a full RBAC policy sync.

@@ -130,10 +130,17 @@ type PermissionManageUsecase interface {
 
 // RBACManageUsecase is a use case that handles RBAC management operations.
 type RBACManageUsecase interface {
-	AssignRole(ctx context.Context, req *v1.AssignRoleRequest) error
-	UnassignRole(ctx context.Context, userID, roleID uuid.UUID, namespace string) error
 	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
 	GetUserRoles(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Role], error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Permission], error)
 	SyncPolicies(ctx context.Context) error
+}
+
+// RoleBindingManageUsecase is a use case that handles RoleBinding management operations.
+type RoleBindingManageUsecase interface {
+	GetRoleBinding(ctx context.Context, namespace, name string) (*v1.RoleBinding, error)
+	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.RoleBinding], error)
+	CreateRoleBinding(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error)
+	UpdateRoleBinding(ctx context.Context, namespace, name string, rb *v1.RoleBinding) (*v1.RoleBinding, error)
+	DeleteRoleBinding(ctx context.Context, namespace, name string) error
 }

@@ -29,6 +29,7 @@ type Client struct {
 	UserService              *UserService
 	RoleService              *RoleService
 	RBACService              *RBACService
+	RoleBindingService       *RoleBindingService
 }
 
 type service struct {
@@ -56,6 +57,7 @@ func New(endpoint string, opt ...Option) *Client {
 		UserService:              nil,
 		RoleService:              nil,
 		RBACService:              nil,
+		RoleBindingService:       nil,
 	}
 
 	for _, o := range opt {
@@ -73,6 +75,7 @@ func New(endpoint string, opt ...Option) *Client {
 	client.UserService = NewUserService(&service)
 	client.RoleService = NewRoleService(&service)
 	client.RBACService = NewRBACService(&service)
+	client.RoleBindingService = NewRoleBindingService(&service)
 
 	return client
 }
