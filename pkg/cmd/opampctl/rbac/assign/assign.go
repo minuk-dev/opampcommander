@@ -25,8 +25,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// Flags
-	userID string
-	roleID string
+	userID    string
+	roleID    string
+	namespace string
 
 	// internal state
 	client *client.Client
@@ -55,6 +56,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 	cmd.Flags().StringVar(&options.userID, "user-id", "", "User ID to assign the role to (required)")
 	cmd.Flags().StringVar(&options.roleID, "role-id", "", "Role ID to assign (required)")
+	cmd.Flags().StringVar(&options.namespace, "namespace", "*",
+		"Namespace scope for the role assignment (* = all namespaces)")
 
 	cmd.MarkFlagRequired("user-id") //nolint:errcheck,gosec
 	cmd.MarkFlagRequired("role-id") //nolint:errcheck,gosec
@@ -87,6 +90,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	req := &v1.AssignRoleRequest{
 		UserID:     opt.userID,
 		RoleID:     opt.roleID,
+		Namespace:  opt.namespace,
 		AssignedBy: "", // Server-side: overridden with authenticated user's identity
 	}
 

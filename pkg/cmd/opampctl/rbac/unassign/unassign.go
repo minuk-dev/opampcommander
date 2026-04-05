@@ -24,8 +24,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// Flags
-	userID string
-	roleID string
+	userID    string
+	roleID    string
+	namespace string
 
 	// internal state
 	client *client.Client
@@ -54,6 +55,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 	cmd.Flags().StringVar(&options.userID, "user-id", "", "User ID to unassign the role from (required)")
 	cmd.Flags().StringVar(&options.roleID, "role-id", "", "Role ID to unassign (required)")
+	cmd.Flags().StringVar(&options.namespace, "namespace", "*",
+		"Namespace scope for the role unassignment (* = all namespaces)")
 
 	cmd.MarkFlagRequired("user-id") //nolint:errcheck,gosec
 	cmd.MarkFlagRequired("role-id") //nolint:errcheck,gosec
@@ -83,7 +86,7 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // Run executes the rbac unassign command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	err := opt.client.RBACService.UnassignRole(cmd.Context(), opt.userID, opt.roleID)
+	err := opt.client.RBACService.UnassignRole(cmd.Context(), opt.userID, opt.roleID, opt.namespace)
 	if err != nil {
 		return fmt.Errorf("failed to unassign role: %w", err)
 	}

@@ -43,9 +43,9 @@ func NewRBACService(
 func (s *RBACService) CheckPermission(
 	ctx context.Context,
 	userID uuid.UUID,
-	resource, action string,
+	namespace, resource, action string,
 ) (bool, error) {
-	allowed, err := s.rbacEnforcerPort.CheckPermission(ctx, userID, resource, action)
+	allowed, err := s.rbacEnforcerPort.CheckPermission(ctx, userID.String(), namespace, resource, action)
 	if err != nil {
 		return false, fmt.Errorf("failed to check permission: %w", err)
 	}
@@ -113,14 +113,14 @@ func (s *RBACService) SyncPolicies(ctx context.Context) error {
 	s.rbacEnforcerPort.ClearPolicy(ctx)
 
 	for _, p := range policies {
-		_, err = s.rbacEnforcerPort.AddNamedPolicy(ctx, "p", p.roleID, p.resource, p.action)
+		_, err = s.rbacEnforcerPort.AddNamedPolicy(ctx, "p", p.roleID, p.dom, p.resource, p.action)
 		if err != nil {
 			return fmt.Errorf("failed to add named policy: %w", err)
 		}
 	}
 
 	for _, g := range groupings {
-		_, err = s.rbacEnforcerPort.AddGroupingPolicy(ctx, g.userID, g.roleID)
+		_, err = s.rbacEnforcerPort.AddGroupingPolicy(ctx, g.userID, g.roleID, g.namespace)
 		if err != nil {
 			return fmt.Errorf("failed to add grouping policy: %w", err)
 		}
@@ -135,11 +135,11 @@ func (s *RBACService) SyncPolicies(ctx context.Context) error {
 }
 
 type namedPolicy struct {
-	roleID, resource, action string
+	roleID, dom, resource, action string
 }
 
 type groupingPolicy struct {
-	userID, roleID string
+	userID, roleID, namespace string
 }
 
 func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []groupingPolicy, error) {
@@ -164,6 +164,7 @@ func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []gro
 
 			policies = append(policies, namedPolicy{
 				roleID:   role.Metadata.UID.String(),
+				dom:      usermodel.WildcardAll,
 				resource: permission.Spec.Resource,
 				action:   permission.Spec.Action,
 			})
@@ -178,8 +179,9 @@ func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []gro
 	groupings := make([]groupingPolicy, 0, len(userRolesResp.Items))
 	for _, userRole := range userRolesResp.Items {
 		groupings = append(groupings, groupingPolicy{
-			userID: userRole.Spec.UserID.String(),
-			roleID: userRole.Spec.RoleID.String(),
+			userID:    userRole.Spec.UserID.String(),
+			roleID:    userRole.Spec.RoleID.String(),
+			namespace: userRole.Spec.Namespace,
 		})
 	}
 

@@ -290,8 +290,9 @@ func assignRole(t *testing.T, baseURL, token, userID, roleID string) {
 	t.Helper()
 
 	reqBody := v1.AssignRoleRequest{
-		UserID: userID,
-		RoleID: roleID,
+		UserID:    userID,
+		RoleID:    roleID,
+		Namespace: "*",
 	}
 
 	bodyJSON, err := json.Marshal(reqBody)
@@ -346,9 +347,10 @@ func checkPermission(
 	t.Helper()
 
 	reqBody := v1.CheckPermissionRequest{
-		UserID:   userID,
-		Resource: resource,
-		Action:   action,
+		UserID:    userID,
+		Namespace: "*",
+		Resource:  resource,
+		Action:    action,
 	}
 
 	bodyJSON, err := json.Marshal(reqBody)
@@ -381,11 +383,13 @@ func unassignRole(t *testing.T, baseURL, token, userID, roleID string) {
 	t.Helper()
 
 	reqBody := struct {
-		UserID string `json:"userId"`
-		RoleID string `json:"roleId"`
+		UserID    string `json:"userId"`
+		RoleID    string `json:"roleId"`
+		Namespace string `json:"namespace"`
 	}{
-		UserID: userID,
-		RoleID: roleID,
+		UserID:    userID,
+		RoleID:    roleID,
+		Namespace: "*",
 	}
 
 	bodyJSON, err := json.Marshal(reqBody)

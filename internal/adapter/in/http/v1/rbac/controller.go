@@ -19,6 +19,8 @@ type unassignRoleRequest struct {
 	UserID string `json:"userId"`
 	// RoleID is the ID of the role to unassign.
 	RoleID string `json:"roleId"`
+	// Namespace is the namespace scope to unassign the role from. "*" means all namespaces.
+	Namespace string `json:"namespace"`
 }
 
 // Controller is a struct that implements the RBAC controller.
@@ -161,7 +163,7 @@ func (c *Controller) UnassignRole(ctx *gin.Context) {
 		return
 	}
 
-	err = c.rbacUsecase.UnassignRole(ctx.Request.Context(), userID, roleID)
+	err = c.rbacUsecase.UnassignRole(ctx.Request.Context(), userID, roleID, req.Namespace)
 	if err != nil {
 		c.logger.Error("failed to unassign role", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while unassigning the role.")
