@@ -1289,6 +1289,280 @@
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/rolebindings": {
+            "get": {
+                "description": "Retrieves a list of role bindings with pagination options.",
+                "tags": [
+                    "rolebinding"
+                ],
+                "summary": "List RoleBindings",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of role bindings to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing",
+                        "name": "continue",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-RoleBinding"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new role binding.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rolebinding"
+                ],
+                "summary": "Create RoleBinding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "RoleBinding to create",
+                        "name": "roleBinding",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RoleBinding"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/RoleBinding"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/namespaces/{namespace}/rolebindings/{name}": {
+            "get": {
+                "description": "Retrieve a role binding by namespace and name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rolebinding"
+                ],
+                "summary": "Get RoleBinding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RoleBinding Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RoleBinding"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing role binding.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rolebinding"
+                ],
+                "summary": "Update RoleBinding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RoleBinding Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated RoleBinding",
+                        "name": "roleBinding",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RoleBinding"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RoleBinding"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Mark a role binding as deleted.",
+                "tags": [
+                    "rolebinding"
+                ],
+                "summary": "Delete RoleBinding",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "RoleBinding Name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ping": {
             "get": {
                 "description": "Ping the server to check if it is alive.",
@@ -1314,49 +1588,6 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/rbac/assign": {
-            "post": {
-                "description": "Assign a role to a user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rbac"
-                ],
-                "summary": "Assign Role",
-                "parameters": [
-                    {
-                        "description": "Role assignment request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/AssignRoleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
                         }
                     }
                 }
@@ -1424,49 +1655,6 @@
                 "responses": {
                     "204": {
                         "description": "No Content"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/rbac/unassign": {
-            "post": {
-                "description": "Unassign a role from a user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rbac"
-                ],
-                "summary": "Unassign Role",
-                "parameters": [
-                    {
-                        "description": "Role unassignment request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_adapter_in_http_v1_rbac.unassignRoleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -2700,23 +2888,6 @@
                 }
             }
         },
-        "AssignRoleRequest": {
-            "type": "object",
-            "properties": {
-                "assignedBy": {
-                    "description": "AssignedBy is the ID of the user performing the assignment.",
-                    "type": "string"
-                },
-                "roleId": {
-                    "description": "RoleID is the ID of the role to assign.",
-                    "type": "string"
-                },
-                "userId": {
-                    "description": "UserID is the ID of the user to assign the role to.",
-                    "type": "string"
-                }
-            }
-        },
         "AuthnTokenResponse": {
             "type": "object",
             "properties": {
@@ -2826,6 +2997,10 @@
             "properties": {
                 "action": {
                     "description": "Action is the action to check access for.",
+                    "type": "string"
+                },
+                "namespace": {
+                    "description": "Namespace is the namespace to check permission in.",
                     "type": "string"
                 },
                 "resource": {
@@ -3207,6 +3382,26 @@
                 }
             }
         },
+        "ListResponse-RoleBinding": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RoleBinding"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "ListResponse-Server": {
             "type": "object",
             "properties": {
@@ -3440,6 +3635,127 @@
                             "$ref": "#/definitions/RoleStatus"
                         }
                     ]
+                }
+            }
+        },
+        "RoleBinding": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "description": "APIVersion is the version of the API.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is the type of the resource.",
+                    "type": "string"
+                },
+                "metadata": {
+                    "description": "Metadata contains the metadata of the role binding.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleBindingMetadata"
+                        }
+                    ]
+                },
+                "spec": {
+                    "description": "Spec contains the specification of the role binding.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleBindingSpec"
+                        }
+                    ]
+                },
+                "status": {
+                    "description": "Status contains the status of the role binding.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleBindingStatus"
+                        }
+                    ]
+                }
+            }
+        },
+        "RoleBindingMetadata": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "description": "CreatedAt is the timestamp when the role binding was created.",
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "description": "DeletedAt is the timestamp when the role binding was soft deleted.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the unique name of the role binding within the namespace.",
+                    "type": "string"
+                },
+                "namespace": {
+                    "description": "Namespace is the namespace scope for this role binding.",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "description": "UpdatedAt is the timestamp when the role binding was last updated.",
+                    "type": "string"
+                }
+            }
+        },
+        "RoleBindingRoleRef": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the type of the referenced resource (e.g., \"Role\").",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the display name of the role.",
+                    "type": "string"
+                }
+            }
+        },
+        "RoleBindingSpec": {
+            "type": "object",
+            "properties": {
+                "roleRef": {
+                    "description": "RoleRef references the role to bind.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleBindingRoleRef"
+                        }
+                    ]
+                },
+                "subject": {
+                    "description": "Subject identifies the user to bind the role to.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleBindingSubject"
+                        }
+                    ]
+                }
+            }
+        },
+        "RoleBindingStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "description": "Conditions contains the conditions of the role binding.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
+                }
+            }
+        },
+        "RoleBindingSubject": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the type of the subject (e.g., \"User\").",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the email of the user.",
+                    "type": "string"
                 }
             }
         },
@@ -3801,19 +4117,6 @@
             "type": "object",
             "additionalProperties": {
                 "type": "string"
-            }
-        },
-        "internal_adapter_in_http_v1_rbac.unassignRoleRequest": {
-            "type": "object",
-            "properties": {
-                "roleId": {
-                    "description": "RoleID is the ID of the role to unassign.",
-                    "type": "string"
-                },
-                "userId": {
-                    "description": "UserID is the ID of the user to unassign the role from.",
-                    "type": "string"
-                }
             }
         },
         "user.User": {
