@@ -154,7 +154,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// =================================================================
 
 	// Role: agent-viewer — read-only access to agents.
-	agentViewerRole := createRole(t, apiBaseURL, token, &v1.Role{
+	_ := createRole(t, apiBaseURL, token, &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -173,7 +173,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// Role: agent-editor — full CRUD on agents.
-	agentEditorRole := createRole(t, apiBaseURL, token, &v1.Role{
+	_ := createRole(t, apiBaseURL, token, &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -195,7 +195,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// Role: agentgroup-admin — full CRUD on agentgroups (cluster-wide).
-	agentgroupAdminRole := createRole(t, apiBaseURL, token, &v1.Role{
+	_ := createRole(t, apiBaseURL, token, &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
