@@ -25,6 +25,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
 	rbaccontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rbac"
 	rolecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/role"
+	rolebindingcontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rolebinding"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
 	usercontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
@@ -86,6 +87,7 @@ func provideHTTPComponents() fx.Option {
 			usercontroller.NewController, helper.AsController(Identity[*usercontroller.Controller]),
 			rolecontroller.NewController, helper.AsController(Identity[*rolecontroller.Controller]),
 			rbaccontroller.NewController, helper.AsController(Identity[*rbaccontroller.Controller]),
+			rolebindingcontroller.NewController, helper.AsController(Identity[*rolebindingcontroller.Controller]),
 		),
 		// OpAMP specific connection context
 		fx.Provide(
@@ -115,6 +117,7 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),
 			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
 			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
+			fx.Annotate(mongodb.NewRoleBindingRepository, fx.As(new(userport.RoleBindingPersistencePort))),
 			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(userport.OrgRoleMappingPersistencePort))),
 		),
 	)
@@ -192,19 +195,22 @@ func provideCasbinEnforcer(
 func defaultRBACModel() casbinModel.Model {
 	rbacModel, _ := casbinModel.NewModelFromString(`
 [request_definition]
-r = sub, obj, act
+r = sub, dom, obj, act
 
 [role_definition]
-g = _, _
+g = _, _, _
 
 [policy_definition]
-p = sub, obj, act
+p = sub, dom, obj, act
 
 [policy_effect]
 e = some(where (p.eft == allow))
 
 [matchers]
-m = g(r.sub, p.sub) && r.obj == p.obj && r.act == p.act
+m = (g(r.sub, p.sub, r.dom) || g(r.sub, p.sub, "*")) && \
+  (p.dom == "*" || r.dom == p.dom) && \
+  (p.obj == "*" || r.obj == p.obj) && \
+  (p.act == "*" || r.act == p.act)
 `)
 
 	return rbacModel

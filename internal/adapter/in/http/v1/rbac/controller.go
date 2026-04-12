@@ -6,20 +6,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
-
-// unassignRoleRequest represents a request to unassign a role from a user.
-type unassignRoleRequest struct {
-	// UserID is the ID of the user to unassign the role from.
-	UserID string `json:"userId"`
-	// RoleID is the ID of the role to unassign.
-	RoleID string `json:"roleId"`
-}
 
 // Controller is a struct that implements the RBAC controller.
 type Controller struct {
@@ -45,18 +35,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
 			Method:      http.MethodPost,
-			Path:        "/api/v1/rbac/assign",
-			Handler:     "http.v1.rbac.AssignRole",
-			HandlerFunc: c.AssignRole,
-		},
-		{
-			Method:      http.MethodPost,
-			Path:        "/api/v1/rbac/unassign",
-			Handler:     "http.v1.rbac.UnassignRole",
-			HandlerFunc: c.UnassignRole,
-		},
-		{
-			Method:      http.MethodPost,
 			Path:        "/api/v1/rbac/check",
 			Handler:     "http.v1.rbac.CheckPermission",
 			HandlerFunc: c.CheckPermission,
@@ -80,96 +58,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.SyncPolicies,
 		},
 	}
-}
-
-// AssignRole assigns a role to a user.
-//
-// @Summary  Assign Role
-// @Tags rbac
-// @Description Assign a role to a user.
-// @Accept json
-// @Produce json
-// @Param request body v1.AssignRoleRequest true "Role assignment request"
-// @Success 204 "No Content"
-// @Failure 400 {object} ErrorModel
-// @Failure 500 {object} ErrorModel
-// @Router /api/v1/rbac/assign [post].
-func (c *Controller) AssignRole(ctx *gin.Context) {
-	var req v1.AssignRoleRequest
-
-	err := ginutil.BindJSON(ctx, &req)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "body", "", err, false)
-
-		return
-	}
-
-	// Override AssignedBy with the authenticated user's identity
-	secUser, err := security.GetUser(ctx)
-	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-
-		return
-	}
-
-	req.AssignedBy = *secUser.Email
-
-	err = c.rbacUsecase.AssignRole(ctx.Request.Context(), &req)
-	if err != nil {
-		c.logger.Error("failed to assign role", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while assigning the role.")
-
-		return
-	}
-
-	ctx.Status(http.StatusNoContent)
-}
-
-// UnassignRole unassigns a role from a user.
-//
-// @Summary  Unassign Role
-// @Tags rbac
-// @Description Unassign a role from a user.
-// @Accept json
-// @Produce json
-// @Param request body unassignRoleRequest true "Role unassignment request"
-// @Success 204 "No Content"
-// @Failure 400 {object} ErrorModel
-// @Failure 500 {object} ErrorModel
-// @Router /api/v1/rbac/unassign [post].
-func (c *Controller) UnassignRole(ctx *gin.Context) {
-	var req unassignRoleRequest
-
-	err := ginutil.BindJSON(ctx, &req)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "body", "", err, false)
-
-		return
-	}
-
-	userID, err := uuid.Parse(req.UserID)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "userID", req.UserID, err, false)
-
-		return
-	}
-
-	roleID, err := uuid.Parse(req.RoleID)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "roleID", req.RoleID, err, false)
-
-		return
-	}
-
-	err = c.rbacUsecase.UnassignRole(ctx.Request.Context(), userID, roleID)
-	if err != nil {
-		c.logger.Error("failed to unassign role", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while unassigning the role.")
-
-		return
-	}
-
-	ctx.Status(http.StatusNoContent)
 }
 
 // CheckPermission checks whether a user has a specific permission.

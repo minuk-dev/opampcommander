@@ -55,14 +55,17 @@ type PermissionPersistencePort interface {
 type UserRolePersistencePort interface {
 	// GetUserRole retrieves a user role assignment by its UID.
 	GetUserRole(ctx context.Context, uid uuid.UUID) (*usermodel.UserRole, error)
-	// GetUserRoleByUserAndRole retrieves a user role assignment by user and role IDs.
-	GetUserRoleByUserAndRole(ctx context.Context, userID, roleID uuid.UUID) (*usermodel.UserRole, error)
+	// GetUserRoleByUserAndRole retrieves a user role assignment by user, role, and namespace.
+	GetUserRoleByUserAndRole(ctx context.Context, userID, roleID uuid.UUID, namespace string) (*usermodel.UserRole, error)
 	// PutUserRole saves or updates a user role assignment.
 	PutUserRole(ctx context.Context, userRole *usermodel.UserRole) (*usermodel.UserRole, error)
 	// ListUserRoles retrieves a list of user role assignments with pagination options.
 	ListUserRoles(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.UserRole], error)
 	// GetUserRoles retrieves all roles assigned to a user.
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*usermodel.Role, error)
+	// GetUserRolesInNamespace retrieves roles assigned to a user in a specific namespace.
+	// Returns roles where namespace matches exactly or is "*" (all namespaces).
+	GetUserRolesInNamespace(ctx context.Context, userID uuid.UUID, namespace string) ([]*usermodel.Role, error)
 	// GetRoleUsers retrieves all users assigned to a role.
 	GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]*usermodel.User, error)
 	// DeleteUserRole deletes a user role assignment by its UID.
@@ -73,10 +76,24 @@ type UserRolePersistencePort interface {
 	DeleteRoleUsers(ctx context.Context, roleID uuid.UUID) error
 }
 
+// RoleBindingPersistencePort is an interface that defines the methods for role binding persistence.
+type RoleBindingPersistencePort interface {
+	// GetRoleBinding retrieves a role binding by namespace and name.
+	GetRoleBinding(ctx context.Context, namespace, name string) (*usermodel.RoleBinding, error)
+	// PutRoleBinding saves or updates a role binding.
+	PutRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
+	// ListRoleBindings retrieves a list of role bindings with pagination options.
+	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
+	// DeleteRoleBinding deletes a role binding by namespace and name.
+	DeleteRoleBinding(ctx context.Context, namespace, name string) error
+}
+
 // RBACEnforcerPort is an interface that defines the methods for Casbin enforcer operations.
+//
+//nolint:interfacebloat // Casbin enforcer adapter naturally requires many operations.
 type RBACEnforcerPort interface {
-	// CheckPermission checks if a user has a specific permission for a resource and action.
-	CheckPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
+	// CheckPermission checks if a user has a specific permission for a resource and action in a namespace.
+	CheckPermission(ctx context.Context, sub, dom, obj, act string) (bool, error)
 	// LoadPolicy loads all policies from the persistence storage into the enforcer.
 	LoadPolicy(ctx context.Context) error
 	// SavePolicy saves the policies to the persistence storage.
@@ -95,6 +112,8 @@ type RBACEnforcerPort interface {
 	GetNamedPolicy(ptype string) ([][]string, error)
 	// ClearPolicy removes all policies from the enforcer.
 	ClearPolicy(ctx context.Context)
+	// BuildRoleLinks rebuilds the role inheritance links after policy changes.
+	BuildRoleLinks(ctx context.Context) error
 }
 
 // OrgRoleMappingPersistencePort is an interface for org-role mapping persistence.

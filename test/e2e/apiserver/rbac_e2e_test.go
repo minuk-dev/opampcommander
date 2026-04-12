@@ -102,16 +102,14 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		assert.Equal(t, "Test Viewer Role", role.Spec.DisplayName)
 	})
 
-	// Test 6: Assign role to user
-	t.Run("AssignRoleToUser", func(t *testing.T) {
+	// Test 6: Create RoleBinding to bind role to user
+	t.Run("CreateRoleBinding", func(t *testing.T) {
 		if createdRoleUID == "" {
 			t.Skip("No role created in previous test")
 		}
 
-		profile := getUserProfile(t, apiBaseURL, token)
-		userUID := profile.User.Metadata.UID
-
-		assignRole(t, apiBaseURL, token, userUID, createdRoleUID)
+		createRoleBinding(t, apiBaseURL, token, "*", "test-viewer-binding",
+			"Test Viewer Role", "test@test.com")
 	})
 
 	// Test 7: Get user roles via RBAC endpoint
@@ -137,16 +135,13 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		assert.IsType(t, true, result.Allowed)
 	})
 
-	// Test 9: Unassign role from user
-	t.Run("UnassignRoleFromUser", func(t *testing.T) {
+	// Test 9: Delete RoleBinding
+	t.Run("DeleteRoleBinding", func(t *testing.T) {
 		if createdRoleUID == "" {
 			t.Skip("No role created in previous test")
 		}
 
-		profile := getUserProfile(t, apiBaseURL, token)
-		userUID := profile.User.Metadata.UID
-
-		unassignRole(t, apiBaseURL, token, userUID, createdRoleUID)
+		deleteRoleBinding(t, apiBaseURL, token, "*", "test-viewer-binding")
 	})
 
 	// Test 10: Delete role
@@ -286,19 +281,44 @@ func getRoleByID(t *testing.T, baseURL, token, roleUID string) v1.Role {
 	return result
 }
 
-func assignRole(t *testing.T, baseURL, token, userID, roleID string) {
+func createRoleBinding(
+	t *testing.T,
+	baseURL, token, namespace, name, roleDisplayName, userEmail string,
+) v1.RoleBinding {
 	t.Helper()
 
-	reqBody := v1.AssignRoleRequest{
-		UserID: userID,
-		RoleID: roleID,
+	rb := v1.RoleBinding{
+		Kind:       v1.RoleBindingKind,
+		APIVersion: "v1",
+		Metadata: v1.RoleBindingMetadata{
+			Namespace: namespace,
+			Name:      name,
+			//exhaustruct:ignore
+			CreatedAt: v1.Time{},
+			//exhaustruct:ignore
+			UpdatedAt: v1.Time{},
+		},
+		Spec: v1.RoleBindingSpec{
+			RoleRef: v1.RoleBindingRoleRef{
+				Kind: "Role",
+				Name: roleDisplayName,
+			},
+			Subject: v1.RoleBindingSubject{
+				Kind: "User",
+				Name: userEmail,
+			},
+		},
+		//exhaustruct:ignore
+		Status: v1.RoleBindingStatus{},
 	}
 
-	bodyJSON, err := json.Marshal(reqBody)
+	rbJSON, err := json.Marshal(rb)
 	require.NoError(t, err)
 
+	url := fmt.Sprintf("%s/api/v1/namespaces/%s/rolebindings", baseURL, namespace)
+
 	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/assign", bytes.NewReader(bodyJSON),
+		http.MethodPost, url, bytes.NewReader(rbJSON),
 	)
 	require.NoError(t, err)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -309,7 +329,37 @@ func assignRole(t *testing.T, baseURL, token, userID, roleID string) {
 
 	defer func() { _ = resp.Body.Close() }()
 
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	require.Equal(t, http.StatusCreated, resp.StatusCode,
+		"failed to create role binding %s in namespace %s", name, namespace)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result v1.RoleBinding
+	require.NoError(t, json.Unmarshal(body, &result))
+
+	return result
+}
+
+func deleteRoleBinding(
+	t *testing.T,
+	baseURL, token, namespace, name string,
+) {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/namespaces/%s/rolebindings/%s", baseURL, namespace, name)
+
+	req, err := http.NewRequest(http.MethodDelete, url, nil) //nolint:noctx
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode,
+		"failed to delete role binding %s in namespace %s", name, namespace)
 }
 
 func getUserRoles(t *testing.T, baseURL, token, userID string) []v1.Role {
@@ -346,9 +396,10 @@ func checkPermission(
 	t.Helper()
 
 	reqBody := v1.CheckPermissionRequest{
-		UserID:   userID,
-		Resource: resource,
-		Action:   action,
+		UserID:    userID,
+		Namespace: "*",
+		Resource:  resource,
+		Action:    action,
 	}
 
 	bodyJSON, err := json.Marshal(reqBody)
@@ -375,35 +426,6 @@ func checkPermission(
 	require.NoError(t, json.Unmarshal(body, &result))
 
 	return result
-}
-
-func unassignRole(t *testing.T, baseURL, token, userID, roleID string) {
-	t.Helper()
-
-	reqBody := struct {
-		UserID string `json:"userId"`
-		RoleID string `json:"roleId"`
-	}{
-		UserID: userID,
-		RoleID: roleID,
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/unassign", bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
 func deleteRole(t *testing.T, baseURL, token, roleID string) {

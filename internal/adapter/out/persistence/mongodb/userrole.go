@@ -73,11 +73,12 @@ func (a *UserRoleMongoAdapter) GetUserRole(
 
 // GetUserRoleByUserAndRole implements userport.UserRolePersistencePort.
 func (a *UserRoleMongoAdapter) GetUserRoleByUserAndRole(
-	ctx context.Context, userID, roleID uuid.UUID,
+	ctx context.Context, userID, roleID uuid.UUID, namespace string,
 ) (*usermodel.UserRole, error) {
 	filter := bson.M{
 		"spec.userID":        userID.String(),
 		"spec.roleID":        roleID.String(),
+		"spec.namespace":     namespace,
 		"metadata.deletedAt": nil,
 	}
 
@@ -165,6 +166,51 @@ func (a *UserRoleMongoAdapter) GetUserRoles(
 	err = cursor.All(ctx, &roleEntities)
 	if err != nil {
 		return nil, fmt.Errorf("decode roles for user: %w", err)
+	}
+
+	roles := make([]*usermodel.Role, 0, len(roleEntities))
+	for i := range roleEntities {
+		roles = append(roles, roleEntities[i].ToDomain())
+	}
+
+	return roles, nil
+}
+
+// GetUserRolesInNamespace implements userport.UserRolePersistencePort.
+func (a *UserRoleMongoAdapter) GetUserRolesInNamespace(
+	ctx context.Context, userID uuid.UUID, namespace string,
+) ([]*usermodel.Role, error) {
+	roleIDs, err := a.findRoleIDsByUserIDAndNamespace(ctx, userID, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(roleIDs) == 0 {
+		return []*usermodel.Role{}, nil
+	}
+
+	filter := bson.M{
+		"metadata.uid":       bson.M{"$in": roleIDs},
+		"metadata.deletedAt": nil,
+	}
+
+	cursor, err := a.roleCollection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("find roles for user in namespace: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var roleEntities []entity.Role
+
+	err = cursor.All(ctx, &roleEntities)
+	if err != nil {
+		return nil, fmt.Errorf("decode roles for user in namespace: %w", err)
 	}
 
 	roles := make([]*usermodel.Role, 0, len(roleEntities))
@@ -287,6 +333,44 @@ func (a *UserRoleMongoAdapter) findRoleIDsByUserID(
 	err = cursor.All(ctx, &userRoleEntities)
 	if err != nil {
 		return nil, fmt.Errorf("decode user roles by user ID: %w", err)
+	}
+
+	roleIDs := make([]string, 0, len(userRoleEntities))
+	for _, ur := range userRoleEntities {
+		roleIDs = append(roleIDs, ur.Spec.RoleID)
+	}
+
+	return roleIDs, nil
+}
+
+func (a *UserRoleMongoAdapter) findRoleIDsByUserIDAndNamespace(
+	ctx context.Context, userID uuid.UUID, namespace string,
+) ([]string, error) {
+	filter := bson.M{
+		"spec.userID": userID.String(),
+		"spec.namespace": bson.M{
+			"$in": []string{namespace, "*"},
+		},
+		"metadata.deletedAt": nil,
+	}
+
+	cursor, err := a.common.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("find user roles by user ID and namespace: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var userRoleEntities []entity.UserRole
+
+	err = cursor.All(ctx, &userRoleEntities)
+	if err != nil {
+		return nil, fmt.Errorf("decode user roles by user ID and namespace: %w", err)
 	}
 
 	roleIDs := make([]string, 0, len(userRoleEntities))
