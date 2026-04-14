@@ -329,13 +329,13 @@ func createRoleBinding(
 
 	defer func() { _ = resp.Body.Close() }()
 
-	require.Equal(t, http.StatusCreated, resp.StatusCode,
-		"failed to create role binding %s in namespace %s", name, namespace)
-
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
 	var result v1.RoleBinding
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode,
+		"failed to create role binding %s in namespace %s with body %s", name, namespace, string(body))
 	require.NoError(t, json.Unmarshal(body, &result))
 
 	return result

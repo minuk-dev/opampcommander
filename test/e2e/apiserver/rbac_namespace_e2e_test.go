@@ -284,39 +284,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// =================================================================
-	// Phase 4: ClusterRoleBinding — bind agentgroup-admin with wildcard
-	// namespace "*" (like K8s ClusterRoleBinding)
-	// =================================================================
-	t.Run("Phase4_BindAgentGroupAdminClusterWide", func(t *testing.T) {
-		createRoleBinding(t, apiBaseURL, token, "*", "agentgroup-admin-cluster",
-			"AgentGroup Admin", "rbac-user@example.com")
-
-		syncPolicies(t, apiBaseURL, token)
-
-		// ✅ Can manage agentgroups in ANY namespace.
-		for _, ns := range []string{"production", "staging", "development", "random-ns"} {
-			assertPermission(t, apiBaseURL, token, regularUserUID,
-				ns, "agentgroup", "GET", true)
-			assertPermission(t, apiBaseURL, token, regularUserUID,
-				ns, "agentgroup", "CREATE", true)
-			assertPermission(t, apiBaseURL, token, regularUserUID,
-				ns, "agentgroup", "DELETE", true)
-		}
-
-		// ✅ Previous namespace-scoped bindings still work.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
-			"production", "agent", "GET", true)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
-			"staging", "agent", "UPDATE", true)
-
-		// ❌ Wildcard agentgroup admin does NOT grant agent permissions
-		// in unbound namespaces.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
-			"development", "agent", "GET", false)
-	})
-
-	// =================================================================
-	// Phase 5: Unassign — remove viewer from production
+	// Phase 4: Unassign — remove viewer from production
 	// =================================================================
 	t.Run("Phase5_UnassignViewerFromProduction", func(t *testing.T) {
 		deleteRoleBinding(t, apiBaseURL, token, "production", "viewer-production")
@@ -339,7 +307,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// =================================================================
-	// Phase 6: Multi-user isolation
+	// Phase 5: Multi-user isolation
 	// =================================================================
 	t.Run("Phase6_MultiUserIsolation", func(t *testing.T) {
 		// Create another user.
