@@ -108,7 +108,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 			t.Skip("No role created in previous test")
 		}
 
-		createRoleBinding(t, apiBaseURL, token, "*", "test-viewer-binding",
+		createRoleBinding(t, apiBaseURL, token, "default", "test-viewer-binding",
 			"Test Viewer Role", "test@test.com")
 	})
 
@@ -141,7 +141,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 			t.Skip("No role created in previous test")
 		}
 
-		deleteRoleBinding(t, apiBaseURL, token, "*", "test-viewer-binding")
+		deleteRoleBinding(t, apiBaseURL, token, "default", "test-viewer-binding")
 	})
 
 	// Test 10: Delete role
