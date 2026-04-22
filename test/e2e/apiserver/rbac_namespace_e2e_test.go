@@ -152,6 +152,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// =================================================================
 	// Phase 1: Define Roles (like K8s Role)
 	// =================================================================
+	// Namespace: "production", "staging", "development"
+	_ = createNamespace(t, apiBaseURL, token, "production")
 
 	// Role: agent-viewer — read-only access to agents.
 	_ = createRole(t, apiBaseURL, token, &v1.Role{
@@ -346,6 +348,14 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 }
 
 // --------------- Helper Functions ---------------
+
+// createNamespace creates a new namespace via the API.
+func createNamespace(
+	t *testing.T,
+	baseURL, token, name string,
+) v1.Namespace {
+	t.Helper()
+}
 
 // createUser creates a new user via the API and returns the user object.
 func createUser(
