@@ -22,6 +22,13 @@ func WithBearerToken(bearerToken string) OptionFunc {
 	}
 }
 
+// WithBasicAuth sets the basic authentication credentials for the client.
+func WithBasicAuth(username, password string) OptionFunc {
+	return func(c *Client) {
+		c.SetBasicAuth(username, password)
+	}
+}
+
 // WithVerbose enables verbose logging for the client.
 func WithVerbose(verbose bool) OptionFunc {
 	return func(c *Client) {

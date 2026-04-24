@@ -111,6 +111,11 @@ func (c *Client) SetAuthToken(bearerToken string) {
 	c.common.Resty.SetAuthToken(bearerToken)
 }
 
+// SetBasicAuth sets the basic authentication credentials for the client.
+func (c *Client) SetBasicAuth(username, password string) {
+	c.common.Resty.SetBasicAuth(username, password)
+}
+
 // SetLogger sets the logger for the client.
 func (c *Client) SetLogger(logger *slog.Logger) {
 	c.common.Resty.SetLogger(&loggerWrapper{Logger: logger})

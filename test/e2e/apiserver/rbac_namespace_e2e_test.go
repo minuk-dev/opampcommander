@@ -355,6 +355,41 @@ func createNamespace(
 	baseURL, token, name string,
 ) v1.Namespace {
 	t.Helper()
+
+	ns := v1.Namespace{
+		Kind:       v1.NamespaceKind,
+		APIVersion: "v1",
+		//exhaustruct:ignore
+		Metadata: v1.NamespaceMetadata{
+			Name: name,
+		},
+	}
+
+	nsJSON, err := json.Marshal(ns)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest( //nolint:noctx
+		http.MethodPost, baseURL+"/api/v1/namespaces", bytes.NewReader(nsJSON),
+	)
+	require.NoError(t, err)
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	defer func() { _ = resp.Body.Close() }()
+	require.Equal(t, http.StatusCreated, resp.StatusCode,
+		"failed to create namespace %s", name)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	var result v1.Namespace
+	require.NoError(t, json.Unmarshal(body, &result))
+
+	return result
 }
 
 // createUser creates a new user via the API and returns the user object.
