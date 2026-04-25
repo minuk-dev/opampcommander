@@ -103,7 +103,7 @@ service:
 			ContainerRequest: req,
 			Started:          true,
 		})
-	require.NoError(t, err)
+	require.NoError(b.t, err)
 
 	return &OTelCollector{
 		Base:       b,

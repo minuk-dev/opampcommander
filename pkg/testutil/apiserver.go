@@ -39,7 +39,7 @@ func (a *APIServer) AdminPassword() string {
 	return a.Settings.AuthSettings.AdminSettings.Password
 }
 
-func (a *APISever) WaitForReady() {
+func (a *APIServer) WaitForReady() {
 	a.t.Helper()
 
 	client := a.Client()
@@ -67,7 +67,7 @@ func (b *Base) StartAPIServer(
 ) *APIServer {
 	b.t.Helper()
 
-	serverID := Identifier()
+	serverID := Identifier(b.t)
 
 	serverPort := b.GetFreeTCPPort()
 	managementPort := b.GetFreeTCPPort()
