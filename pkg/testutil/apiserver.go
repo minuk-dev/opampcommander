@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/client"
-	"github.com/stretchr/testify/require"
 )
 
 const (
 	apiServerStartTimeout = 15 * time.Second
+	apiServerPollInterval = 500 * time.Millisecond
+	dbConnectTimeout      = 10 * time.Second
+	jwtExpiration         = 24 * time.Hour
 )
 
+// APIServer holds a running test API server and its configuration.
 type APIServer struct {
 	*Base
 
@@ -31,57 +36,56 @@ type APIServer struct {
 	Settings config.ServerSettings
 }
 
+// AdminUsername returns the admin username configured for this test server.
 func (a *APIServer) AdminUsername() string {
 	return a.Settings.AuthSettings.AdminSettings.Username
 }
 
+// AdminPassword returns the admin password configured for this test server.
 func (a *APIServer) AdminPassword() string {
 	return a.Settings.AuthSettings.AdminSettings.Password
 }
 
+// WaitForReady blocks until the API server responds to ping or the timeout expires.
 func (a *APIServer) WaitForReady() {
 	a.t.Helper()
 
-	client := a.Client()
+	c := a.Client()
 
 	require.Eventually(a.t, func() bool {
-		err := client.Ping()
+		err := c.Ping()
+
 		return err == nil
-	}, apiServerStartTimeout, 500*time.Millisecond, "API server should start")
+	}, apiServerStartTimeout, apiServerPollInterval, "API server should start")
 }
 
+// Stop shuts down the API server and fails the test on error.
 func (a *APIServer) Stop() {
 	a.t.Helper()
 	require.NoError(a.t, a.Server.Stop(a.t.Context()))
 }
 
+// Client returns a pre-authenticated client pointing at this test server.
 func (a *APIServer) Client() *client.Client {
 	return client.New(a.Endpoint,
 		client.WithBasicAuth(a.AdminUsername(), a.AdminPassword()),
 	)
 }
 
-func (b *Base) StartAPIServer(
-	mongoURI string,
-	databaseName string,
-) *APIServer {
-	b.t.Helper()
-
-	serverID := Identifier(b.t)
-
-	serverPort := b.GetFreeTCPPort()
-	managementPort := b.GetFreeTCPPort()
-
-	settings := config.ServerSettings{
+func buildServerSettings(
+	serverID string, serverPort, managementPort int, mongoURI, databaseName string,
+) config.ServerSettings {
+	return config.ServerSettings{
 		Address:  fmt.Sprintf("0.0.0.0:%d", serverPort),
 		ServerID: config.ServerID(serverID),
+		//exhaustruct:ignore
 		EventSettings: config.EventSettings{
 			ProtocolType: config.EventProtocolTypeInMemory,
 		},
 		DatabaseSettings: config.DatabaseSettings{
 			Type:           config.DatabaseTypeMongoDB,
 			Endpoints:      []string{mongoURI},
-			ConnectTimeout: 10 * time.Second,
+			ConnectTimeout: dbConnectTimeout,
 			DatabaseName:   databaseName,
 			DDLAuto:        true,
 		},
@@ -97,7 +101,7 @@ func (b *Base) StartAPIServer(
 			JWTSettings: config.JWTSettings{
 				SigningKey: "test-secret-key",
 				Issuer:     "e2e-test",
-				Expiration: 24 * time.Hour,
+				Expiration: jwtExpiration,
 				Audience:   []string{"test"},
 			},
 		},
@@ -112,9 +116,25 @@ func (b *Base) StartAPIServer(
 				},
 			},
 		},
+		CacheSettings: config.DefaultCacheSettings(),
+		RBACModelPath: "",
 	}
+}
 
+// StartAPIServer starts a new API server backed by the given MongoDB instance.
+func (b *Base) StartAPIServer(
+	mongoURI string,
+	databaseName string,
+) *APIServer {
+	b.t.Helper()
+
+	serverID := Identifier(b.t)
+	serverPort := b.GetFreeTCPPort()
+	managementPort := b.GetFreeTCPPort()
+
+	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
 	server := apiserver.New(settings)
+
 	go func() {
 		_ = server.Run(b.t.Context())
 	}()

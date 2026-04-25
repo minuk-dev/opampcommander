@@ -2,12 +2,12 @@
 package testutil
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"log/slog"
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/opencontainers/go-digest"
 )
 
 // Base is a utility struct that provides common resources and utilities for testing.
@@ -47,16 +47,23 @@ func NewBase(tb testing.TB) *Base {
 }
 
 // Identifier can be used as a name of host, container, image, volume, network, etc.
-func Identifier(t testing.TB) string {
-	s := t.Name()
-	s = strings.ReplaceAll(s, " ", "_")
-	s = strings.ReplaceAll(s, "/", "-")
-	s = strings.ToLower(s)
-	s = "opamp-" + s
-	if len(s) > 76 {
-		s = "opamp-" + digest.SHA256.FromString(t.Name()).Encoded()
+func Identifier(tb testing.TB) string {
+	tb.Helper()
+
+	const maxIdentifierLen = 76
+
+	name := tb.Name()
+	name = strings.ReplaceAll(name, " ", "_")
+	name = strings.ReplaceAll(name, "/", "-")
+	name = strings.ToLower(name)
+
+	name = "opamp-" + name
+	if len(name) > maxIdentifierLen {
+		hash := sha256.Sum256([]byte(tb.Name()))
+		name = "opamp-" + hex.EncodeToString(hash[:])
 	}
-	return s
+
+	return name
 }
 
 // TestLogWriter is an io.Writer that writes to the test log.

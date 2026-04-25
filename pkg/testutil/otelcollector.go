@@ -13,9 +13,13 @@ import (
 )
 
 const (
-	otelCollectorImage = "otel/opentelemetry-collector-contrib:0.115.1"
+	otelCollectorImage          = "otel/opentelemetry-collector-contrib:0.115.1"
+	otelCollectorStartupTimeout = 60 * time.Second
+	collectorConfigFileMode     = 0o600
+	collectorContainerFileMode  = 0o644
 )
 
+// OTelCollector wraps a testcontainer running an OpenTelemetry Collector.
 type OTelCollector struct {
 	*Base
 	testcontainers.Container
@@ -24,13 +28,8 @@ type OTelCollector struct {
 	configPath string
 }
 
-func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
-	b.t.Helper()
-
-	cacheDir := b.CacheDir
-	instanceUID := uuid.New()
-
-	configContent := fmt.Sprintf(`receivers:
+func collectorConfigContent(opampPort int, instanceUID uuid.UUID) string {
+	return fmt.Sprintf(`receivers:
   otlp:
     protocols:
       grpc:
@@ -75,14 +74,11 @@ service:
       processors: [batch]
       exporters: [debug]
 `, opampPort, instanceUID.String())
+}
 
-	configPath := filepath.Join(
-		cacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
-	err := os.WriteFile(configPath, []byte(configContent), 0600)
-	require.NoError(b.t, err)
-
+func buildCollectorContainerRequest(configPath string) testcontainers.ContainerRequest {
 	//exhaustruct:ignore
-	req := testcontainers.ContainerRequest{
+	return testcontainers.ContainerRequest{
 		Image:        otelCollectorImage,
 		ExposedPorts: []string{"4317/tcp", "4318/tcp"},
 		Files: []testcontainers.ContainerFile{
@@ -90,18 +86,29 @@ service:
 			{
 				HostFilePath:      configPath,
 				ContainerFilePath: "/etc/otel-collector-config.yaml",
-				FileMode:          0644,
+				FileMode:          collectorContainerFileMode,
 			},
 		},
 		Cmd:        []string{"--config=/etc/otel-collector-config.yaml"},
-		WaitingFor: wait.ForLog("Everything is ready").WithStartupTimeout(60 * time.Second),
+		WaitingFor: wait.ForLog("Everything is ready").WithStartupTimeout(otelCollectorStartupTimeout),
 		ExtraHosts: []string{"host.docker.internal:host-gateway"},
 	}
+}
+
+// StartOTelCollector starts an OTel Collector container connected to the given OpAMP port.
+func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
+	b.t.Helper()
+
+	instanceUID := uuid.New()
+	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
+
+	err := os.WriteFile(configPath, []byte(collectorConfigContent(opampPort, instanceUID)), collectorConfigFileMode)
+	require.NoError(b.t, err)
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
 		b.t.Context(), testcontainers.GenericContainerRequest{
-			ContainerRequest: req,
+			ContainerRequest: buildCollectorContainerRequest(configPath),
 			Started:          true,
 		})
 	require.NoError(b.t, err)
