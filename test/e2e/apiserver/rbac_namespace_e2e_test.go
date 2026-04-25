@@ -352,8 +352,6 @@ func createNamespace(t *testing.T, c *client.Client, name string) v1.Namespace {
 	t.Helper()
 
 	result, err := c.NamespaceService.CreateNamespace(t.Context(), &v1.Namespace{
-		Kind:       v1.NamespaceKind,
-		APIVersion: "v1",
 		//exhaustruct:ignore
 		Metadata: v1.NamespaceMetadata{
 			Name: name,
