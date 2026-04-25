@@ -8,12 +8,8 @@
 package apiserver_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -30,6 +26,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -83,9 +80,12 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 
 	t.Log("Both API servers are ready")
 
+	client1 := createOpampClient(t, server1URL)
+	client2 := createOpampClient(t, server2URL)
+
 	// Given: AgentGroup is created on server 1
 	agentGroupName := "test-group"
-	createAgentGroup(t, server1URL, agentGroupName, map[string]string{
+	createAgentGroup(t, client1, agentGroupName, map[string]string{
 		"service.name": "otel-collector-e2e-test",
 	})
 	t.Logf("AgentGroup created: %s", agentGroupName)
@@ -121,7 +121,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	t.Logf("Agent visible on server 2: %s", agent2.Metadata.InstanceUID)
 
 	// When: Server 2 updates the agent group configuration
-	updateAgentGroup(t, server2URL, agentGroupName, map[string]string{
+	updateAgentGroup(t, client2, agentGroupName, map[string]string{
 		"test_key": "test_value_from_server2",
 	})
 	t.Log("AgentGroup config updated via server 2")
@@ -192,9 +192,11 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	waitForAPIServerReady(t, primaryURL)
 
+	primaryClient := createOpampClient(t, primaryURL)
+
 	// Given: AgentGroup is created on primary server
 	agentGroupName := "failover-test-group"
-	createAgentGroup(t, primaryURL, agentGroupName, map[string]string{
+	createAgentGroup(t, primaryClient, agentGroupName, map[string]string{
 		"service.name": "otel-collector-e2e-test",
 	})
 	t.Logf("AgentGroup created: %s", agentGroupName)
@@ -225,6 +227,8 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	waitForAPIServerReady(t, secondaryURL)
 	t.Log("Secondary server started")
 
+	secondaryClient := createOpampClient(t, secondaryURL)
+
 	// Then: Agent data should be available on secondary (via shared DB)
 	agentsOnSecondary := listAgents(t, secondaryURL)
 	require.GreaterOrEqual(t, len(agentsOnSecondary), 1, "Agent should be visible on secondary")
@@ -233,7 +237,7 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	require.NotNil(t, agent, "Agent should be found on secondary server")
 
 	// When: Update config via secondary server using AgentGroup
-	updateAgentGroup(t, secondaryURL, agentGroupName, map[string]string{
+	updateAgentGroup(t, secondaryClient, agentGroupName, map[string]string{
 		"failover_test": "secondary_update",
 	})
 	t.Log("AgentGroup config updated via secondary server")
@@ -389,7 +393,7 @@ func setupAPIServerWithKafka(
 			},
 			//exhaustruct:ignore
 			JWTSettings: config.JWTSettings{
-				SigningKey: "test-secret-key",
+				SigningKey:  "test-secret-key",
 				Issuer:     "e2e-test-kafka",
 				Expiration: 24 * time.Hour,
 				Audience:   []string{"test"},
@@ -427,127 +431,47 @@ func setupAPIServerWithKafka(
 	return stopServer, apiBaseURL
 }
 
-func createAgentGroup(t *testing.T, baseURL, name string, selector map[string]string) {
+func createAgentGroup(t *testing.T, c *client.Client, name string, selector map[string]string) {
 	t.Helper()
 
-	url := baseURL + "/api/v1/namespaces/default/agentgroups"
-	t.Logf("Creating AgentGroup at URL: %s with name: %s", url, name)
+	t.Logf("Creating AgentGroup with name: %s", name)
 
-	reqBody := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"name": name,
-			"selector": map[string]interface{}{
-				"identifyingAttributes": selector,
+	//exhaustruct:ignore
+	_, err := c.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+		Metadata: v1.Metadata{
+			Name: name,
+		},
+		Spec: v1.Spec{
+			Selector: v1.AgentSelector{
+				IdentifyingAttributes: selector,
 			},
 		},
-	}
-
-	body, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-	t.Logf("Request body: %s", string(body))
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(body)) //nolint:noctx
-	require.NoError(t, err)
-
-	req.Header.Set("Content-Type", "application/json")
-
-	token := getAuthToken(t, baseURL)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		t.Logf("Create AgentGroup response: %s", string(bodyBytes))
-	}
-
-	require.True(t,
-		resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated,
-		"Create AgentGroup should succeed, got status: %d", resp.StatusCode)
+	})
+	require.NoError(t, err, "Create AgentGroup %s should succeed", name)
 
 	t.Logf("AgentGroup '%s' created successfully", name)
 }
 
-func agentGroupExistsOnServer(t *testing.T, baseURL, name string) bool {
-	t.Helper()
+func agentGroupExistsOnServer(c *client.Client, name string) bool {
+	_, err := c.AgentGroupService.GetAgentGroup(context.Background(), "default", name)
 
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentgroups/%s", baseURL, name)
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-	if err != nil {
-		return false
-	}
-
-	token := getAuthToken(t, baseURL)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return false
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	return resp.StatusCode == http.StatusOK
+	return err == nil
 }
 
-func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]string) {
+func updateAgentGroup(t *testing.T, c *client.Client, name string, configMap map[string]string) {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentgroups/%s", baseURL, name)
-	t.Logf("Updating AgentGroup at URL: %s", url)
+	t.Logf("Updating AgentGroup: %s", name)
 
-	// First get the current AgentGroup
-	client := &http.Client{Timeout: 10 * time.Second}
-	getReq, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-	require.NoError(t, err)
-
-	token := getAuthToken(t, baseURL)
-	getReq.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := client.Do(getReq)
-	require.NoError(t, err, "Failed to get AgentGroup before update")
-
-	var agentGroup v1.AgentGroup
-
-	// If AgentGroup doesn't exist, create it first
-	if resp.StatusCode == http.StatusNotFound {
-		err = resp.Body.Close()
-		require.NoError(t, err)
-
+	agentGroup, err := c.AgentGroupService.GetAgentGroup(t.Context(), "default", name)
+	if err != nil {
 		t.Logf("AgentGroup '%s' not found, creating it first", name)
+		createAgentGroup(t, c, name, map[string]string{})
 
-		// Create AgentGroup with empty selector
-		createAgentGroup(t, baseURL, name, map[string]string{})
-
-		// Get the newly created AgentGroup
-		getReq, err = http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-		require.NoError(t, err)
-
-		getReq.Header.Set("Authorization", "Bearer "+token)
-
-		resp, err = client.Do(getReq)
+		agentGroup, err = c.AgentGroupService.GetAgentGroup(t.Context(), "default", name)
 		require.NoError(t, err, "Failed to get AgentGroup after creation")
-
-		require.Equal(t, http.StatusOK, resp.StatusCode, "AgentGroup should exist after creation")
-	} else {
-		require.Equal(t, http.StatusOK, resp.StatusCode)
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
-	require.NoError(t, err)
-
-	err = resp.Body.Close()
-	require.NoError(t, err)
-
-	t.Logf("Current AgentGroup before update: %+v", agentGroup)
-
-	// Convert configMap to YAML and set it as the inline config
 	configBytes, err := yaml.Marshal(configMap)
 	require.NoError(t, err)
 
@@ -565,22 +489,8 @@ func updateAgentGroup(t *testing.T, baseURL, name string, configMap map[string]s
 
 	t.Logf("AgentGroup after update: %+v", agentGroup)
 
-	// Send the update
-	body, err := json.Marshal(agentGroup)
-	require.NoError(t, err)
-
-	putReq, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(body)) //nolint:noctx
-	require.NoError(t, err)
-
-	putReq.Header.Set("Content-Type", "application/json")
-	putReq.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = client.Do(putReq)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode, "Update AgentGroup should succeed")
+	_, err = c.AgentGroupService.UpdateAgentGroup(t.Context(), agentGroup)
+	require.NoError(t, err, "Update AgentGroup should succeed")
 }
 
 // TestE2E_APIServer_KafkaEventMessaging tests server-to-server event messaging via Kafka.
@@ -626,9 +536,12 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	t.Log("Both API servers are ready for messaging test")
 
+	client1 := createOpampClient(t, server1URL)
+	client2 := createOpampClient(t, server2URL)
+
 	// Given: AgentGroup is created
 	agentGroupName := "messaging-test-group"
-	createAgentGroup(t, server1URL, agentGroupName, map[string]string{
+	createAgentGroup(t, client1, agentGroupName, map[string]string{
 		"service.name": "otel-collector-messaging-test",
 	})
 	t.Logf("AgentGroup created: %s", agentGroupName)
@@ -650,7 +563,7 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	// When: Update agent group configuration via server 2
 	// This should trigger an event that propagates through Kafka
-	updateAgentGroup(t, server2URL, agentGroupName, map[string]string{
+	updateAgentGroup(t, client2, agentGroupName, map[string]string{
 		"messaging_test_key": "updated_via_server2",
 	})
 	t.Log("AgentGroup config updated via server 2")

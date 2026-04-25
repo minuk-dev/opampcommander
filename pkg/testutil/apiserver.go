@@ -17,7 +17,7 @@ const (
 type APIServer struct {
 	*Base
 
-	Server   apiserver.Server
+	Server   *apiserver.Server
 	ServerID string
 
 	Endpoint string
@@ -121,6 +121,7 @@ func (b *Base) StartAPIServer(
 
 	return &APIServer{
 		Base:               b,
+		Server:             server,
 		ServerID:           serverID,
 		Endpoint:           fmt.Sprintf("http://localhost:%d", serverPort),
 		Port:               serverPort,

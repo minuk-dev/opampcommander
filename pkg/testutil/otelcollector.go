@@ -20,6 +20,7 @@ type OTelCollector struct {
 	*Base
 	testcontainers.Container
 
+	UID        uuid.UUID
 	configPath string
 }
 
@@ -108,6 +109,7 @@ service:
 	return &OTelCollector{
 		Base:       b,
 		Container:  container,
+		UID:        instanceUID,
 		configPath: configPath,
 	}
 }

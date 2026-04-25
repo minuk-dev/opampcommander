@@ -3,12 +3,8 @@
 package apiserver_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"testing"
 	"time"
 
@@ -21,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -134,7 +131,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	defer stopServer()
 
 	waitForAPIServerReady(t, apiBaseURL)
-	token := getAuthToken(t, apiBaseURL)
+
+	opampClient := createOpampClient(t, apiBaseURL)
 
 	// --- Seed permissions in MongoDB ---
 	permissions := allPermissionSeeds()
@@ -146,17 +144,17 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	}
 
 	// --- Create a non-admin user (for RBAC testing) ---
-	regularUser := createUser(t, apiBaseURL, token, "rbac-user", "rbac-user@example.com")
+	regularUser := createUser(t, opampClient, "rbac-user", "rbac-user@example.com")
 	regularUserUID := regularUser.Metadata.UID
 
 	// =================================================================
 	// Phase 1: Define Roles (like K8s Role)
 	// =================================================================
 	// Namespace: "production", "staging", "development"
-	_ = createNamespace(t, apiBaseURL, token, "production")
+	_ = createNamespace(t, opampClient, "production")
 
 	// Role: agent-viewer — read-only access to agents.
-	_ = createRole(t, apiBaseURL, token, &v1.Role{
+	_ = createRole(t, opampClient, &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -175,7 +173,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// Role: agent-editor — full CRUD on agents.
-	_ = createRole(t, apiBaseURL, token, &v1.Role{
+	_ = createRole(t, opampClient, &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -197,7 +195,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// Role: agentgroup-admin — full CRUD on agentgroups (cluster-wide).
-	_ = createRole(t, apiBaseURL, token, &v1.Role{
+	_ = createRole(t, opampClient, &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -223,33 +221,33 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// (like K8s RoleBinding)
 	// =================================================================
 	t.Run("Phase2_BindViewerToProduction", func(t *testing.T) {
-		createRoleBinding(t, apiBaseURL, token, "production", "viewer-production",
+		createRoleBinding(t, opampClient, "production", "viewer-production",
 			"Agent Viewer", "rbac-user@example.com")
 
-		syncPolicies(t, apiBaseURL, token)
+		syncPolicies(t, opampClient)
 
 		// ✅ Can GET and LIST agents in production.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "GET", true)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "LIST", true)
 
 		// ❌ Cannot CREATE/UPDATE/DELETE agents in production (viewer only).
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "CREATE", false)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "UPDATE", false)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "DELETE", false)
 
 		// ❌ Cannot access agents in a different namespace.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "GET", false)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "LIST", false)
 
 		// ❌ No agentgroup permissions at all.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agentgroup", "GET", false)
 	})
 
@@ -257,31 +255,31 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// Phase 3: Additional RoleBinding — bind agent-editor to "staging"
 	// =================================================================
 	t.Run("Phase3_BindEditorToStaging", func(t *testing.T) {
-		createRoleBinding(t, apiBaseURL, token, "staging", "editor-staging",
+		createRoleBinding(t, opampClient, "staging", "editor-staging",
 			"Agent Editor", "rbac-user@example.com")
 
-		syncPolicies(t, apiBaseURL, token)
+		syncPolicies(t, opampClient)
 
 		// ✅ Full CRUD on agents in staging (editor role).
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "GET", true)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "CREATE", true)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "UPDATE", true)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "DELETE", true)
 
 		// ✅ Previous binding still works — viewer in production.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "GET", true)
 
 		// ❌ Still cannot write in production (only viewer there).
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "CREATE", false)
 
 		// ❌ No access to a namespace without binding.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"development", "agent", "GET", false)
 	})
 
@@ -289,22 +287,22 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// Phase 4: Unassign — remove viewer from production
 	// =================================================================
 	t.Run("Phase5_UnassignViewerFromProduction", func(t *testing.T) {
-		deleteRoleBinding(t, apiBaseURL, token, "production", "viewer-production")
+		deleteRoleBinding(t, opampClient, "production", "viewer-production")
 
-		syncPolicies(t, apiBaseURL, token)
+		syncPolicies(t, opampClient)
 
 		// ❌ No longer can access agents in production.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "GET", false)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agent", "LIST", false)
 
 		// ✅ Other bindings remain: editor in staging.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "GET", true)
 
 		// ✅ Cluster-wide agentgroup admin still active.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"production", "agentgroup", "GET", true)
 	})
 
@@ -313,36 +311,36 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	// =================================================================
 	t.Run("Phase6_MultiUserIsolation", func(t *testing.T) {
 		// Create another user.
-		otherUser := createUser(t, apiBaseURL, token,
+		otherUser := createUser(t, opampClient,
 			"other-user", "other@example.com")
 		otherUserUID := otherUser.Metadata.UID
 
 		// Bind agent-viewer to other user in "staging" only.
-		createRoleBinding(t, apiBaseURL, token, "staging", "viewer-staging-other",
+		createRoleBinding(t, opampClient, "staging", "viewer-staging-other",
 			"Agent Viewer", "other@example.com")
 
-		syncPolicies(t, apiBaseURL, token)
+		syncPolicies(t, opampClient)
 
 		// ✅ other-user can view agents in staging.
-		assertPermission(t, apiBaseURL, token, otherUserUID,
+		assertPermission(t, opampClient, otherUserUID,
 			"staging", "agent", "GET", true)
 
 		// ❌ other-user CANNOT write agents in staging.
-		assertPermission(t, apiBaseURL, token, otherUserUID,
+		assertPermission(t, opampClient, otherUserUID,
 			"staging", "agent", "CREATE", false)
 
 		// ❌ other-user has NO access to production agents.
-		assertPermission(t, apiBaseURL, token, otherUserUID,
+		assertPermission(t, opampClient, otherUserUID,
 			"production", "agent", "GET", false)
 
 		// ❌ other-user has NO agentgroup access (not bound).
-		assertPermission(t, apiBaseURL, token, otherUserUID,
+		assertPermission(t, opampClient, otherUserUID,
 			"staging", "agentgroup", "GET", false)
 
 		// ✅ original regularUser still retains their bindings.
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agent", "UPDATE", true)
-		assertPermission(t, apiBaseURL, token, regularUserUID,
+		assertPermission(t, opampClient, regularUserUID,
 			"staging", "agentgroup", "DELETE", true)
 	})
 }
@@ -350,56 +348,27 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 // --------------- Helper Functions ---------------
 
 // createNamespace creates a new namespace via the API.
-func createNamespace(
-	t *testing.T,
-	baseURL, token, name string,
-) v1.Namespace {
+func createNamespace(t *testing.T, c *client.Client, name string) v1.Namespace {
 	t.Helper()
 
-	ns := v1.Namespace{
+	result, err := c.NamespaceService.CreateNamespace(t.Context(), &v1.Namespace{
 		Kind:       v1.NamespaceKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
 		Metadata: v1.NamespaceMetadata{
 			Name: name,
 		},
-	}
+	})
+	require.NoError(t, err, "failed to create namespace %s", name)
 
-	nsJSON, err := json.Marshal(ns)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/namespaces", bytes.NewReader(nsJSON),
-	)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusCreated, resp.StatusCode,
-		"failed to create namespace %s", name)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.Namespace
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
+	return *result
 }
 
 // createUser creates a new user via the API and returns the user object.
-func createUser(
-	t *testing.T,
-	baseURL, token, username, email string,
-) v1.User {
+func createUser(t *testing.T, c *client.Client, username, email string) v1.User {
 	t.Helper()
 
-	user := v1.User{
+	result, err := c.UserService.CreateUser(t.Context(), &v1.User{
 		Kind:       v1.UserKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -411,96 +380,37 @@ func createUser(
 		},
 		//exhaustruct:ignore
 		Status: v1.UserStatus{},
-	}
+	})
+	require.NoError(t, err, "failed to create user %s", username)
 
-	userJSON, err := json.Marshal(user)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/users", bytes.NewReader(userJSON),
-	)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusCreated, resp.StatusCode,
-		"failed to create user %s", username)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.User
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
+	return *result
 }
 
 // syncPolicies triggers a full RBAC policy sync.
-func syncPolicies(t *testing.T, baseURL, token string) {
+func syncPolicies(t *testing.T, c *client.Client) {
 	t.Helper()
 
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/sync", nil,
-	)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode,
-		"failed to sync RBAC policies")
+	err := c.RBACService.SyncPolicies(t.Context())
+	require.NoError(t, err, "failed to sync RBAC policies")
 }
 
 // assertPermission checks whether a user has (or lacks) a specific
 // permission and fails the test if the result doesn't match expected.
 func assertPermission(
 	t *testing.T,
-	baseURL, token, userID, namespace, resource, action string,
+	c *client.Client,
+	userID, namespace, resource, action string,
 	expected bool,
 ) {
 	t.Helper()
 
-	reqBody := v1.CheckPermissionRequest{
+	result, err := c.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
 		UserID:    userID,
 		Namespace: namespace,
 		Resource:  resource,
 		Action:    action,
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
+	})
 	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/check",
-		bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.CheckPermissionResponse
-	require.NoError(t, json.Unmarshal(body, &result))
 
 	if expected {
 		assert.True(t, result.Allowed,
