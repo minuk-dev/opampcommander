@@ -80,6 +80,23 @@ func New(endpoint string, opt ...Option) *Client {
 	return client
 }
 
+// Ping checks if the server is alive.
+func (c *Client) Ping() error {
+	res, err := c.common.Resty.R().Get("/api/v1/ping")
+	if err != nil {
+		return fmt.Errorf("failed to ping: %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("failed to ping: %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return nil
+}
+
 // GetServerVersion retrieves the server version information.
 func (c *Client) GetServerVersion(ctx context.Context) (*v1version.Info, error) {
 	var versionInfo v1version.Info
