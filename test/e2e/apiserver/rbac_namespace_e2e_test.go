@@ -284,7 +284,23 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	})
 
 	// =================================================================
-	// Phase 4: Unassign — remove viewer from production
+	// Phase 4: Bind AgentGroup Admin globally (cluster-wide via namespace "*")
+	// =================================================================
+	t.Run("Phase4_BindAgentGroupAdminGlobally", func(t *testing.T) {
+		createRoleBinding(t, opampClient, "*", "agentgroup-admin-global",
+			"AgentGroup Admin", "rbac-user@example.com")
+
+		syncPolicies(t, opampClient)
+
+		// ✅ Cluster-wide binding grants agentgroup access in any namespace.
+		assertPermission(t, opampClient, regularUserUID,
+			"production", "agentgroup", "GET", true)
+		assertPermission(t, opampClient, regularUserUID,
+			"staging", "agentgroup", "DELETE", true)
+	})
+
+	// =================================================================
+	// Phase 5: Unassign — remove viewer from production
 	// =================================================================
 	t.Run("Phase5_UnassignViewerFromProduction", func(t *testing.T) {
 		deleteRoleBinding(t, opampClient, "production", "viewer-production")
