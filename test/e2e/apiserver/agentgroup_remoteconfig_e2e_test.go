@@ -13,7 +13,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -33,20 +32,17 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentgroup_direct")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentgroup_direct")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Given: OTel Collector is started
-	collector := base.StartOTelCollectorWithAttributes(apiPort, map[string]string{
+	collector := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "staging-service",
 		"environment":  "staging",
 	})
@@ -149,25 +145,22 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentgroup_collision")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentgroup_collision")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Given: Two OTel Collectors with different service names
-	collector1 := base.StartOTelCollectorWithAttributes(apiPort, map[string]string{
+	collector1 := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "service-alpha",
 	})
 	defer func() { _ = collector1.Terminate(ctx) }()
 
-	collector2 := base.StartOTelCollectorWithAttributes(apiPort, map[string]string{
+	collector2 := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "service-beta",
 	})
 	defer func() { _ = collector2.Terminate(ctx) }()
@@ -285,17 +278,6 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 
 // Helper functions
 
-func createOpampClient(t *testing.T, baseURL string) *client.Client {
-	t.Helper()
-
-	opampClient := client.New(baseURL)
-
-	// Get auth token
-	token := getAuthToken(t, baseURL)
-	opampClient.SetAuthToken(token)
-
-	return opampClient
-}
 
 func hasRemoteConfig(agent v1.Agent, configName string) bool {
 	// Check RemoteConfigNames list

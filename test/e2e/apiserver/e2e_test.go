@@ -13,8 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
-	"go.mongodb.org/mongo-driver/v2/bson"
+"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
@@ -23,9 +22,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-const (
-	testMongoDBImage = "mongo:4.4.10"
-)
 
 func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	t.Parallel()
@@ -41,11 +37,9 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
 	dbName := "opampcommander_e2e_test_single"
-
-	apiServer := base.StartAPIServer(mongoURI, dbName)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
 	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
@@ -115,23 +109,18 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_test_multi")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(t.Context()) }()
-
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_test_multi")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Multiple collectors are started
 	numCollectors := 3
 	collectors := make([]*testutil.OTelCollector, numCollectors)
 
 	for i := range numCollectors {
-		collectors[i] = base.StartOTelCollector(apiPort)
+		collectors[i] = base.StartOTelCollector(apiServer.Port)
 	}
 
 	defer func() {
@@ -142,7 +131,7 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 
 	// When: All collectors report via OpAMP
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, apiBaseURL)
+		agents := listAgents(t, apiServer.Endpoint)
 
 		if len(agents) < numCollectors {
 			return false
@@ -160,17 +149,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
 
-func startMongoDB(t *testing.T) (testcontainers.Container, string) {
-	t.Helper()
-
-	container, err := mongoTestContainer.Run(t.Context(), testMongoDBImage)
-	require.NoError(t, err)
-
-	uri, err := container.ConnectionString(t.Context())
-	require.NoError(t, err)
-
-	return container, uri
-}
 
 func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	t.Parallel()
@@ -186,19 +164,16 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
 	dbName := "opampcommander_e2e_sequencenum_test"
+	mongoServer := base.StartMongoDB()
 
-	apiServer := base.StartAPIServer(mongoURI, dbName)
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
 	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
 	// Setup MongoDB client to verify data directly
-	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
 	require.NoError(t, err)
 
 	defer func() { _ = mongoClient.Disconnect(ctx) }()
@@ -346,20 +321,13 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_search_test")
+	defer apiServer.Stop()
 
-	defer func() {
-		_ = mongoContainer.Terminate(ctx)
-	}()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_search_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
-
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Create multiple agents with known UIDs
 	agent1UID := uuid.MustParse("12345678-1234-1234-1234-123456789012")
@@ -367,7 +335,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	agent3UID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
 
 	// Insert agents via MongoDB directly to simulate existing agents
-	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
 	require.NoError(t, err)
 
 	defer func() {
@@ -491,35 +459,30 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_conntype_test")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_conntype_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
-
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Given: Two OTel Collectors - one with HTTP polling, one with WebSocket
-	httpCollector := base.StartOTelCollectorHTTP(apiPort)
+	httpCollector := base.StartOTelCollectorHTTP(apiServer.Port)
 	defer func() { _ = httpCollector.Terminate(ctx) }()
 
-	wsCollector := base.StartOTelCollector(apiPort)
+	wsCollector := base.StartOTelCollector(apiServer.Port)
 	defer func() { _ = wsCollector.Terminate(ctx) }()
 
 	// When: Both collectors connect
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, apiBaseURL)
+		agents := listAgents(t, apiServer.Endpoint)
 
 		return len(agents) >= 2
 	}, 2*time.Minute, 1*time.Second, "Both collectors should register")
 
 	// Then: Verify agents are registered
-	agents := listAgents(t, apiBaseURL)
+	agents := listAgents(t, apiServer.Endpoint)
 	require.GreaterOrEqual(t, len(agents), 2, "Both collectors should register as agents")
 
 	// Find our collectors in the agents list
@@ -575,18 +538,13 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentpackage_test")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentpackage_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
-
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test Create Agent Package
 	t.Run("Create AgentPackage", func(t *testing.T) {
@@ -717,19 +675,15 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	apiPort := base.GetFreeTCPPort()
 	dbName := "opampcommander_e2e_stats_aggregation_test"
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Insert agents directly into MongoDB with null status.conditions
-	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
 	require.NoError(t, err)
 	defer func() { _ = mongoClient.Disconnect(ctx) }()
 
@@ -807,7 +761,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	t.Logf("Inserted 3 agents: no status fields, disconnected, connected+healthy")
 
 	// When: Create an AgentGroup that matches these agents
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	//exhaustruct:ignore
 	agentGroup, err := opampClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
@@ -864,18 +818,14 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	apiPort := base.GetFreeTCPPort()
 	dbName := "opampcommander_e2e_include_deleted_test"
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
-	defer stopServer()
+	apiServer.WaitForReady()
 
-	waitForAPIServerReady(t, apiBaseURL)
-
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Step 1: Create an AgentGroup
 	agentGroupName := "test-deleted-group"

@@ -28,17 +28,13 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 
 	base := testutil.NewBase(t)
 
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_rbac_test")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
+	apiServer.WaitForReady()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_rbac_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
-
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test 1: Get current user profile via /api/v1/users/me
 	t.Run("GetCurrentUserProfile", func(t *testing.T) {

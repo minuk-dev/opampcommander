@@ -115,22 +115,18 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 
 	base := testutil.NewBase(t)
 
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
 	const dbName = "opampcommander_e2e_rbac_ns_test"
 
-	apiPort := base.GetFreeTCPPort()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
-	defer stopServer()
+	apiServer.WaitForReady()
 
-	waitForAPIServerReady(t, apiBaseURL)
-
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// --- Seed permissions in MongoDB ---
-	seedPermissions(t, ctx, mongoURI, dbName, allPermissionSeeds())
+	seedPermissions(t, ctx, mongoServer.URI, dbName, allPermissionSeeds())
 
 	permName := func(resource, action string) string { return resource + ":" + action }
 

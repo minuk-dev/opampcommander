@@ -10,27 +10,17 @@ package apiserver_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"gopkg.in/yaml.v3"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
-)
-
-const (
-	kafkaImage = "confluentinc/cp-kafka:7.5.0"
 )
 
 // TestE2E_APIServer_KafkaDistributedMode tests distributed mode with Kafka messaging
@@ -52,35 +42,23 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + Kafka)
-	mongoContainer, mongoURI := startMongoDB(t)
-
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	kafkaContainer, kafkaBroker := startKafka(t)
-
-	defer func() { _ = kafkaContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	kafkaServer := base.StartKafka()
 
 	// Given: Two API servers in distributed mode
-	server1Port := base.GetFreeTCPPort()
-	server2Port := base.GetFreeTCPPort()
+	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
+	defer apiServer1.Stop()
 
-	stopServer1, server1URL := setupAPIServerWithKafka(
-		t, server1Port, mongoURI, kafkaBroker, "opampcommander_kafka_e2e", "server-1",
-	)
-	defer stopServer1()
+	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
+	defer apiServer2.Stop()
 
-	stopServer2, server2URL := setupAPIServerWithKafka(
-		t, server2Port, mongoURI, kafkaBroker, "opampcommander_kafka_e2e", "server-2",
-	)
-	defer stopServer2()
-
-	waitForAPIServerReady(t, server1URL)
-	waitForAPIServerReady(t, server2URL)
+	apiServer1.WaitForReady()
+	apiServer2.WaitForReady()
 
 	t.Log("Both API servers are ready")
 
-	client1 := createOpampClient(t, server1URL)
-	client2 := createOpampClient(t, server2URL)
+	client1 := apiServer1.Client()
+	client2 := apiServer2.Client()
 
 	// Given: AgentGroup is created on server 1
 	agentGroupName := "test-group"
@@ -90,14 +68,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	t.Logf("AgentGroup created: %s", agentGroupName)
 
 	// Given: Collector connects to server 1
-	collector := base.StartOTelCollector(server1Port)
+	collector := base.StartOTelCollector(apiServer1.Port)
 	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be visible on server 1
 	var agent1 *v1.Agent
 
 	assert.Eventually(t, func() bool {
-		agents1 := listAgents(t, server1URL)
+		agents1 := listAgents(t, apiServer1.Endpoint)
 		if len(agents1) < 1 {
 			return false
 		}
@@ -110,7 +88,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	t.Logf("Agent registered on server 1: %s", agent1.Metadata.InstanceUID)
 
 	// Then: Agent should also be visible on server 2 (shared database)
-	agents2 := listAgents(t, server2URL)
+	agents2 := listAgents(t, apiServer2.Endpoint)
 	require.GreaterOrEqual(t, len(agents2), 1, "Agent should be visible on server 2")
 	agent2 := findAgentByUID(agents2, collector.UID)
 	require.NotNil(t, agent2, "Collector should be found on server 2")
@@ -125,14 +103,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// Then: Both servers should have access to the agent data (since they share the same DB)
 	// Note: Remote config may not be supported by the collector, so we verify agent presence instead
 	assert.Eventually(t, func() bool {
-		updatedAgent1, err1 := tryGetAgentByID(server1URL, collector.UID)
+		updatedAgent1, err1 := tryGetAgentByID(apiServer1.Endpoint, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from server1: %v", err1)
 
 			return false
 		}
 
-		updatedAgent2, err2 := tryGetAgentByID(server2URL, collector.UID)
+		updatedAgent2, err2 := tryGetAgentByID(apiServer2.Endpoint, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from server2: %v", err2)
 
@@ -170,25 +148,16 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure setup
-	mongoContainer, mongoURI := startMongoDB(t)
-
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	kafkaContainer, kafkaBroker := startKafka(t)
-
-	defer func() { _ = kafkaContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	kafkaServer := base.StartKafka()
 
 	// Given: Primary server is running
-	primaryPort := base.GetFreeTCPPort()
+	primaryServer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_failover")
+	defer primaryServer.Stop()
 
-	stopPrimary, primaryURL := setupAPIServerWithKafka(
-		t, primaryPort, mongoURI, kafkaBroker, "opampcommander_kafka_failover", "primary",
-	)
-	defer stopPrimary()
+	primaryServer.WaitForReady()
 
-	waitForAPIServerReady(t, primaryURL)
-
-	primaryClient := createOpampClient(t, primaryURL)
+	primaryClient := primaryServer.Client()
 
 	// Given: AgentGroup is created on primary server
 	agentGroupName := "failover-test-group"
@@ -198,32 +167,28 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	t.Logf("AgentGroup created: %s", agentGroupName)
 
 	// Given: Collector connects to primary server
-	collector := base.StartOTelCollector(primaryPort)
+	collector := base.StartOTelCollector(primaryServer.Port)
 	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent is registered on primary
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, primaryURL)
+		agents := listAgents(t, primaryServer.Endpoint)
 
 		return len(agents) >= 1
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on primary")
 	t.Log("Agent registered on primary server")
 
 	// When: Secondary server starts (simulating failover scenario)
-	secondaryPort := base.GetFreeTCPPort()
+	secondaryServer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_failover")
+	defer secondaryServer.Stop()
 
-	stopSecondary, secondaryURL := setupAPIServerWithKafka(
-		t, secondaryPort, mongoURI, kafkaBroker, "opampcommander_kafka_failover", "secondary",
-	)
-	defer stopSecondary()
-
-	waitForAPIServerReady(t, secondaryURL)
+	secondaryServer.WaitForReady()
 	t.Log("Secondary server started")
 
-	secondaryClient := createOpampClient(t, secondaryURL)
+	secondaryClient := secondaryServer.Client()
 
 	// Then: Agent data should be available on secondary (via shared DB)
-	agentsOnSecondary := listAgents(t, secondaryURL)
+	agentsOnSecondary := listAgents(t, secondaryServer.Endpoint)
 	require.GreaterOrEqual(t, len(agentsOnSecondary), 1, "Agent should be visible on secondary")
 
 	agent := findAgentByUID(agentsOnSecondary, collector.UID)
@@ -239,14 +204,14 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	// we'll verify that the agent data is properly shared between servers
 	// and both servers can access the same agent information
 	assert.Eventually(t, func() bool {
-		primaryAgent, err1 := tryGetAgentByID(primaryURL, collector.UID)
+		primaryAgent, err1 := tryGetAgentByID(primaryServer.Endpoint, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from primary: %v", err1)
 
 			return false
 		}
 
-		secondaryAgent, err2 := tryGetAgentByID(secondaryURL, collector.UID)
+		secondaryAgent, err2 := tryGetAgentByID(secondaryServer.Endpoint, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from secondary: %v", err2)
 
@@ -265,164 +230,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	t.Log("Failover test completed successfully")
 }
 
-// Helper functions
-
-func startKafka(t *testing.T) (testcontainers.Container, string) {
-	t.Helper()
-	ctx := t.Context()
-
-	kafkaContainer, err := kafkaTestContainer.Run(ctx,
-		kafkaImage,
-		kafkaTestContainer.WithClusterID("test-cluster-id"),
-		testcontainers.WithWaitStrategy(wait.ForListeningPort("9093/tcp")),
-	)
-	require.NoError(t, err)
-
-	brokers, err := kafkaContainer.Brokers(ctx)
-	require.NoError(t, err)
-	require.NotEmpty(t, brokers, "Kafka brokers should not be empty")
-
-	broker := brokers[0]
-	t.Logf("Kafka started at: %s", broker)
-
-	// Wait for Kafka to be truly ready by attempting to connect
-	waitForKafkaReady(t, broker)
-
-	return kafkaContainer, broker
-}
-
-//nolint:nestif
-func waitForKafkaReady(t *testing.T, broker string) {
-	t.Helper()
-
-	config := sarama.NewConfig()
-	config.Version = sarama.V2_6_0_0
-	config.Metadata.Timeout = 10 * time.Second
-	config.Metadata.Retry.Max = 10
-	config.Metadata.Retry.Backoff = 1 * time.Second
-	config.Net.DialTimeout = 10 * time.Second
-	config.Net.ReadTimeout = 10 * time.Second
-	config.Net.WriteTimeout = 10 * time.Second
-	config.Admin.Timeout = 10 * time.Second
-
-	maxRetries := 60
-	for i := range maxRetries {
-		client, err := sarama.NewClient([]string{broker}, config)
-		if err == nil {
-			// Successfully created client, check if we can retrieve metadata
-			brokers := client.Brokers()
-			if len(brokers) > 0 {
-				// Try to connect to broker
-				err = brokers[0].Open(config)
-				if err == nil {
-					connected, err := brokers[0].Connected()
-					if err == nil && connected {
-						t.Logf("Kafka is ready after %d retries", i+1)
-						client.Close() //nolint:errcheck,gosec
-
-						return
-					}
-
-					if err != nil {
-						t.Logf("Kafka broker connection check failed: %v", err)
-					}
-				} else {
-					t.Logf("Kafka broker open failed: %v", err)
-				}
-			}
-
-			client.Close() //nolint:errcheck,gosec
-		} else {
-			t.Logf("Kafka client creation attempt %d failed: %v", i+1, err)
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-
-	t.Fatal("Kafka did not become ready in time")
-}
-
-func setupAPIServerWithKafka(
-	t *testing.T,
-	port int,
-	mongoURI string,
-	kafkaBroker string,
-	dbName string,
-	serverID string,
-) (func(), string) {
-	t.Helper()
-
-	hostname, _ := os.Hostname()
-	fullServerID := fmt.Sprintf("%s-%s-test-%d", hostname, serverID, port)
-
-	managementPort, err := testutil.GetFreeTCPPort()
-	require.NoError(t, err)
-
-	//exhaustruct:ignore
-	settings := config.ServerSettings{
-		Address:  fmt.Sprintf("0.0.0.0:%d", port),
-		ServerID: config.ServerID(fullServerID),
-		EventSettings: config.EventSettings{
-			ProtocolType: config.EventProtocolTypeKafka,
-			KafkaSettings: config.KafkaSettings{
-				Brokers: []string{kafkaBroker},
-				Topic:   "e2e.opampcommander.events",
-			},
-		},
-		DatabaseSettings: config.DatabaseSettings{
-			Type:           config.DatabaseTypeMongoDB,
-			Endpoints:      []string{mongoURI},
-			ConnectTimeout: 10 * time.Second,
-			DatabaseName:   dbName,
-			DDLAuto:        true,
-		},
-		//exhaustruct:ignore
-		AuthSettings: config.AuthSettings{
-			//exhaustruct:ignore
-			AdminSettings: config.AdminSettings{
-				Username: "test-admin",
-				Password: "test-password",
-				Email:    "test@test.com",
-			},
-			//exhaustruct:ignore
-			JWTSettings: config.JWTSettings{
-				SigningKey:  "test-secret-key",
-				Issuer:     "e2e-test-kafka",
-				Expiration: 24 * time.Hour,
-				Audience:   []string{"test"},
-			},
-		},
-		//exhaustruct:ignore
-		ManagementSettings: config.ManagementSettings{
-			Address: fmt.Sprintf(":%d", managementPort),
-			//exhaustruct:ignore
-			ObservabilitySettings: config.ObservabilitySettings{
-				//exhaustruct:ignore
-				Log: config.LogSettings{
-					Format: config.LogFormatText,
-				},
-			},
-		},
-	}
-
-	server := apiserver.New(settings)
-	serverCtx, cancel := context.WithCancel(t.Context())
-
-	go func() {
-		err := server.Run(serverCtx)
-		if err != nil {
-			t.Logf("Server %s stopped with error: %v", serverID, err)
-		}
-	}()
-
-	stopServer := func() {
-		cancel()
-	}
-
-	apiBaseURL := fmt.Sprintf("http://localhost:%d", port)
-
-	return stopServer, apiBaseURL
-}
 
 func createAgentGroup(t *testing.T, c *client.Client, name string, selector map[string]string) {
 	t.Helper()
@@ -502,35 +309,23 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure setup (MongoDB + Kafka)
-	mongoContainer, mongoURI := startMongoDB(t)
-
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	kafkaContainer, kafkaBroker := startKafka(t)
-
-	defer func() { _ = kafkaContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	kafkaServer := base.StartKafka()
 
 	// Given: Two API servers in distributed mode
-	server1Port := base.GetFreeTCPPort()
-	server2Port := base.GetFreeTCPPort()
+	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
+	defer apiServer1.Stop()
 
-	stopServer1, server1URL := setupAPIServerWithKafka(
-		t, server1Port, mongoURI, kafkaBroker, "opampcommander_kafka_messaging_e2e", "messaging-server-1",
-	)
-	defer stopServer1()
+	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
+	defer apiServer2.Stop()
 
-	stopServer2, server2URL := setupAPIServerWithKafka(
-		t, server2Port, mongoURI, kafkaBroker, "opampcommander_kafka_messaging_e2e", "messaging-server-2",
-	)
-	defer stopServer2()
-
-	waitForAPIServerReady(t, server1URL)
-	waitForAPIServerReady(t, server2URL)
+	apiServer1.WaitForReady()
+	apiServer2.WaitForReady()
 
 	t.Log("Both API servers are ready for messaging test")
 
-	client1 := createOpampClient(t, server1URL)
-	client2 := createOpampClient(t, server2URL)
+	client1 := apiServer1.Client()
+	client2 := apiServer2.Client()
 
 	// Given: AgentGroup is created
 	agentGroupName := "messaging-test-group"
@@ -540,12 +335,12 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	t.Logf("AgentGroup created: %s", agentGroupName)
 
 	// Given: Collector connects to server 1
-	collector := base.StartOTelCollector(server1Port)
+	collector := base.StartOTelCollector(apiServer1.Port)
 	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be registered on server 1
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, server1URL)
+		agents := listAgents(t, apiServer1.Endpoint)
 
 		return len(agents) >= 1 && findAgentByUID(agents, collector.UID) != nil
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
@@ -561,8 +356,8 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// Then: Both servers should maintain consistent agent data
 	// The messaging system ensures servers are aware of configuration changes
 	assert.Eventually(t, func() bool {
-		agent1, err1 := tryGetAgentByID(server1URL, collector.UID)
-		agent2, err2 := tryGetAgentByID(server2URL, collector.UID)
+		agent1, err1 := tryGetAgentByID(apiServer1.Endpoint, collector.UID)
+		agent2, err2 := tryGetAgentByID(apiServer2.Endpoint, collector.UID)
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)

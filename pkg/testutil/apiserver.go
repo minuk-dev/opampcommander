@@ -16,6 +16,12 @@ const (
 	apiServerPollInterval = 500 * time.Millisecond
 	dbConnectTimeout      = 10 * time.Second
 	jwtExpiration         = 24 * time.Hour
+	kafkaEventTopic       = "e2e.opampcommander.events"
+
+	// DefaultAdminUsername is the admin username used in test API servers.
+	DefaultAdminUsername = "test-admin"
+	// DefaultAdminPassword is the admin password used in test API servers.
+	DefaultAdminPassword = "test-password"
 )
 
 // APIServer holds a running test API server and its configuration.
@@ -93,8 +99,8 @@ func buildServerSettings(
 		AuthSettings: config.AuthSettings{
 			//exhaustruct:ignore
 			AdminSettings: config.AdminSettings{
-				Username: "test-admin",
-				Password: "test-password",
+				Username: DefaultAdminUsername,
+				Password: DefaultAdminPassword,
 				Email:    "test@test.com",
 			},
 			//exhaustruct:ignore
@@ -133,6 +139,42 @@ func (b *Base) StartAPIServer(
 	managementPort := b.GetFreeTCPPort()
 
 	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
+	server := apiserver.New(settings)
+
+	go func() {
+		_ = server.Run(b.t.Context())
+	}()
+
+	return &APIServer{
+		Base:               b,
+		Server:             server,
+		ServerID:           serverID,
+		Endpoint:           fmt.Sprintf("http://localhost:%d", serverPort),
+		Port:               serverPort,
+		ManagementEndpoint: fmt.Sprintf("http://localhost:%d", managementPort),
+		ManagementPort:     managementPort,
+		MongoURI:           mongoURI,
+		Settings:           settings,
+	}
+}
+
+// StartAPIServerWithKafka starts a new API server backed by MongoDB and Kafka for event processing.
+func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName string) *APIServer {
+	b.t.Helper()
+
+	serverID := Identifier(b.t)
+	serverPort := b.GetFreeTCPPort()
+	managementPort := b.GetFreeTCPPort()
+
+	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
+	settings.EventSettings = config.EventSettings{
+		ProtocolType: config.EventProtocolTypeKafka,
+		KafkaSettings: config.KafkaSettings{
+			Brokers: []string{kafkaBroker},
+			Topic:   kafkaEventTopic,
+		},
+	}
+
 	server := apiserver.New(settings)
 
 	go func() {
