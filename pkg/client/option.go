@@ -30,10 +30,10 @@ func WithBearerToken(bearerToken string) OptionFunc {
 // and configures the client to use the resulting Bearer token.
 // If the exchange fails (e.g. server not yet ready), the client is left unauthenticated.
 func WithBasicAuth(username, password string) OptionFunc {
-	return func(c *Client) {
+	return func(cli *Client) {
 		var authToken v1auth.AuthnTokenResponse
 
-		res, err := c.common.Resty.R().
+		res, err := cli.common.Resty.R().
 			SetResult(&authToken).
 			SetBasicAuth(username, password).
 			Get(BasicAuthAPIURL)
@@ -41,7 +41,7 @@ func WithBasicAuth(username, password string) OptionFunc {
 			return
 		}
 
-		c.SetAuthToken(authToken.Token)
+		cli.SetAuthToken(authToken.Token)
 	}
 }
 
