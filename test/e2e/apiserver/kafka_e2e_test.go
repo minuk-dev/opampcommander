@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -91,11 +90,8 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	t.Logf("AgentGroup created: %s", agentGroupName)
 
 	// Given: Collector connects to server 1
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfig(t, base.CacheDir, server1Port, collectorUID)
-	collectorContainer := startOTelCollector(t, collectorCfg)
-
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	collector := base.StartOTelCollector(server1Port)
+	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be visible on server 1
 	var agent1 *v1.Agent
@@ -106,7 +102,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 			return false
 		}
 
-		agent1 = findAgentByUID(agents1, collectorUID)
+		agent1 = findAgentByUID(agents1, collector.UID)
 
 		return agent1 != nil
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
@@ -116,7 +112,7 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// Then: Agent should also be visible on server 2 (shared database)
 	agents2 := listAgents(t, server2URL)
 	require.GreaterOrEqual(t, len(agents2), 1, "Agent should be visible on server 2")
-	agent2 := findAgentByUID(agents2, collectorUID)
+	agent2 := findAgentByUID(agents2, collector.UID)
 	require.NotNil(t, agent2, "Collector should be found on server 2")
 	t.Logf("Agent visible on server 2: %s", agent2.Metadata.InstanceUID)
 
@@ -129,14 +125,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// Then: Both servers should have access to the agent data (since they share the same DB)
 	// Note: Remote config may not be supported by the collector, so we verify agent presence instead
 	assert.Eventually(t, func() bool {
-		updatedAgent1, err1 := tryGetAgentByID(server1URL, collectorUID)
+		updatedAgent1, err1 := tryGetAgentByID(server1URL, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from server1: %v", err1)
 
 			return false
 		}
 
-		updatedAgent2, err2 := tryGetAgentByID(server2URL, collectorUID)
+		updatedAgent2, err2 := tryGetAgentByID(server2URL, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from server2: %v", err2)
 
@@ -146,8 +142,8 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 		t.Logf("Agent1 InstanceUID: %s", updatedAgent1.Metadata.InstanceUID)
 		t.Logf("Agent2 InstanceUID: %s", updatedAgent2.Metadata.InstanceUID)
 
-		agent1Present := updatedAgent1.Metadata.InstanceUID == collectorUID
-		agent2Present := updatedAgent2.Metadata.InstanceUID == collectorUID
+		agent1Present := updatedAgent1.Metadata.InstanceUID == collector.UID
+		agent2Present := updatedAgent2.Metadata.InstanceUID == collector.UID
 
 		t.Logf("Agent1 present: %v, Agent2 present: %v", agent1Present, agent2Present)
 
@@ -202,11 +198,8 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	t.Logf("AgentGroup created: %s", agentGroupName)
 
 	// Given: Collector connects to primary server
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfig(t, base.CacheDir, primaryPort, collectorUID)
-	collectorContainer := startOTelCollector(t, collectorCfg)
-
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	collector := base.StartOTelCollector(primaryPort)
+	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent is registered on primary
 	assert.Eventually(t, func() bool {
@@ -233,7 +226,7 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	agentsOnSecondary := listAgents(t, secondaryURL)
 	require.GreaterOrEqual(t, len(agentsOnSecondary), 1, "Agent should be visible on secondary")
 
-	agent := findAgentByUID(agentsOnSecondary, collectorUID)
+	agent := findAgentByUID(agentsOnSecondary, collector.UID)
 	require.NotNil(t, agent, "Agent should be found on secondary server")
 
 	// When: Update config via secondary server using AgentGroup
@@ -246,14 +239,14 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	// we'll verify that the agent data is properly shared between servers
 	// and both servers can access the same agent information
 	assert.Eventually(t, func() bool {
-		primaryAgent, err1 := tryGetAgentByID(primaryURL, collectorUID)
+		primaryAgent, err1 := tryGetAgentByID(primaryURL, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from primary: %v", err1)
 
 			return false
 		}
 
-		secondaryAgent, err2 := tryGetAgentByID(secondaryURL, collectorUID)
+		secondaryAgent, err2 := tryGetAgentByID(secondaryURL, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from secondary: %v", err2)
 
@@ -261,8 +254,8 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 		}
 
 		// Both servers should see the agent and have the same basic agent information
-		primaryHasAgent := primaryAgent.Metadata.InstanceUID == collectorUID
-		secondaryHasAgent := secondaryAgent.Metadata.InstanceUID == collectorUID
+		primaryHasAgent := primaryAgent.Metadata.InstanceUID == collector.UID
+		secondaryHasAgent := secondaryAgent.Metadata.InstanceUID == collector.UID
 
 		t.Logf("Primary has agent: %v, Secondary has agent: %v", primaryHasAgent, secondaryHasAgent)
 
@@ -547,17 +540,14 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	t.Logf("AgentGroup created: %s", agentGroupName)
 
 	// Given: Collector connects to server 1
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfig(t, base.CacheDir, server1Port, collectorUID)
-	collectorContainer := startOTelCollector(t, collectorCfg)
-
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	collector := base.StartOTelCollector(server1Port)
+	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be registered on server 1
 	assert.Eventually(t, func() bool {
 		agents := listAgents(t, server1URL)
 
-		return len(agents) >= 1 && findAgentByUID(agents, collectorUID) != nil
+		return len(agents) >= 1 && findAgentByUID(agents, collector.UID) != nil
 	}, 30*time.Second, 1*time.Second, "Agent should be registered on server 1")
 	t.Log("Agent registered on server 1")
 
@@ -571,8 +561,8 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// Then: Both servers should maintain consistent agent data
 	// The messaging system ensures servers are aware of configuration changes
 	assert.Eventually(t, func() bool {
-		agent1, err1 := tryGetAgentByID(server1URL, collectorUID)
-		agent2, err2 := tryGetAgentByID(server2URL, collectorUID)
+		agent1, err1 := tryGetAgentByID(server1URL, collector.UID)
+		agent2, err2 := tryGetAgentByID(server2URL, collector.UID)
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)
@@ -581,8 +571,8 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 		}
 
 		// Verify both servers have access to the agent
-		agentExists1 := agent1.Metadata.InstanceUID == collectorUID
-		agentExists2 := agent2.Metadata.InstanceUID == collectorUID
+		agentExists1 := agent1.Metadata.InstanceUID == collector.UID
+		agentExists2 := agent2.Metadata.InstanceUID == collector.UID
 
 		t.Logf("Agent on server1: %v, server2: %v", agentExists1, agentExists2)
 

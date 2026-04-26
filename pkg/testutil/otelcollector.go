@@ -95,6 +95,107 @@ func buildCollectorContainerRequest(configPath string) testcontainers.ContainerR
 	}
 }
 
+func collectorConfigContentHTTP(opampPort int, instanceUID uuid.UUID) string {
+	return fmt.Sprintf(`receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+
+exporters:
+  debug:
+    verbosity: detailed
+
+extensions:
+  opamp:
+    server:
+      http:
+        endpoint: http://host.docker.internal:%d/api/v1/opamp
+        headers:
+          User-Agent: "e2e-test-collector-http"
+    instance_uid: %s
+
+service:
+  extensions: [opamp]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+`, opampPort, instanceUID.String())
+}
+
+func formatResourceAttrsForConfig(attrs map[string]string) string {
+	var result string
+	for k, v := range attrs {
+		result += fmt.Sprintf("      - key: %s\n        value: %s\n        action: upsert\n", k, v)
+	}
+
+	return result
+}
+
+func formatResourceAttrsForTelemetry(attrs map[string]string) string {
+	var result string
+	for k, v := range attrs {
+		result += fmt.Sprintf("      %s: %s\n", k, v)
+	}
+
+	return result
+}
+
+func collectorConfigContentWithAttributes(opampPort int, instanceUID uuid.UUID, resourceAttrs map[string]string) string {
+	return fmt.Sprintf(`receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+  resource:
+    attributes:
+%s
+exporters:
+  debug:
+    verbosity: basic
+
+extensions:
+  opamp:
+    server:
+      ws:
+        endpoint: ws://host.docker.internal:%d/api/v1/opamp
+        tls:
+          insecure: true
+    instance_uid: %s
+
+service:
+  extensions: [opamp]
+  telemetry:
+    logs:
+      level: info
+    resource:
+%s
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [debug]
+`, formatResourceAttrsForConfig(resourceAttrs), opampPort, instanceUID.String(), formatResourceAttrsForTelemetry(resourceAttrs))
+}
+
 // StartOTelCollector starts an OTel Collector container connected to the given OpAMP port.
 func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
 	b.t.Helper()
@@ -103,6 +204,58 @@ func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
 	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
 
 	err := os.WriteFile(configPath, []byte(collectorConfigContent(opampPort, instanceUID)), collectorConfigFileMode)
+	require.NoError(b.t, err)
+
+	//exhaustruct:ignore
+	container, err := testcontainers.GenericContainer(
+		b.t.Context(), testcontainers.GenericContainerRequest{
+			ContainerRequest: buildCollectorContainerRequest(configPath),
+			Started:          true,
+		})
+	require.NoError(b.t, err)
+
+	return &OTelCollector{
+		Base:       b,
+		Container:  container,
+		UID:        instanceUID,
+		configPath: configPath,
+	}
+}
+
+// StartOTelCollectorHTTP starts an OTel Collector container using HTTP polling to connect to the given OpAMP port.
+func (b *Base) StartOTelCollectorHTTP(opampPort int) *OTelCollector {
+	b.t.Helper()
+
+	instanceUID := uuid.New()
+	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-http-%s.yaml", instanceUID.String()))
+
+	err := os.WriteFile(configPath, []byte(collectorConfigContentHTTP(opampPort, instanceUID)), collectorConfigFileMode)
+	require.NoError(b.t, err)
+
+	//exhaustruct:ignore
+	container, err := testcontainers.GenericContainer(
+		b.t.Context(), testcontainers.GenericContainerRequest{
+			ContainerRequest: buildCollectorContainerRequest(configPath),
+			Started:          true,
+		})
+	require.NoError(b.t, err)
+
+	return &OTelCollector{
+		Base:       b,
+		Container:  container,
+		UID:        instanceUID,
+		configPath: configPath,
+	}
+}
+
+// StartOTelCollectorWithAttributes starts an OTel Collector container with custom resource attributes.
+func (b *Base) StartOTelCollectorWithAttributes(opampPort int, resourceAttrs map[string]string) *OTelCollector {
+	b.t.Helper()
+
+	instanceUID := uuid.New()
+	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
+
+	err := os.WriteFile(configPath, []byte(collectorConfigContentWithAttributes(opampPort, instanceUID, resourceAttrs)), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
 	//exhaustruct:ignore

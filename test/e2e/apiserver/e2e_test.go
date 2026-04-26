@@ -5,7 +5,6 @@ package apiserver_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -129,14 +128,10 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 
 	// Given: Multiple collectors are started
 	numCollectors := 3
-	collectorUIDs := make([]uuid.UUID, numCollectors)
-	collectors := make([]testcontainers.Container, numCollectors)
+	collectors := make([]*testutil.OTelCollector, numCollectors)
 
 	for i := range numCollectors {
-		collectorUIDs[i] = uuid.New()
-		cfg := createCollectorConfig(t, base.CacheDir, apiPort, collectorUIDs[i])
-		collector := startOTelCollector(t, cfg)
-		collectors[i] = collector
+		collectors[i] = base.StartOTelCollector(apiPort)
 	}
 
 	defer func() {
@@ -155,8 +150,8 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 
 		foundCount := 0
 
-		for _, uid := range collectorUIDs {
-			if findAgentByUID(agents, uid) != nil {
+		for _, c := range collectors {
+			if findAgentByUID(agents, c.UID) != nil {
 				foundCount++
 			}
 		}
@@ -209,11 +204,8 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	defer func() { _ = mongoClient.Disconnect(ctx) }()
 
 	// Given: OTel Collector is started
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfig(t, base.CacheDir, apiServer.Port, collectorUID)
-	collectorContainer := startOTelCollector(t, collectorCfg)
-
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	collector := base.StartOTelCollector(apiServer.Port)
+	defer func() { _ = collector.Terminate(ctx) }()
 
 	// When: Collector reports via OpAMP multiple times
 	t.Log("Waiting for collector to register...")
@@ -229,7 +221,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	var previousSeqNum uint64
 
 	require.Eventually(t, func() bool {
-		agent := getAgentByID(t, apiServer.Endpoint, collectorUID)
+		agent := getAgentByID(t, apiServer.Endpoint, collector.UID)
 
 		// First check: SequenceNum should be present and non-zero
 		if agent.Status.SequenceNum == 0 {
@@ -261,7 +253,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 
 	// Then: Verify SequenceNum in MongoDB directly
 	t.Log("Verifying SequenceNum in MongoDB...")
-	verifySequenceNumInMongoDB(t, mongoClient, dbName, collectorUID)
+	verifySequenceNumInMongoDB(t, mongoClient, dbName, collector.UID)
 
 	// Then: Final verification - get multiple reports and ensure monotonic increase
 	t.Log("Final verification of SequenceNum progression...")
@@ -271,7 +263,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	for i := range 5 {
 		time.Sleep(3 * time.Second)
 
-		agent := getAgentByID(t, apiServer.Endpoint, collectorUID)
+		agent := getAgentByID(t, apiServer.Endpoint, collector.UID)
 		seqNums = append(seqNums, agent.Status.SequenceNum)
 		t.Logf("Sample %d: SequenceNum = %d", i+1, agent.Status.SequenceNum)
 	}
@@ -513,20 +505,11 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	opampClient := createOpampClient(t, apiBaseURL)
 
 	// Given: Two OTel Collectors - one with HTTP polling, one with WebSocket
-	httpCollectorUID := uuid.New()
-	wsCollectorUID := uuid.New()
+	httpCollector := base.StartOTelCollectorHTTP(apiPort)
+	defer func() { _ = httpCollector.Terminate(ctx) }()
 
-	// Start HTTP polling collector
-	httpCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, httpCollectorUID, "http")
-	httpCollectorContainer := startOTelCollector(t, httpCollectorCfg)
-
-	defer func() { _ = httpCollectorContainer.Terminate(ctx) }()
-
-	// Start WebSocket collector
-	wsCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, wsCollectorUID, "ws")
-	wsCollectorContainer := startOTelCollector(t, wsCollectorCfg)
-
-	defer func() { _ = wsCollectorContainer.Terminate(ctx) }()
+	wsCollector := base.StartOTelCollector(apiPort)
+	defer func() { _ = wsCollector.Terminate(ctx) }()
 
 	// When: Both collectors connect
 	assert.Eventually(t, func() bool {
@@ -540,8 +523,8 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	require.GreaterOrEqual(t, len(agents), 2, "Both collectors should register as agents")
 
 	// Find our collectors in the agents list
-	httpAgent := findAgentByUID(agents, httpCollectorUID)
-	wsAgent := findAgentByUID(agents, wsCollectorUID)
+	httpAgent := findAgentByUID(agents, httpCollector.UID)
+	wsAgent := findAgentByUID(agents, wsCollector.UID)
 
 	require.NotNil(t, httpAgent, "HTTP collector should be registered as agent")
 	require.NotNil(t, wsAgent, "WebSocket collector should be registered as agent")
@@ -555,7 +538,7 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 		for _, conn := range connections {
 			t.Logf("Connection InstanceUID: %s, Type: %s", conn.InstanceUID, conn.Type)
 
-			if conn.InstanceUID == wsCollectorUID && conn.Type == "WebSocket" {
+			if conn.InstanceUID == wsCollector.UID && conn.Type == "WebSocket" {
 				t.Logf("WebSocket collector connection found")
 
 				return true
@@ -576,92 +559,6 @@ func listConnections(t *testing.T, c *client.Client) []v1.Connection {
 	return resp.Items
 }
 
-// createCollectorConfigWithProtocol creates a collector config with specified protocol.
-func createCollectorConfigWithProtocol(
-	t *testing.T,
-	cacheDir string,
-	apiPort int,
-	collectorUID uuid.UUID,
-	protocol string,
-) string {
-	t.Helper()
-
-	var configContent string
-	if protocol == "http" {
-		// HTTP polling configuration
-		configContent = fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-
-processors:
-  batch:
-
-exporters:
-  debug:
-    verbosity: detailed
-
-extensions:
-  opamp:
-    server:
-      http:
-        endpoint: http://host.docker.internal:%d/api/v1/opamp
-        headers:
-          User-Agent: "e2e-test-collector-http"
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-`, apiPort, collectorUID.String())
-	} else {
-		// WebSocket configuration
-		configContent = fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-
-processors:
-  batch:
-
-exporters:
-  debug:
-    verbosity: detailed
-
-extensions:
-  opamp:
-    server:
-      ws:
-        endpoint: ws://host.docker.internal:%d/api/v1/opamp
-        tls:
-          insecure: true
-        headers:
-          User-Agent: "e2e-test-collector-ws"
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-`, apiPort, collectorUID.String())
-	}
-
-	configPath := fmt.Sprintf("%s/collector-config-%s-%s.yaml", cacheDir, protocol, collectorUID.String())
-
-	err := writeFile(configPath, configContent)
-	require.NoError(t, err)
-
-	return configPath
-}
 
 // TestE2E_AgentPackage_CRUD tests the CRUD operations for agent packages via the API.
 func TestE2E_AgentPackage_CRUD(t *testing.T) {
@@ -1055,7 +952,3 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.Error(t, err, "Get deleted AgentGroup without includeDeleted should return error")
 }
 
-// writeFile writes content to a file, creating parent directories as needed.
-func writeFile(path, content string) error {
-	return os.WriteFile(path, []byte(content), 0600)
-}

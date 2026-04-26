@@ -5,15 +5,11 @@ package apiserver_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
@@ -23,8 +19,7 @@ import (
 )
 
 const (
-	e2eOTelCollectorImage = "otel/opentelemetry-collector-contrib:0.115.1"
-	testAdminUsername     = "test-admin"
+	testAdminUsername = "test-admin"
 	testAdminPassword     = "test-password"
 	testAdminEmail        = "test@test.com"
 	testJWTSigningKey     = "test-secret-key"
@@ -152,88 +147,3 @@ func findAgentByUID(agents []v1.Agent, uid uuid.UUID) *v1.Agent {
 	return nil
 }
 
-func createCollectorConfig(t *testing.T, cacheDir string, apiPort int, collectorUID uuid.UUID) string {
-	t.Helper()
-
-	configContent := fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-
-processors:
-  batch:
-
-exporters:
-  debug:
-    verbosity: basic
-
-extensions:
-  opamp:
-    server:
-      ws:
-        endpoint: ws://host.docker.internal:%d/api/v1/opamp
-        tls:
-          insecure: true
-        headers:
-          X-Test-Header: e2e-test
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  telemetry:
-    logs:
-      level: info
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-    metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-`, apiPort, collectorUID.String())
-
-	configPath := filepath.Join(cacheDir, fmt.Sprintf("collector-config-%s.yaml", collectorUID.String()))
-	err := os.WriteFile(configPath, []byte(configContent), 0600)
-	require.NoError(t, err)
-
-	return configPath
-}
-
-func startOTelCollector(t *testing.T, configPath string) testcontainers.Container {
-	t.Helper()
-
-	//exhaustruct:ignore
-	req := testcontainers.ContainerRequest{
-		Image:        e2eOTelCollectorImage,
-		ExposedPorts: []string{"4317/tcp", "4318/tcp"},
-		Files: []testcontainers.ContainerFile{
-			//exhaustruct:ignore
-			{
-				HostFilePath:      configPath,
-				ContainerFilePath: "/etc/otel-collector-config.yaml",
-				FileMode:          0644,
-			},
-		},
-		Cmd:        []string{"--config=/etc/otel-collector-config.yaml"},
-		WaitingFor: wait.ForLog("Everything is ready").WithStartupTimeout(60 * time.Second),
-		ExtraHosts: []string{"host.docker.internal:host-gateway"},
-	}
-
-	//exhaustruct:ignore
-	container, err := testcontainers.GenericContainer(t.Context(), testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	return container
-}
