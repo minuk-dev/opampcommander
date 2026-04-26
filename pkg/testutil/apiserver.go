@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -39,7 +40,8 @@ type APIServer struct {
 
 	MongoURI string
 
-	Settings config.ServerSettings
+	Settings   config.ServerSettings
+	stopServer func() // cancels the server's running context
 }
 
 // AdminUsername returns the admin username configured for this test server.
@@ -56,19 +58,19 @@ func (a *APIServer) AdminPassword() string {
 func (a *APIServer) WaitForReady() {
 	a.t.Helper()
 
-	c := a.Client()
+	pingClient := client.New(a.Endpoint)
 
 	require.Eventually(a.t, func() bool {
-		err := c.Ping()
+		err := pingClient.Ping()
 
 		return err == nil
 	}, apiServerStartTimeout, apiServerPollInterval, "API server should start")
 }
 
-// Stop shuts down the API server and fails the test on error.
+// Stop signals the API server to shut down by cancelling its running context.
+// The server's Run goroutine handles graceful shutdown with a built-in timeout.
 func (a *APIServer) Stop() {
-	a.t.Helper()
-	require.NoError(a.t, a.Server.Stop(a.t.Context()))
+	a.stopServer()
 }
 
 // Client returns a pre-authenticated client pointing at this test server.
@@ -141,8 +143,10 @@ func (b *Base) StartAPIServer(
 	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
 	server := apiserver.New(settings)
 
+	serverCtx, serverCancel := context.WithCancel(b.t.Context())
+
 	go func() {
-		_ = server.Run(b.t.Context())
+		_ = server.Run(serverCtx)
 	}()
 
 	return &APIServer{
@@ -155,6 +159,7 @@ func (b *Base) StartAPIServer(
 		ManagementPort:     managementPort,
 		MongoURI:           mongoURI,
 		Settings:           settings,
+		stopServer:         serverCancel,
 	}
 }
 
@@ -177,8 +182,10 @@ func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName strin
 
 	server := apiserver.New(settings)
 
+	serverCtx, serverCancel := context.WithCancel(b.t.Context())
+
 	go func() {
-		_ = server.Run(b.t.Context())
+		_ = server.Run(serverCtx)
 	}()
 
 	return &APIServer{
@@ -191,5 +198,6 @@ func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName strin
 		ManagementPort:     managementPort,
 		MongoURI:           mongoURI,
 		Settings:           settings,
+		stopServer:         serverCancel,
 	}
 }

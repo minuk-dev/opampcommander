@@ -1,6 +1,10 @@
 package client
 
-import "log/slog"
+import (
+	"log/slog"
+
+	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
+)
 
 // Option provides a way to configure the opampcommander API client.
 type Option interface {
@@ -22,10 +26,22 @@ func WithBearerToken(bearerToken string) OptionFunc {
 	}
 }
 
-// WithBasicAuth sets the basic authentication credentials for the client.
+// WithBasicAuth exchanges the given credentials for a JWT via /api/v1/auth/basic
+// and configures the client to use the resulting Bearer token.
+// If the exchange fails (e.g. server not yet ready), the client is left unauthenticated.
 func WithBasicAuth(username, password string) OptionFunc {
 	return func(c *Client) {
-		c.SetBasicAuth(username, password)
+		var authToken v1auth.AuthnTokenResponse
+
+		res, err := c.common.Resty.R().
+			SetResult(&authToken).
+			SetBasicAuth(username, password).
+			Get(BasicAuthAPIURL)
+		if err != nil || res.IsError() || authToken.Token == "" {
+			return
+		}
+
+		c.SetAuthToken(authToken.Token)
 	}
 }
 

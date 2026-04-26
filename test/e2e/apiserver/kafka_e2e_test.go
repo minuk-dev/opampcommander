@@ -102,14 +102,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// Then: Both servers should have access to the agent data (since they share the same DB)
 	// Note: Remote config may not be supported by the collector, so we verify agent presence instead
 	assert.Eventually(t, func() bool {
-		updatedAgent1, err1 := tryGetAgentByID(apiServer1.Endpoint, collector.UID)
+		updatedAgent1, err1 := tryGetAgentByIDWithClient(client1, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from server1: %v", err1)
 
 			return false
 		}
 
-		updatedAgent2, err2 := tryGetAgentByID(apiServer2.Endpoint, collector.UID)
+		updatedAgent2, err2 := tryGetAgentByIDWithClient(client2, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from server2: %v", err2)
 
@@ -203,14 +203,14 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	// we'll verify that the agent data is properly shared between servers
 	// and both servers can access the same agent information
 	assert.Eventually(t, func() bool {
-		primaryAgent, err1 := tryGetAgentByID(primaryServer.Endpoint, collector.UID)
+		primaryAgent, err1 := tryGetAgentByIDWithClient(primaryClient, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from primary: %v", err1)
 
 			return false
 		}
 
-		secondaryAgent, err2 := tryGetAgentByID(secondaryServer.Endpoint, collector.UID)
+		secondaryAgent, err2 := tryGetAgentByIDWithClient(secondaryClient, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from secondary: %v", err2)
 
@@ -355,8 +355,8 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// Then: Both servers should maintain consistent agent data
 	// The messaging system ensures servers are aware of configuration changes
 	assert.Eventually(t, func() bool {
-		agent1, err1 := tryGetAgentByID(apiServer1.Endpoint, collector.UID)
-		agent2, err2 := tryGetAgentByID(apiServer2.Endpoint, collector.UID)
+		agent1, err1 := tryGetAgentByIDWithClient(client1, collector.UID)
+		agent2, err2 := tryGetAgentByIDWithClient(client2, collector.UID)
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)

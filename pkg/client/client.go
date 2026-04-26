@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 
 	apiv1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1version "github.com/minuk-dev/opampcommander/api/v1/version"
 )
+
+const defaultHTTPTimeout = 15 * time.Second
 
 // Client is a struct that contains the endpoint and the resty client.
 type Client struct {
@@ -39,7 +42,7 @@ type service struct {
 // New creates a new client for opampcommander's apiserver.
 func New(endpoint string, opt ...Option) *Client {
 	service := service{
-		Resty: resty.New().SetBaseURL(endpoint),
+		Resty: resty.New().SetBaseURL(endpoint).SetTimeout(defaultHTTPTimeout),
 	}
 	client := &Client{
 		Endpoint: endpoint,

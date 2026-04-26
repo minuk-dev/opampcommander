@@ -35,8 +35,7 @@ func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) *v1.Agent {
 	return agent
 }
 
-func tryGetAgentByID(baseURL string, uid uuid.UUID) (*v1.Agent, error) {
-	c := client.New(baseURL, client.WithBasicAuth(testutil.DefaultAdminUsername, testutil.DefaultAdminPassword))
+func tryGetAgentByIDWithClient(c *client.Client, uid uuid.UUID) (*v1.Agent, error) {
 	return c.AgentService.GetAgent(context.Background(), "default", uid)
 }
 
