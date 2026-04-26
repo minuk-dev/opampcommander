@@ -532,9 +532,6 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
@@ -811,9 +808,6 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping E2E test in short mode")
 	}
-
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-	defer cancel()
 
 	base := testutil.NewBase(t)
 
