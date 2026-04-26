@@ -8,10 +8,6 @@ import (
 )
 
 const (
-	// AssignRoleURL is the path to assign a role to a user.
-	AssignRoleURL = "/api/v1/rbac/assign"
-	// UnassignRoleURL is the path to unassign a role from a user.
-	UnassignRoleURL = "/api/v1/rbac/unassign"
 	// CheckPermissionURL is the path to check a user's permission.
 	CheckPermissionURL = "/api/v1/rbac/check"
 	// GetUserRolesURL is the path to get a user's roles.
@@ -32,54 +28,6 @@ func NewRBACService(service *service) *RBACService {
 	return &RBACService{
 		service: service,
 	}
-}
-
-// AssignRole assigns a role to a user.
-func (s *RBACService) AssignRole(ctx context.Context, req *v1.AssignRoleRequest) error {
-	res, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetBody(req).
-		Post(AssignRoleURL)
-	if err != nil {
-		return fmt.Errorf("failed to assign role: %w", err)
-	}
-
-	if res.IsError() {
-		return fmt.Errorf("failed to assign role: %w", &ResponseError{
-			StatusCode:   res.StatusCode(),
-			ErrorMessage: res.String(),
-		})
-	}
-
-	return nil
-}
-
-// UnassignRole unassigns a role from a user.
-func (s *RBACService) UnassignRole(ctx context.Context, userID, roleID string) error {
-	req := struct {
-		UserID string `json:"userId"`
-		RoleID string `json:"roleId"`
-	}{
-		UserID: userID,
-		RoleID: roleID,
-	}
-
-	res, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetBody(&req).
-		Post(UnassignRoleURL)
-	if err != nil {
-		return fmt.Errorf("failed to unassign role: %w", err)
-	}
-
-	if res.IsError() {
-		return fmt.Errorf("failed to unassign role: %w", &ResponseError{
-			StatusCode:   res.StatusCode(),
-			ErrorMessage: res.String(),
-		})
-	}
-
-	return nil
 }
 
 // CheckPermission checks whether a user has a specific permission.

@@ -53,12 +53,15 @@ type PermissionUsecase interface {
 
 // UserRoleUsecase is an interface that defines the methods for user role use cases.
 type UserRoleUsecase interface {
-	// AssignRole assigns a role to a user.
-	AssignRole(ctx context.Context, userID, roleID, assignedBy uuid.UUID) error
-	// UnassignRole removes a role from a user.
-	UnassignRole(ctx context.Context, userID, roleID uuid.UUID) error
+	// AssignRole assigns a role to a user in a specific namespace.
+	// Use "*" as namespace for all namespaces.
+	AssignRole(ctx context.Context, userID, roleID, assignedBy uuid.UUID, namespace string) error
+	// UnassignRole removes a role from a user in a specific namespace.
+	UnassignRole(ctx context.Context, userID, roleID uuid.UUID, namespace string) error
 	// GetUserRoles returns all roles assigned to a user.
 	GetUserRoles(ctx context.Context, userID uuid.UUID) ([]*usermodel.Role, error)
+	// GetUserRolesInNamespace returns roles assigned to a user in a specific namespace.
+	GetUserRolesInNamespace(ctx context.Context, userID uuid.UUID, namespace string) ([]*usermodel.Role, error)
 	// GetRoleUsers returns all users assigned to a role.
 	GetRoleUsers(ctx context.Context, roleID uuid.UUID) ([]*usermodel.User, error)
 	// ListUserRoles lists all user role assignments.
@@ -67,14 +70,29 @@ type UserRoleUsecase interface {
 
 // RBACUsecase is an interface that defines RBAC authorization methods.
 type RBACUsecase interface {
-	// CheckPermission checks if a user has a specific permission.
-	CheckPermission(ctx context.Context, userID uuid.UUID, resource, action string) (bool, error)
+	// CheckPermission checks if a user has a specific permission in a namespace.
+	CheckPermission(ctx context.Context, userID uuid.UUID, namespace, resource, action string) (bool, error)
 	// GetUserPermissions returns all permissions available to a user through their roles.
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) ([]*usermodel.Permission, error)
 	// GetEffectivePermissions returns all effective permissions for a user (including inherited).
 	GetEffectivePermissions(ctx context.Context, userID uuid.UUID) ([]*usermodel.Permission, error)
 	// SyncPolicies synchronizes RBAC policies with the Casbin enforcer.
 	SyncPolicies(ctx context.Context) error
+}
+
+// RoleBindingUsecase is an interface that defines the methods for role binding use cases.
+type RoleBindingUsecase interface {
+	// GetRoleBinding retrieves a role binding by namespace and name.
+	GetRoleBinding(ctx context.Context, namespace, name string) (*usermodel.RoleBinding, error)
+	// ListRoleBindings lists all role bindings.
+	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
+	// CreateRoleBinding creates a new role binding.
+	CreateRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
+	// UpdateRoleBinding updates an existing role binding.
+	UpdateRoleBinding(ctx context.Context, namespace, name string,
+		rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
+	// DeleteRoleBinding deletes a role binding by namespace and name.
+	DeleteRoleBinding(ctx context.Context, namespace, name string) error
 }
 
 // IdentityProviderUsecase is a provider-agnostic interface for resolving external identities.

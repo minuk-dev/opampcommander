@@ -12,6 +12,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/connection"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/namespace"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/role"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/user"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -54,6 +55,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(role.NewCommand(role.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(rolebinding.NewCommand(rolebinding.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 

@@ -27,9 +27,10 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// Flags
-	userID   string
-	resource string
-	action   string
+	userID    string
+	namespace string
+	resource  string
+	action    string
 
 	// internal state
 	client *client.Client
@@ -57,6 +58,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&options.userID, "user-id", "", "User ID to check (required)")
+	cmd.Flags().StringVar(&options.namespace, "namespace", "*",
+		"Namespace scope to check permission in (* = all namespaces)")
 	cmd.Flags().StringVar(&options.resource, "resource", "", "Resource to check access for (required)")
 	cmd.Flags().StringVar(&options.action, "action", "", "Action to check access for (required)")
 
@@ -94,9 +97,10 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 // Run executes the rbac check command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	req := &v1.CheckPermissionRequest{
-		UserID:   opt.userID,
-		Resource: opt.resource,
-		Action:   opt.action,
+		UserID:    opt.userID,
+		Namespace: opt.namespace,
+		Resource:  opt.resource,
+		Action:    opt.action,
 	}
 
 	result, err := opt.client.RBACService.CheckPermission(cmd.Context(), req)

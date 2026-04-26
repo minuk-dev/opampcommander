@@ -22,6 +22,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
+
 // testCertificates holds dynamically generated test certificates.
 type testCertificates struct {
 	CertPEM   string
@@ -105,17 +106,14 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 	testCerts := generateTestCertificates(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_crud")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_cert_crud")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test 1: Create certificate
 	certName := "test-cert-crud"
@@ -228,17 +226,14 @@ func TestE2E_Certificate_MultipleCertificates(t *testing.T) {
 	testCerts := generateTestCertificates(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_multi")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_cert_multi")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Create multiple certificates for different environments
 	certNames := []string{"cert-dev", "cert-staging", "cert-prod"}
@@ -298,17 +293,14 @@ func TestE2E_Certificate_PartialData(t *testing.T) {
 	testCerts := generateTestCertificates(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_partial")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_cert_partial")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test: Create certificate with only public cert (no private key)
 	t.Run("Create Certificate without PrivateKey", func(t *testing.T) {
@@ -367,17 +359,14 @@ func TestE2E_Certificate_NotFound(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_notfound")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_cert_notfound")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test: Get non-existent certificate
 	_, err := opampClient.CertificateService.GetCertificate(ctx, "default", "non-existent-cert")
@@ -402,17 +391,14 @@ func TestE2E_Certificate_Pagination(t *testing.T) {
 	testCerts := generateTestCertificates(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_pagination")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_cert_pagination")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Create 5 certificates
 	numCerts := 5

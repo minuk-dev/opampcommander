@@ -10,7 +10,6 @@ import (
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
-	"github.com/google/uuid"
 
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
@@ -50,6 +49,7 @@ func NewEnforcerFromModel(
 
 // NewEnforcerWithAdapter creates a new Enforcer with a custom
 // policy adapter (e.g., MongoDB) for persistent policy storage.
+// Auto-save is disabled so policies are only persisted via explicit SavePolicy calls.
 func NewEnforcerWithAdapter(
 	logger *slog.Logger,
 	casbinModel model.Model,
@@ -62,20 +62,23 @@ func NewEnforcerWithAdapter(
 		)
 	}
 
+	casbinEnforcer.EnableAutoSave(false)
+
 	return &Enforcer{enforcer: casbinEnforcer, logger: logger}, nil
 }
 
-// CheckPermission checks whether a user has the given permission on a resource.
-func (c *Enforcer) CheckPermission(_ context.Context, userID uuid.UUID, resource, action string) (bool, error) {
-	allowed, err := c.enforcer.Enforce(userID.String(), resource, action)
+// CheckPermission checks whether a user has the given permission on a resource in a namespace.
+func (c *Enforcer) CheckPermission(_ context.Context, sub, dom, obj, act string) (bool, error) {
+	allowed, err := c.enforcer.Enforce(sub, dom, obj, act)
 	if err != nil {
 		return false, fmt.Errorf("failed to check permission: %w", err)
 	}
 
 	c.logger.Debug("permission check",
-		slog.String("user_id", userID.String()),
-		slog.String("resource", resource),
-		slog.String("action", action),
+		slog.String("sub", sub),
+		slog.String("dom", dom),
+		slog.String("obj", obj),
+		slog.String("act", act),
 		slog.Bool("allowed", allowed),
 	)
 
@@ -165,4 +168,14 @@ func (c *Enforcer) GetNamedPolicy(ptype string) ([][]string, error) {
 // ClearPolicy removes all policies from the enforcer.
 func (c *Enforcer) ClearPolicy(_ context.Context) {
 	c.enforcer.ClearPolicy()
+}
+
+// BuildRoleLinks rebuilds the role inheritance graph from current grouping policies.
+func (c *Enforcer) BuildRoleLinks(_ context.Context) error {
+	err := c.enforcer.BuildRoleLinks()
+	if err != nil {
+		return fmt.Errorf("failed to build role links: %w", err)
+	}
+
+	return nil
 }

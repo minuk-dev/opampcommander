@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 
 	apiv1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1version "github.com/minuk-dev/opampcommander/api/v1/version"
 )
+
+const defaultHTTPTimeout = 15 * time.Second
 
 // Client is a struct that contains the endpoint and the resty client.
 type Client struct {
@@ -29,6 +32,7 @@ type Client struct {
 	UserService              *UserService
 	RoleService              *RoleService
 	RBACService              *RBACService
+	RoleBindingService       *RoleBindingService
 }
 
 type service struct {
@@ -38,7 +42,7 @@ type service struct {
 // New creates a new client for opampcommander's apiserver.
 func New(endpoint string, opt ...Option) *Client {
 	service := service{
-		Resty: resty.New().SetBaseURL(endpoint),
+		Resty: resty.New().SetBaseURL(endpoint).SetTimeout(defaultHTTPTimeout),
 	}
 	client := &Client{
 		Endpoint: endpoint,
@@ -56,6 +60,7 @@ func New(endpoint string, opt ...Option) *Client {
 		UserService:              nil,
 		RoleService:              nil,
 		RBACService:              nil,
+		RoleBindingService:       nil,
 	}
 
 	for _, o := range opt {
@@ -73,8 +78,26 @@ func New(endpoint string, opt ...Option) *Client {
 	client.UserService = NewUserService(&service)
 	client.RoleService = NewRoleService(&service)
 	client.RBACService = NewRBACService(&service)
+	client.RoleBindingService = NewRoleBindingService(&service)
 
 	return client
+}
+
+// Ping checks if the server is alive.
+func (c *Client) Ping() error {
+	res, err := c.common.Resty.R().Get("/api/v1/ping")
+	if err != nil {
+		return fmt.Errorf("failed to ping: %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("failed to ping: %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return nil
 }
 
 // GetServerVersion retrieves the server version information.
@@ -106,6 +129,11 @@ func (c *Client) GetServerVersion(ctx context.Context) (*v1version.Info, error) 
 // SetAuthToken sets the authentication token for the client.
 func (c *Client) SetAuthToken(bearerToken string) {
 	c.common.Resty.SetAuthToken(bearerToken)
+}
+
+// SetBasicAuth sets the basic authentication credentials for the client.
+func (c *Client) SetBasicAuth(username, password string) {
+	c.common.Resty.SetBasicAuth(username, password)
 }
 
 // SetLogger sets the logger for the client.

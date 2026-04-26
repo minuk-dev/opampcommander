@@ -4,37 +4,24 @@ package apiserver_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
-	"github.com/testcontainers/testcontainers-go/wait"
-	"go.mongodb.org/mongo-driver/v2/bson"
+"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-const (
-	testMongoDBImage      = "mongo:4.4.10"
-	otelCollectorImage    = "otel/opentelemetry-collector-contrib:0.115.1"
-	apiServerStartTimeout = 15 * time.Second
-)
 
 func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	t.Parallel()
@@ -50,36 +37,46 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	dbName := "opampcommander_e2e_test_single"
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: OTel Collector is started
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfig(t, base.CacheDir, apiPort, collectorUID)
-	collectorContainer := startOTelCollector(t, collectorCfg)
+	otelCollector := base.StartOTelCollector(apiServer.Port)
+	defer func() { _ = otelCollector.Terminate(ctx) }()
 
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	opampClient := apiServer.Client()
+	namespace := "default"
 
 	// When: Collector reports via OpAMP
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, apiBaseURL)
+		agentsResp, err := opampClient.AgentService.ListAgents(ctx, namespace)
+		if err != nil {
+			return false
+		}
 
-		return len(agents) > 0
+		return len(agentsResp.Items) > 0
 	}, 3*time.Minute, 1*time.Second, "At least one agent should register within timeout")
 
 	assert.Eventually(t, func() bool {
 		// Then: Collector has complete metadata
-		agents := listAgents(t, apiBaseURL)
-		agent := findAgentByUID(agents, collectorUID)
-		require.NotNil(t, agent, "Collector should be registered")
+		agentsResp, err := opampClient.AgentService.ListAgents(ctx, namespace)
+		if err != nil {
+			return false
+		}
+
+		agentList := lo.Filter(agentsResp.Items, func(a v1.Agent, _ int) bool {
+			return a.Metadata.InstanceUID == otelCollector.UID
+		})
+
+		if len(agentList) == 0 {
+			return false
+		}
+
+		agent := agentList[0]
 
 		hasDescription := len(agent.Metadata.Description.IdentifyingAttributes) > 0 ||
 			len(agent.Metadata.Description.NonIdentifyingAttributes) > 0
@@ -87,16 +84,17 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 			return false // Agent does not have description yet
 		}
 
-		hasCapabilities := agent.Metadata.Capabilities != 0
-
-		return hasCapabilities // Agent should have capabilities
+		return agent.Metadata.Capabilities != 0 // Agent should have capabilities
 	}, 30*time.Second, 1*time.Second, "Agent metadata should be complete within timeout")
 
 	// Then: Agent is retrievable by ID
 	assert.Eventually(t, func() bool {
-		specificAgent := getAgentByID(t, apiBaseURL, collectorUID)
+		agent, err := opampClient.AgentService.GetAgent(ctx, namespace, otelCollector.UID)
+		if err != nil {
+			return false
+		}
 
-		return specificAgent.Metadata.InstanceUID == collectorUID
+		return agent.Metadata.InstanceUID == otelCollector.UID
 	}, 30*time.Second, 1*time.Second, "Agent should be retrievable by ID within timeout")
 }
 
@@ -111,27 +109,18 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_test_multi")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(t.Context()) }()
-
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_test_multi")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Multiple collectors are started
 	numCollectors := 3
-	collectorUIDs := make([]uuid.UUID, numCollectors)
-	collectors := make([]testcontainers.Container, numCollectors)
+	collectors := make([]*testutil.OTelCollector, numCollectors)
 
 	for i := range numCollectors {
-		collectorUIDs[i] = uuid.New()
-		cfg := createCollectorConfig(t, base.CacheDir, apiPort, collectorUIDs[i])
-		collector := startOTelCollector(t, cfg)
-		collectors[i] = collector
+		collectors[i] = base.StartOTelCollector(apiServer.Port)
 	}
 
 	defer func() {
@@ -142,7 +131,7 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 
 	// When: All collectors report via OpAMP
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, apiBaseURL)
+		agents := listAgents(t, apiServer.Endpoint)
 
 		if len(agents) < numCollectors {
 			return false
@@ -150,8 +139,8 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 
 		foundCount := 0
 
-		for _, uid := range collectorUIDs {
-			if findAgentByUID(agents, uid) != nil {
+		for _, c := range collectors {
+			if findAgentByUID(agents, c.UID) != nil {
 				foundCount++
 			}
 		}
@@ -160,330 +149,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
 
-func startMongoDB(t *testing.T) (testcontainers.Container, string) {
-	t.Helper()
-
-	container, err := mongoTestContainer.Run(t.Context(), testMongoDBImage)
-	require.NoError(t, err)
-
-	uri, err := container.ConnectionString(t.Context())
-	require.NoError(t, err)
-
-	return container, uri
-}
-
-func setupAPIServer(t *testing.T, port int, mongoURI, dbName string) (func(), string) {
-	t.Helper()
-
-	hostname, _ := os.Hostname()
-	serverID := fmt.Sprintf("%s-test-%d", hostname, port)
-
-	managementPort, err := testutil.GetFreeTCPPort()
-	require.NoError(t, err)
-
-	//exhaustruct:ignore
-	settings := config.ServerSettings{
-		Address:  fmt.Sprintf("0.0.0.0:%d", port),
-		ServerID: config.ServerID(serverID),
-		EventSettings: config.EventSettings{
-			ProtocolType: config.EventProtocolTypeInMemory,
-		},
-		DatabaseSettings: config.DatabaseSettings{
-			Type:           config.DatabaseTypeMongoDB,
-			Endpoints:      []string{mongoURI},
-			ConnectTimeout: 10 * time.Second,
-			DatabaseName:   dbName,
-			DDLAuto:        true,
-		},
-		//exhaustruct:ignore
-		AuthSettings: config.AuthSettings{
-			//exhaustruct:ignore
-			AdminSettings: config.AdminSettings{
-				Username: "test-admin",
-				Password: "test-password",
-				Email:    "test@test.com",
-			},
-			//exhaustruct:ignore
-			JWTSettings: config.JWTSettings{
-				SigningKey: "test-secret-key",
-				Issuer:     "e2e-test",
-				Expiration: 24 * time.Hour,
-				Audience:   []string{"test"},
-			},
-		},
-		//exhaustruct:ignore
-		ManagementSettings: config.ManagementSettings{
-			Address: fmt.Sprintf(":%d", managementPort),
-			//exhaustruct:ignore
-			ObservabilitySettings: config.ObservabilitySettings{
-				//exhaustruct:ignore
-				Log: config.LogSettings{
-					Format: config.LogFormatText,
-				},
-			},
-		},
-	}
-
-	server := apiserver.New(settings)
-	serverCtx, cancel := context.WithCancel(t.Context())
-
-	go func() {
-		_ = server.Run(serverCtx)
-	}()
-
-	stopServer := func() {
-		cancel()
-	}
-
-	apiBaseURL := fmt.Sprintf("http://localhost:%d", port)
-
-	return stopServer, apiBaseURL
-}
-
-func getAuthToken(t *testing.T, baseURL string) string {
-	t.Helper()
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/auth/basic", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.SetBasicAuth("test-admin", "test-password")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Token string `json:"token"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Token
-}
-
-func getAuthTokenNoTest(baseURL string) string {
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/auth/basic", nil) //nolint:noctx
-	if err != nil {
-		return ""
-	}
-
-	req.SetBasicAuth("test-admin", "test-password")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return ""
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return ""
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return ""
-	}
-
-	var result struct {
-		Token string `json:"token"`
-	}
-	if json.Unmarshal(body, &result) != nil {
-		return ""
-	}
-
-	return result.Token
-}
-
-func waitForAPIServerReady(t *testing.T, baseURL string) {
-	t.Helper()
-
-	require.Eventually(t, func() bool {
-		resp, err := http.Get(baseURL + "/api/v1/ping") //nolint:noctx // test helper
-		if err != nil {
-			return false
-		}
-
-		defer func() { _ = resp.Body.Close() }()
-
-		return resp.StatusCode == http.StatusOK
-	}, apiServerStartTimeout, 500*time.Millisecond, "API server should start")
-}
-
-func listAgents(t *testing.T, baseURL string) []v1.Agent {
-	t.Helper()
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/namespaces/default/agents", nil) //nolint:noctx
-	require.NoError(t, err)
-
-	token := getAuthToken(t, baseURL)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Items []v1.Agent `json:"items"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Items
-}
-
-func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) v1.Agent {
-	t.Helper()
-
-	agent, err := tryGetAgentByID(baseURL, uid)
-	require.NoError(t, err)
-
-	return agent
-}
-
-func tryGetAgentByID(baseURL string, uid uuid.UUID) (v1.Agent, error) {
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agents/%s", baseURL, uid)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-	if err != nil {
-		return v1.Agent{}, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	token := getAuthTokenNoTest(baseURL)
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return v1.Agent{}, fmt.Errorf("failed to get agent by ID: %w", err)
-	}
-
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return v1.Agent{}, fmt.Errorf("unexpected status code: %d", resp.StatusCode) //nolint:err113
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return v1.Agent{}, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	var agent v1.Agent
-
-	err = json.Unmarshal(body, &agent)
-	if err != nil {
-		return v1.Agent{}, fmt.Errorf("failed to unmarshal agent: %w", err)
-	}
-
-	return agent, nil
-}
-
-func findAgentByUID(agents []v1.Agent, uid uuid.UUID) *v1.Agent {
-	for i := range agents {
-		if agents[i].Metadata.InstanceUID == uid {
-			return &agents[i]
-		}
-	}
-
-	return nil
-}
-
-func createCollectorConfig(t *testing.T, cacheDir string, opampPort int, instanceUID uuid.UUID) string {
-	t.Helper()
-
-	configContent := fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-
-processors:
-  batch:
-
-exporters:
-  debug:
-    verbosity: basic
-
-extensions:
-  opamp:
-    server:
-      ws:
-        endpoint: ws://host.docker.internal:%d/api/v1/opamp
-        tls:
-          insecure: true
-        headers:
-          X-Test-Header: e2e-test
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  telemetry:
-    logs:
-      level: info
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-    metrics:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-    logs:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-`, opampPort, instanceUID.String())
-
-	configPath := filepath.Join(cacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
-	err := os.WriteFile(configPath, []byte(configContent), 0600)
-	require.NoError(t, err)
-
-	return configPath
-}
-
-func startOTelCollector(t *testing.T, configPath string) testcontainers.Container {
-	t.Helper()
-
-	//exhaustruct:ignore
-	req := testcontainers.ContainerRequest{
-		Image:        otelCollectorImage,
-		ExposedPorts: []string{"4317/tcp", "4318/tcp"},
-		Files: []testcontainers.ContainerFile{
-			//exhaustruct:ignore
-			{
-				HostFilePath:      configPath,
-				ContainerFilePath: "/etc/otel-collector-config.yaml",
-				FileMode:          0644,
-			},
-		},
-		Cmd:        []string{"--config=/etc/otel-collector-config.yaml"},
-		WaitingFor: wait.ForLog("Everything is ready").WithStartupTimeout(60 * time.Second),
-		ExtraHosts: []string{"host.docker.internal:host-gateway"},
-	}
-
-	//exhaustruct:ignore
-	container, err := testcontainers.GenericContainer(t.Context(), testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
-	require.NoError(t, err)
-
-	return container
-}
 
 func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	t.Parallel()
@@ -499,35 +164,28 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	apiPort := base.GetFreeTCPPort()
 	dbName := "opampcommander_e2e_sequencenum_test"
+	mongoServer := base.StartMongoDB()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
-	defer stopServer()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Setup MongoDB client to verify data directly
-	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
 	require.NoError(t, err)
 
 	defer func() { _ = mongoClient.Disconnect(ctx) }()
 
 	// Given: OTel Collector is started
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfig(t, base.CacheDir, apiPort, collectorUID)
-	collectorContainer := startOTelCollector(t, collectorCfg)
-
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	collector := base.StartOTelCollector(apiServer.Port)
+	defer func() { _ = collector.Terminate(ctx) }()
 
 	// When: Collector reports via OpAMP multiple times
 	t.Log("Waiting for collector to register...")
 	require.Eventually(t, func() bool {
-		agents := listAgents(t, apiBaseURL)
+		agents := listAgents(t, apiServer.Endpoint)
 
 		return len(agents) > 0
 	}, 2*time.Minute, 1*time.Second, "Agent should register within timeout")
@@ -538,7 +196,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	var previousSeqNum uint64
 
 	require.Eventually(t, func() bool {
-		agent := getAgentByID(t, apiBaseURL, collectorUID)
+		agent := getAgentByID(t, apiServer.Endpoint, collector.UID)
 
 		// First check: SequenceNum should be present and non-zero
 		if agent.Status.SequenceNum == 0 {
@@ -570,7 +228,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 
 	// Then: Verify SequenceNum in MongoDB directly
 	t.Log("Verifying SequenceNum in MongoDB...")
-	verifySequenceNumInMongoDB(t, mongoClient, dbName, collectorUID)
+	verifySequenceNumInMongoDB(t, mongoClient, dbName, collector.UID)
 
 	// Then: Final verification - get multiple reports and ensure monotonic increase
 	t.Log("Final verification of SequenceNum progression...")
@@ -580,7 +238,7 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	for i := range 5 {
 		time.Sleep(3 * time.Second)
 
-		agent := getAgentByID(t, apiBaseURL, collectorUID)
+		agent := getAgentByID(t, apiServer.Endpoint, collector.UID)
 		seqNums = append(seqNums, agent.Status.SequenceNum)
 		t.Logf("Sample %d: SequenceNum = %d", i+1, agent.Status.SequenceNum)
 	}
@@ -663,18 +321,13 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_search_test")
+	defer apiServer.Stop()
 
-	defer func() {
-		_ = mongoContainer.Terminate(ctx)
-	}()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_search_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Create multiple agents with known UIDs
 	agent1UID := uuid.MustParse("12345678-1234-1234-1234-123456789012")
@@ -682,7 +335,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	agent3UID := uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789")
 
 	// Insert agents via MongoDB directly to simulate existing agents
-	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
 	require.NoError(t, err)
 
 	defer func() {
@@ -733,7 +386,7 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 
 	// When: Search by prefix "12345678-1234"
 	t.Log("Searching for agents with prefix '12345678-1234'...")
-	searchResp := searchAgents(t, apiBaseURL, "12345678-1234")
+	searchResp := searchAgents(t, opampClient, "12345678-1234")
 
 	// Then: Should find only agent1
 	assert.Len(t, searchResp.Items, 1)
@@ -741,14 +394,14 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 
 	// When: Search by prefix "1234"
 	t.Log("Searching for agents with prefix '1234'...")
-	searchResp = searchAgents(t, apiBaseURL, "1234")
+	searchResp = searchAgents(t, opampClient, "1234")
 
 	// Then: Should find agent1 and agent2
 	assert.Len(t, searchResp.Items, 2)
 
 	// When: Search by prefix "abcd" (case-insensitive)
 	t.Log("Searching for agents with prefix 'ABCD' (uppercase)...")
-	searchResp = searchAgents(t, apiBaseURL, "ABCD")
+	searchResp = searchAgents(t, opampClient, "ABCD")
 
 	// Then: Should find agent3
 	assert.Len(t, searchResp.Items, 1)
@@ -756,59 +409,38 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 
 	// When: Search with no matches
 	t.Log("Searching for agents with non-existent prefix...")
-	searchResp = searchAgents(t, apiBaseURL, "zzzzz")
+	searchResp = searchAgents(t, opampClient, "zzzzz")
 
 	// Then: Should return empty result
 	assert.Empty(t, searchResp.Items)
 
 	// When: Search with pagination
 	t.Log("Searching with pagination (limit=1)...")
-	searchResp = searchAgentsWithLimit(t, apiBaseURL, "1234", 1)
+	searchResp = searchAgentsWithLimit(t, opampClient, "1234", 1)
 
 	// Then: Should return 1 result and have continue token
 	assert.Len(t, searchResp.Items, 1)
 	assert.NotEmpty(t, searchResp.Metadata.Continue)
 }
 
-func searchAgents(t *testing.T, apiBaseURL, query string) *v1.ListResponse[v1.Agent] {
+func searchAgents(t *testing.T, c *client.Client, query string) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
-	return searchAgentsWithLimit(t, apiBaseURL, query, 0)
+	return searchAgentsWithLimit(t, c, query, 0)
 }
 
-func searchAgentsWithLimit(t *testing.T, apiBaseURL, query string, limit int) *v1.ListResponse[v1.Agent] {
+func searchAgentsWithLimit(t *testing.T, c *client.Client, query string, limit int) *v1.ListResponse[v1.Agent] {
 	t.Helper()
 
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agents/search?q=%s", apiBaseURL, query)
+	var opts []client.ListOption
 	if limit > 0 {
-		url = fmt.Sprintf("%s&limit=%d", url, limit)
+		opts = append(opts, client.WithLimit(limit))
 	}
 
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	result, err := c.AgentService.SearchAgents(t.Context(), "default", query, opts...)
 	require.NoError(t, err)
 
-	token := getAuthToken(t, apiBaseURL)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-
-	defer func() {
-		require.NoError(t, resp.Body.Close())
-	}()
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode, "Search request should succeed")
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var listResp v1.ListResponse[v1.Agent]
-
-	err = json.Unmarshal(body, &listResp)
-	require.NoError(t, err)
-
-	return &listResp
+	return result
 }
 
 // TestE2E_ConnectionType_HTTPAndWebSocket tests that HTTP and WebSocket connections
@@ -827,47 +459,35 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_conntype_test")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_conntype_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Given: Two OTel Collectors - one with HTTP polling, one with WebSocket
-	httpCollectorUID := uuid.New()
-	wsCollectorUID := uuid.New()
+	httpCollector := base.StartOTelCollectorHTTP(apiServer.Port)
+	defer func() { _ = httpCollector.Terminate(ctx) }()
 
-	// Start HTTP polling collector
-	httpCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, httpCollectorUID, "http")
-	httpCollectorContainer := startOTelCollector(t, httpCollectorCfg)
-
-	defer func() { _ = httpCollectorContainer.Terminate(ctx) }()
-
-	// Start WebSocket collector
-	wsCollectorCfg := createCollectorConfigWithProtocol(t, base.CacheDir, apiPort, wsCollectorUID, "ws")
-	wsCollectorContainer := startOTelCollector(t, wsCollectorCfg)
-
-	defer func() { _ = wsCollectorContainer.Terminate(ctx) }()
+	wsCollector := base.StartOTelCollector(apiServer.Port)
+	defer func() { _ = wsCollector.Terminate(ctx) }()
 
 	// When: Both collectors connect
 	assert.Eventually(t, func() bool {
-		agents := listAgents(t, apiBaseURL)
+		agents := listAgents(t, apiServer.Endpoint)
 
 		return len(agents) >= 2
 	}, 2*time.Minute, 1*time.Second, "Both collectors should register")
 
 	// Then: Verify agents are registered
-	agents := listAgents(t, apiBaseURL)
+	agents := listAgents(t, apiServer.Endpoint)
 	require.GreaterOrEqual(t, len(agents), 2, "Both collectors should register as agents")
 
 	// Find our collectors in the agents list
-	httpAgent := findAgentByUID(agents, httpCollectorUID)
-	wsAgent := findAgentByUID(agents, wsCollectorUID)
+	httpAgent := findAgentByUID(agents, httpCollector.UID)
+	wsAgent := findAgentByUID(agents, wsCollector.UID)
 
 	require.NotNil(t, httpAgent, "HTTP collector should be registered as agent")
 	require.NotNil(t, wsAgent, "WebSocket collector should be registered as agent")
@@ -875,13 +495,13 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 	// Then: Check that WebSocket connection is active
 	// Note: HTTP polling connections are not persistent, so they won't appear in connections list
 	assert.Eventually(t, func() bool {
-		connections := listConnections(t, apiBaseURL)
+		connections := listConnections(t, opampClient)
 		t.Logf("Found %d active connections", len(connections))
 
 		for _, conn := range connections {
 			t.Logf("Connection InstanceUID: %s, Type: %s", conn.InstanceUID, conn.Type)
 
-			if conn.InstanceUID == wsCollectorUID && conn.Type == "WebSocket" {
+			if conn.InstanceUID == wsCollector.UID && conn.Type == "WebSocket" {
 				t.Logf("WebSocket collector connection found")
 
 				return true
@@ -893,127 +513,15 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 }
 
 // listConnections retrieves all connections from the API.
-func listConnections(t *testing.T, baseURL string) []connectionResponse {
+func listConnections(t *testing.T, c *client.Client) []v1.Connection {
 	t.Helper()
 
-	token := getAuthToken(t, baseURL)
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/namespaces/default/connections", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.ConnectionService.ListConnections(t.Context(), "default")
 	require.NoError(t, err)
 
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Items []connectionResponse `json:"items"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Items
+	return resp.Items
 }
 
-// connectionResponse represents a connection from the API response.
-type connectionResponse struct {
-	ID                 uuid.UUID `json:"id"`
-	InstanceUID        uuid.UUID `json:"instanceUid"`
-	Type               string    `json:"type"`
-	LastCommunicatedAt time.Time `json:"lastCommunicatedAt"`
-	Alive              bool      `json:"alive"`
-}
-
-// createCollectorConfigWithProtocol creates a collector config with specified protocol.
-func createCollectorConfigWithProtocol(
-	t *testing.T,
-	cacheDir string,
-	apiPort int,
-	collectorUID uuid.UUID,
-	protocol string,
-) string {
-	t.Helper()
-
-	var configContent string
-	if protocol == "http" {
-		// HTTP polling configuration
-		configContent = fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-
-processors:
-  batch:
-
-exporters:
-  debug:
-    verbosity: detailed
-
-extensions:
-  opamp:
-    server:
-      http:
-        endpoint: http://host.docker.internal:%d/api/v1/opamp
-        headers:
-          User-Agent: "e2e-test-collector-http"
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-`, apiPort, collectorUID.String())
-	} else {
-		// WebSocket configuration
-		configContent = fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-
-processors:
-  batch:
-
-exporters:
-  debug:
-    verbosity: detailed
-
-extensions:
-  opamp:
-    server:
-      ws:
-        endpoint: ws://host.docker.internal:%d/api/v1/opamp
-        tls:
-          insecure: true
-        headers:
-          User-Agent: "e2e-test-collector-ws"
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch]
-      exporters: [debug]
-`, apiPort, collectorUID.String())
-	}
-
-	configPath := filepath.Join(cacheDir, fmt.Sprintf("collector-config-%s-%s.yaml", protocol, collectorUID.String()))
-	err := os.WriteFile(configPath, []byte(configContent), 0600)
-	require.NoError(t, err)
-
-	return configPath
-}
 
 // TestE2E_AgentPackage_CRUD tests the CRUD operations for agent packages via the API.
 func TestE2E_AgentPackage_CRUD(t *testing.T) {
@@ -1024,26 +532,20 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentpackage_test")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentpackage_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test Create Agent Package
 	t.Run("Create AgentPackage", func(t *testing.T) {
-		pkg := createAgentPackage(t, apiBaseURL, "test-package-1", "TopLevelPackageName", "1.0.0")
+		pkg := createAgentPackage(t, opampClient, "test-package-1", "TopLevelPackageName", "1.0.0")
 		assert.Equal(t, "test-package-1", pkg.Metadata.Name)
 		assert.Equal(t, "TopLevelPackageName", pkg.Spec.PackageType)
 		assert.Equal(t, "1.0.0", pkg.Spec.Version)
@@ -1052,36 +554,36 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 	// Test List Agent Packages
 	t.Run("List AgentPackages", func(t *testing.T) {
 		// Create another package
-		createAgentPackage(t, apiBaseURL, "test-package-2", "AddonPackage", "2.0.0")
+		createAgentPackage(t, opampClient, "test-package-2", "AddonPackage", "2.0.0")
 
-		packages := listAgentPackages(t, apiBaseURL)
+		packages := listAgentPackages(t, opampClient)
 		assert.GreaterOrEqual(t, len(packages), 2, "Should have at least 2 packages")
 	})
 
 	// Test Get Agent Package
 	t.Run("Get AgentPackage", func(t *testing.T) {
-		pkg := getAgentPackage(t, apiBaseURL, "test-package-1")
+		pkg := getAgentPackage(t, opampClient, "test-package-1")
 		assert.Equal(t, "test-package-1", pkg.Metadata.Name)
 		assert.Equal(t, "TopLevelPackageName", pkg.Spec.PackageType)
 	})
 
 	// Test Update Agent Package
 	t.Run("Update AgentPackage", func(t *testing.T) {
-		pkg := getAgentPackage(t, apiBaseURL, "test-package-1")
+		pkg := getAgentPackage(t, opampClient, "test-package-1")
 		pkg.Spec.Version = "1.1.0"
 		pkg.Spec.DownloadURL = "https://example.com/updated-pkg.tar.gz"
 
-		updated := updateAgentPackage(t, apiBaseURL, "test-package-1", pkg)
+		updated := updateAgentPackage(t, opampClient, pkg)
 		assert.Equal(t, "1.1.0", updated.Spec.Version)
 		assert.Equal(t, "https://example.com/updated-pkg.tar.gz", updated.Spec.DownloadURL)
 	})
 
 	// Test Delete Agent Package
 	t.Run("Delete AgentPackage", func(t *testing.T) {
-		deleteAgentPackage(t, apiBaseURL, "test-package-2")
+		deleteAgentPackage(t, opampClient, "test-package-2")
 
 		// Verify deletion
-		packages := listAgentPackages(t, apiBaseURL)
+		packages := listAgentPackages(t, opampClient)
 		for _, pkg := range packages {
 			assert.NotEqual(t, "test-package-2", pkg.Metadata.Name, "Deleted package should not exist")
 		}
@@ -1089,28 +591,15 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 
 	// Test Get Non-Existent Package
 	t.Run("Get Non-Existent AgentPackage", func(t *testing.T) {
-		token := getAuthToken(t, apiBaseURL)
-		url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", apiBaseURL, "non-existent-package")
-
-		req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-		require.NoError(t, err)
-		req.Header.Set("Authorization", "Bearer "+token)
-
-		resp, err := http.DefaultClient.Do(req)
-		require.NoError(t, err)
-
-		defer func() { _ = resp.Body.Close() }()
-
-		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+		_, err := opampClient.AgentPackageService.GetAgentPackage(t.Context(), "default", "non-existent-package")
+		assert.Error(t, err, "Should return error for non-existent package")
 	})
 }
 
-func createAgentPackage(t *testing.T, baseURL, name, packageType, version string) v1.AgentPackage {
+func createAgentPackage(t *testing.T, c *client.Client, name, packageType, version string) v1.AgentPackage {
 	t.Helper()
 
-	token := getAuthToken(t, baseURL)
-
-	pkg := v1.AgentPackage{
+	result, err := c.AgentPackageService.CreateAgentPackage(t.Context(), "default", &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       name,
 			Attributes: v1.Attributes{"env": "test"},
@@ -1120,132 +609,48 @@ func createAgentPackage(t *testing.T, baseURL, name, packageType, version string
 			Version:     version,
 			DownloadURL: fmt.Sprintf("https://example.com/%s.tar.gz", name),
 		},
+	})
+	require.NoError(t, err)
+
+	return *result
+}
+
+func listAgentPackages(t *testing.T, c *client.Client) []v1.AgentPackage {
+	t.Helper()
+
+	resp, err := c.AgentPackageService.ListAgentPackages(t.Context(), "default")
+	require.NoError(t, err)
+
+	return resp.Items
+}
+
+func getAgentPackage(t *testing.T, c *client.Client, name string) v1.AgentPackage {
+	t.Helper()
+
+	result, err := c.AgentPackageService.GetAgentPackage(t.Context(), "default", name)
+	require.NoError(t, err)
+
+	return *result
+}
+
+func updateAgentPackage(t *testing.T, c *client.Client, pkg v1.AgentPackage) v1.AgentPackage {
+	t.Helper()
+
+	if pkg.Metadata.Namespace == "" {
+		pkg.Metadata.Namespace = "default"
 	}
 
-	body, err := json.Marshal(pkg)
+	result, err := c.AgentPackageService.UpdateAgentPackage(t.Context(), &pkg)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/v1/namespaces/default/agentpackages", //nolint:noctx
-		strings.NewReader(string(body)))
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	respBody, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.AgentPackage
-	require.NoError(t, json.Unmarshal(respBody, &result))
-
-	return result
+	return *result
 }
 
-func listAgentPackages(t *testing.T, baseURL string) []v1.AgentPackage {
+func deleteAgentPackage(t *testing.T, c *client.Client, name string) {
 	t.Helper()
 
-	token := getAuthToken(t, baseURL)
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/namespaces/default/agentpackages", nil) //nolint:noctx
+	err := c.AgentPackageService.DeleteAgentPackage(t.Context(), "default", name)
 	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Items []v1.AgentPackage `json:"items"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Items
-}
-
-func getAgentPackage(t *testing.T, baseURL, name string) v1.AgentPackage {
-	t.Helper()
-
-	token := getAuthToken(t, baseURL)
-
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", baseURL, name)
-	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.AgentPackage
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
-}
-
-func updateAgentPackage(t *testing.T, baseURL, name string, pkg v1.AgentPackage) v1.AgentPackage {
-	t.Helper()
-
-	token := getAuthToken(t, baseURL)
-
-	body, err := json.Marshal(pkg)
-	require.NoError(t, err)
-
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", baseURL, name)
-	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(body))) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	respBody, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.AgentPackage
-	require.NoError(t, json.Unmarshal(respBody, &result))
-
-	return result
-}
-
-func deleteAgentPackage(t *testing.T, baseURL, name string) {
-	t.Helper()
-
-	token := getAuthToken(t, baseURL)
-
-	url := fmt.Sprintf("%s/api/v1/namespaces/default/agentpackages/%s", baseURL, name)
-	req, err := http.NewRequest(http.MethodDelete, url, nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
 // TestE2E_AgentGroup_StatisticsAggregation tests that AgentGroup statistics aggregation
@@ -1267,19 +672,15 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	apiPort := base.GetFreeTCPPort()
 	dbName := "opampcommander_e2e_stats_aggregation_test"
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Insert agents directly into MongoDB with null status.conditions
-	mongoClient, err := setupMongoDBClient(t, mongoURI)
+	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
 	require.NoError(t, err)
 	defer func() { _ = mongoClient.Disconnect(ctx) }()
 
@@ -1294,7 +695,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	// - agent2: connected=false, componentHealth.healthy=false
 	// - agent3: connected=true, componentHealth.healthy=true
 	// Note: identifyingAttributes must be in KeyValuePairs format (array of {key, value})
-	agents := []interface{}{
+	agentDocs := []interface{}{
 		// Agent with no status fields set (defaults to not connected/healthy)
 		bson.M{
 			"metadata": bson.M{
@@ -1351,48 +752,29 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		},
 	}
 
-	_, err = collection.InsertMany(ctx, agents)
+	_, err = collection.InsertMany(ctx, agentDocs)
 	require.NoError(t, err)
 
 	t.Logf("Inserted 3 agents: no status fields, disconnected, connected+healthy")
 
 	// When: Create an AgentGroup that matches these agents
-	token := getAuthToken(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
-	agentGroupReq := map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"name": "stats-aggregation-group",
+	//exhaustruct:ignore
+	agentGroup, err := opampClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+		Metadata: v1.Metadata{
+			Name: "stats-aggregation-group",
 		},
-		"spec": map[string]interface{}{
-			"priority": 10,
-			"selector": map[string]interface{}{
-				"identifyingAttributes": map[string]string{
+		Spec: v1.Spec{
+			Priority: 10,
+			Selector: v1.AgentSelector{
+				IdentifyingAttributes: map[string]string{
 					"service.name": "stats-test-service",
 				},
 			},
 		},
-	}
-
-	body, err := json.Marshal(agentGroupReq)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest(http.MethodPost, apiBaseURL+"/api/v1/namespaces/default/agentgroups", strings.NewReader(string(body))) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	// Then: AgentGroup should be created successfully
-	respBody, _ := io.ReadAll(resp.Body)
-	require.Equal(t, http.StatusCreated, resp.StatusCode,
-		"AgentGroup creation should succeed. Response: %s", string(respBody))
-
-	var agentGroup v1.AgentGroup
-	err = json.Unmarshal(respBody, &agentGroup)
-	require.NoError(t, err)
+	})
+	require.NoError(t, err, "AgentGroup creation should succeed")
 
 	// Then: Statistics should be calculated correctly using status.connected and status.componentHealth.healthy
 	assert.Equal(t, 3, agentGroup.Status.NumAgents, "Should count all 3 agents")
@@ -1407,28 +789,14 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		agentGroup.Status.NumNotConnectedAgents)
 
 	// When: Get the AgentGroup again (also triggers aggregation)
-	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups/stats-aggregation-group", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	// Then: Get should also succeed
-	require.Equal(t, http.StatusOK, resp.StatusCode, "Get AgentGroup should succeed")
+	got, err := opampClient.AgentGroupService.GetAgentGroup(t.Context(), "default", "stats-aggregation-group")
+	require.NoError(t, err, "Get AgentGroup should succeed")
+	assert.Equal(t, "stats-aggregation-group", got.Metadata.Name)
 
 	// When: List AgentGroups (also triggers aggregation for each group)
-	req, err = http.NewRequest(http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	// Then: List should also succeed
-	require.Equal(t, http.StatusOK, resp.StatusCode, "List AgentGroups should succeed")
+	listed, err := opampClient.AgentGroupService.ListAgentGroups(t.Context(), "default")
+	require.NoError(t, err, "List AgentGroups should succeed")
+	assert.GreaterOrEqual(t, len(listed.Items), 1)
 }
 
 // TestE2E_AgentGroup_IncludeDeleted tests that deleted agent groups can be retrieved
@@ -1441,59 +809,36 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
-
-	apiPort := base.GetFreeTCPPort()
 	dbName := "opampcommander_e2e_include_deleted_test"
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
+	defer apiServer.Stop()
 
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, dbName)
-	defer stopServer()
+	apiServer.WaitForReady()
 
-	waitForAPIServerReady(t, apiBaseURL)
-
-	// Get auth token
-	token := getAuthToken(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Step 1: Create an AgentGroup
 	agentGroupName := "test-deleted-group"
-	createReqBody := fmt.Sprintf(`{
-		"metadata": {"name": "%s"},
-		"spec": {
-			"selector": {
-				"identifyingAttributes": {"service.name": "test-service"}
-			}
-		}
-	}`, agentGroupName)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/api/v1/namespaces/default/agentgroups", strings.NewReader(createReqBody))
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusCreated, resp.StatusCode, "Create AgentGroup should succeed")
+	//exhaustruct:ignore
+	_, err := opampClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+		Metadata: v1.Metadata{
+			Name: agentGroupName,
+		},
+		Spec: v1.Spec{
+			Selector: v1.AgentSelector{
+				IdentifyingAttributes: map[string]string{"service.name": "test-service"},
+			},
+		},
+	})
+	require.NoError(t, err, "Create AgentGroup should succeed")
 
 	// Step 2: Verify the AgentGroup is in the list
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	var listResp v1.ListResponse[v1.AgentGroup]
-	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	listResp, err := opampClient.AgentGroupService.ListAgentGroups(t.Context(), "default")
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(listResp.Items), 1, "Should have at least 1 agent group")
 
@@ -1507,26 +852,11 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.True(t, found, "Created agent group should be in the list")
 
 	// Step 3: Delete the AgentGroup
-	req, err = http.NewRequestWithContext(ctx, http.MethodDelete, apiBaseURL+"/api/v1/namespaces/default/agentgroups/"+agentGroupName, nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusNoContent, resp.StatusCode, "Delete AgentGroup should succeed")
+	err = opampClient.AgentGroupService.DeleteAgentGroup(t.Context(), "default", agentGroupName)
+	require.NoError(t, err, "Delete AgentGroup should succeed")
 
 	// Step 4: Verify the AgentGroup is NOT in the regular list
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	listResp, err = opampClient.AgentGroupService.ListAgentGroups(t.Context(), "default")
 	require.NoError(t, err)
 
 	found = false
@@ -1539,16 +869,8 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.False(t, found, "Deleted agent group should NOT be in the regular list")
 
 	// Step 5: Verify the AgentGroup IS in the list when using includeDeleted=true
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups?includeDeleted=true", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	err = json.NewDecoder(resp.Body).Decode(&listResp)
+	listResp, err = opampClient.AgentGroupService.ListAgentGroups(t.Context(), "default",
+		client.WithIncludeDeleted(true))
 	require.NoError(t, err)
 
 	found = false
@@ -1563,28 +885,14 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	require.True(t, found, "Deleted agent group should be in the list when includeDeleted=true")
 
 	// Step 6: Verify the deleted AgentGroup can be retrieved by name with includeDeleted=true
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups/"+agentGroupName+"?includeDeleted=true", nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
+	ag, err := opampClient.AgentGroupService.GetAgentGroup(t.Context(), "default", agentGroupName,
+		client.WithGetIncludeDeleted(true))
+	require.NoError(t, err, "Get deleted AgentGroup with includeDeleted=true should succeed")
+	require.Equal(t, agentGroupName, ag.Metadata.Name)
+	require.NotNil(t, ag.Metadata.DeletedAt, "Retrieved deleted agent group should have DeletedAt")
 
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusOK, resp.StatusCode, "Get deleted AgentGroup with includeDeleted=true should succeed")
-
-	var agentGroup v1.AgentGroup
-	err = json.NewDecoder(resp.Body).Decode(&agentGroup)
-	require.NoError(t, err)
-	require.Equal(t, agentGroupName, agentGroup.Metadata.Name)
-	require.NotNil(t, agentGroup.Metadata.DeletedAt, "Retrieved deleted agent group should have DeletedAt")
-
-	// Step 7: Verify the deleted AgentGroup returns 404 without includeDeleted
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, apiBaseURL+"/api/v1/namespaces/default/agentgroups/"+agentGroupName, nil)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err = http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-	require.Equal(t, http.StatusNotFound, resp.StatusCode, "Get deleted AgentGroup without includeDeleted should return 404")
+	// Step 7: Verify the deleted AgentGroup returns error without includeDeleted
+	_, err = opampClient.AgentGroupService.GetAgentGroup(t.Context(), "default", agentGroupName)
+	require.Error(t, err, "Get deleted AgentGroup without includeDeleted should return error")
 }
+
