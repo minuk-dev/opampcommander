@@ -17,7 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -75,7 +74,6 @@ type permissionSeed struct {
 	action      string
 }
 
-// newPermissionSeed creates a permission seed entry.
 func newPermissionSeed(resource, action string) permissionSeed {
 	return permissionSeed{
 		uid:         uuid.New().String(),
@@ -86,8 +84,6 @@ func newPermissionSeed(resource, action string) permissionSeed {
 	}
 }
 
-// allPermissionSeeds returns permission seeds for all namespace-scoped
-// resources and actions.
 func allPermissionSeeds() []permissionSeed {
 	resources := []string{
 		"agent", "agentgroup", "agentpackage",
@@ -119,7 +115,6 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 
 	base := testutil.NewBase(t)
 
-	// --- Infrastructure setup ---
 	mongoContainer, mongoURI := startMongoDB(t)
 	defer func() { _ = mongoContainer.Terminate(ctx) }()
 
@@ -135,26 +130,35 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	opampClient := createOpampClient(t, apiBaseURL)
 
 	// --- Seed permissions in MongoDB ---
-	permissions := allPermissionSeeds()
-	seedPermissions(t, ctx, mongoURI, dbName, permissions)
+	seedPermissions(t, ctx, mongoURI, dbName, allPermissionSeeds())
 
-	// Build a lookup: "resource:action" → permission name.
-	permName := func(resource, action string) string {
-		return resource + ":" + action
-	}
+	permName := func(resource, action string) string { return resource + ":" + action }
 
 	// --- Create a non-admin user (for RBAC testing) ---
-	regularUser := createUser(t, opampClient, "rbac-user", "rbac-user@example.com")
+	regularUser, err := opampClient.UserService.CreateUser(t.Context(), &v1.User{
+		Kind:       v1.UserKind,
+		APIVersion: "v1",
+		//exhaustruct:ignore
+		Metadata: v1.UserMetadata{},
+		Spec:     v1.UserSpec{Email: "rbac-user@example.com", Username: "rbac-user", IsActive: true},
+		//exhaustruct:ignore
+		Status: v1.UserStatus{},
+	})
+	require.NoError(t, err, "failed to create regular user")
+
 	regularUserUID := regularUser.Metadata.UID
 
 	// =================================================================
-	// Phase 1: Define Roles (like K8s Role)
+	// Phase 1: Define Roles + Namespace
 	// =================================================================
-	// Namespace: "production", "staging", "development"
-	_ = createNamespace(t, opampClient, "production")
+	_, err = opampClient.NamespaceService.CreateNamespace(t.Context(), &v1.Namespace{
+		//exhaustruct:ignore
+		Metadata: v1.NamespaceMetadata{Name: "production"},
+	})
+	require.NoError(t, err, "failed to create namespace production")
 
 	// Role: agent-viewer — read-only access to agents.
-	_ = createRole(t, opampClient, &v1.Role{
+	_, err = opampClient.RoleService.CreateRole(t.Context(), &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -162,18 +166,16 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 		Spec: v1.RoleSpec{
 			DisplayName: "Agent Viewer",
 			Description: "Read-only access to agents",
-			Permissions: []string{
-				permName("agent", "GET"),
-				permName("agent", "LIST"),
-			},
-			IsBuiltIn: false,
+			Permissions: []string{permName("agent", "GET"), permName("agent", "LIST")},
+			IsBuiltIn:   false,
 		},
 		//exhaustruct:ignore
 		Status: v1.RoleStatus{},
 	})
+	require.NoError(t, err, "failed to create Agent Viewer role")
 
 	// Role: agent-editor — full CRUD on agents.
-	_ = createRole(t, opampClient, &v1.Role{
+	_, err = opampClient.RoleService.CreateRole(t.Context(), &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -182,20 +184,18 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 			DisplayName: "Agent Editor",
 			Description: "Full CRUD access to agents",
 			Permissions: []string{
-				permName("agent", "GET"),
-				permName("agent", "LIST"),
-				permName("agent", "CREATE"),
-				permName("agent", "UPDATE"),
-				permName("agent", "DELETE"),
+				permName("agent", "GET"), permName("agent", "LIST"),
+				permName("agent", "CREATE"), permName("agent", "UPDATE"), permName("agent", "DELETE"),
 			},
 			IsBuiltIn: false,
 		},
 		//exhaustruct:ignore
 		Status: v1.RoleStatus{},
 	})
+	require.NoError(t, err, "failed to create Agent Editor role")
 
-	// Role: agentgroup-admin — full CRUD on agentgroups (cluster-wide).
-	_ = createRole(t, opampClient, &v1.Role{
+	// Role: agentgroup-admin — full CRUD on agentgroups.
+	_, err = opampClient.RoleService.CreateRole(t.Context(), &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: "v1",
 		//exhaustruct:ignore
@@ -204,235 +204,345 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 			DisplayName: "AgentGroup Admin",
 			Description: "Full CRUD access to agent groups across all namespaces",
 			Permissions: []string{
-				permName("agentgroup", "GET"),
-				permName("agentgroup", "LIST"),
-				permName("agentgroup", "CREATE"),
-				permName("agentgroup", "UPDATE"),
-				permName("agentgroup", "DELETE"),
+				permName("agentgroup", "GET"), permName("agentgroup", "LIST"),
+				permName("agentgroup", "CREATE"), permName("agentgroup", "UPDATE"), permName("agentgroup", "DELETE"),
 			},
 			IsBuiltIn: false,
 		},
 		//exhaustruct:ignore
 		Status: v1.RoleStatus{},
 	})
+	require.NoError(t, err, "failed to create AgentGroup Admin role")
 
 	// =================================================================
 	// Phase 2: RoleBinding — bind agent-viewer to "production" namespace
-	// (like K8s RoleBinding)
 	// =================================================================
 	t.Run("Phase2_BindViewerToProduction", func(t *testing.T) {
-		createRoleBinding(t, opampClient, "production", "viewer-production",
-			"Agent Viewer", "rbac-user@example.com")
+		_, err := opampClient.RoleBindingService.CreateRoleBinding(t.Context(), "production", &v1.RoleBinding{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: "v1",
+			Metadata: v1.RoleBindingMetadata{
+				Namespace: "production", Name: "viewer-production",
+				//exhaustruct:ignore
+				CreatedAt: v1.Time{},
+				//exhaustruct:ignore
+				UpdatedAt: v1.Time{},
+			},
+			Spec: v1.RoleBindingSpec{
+				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Viewer"},
+				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+			},
+			//exhaustruct:ignore
+			Status: v1.RoleBindingStatus{},
+		})
+		require.NoError(t, err)
 
-		syncPolicies(t, opampClient)
+		require.NoError(t, opampClient.RBACService.SyncPolicies(t.Context()))
 
 		// ✅ Can GET and LIST agents in production.
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "GET", true)
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "LIST", true)
+		perm, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: production/agent/GET")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "LIST",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: production/agent/LIST")
 
 		// ❌ Cannot CREATE/UPDATE/DELETE agents in production (viewer only).
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "CREATE", false)
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "UPDATE", false)
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "DELETE", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "CREATE",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agent/CREATE")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "UPDATE",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agent/UPDATE")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "DELETE",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agent/DELETE")
 
 		// ❌ Cannot access agents in a different namespace.
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "GET", false)
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "LIST", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: staging/agent/GET")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "LIST",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: staging/agent/LIST")
 
 		// ❌ No agentgroup permissions at all.
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agentgroup", "GET", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agentgroup", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agentgroup/GET")
 	})
 
 	// =================================================================
 	// Phase 3: Additional RoleBinding — bind agent-editor to "staging"
 	// =================================================================
 	t.Run("Phase3_BindEditorToStaging", func(t *testing.T) {
-		createRoleBinding(t, opampClient, "staging", "editor-staging",
-			"Agent Editor", "rbac-user@example.com")
+		_, err := opampClient.RoleBindingService.CreateRoleBinding(t.Context(), "staging", &v1.RoleBinding{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: "v1",
+			Metadata: v1.RoleBindingMetadata{
+				Namespace: "staging", Name: "editor-staging",
+				//exhaustruct:ignore
+				CreatedAt: v1.Time{},
+				//exhaustruct:ignore
+				UpdatedAt: v1.Time{},
+			},
+			Spec: v1.RoleBindingSpec{
+				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Editor"},
+				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+			},
+			//exhaustruct:ignore
+			Status: v1.RoleBindingStatus{},
+		})
+		require.NoError(t, err)
 
-		syncPolicies(t, opampClient)
+		require.NoError(t, opampClient.RBACService.SyncPolicies(t.Context()))
 
 		// ✅ Full CRUD on agents in staging (editor role).
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "GET", true)
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "CREATE", true)
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "UPDATE", true)
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "DELETE", true)
+		perm, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: staging/agent/GET")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "CREATE",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: staging/agent/CREATE")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "UPDATE",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: staging/agent/UPDATE")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "DELETE",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: staging/agent/DELETE")
 
 		// ✅ Previous binding still works — viewer in production.
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "GET", true)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: production/agent/GET")
 
 		// ❌ Still cannot write in production (only viewer there).
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "CREATE", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "CREATE",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agent/CREATE")
 
 		// ❌ No access to a namespace without binding.
-		assertPermission(t, opampClient, regularUserUID,
-			"development", "agent", "GET", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "development", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: development/agent/GET")
 	})
 
 	// =================================================================
-	// Phase 4: Bind AgentGroup Admin globally (cluster-wide via namespace "*")
+	// Phase 4: Bind AgentGroup Admin in production and staging namespaces
 	// =================================================================
-	t.Run("Phase4_BindAgentGroupAdminGlobally", func(t *testing.T) {
-		createRoleBinding(t, opampClient, "*", "agentgroup-admin-global",
-			"AgentGroup Admin", "rbac-user@example.com")
+	t.Run("Phase4_BindAgentGroupAdmin", func(t *testing.T) {
+		_, err := opampClient.RoleBindingService.CreateRoleBinding(t.Context(), "production", &v1.RoleBinding{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: "v1",
+			Metadata: v1.RoleBindingMetadata{
+				Namespace: "production", Name: "agentgroup-admin-production",
+				//exhaustruct:ignore
+				CreatedAt: v1.Time{},
+				//exhaustruct:ignore
+				UpdatedAt: v1.Time{},
+			},
+			Spec: v1.RoleBindingSpec{
+				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "AgentGroup Admin"},
+				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+			},
+			//exhaustruct:ignore
+			Status: v1.RoleBindingStatus{},
+		})
+		require.NoError(t, err)
 
-		syncPolicies(t, opampClient)
+		_, err = opampClient.RoleBindingService.CreateRoleBinding(t.Context(), "staging", &v1.RoleBinding{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: "v1",
+			Metadata: v1.RoleBindingMetadata{
+				Namespace: "staging", Name: "agentgroup-admin-staging",
+				//exhaustruct:ignore
+				CreatedAt: v1.Time{},
+				//exhaustruct:ignore
+				UpdatedAt: v1.Time{},
+			},
+			Spec: v1.RoleBindingSpec{
+				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "AgentGroup Admin"},
+				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+			},
+			//exhaustruct:ignore
+			Status: v1.RoleBindingStatus{},
+		})
+		require.NoError(t, err)
 
-		// ✅ Cluster-wide binding grants agentgroup access in any namespace.
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agentgroup", "GET", true)
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agentgroup", "DELETE", true)
+		require.NoError(t, opampClient.RBACService.SyncPolicies(t.Context()))
+
+		// ✅ Can manage agentgroups in production and staging.
+		perm, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agentgroup", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: production/agentgroup/GET")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agentgroup", Action: "DELETE",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: staging/agentgroup/DELETE")
+
+		// ❌ No agentgroup access in a namespace without binding.
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "development", Resource: "agentgroup", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: development/agentgroup/GET")
 	})
 
 	// =================================================================
 	// Phase 5: Unassign — remove viewer from production
 	// =================================================================
 	t.Run("Phase5_UnassignViewerFromProduction", func(t *testing.T) {
-		deleteRoleBinding(t, opampClient, "production", "viewer-production")
+		err := opampClient.RoleBindingService.DeleteRoleBinding(t.Context(), "production", "viewer-production")
+		require.NoError(t, err)
 
-		syncPolicies(t, opampClient)
+		require.NoError(t, opampClient.RBACService.SyncPolicies(t.Context()))
 
 		// ❌ No longer can access agents in production.
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "GET", false)
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agent", "LIST", false)
+		perm, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agent/GET")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agent", Action: "LIST",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: production/agent/LIST")
 
 		// ✅ Other bindings remain: editor in staging.
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "GET", true)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: staging/agent/GET")
 
-		// ✅ Cluster-wide agentgroup admin still active.
-		assertPermission(t, opampClient, regularUserUID,
-			"production", "agentgroup", "GET", true)
+		// ✅ AgentGroup admin binding in production still active.
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "production", Resource: "agentgroup", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: production/agentgroup/GET")
 	})
 
 	// =================================================================
-	// Phase 5: Multi-user isolation
+	// Phase 6: Multi-user isolation
 	// =================================================================
 	t.Run("Phase6_MultiUserIsolation", func(t *testing.T) {
-		// Create another user.
-		otherUser := createUser(t, opampClient,
-			"other-user", "other@example.com")
+		otherUser, err := opampClient.UserService.CreateUser(t.Context(), &v1.User{
+			Kind:       v1.UserKind,
+			APIVersion: "v1",
+			//exhaustruct:ignore
+			Metadata: v1.UserMetadata{},
+			Spec:     v1.UserSpec{Email: "other@example.com", Username: "other-user", IsActive: true},
+			//exhaustruct:ignore
+			Status: v1.UserStatus{},
+		})
+		require.NoError(t, err, "failed to create other-user")
+
 		otherUserUID := otherUser.Metadata.UID
 
-		// Bind agent-viewer to other user in "staging" only.
-		createRoleBinding(t, opampClient, "staging", "viewer-staging-other",
-			"Agent Viewer", "other@example.com")
+		_, err = opampClient.RoleBindingService.CreateRoleBinding(t.Context(), "staging", &v1.RoleBinding{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: "v1",
+			Metadata: v1.RoleBindingMetadata{
+				Namespace: "staging", Name: "viewer-staging-other",
+				//exhaustruct:ignore
+				CreatedAt: v1.Time{},
+				//exhaustruct:ignore
+				UpdatedAt: v1.Time{},
+			},
+			Spec: v1.RoleBindingSpec{
+				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Viewer"},
+				Subject: v1.RoleBindingSubject{Kind: "User", Name: "other@example.com"},
+			},
+			//exhaustruct:ignore
+			Status: v1.RoleBindingStatus{},
+		})
+		require.NoError(t, err)
 
-		syncPolicies(t, opampClient)
+		require.NoError(t, opampClient.RBACService.SyncPolicies(t.Context()))
 
 		// ✅ other-user can view agents in staging.
-		assertPermission(t, opampClient, otherUserUID,
-			"staging", "agent", "GET", true)
+		perm, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: otherUserUID, Namespace: "staging", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: other/staging/agent/GET")
 
 		// ❌ other-user CANNOT write agents in staging.
-		assertPermission(t, opampClient, otherUserUID,
-			"staging", "agent", "CREATE", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: otherUserUID, Namespace: "staging", Resource: "agent", Action: "CREATE",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: other/staging/agent/CREATE")
 
 		// ❌ other-user has NO access to production agents.
-		assertPermission(t, opampClient, otherUserUID,
-			"production", "agent", "GET", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: otherUserUID, Namespace: "production", Resource: "agent", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: other/production/agent/GET")
 
 		// ❌ other-user has NO agentgroup access (not bound).
-		assertPermission(t, opampClient, otherUserUID,
-			"staging", "agentgroup", "GET", false)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: otherUserUID, Namespace: "staging", Resource: "agentgroup", Action: "GET",
+		})
+		require.NoError(t, err)
+		assert.False(t, perm.Allowed, "expected DENIED: other/staging/agentgroup/GET")
 
 		// ✅ original regularUser still retains their bindings.
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agent", "UPDATE", true)
-		assertPermission(t, opampClient, regularUserUID,
-			"staging", "agentgroup", "DELETE", true)
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agent", Action: "UPDATE",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: regular/staging/agent/UPDATE")
+
+		perm, err = opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID: regularUserUID, Namespace: "staging", Resource: "agentgroup", Action: "DELETE",
+		})
+		require.NoError(t, err)
+		assert.True(t, perm.Allowed, "expected ALLOWED: regular/staging/agentgroup/DELETE")
 	})
-}
-
-// --------------- Helper Functions ---------------
-
-// createNamespace creates a new namespace via the API.
-func createNamespace(t *testing.T, c *client.Client, name string) v1.Namespace {
-	t.Helper()
-
-	result, err := c.NamespaceService.CreateNamespace(t.Context(), &v1.Namespace{
-		//exhaustruct:ignore
-		Metadata: v1.NamespaceMetadata{
-			Name: name,
-		},
-	})
-	require.NoError(t, err, "failed to create namespace %s", name)
-
-	return *result
-}
-
-// createUser creates a new user via the API and returns the user object.
-func createUser(t *testing.T, c *client.Client, username, email string) v1.User {
-	t.Helper()
-
-	result, err := c.UserService.CreateUser(t.Context(), &v1.User{
-		Kind:       v1.UserKind,
-		APIVersion: "v1",
-		//exhaustruct:ignore
-		Metadata: v1.UserMetadata{},
-		Spec: v1.UserSpec{
-			Email:    email,
-			Username: username,
-			IsActive: true,
-		},
-		//exhaustruct:ignore
-		Status: v1.UserStatus{},
-	})
-	require.NoError(t, err, "failed to create user %s", username)
-
-	return *result
-}
-
-// syncPolicies triggers a full RBAC policy sync.
-func syncPolicies(t *testing.T, c *client.Client) {
-	t.Helper()
-
-	err := c.RBACService.SyncPolicies(t.Context())
-	require.NoError(t, err, "failed to sync RBAC policies")
-}
-
-// assertPermission checks whether a user has (or lacks) a specific
-// permission and fails the test if the result doesn't match expected.
-func assertPermission(
-	t *testing.T,
-	c *client.Client,
-	userID, namespace, resource, action string,
-	expected bool,
-) {
-	t.Helper()
-
-	result, err := c.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
-		UserID:    userID,
-		Namespace: namespace,
-		Resource:  resource,
-		Action:    action,
-	})
-	require.NoError(t, err)
-
-	if expected {
-		assert.True(t, result.Allowed,
-			"expected ALLOWED: user=%s namespace=%s resource=%s action=%s",
-			userID, namespace, resource, action)
-	} else {
-		assert.False(t, result.Allowed,
-			"expected DENIED: user=%s namespace=%s resource=%s action=%s",
-			userID, namespace, resource, action)
-	}
 }
