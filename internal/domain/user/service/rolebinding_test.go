@@ -298,15 +298,7 @@ func TestRoleBindingService_DeleteRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
-
-		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
-		mockPort.On("PutRoleBinding", ctx, mock.MatchedBy(func(r *usermodel.RoleBinding) bool {
-			return r.IsDeleted()
-		})).Return(rb, nil)
+		mockPort.On("DeleteRoleBinding", ctx, "production", "viewer-binding").Return(nil)
 
 		err := svc.DeleteRoleBinding(ctx, "production", "viewer-binding")
 
@@ -314,7 +306,7 @@ func TestRoleBindingService_DeleteRoleBinding(t *testing.T) {
 		mockPort.AssertExpectations(t)
 	})
 
-	t.Run("get error", func(t *testing.T) {
+	t.Run("delete error", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
@@ -322,36 +314,13 @@ func TestRoleBindingService_DeleteRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding").
-			Return(nil, errRoleBindingPersistence)
+		mockPort.On("DeleteRoleBinding", ctx, "production", "viewer-binding").
+			Return(errRoleBindingPersistence)
 
 		err := svc.DeleteRoleBinding(ctx, "production", "viewer-binding")
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get role binding for delete")
-		mockPort.AssertExpectations(t)
-	})
-
-	t.Run("put error", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := t.Context()
-		base := testutil.NewBase(t)
-		mockPort := new(mockRoleBindingPersistencePort)
-		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
-
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
-
-		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
-		mockPort.On("PutRoleBinding", ctx, mock.Anything).Return(nil, errRoleBindingPersistence)
-
-		err := svc.DeleteRoleBinding(ctx, "production", "viewer-binding")
-
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to soft-delete role binding")
+		assert.Contains(t, err.Error(), "failed to delete role binding")
 		mockPort.AssertExpectations(t)
 	})
 }

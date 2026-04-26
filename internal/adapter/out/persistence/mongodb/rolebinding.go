@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -89,14 +91,17 @@ func (a *RoleBindingMongoAdapter) PutRoleBinding(
 	ctx context.Context,
 	roleBinding *usermodel.RoleBinding,
 ) (*usermodel.RoleBinding, error) {
-	en := entity.RoleBindingFromDomain(roleBinding)
+	roleBindingEntity := entity.RoleBindingFromDomain(roleBinding)
 
-	err := a.common.put(ctx, en)
+	// Use a compound (namespace, name) filter so bindings with the same name
+	// in different namespaces are stored as separate documents.
+	filter := a.filterByNamespaceAndName(roleBindingEntity.Metadata.Namespace, roleBindingEntity.Metadata.Name)
+
+	_, err := a.common.collection.ReplaceOne(ctx, filter, roleBindingEntity, options.Replace().SetUpsert(true))
 	if err != nil {
 		return nil, fmt.Errorf("put role binding: %w", err)
 	}
 
-	// For soft-deleted items, return the input directly
 	if roleBinding.IsDeleted() {
 		return roleBinding, nil
 	}
@@ -127,22 +132,21 @@ func (a *RoleBindingMongoAdapter) ListRoleBindings(
 }
 
 // DeleteRoleBinding implements userport.RoleBindingPersistencePort.
+// Uses a single atomic UpdateOne to avoid read-modify-write races.
 func (a *RoleBindingMongoAdapter) DeleteRoleBinding(
 	ctx context.Context,
 	namespace, name string,
 ) error {
-	existing, err := a.GetRoleBinding(ctx, namespace, name)
-	if err != nil {
-		return fmt.Errorf("get role binding for delete: %w", err)
-	}
+	filter := a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	update := bson.M{"$set": bson.M{roleBindingDeletedAtFieldName: time.Now()}}
 
-	existing.MarkDeleted()
-
-	en := entity.RoleBindingFromDomain(existing)
-
-	err = a.common.put(ctx, en)
+	result, err := a.common.collection.UpdateOne(ctx, filter, update)
 	if err != nil {
 		return fmt.Errorf("soft-delete role binding: %w", err)
+	}
+
+	if result.MatchedCount == 0 {
+		return port.ErrResourceNotExist
 	}
 
 	return nil

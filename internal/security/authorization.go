@@ -52,6 +52,15 @@ func NewAuthorizationMiddleware(
 		resource, action := extractResourceAndAction(fullPath, ctx.Request.Method)
 
 		if resource == "" || action == "" {
+			// If the path has a resource segment but it's not in our mapping,
+			// deny by default — prevents silent bypass when new endpoints are added
+			// without registering them in getResourceSingular or the method switch.
+			if hasNamespaceResourceSegment(fullPath) {
+				ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+
+				return
+			}
+
 			ctx.Next()
 
 			return
@@ -114,6 +123,16 @@ func enforcePermission(
 	}
 
 	ctx.Next()
+}
+
+// hasNamespaceResourceSegment reports whether fullPath contains a resource segment
+// under /api/v1/namespaces/:namespace/, i.e. has at least 6 slash-separated parts.
+// Paths shorter than this (e.g. /api/v1/namespaces/:namespace) have no resource
+// segment and are not subject to per-resource RBAC checks.
+func hasNamespaceResourceSegment(fullPath string) bool {
+	const resourceSegmentMinParts = 6
+
+	return len(strings.Split(fullPath, "/")) >= resourceSegmentMinParts
 }
 
 // getResourceSingular returns the singular RBAC resource name for a URL resource plural.

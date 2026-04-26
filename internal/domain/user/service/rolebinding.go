@@ -92,16 +92,9 @@ func (s *RoleBindingService) DeleteRoleBinding(
 	ctx context.Context,
 	namespace, name string,
 ) error {
-	existing, err := s.roleBindingPersistencePort.GetRoleBinding(ctx, namespace, name)
+	err := s.roleBindingPersistencePort.DeleteRoleBinding(ctx, namespace, name)
 	if err != nil {
-		return fmt.Errorf("failed to get role binding for delete: %w", err)
-	}
-
-	existing.MarkDeleted()
-
-	_, err = s.roleBindingPersistencePort.PutRoleBinding(ctx, existing)
-	if err != nil {
-		return fmt.Errorf("failed to soft-delete role binding: %w", err)
+		return fmt.Errorf("failed to delete role binding: %w", err)
 	}
 
 	return nil

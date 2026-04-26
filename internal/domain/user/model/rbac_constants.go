@@ -45,6 +45,7 @@ func NamespaceScopedResources() []string {
 		ResourceAgentPackage,
 		ResourceAgentRemoteConfig,
 		ResourceCertificate,
+		ResourceRoleBinding,
 	}
 }
 
