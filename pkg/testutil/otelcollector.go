@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -129,24 +130,28 @@ service:
 }
 
 func formatResourceAttrsForConfig(attrs map[string]string) string {
-	var result string
+	var b strings.Builder
 	for k, v := range attrs {
-		result += fmt.Sprintf("      - key: %s\n        value: %s\n        action: upsert\n", k, v)
+		fmt.Fprintf(&b, "      - key: %s\n        value: %s\n        action: upsert\n", k, v)
 	}
 
-	return result
+	return b.String()
 }
 
 func formatResourceAttrsForTelemetry(attrs map[string]string) string {
-	var result string
+	var b strings.Builder
 	for k, v := range attrs {
-		result += fmt.Sprintf("      %s: %s\n", k, v)
+		fmt.Fprintf(&b, "      %s: %s\n", k, v)
 	}
 
-	return result
+	return b.String()
 }
 
-func collectorConfigContentWithAttributes(opampPort int, instanceUID uuid.UUID, resourceAttrs map[string]string) string {
+func collectorConfigContentWithAttributes(
+	opampPort int,
+	instanceUID uuid.UUID,
+	resourceAttrs map[string]string,
+) string {
 	return fmt.Sprintf(`receivers:
   otlp:
     protocols:
@@ -193,7 +198,9 @@ service:
       receivers: [otlp]
       processors: [batch, resource]
       exporters: [debug]
-`, formatResourceAttrsForConfig(resourceAttrs), opampPort, instanceUID.String(), formatResourceAttrsForTelemetry(resourceAttrs))
+`, formatResourceAttrsForConfig(resourceAttrs),
+		opampPort, instanceUID.String(),
+		formatResourceAttrsForTelemetry(resourceAttrs))
 }
 
 // StartOTelCollector starts an OTel Collector container connected to the given OpAMP port.
@@ -255,7 +262,8 @@ func (b *Base) StartOTelCollectorWithAttributes(opampPort int, resourceAttrs map
 	instanceUID := uuid.New()
 	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
 
-	err := os.WriteFile(configPath, []byte(collectorConfigContentWithAttributes(opampPort, instanceUID, resourceAttrs)), collectorConfigFileMode)
+	content := collectorConfigContentWithAttributes(opampPort, instanceUID, resourceAttrs)
+	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
 	//exhaustruct:ignore
