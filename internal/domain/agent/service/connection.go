@@ -56,6 +56,10 @@ func (s *Service) GetConnectionByID(_ context.Context, id any) (*agentmodel.Conn
 
 	conn, ok := s.connectionMap.Load(connID)
 	if !ok {
+		s.logger.Debug("connection not found by ID",
+			slog.String("connIDHash", connID),
+			slog.String("rawID", fmt.Sprintf("%v", id)),
+		)
 		return nil, agentport.ErrConnectionNotFound
 	}
 
@@ -154,6 +158,13 @@ func (s *Service) SaveConnection(_ context.Context, connection *agentmodel.Conne
 	}
 
 	s.connectionMap.Store(connID, connection, additionalIndexesOpts...)
+
+	s.logger.Debug("connection saved",
+		slog.String("connectionUID", connection.UID.String()),
+		slog.String("instanceUID", connection.InstanceUID.String()),
+		slog.String("connectionType", connection.Type.String()),
+		slog.String("namespace", connection.Namespace),
+	)
 
 	return nil
 }
