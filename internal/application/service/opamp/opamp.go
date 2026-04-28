@@ -123,12 +123,18 @@ func (s *Service) OnConnectedWithType(ctx context.Context, conn types.Connection
 
 	err := s.connectionUsecase.SaveConnection(ctx, connection)
 	if err != nil {
-		logger.Error("failed to save connection", slog.String("error", err.Error()))
+		logger.Error("failed to save connection",
+			slog.String("connectionUID", connection.UID.String()),
+			slog.String("error", err.Error()),
+		)
 
 		return
 	}
 
-	logger.Info("end successfully")
+	logger.Info("end successfully",
+		slog.String("connectionUID", connection.UID.String()),
+		slog.String("connectionType", connectionType.String()),
+	)
 }
 
 // OnMessage implements port.OpAMPUsecase.
@@ -160,6 +166,13 @@ func (s *Service) OnMessage(
 	if err != nil {
 		logger.Error("failed to inject instanceUID to connection", slog.String("error", err.Error()))
 		// even if injecting instanceUID fails, proceed to process the message
+	}
+
+	if connection != nil {
+		logger = logger.With(
+			slog.String("connectionUID", connection.UID.String()),
+			slog.String("connectionType", connection.Type.String()),
+		)
 	}
 
 	currentServer, err := s.serverIdentityProvider.CurrentServer(ctx)
@@ -239,7 +252,13 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
 	logger.Info("start")
 
-	s.closedConnectionCh <- conn
+	select {
+	case s.closedConnectionCh <- conn:
+	default:
+		logger.Warn("closedConnectionCh is full, cleanup may be delayed")
+
+		s.closedConnectionCh <- conn
+	}
 
 	logger.Info("end")
 }
@@ -304,14 +323,25 @@ func (s *Service) report(
 }
 
 func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) error {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+
 	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 	if err != nil {
+		s.logger.Error("failed to get connection by ID during cleanup",
+			slog.String("method", "cleanUpConnection"),
+			slog.String("remoteAddr", remoteAddr),
+			slog.String("error", err.Error()),
+		)
+
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
 
 	logger := s.logger.With(
 		slog.String("method", "cleanUpConnection"),
-		slog.String("connectionID", connection.IDString()),
+		slog.String("remoteAddr", remoteAddr),
+		slog.String("connectionUID", connection.UID.String()),
+		slog.String("instanceUID", connection.InstanceUID.String()),
+		slog.String("connectionType", connection.Type.String()),
 	)
 	logger.Info("start cleaning up connection")
 

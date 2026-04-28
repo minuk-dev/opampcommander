@@ -2,6 +2,7 @@ package agentmodel
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -103,13 +104,13 @@ func (conn *Connection) IDString() string {
 }
 
 // ConvertConnIDToString converts the connection ID to a string.
+// Uses %p for pointer-like types and %v fallback for value types (e.g. opamp-go httpConnection struct).
 func ConvertConnIDToString(id any) string {
-	// Use pointer address to avoid race condition with internal fields
 	raw := fmt.Sprintf("%p", id)
-	hash := sha256.New()
-	result := hash.Sum([]byte(raw))
+	h := sha256.New()
+	_, _ = h.Write([]byte(raw))
 
-	return string(result)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // IsAnonymous returns true if the connection is anonymous.
