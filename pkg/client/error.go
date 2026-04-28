@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var (
@@ -21,5 +22,16 @@ type ResponseError struct {
 
 // Error implements the error interface for ResponseError.
 func (e *ResponseError) Error() string {
-	return fmt.Sprintf("response error: status code %d, message: %s", e.StatusCode, e.ErrorMessage)
+	msg := e.ErrorMessage
+	if isHTMLBody(msg) {
+		msg = "unexpected HTML response (server may not be an OpAMP Commander instance)"
+	}
+
+	return fmt.Sprintf("response error: status code %d, message: %s", e.StatusCode, msg)
+}
+
+func isHTMLBody(s string) bool {
+	trimmed := strings.ToLower(strings.TrimSpace(s))
+
+	return strings.HasPrefix(trimmed, "<html") || strings.HasPrefix(trimmed, "<!doctype html")
 }
