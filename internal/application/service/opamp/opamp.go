@@ -256,6 +256,7 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	case s.closedConnectionCh <- conn:
 	default:
 		logger.Warn("closedConnectionCh is full, cleanup may be delayed")
+
 		s.closedConnectionCh <- conn
 	}
 
@@ -323,6 +324,7 @@ func (s *Service) report(
 
 func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) error {
 	remoteAddr := conn.Connection().RemoteAddr().String()
+
 	connection, err := s.connectionUsecase.GetConnectionByID(ctx, conn)
 	if err != nil {
 		s.logger.Error("failed to get connection by ID during cleanup",
@@ -330,6 +332,7 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 			slog.String("remoteAddr", remoteAddr),
 			slog.String("error", err.Error()),
 		)
+
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
 

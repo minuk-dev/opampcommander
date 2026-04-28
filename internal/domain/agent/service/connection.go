@@ -60,6 +60,7 @@ func (s *Service) GetConnectionByID(_ context.Context, id any) (*agentmodel.Conn
 			slog.String("connIDHash", connID),
 			slog.String("rawID", fmt.Sprintf("%v", id)),
 		)
+
 		return nil, agentport.ErrConnectionNotFound
 	}
 

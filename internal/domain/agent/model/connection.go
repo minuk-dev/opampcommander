@@ -109,6 +109,7 @@ func ConvertConnIDToString(id any) string {
 	raw := fmt.Sprintf("%p", id)
 	h := sha256.New()
 	_, _ = h.Write([]byte(raw))
+
 	return hex.EncodeToString(h.Sum(nil))
 }
 
