@@ -67,29 +67,55 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 	return nil
 }
 
+const unavailable = "unavailable"
+
 // Run executes the command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	var (
-		serverErr   error
-		versionInfo Version
-	)
-
-	versionInfo.ClientVersion = func() *v1version.Info {
-		v := version.Get()
-
-		return &v
-	}()
-	if !opt.clientOnly {
-		versionInfo.ServerVersion, serverErr = opt.client.GetServerVersion(cmd.Context())
-		if serverErr != nil {
-			cmd.PrintErrf("Failed to get server version: %v\n", serverErr)
-			//exhaustruct:ignore
-			versionInfo.ServerVersion = &v1version.Info{} // to prevent nil pointer dereference
-		}
+	versionInfo, serverErr := opt.fetchVersionInfo(cmd)
+	if serverErr != nil {
+		cmd.PrintErrf("Failed to get server version: %v\n", serverErr)
 	}
 
-	var formatErr error
+	err := opt.printVersion(cmd, versionInfo, serverErr)
+	if err != nil {
+		return fmt.Errorf("failed to format version information: %w", err)
+	}
 
+	return nil
+}
+
+func (opt *CommandOptions) fetchVersionInfo(cmd *cobra.Command) (Version, error) {
+	v := version.Get()
+
+	//exhaustruct:ignore
+	versionInfo := Version{ClientVersion: &v}
+
+	if opt.clientOnly {
+		return versionInfo, nil
+	}
+
+	serverVersion, err := opt.client.GetServerVersion(cmd.Context())
+	if err != nil {
+		//exhaustruct:ignore
+		versionInfo.ServerVersion = &v1version.Info{}
+
+		return versionInfo, fmt.Errorf("failed to get server version: %w", err)
+	}
+
+	versionInfo.ServerVersion = serverVersion
+
+	return versionInfo, nil
+}
+
+func serverVersionOrUnavailable(v string, serverErr error) string {
+	if v == "" && serverErr != nil {
+		return unavailable
+	}
+
+	return v
+}
+
+func (opt *CommandOptions) printVersion(cmd *cobra.Command, versionInfo Version, serverErr error) error {
 	switch opt.formatType {
 	case "short":
 		type shortItem struct {
@@ -97,10 +123,15 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			ServerGitVersion string `short:"serverGitVersion"`
 		}
 
-		formatErr = formatter.FormatShort(cmd.OutOrStdout(), shortItem{
+		err := formatter.FormatShort(cmd.OutOrStdout(), shortItem{
 			ClientGitVersion: versionInfo.ClientVersion.GitVersion,
-			ServerGitVersion: versionInfo.ServerVersion.GitVersion,
+			ServerGitVersion: serverVersionOrUnavailable(versionInfo.ServerVersion.GitVersion, serverErr),
 		})
+		if err != nil {
+			return fmt.Errorf("failed to format short: %w", err)
+		}
+
+		return nil
 	case "text":
 		type textItem struct {
 			ClientGitVersion string `text:"clientGitVersion"`
@@ -111,21 +142,25 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			ServerCommitHash string `text:"serverCommitHash"`
 		}
 
-		formatErr = formatter.FormatText(cmd.OutOrStdout(), textItem{
+		err := formatter.FormatText(cmd.OutOrStdout(), textItem{
 			ClientGitVersion: versionInfo.ClientVersion.GitVersion,
 			ClientBuildDate:  versionInfo.ClientVersion.BuildDate,
 			ClientCommitHash: versionInfo.ClientVersion.GitCommit,
-			ServerGitVersion: versionInfo.ServerVersion.GitVersion,
+			ServerGitVersion: serverVersionOrUnavailable(versionInfo.ServerVersion.GitVersion, serverErr),
 			ServerBuildDate:  versionInfo.ServerVersion.BuildDate,
 			ServerCommitHash: versionInfo.ServerVersion.GitCommit,
 		})
+		if err != nil {
+			return fmt.Errorf("failed to format text: %w", err)
+		}
+
+		return nil
 	default:
-		formatErr = formatter.Format(cmd.OutOrStdout(), versionInfo, formatter.FormatType(opt.formatType))
-	}
+		err := formatter.Format(cmd.OutOrStdout(), versionInfo, formatter.FormatType(opt.formatType))
+		if err != nil {
+			return fmt.Errorf("failed to format: %w", err)
+		}
 
-	if formatErr != nil {
-		return fmt.Errorf("failed to format version information: %w", formatErr)
+		return nil
 	}
-
-	return nil
 }
