@@ -1,0 +1,146 @@
+package entity
+
+import (
+	"time"
+
+	"github.com/samber/lo"
+
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
+)
+
+const (
+	// RoleBindingKeyFieldName is the key field name for role binding entities in MongoDB.
+	RoleBindingKeyFieldName string = "metadata.name"
+)
+
+// RoleBinding is the MongoDB entity for a RoleBinding resource.
+type RoleBinding struct {
+	Common `bson:",inline"`
+
+	Metadata RoleBindingMetadata `bson:"metadata"`
+	Spec     RoleBindingSpec     `bson:"spec"`
+	Status   RoleBindingStatus   `bson:"status"`
+}
+
+// RoleBindingMetadata represents the metadata of a role binding.
+type RoleBindingMetadata struct {
+	Namespace string     `bson:"namespace"`
+	Name      string     `bson:"name"`
+	CreatedAt time.Time  `bson:"createdAt"`
+	UpdatedAt time.Time  `bson:"updatedAt"`
+	DeletedAt *time.Time `bson:"deletedAt,omitempty"`
+}
+
+// RoleBindingSpec represents the specification of a role binding.
+type RoleBindingSpec struct {
+	RoleRef RoleBindingRoleRef `bson:"roleRef"`
+	Subject RoleBindingSubject `bson:"subject"`
+}
+
+// RoleBindingRoleRef references a role in MongoDB.
+type RoleBindingRoleRef struct {
+	Kind string `bson:"kind"`
+	Name string `bson:"name"`
+	UID  string `bson:"uid"`
+}
+
+// RoleBindingSubject identifies a user in MongoDB.
+type RoleBindingSubject struct {
+	Kind string `bson:"kind"`
+	Name string `bson:"name"`
+	UID  string `bson:"uid"`
+}
+
+// RoleBindingStatus represents the status of a role binding.
+type RoleBindingStatus struct {
+	Conditions []Condition `bson:"conditions,omitempty"`
+}
+
+// ToDomain converts the entity to domain model.
+func (e *RoleBinding) ToDomain() *usermodel.RoleBinding {
+	return &usermodel.RoleBinding{
+		Metadata: e.Metadata.toDomain(),
+		Spec:     e.Spec.toDomain(),
+		Status:   e.Status.toDomain(),
+	}
+}
+
+func (m *RoleBindingMetadata) toDomain() usermodel.RoleBindingMetadata {
+	return usermodel.RoleBindingMetadata{
+		Namespace: m.Namespace,
+		Name:      m.Name,
+		CreatedAt: m.CreatedAt,
+		UpdatedAt: m.UpdatedAt,
+		DeletedAt: m.DeletedAt,
+	}
+}
+
+func (s *RoleBindingSpec) toDomain() usermodel.RoleBindingSpec {
+	return usermodel.RoleBindingSpec{
+		RoleRef: usermodel.RoleRef{
+			Kind: s.RoleRef.Kind,
+			Name: s.RoleRef.Name,
+			UID:  parseUUIDOrNil(s.RoleRef.UID),
+		},
+		Subject: usermodel.Subject{
+			Kind: s.Subject.Kind,
+			Name: s.Subject.Name,
+			UID:  parseUUIDOrNil(s.Subject.UID),
+		},
+	}
+}
+
+func (s *RoleBindingStatus) toDomain() usermodel.RoleBindingStatus {
+	return usermodel.RoleBindingStatus{
+		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
+			return c.ToDomain()
+		}),
+	}
+}
+
+// RoleBindingFromDomain converts domain model to entity.
+func RoleBindingFromDomain(domain *usermodel.RoleBinding) *RoleBinding {
+	return &RoleBinding{
+		Common: Common{
+			Version: VersionV1,
+			ID:      nil,
+		},
+		Metadata: roleBindingMetadataFromDomain(domain.Metadata),
+		Spec:     roleBindingSpecFromDomain(domain.Spec),
+		Status:   roleBindingStatusFromDomain(domain.Status),
+	}
+}
+
+func roleBindingMetadataFromDomain(metadata usermodel.RoleBindingMetadata) RoleBindingMetadata {
+	return RoleBindingMetadata{
+		Namespace: metadata.Namespace,
+		Name:      metadata.Name,
+		CreatedAt: metadata.CreatedAt,
+		UpdatedAt: metadata.UpdatedAt,
+		DeletedAt: metadata.DeletedAt,
+	}
+}
+
+func roleBindingSpecFromDomain(spec usermodel.RoleBindingSpec) RoleBindingSpec {
+	return RoleBindingSpec{
+		RoleRef: RoleBindingRoleRef{
+			Kind: spec.RoleRef.Kind,
+			Name: spec.RoleRef.Name,
+			UID:  spec.RoleRef.UID.String(),
+		},
+		Subject: RoleBindingSubject{
+			Kind: spec.Subject.Kind,
+			Name: spec.Subject.Name,
+			UID:  spec.Subject.UID.String(),
+		},
+	}
+}
+
+func roleBindingStatusFromDomain(s usermodel.RoleBindingStatus) RoleBindingStatus {
+	return RoleBindingStatus{
+		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
+			return NewConditionFromDomain(c)
+		}),
+	}
+}

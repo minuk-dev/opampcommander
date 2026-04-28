@@ -16,6 +16,7 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/internal/management/observability"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -87,6 +88,9 @@ func NewHTTPServer(
 func NewEngine(
 	controllers []helper.Controller,
 	securityService *security.Service,
+	rbacUsecase userport.RBACUsecase,
+	userUsecase userport.UserUsecase,
+	settings *config.ServerSettings,
 	observabilityService *observability.Service,
 	logger *slog.Logger,
 ) *gin.Engine {
@@ -94,6 +98,12 @@ func NewEngine(
 	engine.Use(sloggin.New(logger))
 	engine.Use(gin.Recovery())
 	engine.Use(security.NewAuthJWTMiddleware(securityService))
+	engine.Use(security.NewAuthorizationMiddleware(
+		rbacUsecase,
+		userUsecase,
+		settings.AuthSettings.AdminSettings.Email,
+		logger,
+	))
 	engine.Use(observabilityService.Middleware())
 	// swagger
 	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))

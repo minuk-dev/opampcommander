@@ -20,69 +20,30 @@ var _ applicationport.RBACManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the RBACManageUsecase interface.
 type Service struct {
-	userRoleUsecase   userport.UserRoleUsecase
-	rbacUsecase       userport.RBACUsecase
-	roleUsecase       userport.RoleUsecase
-	permissionUsecase userport.PermissionUsecase
-	userUsecase       userport.UserUsecase
-	mapper            *helper.Mapper
-	logger            *slog.Logger
+	rbacUsecase                userport.RBACUsecase
+	roleUsecase                userport.RoleUsecase
+	permissionUsecase          userport.PermissionUsecase
+	roleBindingPersistencePort userport.RoleBindingPersistencePort
+	mapper                     *helper.Mapper
+	logger                     *slog.Logger
 }
 
 // New creates a new instance of the Service struct.
 func New(
-	userRoleUsecase userport.UserRoleUsecase,
 	rbacUsecase userport.RBACUsecase,
 	roleUsecase userport.RoleUsecase,
 	permissionUsecase userport.PermissionUsecase,
-	userUsecase userport.UserUsecase,
+	roleBindingPersistencePort userport.RoleBindingPersistencePort,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		userRoleUsecase:   userRoleUsecase,
-		rbacUsecase:       rbacUsecase,
-		roleUsecase:       roleUsecase,
-		permissionUsecase: permissionUsecase,
-		userUsecase:       userUsecase,
-		mapper:            helper.NewMapper(),
-		logger:            logger,
+		rbacUsecase:                rbacUsecase,
+		roleUsecase:                roleUsecase,
+		permissionUsecase:          permissionUsecase,
+		roleBindingPersistencePort: roleBindingPersistencePort,
+		mapper:                     helper.NewMapper(),
+		logger:                     logger,
 	}
-}
-
-// AssignRole implements [applicationport.RBACManageUsecase].
-func (s *Service) AssignRole(ctx context.Context, req *v1.AssignRoleRequest) error {
-	userID, err := uuid.Parse(req.UserID)
-	if err != nil {
-		return fmt.Errorf("failed to parse user ID: %w", err)
-	}
-
-	roleID, err := uuid.Parse(req.RoleID)
-	if err != nil {
-		return fmt.Errorf("failed to parse role ID: %w", err)
-	}
-
-	// AssignedBy is now an email from the security context; resolve to user UID
-	assigner, err := s.userUsecase.GetUserByEmail(ctx, req.AssignedBy)
-	if err != nil {
-		return fmt.Errorf("failed to resolve assigner identity: %w", err)
-	}
-
-	err = s.userRoleUsecase.AssignRole(ctx, userID, roleID, assigner.Metadata.UID)
-	if err != nil {
-		return fmt.Errorf("failed to assign role: %w", err)
-	}
-
-	return nil
-}
-
-// UnassignRole implements [applicationport.RBACManageUsecase].
-func (s *Service) UnassignRole(ctx context.Context, userID, roleID uuid.UUID) error {
-	err := s.userRoleUsecase.UnassignRole(ctx, userID, roleID)
-	if err != nil {
-		return fmt.Errorf("failed to unassign role: %w", err)
-	}
-
-	return nil
 }
 
 // CheckPermission implements [applicationport.RBACManageUsecase].
@@ -95,7 +56,7 @@ func (s *Service) CheckPermission(
 		return nil, fmt.Errorf("failed to parse user ID: %w", err)
 	}
 
-	allowed, err := s.rbacUsecase.CheckPermission(ctx, userID, req.Resource, req.Action)
+	allowed, err := s.rbacUsecase.CheckPermission(ctx, userID, req.Namespace, req.Resource, req.Action)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check permission: %w", err)
 	}
@@ -106,13 +67,63 @@ func (s *Service) CheckPermission(
 }
 
 // GetUserRoles implements [applicationport.RBACManageUsecase].
+//
+//nolint:funlen // Nil-UID validation adds necessary safety checks that push length over the limit.
 func (s *Service) GetUserRoles(
 	ctx context.Context,
 	userID uuid.UUID,
 ) (*v1.ListResponse[v1.Role], error) {
-	roles, err := s.userRoleUsecase.GetUserRoles(ctx, userID)
+	// Find role bindings for this user
+	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user roles: %w", err)
+		return nil, fmt.Errorf("failed to list role bindings: %w", err)
+	}
+
+	roleMap := make(map[uuid.UUID]*usermodel.Role)
+
+	for _, binding := range allBindings.Items {
+		if binding.Spec.Subject.UID == uuid.Nil {
+			s.logger.WarnContext(ctx, "skipping role binding with nil subject UID",
+				slog.String("namespace", binding.Metadata.Namespace),
+				slog.String("name", binding.Metadata.Name),
+			)
+
+			continue
+		}
+
+		if binding.Spec.Subject.UID != userID {
+			continue
+		}
+
+		if binding.Spec.RoleRef.UID == uuid.Nil {
+			s.logger.WarnContext(ctx, "skipping role binding with nil role ref UID",
+				slog.String("namespace", binding.Metadata.Namespace),
+				slog.String("name", binding.Metadata.Name),
+			)
+
+			continue
+		}
+
+		if _, exists := roleMap[binding.Spec.RoleRef.UID]; exists {
+			continue
+		}
+
+		role, roleErr := s.roleUsecase.GetRole(ctx, binding.Spec.RoleRef.UID)
+		if roleErr != nil {
+			s.logger.WarnContext(ctx, "failed to get role for role binding",
+				slog.String("roleUID", binding.Spec.RoleRef.UID.String()),
+				slog.Any("error", roleErr),
+			)
+
+			continue
+		}
+
+		roleMap[binding.Spec.RoleRef.UID] = role
+	}
+
+	roles := make([]*usermodel.Role, 0, len(roleMap))
+	for _, role := range roleMap {
+		roles = append(roles, role)
 	}
 
 	return &v1.ListResponse[v1.Role]{

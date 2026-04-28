@@ -160,12 +160,14 @@ func createKafkaReceiver(
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			// Cancel the lifecycle context first so OpenInbound stops receiving,
+			// then close the underlying consumer to release resources.
+			lifecycleCancel()
+
 			err := consumer.Close(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to close Kafka receiver: %w", err)
 			}
-
-			defer lifecycleCancel()
 
 			return nil
 		},

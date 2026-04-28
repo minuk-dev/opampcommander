@@ -177,6 +177,8 @@ type UserRoleSpec struct {
 	UserID string `json:"userId"`
 	// RoleID is the ID of the role.
 	RoleID string `json:"roleId"`
+	// Namespace is the namespace scope for this role assignment. "*" means all namespaces.
+	Namespace string `json:"namespace"`
 	// AssignedAt is the timestamp when the role was assigned.
 	AssignedAt Time `json:"assignedAt"`
 	// AssignedBy is the ID of the user who assigned the role.
@@ -195,6 +197,8 @@ type AssignRoleRequest struct {
 	UserID string `json:"userId"`
 	// RoleID is the ID of the role to assign.
 	RoleID string `json:"roleId"`
+	// Namespace is the namespace scope for this assignment. "*" means all namespaces.
+	Namespace string `json:"namespace"`
 	// AssignedBy is the ID of the user performing the assignment.
 	AssignedBy string `json:"assignedBy"`
 } // @name AssignRoleRequest
@@ -203,6 +207,8 @@ type AssignRoleRequest struct {
 type CheckPermissionRequest struct {
 	// UserID is the ID of the user to check.
 	UserID string `json:"userId"`
+	// Namespace is the namespace to check permission in.
+	Namespace string `json:"namespace"`
 	// Resource is the resource to check access for.
 	Resource string `json:"resource"`
 	// Action is the action to check access for.

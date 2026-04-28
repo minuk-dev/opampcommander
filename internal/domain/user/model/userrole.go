@@ -27,6 +27,7 @@ type UserRoleMetadata struct {
 type UserRoleSpec struct {
 	UserID     uuid.UUID
 	RoleID     uuid.UUID
+	Namespace  string // Namespace scope. "*" = all namespaces, otherwise a specific namespace name.
 	AssignedAt time.Time
 	AssignedBy uuid.UUID // User who assigned the role
 }
@@ -36,8 +37,13 @@ type UserRoleStatus struct {
 	Conditions []model.Condition
 }
 
-// NewUserRole creates a new user role assignment.
-func NewUserRole(userID, roleID, assignedBy uuid.UUID) *UserRole {
+// NewUserRole creates a new user role assignment scoped to a namespace.
+// Use "*" as namespace for a cluster-wide (all namespaces) assignment.
+func NewUserRole(userID, roleID, assignedBy uuid.UUID, namespace string) *UserRole {
+	if namespace == "" {
+		namespace = WildcardAll
+	}
+
 	now := time.Now()
 
 	return &UserRole{
@@ -50,6 +56,7 @@ func NewUserRole(userID, roleID, assignedBy uuid.UUID) *UserRole {
 		Spec: UserRoleSpec{
 			UserID:     userID,
 			RoleID:     roleID,
+			Namespace:  namespace,
 			AssignedAt: now,
 			AssignedBy: assignedBy,
 		},

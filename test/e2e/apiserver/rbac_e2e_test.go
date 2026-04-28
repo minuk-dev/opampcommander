@@ -3,14 +3,7 @@
 package apiserver_test
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,28 +21,20 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
-	// Given: Infrastructure is set up (MongoDB + API Server)
-	mongoContainer, mongoURI := startMongoDB(t)
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_rbac_test")
+	defer apiServer.Stop()
 
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	apiServer.WaitForReady()
 
-	apiPort := base.GetFreeTCPPort()
-
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_rbac_test")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
-
-	token := getAuthToken(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Test 1: Get current user profile via /api/v1/users/me
 	t.Run("GetCurrentUserProfile", func(t *testing.T) {
-		profile := getUserProfile(t, apiBaseURL, token)
+		profile, err := opampClient.UserService.GetMyProfile(t.Context())
+		require.NoError(t, err)
 		assert.NotEmpty(t, profile.User.Metadata.UID)
 		assert.Equal(t, "test@test.com", profile.User.Spec.Email)
 		assert.Equal(t, "test-admin", profile.User.Spec.Username)
@@ -58,15 +43,16 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 
 	// Test 2: List users
 	t.Run("ListUsers", func(t *testing.T) {
-		users := listUsers(t, apiBaseURL, token)
-		assert.GreaterOrEqual(t, len(users), 1, "At least the admin user should exist")
+		resp, err := opampClient.UserService.ListUsers(t.Context())
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(resp.Items), 1, "At least the admin user should exist")
 	})
 
 	// Test 3: Create a role
 	var createdRoleUID string
 
 	t.Run("CreateRole", func(t *testing.T) {
-		role := createRole(t, apiBaseURL, token, &v1.Role{
+		role, err := opampClient.RoleService.CreateRole(t.Context(), &v1.Role{
 			Kind:       v1.RoleKind,
 			APIVersion: "v1",
 			//exhaustruct:ignore
@@ -80,6 +66,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 			//exhaustruct:ignore
 			Status: v1.RoleStatus{},
 		})
+		require.NoError(t, err)
 		assert.NotEmpty(t, role.Metadata.UID)
 		assert.Equal(t, "Test Viewer Role", role.Spec.DisplayName)
 		createdRoleUID = role.Metadata.UID
@@ -87,8 +74,9 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 
 	// Test 4: List roles
 	t.Run("ListRoles", func(t *testing.T) {
-		roles := listRoles(t, apiBaseURL, token)
-		assert.GreaterOrEqual(t, len(roles), 1, "At least the created role should exist")
+		resp, err := opampClient.RoleService.ListRoles(t.Context())
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(resp.Items), 1, "At least the created role should exist")
 	})
 
 	// Test 5: Get role by ID
@@ -97,21 +85,37 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 			t.Skip("No role created in previous test")
 		}
 
-		role := getRoleByID(t, apiBaseURL, token, createdRoleUID)
+		role, err := opampClient.RoleService.GetRole(t.Context(), createdRoleUID)
+		require.NoError(t, err)
 		assert.Equal(t, createdRoleUID, role.Metadata.UID)
 		assert.Equal(t, "Test Viewer Role", role.Spec.DisplayName)
 	})
 
-	// Test 6: Assign role to user
-	t.Run("AssignRoleToUser", func(t *testing.T) {
+	// Test 6: Create RoleBinding to bind role to user
+	t.Run("CreateRoleBinding", func(t *testing.T) {
 		if createdRoleUID == "" {
 			t.Skip("No role created in previous test")
 		}
 
-		profile := getUserProfile(t, apiBaseURL, token)
-		userUID := profile.User.Metadata.UID
-
-		assignRole(t, apiBaseURL, token, userUID, createdRoleUID)
+		_, err := opampClient.RoleBindingService.CreateRoleBinding(t.Context(), "default", &v1.RoleBinding{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: "v1",
+			Metadata: v1.RoleBindingMetadata{
+				Namespace: "default",
+				Name:      "test-viewer-binding",
+				//exhaustruct:ignore
+				CreatedAt: v1.Time{},
+				//exhaustruct:ignore
+				UpdatedAt: v1.Time{},
+			},
+			Spec: v1.RoleBindingSpec{
+				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Test Viewer Role"},
+				Subject: v1.RoleBindingSubject{Kind: "User", Name: "test@test.com"},
+			},
+			//exhaustruct:ignore
+			Status: v1.RoleBindingStatus{},
+		})
+		require.NoError(t, err)
 	})
 
 	// Test 7: Get user roles via RBAC endpoint
@@ -120,33 +124,39 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 			t.Skip("No role created in previous test")
 		}
 
-		profile := getUserProfile(t, apiBaseURL, token)
+		profile, err := opampClient.UserService.GetMyProfile(t.Context())
+		require.NoError(t, err)
 		userUID := profile.User.Metadata.UID
 
-		roles := getUserRoles(t, apiBaseURL, token, userUID)
-		assert.GreaterOrEqual(t, len(roles), 1, "User should have at least one role assigned")
+		resp, err := opampClient.RBACService.GetUserRoles(t.Context(), userUID)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(resp.Items), 1, "User should have at least one role assigned")
 	})
 
 	// Test 8: Check permission
 	t.Run("CheckPermission", func(t *testing.T) {
-		profile := getUserProfile(t, apiBaseURL, token)
+		profile, err := opampClient.UserService.GetMyProfile(t.Context())
+		require.NoError(t, err)
 		userUID := profile.User.Metadata.UID
 
-		result := checkPermission(t, apiBaseURL, token, userUID, "agent", "read")
-		// Result may be true or false depending on policy setup; just verify it returns without error
+		result, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
+			UserID:    userUID,
+			Namespace: "*",
+			Resource:  "agent",
+			Action:    "read",
+		})
+		require.NoError(t, err)
 		assert.IsType(t, true, result.Allowed)
 	})
 
-	// Test 9: Unassign role from user
-	t.Run("UnassignRoleFromUser", func(t *testing.T) {
+	// Test 9: Delete RoleBinding
+	t.Run("DeleteRoleBinding", func(t *testing.T) {
 		if createdRoleUID == "" {
 			t.Skip("No role created in previous test")
 		}
 
-		profile := getUserProfile(t, apiBaseURL, token)
-		userUID := profile.User.Metadata.UID
-
-		unassignRole(t, apiBaseURL, token, userUID, createdRoleUID)
+		err := opampClient.RoleBindingService.DeleteRoleBinding(t.Context(), "default", "test-viewer-binding")
+		require.NoError(t, err)
 	})
 
 	// Test 10: Delete role
@@ -155,270 +165,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 			t.Skip("No role created in previous test")
 		}
 
-		deleteRole(t, apiBaseURL, token, createdRoleUID)
+		err := opampClient.RoleService.DeleteRole(t.Context(), createdRoleUID)
+		require.NoError(t, err)
 	})
-}
-
-func getUserProfile(t *testing.T, baseURL, token string) v1.UserProfileResponse {
-	t.Helper()
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/users/me", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.UserProfileResponse
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
-}
-
-func listUsers(t *testing.T, baseURL, token string) []v1.User {
-	t.Helper()
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/users", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Items []v1.User `json:"items"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Items
-}
-
-func createRole(t *testing.T, baseURL, token string, role *v1.Role) v1.Role {
-	t.Helper()
-
-	roleJSON, err := json.Marshal(role)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/roles", bytes.NewReader(roleJSON),
-	)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.Role
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
-}
-
-func listRoles(t *testing.T, baseURL, token string) []v1.Role {
-	t.Helper()
-
-	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/v1/roles", nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Items []v1.Role `json:"items"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Items
-}
-
-func getRoleByID(t *testing.T, baseURL, token, roleUID string) v1.Role {
-	t.Helper()
-
-	url := fmt.Sprintf("%s/api/v1/roles/%s", baseURL, roleUID)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.Role
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
-}
-
-func assignRole(t *testing.T, baseURL, token, userID, roleID string) {
-	t.Helper()
-
-	reqBody := v1.AssignRoleRequest{
-		UserID: userID,
-		RoleID: roleID,
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/assign", bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
-}
-
-func getUserRoles(t *testing.T, baseURL, token, userID string) []v1.Role {
-	t.Helper()
-
-	url := fmt.Sprintf("%s/api/v1/rbac/users/%s/roles", baseURL, userID)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result struct {
-		Items []v1.Role `json:"items"`
-	}
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result.Items
-}
-
-func checkPermission(
-	t *testing.T,
-	baseURL, token, userID, resource, action string,
-) v1.CheckPermissionResponse {
-	t.Helper()
-
-	reqBody := v1.CheckPermissionRequest{
-		UserID:   userID,
-		Resource: resource,
-		Action:   action,
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/check", bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	var result v1.CheckPermissionResponse
-	require.NoError(t, json.Unmarshal(body, &result))
-
-	return result
-}
-
-func unassignRole(t *testing.T, baseURL, token, userID, roleID string) {
-	t.Helper()
-
-	reqBody := struct {
-		UserID string `json:"userId"`
-		RoleID string `json:"roleId"`
-	}{
-		UserID: userID,
-		RoleID: roleID,
-	}
-
-	bodyJSON, err := json.Marshal(reqBody)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest( //nolint:noctx
-		http.MethodPost, baseURL+"/api/v1/rbac/unassign", bytes.NewReader(bodyJSON),
-	)
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
-}
-
-func deleteRole(t *testing.T, baseURL, token, roleID string) {
-	t.Helper()
-
-	url := fmt.Sprintf("%s/api/v1/roles/%s", baseURL, roleID)
-
-	req, err := http.NewRequest(http.MethodDelete, url, nil) //nolint:noctx
-	require.NoError(t, err)
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 }

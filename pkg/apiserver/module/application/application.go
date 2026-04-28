@@ -16,6 +16,7 @@ import (
 	permissionApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/permission"
 	rbacApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rbac"
 	roleApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/role"
+	rolebindingApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rolebinding"
 	userApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
@@ -66,6 +67,12 @@ func New() fx.Option {
 
 			rbacApplicationService.New,
 			fx.Annotate(Identity[*rbacApplicationService.Service], fx.As(new(port.RBACManageUsecase))),
+
+			rolebindingApplicationService.New,
+			fx.Annotate(
+				Identity[*rolebindingApplicationService.Service],
+				fx.As(new(port.RoleBindingManageUsecase)),
+			),
 		),
 	)
 }

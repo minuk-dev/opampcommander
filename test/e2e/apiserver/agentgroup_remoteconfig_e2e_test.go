@@ -5,18 +5,14 @@ package apiserver_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -36,26 +32,21 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentgroup_direct")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentgroup_direct")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Given: OTel Collector is started
-	collectorUID := uuid.New()
-	collectorCfg := createCollectorConfigWithAttributes(t, base.CacheDir, apiPort, collectorUID, map[string]string{
+	collector := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "staging-service",
 		"environment":  "staging",
 	})
-	collectorContainer := startOTelCollector(t, collectorCfg)
-	defer func() { _ = collectorContainer.Terminate(ctx) }()
+	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Wait for collector to register
 	assert.Eventually(t, func() bool {
@@ -154,32 +145,25 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up
-	mongoContainer, mongoURI := startMongoDB(t)
-	defer func() { _ = mongoContainer.Terminate(ctx) }()
+	mongoServer := base.StartMongoDB()
+	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentgroup_collision")
+	defer apiServer.Stop()
 
-	apiPort := base.GetFreeTCPPort()
-	stopServer, apiBaseURL := setupAPIServer(t, apiPort, mongoURI, "opampcommander_e2e_agentgroup_collision")
-	defer stopServer()
-
-	waitForAPIServerReady(t, apiBaseURL)
+	apiServer.WaitForReady()
 
 	// Given: Create opampctl client
-	opampClient := createOpampClient(t, apiBaseURL)
+	opampClient := apiServer.Client()
 
 	// Given: Two OTel Collectors with different service names
-	collectorUID1 := uuid.New()
-	collectorCfg1 := createCollectorConfigWithAttributes(t, base.CacheDir, apiPort, collectorUID1, map[string]string{
+	collector1 := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "service-alpha",
 	})
-	collectorContainer1 := startOTelCollector(t, collectorCfg1)
-	defer func() { _ = collectorContainer1.Terminate(ctx) }()
+	defer func() { _ = collector1.Terminate(ctx) }()
 
-	collectorUID2 := uuid.New()
-	collectorCfg2 := createCollectorConfigWithAttributes(t, base.CacheDir, apiPort, collectorUID2, map[string]string{
+	collector2 := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "service-beta",
 	})
-	collectorContainer2 := startOTelCollector(t, collectorCfg2)
-	defer func() { _ = collectorContainer2.Terminate(ctx) }()
+	defer func() { _ = collector2.Terminate(ctx) }()
 
 	// Wait for both collectors to register
 	assert.Eventually(t, func() bool {
@@ -294,17 +278,6 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 
 // Helper functions
 
-func createOpampClient(t *testing.T, baseURL string) *client.Client {
-	t.Helper()
-
-	opampClient := client.New(baseURL)
-
-	// Get auth token
-	token := getAuthToken(t, baseURL)
-	opampClient.SetAuthToken(token)
-
-	return opampClient
-}
 
 func hasRemoteConfig(agent v1.Agent, configName string) bool {
 	// Check RemoteConfigNames list
@@ -324,95 +297,6 @@ func hasRemoteConfig(agent v1.Agent, configName string) bool {
 	return false
 }
 
-func createCollectorConfigWithAttributes(
-	t *testing.T,
-	cacheDir string,
-	opampPort int,
-	instanceUID uuid.UUID,
-	resourceAttrs map[string]string,
-) string {
-	t.Helper()
-
-	// Build resource attributes string for OTEL_RESOURCE_ATTRIBUTES
-	var resourceAttrsStr string
-	for k, v := range resourceAttrs {
-		if resourceAttrsStr != "" {
-			resourceAttrsStr += ","
-		}
-		resourceAttrsStr += fmt.Sprintf("%s=%s", k, v)
-	}
-
-	configContent := fmt.Sprintf(`receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
-
-processors:
-  batch:
-  resource:
-    attributes:
-%s
-
-exporters:
-  debug:
-    verbosity: basic
-
-extensions:
-  opamp:
-    server:
-      ws:
-        endpoint: ws://host.docker.internal:%d/api/v1/opamp
-        tls:
-          insecure: true
-    instance_uid: %s
-
-service:
-  extensions: [opamp]
-  telemetry:
-    logs:
-      level: info
-    resource:
-%s
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: [batch, resource]
-      exporters: [debug]
-    metrics:
-      receivers: [otlp]
-      processors: [batch, resource]
-      exporters: [debug]
-    logs:
-      receivers: [otlp]
-      processors: [batch, resource]
-      exporters: [debug]
-`, formatResourceAttrsForConfig(resourceAttrs), opampPort, instanceUID.String(), formatResourceAttrsForTelemetry(resourceAttrs))
-
-	configPath := filepath.Join(cacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
-	err := os.WriteFile(configPath, []byte(configContent), 0600)
-	require.NoError(t, err)
-
-	return configPath
-}
-
-func formatResourceAttrsForConfig(attrs map[string]string) string {
-	var result string
-	for k, v := range attrs {
-		result += fmt.Sprintf("      - key: %s\n        value: %s\n        action: upsert\n", k, v)
-	}
-	return result
-}
-
-func formatResourceAttrsForTelemetry(attrs map[string]string) string {
-	var result string
-	for k, v := range attrs {
-		result += fmt.Sprintf("      %s: %s\n", k, v)
-	}
-	return result
-}
 
 func getEffectiveConfigKeys(agent v1.Agent) []string {
 	keys := make([]string, 0)

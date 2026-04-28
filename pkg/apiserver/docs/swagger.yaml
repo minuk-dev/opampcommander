@@ -320,18 +320,6 @@ definitions:
           message.
         type: integer
     type: object
-  AssignRoleRequest:
-    properties:
-      assignedBy:
-        description: AssignedBy is the ID of the user performing the assignment.
-        type: string
-      roleId:
-        description: RoleID is the ID of the role to assign.
-        type: string
-      userId:
-        description: UserID is the ID of the user to assign the role to.
-        type: string
-    type: object
   AuthnTokenResponse:
     properties:
       token:
@@ -404,6 +392,9 @@ definitions:
     properties:
       action:
         description: Action is the action to check access for.
+        type: string
+      namespace:
+        description: Namespace is the namespace to check permission in.
         type: string
       resource:
         description: Resource is the resource to check access for.
@@ -673,6 +664,19 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
+  ListResponse-RoleBinding:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/RoleBinding'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   ListResponse-Server:
     properties:
       apiVersion:
@@ -825,6 +829,82 @@ definitions:
         allOf:
         - $ref: '#/definitions/RoleStatus'
         description: Status contains the status of the role.
+    type: object
+  RoleBinding:
+    properties:
+      apiVersion:
+        description: APIVersion is the version of the API.
+        type: string
+      kind:
+        description: Kind is the type of the resource.
+        type: string
+      metadata:
+        allOf:
+        - $ref: '#/definitions/RoleBindingMetadata'
+        description: Metadata contains the metadata of the role binding.
+      spec:
+        allOf:
+        - $ref: '#/definitions/RoleBindingSpec'
+        description: Spec contains the specification of the role binding.
+      status:
+        allOf:
+        - $ref: '#/definitions/RoleBindingStatus'
+        description: Status contains the status of the role binding.
+    type: object
+  RoleBindingMetadata:
+    properties:
+      createdAt:
+        description: CreatedAt is the timestamp when the role binding was created.
+        type: string
+      deletedAt:
+        description: DeletedAt is the timestamp when the role binding was soft deleted.
+        type: string
+      name:
+        description: Name is the unique name of the role binding within the namespace.
+        type: string
+      namespace:
+        description: Namespace is the namespace scope for this role binding.
+        type: string
+      updatedAt:
+        description: UpdatedAt is the timestamp when the role binding was last updated.
+        type: string
+    type: object
+  RoleBindingRoleRef:
+    properties:
+      kind:
+        description: Kind is the type of the referenced resource (e.g., "Role").
+        type: string
+      name:
+        description: Name is the display name of the role.
+        type: string
+    type: object
+  RoleBindingSpec:
+    properties:
+      roleRef:
+        allOf:
+        - $ref: '#/definitions/RoleBindingRoleRef'
+        description: RoleRef references the role to bind.
+      subject:
+        allOf:
+        - $ref: '#/definitions/RoleBindingSubject'
+        description: Subject identifies the user to bind the role to.
+    type: object
+  RoleBindingStatus:
+    properties:
+      conditions:
+        description: Conditions contains the conditions of the role binding.
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
+  RoleBindingSubject:
+    properties:
+      kind:
+        description: Kind is the type of the subject (e.g., "User").
+        type: string
+      name:
+        description: Name is the email of the user.
+        type: string
     type: object
   RoleMetadata:
     properties:
@@ -1068,15 +1148,6 @@ definitions:
   github_com_minuk-dev_opampcommander_api_v1.Attributes:
     additionalProperties:
       type: string
-    type: object
-  internal_adapter_in_http_v1_rbac.unassignRoleRequest:
-    properties:
-      roleId:
-        description: RoleID is the ID of the role to unassign.
-        type: string
-      userId:
-        description: UserID is the ID of the user to unassign the role from.
-        type: string
     type: object
   user.User:
     properties:
@@ -1986,6 +2057,193 @@ paths:
       summary: List Connections
       tags:
       - connection
+  /api/v1/namespaces/{namespace}/rolebindings:
+    get:
+      description: Retrieves a list of role bindings with pagination options.
+      parameters:
+      - description: Maximum number of role bindings to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing
+        in: query
+        name: continue
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-RoleBinding'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List RoleBindings
+      tags:
+      - rolebinding
+    post:
+      consumes:
+      - application/json
+      description: Create a new role binding.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: RoleBinding to create
+        in: body
+        name: roleBinding
+        required: true
+        schema:
+          $ref: '#/definitions/RoleBinding'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/RoleBinding'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create RoleBinding
+      tags:
+      - rolebinding
+  /api/v1/namespaces/{namespace}/rolebindings/{name}:
+    delete:
+      description: Mark a role binding as deleted.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: RoleBinding Name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete RoleBinding
+      tags:
+      - rolebinding
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a role binding by namespace and name.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: RoleBinding Name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/RoleBinding'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get RoleBinding
+      tags:
+      - rolebinding
+    put:
+      consumes:
+      - application/json
+      description: Update an existing role binding.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: RoleBinding Name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Updated RoleBinding
+        in: body
+        name: roleBinding
+        required: true
+        schema:
+          $ref: '#/definitions/RoleBinding'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/RoleBinding'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update RoleBinding
+      tags:
+      - rolebinding
   /api/v1/ping:
     get:
       consumes:
@@ -2006,34 +2264,6 @@ paths:
       summary: Ping
       tags:
       - ping
-  /api/v1/rbac/assign:
-    post:
-      consumes:
-      - application/json
-      description: Assign a role to a user.
-      parameters:
-      - description: Role assignment request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/AssignRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Assign Role
-      tags:
-      - rbac
   /api/v1/rbac/check:
     post:
       consumes:
@@ -2079,34 +2309,6 @@ paths:
           schema:
             $ref: '#/definitions/ErrorModel'
       summary: Sync Policies
-      tags:
-      - rbac
-  /api/v1/rbac/unassign:
-    post:
-      consumes:
-      - application/json
-      description: Unassign a role from a user.
-      parameters:
-      - description: Role unassignment request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/internal_adapter_in_http_v1_rbac.unassignRoleRequest'
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Unassign Role
       tags:
       - rbac
   /api/v1/rbac/users/{id}/permissions:

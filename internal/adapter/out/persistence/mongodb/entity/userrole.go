@@ -36,6 +36,7 @@ type UserRoleMetadata struct {
 type UserRoleSpec struct {
 	UserID     string    `bson:"userID"`
 	RoleID     string    `bson:"roleID"`
+	Namespace  string    `bson:"namespace"`
 	AssignedAt time.Time `bson:"assignedAt"`
 	AssignedBy string    `bson:"assignedBy"`
 }
@@ -67,6 +68,7 @@ func (s *UserRoleSpec) toDomain() usermodel.UserRoleSpec {
 	return usermodel.UserRoleSpec{
 		UserID:     uuid.MustParse(s.UserID),
 		RoleID:     uuid.MustParse(s.RoleID),
+		Namespace:  s.Namespace,
 		AssignedAt: s.AssignedAt,
 		AssignedBy: uuid.MustParse(s.AssignedBy),
 	}
@@ -102,12 +104,13 @@ func userRoleMetadataFromDomain(m usermodel.UserRoleMetadata) UserRoleMetadata {
 	}
 }
 
-func userRoleSpecFromDomain(s usermodel.UserRoleSpec) UserRoleSpec {
+func userRoleSpecFromDomain(spec usermodel.UserRoleSpec) UserRoleSpec {
 	return UserRoleSpec{
-		UserID:     s.UserID.String(),
-		RoleID:     s.RoleID.String(),
-		AssignedAt: s.AssignedAt,
-		AssignedBy: s.AssignedBy.String(),
+		UserID:     spec.UserID.String(),
+		RoleID:     spec.RoleID.String(),
+		Namespace:  spec.Namespace,
+		AssignedAt: spec.AssignedAt,
+		AssignedBy: spec.AssignedBy.String(),
 	}
 }
 
