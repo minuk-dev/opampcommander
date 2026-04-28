@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -32,9 +33,10 @@ type CommandOptions struct {
 func NewCommand(options CommandOptions) *cobra.Command {
 	//exhaustruct:ignore
 	return &cobra.Command{
-		Use:   "use [context-name]",
-		Short: "Switch to a different context",
-		Args:  cobra.ExactArgs(1),
+		Use:               "use [context-name]",
+		Short:             "Switch to a different context",
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: options.ValidArgsFunction,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := options.Prepare(cmd, args)
 			if err != nil {
@@ -122,4 +124,19 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 	cmd.Printf("Switched to context %q\n", contextName)
 
 	return nil
+}
+
+// ValidArgsFunction provides dynamic completion for context names.
+func (opt *CommandOptions) ValidArgsFunction(
+	_ *cobra.Command, _ []string, toComplete string,
+) ([]string, cobra.ShellCompDirective) {
+	names := make([]string, 0, len(opt.Contexts))
+
+	for _, ctx := range opt.Contexts {
+		if strings.HasPrefix(ctx.Name, toComplete) {
+			names = append(names, ctx.Name)
+		}
+	}
+
+	return names, cobra.ShellCompDirectiveNoFileComp
 }
