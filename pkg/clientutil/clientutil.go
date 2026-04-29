@@ -29,7 +29,8 @@ var (
 	// ErrUnauthorized is returned when the client is unauthorized.
 	ErrUnauthorized = errors.New("unauthorized")
 	// ErrNoEndpoint is returned when no endpoint is configured for the current context.
-	ErrNoEndpoint = errors.New("no endpoint configured for current context: run 'opampctl context use <name>' or set a cluster endpoint in your config")
+	ErrNoEndpoint = errors.New("no endpoint configured for current context: " +
+		"run 'opampctl context use <name>' or set a cluster endpoint in your config")
 )
 
 // NewClient creates a new authenticated Client.
