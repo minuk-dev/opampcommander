@@ -88,7 +88,7 @@ func (opt *CommandOptions) fetchVersionInfo(cmd *cobra.Command) (Version, error)
 	v := version.Get()
 
 	//exhaustruct:ignore
-	versionInfo := Version{ClientVersion: &v}
+	versionInfo := Version{ClientVersion: &v, ServerVersion: &v1version.Info{}}
 
 	if opt.clientOnly {
 		return versionInfo, nil
@@ -99,7 +99,7 @@ func (opt *CommandOptions) fetchVersionInfo(cmd *cobra.Command) (Version, error)
 		//exhaustruct:ignore
 		versionInfo.ServerVersion = &v1version.Info{}
 
-		return versionInfo, fmt.Errorf("failed to get server version: %w", err)
+		return versionInfo, err //nolint:wrapcheck
 	}
 
 	versionInfo.ServerVersion = serverVersion
