@@ -28,12 +28,18 @@ const (
 var (
 	// ErrUnauthorized is returned when the client is unauthorized.
 	ErrUnauthorized = errors.New("unauthorized")
+	// ErrNoEndpoint is returned when no endpoint is configured for the current context.
+	ErrNoEndpoint = errors.New("no endpoint configured for current context: run 'opampctl context use <name>' or set a cluster endpoint in your config")
 )
 
 // NewClient creates a new authenticated Client.
 func NewClient(
 	config *config.GlobalConfig,
 ) (*client.Client, error) {
+	if configutil.GetCurrentOpAMPCommanderEndpoint(config) == "" {
+		return nil, ErrNoEndpoint
+	}
+
 	cli, err := NewAuthedClient(config)
 	if err != nil {
 		if errors.Is(err, filecache.ErrNoCachedKey) ||
@@ -53,10 +59,15 @@ func NewClient(
 }
 
 // NewUnauthenticatedClient creates a new unauthenticated Client.
+// Returns nil if no endpoint is configured for the current context.
 func NewUnauthenticatedClient(
 	config *config.GlobalConfig,
 ) *client.Client {
 	endpoint := configutil.GetCurrentOpAMPCommanderEndpoint(config)
+	if endpoint == "" {
+		return nil
+	}
+
 	cli := client.New(
 		endpoint,
 		client.WithLogger(config.Log.Logger),
