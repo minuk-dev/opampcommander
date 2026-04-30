@@ -111,7 +111,12 @@ func (s *AuthService) GetDeviceAuthToken() (*v1auth.DeviceAuthnTokenResponse, er
 func (s *AuthService) ExchangeDeviceAuthToken(deviceCode string, expiry time.Time) (*v1auth.AuthnTokenResponse, error) {
 	var authToken v1auth.AuthnTokenResponse
 
-	req := s.service.Resty.R().
+	// This request blocks on the server while it polls GitHub for authorization.
+	// The shared Resty client has a 15s hard timeout which is too short for interactive login.
+	// Clone the client and clear the timeout; the context deadline is the only limit.
+	exchangeClient := s.service.Resty.Clone().SetTimeout(0)
+
+	req := exchangeClient.R().
 		SetResult(&authToken).
 		SetQueryParam("device_code", deviceCode)
 
