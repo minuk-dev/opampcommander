@@ -58,7 +58,9 @@ func FormatYAML(writer io.Writer, target any) error {
 	}
 
 	var obj any
-	if err = json.Unmarshal(jsonBytes, &obj); err != nil {
+
+	err = json.Unmarshal(jsonBytes, &obj)
+	if err != nil {
 		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 

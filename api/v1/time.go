@@ -172,7 +172,7 @@ func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 // MarshalYAML implements [yaml.Marshaler].
 func (t Time) MarshalYAML() (any, error) {
 	if t.IsZero() {
-		return nil, nil
+		return (*string)(nil), nil
 	}
 
 	return t.UTC().Format(time.RFC3339), nil
