@@ -252,7 +252,7 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 
 // ensureUser creates or updates a user record on login.
 // - Always syncs provider labels (login-type, github-org-*).
-// - For new users: also assigns the built-in Member role.
+// - For new users: also assigns the built-in default role.
 // Failures are logged but do not block the login flow.
 func (c *Controller) ensureUser(ctx context.Context, email, provider string, groups []string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
@@ -292,7 +292,7 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string, gro
 		return
 	}
 
-	c.assignMemberRole(ctx, newUser.Metadata.UID)
+	c.assignDefaultRole(ctx, newUser.Metadata.UID)
 }
 
 // syncLabels updates the user's metadata labels to reflect the current login session.
@@ -316,11 +316,11 @@ func (c *Controller) syncLabels(ctx context.Context, user *usermodel.User, provi
 	}
 }
 
-// assignMemberRole assigns the built-in Member role to a newly created user.
-func (c *Controller) assignMemberRole(ctx context.Context, userID uuid.UUID) {
-	memberRole, err := c.roleUsecase.GetRoleByName(ctx, usermodel.RoleMember)
+// assignDefaultRole assigns the built-in default role to a newly created user.
+func (c *Controller) assignDefaultRole(ctx context.Context, userID uuid.UUID) {
+	memberRole, err := c.roleUsecase.GetRoleByName(ctx, usermodel.RoleDefault)
 	if err != nil {
-		c.logger.Warn("failed to find Member role for new user; skipping default role assignment",
+		c.logger.Warn("failed to find default role for new user; skipping default role assignment",
 			slog.String("userID", userID.String()),
 			slog.Any("error", err),
 		)
@@ -329,7 +329,7 @@ func (c *Controller) assignMemberRole(ctx context.Context, userID uuid.UUID) {
 	}
 
 	if assignErr := c.userRoleUsecase.AssignRole(ctx, userID, memberRole.Metadata.UID, uuid.Nil, usermodel.WildcardAll); assignErr != nil {
-		c.logger.Warn("failed to assign Member role to new user",
+		c.logger.Warn("failed to assign default role to new user",
 			slog.String("userID", userID.String()),
 			slog.Any("error", assignErr),
 		)

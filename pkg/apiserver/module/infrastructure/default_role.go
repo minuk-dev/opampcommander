@@ -13,38 +13,38 @@ import (
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
 
-// ensureDefaultMemberRole creates the built-in "Member" role if it does not exist.
-// The Member role is assigned to all new users automatically on login.
+// ensureDefaultRole creates the built-in "default" role if it does not exist.
+// The default role is assigned to all new users automatically on login.
 // It is marked IsBuiltIn=true so it cannot be deleted, but its permissions can be changed.
-func ensureDefaultMemberRole(
+func ensureDefaultRole(
 	ctx context.Context,
 	rolePersistencePort userport.RolePersistencePort,
 	logger *slog.Logger,
 ) error {
-	_, err := rolePersistencePort.GetRoleByName(ctx, usermodel.RoleMember)
+	_, err := rolePersistencePort.GetRoleByName(ctx, usermodel.RoleDefault)
 	if err == nil {
 		return nil
 	}
 
 	if !errors.Is(err, port.ErrResourceNotExist) {
-		return fmt.Errorf("check default member role: %w", err)
+		return fmt.Errorf("check default role: %w", err)
 	}
 
-	logger.Info("creating default Member role")
+	logger.Info("creating built-in default role")
 
-	memberRole := usermodel.NewRole(usermodel.RoleMember, true)
-	memberRole.Spec.Description = "Default role assigned to all new users on first login"
+	defaultRole := usermodel.NewRole(usermodel.RoleDefault, true)
+	defaultRole.Spec.Description = "Default role assigned to all new users on first login"
 
-	_, err = rolePersistencePort.PutRole(ctx, memberRole)
+	_, err = rolePersistencePort.PutRole(ctx, defaultRole)
 	if err != nil {
-		return fmt.Errorf("create default member role: %w", err)
+		return fmt.Errorf("create default role: %w", err)
 	}
 
 	return nil
 }
 
 // registerDefaultRoleHook registers a lifecycle hook to ensure
-// the default Member role exists on startup.
+// the built-in default role exists on startup.
 func registerDefaultRoleHook(
 	lifecycle fx.Lifecycle,
 	rolePersistencePort userport.RolePersistencePort,
@@ -52,7 +52,7 @@ func registerDefaultRoleHook(
 ) {
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return ensureDefaultMemberRole(ctx, rolePersistencePort, logger)
+			return ensureDefaultRole(ctx, rolePersistencePort, logger)
 		},
 		OnStop: nil,
 	})

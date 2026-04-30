@@ -35,7 +35,7 @@ const (
 	RoleSuperAdmin = "SuperAdmin"
 	RoleAdmin      = "Admin"
 	RoleViewer     = "Viewer"
-	RoleMember     = "Member" // default role assigned to all new users; undeletable but permissions can be changed
+	RoleDefault    = "default" // default role assigned to all new users; undeletable but permissions can be changed
 )
 
 // Label keys added to users on login.

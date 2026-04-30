@@ -1,4 +1,4 @@
-# Member role — the default built-in role assigned to all new users on first login.
+# default role — the built-in role assigned to all new users on first login.
 # This role cannot be deleted (isBuiltIn: true), but its permissions can be updated via the API.
 # By default it grants no permissions; add permission names as needed.
 #
@@ -9,7 +9,7 @@ apiVersion: v1
 metadata:
   uid: ""   # assigned by the server
 spec:
-  displayName: Member
+  displayName: default
   description: "Default role assigned to all new users on first login."
   isBuiltIn: true
   permissions: []   # start with no permissions; add as required
