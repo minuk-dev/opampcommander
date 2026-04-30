@@ -398,6 +398,11 @@ func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 		return nil
 	}
 
+	labels := make(map[string]string, len(domain.Metadata.Labels))
+	for k, v := range domain.Metadata.Labels {
+		labels[k] = v
+	}
+
 	return &v1.User{
 		Kind:       v1.UserKind,
 		APIVersion: v1.APIVersion,
@@ -406,6 +411,7 @@ func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
 			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
 			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+			Labels:    labels,
 		},
 		Spec: v1.UserSpec{
 			Email:    domain.Spec.Email,
@@ -508,6 +514,11 @@ func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.Rol
 		return nil
 	}
 
+	labelSelector := make(map[string]string, len(domain.Spec.LabelSelector))
+	for k, v := range domain.Spec.LabelSelector {
+		labelSelector[k] = v
+	}
+
 	return &v1.RoleBinding{
 		Kind:       v1.RoleBindingKind,
 		APIVersion: v1.APIVersion,
@@ -527,6 +538,7 @@ func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.Rol
 				Kind: domain.Spec.Subject.Kind,
 				Name: domain.Spec.Subject.Name,
 			},
+			LabelSelector: labelSelector,
 		},
 		Status: v1.RoleBindingStatus{
 			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
@@ -540,7 +552,12 @@ func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.Role
 		return nil
 	}
 
-	return usermodel.NewRoleBinding(
+	labelSelector := make(map[string]string, len(apiRB.Spec.LabelSelector))
+	for k, v := range apiRB.Spec.LabelSelector {
+		labelSelector[k] = v
+	}
+
+	rb := usermodel.NewRoleBinding(
 		apiRB.Metadata.Namespace,
 		apiRB.Metadata.Name,
 		usermodel.RoleRef{
@@ -554,6 +571,9 @@ func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.Role
 			UID:  uuid.Nil,
 		},
 	)
+	rb.Spec.LabelSelector = labelSelector
+
+	return rb
 }
 
 // --------------------------------------------------------------------------

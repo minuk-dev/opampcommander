@@ -35,6 +35,13 @@ const (
 	RoleSuperAdmin = "SuperAdmin"
 	RoleAdmin      = "Admin"
 	RoleViewer     = "Viewer"
+	RoleMember     = "Member" // default role assigned to all new users; undeletable but permissions can be changed
+)
+
+// Label keys added to users on login.
+const (
+	LabelLoginType  = "login-type"  // e.g. "github", "basic"
+	LabelGitHubOrg  = "github-org-" // prefix; full key = "github-org-{orgname}"
 )
 
 // NamespaceScopedResources returns all namespace-scoped resources controlled by RBAC.

@@ -1,0 +1,19 @@
+# Grants the Viewer role to every user who logged in via GitHub.
+#
+# How it works:
+#   - When a user logs in via GitHub, the server sets label "login-type: github" on their account.
+#   - This RoleBinding matches any user that has that label.
+#
+# POST /api/v1/rolebindings  (namespace "default", or "*" for cluster-wide)
+kind: RoleBinding
+apiVersion: v1
+metadata:
+  namespace: "*"
+  name: github-users-viewer
+spec:
+  roleRef:
+    kind: Role
+    name: Viewer        # must match an existing role's displayName
+  # subject is omitted — labelSelector is used instead
+  labelSelector:
+    login-type: github  # matches users with this label set by GitHub login

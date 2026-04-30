@@ -35,6 +35,9 @@ type UserMetadata struct {
 	UpdatedAt Time `json:"updatedAt"`
 	// DeletedAt is the timestamp when the user was soft deleted.
 	DeletedAt *Time `json:"deletedAt,omitempty"`
+	// Labels contains arbitrary key/value pairs attached to the user.
+	// Used for label-selector based role bindings (e.g., login-type, github-org-*).
+	Labels map[string]string `json:"labels,omitempty"`
 } // @name UserMetadata
 
 // UserSpec represents the specification of a user.

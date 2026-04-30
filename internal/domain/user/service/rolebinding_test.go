@@ -18,7 +18,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-var errRoleBindingPersistence = errors.New("role binding persistence error")
+var (
+	errRoleBindingPersistence = errors.New("role binding persistence error")
+	errUnexpectedType         = errors.New("unexpected type assertion failure")
+)
 
 // mockRoleBindingPersistencePort is a mock implementation of RoleBindingPersistencePort.
 type mockRoleBindingPersistencePort struct {

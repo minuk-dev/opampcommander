@@ -19,8 +19,9 @@ import (
 
 // LoginResult contains the result of a successful authentication.
 type LoginResult struct {
-	Token string
-	Email string
+	Token  string
+	Email  string
+	Groups []string // provider group/org memberships, added as labels to the user on login
 }
 
 // Usecase defines the use case for the security package.
@@ -80,7 +81,7 @@ func New(
 			ClientID:     settings.OAuthSettings.ClientID,
 			ClientSecret: settings.OAuthSettings.Secret,
 			RedirectURL:  settings.OAuthSettings.CallbackURL,
-			Scopes:       []string{"user:email"},
+			Scopes:       []string{"user:email", "read:org"},
 			Endpoint:     oauth2github.Endpoint,
 		}
 	}

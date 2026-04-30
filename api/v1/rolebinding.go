@@ -34,11 +34,16 @@ type RoleBindingMetadata struct {
 } // @name RoleBindingMetadata
 
 // RoleBindingSpec defines the role binding details.
+// Either subject or labelSelector must be provided.
 type RoleBindingSpec struct {
 	// RoleRef references the role to bind.
 	RoleRef RoleBindingRoleRef `json:"roleRef" yaml:"roleRef"`
-	// Subject identifies the user to bind the role to.
-	Subject RoleBindingSubject `json:"subject" yaml:"subject"`
+	// Subject identifies a specific user to bind the role to.
+	// Omit when using labelSelector.
+	Subject RoleBindingSubject `json:"subject,omitempty" yaml:"subject,omitempty"`
+	// LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.
+	// Omit when using subject.
+	LabelSelector map[string]string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
 } // @name RoleBindingSpec
 
 // RoleBindingRoleRef references a Role resource.

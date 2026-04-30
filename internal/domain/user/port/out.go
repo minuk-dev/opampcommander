@@ -116,18 +116,3 @@ type RBACEnforcerPort interface {
 	BuildRoleLinks(ctx context.Context) error
 }
 
-// OrgRoleMappingPersistencePort is an interface for org-role mapping persistence.
-type OrgRoleMappingPersistencePort interface {
-	// GetOrgRoleMapping retrieves an org-role mapping by its UID.
-	GetOrgRoleMapping(ctx context.Context, uid uuid.UUID) (*usermodel.OrgRoleMapping, error)
-	// PutOrgRoleMapping saves or updates an org-role mapping.
-	PutOrgRoleMapping(ctx context.Context,
-		mapping *usermodel.OrgRoleMapping) (*usermodel.OrgRoleMapping, error)
-	// ListOrgRoleMappings retrieves a list of org-role mappings.
-	ListOrgRoleMappings(ctx context.Context,
-		options *model.ListOptions) (*model.ListResponse[*usermodel.OrgRoleMapping], error)
-	// ListOrgRoleMappingsByProvider retrieves mappings for a specific provider.
-	ListOrgRoleMappingsByProvider(ctx context.Context, provider string) ([]*usermodel.OrgRoleMapping, error)
-	// DeleteOrgRoleMapping deletes an org-role mapping.
-	DeleteOrgRoleMapping(ctx context.Context, uid uuid.UUID) error
-}

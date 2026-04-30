@@ -84,21 +84,23 @@ func (s *Service) CreateRoleBinding(
 	ctx context.Context,
 	apiRB *v1.RoleBinding,
 ) (*v1.RoleBinding, error) {
-	// Resolve role by display name
 	role, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve role %q: %w", apiRB.Spec.RoleRef.Name, err)
 	}
 
-	// Resolve user by email
-	user, err := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, err)
-	}
-
 	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
 	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-	domainRB.Spec.Subject.UID = user.Metadata.UID
+
+	// Label-selector bindings have no specific subject; subject-based bindings resolve user by email.
+	if apiRB.Spec.Subject.Name != "" {
+		user, userErr := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
+		if userErr != nil {
+			return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, userErr)
+		}
+
+		domainRB.Spec.Subject.UID = user.Metadata.UID
+	}
 
 	created, err := s.roleBindingUsecase.CreateRoleBinding(ctx, domainRB)
 	if err != nil {
@@ -114,21 +116,22 @@ func (s *Service) UpdateRoleBinding(
 	namespace, name string,
 	apiRB *v1.RoleBinding,
 ) (*v1.RoleBinding, error) {
-	// Resolve role by display name
 	role, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve role %q: %w", apiRB.Spec.RoleRef.Name, err)
 	}
 
-	// Resolve user by email
-	user, err := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, err)
-	}
-
 	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
 	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-	domainRB.Spec.Subject.UID = user.Metadata.UID
+
+	if apiRB.Spec.Subject.Name != "" {
+		user, userErr := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
+		if userErr != nil {
+			return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, userErr)
+		}
+
+		domainRB.Spec.Subject.UID = user.Metadata.UID
+	}
 
 	updated, err := s.roleBindingUsecase.UpdateRoleBinding(ctx, namespace, name, domainRB)
 	if err != nil {

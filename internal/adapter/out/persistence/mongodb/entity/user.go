@@ -26,10 +26,11 @@ type User struct {
 
 // UserMetadata represents the metadata of a user.
 type UserMetadata struct {
-	UID       string     `bson:"uid"`
-	CreatedAt time.Time  `bson:"createdAt,omitempty"`
-	UpdatedAt time.Time  `bson:"updatedAt,omitempty"`
-	DeletedAt *time.Time `bson:"deletedAt,omitempty"`
+	UID       string            `bson:"uid"`
+	CreatedAt time.Time         `bson:"createdAt,omitempty"`
+	UpdatedAt time.Time         `bson:"updatedAt,omitempty"`
+	DeletedAt *time.Time        `bson:"deletedAt,omitempty"`
+	Labels    map[string]string `bson:"labels,omitempty"`
 }
 
 // UserSpec represents the specification of a user.
@@ -64,11 +65,17 @@ func (u *User) ToDomain() *usermodel.User {
 }
 
 func (m *UserMetadata) toDomain() usermodel.UserMetadata {
+	labels := make(map[string]string, len(m.Labels))
+	for k, v := range m.Labels {
+		labels[k] = v
+	}
+
 	return usermodel.UserMetadata{
 		UID:       uuid.MustParse(m.UID),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
 		DeletedAt: m.DeletedAt,
+		Labels:    labels,
 	}
 }
 
@@ -113,11 +120,17 @@ func UserFromDomain(domain *usermodel.User) *User {
 }
 
 func userMetadataFromDomain(m usermodel.UserMetadata) UserMetadata {
+	labels := make(map[string]string, len(m.Labels))
+	for k, v := range m.Labels {
+		labels[k] = v
+	}
+
 	return UserMetadata{
 		UID:       m.UID.String(),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
 		DeletedAt: m.DeletedAt,
+		Labels:    labels,
 	}
 }
 

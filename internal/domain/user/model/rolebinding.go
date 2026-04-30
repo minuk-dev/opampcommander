@@ -25,9 +25,13 @@ type RoleBindingMetadata struct {
 }
 
 // RoleBindingSpec defines the role binding details.
+// Either Subject or LabelSelector must be set.
+// - Subject: binds the role directly to a specific user.
+// - LabelSelector: binds the role to any user whose labels match all specified key/value pairs.
 type RoleBindingSpec struct {
-	RoleRef RoleRef
-	Subject Subject
+	RoleRef       RoleRef
+	Subject       Subject
+	LabelSelector map[string]string
 }
 
 // RoleRef references a role.

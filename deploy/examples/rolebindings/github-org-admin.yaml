@@ -1,0 +1,22 @@
+# Grants the Admin role to members of the "my-company" GitHub organization.
+#
+# How it works:
+#   - When a user logs in via GitHub, the server fetches their org memberships and sets
+#     labels like "github-org-my-company: true" on their account.
+#   - This RoleBinding matches any user with that label.
+#
+# Replace "my-company" with your actual GitHub organization login.
+#
+# POST /api/v1/rolebindings
+kind: RoleBinding
+apiVersion: v1
+metadata:
+  namespace: "*"
+  name: my-company-org-admin
+spec:
+  roleRef:
+    kind: Role
+    name: Admin         # must match an existing role's displayName
+  # subject is omitted — labelSelector is used instead
+  labelSelector:
+    github-org-my-company: "true"   # set automatically when user belongs to "my-company" GitHub org

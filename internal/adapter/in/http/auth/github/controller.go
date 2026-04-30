@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
@@ -21,9 +22,11 @@ import (
 
 // Controller is a struct that implements the GitHub OAuth2 authentication controller.
 type Controller struct {
-	logger      *slog.Logger
-	service     *security.Service
-	userUsecase userport.UserUsecase
+	logger          *slog.Logger
+	service         *security.Service
+	userUsecase     userport.UserUsecase
+	userRoleUsecase userport.UserRoleUsecase
+	roleUsecase     userport.RoleUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
@@ -31,11 +34,15 @@ func NewController(
 	logger *slog.Logger,
 	service *security.Service,
 	userUsecase userport.UserUsecase,
+	userRoleUsecase userport.UserRoleUsecase,
+	roleUsecase userport.RoleUsecase,
 ) *Controller {
 	return &Controller{
-		logger:      logger,
-		service:     service,
-		userUsecase: userUsecase,
+		logger:          logger,
+		service:         service,
+		userUsecase:     userUsecase,
+		userRoleUsecase: userRoleUsecase,
+		roleUsecase:     roleUsecase,
 	}
 }
 
@@ -151,7 +158,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub, result.Groups)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -236,7 +243,7 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub, result.Groups)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -244,16 +251,19 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 }
 
 // ensureUser creates or updates a user record on login.
+// - Always syncs provider labels (login-type, github-org-*).
+// - For new users: also assigns the built-in Member role.
 // Failures are logged but do not block the login flow.
-func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
+func (c *Controller) ensureUser(ctx context.Context, email, provider string, groups []string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
 
 	switch {
 	case err == nil && existing != nil:
+		c.syncLabels(ctx, existing, provider, groups)
+
 		existing.Metadata.UpdatedAt = time.Now()
 
-		saveErr := c.userUsecase.SaveUser(ctx, existing)
-		if saveErr != nil {
+		if saveErr := c.userUsecase.SaveUser(ctx, existing); saveErr != nil {
 			c.logger.Warn("failed to update user on login",
 				slog.String("email", email),
 				slog.Any("error", saveErr),
@@ -271,12 +281,57 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 	}
 
 	newUser := usermodel.NewUserWithIdentity(provider, email, email, email)
+	c.syncLabels(ctx, newUser, provider, groups)
 
-	saveErr := c.userUsecase.SaveUser(ctx, newUser)
-	if saveErr != nil {
+	if saveErr := c.userUsecase.SaveUser(ctx, newUser); saveErr != nil {
 		c.logger.Warn("failed to create user on login",
 			slog.String("email", email),
 			slog.Any("error", saveErr),
+		)
+
+		return
+	}
+
+	c.assignMemberRole(ctx, newUser.Metadata.UID)
+}
+
+// syncLabels updates the user's metadata labels to reflect the current login session.
+// Existing non-provider labels are preserved.
+func (c *Controller) syncLabels(ctx context.Context, user *usermodel.User, provider string, groups []string) {
+	_ = ctx // reserved for future use
+
+	// Remove stale provider-specific labels before re-setting
+	for key := range user.Metadata.Labels {
+		if len(key) > len(usermodel.LabelGitHubOrg) && key[:len(usermodel.LabelGitHubOrg)] == usermodel.LabelGitHubOrg {
+			delete(user.Metadata.Labels, key)
+		}
+	}
+
+	user.SetLabel(usermodel.LabelLoginType, provider)
+
+	if provider == usermodel.IdentityProviderGitHub {
+		for _, org := range groups {
+			user.SetLabel(usermodel.LabelGitHubOrg+org, "true")
+		}
+	}
+}
+
+// assignMemberRole assigns the built-in Member role to a newly created user.
+func (c *Controller) assignMemberRole(ctx context.Context, userID uuid.UUID) {
+	memberRole, err := c.roleUsecase.GetRoleByName(ctx, usermodel.RoleMember)
+	if err != nil {
+		c.logger.Warn("failed to find Member role for new user; skipping default role assignment",
+			slog.String("userID", userID.String()),
+			slog.Any("error", err),
+		)
+
+		return
+	}
+
+	if assignErr := c.userRoleUsecase.AssignRole(ctx, userID, memberRole.Metadata.UID, uuid.Nil, usermodel.WildcardAll); assignErr != nil {
+		c.logger.Warn("failed to assign Member role to new user",
+			slog.String("userID", userID.String()),
+			slog.Any("error", assignErr),
 		)
 	}
 }
