@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-resty/resty/v2"
+
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 )
 
@@ -111,7 +113,12 @@ func (s *AuthService) GetDeviceAuthToken() (*v1auth.DeviceAuthnTokenResponse, er
 func (s *AuthService) ExchangeDeviceAuthToken(deviceCode string, expiry time.Time) (*v1auth.AuthnTokenResponse, error) {
 	var authToken v1auth.AuthnTokenResponse
 
-	req := s.service.Resty.R().
+	// This request blocks on the server while it polls GitHub for authorization.
+	// The shared Resty client has a 15s hard timeout which is too short for interactive login.
+	// Use a dedicated client with no timeout; the context deadline is the only limit.
+	exchangeClient := resty.New().SetBaseURL(s.service.Resty.HostURL)
+
+	req := exchangeClient.R().
 		SetResult(&authToken).
 		SetQueryParam("device_code", deviceCode)
 
