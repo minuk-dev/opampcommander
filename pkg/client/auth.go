@@ -117,8 +117,10 @@ func (s *AuthService) ExchangeDeviceAuthToken(deviceCode string, expiry time.Tim
 
 	if !expiry.IsZero() {
 		req = req.SetQueryParam("expiry", expiry.Format(time.RFC3339))
+
 		ctx, cancel := context.WithDeadline(context.Background(), expiry)
 		defer cancel()
+
 		req = req.SetContext(ctx)
 	}
 
