@@ -810,11 +810,12 @@ func (mapper *Mapper) mapConditionsToAPI(conditions []model.Condition) []v1.Cond
 }
 
 func (mapper *Mapper) mapNewInstanceUIDToAPI(newInstanceUID []byte) string {
-	if len(newInstanceUID) == 0 {
+	uid, err := uuid.FromBytes(newInstanceUID)
+	if err != nil || uid == uuid.Nil {
 		return ""
 	}
 
-	return string(newInstanceUID)
+	return uid.String()
 }
 
 func (mapper *Mapper) mapOpAMPConnectionFromAPI(

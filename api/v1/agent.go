@@ -1,6 +1,11 @@
 package v1
 
-import "github.com/google/uuid"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/google/uuid"
+)
 
 const (
 	// AgentKind is the kind of the agent resource.
@@ -96,6 +101,82 @@ type AgentStatus struct {
 // AgentCapabilities is a bitmask representing the capabilities of the agent.
 type AgentCapabilities uint64
 
+type capabilityEntry struct {
+	bit  AgentCapabilities
+	name string
+}
+
+func capabilityTable() []capabilityEntry {
+	return []capabilityEntry{
+		{1, "ReportsStatus"},
+		{2, "AcceptsRemoteConfig"},
+		{4, "ReportsEffectiveConfig"},
+		{8, "AcceptsPackages"},
+		{16, "ReportsPackageStatuses"},
+		{32, "ReportsOwnTraces"},
+		{64, "ReportsOwnMetrics"},
+		{128, "ReportsOwnLogs"},
+		{256, "AcceptsOpAMPConnectionSettings"},
+		{512, "AcceptsOtherConnectionSettings"},
+		{1024, "AcceptsRestartCommand"},
+		{2048, "ReportsHealth"},
+		{4096, "ReportsRemoteConfig"},
+		{8192, "ReportsHeartbeat"},
+		{16384, "ReportsAvailableComponents"},
+	}
+}
+
+// MarshalJSON serializes AgentCapabilities as a list of capability name strings.
+func (c AgentCapabilities) MarshalJSON() ([]byte, error) {
+	var names []string
+
+	for _, entry := range capabilityTable() {
+		if c&entry.bit != 0 {
+			names = append(names, entry.name)
+		}
+	}
+
+	b, err := json.Marshal(names)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal capabilities: %w", err)
+	}
+
+	return b, nil
+}
+
+// UnmarshalJSON deserializes AgentCapabilities from either a list of name strings or a raw integer.
+func (c *AgentCapabilities) UnmarshalJSON(data []byte) error {
+	var names []string
+
+	err := json.Unmarshal(data, &names)
+	if err == nil {
+		*c = 0
+
+		for _, name := range names {
+			for _, entry := range capabilityTable() {
+				if entry.name == name {
+					*c |= entry.bit
+
+					break
+				}
+			}
+		}
+
+		return nil
+	}
+
+	var raw uint64
+
+	err = json.Unmarshal(data, &raw)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal capabilities: %w", err)
+	}
+
+	*c = AgentCapabilities(raw)
+
+	return nil
+}
+
 // AgentDescription represents the description of the agent.
 type AgentDescription struct {
 	// IdentifyingAttributes are attributes that uniquely identify the agent.
@@ -109,9 +190,14 @@ type AgentEffectiveConfig struct {
 	ConfigMap AgentConfigMap `json:"configMap"`
 } // @name AgentEffectiveConfig
 
+// IsZero reports whether the effective config is empty, enabling omitzero on the parent field.
+func (e AgentEffectiveConfig) IsZero() bool {
+	return len(e.ConfigMap.ConfigMap) == 0
+}
+
 // AgentConfigMap represents a map of configuration files for the agent.
 type AgentConfigMap struct {
-	ConfigMap map[string]AgentConfigFile `json:"configMap"`
+	ConfigMap map[string]AgentConfigFile `json:"configMap,omitempty"`
 } // @name AgentConfigMap
 
 // AgentConfigFile represents a configuration file for the agent.
@@ -126,6 +212,11 @@ type AgentPackageStatuses struct {
 	ServerProvidedAllPackagesHash string                             `json:"serverProvidedAllPackagesHash,omitempty"`
 	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
+
+// IsZero reports whether the package statuses are empty, enabling omitzero on the parent field.
+func (p AgentPackageStatuses) IsZero() bool {
+	return len(p.Packages) == 0 && p.ServerProvidedAllPackagesHash == "" && p.ErrorMessage == ""
+}
 
 // AgentComponentHealth represents the health status of the agent's components.
 type AgentComponentHealth struct {
