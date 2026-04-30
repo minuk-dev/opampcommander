@@ -96,6 +96,40 @@ type AgentStatus struct {
 // AgentCapabilities is a bitmask representing the capabilities of the agent.
 type AgentCapabilities uint64
 
+// Names returns the list of capability flag names set in this bitmask.
+func (c AgentCapabilities) Names() []string {
+	table := [...]struct {
+		bit  AgentCapabilities
+		name string
+	}{
+		{1, "ReportsStatus"},
+		{2, "AcceptsRemoteConfig"},
+		{4, "ReportsEffectiveConfig"},
+		{8, "AcceptsPackages"},
+		{16, "ReportsPackageStatuses"},
+		{32, "ReportsOwnTraces"},
+		{64, "ReportsOwnMetrics"},
+		{128, "ReportsOwnLogs"},
+		{256, "AcceptsOpAMPConnectionSettings"},
+		{512, "AcceptsOtherConnectionSettings"},
+		{1024, "AcceptsRestartCommand"},
+		{2048, "ReportsHealth"},
+		{4096, "ReportsRemoteConfig"},
+		{8192, "ReportsHeartbeat"},
+		{16384, "ReportsAvailableComponents"},
+	}
+
+	var names []string
+
+	for _, entry := range table {
+		if c&entry.bit != 0 {
+			names = append(names, entry.name)
+		}
+	}
+
+	return names
+}
+
 // AgentDescription represents the description of the agent.
 type AgentDescription struct {
 	// IdentifyingAttributes are attributes that uniquely identify the agent.
@@ -109,9 +143,14 @@ type AgentEffectiveConfig struct {
 	ConfigMap AgentConfigMap `json:"configMap"`
 } // @name AgentEffectiveConfig
 
+// IsZero reports whether the effective config is empty, enabling omitzero on the parent field.
+func (e AgentEffectiveConfig) IsZero() bool {
+	return len(e.ConfigMap.ConfigMap) == 0
+}
+
 // AgentConfigMap represents a map of configuration files for the agent.
 type AgentConfigMap struct {
-	ConfigMap map[string]AgentConfigFile `json:"configMap"`
+	ConfigMap map[string]AgentConfigFile `json:"configMap,omitempty"`
 } // @name AgentConfigMap
 
 // AgentConfigFile represents a configuration file for the agent.
@@ -126,6 +165,11 @@ type AgentPackageStatuses struct {
 	ServerProvidedAllPackagesHash string                             `json:"serverProvidedAllPackagesHash,omitempty"`
 	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses
+
+// IsZero reports whether the package statuses are empty, enabling omitzero on the parent field.
+func (p AgentPackageStatuses) IsZero() bool {
+	return len(p.Packages) == 0 && p.ServerProvidedAllPackagesHash == "" && p.ErrorMessage == ""
+}
 
 // AgentComponentHealth represents the health status of the agent's components.
 type AgentComponentHealth struct {

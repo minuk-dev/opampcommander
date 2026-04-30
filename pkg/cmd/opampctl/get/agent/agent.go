@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -34,10 +35,11 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType    string
-	byAgentGroup  string
-	namespace     string
-	allNamespaces bool
+	formatType         string
+	byAgentGroup       string
+	namespace          string
+	allNamespaces      bool
+	decodeCapabilities bool
 
 	// internal
 	client *client.Client
@@ -68,6 +70,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&options.byAgentGroup, "agentgroup", "", "Filter agents by agent group name")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace for the agent group filter")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
+	cmd.Flags().BoolVar(
+		&options.decodeCapabilities, "decode-capabilities", false,
+		"Decode the capabilities bitmask into human-readable flag names",
+	)
 
 	return cmd
 }
@@ -267,7 +273,12 @@ func (opt *CommandOptions) formatAgents(cmd *cobra.Command, agents []v1.Agent) e
 			return fmt.Errorf("failed to format agents: %w", err)
 		}
 	case formatter.JSON, formatter.YAML:
-		err := formatter.Format(cmd.OutOrStdout(), agents, formatType)
+		var target any = agents
+		if opt.decodeCapabilities {
+			target = decodeAgentCapabilities(agents)
+		}
+
+		err := formatter.Format(cmd.OutOrStdout(), target, formatType)
 		if err != nil {
 			return fmt.Errorf("failed to format agents: %w", err)
 		}
@@ -276,6 +287,36 @@ func (opt *CommandOptions) formatAgents(cmd *cobra.Command, agents []v1.Agent) e
 	}
 
 	return nil
+}
+
+// decodeAgentCapabilities converts agents to a JSON-serializable form with capabilities
+// expanded into human-readable flag names.
+func decodeAgentCapabilities(agents []v1.Agent) []map[string]any {
+	result := make([]map[string]any, 0, len(agents))
+
+	for _, agent := range agents {
+		jsonBytes, err := json.Marshal(agent)
+		if err != nil {
+			continue
+		}
+
+		var agentMap map[string]any
+
+		err = json.Unmarshal(jsonBytes, &agentMap)
+		if err != nil {
+			continue
+		}
+
+		if metadata, ok := agentMap["metadata"].(map[string]any); ok {
+			if _, ok := metadata["capabilities"].(float64); ok {
+				metadata["capabilities"] = agent.Metadata.Capabilities.Names()
+			}
+		}
+
+		result = append(result, agentMap)
+	}
+
+	return result
 }
 
 func toShortItemForCLI(agent v1.Agent) ItemForCLI {
