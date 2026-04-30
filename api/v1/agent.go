@@ -14,7 +14,7 @@ type Agent struct {
 	Metadata AgentMetadata `json:"metadata"`
 
 	// Spec contains the desired configuration for the agent.
-	Spec AgentSpec `json:"spec"`
+	Spec AgentSpec `json:"spec,omitzero"`
 
 	// Status contains the observed state of the agent.
 	Status AgentStatus `json:"status"`
@@ -29,13 +29,13 @@ type AgentMetadata struct {
 	Namespace string `json:"namespace"`
 
 	// Description is a human-readable description of the agent.
-	Description AgentDescription `json:"description"`
+	Description AgentDescription `json:"description,omitzero"`
 
 	// Capabilities is a bitmask representing the capabilities of the agent.
-	Capabilities AgentCapabilities `json:"capabilities"`
+	Capabilities AgentCapabilities `json:"capabilities,omitempty"`
 
 	// CustomCapabilities is a map of custom capabilities for the agent.
-	CustomCapabilities AgentCustomCapabilities `json:"customCapabilities"`
+	CustomCapabilities AgentCustomCapabilities `json:"customCapabilities,omitzero"`
 } // @name AgentMetadata
 
 // AgentSpec contains the desired configuration for the agent.
@@ -47,7 +47,7 @@ type AgentSpec struct {
 	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitzero"`
 
 	// RemoteConfig is the remote configuration of the agent.
-	RemoteConfig AgentSpecRemoteConfig `json:"remoteConfig"`
+	RemoteConfig AgentSpecRemoteConfig `json:"remoteConfig,omitzero"`
 
 	// PackagesAvailable is the packages available for the agent to download.
 	PackagesAvailable AgentSpecPackages `json:"packagesAvailable,omitzero"`
@@ -66,19 +66,19 @@ type AgentSpecRemoteConfig struct {
 // AgentStatus contains the observed state of the agent.
 type AgentStatus struct {
 	// EffectiveConfig is the effective configuration of the agent.
-	EffectiveConfig AgentEffectiveConfig `json:"effectiveConfig"`
+	EffectiveConfig AgentEffectiveConfig `json:"effectiveConfig,omitzero"`
 
 	// PackageStatuses is a map of package statuses for the agent.
-	PackageStatuses AgentPackageStatuses `json:"packageStatuses"`
+	PackageStatuses AgentPackageStatuses `json:"packageStatuses,omitzero"`
 
 	// ComponentHealth is the health status of the agent's components.
 	ComponentHealth AgentComponentHealth `json:"componentHealth"`
 
 	// AvailableComponents lists components available on the agent.
-	AvailableComponents AgentAvailableComponents `json:"availableComponents"`
+	AvailableComponents AgentAvailableComponents `json:"availableComponents,omitzero"`
 
 	// Conditions is a list of conditions that apply to the agent.
-	Conditions []Condition `json:"conditions"`
+	Conditions []Condition `json:"conditions,omitempty"`
 
 	// Connected indicates if the agent is currently connected.
 	Connected bool `json:"connected"`
@@ -122,7 +122,7 @@ type AgentConfigFile struct {
 
 // AgentPackageStatuses represents the package statuses of the agent.
 type AgentPackageStatuses struct {
-	Packages                      map[string]AgentStatusPackageEntry `json:"packages"`
+	Packages                      map[string]AgentStatusPackageEntry `json:"packages,omitempty"`
 	ServerProvidedAllPackagesHash string                             `json:"serverProvidedAllPackagesHash,omitempty"`
 	ErrorMessage                  string                             `json:"errorMessage,omitempty"`
 } // @name AgentPackageStatuses

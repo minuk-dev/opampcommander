@@ -170,19 +170,10 @@ func (t *Time) UnmarshalYAML(value *yaml.Node) error {
 }
 
 // MarshalYAML implements [yaml.Marshaler].
-//
-//nolint:mnd
 func (t Time) MarshalYAML() (any, error) {
 	if t.IsZero() {
-		// Encode unset/nil objects as JSON's "null".
-		return []byte("null"), nil
+		return (*string)(nil), nil
 	}
 
-	buf := make([]byte, 0, len(time.RFC3339)+2)
-	buf = append(buf, '"')
-	// time cannot contain non escapable JSON characters
-	buf = t.UTC().AppendFormat(buf, time.RFC3339)
-	buf = append(buf, '"')
-
-	return buf, nil
+	return t.UTC().Format(time.RFC3339), nil
 }

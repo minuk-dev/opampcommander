@@ -50,8 +50,21 @@ func Format(writer io.Writer, target any, t FormatType) error {
 }
 
 // FormatYAML formats the target as a YAML representation.
+// It routes through JSON so that json struct tags (camelCase field names) are preserved.
 func FormatYAML(writer io.Writer, target any) error {
-	b, err := yaml.Marshal(target)
+	jsonBytes, err := json.Marshal(target)
+	if err != nil {
+		return fmt.Errorf("failed to marshal json: %w", err)
+	}
+
+	var obj any
+
+	err = json.Unmarshal(jsonBytes, &obj)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal json: %w", err)
+	}
+
+	b, err := yaml.Marshal(obj)
 	if err != nil {
 		return fmt.Errorf("failed to marshal yaml: %w", err)
 	}
