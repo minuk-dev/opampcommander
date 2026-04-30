@@ -1,11 +1,6 @@
 package v1
 
-import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/google/uuid"
-)
+import "github.com/google/uuid"
 
 const (
 	// AgentKind is the kind of the agent resource.
@@ -101,13 +96,12 @@ type AgentStatus struct {
 // AgentCapabilities is a bitmask representing the capabilities of the agent.
 type AgentCapabilities uint64
 
-type capabilityEntry struct {
-	bit  AgentCapabilities
-	name string
-}
-
-func capabilityTable() []capabilityEntry {
-	return []capabilityEntry{
+// Names returns the list of capability flag names set in this bitmask.
+func (c AgentCapabilities) Names() []string {
+	table := [...]struct {
+		bit  AgentCapabilities
+		name string
+	}{
 		{1, "ReportsStatus"},
 		{2, "AcceptsRemoteConfig"},
 		{4, "ReportsEffectiveConfig"},
@@ -124,57 +118,16 @@ func capabilityTable() []capabilityEntry {
 		{8192, "ReportsHeartbeat"},
 		{16384, "ReportsAvailableComponents"},
 	}
-}
 
-// MarshalJSON serializes AgentCapabilities as a list of capability name strings.
-func (c AgentCapabilities) MarshalJSON() ([]byte, error) {
 	var names []string
 
-	for _, entry := range capabilityTable() {
+	for _, entry := range table {
 		if c&entry.bit != 0 {
 			names = append(names, entry.name)
 		}
 	}
 
-	b, err := json.Marshal(names)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal capabilities: %w", err)
-	}
-
-	return b, nil
-}
-
-// UnmarshalJSON deserializes AgentCapabilities from either a list of name strings or a raw integer.
-func (c *AgentCapabilities) UnmarshalJSON(data []byte) error {
-	var names []string
-
-	err := json.Unmarshal(data, &names)
-	if err == nil {
-		*c = 0
-
-		for _, name := range names {
-			for _, entry := range capabilityTable() {
-				if entry.name == name {
-					*c |= entry.bit
-
-					break
-				}
-			}
-		}
-
-		return nil
-	}
-
-	var raw uint64
-
-	err = json.Unmarshal(data, &raw)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal capabilities: %w", err)
-	}
-
-	*c = AgentCapabilities(raw)
-
-	return nil
+	return names
 }
 
 // AgentDescription represents the description of the agent.
