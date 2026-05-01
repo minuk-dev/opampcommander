@@ -78,10 +78,10 @@ func (s *RBACService) GetUserPermissions(
 			continue
 		}
 
-		role, err := s.rolePersistencePort.GetRole(ctx, binding.Spec.RoleRef.UID)
+		role, err := s.rolePersistencePort.GetRoleByName(ctx, binding.Spec.RoleRef.Name)
 		if err != nil {
 			s.logger.WarnContext(ctx, "failed to get role for role binding",
-				slog.String("roleUID", binding.Spec.RoleRef.UID.String()),
+				slog.String("roleRef", binding.Spec.RoleRef.Name),
 				slog.Any("error", err),
 			)
 
@@ -176,9 +176,28 @@ func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []gro
 		return nil, nil, fmt.Errorf("failed to list roles from persistence: %w", err)
 	}
 
+	roleByName := make(map[string]*usermodel.Role, len(rolesResp.Items))
+	for _, role := range rolesResp.Items {
+		roleByName[role.Spec.DisplayName] = role
+	}
+
+	policies := s.collectNamedPolicies(ctx, rolesResp.Items)
+
+	groupings, err := s.collectGroupingPolicies(ctx, roleByName)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return policies, groupings, nil
+}
+
+func (s *RBACService) collectNamedPolicies(
+	ctx context.Context,
+	roles []*usermodel.Role,
+) []namedPolicy {
 	var policies []namedPolicy
 
-	for _, role := range rolesResp.Items {
+	for _, role := range roles {
 		for _, permissionID := range role.Spec.Permissions {
 			permission, err := s.permissionPersistencePort.GetPermissionByName(ctx, permissionID)
 			if err != nil {
@@ -199,69 +218,69 @@ func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []gro
 		}
 	}
 
+	return policies
+}
+
+func (s *RBACService) collectGroupingPolicies(
+	ctx context.Context,
+	roleByName map[string]*usermodel.Role,
+) ([]groupingPolicy, error) {
 	bindingsResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list role bindings from persistence: %w", err)
+		return nil, fmt.Errorf("failed to list role bindings from persistence: %w", err)
 	}
 
 	usersResp, err := s.userPersistencePort.ListUsers(ctx, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list users for policy sync: %w", err)
+		return nil, fmt.Errorf("failed to list users for policy sync: %w", err)
 	}
 
 	var groupings []groupingPolicy
 
-	for _, binding := range bindingsResp.Items {
-		roleID := binding.Spec.RoleRef.UID.String()
-		namespace := binding.Metadata.Namespace
+	// Auto-assign the built-in default role to every user in the "default" namespace.
+	if defaultRole, ok := roleByName[usermodel.RoleDefault]; ok {
+		defaultRoleUID := defaultRole.Metadata.UID.String()
 
-		if binding.Spec.Subject.Name != "" {
-			// Subject-based: resolve the specific user by email
-			user, userErr := s.userPersistencePort.GetUserByEmail(ctx, binding.Spec.Subject.Name)
-			if userErr != nil {
-				s.logger.WarnContext(ctx, "failed to resolve subject for role binding during sync",
-					slog.String("namespace", namespace),
-					slog.String("name", binding.Metadata.Name),
-					slog.String("subject", binding.Spec.Subject.Name),
-					slog.Any("error", userErr),
-				)
-
-				continue
-			}
-
+		for _, user := range usersResp.Items {
 			groupings = append(groupings, groupingPolicy{
 				userID:    user.Metadata.UID.String(),
-				roleID:    roleID,
-				namespace: namespace,
+				roleID:    defaultRoleUID,
+				namespace: usermodel.DefaultNamespace,
 			})
+		}
+	}
+
+	for _, binding := range bindingsResp.Items {
+		role, ok := roleByName[binding.Spec.RoleRef.Name]
+		if !ok {
+			s.logger.WarnContext(ctx, "role not found for role binding during sync",
+				slog.String("namespace", binding.Metadata.Namespace),
+				slog.String("name", binding.Metadata.Name),
+				slog.String("roleRef", binding.Spec.RoleRef.Name),
+			)
 
 			continue
 		}
 
-		// LabelSelector-based: match against all users
+		namespace := binding.Metadata.Namespace
+		roleUID := role.Metadata.UID.String()
+
 		for _, user := range usersResp.Items {
 			if labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels) {
 				groupings = append(groupings, groupingPolicy{
 					userID:    user.Metadata.UID.String(),
-					roleID:    roleID,
+					roleID:    roleUID,
 					namespace: namespace,
 				})
 			}
 		}
 	}
 
-	return policies, groupings, nil
+	return groupings, nil
 }
 
-// bindingMatchesUser returns true if the binding applies to the given user.
-// A binding matches if:
-//   - Subject.Name matches the user's email (subject-based), or
-//   - all LabelSelector key/value pairs are present in the user's labels (label-selector-based).
+// bindingMatchesUser returns true if the binding's labelSelector matches the user's labels.
 func bindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
-	if binding.Spec.Subject.Name != "" {
-		return user.Spec.Email == binding.Spec.Subject.Name
-	}
-
 	return labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels)
 }
 

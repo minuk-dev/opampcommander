@@ -36,19 +36,11 @@ type RoleBindingMetadata struct {
 // RoleBindingSpec represents the specification of a role binding.
 type RoleBindingSpec struct {
 	RoleRef       RoleBindingRoleRef `bson:"roleRef"`
-	Subject       RoleBindingSubject `bson:"subject"`
 	LabelSelector map[string]string  `bson:"labelSelector,omitempty"`
 }
 
 // RoleBindingRoleRef references a role in MongoDB.
 type RoleBindingRoleRef struct {
-	Kind string `bson:"kind"`
-	Name string `bson:"name"`
-	UID  string `bson:"uid"`
-}
-
-// RoleBindingSubject identifies a user in MongoDB.
-type RoleBindingSubject struct {
 	Kind string `bson:"kind"`
 	Name string `bson:"name"`
 }
@@ -85,11 +77,6 @@ func (s *RoleBindingSpec) toDomain() usermodel.RoleBindingSpec {
 		RoleRef: usermodel.RoleRef{
 			Kind: s.RoleRef.Kind,
 			Name: s.RoleRef.Name,
-			UID:  parseUUIDOrNil(s.RoleRef.UID),
-		},
-		Subject: usermodel.Subject{
-			Kind: s.Subject.Kind,
-			Name: s.Subject.Name,
 		},
 		LabelSelector: labelSelector,
 	}
@@ -134,11 +121,6 @@ func roleBindingSpecFromDomain(spec usermodel.RoleBindingSpec) RoleBindingSpec {
 		RoleRef: RoleBindingRoleRef{
 			Kind: spec.RoleRef.Kind,
 			Name: spec.RoleRef.Name,
-			UID:  spec.RoleRef.UID.String(),
-		},
-		Subject: RoleBindingSubject{
-			Kind: spec.Subject.Kind,
-			Name: spec.Subject.Name,
 		},
 		LabelSelector: labelSelector,
 	}

@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,8 +13,7 @@ import (
 func TestNewRoleBinding(t *testing.T) {
 	t.Parallel()
 
-	roleUID := uuid.New()
-	roleRef := usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: roleUID}
+	roleRef := usermodel.RoleRef{Kind: "Role", Name: "Viewer"}
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding", roleRef)
 
@@ -27,8 +25,6 @@ func TestNewRoleBinding(t *testing.T) {
 	assert.Nil(t, rb.Metadata.DeletedAt)
 	assert.Equal(t, "Role", rb.Spec.RoleRef.Kind)
 	assert.Equal(t, "Viewer", rb.Spec.RoleRef.Name)
-	assert.Equal(t, roleUID, rb.Spec.RoleRef.UID)
-	assert.Empty(t, rb.Spec.Subject.Name)
 	assert.Nil(t, rb.Spec.LabelSelector)
 	assert.Empty(t, rb.Status.Conditions)
 }
@@ -37,7 +33,7 @@ func TestRoleBinding_IsDeleted(t *testing.T) {
 	t.Parallel()
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding",
-		usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
+		usermodel.RoleRef{Kind: "Role", Name: "Viewer"},
 	)
 
 	assert.False(t, rb.IsDeleted())
@@ -50,7 +46,7 @@ func TestRoleBinding_MarkDeleted(t *testing.T) {
 	t.Parallel()
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding",
-		usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
+		usermodel.RoleRef{Kind: "Role", Name: "Viewer"},
 	)
 
 	assert.Nil(t, rb.Metadata.DeletedAt)
@@ -65,7 +61,7 @@ func TestRoleBinding_SetUpdatedAt(t *testing.T) {
 	t.Parallel()
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding",
-		usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
+		usermodel.RoleRef{Kind: "Role", Name: "Viewer"},
 	)
 
 	originalUpdatedAt := rb.Metadata.UpdatedAt

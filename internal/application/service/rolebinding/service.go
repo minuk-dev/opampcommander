@@ -81,15 +81,13 @@ func (s *Service) CreateRoleBinding(
 	ctx context.Context,
 	apiRB *v1.RoleBinding,
 ) (*v1.RoleBinding, error) {
-	role, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
+	// Validate the role exists before persisting the binding.
+	_, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve role %q: %w", apiRB.Spec.RoleRef.Name, err)
 	}
 
-	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
-	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-
-	created, err := s.roleBindingUsecase.CreateRoleBinding(ctx, domainRB)
+	created, err := s.roleBindingUsecase.CreateRoleBinding(ctx, s.mapper.MapAPIToRoleBinding(apiRB))
 	if err != nil {
 		return nil, fmt.Errorf("create role binding: %w", err)
 	}
@@ -103,15 +101,13 @@ func (s *Service) UpdateRoleBinding(
 	namespace, name string,
 	apiRB *v1.RoleBinding,
 ) (*v1.RoleBinding, error) {
-	role, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
+	// Validate the role exists before persisting the binding.
+	_, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve role %q: %w", apiRB.Spec.RoleRef.Name, err)
 	}
 
-	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
-	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-
-	updated, err := s.roleBindingUsecase.UpdateRoleBinding(ctx, namespace, name, domainRB)
+	updated, err := s.roleBindingUsecase.UpdateRoleBinding(ctx, namespace, name, s.mapper.MapAPIToRoleBinding(apiRB))
 	if err != nil {
 		return nil, fmt.Errorf("update role binding: %w", err)
 	}

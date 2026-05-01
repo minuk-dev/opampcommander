@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -102,8 +101,9 @@ func TestRoleBindingService_GetRoleBinding(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		rb := func() *usermodel.RoleBinding {
-			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()})
-			rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
 			return rb
 		}()
 
@@ -148,8 +148,9 @@ func TestRoleBindingService_ListRoleBindings(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		rb := func() *usermodel.RoleBinding {
-			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()})
-			rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
 			return rb
 		}()
 		resp := &model.ListResponse[*usermodel.RoleBinding]{
@@ -198,8 +199,9 @@ func TestRoleBindingService_CreateRoleBinding(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		rb := func() *usermodel.RoleBinding {
-			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()})
-			rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
 			return rb
 		}()
 
@@ -221,8 +223,9 @@ func TestRoleBindingService_CreateRoleBinding(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		rb := func() *usermodel.RoleBinding {
-			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()})
-			rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
 			return rb
 		}()
 
@@ -249,8 +252,9 @@ func TestRoleBindingService_UpdateRoleBinding(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		rb := func() *usermodel.RoleBinding {
-			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()})
-			rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
 			return rb
 		}()
 		beforeUpdate := rb.Metadata.UpdatedAt
@@ -280,8 +284,9 @@ func TestRoleBindingService_UpdateRoleBinding(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		rb := func() *usermodel.RoleBinding {
-			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()})
-			rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
 			return rb
 		}()
 

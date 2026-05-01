@@ -53,33 +53,9 @@ func NewAuthorizationMiddleware(
 			return
 		}
 
-		var namespace, resource, action string
-
-		if strings.HasPrefix(fullPath, namespaceScopedPrefix) {
-			namespace = ctx.Param("namespace")
-			resource, action = extractNamespacedResourceAndAction(fullPath, ctx.Request.Method)
-
-			if resource == "" || action == "" {
-				// Deny by default if a resource segment exists but isn't mapped.
-				if hasNamespaceResourceSegment(fullPath) {
-					ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
-
-					return
-				}
-
-				ctx.Next()
-
-				return
-			}
-		} else {
-			namespace = wildcardNamespace
-			resource, action = extractGlobalResourceAndAction(fullPath, ctx.Request.Method)
-
-			if resource == "" || action == "" {
-				ctx.Next()
-
-				return
-			}
+		namespace, resource, action, done := resolveRBACTarget(ctx, fullPath)
+		if done {
+			return
 		}
 
 		enforcePermission(ctx, rbacUsecase, userUsecase, logger, *user.Email, namespace, resource, action)
@@ -107,6 +83,42 @@ func isExemptFromRBAC(fullPath string) bool {
 	}
 
 	return false
+}
+
+// resolveRBACTarget determines namespace, resource, and action from the request.
+// Returns done=true when the middleware should return early (Next or Abort already called).
+func resolveRBACTarget(ctx *gin.Context, fullPath string) (string, string, string, bool) {
+	if strings.HasPrefix(fullPath, namespaceScopedPrefix) {
+		return resolveNamespacedTarget(ctx, fullPath)
+	}
+
+	resource, action := extractGlobalResourceAndAction(fullPath, ctx.Request.Method)
+
+	if resource == "" || action == "" {
+		ctx.Next()
+
+		return wildcardNamespace, "", "", true
+	}
+
+	return wildcardNamespace, resource, action, false
+}
+
+// resolveNamespacedTarget handles namespace-scoped path resolution.
+func resolveNamespacedTarget(ctx *gin.Context, fullPath string) (string, string, string, bool) {
+	namespace := ctx.Param("namespace")
+	resource, action := extractNamespacedResourceAndAction(fullPath, ctx.Request.Method)
+
+	if resource == "" || action == "" {
+		if hasNamespaceResourceSegment(fullPath) {
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		} else {
+			ctx.Next()
+		}
+
+		return namespace, "", "", true
+	}
+
+	return namespace, resource, action, false
 }
 
 func enforcePermission(

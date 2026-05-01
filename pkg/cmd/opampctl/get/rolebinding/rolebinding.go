@@ -147,12 +147,12 @@ func (opt *CommandOptions) get(cmd *cobra.Command, names []string) error {
 
 //nolint:lll
 type formattedRoleBinding struct {
-	Namespace string     `json:"namespace"           short:"namespace" text:"namespace"           yaml:"namespace"`
-	Name      string     `json:"name"                short:"name"      text:"name"                yaml:"name"`
-	RoleRef   string     `json:"roleRef"             short:"roleRef"   text:"roleRef"             yaml:"roleRef"`
-	Subject   string     `json:"subject"             short:"subject"   text:"subject"             yaml:"subject"`
-	CreatedAt time.Time  `json:"createdAt"           short:"createdAt" text:"createdAt"           yaml:"createdAt"`
-	DeletedAt *time.Time `json:"deletedAt,omitempty" short:"-"         text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	Namespace     string            `json:"namespace"               short:"namespace"     text:"namespace"               yaml:"namespace"`
+	Name          string            `json:"name"                    short:"name"          text:"name"                    yaml:"name"`
+	RoleRef       string            `json:"roleRef"                 short:"roleRef"       text:"roleRef"                 yaml:"roleRef"`
+	LabelSelector map[string]string `json:"labelSelector,omitempty" short:"labelSelector" text:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt"               short:"createdAt"     text:"createdAt"               yaml:"createdAt"`
+	DeletedAt     *time.Time        `json:"deletedAt,omitempty"     short:"-"             text:"deletedAt,omitempty"     yaml:"deletedAt,omitempty"`
 }
 
 func toFormatted(roleBinding v1.RoleBinding) formattedRoleBinding {
@@ -164,11 +164,11 @@ func toFormatted(roleBinding v1.RoleBinding) formattedRoleBinding {
 	}
 
 	return formattedRoleBinding{
-		Namespace: roleBinding.Metadata.Namespace,
-		Name:      roleBinding.Metadata.Name,
-		RoleRef:   roleBinding.Spec.RoleRef.Kind + "/" + roleBinding.Spec.RoleRef.Name,
-		Subject:   roleBinding.Spec.Subject.Kind + "/" + roleBinding.Spec.Subject.Name,
-		CreatedAt: roleBinding.Metadata.CreatedAt.Time,
-		DeletedAt: deletedAt,
+		Namespace:     roleBinding.Metadata.Namespace,
+		Name:          roleBinding.Metadata.Name,
+		RoleRef:       roleBinding.Spec.RoleRef.Kind + "/" + roleBinding.Spec.RoleRef.Name,
+		LabelSelector: roleBinding.Spec.LabelSelector,
+		CreatedAt:     roleBinding.Metadata.CreatedAt.Time,
+		DeletedAt:     deletedAt,
 	}
 }

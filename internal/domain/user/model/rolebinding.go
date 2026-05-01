@@ -3,8 +3,6 @@ package usermodel
 import (
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
@@ -25,24 +23,14 @@ type RoleBindingMetadata struct {
 }
 
 // RoleBindingSpec defines the role binding details.
-// Either Subject or LabelSelector must be set.
-// - Subject: binds the role directly to a specific user.
-// - LabelSelector: binds the role to any user whose labels match all specified key/value pairs.
+// LabelSelector binds the role to any user whose labels match all specified key/value pairs.
 type RoleBindingSpec struct {
 	RoleRef       RoleRef
-	Subject       Subject
 	LabelSelector map[string]string
 }
 
-// RoleRef references a role.
+// RoleRef references a role by kind and name.
 type RoleRef struct {
-	Kind string
-	Name string
-	UID  uuid.UUID
-}
-
-// Subject identifies a user by kind and name (email).
-type Subject struct {
 	Kind string
 	Name string
 }
@@ -53,7 +41,7 @@ type RoleBindingStatus struct {
 }
 
 // NewRoleBinding creates a new RoleBinding instance.
-// Set Spec.Subject or Spec.LabelSelector on the returned value to define the binding target.
+// Set Spec.LabelSelector to define the set of users this binding applies to.
 func NewRoleBinding(namespace, name string, roleRef RoleRef) *RoleBinding {
 	now := time.Now()
 
@@ -66,7 +54,8 @@ func NewRoleBinding(namespace, name string, roleRef RoleRef) *RoleBinding {
 			DeletedAt: nil,
 		},
 		Spec: RoleBindingSpec{
-			RoleRef: roleRef,
+			RoleRef:       roleRef,
+			LabelSelector: nil,
 		},
 		Status: RoleBindingStatus{
 			Conditions: []model.Condition{},

@@ -183,9 +183,9 @@ func newSvc(t *testing.T, rb *mockRoleBindingUsecase, role *mockRoleUsecase) *ro
 	return rolebindingsvc.New(rb, role, base.Logger)
 }
 
-func newRB(namespace, name string, roleUID uuid.UUID) *usermodel.RoleBinding {
-	rb := usermodel.NewRoleBinding(namespace, name, usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: roleUID})
-	rb.Spec.Subject = usermodel.Subject{Kind: "User", Name: "alice@example.com"}
+func newRB() *usermodel.RoleBinding {
+	rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+	rb.Spec.LabelSelector = map[string]string{"login-type": "github"}
 
 	return rb
 }
@@ -201,7 +201,7 @@ func TestService_GetRoleBinding(t *testing.T) {
 		mockRole := new(mockRoleUsecase)
 		svc := newSvc(t, mockRBUsecase, mockRole)
 
-		rb := newRB("production", "viewer-binding", uuid.New())
+		rb := newRB()
 		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
 
 		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding")
@@ -243,7 +243,7 @@ func TestService_ListRoleBindings(t *testing.T) {
 		mockRole := new(mockRoleUsecase)
 		svc := newSvc(t, mockRBUsecase, mockRole)
 
-		rb := newRB("production", "viewer-binding", uuid.New())
+		rb := newRB()
 		domainResp := &model.ListResponse[*usermodel.RoleBinding]{Items: []*usermodel.RoleBinding{rb}}
 
 		opts := &model.ListOptions{Limit: 10}
@@ -299,15 +299,15 @@ func TestService_CreateRoleBinding(t *testing.T) {
 			APIVersion: v1.APIVersion,
 			Metadata:   v1.RoleBindingMetadata{Namespace: "production", Name: "viewer-binding"},
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
 		mockRole.On("GetRoleByName", ctx, "Viewer").Return(role, nil)
 		mockRBUsecase.On("CreateRoleBinding", ctx, mock.MatchedBy(func(rb *usermodel.RoleBinding) bool {
-			return rb.Spec.RoleRef.UID == roleUID && rb.Spec.Subject.Name == "alice@example.com"
-		})).Return(newRB("production", "viewer-binding", roleUID), nil)
+			return rb.Spec.RoleRef.Name == "Viewer" && rb.Spec.LabelSelector["login-type"] == "github"
+		})).Return(newRB(), nil)
 
 		result, err := svc.CreateRoleBinding(ctx, apiRB)
 
@@ -328,8 +328,8 @@ func TestService_CreateRoleBinding(t *testing.T) {
 
 		apiRB := &v1.RoleBinding{
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "NonExistent"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "NonExistent"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
@@ -363,17 +363,17 @@ func TestService_UpdateRoleBinding(t *testing.T) {
 
 		apiRB := &v1.RoleBinding{
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
 		mockRole.On("GetRoleByName", ctx, "Viewer").Return(role, nil)
 		mockRBUsecase.On("UpdateRoleBinding", ctx, "production", "viewer-binding",
 			mock.MatchedBy(func(rb *usermodel.RoleBinding) bool {
-				return rb.Spec.RoleRef.UID == roleUID && rb.Spec.Subject.Name == "alice@example.com"
+				return rb.Spec.RoleRef.Name == "Viewer" && rb.Spec.LabelSelector["login-type"] == "github"
 			}),
-		).Return(newRB("production", "viewer-binding", roleUID), nil)
+		).Return(newRB(), nil)
 
 		result, err := svc.UpdateRoleBinding(ctx, "production", "viewer-binding", apiRB)
 
@@ -393,8 +393,8 @@ func TestService_UpdateRoleBinding(t *testing.T) {
 
 		apiRB := &v1.RoleBinding{
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 

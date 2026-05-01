@@ -161,7 +161,7 @@ func (s *Service) BasicAuth(username, password string) (LoginResult, error) {
 
 	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
 
-	return LoginResult{Token: tokenString, Email: claims.Email}, nil
+	return LoginResult{Token: tokenString, Email: claims.Email, Groups: nil}, nil
 }
 
 func (s *Service) newOPAMPClaims(email string) *OPAMPClaims {

@@ -30,6 +30,9 @@ const (
 	ResourcePermission = "permission"
 )
 
+// DefaultNamespace is the namespace used for built-in default role assignments.
+const DefaultNamespace = "default"
+
 // Built-in role names.
 const (
 	RoleSuperAdmin = "SuperAdmin"

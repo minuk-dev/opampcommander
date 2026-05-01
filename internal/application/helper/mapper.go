@@ -531,10 +531,6 @@ func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.Rol
 				Kind: domain.Spec.RoleRef.Kind,
 				Name: domain.Spec.RoleRef.Name,
 			},
-			Subject: v1.RoleBindingSubject{
-				Kind: domain.Spec.Subject.Kind,
-				Name: domain.Spec.Subject.Name,
-			},
 			LabelSelector: labelSelector,
 		},
 		Status: v1.RoleBindingStatus{
@@ -552,22 +548,17 @@ func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.Role
 	labelSelector := make(map[string]string, len(apiRB.Spec.LabelSelector))
 	maps.Copy(labelSelector, apiRB.Spec.LabelSelector)
 
-	rb := usermodel.NewRoleBinding(
+	roleBinding := usermodel.NewRoleBinding(
 		apiRB.Metadata.Namespace,
 		apiRB.Metadata.Name,
 		usermodel.RoleRef{
 			Kind: apiRB.Spec.RoleRef.Kind,
 			Name: apiRB.Spec.RoleRef.Name,
-			UID:  uuid.Nil,
 		},
 	)
-	rb.Spec.Subject = usermodel.Subject{
-		Kind: apiRB.Spec.Subject.Kind,
-		Name: apiRB.Spec.Subject.Name,
-	}
-	rb.Spec.LabelSelector = labelSelector
+	roleBinding.Spec.LabelSelector = labelSelector
 
-	return rb
+	return roleBinding
 }
 
 // --------------------------------------------------------------------------

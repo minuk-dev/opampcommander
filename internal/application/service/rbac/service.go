@@ -84,15 +84,15 @@ func (s *Service) GetUserRoles(
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
 
-	roleMap := make(map[uuid.UUID]*usermodel.Role)
+	roleMap := make(map[string]*usermodel.Role)
 
 	for _, binding := range allBindings.Items {
 		if !roleBindingMatchesUser(binding, user) {
 			continue
 		}
 
-		if binding.Spec.RoleRef.UID == uuid.Nil {
-			s.logger.WarnContext(ctx, "skipping role binding with nil role ref UID",
+		if binding.Spec.RoleRef.Name == "" {
+			s.logger.WarnContext(ctx, "skipping role binding with empty role ref name",
 				slog.String("namespace", binding.Metadata.Namespace),
 				slog.String("name", binding.Metadata.Name),
 			)
@@ -100,21 +100,21 @@ func (s *Service) GetUserRoles(
 			continue
 		}
 
-		if _, exists := roleMap[binding.Spec.RoleRef.UID]; exists {
+		if _, exists := roleMap[binding.Spec.RoleRef.Name]; exists {
 			continue
 		}
 
-		role, roleErr := s.roleUsecase.GetRole(ctx, binding.Spec.RoleRef.UID)
+		role, roleErr := s.roleUsecase.GetRoleByName(ctx, binding.Spec.RoleRef.Name)
 		if roleErr != nil {
 			s.logger.WarnContext(ctx, "failed to get role for role binding",
-				slog.String("roleUID", binding.Spec.RoleRef.UID.String()),
+				slog.String("roleRef", binding.Spec.RoleRef.Name),
 				slog.Any("error", roleErr),
 			)
 
 			continue
 		}
 
-		roleMap[binding.Spec.RoleRef.UID] = role
+		roleMap[binding.Spec.RoleRef.Name] = role
 	}
 
 	roles := make([]*usermodel.Role, 0, len(roleMap))
@@ -132,12 +132,8 @@ func (s *Service) GetUserRoles(
 	}, nil
 }
 
-// roleBindingMatchesUser returns true if the binding applies to the given user.
+// roleBindingMatchesUser returns true if the binding's labelSelector matches the user's labels.
 func roleBindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
-	if binding.Spec.Subject.Name != "" {
-		return user.Spec.Email == binding.Spec.Subject.Name
-	}
-
 	if len(binding.Spec.LabelSelector) == 0 {
 		return false
 	}

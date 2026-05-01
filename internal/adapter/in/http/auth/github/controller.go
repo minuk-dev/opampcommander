@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
@@ -22,11 +21,9 @@ import (
 
 // Controller is a struct that implements the GitHub OAuth2 authentication controller.
 type Controller struct {
-	logger          *slog.Logger
-	service         *security.Service
-	userUsecase     userport.UserUsecase
-	userRoleUsecase userport.UserRoleUsecase
-	roleUsecase     userport.RoleUsecase
+	logger      *slog.Logger
+	service     *security.Service
+	userUsecase userport.UserUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
@@ -34,15 +31,11 @@ func NewController(
 	logger *slog.Logger,
 	service *security.Service,
 	userUsecase userport.UserUsecase,
-	userRoleUsecase userport.UserRoleUsecase,
-	roleUsecase userport.RoleUsecase,
 ) *Controller {
 	return &Controller{
-		logger:          logger,
-		service:         service,
-		userUsecase:     userUsecase,
-		userRoleUsecase: userRoleUsecase,
-		roleUsecase:     roleUsecase,
+		logger:      logger,
+		service:     service,
+		userUsecase: userUsecase,
 	}
 }
 
@@ -251,9 +244,9 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 }
 
 // ensureUser creates or updates a user record on login.
-// - Always syncs provider labels (login-type, github-org-*).
-// - For new users: also assigns the built-in default role.
+// Always syncs provider labels (login-type, github-org-*).
 // Failures are logged but do not block the login flow.
+// The built-in default role is granted automatically via SyncPolicies — no explicit assignment needed here.
 func (c *Controller) ensureUser(ctx context.Context, email, provider string, groups []string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
 
@@ -290,11 +283,7 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string, gro
 			slog.String("email", email),
 			slog.Any("error", saveErr),
 		)
-
-		return
 	}
-
-	c.assignDefaultRole(ctx, newUser.Metadata.UID)
 }
 
 // syncLabels updates the user's metadata labels to reflect the current login session.
@@ -315,26 +304,5 @@ func (c *Controller) syncLabels(ctx context.Context, user *usermodel.User, provi
 		for _, org := range groups {
 			user.SetLabel(usermodel.LabelGitHubOrg+org, "true")
 		}
-	}
-}
-
-// assignDefaultRole assigns the built-in default role to a newly created user.
-func (c *Controller) assignDefaultRole(ctx context.Context, userID uuid.UUID) {
-	memberRole, err := c.roleUsecase.GetRoleByName(ctx, usermodel.RoleDefault)
-	if err != nil {
-		c.logger.Warn("failed to find default role for new user; skipping default role assignment",
-			slog.String("userID", userID.String()),
-			slog.Any("error", err),
-		)
-
-		return
-	}
-
-	assignErr := c.userRoleUsecase.AssignRole(ctx, userID, memberRole.Metadata.UID, uuid.Nil, usermodel.WildcardAll)
-	if assignErr != nil {
-		c.logger.Warn("failed to assign default role to new user",
-			slog.String("userID", userID.String()),
-			slog.Any("error", assignErr),
-		)
 	}
 }

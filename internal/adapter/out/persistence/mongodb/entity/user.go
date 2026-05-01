@@ -118,15 +118,15 @@ func UserFromDomain(domain *usermodel.User) *User {
 	}
 }
 
-func userMetadataFromDomain(m usermodel.UserMetadata) UserMetadata {
-	labels := make(map[string]string, len(m.Labels))
-	maps.Copy(labels, m.Labels)
+func userMetadataFromDomain(metadata usermodel.UserMetadata) UserMetadata {
+	labels := make(map[string]string, len(metadata.Labels))
+	maps.Copy(labels, metadata.Labels)
 
 	return UserMetadata{
-		UID:       m.UID.String(),
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
-		DeletedAt: m.DeletedAt,
+		UID:       metadata.UID.String(),
+		CreatedAt: metadata.CreatedAt,
+		UpdatedAt: metadata.UpdatedAt,
+		DeletedAt: metadata.DeletedAt,
 		Labels:    labels,
 	}
 }
