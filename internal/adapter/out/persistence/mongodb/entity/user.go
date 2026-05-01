@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -66,9 +67,7 @@ func (u *User) ToDomain() *usermodel.User {
 
 func (m *UserMetadata) toDomain() usermodel.UserMetadata {
 	labels := make(map[string]string, len(m.Labels))
-	for k, v := range m.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, m.Labels)
 
 	return usermodel.UserMetadata{
 		UID:       uuid.MustParse(m.UID),
@@ -121,9 +120,7 @@ func UserFromDomain(domain *usermodel.User) *User {
 
 func userMetadataFromDomain(m usermodel.UserMetadata) UserMetadata {
 	labels := make(map[string]string, len(m.Labels))
-	for k, v := range m.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, m.Labels)
 
 	return UserMetadata{
 		UID:       m.UID.String(),

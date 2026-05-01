@@ -2,6 +2,7 @@
 package helper
 
 import (
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -399,9 +400,7 @@ func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 	}
 
 	labels := make(map[string]string, len(domain.Metadata.Labels))
-	for k, v := range domain.Metadata.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, domain.Metadata.Labels)
 
 	return &v1.User{
 		Kind:       v1.UserKind,
@@ -515,9 +514,7 @@ func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.Rol
 	}
 
 	labelSelector := make(map[string]string, len(domain.Spec.LabelSelector))
-	for k, v := range domain.Spec.LabelSelector {
-		labelSelector[k] = v
-	}
+	maps.Copy(labelSelector, domain.Spec.LabelSelector)
 
 	return &v1.RoleBinding{
 		Kind:       v1.RoleBindingKind,
@@ -553,9 +550,7 @@ func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.Role
 	}
 
 	labelSelector := make(map[string]string, len(apiRB.Spec.LabelSelector))
-	for k, v := range apiRB.Spec.LabelSelector {
-		labelSelector[k] = v
-	}
+	maps.Copy(labelSelector, apiRB.Spec.LabelSelector)
 
 	rb := usermodel.NewRoleBinding(
 		apiRB.Metadata.Namespace,
@@ -565,12 +560,11 @@ func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.Role
 			Name: apiRB.Spec.RoleRef.Name,
 			UID:  uuid.Nil,
 		},
-		usermodel.Subject{
-			Kind: apiRB.Spec.Subject.Kind,
-			Name: apiRB.Spec.Subject.Name,
-			UID:  uuid.Nil,
-		},
 	)
+	rb.Spec.Subject = usermodel.Subject{
+		Kind: apiRB.Spec.Subject.Kind,
+		Name: apiRB.Spec.Subject.Name,
+	}
 	rb.Spec.LabelSelector = labelSelector
 
 	return rb

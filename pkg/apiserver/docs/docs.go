@@ -3724,6 +3724,13 @@ const docTemplate = `{
         "RoleBindingSpec": {
             "type": "object",
             "properties": {
+                "labelSelector": {
+                    "description": "LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.\nOmit when using subject.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "roleRef": {
                     "description": "RoleRef references the role to bind.",
                     "allOf": [
@@ -3733,7 +3740,7 @@ const docTemplate = `{
                     ]
                 },
                 "subject": {
-                    "description": "Subject identifies the user to bind the role to.",
+                    "description": "Subject identifies a specific user to bind the role to.\nOmit when using labelSelector.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/RoleBindingSubject"
@@ -3955,6 +3962,13 @@ const docTemplate = `{
                 "deletedAt": {
                     "description": "DeletedAt is the timestamp when the user was soft deleted.",
                     "type": "string"
+                },
+                "labels": {
+                    "description": "Labels contains arbitrary key/value pairs attached to the user.\nUsed for label-selector based role bindings (e.g., login-type, github-org-*).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "uid": {
                     "description": "UID is the unique identifier of the user.",

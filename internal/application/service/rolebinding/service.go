@@ -22,7 +22,6 @@ var _ applicationport.RoleBindingManageUsecase = (*Service)(nil)
 type Service struct {
 	roleBindingUsecase userport.RoleBindingUsecase
 	roleUsecase        userport.RoleUsecase
-	userUsecase        userport.UserUsecase
 	mapper             *helper.Mapper
 	logger             *slog.Logger
 }
@@ -31,13 +30,11 @@ type Service struct {
 func New(
 	roleBindingUsecase userport.RoleBindingUsecase,
 	roleUsecase userport.RoleUsecase,
-	userUsecase userport.UserUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		roleBindingUsecase: roleBindingUsecase,
 		roleUsecase:        roleUsecase,
-		userUsecase:        userUsecase,
 		mapper:             helper.NewMapper(),
 		logger:             logger,
 	}
@@ -92,16 +89,6 @@ func (s *Service) CreateRoleBinding(
 	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
 	domainRB.Spec.RoleRef.UID = role.Metadata.UID
 
-	// Label-selector bindings have no specific subject; subject-based bindings resolve user by email.
-	if apiRB.Spec.Subject.Name != "" {
-		user, userErr := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
-		if userErr != nil {
-			return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, userErr)
-		}
-
-		domainRB.Spec.Subject.UID = user.Metadata.UID
-	}
-
 	created, err := s.roleBindingUsecase.CreateRoleBinding(ctx, domainRB)
 	if err != nil {
 		return nil, fmt.Errorf("create role binding: %w", err)
@@ -123,15 +110,6 @@ func (s *Service) UpdateRoleBinding(
 
 	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
 	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-
-	if apiRB.Spec.Subject.Name != "" {
-		user, userErr := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
-		if userErr != nil {
-			return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, userErr)
-		}
-
-		domainRB.Spec.Subject.UID = user.Metadata.UID
-	}
 
 	updated, err := s.roleBindingUsecase.UpdateRoleBinding(ctx, namespace, name, domainRB)
 	if err != nil {

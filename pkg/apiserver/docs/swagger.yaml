@@ -880,6 +880,13 @@ definitions:
     type: object
   RoleBindingSpec:
     properties:
+      labelSelector:
+        additionalProperties:
+          type: string
+        description: |-
+          LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.
+          Omit when using subject.
+        type: object
       roleRef:
         allOf:
         - $ref: '#/definitions/RoleBindingRoleRef'
@@ -887,7 +894,9 @@ definitions:
       subject:
         allOf:
         - $ref: '#/definitions/RoleBindingSubject'
-        description: Subject identifies the user to bind the role to.
+        description: |-
+          Subject identifies a specific user to bind the role to.
+          Omit when using labelSelector.
     type: object
   RoleBindingStatus:
     properties:
@@ -1034,6 +1043,13 @@ definitions:
       deletedAt:
         description: DeletedAt is the timestamp when the user was soft deleted.
         type: string
+      labels:
+        additionalProperties:
+          type: string
+        description: |-
+          Labels contains arbitrary key/value pairs attached to the user.
+          Used for label-selector based role bindings (e.g., login-type, github-org-*).
+        type: object
       uid:
         description: UID is the unique identifier of the user.
         type: string

@@ -41,11 +41,10 @@ type RoleRef struct {
 	UID  uuid.UUID
 }
 
-// Subject identifies a user.
+// Subject identifies a user by kind and name (email).
 type Subject struct {
 	Kind string
 	Name string
-	UID  uuid.UUID
 }
 
 // RoleBindingStatus represents the current state of the role binding.
@@ -54,7 +53,8 @@ type RoleBindingStatus struct {
 }
 
 // NewRoleBinding creates a new RoleBinding instance.
-func NewRoleBinding(namespace, name string, roleRef RoleRef, subject Subject) *RoleBinding {
+// Set Spec.Subject or Spec.LabelSelector on the returned value to define the binding target.
+func NewRoleBinding(namespace, name string, roleRef RoleRef) *RoleBinding {
 	now := time.Now()
 
 	return &RoleBinding{
@@ -67,7 +67,6 @@ func NewRoleBinding(namespace, name string, roleRef RoleRef, subject Subject) *R
 		},
 		Spec: RoleBindingSpec{
 			RoleRef: roleRef,
-			Subject: subject,
 		},
 		Status: RoleBindingStatus{
 			Conditions: []model.Condition{},

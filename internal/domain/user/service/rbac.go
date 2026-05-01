@@ -19,6 +19,7 @@ type RBACService struct {
 	roleBindingPersistencePort userport.RoleBindingPersistencePort
 	rolePersistencePort        userport.RolePersistencePort
 	permissionPersistencePort  userport.PermissionPersistencePort
+	userPersistencePort        userport.UserPersistencePort
 	logger                     *slog.Logger
 }
 
@@ -28,6 +29,7 @@ func NewRBACService(
 	roleBindingPersistencePort userport.RoleBindingPersistencePort,
 	rolePersistencePort userport.RolePersistencePort,
 	permissionPersistencePort userport.PermissionPersistencePort,
+	userPersistencePort userport.UserPersistencePort,
 	logger *slog.Logger,
 ) *RBACService {
 	return &RBACService{
@@ -35,6 +37,7 @@ func NewRBACService(
 		roleBindingPersistencePort: roleBindingPersistencePort,
 		rolePersistencePort:        rolePersistencePort,
 		permissionPersistencePort:  permissionPersistencePort,
+		userPersistencePort:        userPersistencePort,
 		logger:                     logger,
 	}
 }
@@ -58,7 +61,11 @@ func (s *RBACService) GetUserPermissions(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]*usermodel.Permission, error) {
-	// Find role bindings for this user
+	user, err := s.userPersistencePort.GetUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
@@ -67,7 +74,7 @@ func (s *RBACService) GetUserPermissions(
 	permissionMap := make(map[string]*usermodel.Permission)
 
 	for _, binding := range allBindings.Items {
-		if binding.Spec.Subject.UID != userID {
+		if !bindingMatchesUser(binding, user) {
 			continue
 		}
 
@@ -192,19 +199,83 @@ func (s *RBACService) collectPolicies(ctx context.Context) ([]namedPolicy, []gro
 		}
 	}
 
-	userRolesResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
+	bindingsResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to list role bindings from persistence: %w", err)
 	}
 
-	groupings := make([]groupingPolicy, 0, len(userRolesResp.Items))
-	for _, binding := range userRolesResp.Items {
-		groupings = append(groupings, groupingPolicy{
-			userID:    binding.Spec.Subject.UID.String(),
-			roleID:    binding.Spec.RoleRef.UID.String(),
-			namespace: binding.Metadata.Namespace,
-		})
+	usersResp, err := s.userPersistencePort.ListUsers(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to list users for policy sync: %w", err)
+	}
+
+	var groupings []groupingPolicy
+
+	for _, binding := range bindingsResp.Items {
+		roleID := binding.Spec.RoleRef.UID.String()
+		namespace := binding.Metadata.Namespace
+
+		if binding.Spec.Subject.Name != "" {
+			// Subject-based: resolve the specific user by email
+			user, userErr := s.userPersistencePort.GetUserByEmail(ctx, binding.Spec.Subject.Name)
+			if userErr != nil {
+				s.logger.WarnContext(ctx, "failed to resolve subject for role binding during sync",
+					slog.String("namespace", namespace),
+					slog.String("name", binding.Metadata.Name),
+					slog.String("subject", binding.Spec.Subject.Name),
+					slog.Any("error", userErr),
+				)
+
+				continue
+			}
+
+			groupings = append(groupings, groupingPolicy{
+				userID:    user.Metadata.UID.String(),
+				roleID:    roleID,
+				namespace: namespace,
+			})
+
+			continue
+		}
+
+		// LabelSelector-based: match against all users
+		for _, user := range usersResp.Items {
+			if labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels) {
+				groupings = append(groupings, groupingPolicy{
+					userID:    user.Metadata.UID.String(),
+					roleID:    roleID,
+					namespace: namespace,
+				})
+			}
+		}
 	}
 
 	return policies, groupings, nil
+}
+
+// bindingMatchesUser returns true if the binding applies to the given user.
+// A binding matches if:
+//   - Subject.Name matches the user's email (subject-based), or
+//   - all LabelSelector key/value pairs are present in the user's labels (label-selector-based).
+func bindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
+	if binding.Spec.Subject.Name != "" {
+		return user.Spec.Email == binding.Spec.Subject.Name
+	}
+
+	return labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels)
+}
+
+// labelsMatch returns true if all selector pairs are present in labels.
+func labelsMatch(selector, labels map[string]string) bool {
+	if len(selector) == 0 {
+		return false
+	}
+
+	for key, value := range selector {
+		if labels[key] != value {
+			return false
+		}
+	}
+
+	return true
 }

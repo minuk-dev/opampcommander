@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"maps"
 	"time"
 
 	"github.com/samber/lo"
@@ -50,7 +51,6 @@ type RoleBindingRoleRef struct {
 type RoleBindingSubject struct {
 	Kind string `bson:"kind"`
 	Name string `bson:"name"`
-	UID  string `bson:"uid"`
 }
 
 // RoleBindingStatus represents the status of a role binding.
@@ -79,9 +79,7 @@ func (m *RoleBindingMetadata) toDomain() usermodel.RoleBindingMetadata {
 
 func (s *RoleBindingSpec) toDomain() usermodel.RoleBindingSpec {
 	labelSelector := make(map[string]string, len(s.LabelSelector))
-	for k, v := range s.LabelSelector {
-		labelSelector[k] = v
-	}
+	maps.Copy(labelSelector, s.LabelSelector)
 
 	return usermodel.RoleBindingSpec{
 		RoleRef: usermodel.RoleRef{
@@ -92,7 +90,6 @@ func (s *RoleBindingSpec) toDomain() usermodel.RoleBindingSpec {
 		Subject: usermodel.Subject{
 			Kind: s.Subject.Kind,
 			Name: s.Subject.Name,
-			UID:  parseUUIDOrNil(s.Subject.UID),
 		},
 		LabelSelector: labelSelector,
 	}
@@ -131,9 +128,7 @@ func roleBindingMetadataFromDomain(metadata usermodel.RoleBindingMetadata) RoleB
 
 func roleBindingSpecFromDomain(spec usermodel.RoleBindingSpec) RoleBindingSpec {
 	labelSelector := make(map[string]string, len(spec.LabelSelector))
-	for k, v := range spec.LabelSelector {
-		labelSelector[k] = v
-	}
+	maps.Copy(labelSelector, spec.LabelSelector)
 
 	return RoleBindingSpec{
 		RoleRef: RoleBindingRoleRef{
@@ -144,7 +139,6 @@ func roleBindingSpecFromDomain(spec usermodel.RoleBindingSpec) RoleBindingSpec {
 		Subject: RoleBindingSubject{
 			Kind: spec.Subject.Kind,
 			Name: spec.Subject.Name,
-			UID:  spec.Subject.UID.String(),
 		},
 		LabelSelector: labelSelector,
 	}

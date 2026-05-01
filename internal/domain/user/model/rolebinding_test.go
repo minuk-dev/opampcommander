@@ -15,11 +15,9 @@ func TestNewRoleBinding(t *testing.T) {
 	t.Parallel()
 
 	roleUID := uuid.New()
-	userUID := uuid.New()
 	roleRef := usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: roleUID}
-	subject := usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: userUID}
 
-	rb := usermodel.NewRoleBinding("production", "viewer-binding", roleRef, subject)
+	rb := usermodel.NewRoleBinding("production", "viewer-binding", roleRef)
 
 	require.NotNil(t, rb)
 	assert.Equal(t, "production", rb.Metadata.Namespace)
@@ -30,9 +28,8 @@ func TestNewRoleBinding(t *testing.T) {
 	assert.Equal(t, "Role", rb.Spec.RoleRef.Kind)
 	assert.Equal(t, "Viewer", rb.Spec.RoleRef.Name)
 	assert.Equal(t, roleUID, rb.Spec.RoleRef.UID)
-	assert.Equal(t, "User", rb.Spec.Subject.Kind)
-	assert.Equal(t, "alice@example.com", rb.Spec.Subject.Name)
-	assert.Equal(t, userUID, rb.Spec.Subject.UID)
+	assert.Empty(t, rb.Spec.Subject.Name)
+	assert.Nil(t, rb.Spec.LabelSelector)
 	assert.Empty(t, rb.Status.Conditions)
 }
 
@@ -41,7 +38,6 @@ func TestRoleBinding_IsDeleted(t *testing.T) {
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding",
 		usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-		usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
 	)
 
 	assert.False(t, rb.IsDeleted())
@@ -55,7 +51,6 @@ func TestRoleBinding_MarkDeleted(t *testing.T) {
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding",
 		usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-		usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
 	)
 
 	assert.Nil(t, rb.Metadata.DeletedAt)
@@ -71,7 +66,6 @@ func TestRoleBinding_SetUpdatedAt(t *testing.T) {
 
 	rb := usermodel.NewRoleBinding("production", "viewer-binding",
 		usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-		usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
 	)
 
 	originalUpdatedAt := rb.Metadata.UpdatedAt

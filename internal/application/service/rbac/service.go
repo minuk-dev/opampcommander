@@ -24,6 +24,7 @@ type Service struct {
 	roleUsecase                userport.RoleUsecase
 	permissionUsecase          userport.PermissionUsecase
 	roleBindingPersistencePort userport.RoleBindingPersistencePort
+	userUsecase                userport.UserUsecase
 	mapper                     *helper.Mapper
 	logger                     *slog.Logger
 }
@@ -34,6 +35,7 @@ func New(
 	roleUsecase userport.RoleUsecase,
 	permissionUsecase userport.PermissionUsecase,
 	roleBindingPersistencePort userport.RoleBindingPersistencePort,
+	userUsecase userport.UserUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -41,6 +43,7 @@ func New(
 		roleUsecase:                roleUsecase,
 		permissionUsecase:          permissionUsecase,
 		roleBindingPersistencePort: roleBindingPersistencePort,
+		userUsecase:                userUsecase,
 		mapper:                     helper.NewMapper(),
 		logger:                     logger,
 	}
@@ -67,13 +70,15 @@ func (s *Service) CheckPermission(
 }
 
 // GetUserRoles implements [applicationport.RBACManageUsecase].
-//
-//nolint:funlen // Nil-UID validation adds necessary safety checks that push length over the limit.
 func (s *Service) GetUserRoles(
 	ctx context.Context,
 	userID uuid.UUID,
 ) (*v1.ListResponse[v1.Role], error) {
-	// Find role bindings for this user
+	user, err := s.userUsecase.GetUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
@@ -82,16 +87,7 @@ func (s *Service) GetUserRoles(
 	roleMap := make(map[uuid.UUID]*usermodel.Role)
 
 	for _, binding := range allBindings.Items {
-		if binding.Spec.Subject.UID == uuid.Nil {
-			s.logger.WarnContext(ctx, "skipping role binding with nil subject UID",
-				slog.String("namespace", binding.Metadata.Namespace),
-				slog.String("name", binding.Metadata.Name),
-			)
-
-			continue
-		}
-
-		if binding.Spec.Subject.UID != userID {
+		if !roleBindingMatchesUser(binding, user) {
 			continue
 		}
 
@@ -134,6 +130,25 @@ func (s *Service) GetUserRoles(
 			return *s.mapper.MapRoleToAPI(role)
 		}),
 	}, nil
+}
+
+// roleBindingMatchesUser returns true if the binding applies to the given user.
+func roleBindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
+	if binding.Spec.Subject.Name != "" {
+		return user.Spec.Email == binding.Spec.Subject.Name
+	}
+
+	if len(binding.Spec.LabelSelector) == 0 {
+		return false
+	}
+
+	for key, value := range binding.Spec.LabelSelector {
+		if user.Metadata.Labels[key] != value {
+			return false
+		}
+	}
+
+	return true
 }
 
 // GetUserPermissions implements [applicationport.RBACManageUsecase].

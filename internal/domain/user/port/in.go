@@ -94,4 +94,3 @@ type RoleBindingUsecase interface {
 	// DeleteRoleBinding deletes a role binding by namespace and name.
 	DeleteRoleBinding(ctx context.Context, namespace, name string) error
 }
-

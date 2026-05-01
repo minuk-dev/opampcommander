@@ -263,7 +263,8 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string, gro
 
 		existing.Metadata.UpdatedAt = time.Now()
 
-		if saveErr := c.userUsecase.SaveUser(ctx, existing); saveErr != nil {
+		saveErr := c.userUsecase.SaveUser(ctx, existing)
+		if saveErr != nil {
 			c.logger.Warn("failed to update user on login",
 				slog.String("email", email),
 				slog.Any("error", saveErr),
@@ -283,7 +284,8 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string, gro
 	newUser := usermodel.NewUserWithIdentity(provider, email, email, email)
 	c.syncLabels(ctx, newUser, provider, groups)
 
-	if saveErr := c.userUsecase.SaveUser(ctx, newUser); saveErr != nil {
+	saveErr := c.userUsecase.SaveUser(ctx, newUser)
+	if saveErr != nil {
 		c.logger.Warn("failed to create user on login",
 			slog.String("email", email),
 			slog.Any("error", saveErr),
@@ -328,7 +330,8 @@ func (c *Controller) assignDefaultRole(ctx context.Context, userID uuid.UUID) {
 		return
 	}
 
-	if assignErr := c.userRoleUsecase.AssignRole(ctx, userID, memberRole.Metadata.UID, uuid.Nil, usermodel.WildcardAll); assignErr != nil {
+	assignErr := c.userRoleUsecase.AssignRole(ctx, userID, memberRole.Metadata.UID, uuid.Nil, usermodel.WildcardAll)
+	if assignErr != nil {
 		c.logger.Warn("failed to assign default role to new user",
 			slog.String("userID", userID.String()),
 			slog.Any("error", assignErr),

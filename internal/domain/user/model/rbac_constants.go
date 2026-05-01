@@ -40,8 +40,8 @@ const (
 
 // Label keys added to users on login.
 const (
-	LabelLoginType  = "login-type"  // e.g. "github", "basic"
-	LabelGitHubOrg  = "github-org-" // prefix; full key = "github-org-{orgname}"
+	LabelLoginType = "login-type"  // e.g. "github", "basic"
+	LabelGitHubOrg = "github-org-" // prefix; full key = "github-org-{orgname}"
 )
 
 // NamespaceScopedResources returns all namespace-scoped resources controlled by RBAC.

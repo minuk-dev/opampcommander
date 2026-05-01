@@ -115,4 +115,3 @@ type RBACEnforcerPort interface {
 	// BuildRoleLinks rebuilds the role inheritance links after policy changes.
 	BuildRoleLinks(ctx context.Context) error
 }
-
