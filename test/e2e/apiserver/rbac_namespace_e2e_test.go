@@ -131,12 +131,15 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 	permName := func(resource, action string) string { return resource + ":" + action }
 
 	// --- Create a non-admin user (for RBAC testing) ---
+	// The label "test-user: rbac-user" is used by RoleBindings to target this specific user.
 	regularUser, err := opampClient.UserService.CreateUser(t.Context(), &v1.User{
 		Kind:       v1.UserKind,
 		APIVersion: "v1",
-		//exhaustruct:ignore
-		Metadata: v1.UserMetadata{},
-		Spec:     v1.UserSpec{Email: "rbac-user@example.com", Username: "rbac-user", IsActive: true},
+		Metadata: v1.UserMetadata{
+			Labels: map[string]string{"test-user": "rbac-user"},
+			//exhaustruct:ignore
+		},
+		Spec: v1.UserSpec{Email: "rbac-user@example.com", Username: "rbac-user", IsActive: true},
 		//exhaustruct:ignore
 		Status: v1.UserStatus{},
 	})
@@ -226,7 +229,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 			},
 			Spec: v1.RoleBindingSpec{
 				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+				LabelSelector: map[string]string{"test-user": "rbac-user"},
 			},
 			//exhaustruct:ignore
 			Status: v1.RoleBindingStatus{},
@@ -304,7 +307,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 			},
 			Spec: v1.RoleBindingSpec{
 				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Editor"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+				LabelSelector: map[string]string{"test-user": "rbac-user"},
 			},
 			//exhaustruct:ignore
 			Status: v1.RoleBindingStatus{},
@@ -376,7 +379,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 			},
 			Spec: v1.RoleBindingSpec{
 				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "AgentGroup Admin"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+				LabelSelector: map[string]string{"test-user": "rbac-user"},
 			},
 			//exhaustruct:ignore
 			Status: v1.RoleBindingStatus{},
@@ -395,7 +398,7 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 			},
 			Spec: v1.RoleBindingSpec{
 				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "AgentGroup Admin"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "rbac-user@example.com"},
+				LabelSelector: map[string]string{"test-user": "rbac-user"},
 			},
 			//exhaustruct:ignore
 			Status: v1.RoleBindingStatus{},
@@ -469,9 +472,11 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 		otherUser, err := opampClient.UserService.CreateUser(t.Context(), &v1.User{
 			Kind:       v1.UserKind,
 			APIVersion: "v1",
-			//exhaustruct:ignore
-			Metadata: v1.UserMetadata{},
-			Spec:     v1.UserSpec{Email: "other@example.com", Username: "other-user", IsActive: true},
+			Metadata: v1.UserMetadata{
+				Labels: map[string]string{"test-user": "other-user"},
+				//exhaustruct:ignore
+			},
+			Spec: v1.UserSpec{Email: "other@example.com", Username: "other-user", IsActive: true},
 			//exhaustruct:ignore
 			Status: v1.UserStatus{},
 		})
@@ -490,8 +495,8 @@ func TestE2E_APIServer_NamespaceScopedRBAC(t *testing.T) {
 				UpdatedAt: v1.Time{},
 			},
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "other@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Agent Viewer"},
+				LabelSelector: map[string]string{"test-user": "other-user"},
 			},
 			//exhaustruct:ignore
 			Status: v1.RoleBindingStatus{},
