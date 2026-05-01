@@ -3725,7 +3725,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "labelSelector": {
-                    "description": "LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.\nOmit when using subject.",
+                    "description": "LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -3736,14 +3736,6 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/RoleBindingRoleRef"
-                        }
-                    ]
-                },
-                "subject": {
-                    "description": "Subject identifies a specific user to bind the role to.\nOmit when using labelSelector.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/RoleBindingSubject"
                         }
                     ]
                 }
@@ -3758,19 +3750,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/Condition"
                     }
-                }
-            }
-        },
-        "RoleBindingSubject": {
-            "type": "object",
-            "properties": {
-                "kind": {
-                    "description": "Kind is the type of the subject (e.g., \"User\").",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Name is the email of the user.",
-                    "type": "string"
                 }
             }
         },

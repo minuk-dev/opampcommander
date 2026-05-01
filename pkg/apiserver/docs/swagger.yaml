@@ -883,20 +883,13 @@ definitions:
       labelSelector:
         additionalProperties:
           type: string
-        description: |-
-          LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.
-          Omit when using subject.
+        description: LabelSelector binds the role to any user whose metadata labels
+          match all specified key/value pairs.
         type: object
       roleRef:
         allOf:
         - $ref: '#/definitions/RoleBindingRoleRef'
         description: RoleRef references the role to bind.
-      subject:
-        allOf:
-        - $ref: '#/definitions/RoleBindingSubject'
-        description: |-
-          Subject identifies a specific user to bind the role to.
-          Omit when using labelSelector.
     type: object
   RoleBindingStatus:
     properties:
@@ -905,15 +898,6 @@ definitions:
         items:
           $ref: '#/definitions/Condition'
         type: array
-    type: object
-  RoleBindingSubject:
-    properties:
-      kind:
-        description: Kind is the type of the subject (e.g., "User").
-        type: string
-      name:
-        description: Name is the email of the user.
-        type: string
     type: object
   RoleMetadata:
     properties:
