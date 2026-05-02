@@ -94,31 +94,3 @@ type RoleBindingUsecase interface {
 	// DeleteRoleBinding deletes a role binding by namespace and name.
 	DeleteRoleBinding(ctx context.Context, namespace, name string) error
 }
-
-// IdentityProviderUsecase is a provider-agnostic interface for resolving external identities.
-type IdentityProviderUsecase interface {
-	// ProviderName returns the unique name of this identity provider.
-	ProviderName() string
-	// ResolveIdentity resolves an authenticated token/credential into an ExternalIdentity.
-	ResolveIdentity(ctx context.Context, accessToken string) (*usermodel.ExternalIdentity, error)
-	// ListOrganizations returns the organizations/groups the user belongs to.
-	ListOrganizations(ctx context.Context, accessToken string) ([]string, error)
-}
-
-// OrgRoleMappingUsecase manages mappings from external org/group memberships to internal roles.
-type OrgRoleMappingUsecase interface {
-	// GetOrgRoleMapping retrieves a mapping by its UID.
-	GetOrgRoleMapping(ctx context.Context, uid uuid.UUID) (*usermodel.OrgRoleMapping, error)
-	// ListOrgRoleMappings lists all org-role mappings.
-	ListOrgRoleMappings(ctx context.Context,
-		options *model.ListOptions) (*model.ListResponse[*usermodel.OrgRoleMapping], error)
-	// ListOrgRoleMappingsByProvider lists mappings for a specific provider.
-	ListOrgRoleMappingsByProvider(ctx context.Context, provider string) ([]*usermodel.OrgRoleMapping, error)
-	// SaveOrgRoleMapping saves an org-role mapping.
-	SaveOrgRoleMapping(ctx context.Context, mapping *usermodel.OrgRoleMapping) error
-	// DeleteOrgRoleMapping deletes an org-role mapping.
-	DeleteOrgRoleMapping(ctx context.Context, uid uuid.UUID) error
-	// ResolveRolesForIdentity resolves which roles should be assigned based on
-	// an external identity's org/group memberships and the configured mappings.
-	ResolveRolesForIdentity(ctx context.Context, identity *usermodel.ExternalIdentity) ([]*usermodel.Role, error)
-}

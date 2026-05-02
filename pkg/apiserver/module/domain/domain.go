@@ -53,7 +53,6 @@ func New() fx.Option {
 		fx.Annotate(userservice.NewUserRoleService, fx.As(new(userport.UserRoleUsecase))),
 		fx.Annotate(userservice.NewRoleBindingService, fx.As(new(userport.RoleBindingUsecase))),
 		fx.Annotate(userservice.NewRBACService, fx.As(new(userport.RBACUsecase))),
-		fx.Annotate(userservice.NewOrgRoleMappingService, fx.As(new(userport.OrgRoleMappingUsecase))),
 		helper.AsRunner(Identity[*agentservice.AgentGroupService]),
 		helper.AsRunner(Identity[*agentservice.ServerService]),
 		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),

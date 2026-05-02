@@ -175,71 +175,19 @@ func (m *mockRoleUsecase) DeleteRole(ctx context.Context, uid uuid.UUID) error {
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
 
-// mockUserUsecase is a mock implementation of UserUsecase.
-type mockUserUsecase struct {
-	mock.Mock
+func newSvc(t *testing.T, rb *mockRoleBindingUsecase, role *mockRoleUsecase) *rolebindingsvc.Service {
+	t.Helper()
+
+	base := testutil.NewBase(t)
+
+	return rolebindingsvc.New(rb, role, base.Logger)
 }
 
-var _ userport.UserUsecase = (*mockUserUsecase)(nil)
+func newRB() *usermodel.RoleBinding {
+	rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+	rb.Spec.LabelSelector = map[string]string{"login-type": "github"}
 
-func (m *mockUserUsecase) GetUser(ctx context.Context, uid uuid.UUID) (*usermodel.User, error) {
-	args := m.Called(ctx, uid)
-	if args.Get(0) == nil {
-		return nil, args.Error(1) //nolint:wrapcheck // mock error
-	}
-
-	user, ok := args.Get(0).(*usermodel.User)
-	if !ok {
-		return nil, errMock
-	}
-
-	return user, args.Error(1) //nolint:wrapcheck // mock error
-}
-
-func (m *mockUserUsecase) GetUserByEmail(
-	ctx context.Context,
-	email string,
-) (*usermodel.User, error) {
-	args := m.Called(ctx, email)
-	if args.Get(0) == nil {
-		return nil, args.Error(1) //nolint:wrapcheck // mock error
-	}
-
-	user, ok := args.Get(0).(*usermodel.User)
-	if !ok {
-		return nil, errMock
-	}
-
-	return user, args.Error(1) //nolint:wrapcheck // mock error
-}
-
-func (m *mockUserUsecase) ListUsers(
-	ctx context.Context,
-	options *model.ListOptions,
-) (*model.ListResponse[*usermodel.User], error) {
-	args := m.Called(ctx, options)
-	if args.Get(0) == nil {
-		return nil, args.Error(1) //nolint:wrapcheck // mock error
-	}
-
-	resp, ok := args.Get(0).(*model.ListResponse[*usermodel.User])
-	if !ok {
-		return nil, errMock
-	}
-
-	return resp, args.Error(1) //nolint:wrapcheck // mock error
-}
-
-func (m *mockUserUsecase) SaveUser(ctx context.Context, user *usermodel.User) error {
-	args := m.Called(ctx, user)
-
-	return args.Error(0) //nolint:wrapcheck // mock error
-}
-
-func (m *mockUserUsecase) DeleteUser(ctx context.Context, uid uuid.UUID) error {
-	args := m.Called(ctx, uid)
-
-	return args.Error(0) //nolint:wrapcheck // mock error
+	return rb
 }
 
 func TestService_GetRoleBinding(t *testing.T) {
@@ -249,17 +197,11 @@ func TestService_GetRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
-
+		rb := newRB()
 		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
 
 		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding")
@@ -274,11 +216,9 @@ func TestService_GetRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding").
 			Return(nil, errMock)
@@ -299,19 +239,12 @@ func TestService_ListRoleBindings(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
-		domainResp := &model.ListResponse[*usermodel.RoleBinding]{
-			Items: []*usermodel.RoleBinding{rb},
-		}
+		rb := newRB()
+		domainResp := &model.ListResponse[*usermodel.RoleBinding]{Items: []*usermodel.RoleBinding{rb}}
 
 		opts := &model.ListOptions{Limit: 10}
 		mockRBUsecase.On("ListRoleBindings", ctx, opts).Return(domainResp, nil)
@@ -328,11 +261,9 @@ func TestService_ListRoleBindings(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		opts := &model.ListOptions{Limit: 10}
 		mockRBUsecase.On("ListRoleBindings", ctx, opts).Return(nil, errMock)
@@ -353,45 +284,30 @@ func TestService_CreateRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		roleUID := uuid.New()
-		userUID := uuid.New()
-
 		role := &usermodel.Role{
 			Metadata: usermodel.RoleMetadata{UID: roleUID},
 			Spec:     usermodel.RoleSpec{DisplayName: "Viewer"},
-		}
-		user := &usermodel.User{
-			Metadata: usermodel.UserMetadata{UID: userUID},
-			Spec:     usermodel.UserSpec{Email: "alice@example.com"},
 		}
 
 		apiRB := &v1.RoleBinding{
 			Kind:       v1.RoleBindingKind,
 			APIVersion: v1.APIVersion,
-			Metadata: v1.RoleBindingMetadata{
-				Namespace: "production",
-				Name:      "viewer-binding",
-			},
+			Metadata:   v1.RoleBindingMetadata{Namespace: "production", Name: "viewer-binding"},
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
 		mockRole.On("GetRoleByName", ctx, "Viewer").Return(role, nil)
-		mockUser.On("GetUserByEmail", ctx, "alice@example.com").Return(user, nil)
 		mockRBUsecase.On("CreateRoleBinding", ctx, mock.MatchedBy(func(rb *usermodel.RoleBinding) bool {
-			return rb.Spec.RoleRef.UID == roleUID && rb.Spec.Subject.UID == userUID
-		})).Return(usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: roleUID},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: userUID},
-		), nil)
+			return rb.Spec.RoleRef.Name == "Viewer" && rb.Spec.LabelSelector["login-type"] == "github"
+		})).Return(newRB(), nil)
 
 		result, err := svc.CreateRoleBinding(ctx, apiRB)
 
@@ -399,7 +315,6 @@ func TestService_CreateRoleBinding(t *testing.T) {
 		assert.Equal(t, "production", result.Metadata.Namespace)
 		assert.Equal(t, "viewer-binding", result.Metadata.Name)
 		mockRole.AssertExpectations(t)
-		mockUser.AssertExpectations(t)
 		mockRBUsecase.AssertExpectations(t)
 	})
 
@@ -407,22 +322,14 @@ func TestService_CreateRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		apiRB := &v1.RoleBinding{
-			Kind:       v1.RoleBindingKind,
-			APIVersion: v1.APIVersion,
-			Metadata: v1.RoleBindingMetadata{
-				Namespace: "production",
-				Name:      "viewer-binding",
-			},
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "NonExistent"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "NonExistent"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
@@ -435,46 +342,6 @@ func TestService_CreateRoleBinding(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to resolve role")
 		mockRole.AssertExpectations(t)
 	})
-
-	t.Run("user not found error", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := t.Context()
-		base := testutil.NewBase(t)
-		mockRBUsecase := new(mockRoleBindingUsecase)
-		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
-
-		role := &usermodel.Role{
-			Metadata: usermodel.RoleMetadata{UID: uuid.New()},
-			Spec:     usermodel.RoleSpec{DisplayName: "Viewer"},
-		}
-
-		apiRB := &v1.RoleBinding{
-			Kind:       v1.RoleBindingKind,
-			APIVersion: v1.APIVersion,
-			Metadata: v1.RoleBindingMetadata{
-				Namespace: "production",
-				Name:      "viewer-binding",
-			},
-			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "unknown@example.com"},
-			},
-		}
-
-		mockRole.On("GetRoleByName", ctx, "Viewer").Return(role, nil)
-		mockUser.On("GetUserByEmail", ctx, "unknown@example.com").Return(nil, errNotFound)
-
-		result, err := svc.CreateRoleBinding(ctx, apiRB)
-
-		require.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "failed to resolve user")
-		mockRole.AssertExpectations(t)
-		mockUser.AssertExpectations(t)
-	})
 }
 
 func TestService_UpdateRoleBinding(t *testing.T) {
@@ -484,65 +351,50 @@ func TestService_UpdateRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		roleUID := uuid.New()
-		userUID := uuid.New()
-
 		role := &usermodel.Role{
 			Metadata: usermodel.RoleMetadata{UID: roleUID},
 			Spec:     usermodel.RoleSpec{DisplayName: "Viewer"},
 		}
-		user := &usermodel.User{
-			Metadata: usermodel.UserMetadata{UID: userUID},
-			Spec:     usermodel.UserSpec{Email: "alice@example.com"},
-		}
 
 		apiRB := &v1.RoleBinding{
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
 		mockRole.On("GetRoleByName", ctx, "Viewer").Return(role, nil)
-		mockUser.On("GetUserByEmail", ctx, "alice@example.com").Return(user, nil)
 		mockRBUsecase.On("UpdateRoleBinding", ctx, "production", "viewer-binding",
 			mock.MatchedBy(func(rb *usermodel.RoleBinding) bool {
-				return rb.Spec.RoleRef.UID == roleUID && rb.Spec.Subject.UID == userUID
+				return rb.Spec.RoleRef.Name == "Viewer" && rb.Spec.LabelSelector["login-type"] == "github"
 			}),
-		).Return(usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: roleUID},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: userUID},
-		), nil)
+		).Return(newRB(), nil)
 
 		result, err := svc.UpdateRoleBinding(ctx, "production", "viewer-binding", apiRB)
 
 		require.NoError(t, err)
 		assert.Equal(t, "production", result.Metadata.Namespace)
 		mockRole.AssertExpectations(t)
-		mockUser.AssertExpectations(t)
 		mockRBUsecase.AssertExpectations(t)
 	})
 
-	t.Run("error", func(t *testing.T) {
+	t.Run("role not found error", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		apiRB := &v1.RoleBinding{
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-				Subject: v1.RoleBindingSubject{Kind: "User", Name: "alice@example.com"},
+				RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+				LabelSelector: map[string]string{"login-type": "github"},
 			},
 		}
 
@@ -563,11 +415,9 @@ func TestService_DeleteRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		mockRBUsecase.On("DeleteRoleBinding", ctx, "production", "viewer-binding").Return(nil)
 
@@ -581,11 +431,9 @@ func TestService_DeleteRoleBinding(t *testing.T) {
 		t.Parallel()
 
 		ctx := t.Context()
-		base := testutil.NewBase(t)
 		mockRBUsecase := new(mockRoleBindingUsecase)
 		mockRole := new(mockRoleUsecase)
-		mockUser := new(mockUserUsecase)
-		svc := rolebindingsvc.New(mockRBUsecase, mockRole, mockUser, base.Logger)
+		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		mockRBUsecase.On("DeleteRoleBinding", ctx, "production", "viewer-binding").Return(errMock)
 

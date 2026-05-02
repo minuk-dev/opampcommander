@@ -56,6 +56,8 @@ func New() fx.Option {
 
 		// Default namespace initialization
 		fx.Invoke(registerDefaultNamespaceHook),
+		// Default role initialization
+		fx.Invoke(registerDefaultRoleHook),
 	)
 }
 
@@ -118,7 +120,6 @@ func provideDatabaseComponents() fx.Option {
 			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
 			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
 			fx.Annotate(mongodb.NewRoleBindingRepository, fx.As(new(userport.RoleBindingPersistencePort))),
-			fx.Annotate(mongodb.NewOrgRoleMappingRepository, fx.As(new(userport.OrgRoleMappingPersistencePort))),
 		),
 	)
 }

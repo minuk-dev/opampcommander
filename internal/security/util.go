@@ -127,6 +127,11 @@ func NewAuthJWTMiddleware(
 	}
 }
 
+// SetUser injects a User into the Gin context. Intended for use in tests and middleware.
+func SetUser(ctx *gin.Context, user *User) {
+	saveUser(ctx, user)
+}
+
 // saveUser saves the user in the Gin context.
 func saveUser(ctx *gin.Context, user *User) {
 	if ctx == nil || user == nil {

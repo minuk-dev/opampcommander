@@ -22,7 +22,6 @@ var _ applicationport.RoleBindingManageUsecase = (*Service)(nil)
 type Service struct {
 	roleBindingUsecase userport.RoleBindingUsecase
 	roleUsecase        userport.RoleUsecase
-	userUsecase        userport.UserUsecase
 	mapper             *helper.Mapper
 	logger             *slog.Logger
 }
@@ -31,13 +30,11 @@ type Service struct {
 func New(
 	roleBindingUsecase userport.RoleBindingUsecase,
 	roleUsecase userport.RoleUsecase,
-	userUsecase userport.UserUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		roleBindingUsecase: roleBindingUsecase,
 		roleUsecase:        roleUsecase,
-		userUsecase:        userUsecase,
 		mapper:             helper.NewMapper(),
 		logger:             logger,
 	}
@@ -84,23 +81,13 @@ func (s *Service) CreateRoleBinding(
 	ctx context.Context,
 	apiRB *v1.RoleBinding,
 ) (*v1.RoleBinding, error) {
-	// Resolve role by display name
-	role, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
+	// Validate the role exists before persisting the binding.
+	_, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve role %q: %w", apiRB.Spec.RoleRef.Name, err)
 	}
 
-	// Resolve user by email
-	user, err := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, err)
-	}
-
-	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
-	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-	domainRB.Spec.Subject.UID = user.Metadata.UID
-
-	created, err := s.roleBindingUsecase.CreateRoleBinding(ctx, domainRB)
+	created, err := s.roleBindingUsecase.CreateRoleBinding(ctx, s.mapper.MapAPIToRoleBinding(apiRB))
 	if err != nil {
 		return nil, fmt.Errorf("create role binding: %w", err)
 	}
@@ -114,23 +101,13 @@ func (s *Service) UpdateRoleBinding(
 	namespace, name string,
 	apiRB *v1.RoleBinding,
 ) (*v1.RoleBinding, error) {
-	// Resolve role by display name
-	role, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
+	// Validate the role exists before persisting the binding.
+	_, err := s.roleUsecase.GetRoleByName(ctx, apiRB.Spec.RoleRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve role %q: %w", apiRB.Spec.RoleRef.Name, err)
 	}
 
-	// Resolve user by email
-	user, err := s.userUsecase.GetUserByEmail(ctx, apiRB.Spec.Subject.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve user %q: %w", apiRB.Spec.Subject.Name, err)
-	}
-
-	domainRB := s.mapper.MapAPIToRoleBinding(apiRB)
-	domainRB.Spec.RoleRef.UID = role.Metadata.UID
-	domainRB.Spec.Subject.UID = user.Metadata.UID
-
-	updated, err := s.roleBindingUsecase.UpdateRoleBinding(ctx, namespace, name, domainRB)
+	updated, err := s.roleBindingUsecase.UpdateRoleBinding(ctx, namespace, name, s.mapper.MapAPIToRoleBinding(apiRB))
 	if err != nil {
 		return nil, fmt.Errorf("update role binding: %w", err)
 	}

@@ -22,6 +22,7 @@ type UserMetadata struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
+	Labels    map[string]string // arbitrary key/value pairs; used for label-selector based role bindings
 }
 
 // UserSpec defines the desired state of the user.
@@ -57,6 +58,7 @@ func NewUser(email, username string) *User {
 			CreatedAt: now,
 			UpdatedAt: now,
 			DeletedAt: nil,
+			Labels:    map[string]string{},
 		},
 		Spec: UserSpec{
 			Email:      email,
@@ -131,6 +133,27 @@ func (u *User) GetIdentity(provider string) *UserIdentity {
 	}
 
 	return nil
+}
+
+// SetLabel sets a label on the user's metadata.
+func (u *User) SetLabel(key, value string) {
+	if u.Metadata.Labels == nil {
+		u.Metadata.Labels = make(map[string]string)
+	}
+
+	u.Metadata.Labels[key] = value
+}
+
+// RemoveLabel removes a label from the user's metadata.
+func (u *User) RemoveLabel(key string) {
+	delete(u.Metadata.Labels, key)
+}
+
+// GetLabel returns the value of a label from the user's metadata.
+func (u *User) GetLabel(key string) (string, bool) {
+	v, ok := u.Metadata.Labels[key]
+
+	return v, ok
 }
 
 // IsDeleted returns whether the user is deleted.

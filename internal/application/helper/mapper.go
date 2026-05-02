@@ -2,6 +2,7 @@
 package helper
 
 import (
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -398,6 +399,9 @@ func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 		return nil
 	}
 
+	labels := make(map[string]string, len(domain.Metadata.Labels))
+	maps.Copy(labels, domain.Metadata.Labels)
+
 	return &v1.User{
 		Kind:       v1.UserKind,
 		APIVersion: v1.APIVersion,
@@ -406,6 +410,7 @@ func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
 			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
 			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
+			Labels:    labels,
 		},
 		Spec: v1.UserSpec{
 			Email:    domain.Spec.Email,
@@ -508,6 +513,9 @@ func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.Rol
 		return nil
 	}
 
+	labelSelector := make(map[string]string, len(domain.Spec.LabelSelector))
+	maps.Copy(labelSelector, domain.Spec.LabelSelector)
+
 	return &v1.RoleBinding{
 		Kind:       v1.RoleBindingKind,
 		APIVersion: v1.APIVersion,
@@ -523,10 +531,7 @@ func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.Rol
 				Kind: domain.Spec.RoleRef.Kind,
 				Name: domain.Spec.RoleRef.Name,
 			},
-			Subject: v1.RoleBindingSubject{
-				Kind: domain.Spec.Subject.Kind,
-				Name: domain.Spec.Subject.Name,
-			},
+			LabelSelector: labelSelector,
 		},
 		Status: v1.RoleBindingStatus{
 			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
@@ -540,20 +545,20 @@ func (mapper *Mapper) MapAPIToRoleBinding(apiRB *v1.RoleBinding) *usermodel.Role
 		return nil
 	}
 
-	return usermodel.NewRoleBinding(
+	labelSelector := make(map[string]string, len(apiRB.Spec.LabelSelector))
+	maps.Copy(labelSelector, apiRB.Spec.LabelSelector)
+
+	roleBinding := usermodel.NewRoleBinding(
 		apiRB.Metadata.Namespace,
 		apiRB.Metadata.Name,
 		usermodel.RoleRef{
 			Kind: apiRB.Spec.RoleRef.Kind,
 			Name: apiRB.Spec.RoleRef.Name,
-			UID:  uuid.Nil,
-		},
-		usermodel.Subject{
-			Kind: apiRB.Spec.Subject.Kind,
-			Name: apiRB.Spec.Subject.Name,
-			UID:  uuid.Nil,
 		},
 	)
+	roleBinding.Spec.LabelSelector = labelSelector
+
+	return roleBinding
 }
 
 // --------------------------------------------------------------------------

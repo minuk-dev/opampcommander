@@ -2170,6 +2170,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/users/me/rolebindings": {
+            "get": {
+                "description": "Retrieve the role bindings that apply to the currently authenticated user based on label selectors.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get My RoleBindings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-RoleBinding"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/me/roles": {
+            "get": {
+                "description": "Retrieve the roles assigned to the currently authenticated user.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get My Roles",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Role"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users/{id}": {
             "get": {
                 "description": "Retrieve a user by its UID.",
@@ -3724,19 +3794,18 @@ const docTemplate = `{
         "RoleBindingSpec": {
             "type": "object",
             "properties": {
+                "labelSelector": {
+                    "description": "LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "roleRef": {
                     "description": "RoleRef references the role to bind.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/RoleBindingRoleRef"
-                        }
-                    ]
-                },
-                "subject": {
-                    "description": "Subject identifies the user to bind the role to.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/RoleBindingSubject"
                         }
                     ]
                 }
@@ -3751,19 +3820,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/Condition"
                     }
-                }
-            }
-        },
-        "RoleBindingSubject": {
-            "type": "object",
-            "properties": {
-                "kind": {
-                    "description": "Kind is the type of the subject (e.g., \"User\").",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Name is the email of the user.",
-                    "type": "string"
                 }
             }
         },
@@ -3955,6 +4011,13 @@ const docTemplate = `{
                 "deletedAt": {
                     "description": "DeletedAt is the timestamp when the user was soft deleted.",
                     "type": "string"
+                },
+                "labels": {
+                    "description": "Labels contains arbitrary key/value pairs attached to the user.\nUsed for label-selector based role bindings (e.g., login-type, github-org-*).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "uid": {
                     "description": "UID is the unique identifier of the user.",

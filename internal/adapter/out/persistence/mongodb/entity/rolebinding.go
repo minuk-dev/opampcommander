@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"maps"
 	"time"
 
 	"github.com/samber/lo"
@@ -34,22 +35,14 @@ type RoleBindingMetadata struct {
 
 // RoleBindingSpec represents the specification of a role binding.
 type RoleBindingSpec struct {
-	RoleRef RoleBindingRoleRef `bson:"roleRef"`
-	Subject RoleBindingSubject `bson:"subject"`
+	RoleRef       RoleBindingRoleRef `bson:"roleRef"`
+	LabelSelector map[string]string  `bson:"labelSelector,omitempty"`
 }
 
 // RoleBindingRoleRef references a role in MongoDB.
 type RoleBindingRoleRef struct {
 	Kind string `bson:"kind"`
 	Name string `bson:"name"`
-	UID  string `bson:"uid"`
-}
-
-// RoleBindingSubject identifies a user in MongoDB.
-type RoleBindingSubject struct {
-	Kind string `bson:"kind"`
-	Name string `bson:"name"`
-	UID  string `bson:"uid"`
 }
 
 // RoleBindingStatus represents the status of a role binding.
@@ -77,17 +70,15 @@ func (m *RoleBindingMetadata) toDomain() usermodel.RoleBindingMetadata {
 }
 
 func (s *RoleBindingSpec) toDomain() usermodel.RoleBindingSpec {
+	labelSelector := make(map[string]string, len(s.LabelSelector))
+	maps.Copy(labelSelector, s.LabelSelector)
+
 	return usermodel.RoleBindingSpec{
 		RoleRef: usermodel.RoleRef{
 			Kind: s.RoleRef.Kind,
 			Name: s.RoleRef.Name,
-			UID:  parseUUIDOrNil(s.RoleRef.UID),
 		},
-		Subject: usermodel.Subject{
-			Kind: s.Subject.Kind,
-			Name: s.Subject.Name,
-			UID:  parseUUIDOrNil(s.Subject.UID),
-		},
+		LabelSelector: labelSelector,
 	}
 }
 
@@ -123,17 +114,15 @@ func roleBindingMetadataFromDomain(metadata usermodel.RoleBindingMetadata) RoleB
 }
 
 func roleBindingSpecFromDomain(spec usermodel.RoleBindingSpec) RoleBindingSpec {
+	labelSelector := make(map[string]string, len(spec.LabelSelector))
+	maps.Copy(labelSelector, spec.LabelSelector)
+
 	return RoleBindingSpec{
 		RoleRef: RoleBindingRoleRef{
 			Kind: spec.RoleRef.Kind,
 			Name: spec.RoleRef.Name,
-			UID:  spec.RoleRef.UID.String(),
 		},
-		Subject: RoleBindingSubject{
-			Kind: spec.Subject.Kind,
-			Name: spec.Subject.Name,
-			UID:  spec.Subject.UID.String(),
-		},
+		LabelSelector: labelSelector,
 	}
 }
 

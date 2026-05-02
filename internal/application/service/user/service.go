@@ -91,6 +91,10 @@ func (s *Service) ListUsers(
 func (s *Service) CreateUser(ctx context.Context, apiUser *v1.User) (*v1.User, error) {
 	domainUser := usermodel.NewUser(apiUser.Spec.Email, apiUser.Spec.Username)
 
+	for key, value := range apiUser.Metadata.Labels {
+		domainUser.SetLabel(key, value)
+	}
+
 	err := s.userUsecase.SaveUser(ctx, domainUser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)

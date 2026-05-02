@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"maps"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,10 +27,11 @@ type User struct {
 
 // UserMetadata represents the metadata of a user.
 type UserMetadata struct {
-	UID       string     `bson:"uid"`
-	CreatedAt time.Time  `bson:"createdAt,omitempty"`
-	UpdatedAt time.Time  `bson:"updatedAt,omitempty"`
-	DeletedAt *time.Time `bson:"deletedAt,omitempty"`
+	UID       string            `bson:"uid"`
+	CreatedAt time.Time         `bson:"createdAt,omitempty"`
+	UpdatedAt time.Time         `bson:"updatedAt,omitempty"`
+	DeletedAt *time.Time        `bson:"deletedAt,omitempty"`
+	Labels    map[string]string `bson:"labels,omitempty"`
 }
 
 // UserSpec represents the specification of a user.
@@ -64,11 +66,15 @@ func (u *User) ToDomain() *usermodel.User {
 }
 
 func (m *UserMetadata) toDomain() usermodel.UserMetadata {
+	labels := make(map[string]string, len(m.Labels))
+	maps.Copy(labels, m.Labels)
+
 	return usermodel.UserMetadata{
 		UID:       uuid.MustParse(m.UID),
 		CreatedAt: m.CreatedAt,
 		UpdatedAt: m.UpdatedAt,
 		DeletedAt: m.DeletedAt,
+		Labels:    labels,
 	}
 }
 
@@ -112,12 +118,16 @@ func UserFromDomain(domain *usermodel.User) *User {
 	}
 }
 
-func userMetadataFromDomain(m usermodel.UserMetadata) UserMetadata {
+func userMetadataFromDomain(metadata usermodel.UserMetadata) UserMetadata {
+	labels := make(map[string]string, len(metadata.Labels))
+	maps.Copy(labels, metadata.Labels)
+
 	return UserMetadata{
-		UID:       m.UID.String(),
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
-		DeletedAt: m.DeletedAt,
+		UID:       metadata.UID.String(),
+		CreatedAt: metadata.CreatedAt,
+		UpdatedAt: metadata.UpdatedAt,
+		DeletedAt: metadata.DeletedAt,
+		Labels:    labels,
 	}
 }
 

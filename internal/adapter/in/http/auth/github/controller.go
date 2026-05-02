@@ -151,7 +151,7 @@ func (c *Controller) Callback(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub, result.Groups)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -236,7 +236,7 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub)
+	c.ensureUser(ctx.Request.Context(), result.Email, usermodel.IdentityProviderGitHub, result.Groups)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token: result.Token,
@@ -244,12 +244,16 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 }
 
 // ensureUser creates or updates a user record on login.
+// Always syncs provider labels (login-type, github-org-*).
 // Failures are logged but do not block the login flow.
-func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
+// The built-in default role is granted automatically via SyncPolicies — no explicit assignment needed here.
+func (c *Controller) ensureUser(ctx context.Context, email, provider string, groups []string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
 
 	switch {
 	case err == nil && existing != nil:
+		c.syncLabels(ctx, existing, provider, groups)
+
 		existing.Metadata.UpdatedAt = time.Now()
 
 		saveErr := c.userUsecase.SaveUser(ctx, existing)
@@ -271,6 +275,7 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 	}
 
 	newUser := usermodel.NewUserWithIdentity(provider, email, email, email)
+	c.syncLabels(ctx, newUser, provider, groups)
 
 	saveErr := c.userUsecase.SaveUser(ctx, newUser)
 	if saveErr != nil {
@@ -278,5 +283,26 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string) {
 			slog.String("email", email),
 			slog.Any("error", saveErr),
 		)
+	}
+}
+
+// syncLabels updates the user's metadata labels to reflect the current login session.
+// Existing non-provider labels are preserved.
+func (c *Controller) syncLabels(ctx context.Context, user *usermodel.User, provider string, groups []string) {
+	_ = ctx // reserved for future use
+
+	// Remove stale provider-specific labels before re-setting
+	for key := range user.Metadata.Labels {
+		if len(key) > len(usermodel.LabelGitHubOrg) && key[:len(usermodel.LabelGitHubOrg)] == usermodel.LabelGitHubOrg {
+			delete(user.Metadata.Labels, key)
+		}
+	}
+
+	user.SetLabel(usermodel.LabelLoginType, provider)
+
+	if provider == usermodel.IdentityProviderGitHub {
+		for _, org := range groups {
+			user.SetLabel(usermodel.LabelGitHubOrg+org, "true")
+		}
 	}
 }

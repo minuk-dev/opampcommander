@@ -30,11 +30,21 @@ const (
 	ResourcePermission = "permission"
 )
 
+// DefaultNamespace is the namespace used for built-in default role assignments.
+const DefaultNamespace = "default"
+
 // Built-in role names.
 const (
 	RoleSuperAdmin = "SuperAdmin"
 	RoleAdmin      = "Admin"
 	RoleViewer     = "Viewer"
+	RoleDefault    = "default" // default role assigned to all new users; undeletable but permissions can be changed
+)
+
+// Label keys added to users on login.
+const (
+	LabelLoginType = "login-type"  // e.g. "github", "basic"
+	LabelGitHubOrg = "github-org-" // prefix; full key = "github-org-{orgname}"
 )
 
 // NamespaceScopedResources returns all namespace-scoped resources controlled by RBAC.

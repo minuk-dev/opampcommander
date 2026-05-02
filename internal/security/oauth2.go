@@ -64,6 +64,8 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (LoginResult
 		return LoginResult{}, ErrNoPrimaryEmailFound
 	}
 
+	groups := s.listGitHubOrgs(ctx, client)
+
 	claims := s.newOPAMPClaims(email.GetEmail())
 
 	tokenString, err := s.createToken(claims)
@@ -73,7 +75,7 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (LoginResult
 
 	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
 
-	return LoginResult{Token: tokenString, Email: claims.Email}, nil
+	return LoginResult{Token: tokenString, Email: claims.Email, Groups: groups}, nil
 }
 
 // DeviceAuth initiates the OAuth2 device authorization flow.
@@ -139,6 +141,8 @@ func (s *Service) ExchangeDeviceAuth(
 		return LoginResult{}, ErrNoPrimaryEmailFound
 	}
 
+	groups := s.listGitHubOrgs(ctx, client)
+
 	claims := s.newOPAMPClaims(email.GetEmail())
 
 	tokenString, err := s.createToken(claims)
@@ -148,7 +152,30 @@ func (s *Service) ExchangeDeviceAuth(
 
 	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
 
-	return LoginResult{Token: tokenString, Email: claims.Email}, nil
+	return LoginResult{Token: tokenString, Email: claims.Email, Groups: groups}, nil
+}
+
+// listGitHubOrgs fetches the authenticated user's GitHub org memberships.
+// Failures are logged and return nil so login is never blocked.
+func (s *Service) listGitHubOrgs(ctx context.Context, client *github.Client) []string {
+	orgs, _, err := client.Organizations.List(ctx, "", nil)
+	if err != nil {
+		s.logger.Warn("failed to list GitHub orgs, continuing without org info",
+			slog.String("error", err.Error()),
+		)
+
+		return nil
+	}
+
+	groups := make([]string, 0, len(orgs))
+
+	for _, org := range orgs {
+		if org.GetLogin() != "" {
+			groups = append(groups, org.GetLogin())
+		}
+	}
+
+	return groups
 }
 
 func (s *Service) validateState(state string) error {

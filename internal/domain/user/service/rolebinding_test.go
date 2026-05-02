@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-var errRoleBindingPersistence = errors.New("role binding persistence error")
+var (
+	errRoleBindingPersistence = errors.New("role binding persistence error")
+	errUnexpectedType         = errors.New("unexpected type assertion failure")
+)
 
 // mockRoleBindingPersistencePort is a mock implementation of RoleBindingPersistencePort.
 type mockRoleBindingPersistencePort struct {
@@ -98,10 +100,12 @@ func TestRoleBindingService_GetRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
+		rb := func() *usermodel.RoleBinding {
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
+			return rb
+		}()
 
 		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
 
@@ -143,10 +147,12 @@ func TestRoleBindingService_ListRoleBindings(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
+		rb := func() *usermodel.RoleBinding {
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
+			return rb
+		}()
 		resp := &model.ListResponse[*usermodel.RoleBinding]{
 			Items: []*usermodel.RoleBinding{rb},
 		}
@@ -192,10 +198,12 @@ func TestRoleBindingService_CreateRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
+		rb := func() *usermodel.RoleBinding {
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
+			return rb
+		}()
 
 		mockPort.On("PutRoleBinding", ctx, rb).Return(rb, nil)
 
@@ -214,10 +222,12 @@ func TestRoleBindingService_CreateRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
+		rb := func() *usermodel.RoleBinding {
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
+			return rb
+		}()
 
 		mockPort.On("PutRoleBinding", ctx, rb).Return(nil, errRoleBindingPersistence)
 
@@ -241,10 +251,12 @@ func TestRoleBindingService_UpdateRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
+		rb := func() *usermodel.RoleBinding {
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
+			return rb
+		}()
 		beforeUpdate := rb.Metadata.UpdatedAt
 
 		mockPort.On("PutRoleBinding", ctx, mock.MatchedBy(func(r *usermodel.RoleBinding) bool {
@@ -271,10 +283,12 @@ func TestRoleBindingService_UpdateRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		rb := usermodel.NewRoleBinding("production", "viewer-binding",
-			usermodel.RoleRef{Kind: "Role", Name: "Viewer", UID: uuid.New()},
-			usermodel.Subject{Kind: "User", Name: "alice@example.com", UID: uuid.New()},
-		)
+		rb := func() *usermodel.RoleBinding {
+			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
+			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+
+			return rb
+		}()
 
 		mockPort.On("PutRoleBinding", ctx, mock.Anything).Return(nil, errRoleBindingPersistence)
 
