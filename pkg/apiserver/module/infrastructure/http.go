@@ -107,6 +107,9 @@ func NewEngine(
 	engine.Use(observabilityService.Middleware())
 	// swagger
 	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
+	engine.GET("/docs", func(ctx *gin.Context) {
+		ctx.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
+	})
 
 	// Initialize swagger info only once to avoid race conditions in tests
 	swaggerOnce.Do(func() {
