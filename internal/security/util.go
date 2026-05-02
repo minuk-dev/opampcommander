@@ -68,8 +68,7 @@ func NewAuthJWTMiddleware(
 	var (
 		bypassPrefix = []string{
 			"/auth",
-			"/api/v1/auth/basic",
-			"/api/v1/auth/github",
+			"/api/v1/auth",
 			"/api/v1/ping",
 			"/api/v1/opamp",
 			"/api/v1/version",
