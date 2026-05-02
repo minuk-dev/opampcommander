@@ -84,6 +84,7 @@ linters:
             - github.com/IBM/sarama
             # Utils
             - github.com/samber/lo
+            - github.com/samber/mo
             - k8s.io/utils/clock
             - github.com/go-resty/resty/v2
             - gopkg.in/yaml.v3

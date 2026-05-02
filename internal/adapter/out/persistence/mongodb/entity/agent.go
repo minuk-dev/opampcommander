@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
@@ -230,20 +231,12 @@ func (metadata *AgentMetadata) ToDmain() agentmodel.AgentMetadata {
 	return agentmodel.AgentMetadata{
 		InstanceUID: uuid.UUID(metadata.InstanceUID.Data),
 		Namespace:   metadata.Namespace,
-		Description: switchIfNil(
-			metadata.Description.ToDomain(),
-			//exhaustruct:ignore
-			agent.Description{},
-		),
-		Capabilities: switchIfNil(
-			metadata.Capabilities.ToDomain(),
-			agent.Capabilities(0),
-		),
-		CustomCapabilities: switchIfNil(
-			metadata.CustomCapabilities.ToDomain(),
-			//exhaustruct:ignore
-			agentmodel.AgentCustomCapabilities{},
-		),
+		//exhaustruct:ignore
+		Description:  mo.PointerToOption(metadata.Description.ToDomain()).OrElse(agent.Description{}),
+		Capabilities: mo.PointerToOption(metadata.Capabilities.ToDomain()).OrElse(agent.Capabilities(0)),
+		//exhaustruct:ignore
+		CustomCapabilities: mo.PointerToOption(metadata.CustomCapabilities.ToDomain()).
+			OrElse(agentmodel.AgentCustomCapabilities{}),
 	}
 }
 
@@ -281,26 +274,22 @@ func (status *AgentStatus) ToDomain() agentmodel.AgentStatus {
 			Message:            condition.Message,
 		}
 	}
-
 	//exhaustruct:ignore
+
 	return agentmodel.AgentStatus{
-		EffectiveConfig: switchIfNil(
-			status.EffectiveConfig.ToDomain(),
+		EffectiveConfig: mo.PointerToOption(status.EffectiveConfig.ToDomain()).OrElse(
 			//exhaustruct:ignore
 			agentmodel.AgentEffectiveConfig{},
 		),
-		PackageStatuses: switchIfNil(
-			status.PackageStatuses.ToDomain(),
+		PackageStatuses: mo.PointerToOption(status.PackageStatuses.ToDomain()).OrElse(
 			//exhaustruct:ignore
 			agentmodel.AgentPackageStatuses{},
 		),
-		ComponentHealth: switchIfNil(
-			status.ComponentHealth.ToDomain(),
+		ComponentHealth: mo.PointerToOption(status.ComponentHealth.ToDomain()).OrElse(
 			//exhaustruct:ignore
 			agentmodel.AgentComponentHealth{},
 		),
-		AvailableComponents: switchIfNil(
-			status.AvailableComponents.ToDomain(),
+		AvailableComponents: mo.PointerToOption(status.AvailableComponents.ToDomain()).OrElse(
 			//exhaustruct:ignore
 			agentmodel.AgentAvailableComponents{},
 		),
