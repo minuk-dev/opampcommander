@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -261,12 +260,12 @@ func (c *Controller) Me(ctx *gin.Context) {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/users/me/roles [get].
 func (c *Controller) GetMyRoles(ctx *gin.Context) {
-	userID, ok := c.resolveCurrentUserID(ctx)
+	email, ok := c.resolveCurrentEmail(ctx)
 	if !ok {
 		return
 	}
 
-	response, err := c.rbacUsecase.GetUserRoles(ctx.Request.Context(), userID)
+	response, err := c.rbacUsecase.GetMyRoles(ctx.Request.Context(), email)
 	if err != nil {
 		c.logger.Error("failed to get user roles", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving your roles.")
@@ -289,12 +288,12 @@ func (c *Controller) GetMyRoles(ctx *gin.Context) {
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/users/me/rolebindings [get].
 func (c *Controller) GetMyRoleBindings(ctx *gin.Context) {
-	userID, ok := c.resolveCurrentUserID(ctx)
+	email, ok := c.resolveCurrentEmail(ctx)
 	if !ok {
 		return
 	}
 
-	response, err := c.rbacUsecase.GetUserRoleBindings(ctx.Request.Context(), userID)
+	response, err := c.rbacUsecase.GetMyRoleBindings(ctx.Request.Context(), email)
 	if err != nil {
 		c.logger.Error("failed to get user role bindings", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving your role bindings.")
@@ -305,31 +304,15 @@ func (c *Controller) GetMyRoleBindings(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, response)
 }
 
-// resolveCurrentUserID returns the UUID of the currently authenticated user.
+// resolveCurrentEmail extracts the email of the currently authenticated user from JWT context.
 // It writes the error response and returns false if authentication fails.
-func (c *Controller) resolveCurrentUserID(ctx *gin.Context) (uuid.UUID, bool) {
+func (c *Controller) resolveCurrentEmail(ctx *gin.Context) (string, bool) {
 	secUser, err := security.GetUser(ctx)
 	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 
-		return uuid.Nil, false
+		return "", false
 	}
 
-	apiUser, err := c.userUsecase.GetUserByEmail(ctx.Request.Context(), *secUser.Email)
-	if err != nil {
-		c.logger.Error("failed to get user by email", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while resolving the current user.")
-
-		return uuid.Nil, false
-	}
-
-	userID, err := uuid.Parse(apiUser.Metadata.UID)
-	if err != nil {
-		c.logger.Error("invalid user UID", "uid", apiUser.Metadata.UID, "error", err.Error())
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user UID"})
-
-		return uuid.Nil, false
-	}
-
-	return userID, true
+	return *secUser.Email, true
 }

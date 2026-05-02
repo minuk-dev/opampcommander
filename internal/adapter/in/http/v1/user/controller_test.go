@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -52,14 +51,9 @@ func TestUserController_GetMyRoles(t *testing.T) {
 		rbacUsecase := usecasemock.NewMockRBACUsecase(t)
 		controller := user.NewController(userUsecase, rbacUsecase, ctrlBase.Logger)
 
-		userUID := uuid.New()
 		email := "alice@example.com"
 
-		userUsecase.On("GetUserByEmail", mock.Anything, email).Return(&v1.User{
-			Metadata: v1.UserMetadata{UID: userUID.String()},
-		}, nil)
-
-		rbacUsecase.On("GetUserRoles", mock.Anything, userUID).Return(&v1.ListResponse[v1.Role]{
+		rbacUsecase.On("GetMyRoles", mock.Anything, email).Return(&v1.ListResponse[v1.Role]{
 			Kind:       v1.RoleKind,
 			APIVersion: v1.APIVersion,
 			Items: []v1.Role{
@@ -106,14 +100,9 @@ func TestUserController_GetMyRoleBindings(t *testing.T) {
 		rbacUsecase := usecasemock.NewMockRBACUsecase(t)
 		controller := user.NewController(userUsecase, rbacUsecase, ctrlBase.Logger)
 
-		userUID := uuid.New()
 		email := "bob@example.com"
 
-		userUsecase.On("GetUserByEmail", mock.Anything, email).Return(&v1.User{
-			Metadata: v1.UserMetadata{UID: userUID.String()},
-		}, nil)
-
-		rbacUsecase.On("GetUserRoleBindings", mock.Anything, userUID).Return(&v1.ListResponse[v1.RoleBinding]{
+		rbacUsecase.On("GetMyRoleBindings", mock.Anything, email).Return(&v1.ListResponse[v1.RoleBinding]{
 			Kind:       v1.RoleBindingKind,
 			APIVersion: v1.APIVersion,
 			Items: []v1.RoleBinding{
@@ -145,14 +134,9 @@ func TestUserController_GetMyRoleBindings(t *testing.T) {
 		rbacUsecase := usecasemock.NewMockRBACUsecase(t)
 		controller := user.NewController(userUsecase, rbacUsecase, ctrlBase.Logger)
 
-		userUID := uuid.New()
 		email := "nobody@example.com"
 
-		userUsecase.On("GetUserByEmail", mock.Anything, email).Return(&v1.User{
-			Metadata: v1.UserMetadata{UID: userUID.String()},
-		}, nil)
-
-		rbacUsecase.On("GetUserRoleBindings", mock.Anything, userUID).Return(&v1.ListResponse[v1.RoleBinding]{
+		rbacUsecase.On("GetMyRoleBindings", mock.Anything, email).Return(&v1.ListResponse[v1.RoleBinding]{
 			Kind:       v1.RoleBindingKind,
 			APIVersion: v1.APIVersion,
 			Items:      []v1.RoleBinding{},

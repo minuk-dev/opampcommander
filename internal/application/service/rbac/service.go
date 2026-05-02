@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -12,6 +13,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 )
@@ -79,9 +81,51 @@ func (s *Service) GetUserRoles(
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	return s.buildRolesResponse(ctx, user), nil
+}
+
+// GetMyRoles implements [applicationport.RBACManageUsecase].
+// Looks up the user by email — avoids an extra DB round-trip when the caller already holds the email.
+func (s *Service) GetMyRoles(ctx context.Context, email string) (*v1.ListResponse[v1.Role], error) {
+	user, err := s.userUsecase.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	return s.buildRolesResponse(ctx, user), nil
+}
+
+// GetUserRoleBindings implements [applicationport.RBACManageUsecase].
+func (s *Service) GetUserRoleBindings(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*v1.ListResponse[v1.RoleBinding], error) {
+	user, err := s.userUsecase.GetUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return s.buildRoleBindingsResponse(ctx, user), nil
+}
+
+// GetMyRoleBindings implements [applicationport.RBACManageUsecase].
+// Looks up the user by email — avoids an extra DB round-trip when the caller already holds the email.
+func (s *Service) GetMyRoleBindings(ctx context.Context, email string) (*v1.ListResponse[v1.RoleBinding], error) {
+	user, err := s.userUsecase.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	return s.buildRoleBindingsResponse(ctx, user), nil
+}
+
+// buildRolesResponse builds a sorted role list for the given user, always including the default role.
+func (s *Service) buildRolesResponse(ctx context.Context, user *usermodel.User) *v1.ListResponse[v1.Role] {
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list role bindings: %w", err)
+		s.logger.WarnContext(ctx, "failed to list role bindings for user roles", slog.Any("error", err))
+
+		allBindings = &model.ListResponse[*usermodel.RoleBinding]{Items: nil}
 	}
 
 	roleMap := make(map[string]*usermodel.Role)
@@ -120,7 +164,9 @@ func (s *Service) GetUserRoles(
 	// Always include the built-in default role — auto-assigned to all users via SyncPolicies.
 	if _, exists := roleMap[usermodel.RoleDefault]; !exists {
 		defaultRole, defaultErr := s.roleUsecase.GetRoleByName(ctx, usermodel.RoleDefault)
-		if defaultErr == nil {
+		if defaultErr != nil {
+			s.logger.WarnContext(ctx, "failed to get default role", slog.Any("error", defaultErr))
+		} else {
 			roleMap[usermodel.RoleDefault] = defaultRole
 		}
 	}
@@ -130,6 +176,10 @@ func (s *Service) GetUserRoles(
 		roles = append(roles, role)
 	}
 
+	sort.Slice(roles, func(i, j int) bool {
+		return roles[i].Spec.DisplayName < roles[j].Spec.DisplayName
+	})
+
 	return &v1.ListResponse[v1.Role]{
 		Kind:       v1.RoleKind,
 		APIVersion: v1.APIVersion,
@@ -137,23 +187,21 @@ func (s *Service) GetUserRoles(
 		Items: lo.Map(roles, func(role *usermodel.Role, _ int) v1.Role {
 			return *s.mapper.MapRoleToAPI(role)
 		}),
-	}, nil
+	}
 }
 
-// GetUserRoleBindings implements [applicationport.RBACManageUsecase].
-// Returns all RoleBindings whose LabelSelector matches the user's labels.
-func (s *Service) GetUserRoleBindings(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*v1.ListResponse[v1.RoleBinding], error) {
-	user, err := s.userUsecase.GetUser(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
+// buildRoleBindingsResponse returns all RoleBindings whose LabelSelector matches the user's labels, sorted by namespace+name.
+func (s *Service) buildRoleBindingsResponse(ctx context.Context, user *usermodel.User) *v1.ListResponse[v1.RoleBinding] {
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list role bindings: %w", err)
+		s.logger.WarnContext(ctx, "failed to list role bindings", slog.Any("error", err))
+
+		return &v1.ListResponse[v1.RoleBinding]{
+			Kind:       v1.RoleBindingKind,
+			APIVersion: v1.APIVersion,
+			Metadata:   v1.ListMeta{},
+			Items:      []v1.RoleBinding{},
+		}
 	}
 
 	matching := make([]*usermodel.RoleBinding, 0)
@@ -164,6 +212,14 @@ func (s *Service) GetUserRoleBindings(
 		}
 	}
 
+	sort.Slice(matching, func(i, j int) bool {
+		if matching[i].Metadata.Namespace != matching[j].Metadata.Namespace {
+			return matching[i].Metadata.Namespace < matching[j].Metadata.Namespace
+		}
+
+		return matching[i].Metadata.Name < matching[j].Metadata.Name
+	})
+
 	return &v1.ListResponse[v1.RoleBinding]{
 		Kind:       v1.RoleBindingKind,
 		APIVersion: v1.APIVersion,
@@ -171,7 +227,7 @@ func (s *Service) GetUserRoleBindings(
 		Items: lo.Map(matching, func(rb *usermodel.RoleBinding, _ int) v1.RoleBinding {
 			return *s.mapper.MapRoleBindingToAPI(rb)
 		}),
-	}, nil
+	}
 }
 
 // roleBindingMatchesUser returns true if the binding's labelSelector matches the user's labels.
