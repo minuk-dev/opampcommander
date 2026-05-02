@@ -1601,178 +1601,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/rbac/check": {
-            "post": {
-                "description": "Check whether a user has a specific permission.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rbac"
-                ],
-                "summary": "Check Permission",
-                "parameters": [
-                    {
-                        "description": "Permission check request",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/CheckPermissionRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/CheckPermissionResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/rbac/sync": {
-            "post": {
-                "description": "Synchronize RBAC policies.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rbac"
-                ],
-                "summary": "Sync Policies",
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/rbac/users/{id}/permissions": {
-            "get": {
-                "description": "Retrieve the permissions of a user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rbac"
-                ],
-                "summary": "Get User Permissions",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "UID of the user",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/ListResponse-Permission"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/rbac/users/{id}/roles": {
-            "get": {
-                "description": "Retrieve the roles assigned to a user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "rbac"
-                ],
-                "summary": "Get User Roles",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "UID of the user",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/ListResponse-Role"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/roles": {
             "get": {
                 "description": "Retrieve a list of roles.",
@@ -3070,36 +2898,6 @@ const docTemplate = `{
                 }
             }
         },
-        "CheckPermissionRequest": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "description": "Action is the action to check access for.",
-                    "type": "string"
-                },
-                "namespace": {
-                    "description": "Namespace is the namespace to check permission in.",
-                    "type": "string"
-                },
-                "resource": {
-                    "description": "Resource is the resource to check access for.",
-                    "type": "string"
-                },
-                "userId": {
-                    "description": "UserID is the ID of the user to check.",
-                    "type": "string"
-                }
-            }
-        },
-        "CheckPermissionResponse": {
-            "type": "object",
-            "properties": {
-                "allowed": {
-                    "description": "Allowed indicates whether the user has the permission.",
-                    "type": "boolean"
-                }
-            }
-        },
         "ComponentDetails": {
             "type": "object",
             "properties": {
@@ -3420,26 +3218,6 @@ const docTemplate = `{
                 }
             }
         },
-        "ListResponse-Permission": {
-            "type": "object",
-            "properties": {
-                "apiVersion": {
-                    "type": "string"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Permission"
-                    }
-                },
-                "kind": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "$ref": "#/definitions/ListMeta"
-                }
-            }
-        },
         "ListResponse-Role": {
             "type": "object",
             "properties": {
@@ -3571,101 +3349,6 @@ const docTemplate = `{
                         "items": {
                             "type": "string"
                         }
-                    }
-                }
-            }
-        },
-        "Permission": {
-            "type": "object",
-            "properties": {
-                "apiVersion": {
-                    "description": "APIVersion is the version of the API.",
-                    "type": "string"
-                },
-                "kind": {
-                    "description": "Kind is the type of the resource.",
-                    "type": "string"
-                },
-                "metadata": {
-                    "description": "Metadata contains the metadata of the permission.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/PermissionMetadata"
-                        }
-                    ]
-                },
-                "spec": {
-                    "description": "Spec contains the specification of the permission.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/PermissionSpec"
-                        }
-                    ]
-                },
-                "status": {
-                    "description": "Status contains the status of the permission.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/PermissionStatus"
-                        }
-                    ]
-                }
-            }
-        },
-        "PermissionMetadata": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "description": "CreatedAt is the timestamp when the permission was created.",
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "description": "DeletedAt is the timestamp when the permission was soft deleted.",
-                    "type": "string"
-                },
-                "uid": {
-                    "description": "UID is the unique identifier of the permission.",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "description": "UpdatedAt is the timestamp when the permission was last updated.",
-                    "type": "string"
-                }
-            }
-        },
-        "PermissionSpec": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "description": "Action is the action this permission grants.",
-                    "type": "string"
-                },
-                "description": {
-                    "description": "Description is the description of the permission.",
-                    "type": "string"
-                },
-                "isBuiltIn": {
-                    "description": "IsBuiltIn indicates whether the permission is a built-in permission.",
-                    "type": "boolean"
-                },
-                "name": {
-                    "description": "Name is the name of the permission (e.g., \"agent:read\").",
-                    "type": "string"
-                },
-                "resource": {
-                    "description": "Resource is the resource this permission applies to.",
-                    "type": "string"
-                }
-            }
-        },
-        "PermissionStatus": {
-            "type": "object",
-            "properties": {
-                "conditions": {
-                    "description": "Conditions contains the conditions of the permission.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Condition"
                     }
                 }
             }
@@ -4032,22 +3715,8 @@ const docTemplate = `{
         "UserProfileResponse": {
             "type": "object",
             "properties": {
-                "permissions": {
-                    "description": "Permissions contains the effective permissions for the user.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Permission"
-                    }
-                },
-                "roles": {
-                    "description": "Roles contains the roles assigned to the user.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/Role"
-                    }
-                },
                 "user": {
-                    "description": "User contains the user information.",
+                    "description": "User is the authenticated user.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/User"
