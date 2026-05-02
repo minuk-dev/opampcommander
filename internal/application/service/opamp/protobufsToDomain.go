@@ -76,7 +76,9 @@ func healthToDomain(health *protobufs.ComponentHealth) *agentmodel.AgentComponen
 	componentHealthMap := make(map[string]agentmodel.AgentComponentHealth, len(health.GetComponentHealthMap()))
 
 	for subComponentName, subComponentHealth := range health.GetComponentHealthMap() {
-		componentHealthMap[subComponentName] = *healthToDomain(subComponentHealth)
+		if converted := healthToDomain(subComponentHealth); converted != nil {
+			componentHealthMap[subComponentName] = *converted
+		}
 	}
 
 	return &agentmodel.AgentComponentHealth{
