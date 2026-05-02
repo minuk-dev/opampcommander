@@ -147,66 +147,6 @@ func (_m *MockRBACUsecase) EXPECT() *MockRBACUsecase_Expecter {
 	return &MockRBACUsecase_Expecter{mock: &_m.Mock}
 }
 
-func (_m *MockRBACUsecase) CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error) {
-	ret := _m.Called(ctx, req)
-
-	var r0 *v1.CheckPermissionResponse
-	if rf, ok := ret.Get(0).(func(context.Context, *v1.CheckPermissionRequest) *v1.CheckPermissionResponse); ok {
-		r0 = rf(ctx, req)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.CheckPermissionResponse)
-		}
-	}
-
-	return r0, ret.Error(1)
-}
-
-func (_m *MockRBACUsecase) GetUserRoles(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Role], error) {
-	ret := _m.Called(ctx, userID)
-
-	var r0 *v1.ListResponse[v1.Role]
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *v1.ListResponse[v1.Role]); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.ListResponse[v1.Role])
-		}
-	}
-
-	return r0, ret.Error(1)
-}
-
-func (_m *MockRBACUsecase) GetUserRoleBindings(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.RoleBinding], error) {
-	ret := _m.Called(ctx, userID)
-
-	var r0 *v1.ListResponse[v1.RoleBinding]
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *v1.ListResponse[v1.RoleBinding]); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.ListResponse[v1.RoleBinding])
-		}
-	}
-
-	return r0, ret.Error(1)
-}
-
-func (_m *MockRBACUsecase) GetUserPermissions(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Permission], error) {
-	ret := _m.Called(ctx, userID)
-
-	var r0 *v1.ListResponse[v1.Permission]
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *v1.ListResponse[v1.Permission]); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.ListResponse[v1.Permission])
-		}
-	}
-
-	return r0, ret.Error(1)
-}
-
 func (_m *MockRBACUsecase) GetMyRoles(ctx context.Context, email string) (*v1.ListResponse[v1.Role], error) {
 	ret := _m.Called(ctx, email)
 
@@ -237,8 +177,3 @@ func (_m *MockRBACUsecase) GetMyRoleBindings(ctx context.Context, email string) 
 	return r0, ret.Error(1)
 }
 
-func (_m *MockRBACUsecase) SyncPolicies(ctx context.Context) error {
-	ret := _m.Called(ctx)
-
-	return ret.Error(0)
-}

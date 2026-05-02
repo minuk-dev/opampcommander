@@ -123,25 +123,3 @@ func (s *UserService) GetMyRoles(ctx context.Context) (*v1.ListResponse[v1.Role]
 
 	return &result, nil
 }
-
-// GetMyRoleBindings retrieves the role bindings that match the currently authenticated user.
-func (s *UserService) GetMyRoleBindings(ctx context.Context) (*v1.ListResponse[v1.RoleBinding], error) {
-	var result v1.ListResponse[v1.RoleBinding]
-
-	res, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetResult(&result).
-		Get(GetMyRoleBindingsURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get my role bindings: %w", err)
-	}
-
-	if res.IsError() {
-		return nil, fmt.Errorf("failed to get my role bindings: %w", &ResponseError{
-			StatusCode:   res.StatusCode(),
-			ErrorMessage: res.String(),
-		})
-	}
-
-	return &result, nil
-}

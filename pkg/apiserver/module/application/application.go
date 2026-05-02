@@ -13,7 +13,6 @@ import (
 	certificateApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/certificate"
 	namespaceApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
-	permissionApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/permission"
 	rbacApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rbac"
 	roleApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/role"
 	rolebindingApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rolebinding"
@@ -61,9 +60,6 @@ func New() fx.Option {
 
 			roleApplicationService.New,
 			fx.Annotate(Identity[*roleApplicationService.Service], fx.As(new(port.RoleManageUsecase))),
-
-			permissionApplicationService.New,
-			fx.Annotate(Identity[*permissionApplicationService.Service], fx.As(new(port.PermissionManageUsecase))),
 
 			rbacApplicationService.New,
 			fx.Annotate(Identity[*rbacApplicationService.Service], fx.As(new(port.RBACManageUsecase))),

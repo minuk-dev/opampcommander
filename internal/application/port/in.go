@@ -122,24 +122,13 @@ type RoleManageUsecase interface {
 	DeleteRole(ctx context.Context, uid uuid.UUID) error
 }
 
-// PermissionManageUsecase is a use case that handles permission management operations.
-type PermissionManageUsecase interface {
-	GetPermission(ctx context.Context, uid uuid.UUID) (*v1.Permission, error)
-	ListPermissions(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Permission], error)
-}
-
 // RBACManageUsecase is a use case that handles RBAC management operations.
 type RBACManageUsecase interface {
-	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
-	GetUserRoles(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Role], error)
-	GetUserRoleBindings(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.RoleBinding], error)
 	// GetMyRoles returns the roles of the user identified by email.
 	// Avoids a second DB round-trip when the caller already holds the email (e.g. JWT claims).
 	GetMyRoles(ctx context.Context, email string) (*v1.ListResponse[v1.Role], error)
 	// GetMyRoleBindings returns the rolebindings matching the user identified by email.
 	GetMyRoleBindings(ctx context.Context, email string) (*v1.ListResponse[v1.RoleBinding], error)
-	GetUserPermissions(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Permission], error)
-	SyncPolicies(ctx context.Context) error
 }
 
 // RoleBindingManageUsecase is a use case that handles RoleBinding management operations.
