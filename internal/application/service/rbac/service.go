@@ -119,13 +119,49 @@ func (s *Service) GetMyRoleBindings(ctx context.Context, email string) (*v1.List
 	return s.buildRoleBindingsResponse(ctx, user), nil
 }
 
+// GetUserPermissions implements [applicationport.RBACManageUsecase].
+func (s *Service) GetUserPermissions(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*v1.ListResponse[v1.Permission], error) {
+	permissions, err := s.rbacUsecase.GetUserPermissions(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	return &v1.ListResponse[v1.Permission]{
+		Kind:       v1.PermissionKind,
+		APIVersion: v1.APIVersion,
+		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
+		Items: lo.Map(permissions, func(permission *usermodel.Permission, _ int) v1.Permission {
+			return *s.mapper.MapPermissionToAPI(permission)
+		}),
+	}, nil
+}
+
+// SyncPolicies implements [applicationport.RBACManageUsecase].
+func (s *Service) SyncPolicies(ctx context.Context) error {
+	err := s.rbacUsecase.SyncPolicies(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to sync policies: %w", err)
+	}
+
+	return nil
+}
+
 // buildRolesResponse builds a sorted role list for the given user, always including the default role.
+//
+//nolint:funlen // Multi-step: list bindings, deduplicate roles, always append default, sort.
 func (s *Service) buildRolesResponse(ctx context.Context, user *usermodel.User) *v1.ListResponse[v1.Role] {
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
 		s.logger.WarnContext(ctx, "failed to list role bindings for user roles", slog.Any("error", err))
 
-		allBindings = &model.ListResponse[*usermodel.RoleBinding]{Items: nil}
+		allBindings = &model.ListResponse[*usermodel.RoleBinding]{
+			RemainingItemCount: 0,
+			Continue:           "",
+			Items:              nil,
+		}
 	}
 
 	roleMap := make(map[string]*usermodel.Role)
@@ -190,8 +226,12 @@ func (s *Service) buildRolesResponse(ctx context.Context, user *usermodel.User) 
 	}
 }
 
-// buildRoleBindingsResponse returns all RoleBindings whose LabelSelector matches the user's labels, sorted by namespace+name.
-func (s *Service) buildRoleBindingsResponse(ctx context.Context, user *usermodel.User) *v1.ListResponse[v1.RoleBinding] {
+// buildRoleBindingsResponse returns RoleBindings whose LabelSelector matches the user's labels,
+// sorted by namespace then name.
+func (s *Service) buildRoleBindingsResponse(
+	ctx context.Context,
+	user *usermodel.User,
+) *v1.ListResponse[v1.RoleBinding] {
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
 		s.logger.WarnContext(ctx, "failed to list role bindings", slog.Any("error", err))
@@ -199,7 +239,7 @@ func (s *Service) buildRoleBindingsResponse(ctx context.Context, user *usermodel
 		return &v1.ListResponse[v1.RoleBinding]{
 			Kind:       v1.RoleBindingKind,
 			APIVersion: v1.APIVersion,
-			Metadata:   v1.ListMeta{},
+			Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
 			Items:      []v1.RoleBinding{},
 		}
 	}
@@ -224,13 +264,14 @@ func (s *Service) buildRoleBindingsResponse(ctx context.Context, user *usermodel
 		Kind:       v1.RoleBindingKind,
 		APIVersion: v1.APIVersion,
 		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
-		Items: lo.Map(matching, func(rb *usermodel.RoleBinding, _ int) v1.RoleBinding {
-			return *s.mapper.MapRoleBindingToAPI(rb)
+		Items: lo.Map(matching, func(binding *usermodel.RoleBinding, _ int) v1.RoleBinding {
+			return *s.mapper.MapRoleBindingToAPI(binding)
 		}),
 	}
 }
 
 // roleBindingMatchesUser returns true if the binding's labelSelector matches the user's labels.
+// An empty selector never matches (deny-by-default safety).
 func roleBindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
 	if len(binding.Spec.LabelSelector) == 0 {
 		return false
@@ -243,34 +284,4 @@ func roleBindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User
 	}
 
 	return true
-}
-
-// GetUserPermissions implements [applicationport.RBACManageUsecase].
-func (s *Service) GetUserPermissions(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*v1.ListResponse[v1.Permission], error) {
-	permissions, err := s.rbacUsecase.GetUserPermissions(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user permissions: %w", err)
-	}
-
-	return &v1.ListResponse[v1.Permission]{
-		Kind:       v1.PermissionKind,
-		APIVersion: v1.APIVersion,
-		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
-		Items: lo.Map(permissions, func(permission *usermodel.Permission, _ int) v1.Permission {
-			return *s.mapper.MapPermissionToAPI(permission)
-		}),
-	}, nil
-}
-
-// SyncPolicies implements [applicationport.RBACManageUsecase].
-func (s *Service) SyncPolicies(ctx context.Context) error {
-	err := s.rbacUsecase.SyncPolicies(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to sync policies: %w", err)
-	}
-
-	return nil
 }

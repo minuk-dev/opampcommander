@@ -51,7 +51,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 	cmd.Flags().StringVarP(&options.formatType, "format", "f", "text", "Output format (text, json, yaml)")
 	cmd.Flags().BoolVar(&options.showRoles, "roles", false, "Show roles assigned to the current user")
-	cmd.Flags().BoolVar(&options.showRoleBindings, "rolebindings", false, "Show role bindings matching the current user (for debugging)")
+	cmd.Flags().BoolVar(&options.showRoleBindings, "rolebindings", false,
+		"Show role bindings matching the current user (for debugging)")
 
 	return cmd
 }
@@ -95,13 +96,15 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	}
 
 	if o.showRoles {
-		if printErr := o.printRoles(cmd); printErr != nil {
+		printErr := o.printRoles(cmd)
+		if printErr != nil {
 			return printErr
 		}
 	}
 
 	if o.showRoleBindings {
-		if printErr := o.printRoleBindings(cmd); printErr != nil {
+		printErr := o.printRoleBindings(cmd)
+		if printErr != nil {
 			return printErr
 		}
 	}
@@ -132,7 +135,8 @@ func (o *CommandOptions) printRoles(cmd *cobra.Command) error {
 		}
 	})
 
-	if err := formatter.Format(cmd.OutOrStdout(), items, formatter.FormatType(o.formatType)); err != nil {
+	err = formatter.Format(cmd.OutOrStdout(), items, formatter.FormatType(o.formatType))
+	if err != nil {
 		return fmt.Errorf("failed to format roles: %w", err)
 	}
 
@@ -153,11 +157,12 @@ func (o *CommandOptions) printRoleBindings(cmd *cobra.Command) error {
 
 	cmd.Println("\nRoleBindings:")
 
-	items := lo.Map(resp.Items, func(rb v1.RoleBinding, _ int) formattedRoleBinding {
-		return toFormatted(rb)
+	items := lo.Map(resp.Items, func(binding v1.RoleBinding, _ int) formattedRoleBinding {
+		return toFormatted(binding)
 	})
 
-	if err := formatter.Format(cmd.OutOrStdout(), items, formatter.FormatType(o.formatType)); err != nil {
+	err = formatter.Format(cmd.OutOrStdout(), items, formatter.FormatType(o.formatType))
+	if err != nil {
 		return fmt.Errorf("failed to format role bindings: %w", err)
 	}
 
@@ -180,20 +185,20 @@ type formattedRole struct {
 
 //nolint:lll
 type formattedRoleBinding struct {
-	Namespace     string            `json:"namespace"               short:"NAMESPACE"     text:"NAMESPACE"      yaml:"namespace"`
-	Name          string            `json:"name"                    short:"NAME"          text:"NAME"           yaml:"name"`
-	RoleRef       string            `json:"roleRef"                 short:"ROLE_REF"      text:"ROLE_REF"       yaml:"roleRef"`
-	LabelSelector map[string]string `json:"labelSelector,omitempty" short:"LABEL_SEL"     text:"LABEL_SELECTOR" yaml:"labelSelector,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"               short:"CREATED_AT"    text:"CREATED_AT"     yaml:"createdAt"`
+	Namespace     string            `json:"namespace"               short:"NAMESPACE"  text:"NAMESPACE"      yaml:"namespace"`
+	Name          string            `json:"name"                    short:"NAME"       text:"NAME"           yaml:"name"`
+	RoleRef       string            `json:"roleRef"                 short:"ROLE_REF"   text:"ROLE_REF"       yaml:"roleRef"`
+	LabelSelector map[string]string `json:"labelSelector,omitempty" short:"LABEL_SEL"  text:"LABEL_SELECTOR" yaml:"labelSelector,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt"               short:"CREATED_AT" text:"CREATED_AT"     yaml:"createdAt"`
 }
 
-func toFormatted(rb v1.RoleBinding) formattedRoleBinding {
+func toFormatted(binding v1.RoleBinding) formattedRoleBinding {
 	return formattedRoleBinding{
-		Namespace:     rb.Metadata.Namespace,
-		Name:          rb.Metadata.Name,
-		RoleRef:       rb.Spec.RoleRef.Kind + "/" + rb.Spec.RoleRef.Name,
-		LabelSelector: rb.Spec.LabelSelector,
-		CreatedAt:     rb.Metadata.CreatedAt.Time,
+		Namespace:     binding.Metadata.Namespace,
+		Name:          binding.Metadata.Name,
+		RoleRef:       binding.Spec.RoleRef.Kind + "/" + binding.Spec.RoleRef.Name,
+		LabelSelector: binding.Spec.LabelSelector,
+		CreatedAt:     binding.Metadata.CreatedAt.Time,
 	}
 }
 
