@@ -68,7 +68,6 @@ func NewAuthorizationMiddleware(
 func isExemptFromRBAC(fullPath string) bool {
 	if strings.HasPrefix(fullPath, "/auth/") ||
 		strings.HasPrefix(fullPath, "/api/v1/auth/") ||
-		strings.HasPrefix(fullPath, "/api/v1/rbac/") ||
 		strings.HasPrefix(fullPath, "/swagger") ||
 		strings.HasPrefix(fullPath, "/docs") {
 		return true
