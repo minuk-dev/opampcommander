@@ -82,9 +82,10 @@ func (s *Service) Run(ctx context.Context) error {
 			return fmt.Errorf("service loop exited: %w", ctx.Err())
 		case conn := <-s.closedConnectionCh:
 			bgCtx, cancel := context.WithTimeout(ctx, s.onConnectionCloseTimeout)
-			defer cancel()
-
 			err := s.cleanUpConnection(bgCtx, conn)
+
+			cancel()
+
 			if err != nil {
 				s.logger.Error("failed to clean up connection", slog.String("error", err.Error()))
 			}
@@ -255,9 +256,7 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	select {
 	case s.closedConnectionCh <- conn:
 	default:
-		logger.Warn("closedConnectionCh is full, cleanup may be delayed")
-
-		s.closedConnectionCh <- conn
+		logger.Warn("closedConnectionCh is full, skipping cleanup for this connection")
 	}
 
 	logger.Info("end")
