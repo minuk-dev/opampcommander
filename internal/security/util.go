@@ -75,6 +75,8 @@ func NewAuthJWTMiddleware(
 			"/api/v1/version",
 			"/healthz",
 			"/readyz",
+			"/swagger",
+			"/docs",
 		}
 		authenticatedPrefix = []string{
 			"/api/v1",
