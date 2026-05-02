@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/samber/mo"
 	"github.com/spf13/cobra"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -77,16 +77,38 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to get info from server: %w", err)
 	}
 
+	email := "N/A"
+	if info.Email != nil {
+		email = *info.Email
+	}
+
+	//exhaustruct:ignore
 	data := shortItemForCLI{
 		Name:          currentUser.Name,
 		AuthType:      currentUser.Auth.Type,
-		Email:         mo.PointerToOption(info.Email).OrElse("N/A"),
+		Email:         email,
 		Authenticated: info.Authenticated,
-		Labels:        nil,
-		Roles:         nil,
 	}
 
-	err = formatter.FormatText(cmd.OutOrStdout(), data)
+	if o.outputFormat == "json" || o.outputFormat == "yaml" {
+		detailErr := o.populateDetailedFields(cmd, &data)
+		if detailErr != nil {
+			return detailErr
+		}
+	}
+
+	var formatType formatter.FormatType
+
+	switch o.outputFormat {
+	case "json":
+		formatType = formatter.JSON
+	case "yaml":
+		formatType = formatter.YAML
+	default:
+		formatType = formatter.TEXT
+	}
+
+	err = formatter.Format(cmd.OutOrStdout(), data, formatType)
 	if err != nil {
 		return fmt.Errorf("failed to format output: %w", err)
 	}
@@ -94,34 +116,90 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-type shortItemForCLI struct {
-	Name          string            `json:"name"          short:"NAME"      text:"NAME"          yaml:"name"`
-	AuthType      string            `json:"authType"      short:"AUTH_TYPE" text:"AUTH_TYPE"     yaml:"authType"`
-	Email         string            `json:"email"         short:"EMAIL"     text:"EMAIL"         yaml:"email"`
-	Authenticated bool              `json:"authenticated" short:"AUTH"      text:"AUTHENTICATED" yaml:"authenticated"`
-	Labels        map[string]string `json:"labels" short:"LABELS" text:"LABELS" yaml:"labels"`
+func (o *CommandOptions) populateDetailedFields(cmd *cobra.Command, data *shortItemForCLI) error {
+	profile, err := o.client.UserService.GetMyProfile(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get user profile: %w", err)
+	}
 
-	Roles []roleForCLI `json:"roles", short:"ROLES", text:"ROLES" yaml:"roles"`
+	data.Labels = profile.User.Metadata.Labels
+
+	roles, err := o.client.UserService.GetMyRoles(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get roles: %w", err)
+	}
+
+	bindings, err := o.client.UserService.GetMyRoleBindings(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get role bindings: %w", err)
+	}
+
+	bindingByRoleName := make(map[string]v1.RoleBinding, len(bindings.Items))
+
+	for _, binding := range bindings.Items {
+		if _, exists := bindingByRoleName[binding.Spec.RoleRef.Name]; !exists {
+			bindingByRoleName[binding.Spec.RoleRef.Name] = binding
+		}
+	}
+
+	data.Roles = make([]roleForCLI, 0, len(roles.Items))
+
+	for _, role := range roles.Items {
+		//exhaustruct:ignore
+		roleCLI := roleForCLI{
+			Name:        role.Spec.DisplayName,
+			Description: role.Spec.Description,
+			IsBuiltIn:   role.Spec.IsBuiltIn,
+			Permissions: len(role.Spec.Permissions),
+		}
+
+		if binding, ok := bindingByRoleName[role.Spec.DisplayName]; ok {
+			roleCLI.BindingReason = &roleBindingForCLI{
+				Namespace: binding.Metadata.Namespace,
+				Name:      binding.Metadata.Name,
+				RoleRef: roleRefForCLI{
+					Kind: binding.Spec.RoleRef.Kind,
+					Name: binding.Spec.RoleRef.Name,
+				},
+				LabelSelector: binding.Spec.LabelSelector,
+				CreatedAt:     binding.Metadata.CreatedAt.Time,
+			}
+		}
+
+		data.Roles = append(data.Roles, roleCLI)
+	}
+
+	return nil
+}
+
+// shortItemForCLI is the top-level output structure for whoami.
+// text/short format shows only the basic fields; json/yaml shows all fields.
+type shortItemForCLI struct {
+	Name          string            `json:"name"             text:"NAME"`
+	AuthType      string            `json:"authType"         text:"AUTH_TYPE"`
+	Email         string            `json:"email"            text:"EMAIL"`
+	Authenticated bool              `json:"authenticated"    text:"AUTHENTICATED"`
+	Labels        map[string]string `json:"labels,omitempty"`
+	Roles         []roleForCLI      `json:"roles,omitempty"`
 }
 
 type roleForCLI struct {
-	Name          string            `json:"name"        short:"NAME"        text:"NAME"        yaml:"name"`
-	Description   string            `json:"description" short:"DESCRIPTION" text:"DESCRIPTION" yaml:"description"`
-	IsBuiltIn     bool              `json:"isBuiltIn"   short:"BUILT_IN"    text:"BUILT_IN"    yaml:"isBuiltIn"`
-	Permissions   int               `json:"permissions" short:"PERMISSIONS" text:"PERMISSIONS" yaml:"permissions"`
-	BindingReason roleBindingForCLI `json:"bindingReason" short:"BINDING_REASON" "text:"BINDING_REASON" yaml:"bindingReason"`
+	Name          string             `json:"name"`
+	Description   string             `json:"description"`
+	IsBuiltIn     bool               `json:"isBuiltIn"`
+	Permissions   int                `json:"permissions"`
+	BindingReason *roleBindingForCLI `json:"bindingReason,omitempty"`
 }
 
-//nolint:lll
 type roleBindingForCLI struct {
-	Namespace     string            `json:"namespace"               short:"NAMESPACE"  text:"NAMESPACE"      yaml:"namespace"`
-	Name          string            `json:"name"                    short:"NAME"       text:"NAME"           yaml:"name"`
-	RoleRef       roleRefForCLI     `json:"roleRef"                 short:"ROLE_REF"   text:"ROLE_REF"       yaml:"roleRef"`
-	LabelSelector map[string]string `json:"labelSelector,omitempty" short:"LABEL_SEL"  text:"LABEL_SELECTOR" yaml:"labelSelector,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"               short:"CREATED_AT" text:"CREATED_AT"     yaml:"createdAt"`
+	Namespace     string            `json:"namespace"`
+	Name          string            `json:"name"`
+	RoleRef       roleRefForCLI     `json:"roleRef"`
+	LabelSelector map[string]string `json:"labelSelector,omitempty"`
+	CreatedAt     time.Time         `json:"createdAt"`
 }
 
 type roleRefForCLI struct {
-	Kind string `json:"kind" short:"KIND" text:"KIND" yaml:"kind"`
-	Name string `json:"name" short:"NAME" text:"NAME" yaml:"name"`
+	Kind string `json:"kind"`
+	Name string `json:"name"`
 }
