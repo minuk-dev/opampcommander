@@ -132,6 +132,7 @@ type PermissionManageUsecase interface {
 type RBACManageUsecase interface {
 	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
 	GetUserRoles(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Role], error)
+	GetUserRoleBindings(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.RoleBinding], error)
 	GetUserPermissions(ctx context.Context, userID uuid.UUID) (*v1.ListResponse[v1.Permission], error)
 	SyncPolicies(ctx context.Context) error
 }

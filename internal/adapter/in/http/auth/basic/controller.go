@@ -132,12 +132,14 @@ func (c *Controller) Info(ctx *gin.Context) {
 }
 
 // ensureUser creates or updates a user record on login.
+// Always syncs provider labels (login-type).
 // Failures are logged but do not block the login flow.
 func (c *Controller) ensureUser(ctx context.Context, username, email, provider string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
 
 	switch {
 	case err == nil && existing != nil:
+		existing.SetLabel(usermodel.LabelLoginType, provider)
 		existing.Metadata.UpdatedAt = time.Now()
 
 		saveErr := c.userUsecase.SaveUser(ctx, existing)
@@ -159,6 +161,7 @@ func (c *Controller) ensureUser(ctx context.Context, username, email, provider s
 	}
 
 	newUser := usermodel.NewUserWithIdentity(provider, username, email, username)
+	newUser.SetLabel(usermodel.LabelLoginType, provider)
 
 	saveErr := c.userUsecase.SaveUser(ctx, newUser)
 	if saveErr != nil {

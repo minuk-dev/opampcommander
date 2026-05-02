@@ -77,6 +77,8 @@ func isExemptFromRBAC(fullPath string) bool {
 		"/api/v1/version",
 		"/api/v1/opamp",
 		"/api/v1/users/me",
+		"/api/v1/users/me/roles",
+		"/api/v1/users/me/rolebindings",
 		"/api/v1/namespaces",
 		"/api/v1/namespaces/:namespace":
 		return true

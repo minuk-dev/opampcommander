@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -19,16 +20,19 @@ type Controller struct {
 
 	// usecases
 	userUsecase Usecase
+	rbacUsecase RBACUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
 	usecase Usecase,
+	rbacUsecase RBACUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	return &Controller{
 		logger:      logger,
 		userUsecase: usecase,
+		rbacUsecase: rbacUsecase,
 	}
 }
 
@@ -40,6 +44,18 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/users/me",
 			Handler:     "http.v1.user.Me",
 			HandlerFunc: c.Me,
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/users/me/roles",
+			Handler:     "http.v1.user.GetMyRoles",
+			HandlerFunc: c.GetMyRoles,
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/users/me/rolebindings",
+			Handler:     "http.v1.user.GetMyRoleBindings",
+			HandlerFunc: c.GetMyRoleBindings,
 		},
 		{
 			Method:      http.MethodGet,
@@ -231,4 +247,89 @@ func (c *Controller) Me(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, profile)
+}
+
+// GetMyRoles retrieves the roles assigned to the currently authenticated user.
+//
+// @Summary  Get My Roles
+// @Tags user
+// @Description Retrieve the roles assigned to the currently authenticated user.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.ListResponse[v1.Role]
+// @Failure 401 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/users/me/roles [get].
+func (c *Controller) GetMyRoles(ctx *gin.Context) {
+	userID, ok := c.resolveCurrentUserID(ctx)
+	if !ok {
+		return
+	}
+
+	response, err := c.rbacUsecase.GetUserRoles(ctx.Request.Context(), userID)
+	if err != nil {
+		c.logger.Error("failed to get user roles", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving your roles.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// GetMyRoleBindings retrieves the role bindings that match the currently authenticated user.
+//
+// @Summary  Get My RoleBindings
+// @Tags user
+// @Description Retrieve the role bindings that apply to the currently authenticated user based on label selectors.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.ListResponse[v1.RoleBinding]
+// @Failure 401 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/users/me/rolebindings [get].
+func (c *Controller) GetMyRoleBindings(ctx *gin.Context) {
+	userID, ok := c.resolveCurrentUserID(ctx)
+	if !ok {
+		return
+	}
+
+	response, err := c.rbacUsecase.GetUserRoleBindings(ctx.Request.Context(), userID)
+	if err != nil {
+		c.logger.Error("failed to get user role bindings", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving your role bindings.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// resolveCurrentUserID returns the UUID of the currently authenticated user.
+// It writes the error response and returns false if authentication fails.
+func (c *Controller) resolveCurrentUserID(ctx *gin.Context) (uuid.UUID, bool) {
+	secUser, err := security.GetUser(ctx)
+	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+
+		return uuid.Nil, false
+	}
+
+	apiUser, err := c.userUsecase.GetUserByEmail(ctx.Request.Context(), *secUser.Email)
+	if err != nil {
+		c.logger.Error("failed to get user by email", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while resolving the current user.")
+
+		return uuid.Nil, false
+	}
+
+	userID, err := uuid.Parse(apiUser.Metadata.UID)
+	if err != nil {
+		c.logger.Error("invalid user UID", "uid", apiUser.Metadata.UID, "error", err.Error())
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user UID"})
+
+		return uuid.Nil, false
+	}
+
+	return userID, true
 }

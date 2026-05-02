@@ -117,6 +117,14 @@ func (s *Service) GetUserRoles(
 		roleMap[binding.Spec.RoleRef.Name] = role
 	}
 
+	// Always include the built-in default role — auto-assigned to all users via SyncPolicies.
+	if _, exists := roleMap[usermodel.RoleDefault]; !exists {
+		defaultRole, defaultErr := s.roleUsecase.GetRoleByName(ctx, usermodel.RoleDefault)
+		if defaultErr == nil {
+			roleMap[usermodel.RoleDefault] = defaultRole
+		}
+	}
+
 	roles := make([]*usermodel.Role, 0, len(roleMap))
 	for _, role := range roleMap {
 		roles = append(roles, role)
@@ -128,6 +136,40 @@ func (s *Service) GetUserRoles(
 		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
 		Items: lo.Map(roles, func(role *usermodel.Role, _ int) v1.Role {
 			return *s.mapper.MapRoleToAPI(role)
+		}),
+	}, nil
+}
+
+// GetUserRoleBindings implements [applicationport.RBACManageUsecase].
+// Returns all RoleBindings whose LabelSelector matches the user's labels.
+func (s *Service) GetUserRoleBindings(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*v1.ListResponse[v1.RoleBinding], error) {
+	user, err := s.userUsecase.GetUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list role bindings: %w", err)
+	}
+
+	matching := make([]*usermodel.RoleBinding, 0)
+
+	for _, binding := range allBindings.Items {
+		if roleBindingMatchesUser(binding, user) {
+			matching = append(matching, binding)
+		}
+	}
+
+	return &v1.ListResponse[v1.RoleBinding]{
+		Kind:       v1.RoleBindingKind,
+		APIVersion: v1.APIVersion,
+		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
+		Items: lo.Map(matching, func(rb *usermodel.RoleBinding, _ int) v1.RoleBinding {
+			return *s.mapper.MapRoleBindingToAPI(rb)
 		}),
 	}, nil
 }
