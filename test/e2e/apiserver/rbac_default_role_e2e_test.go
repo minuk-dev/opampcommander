@@ -112,7 +112,7 @@ func TestE2E_APIServer_DefaultRole(t *testing.T) {
 
 	t.Run("Phase1_NewUserHasNoRoleBindings", func(t *testing.T) {
 		// Admin lists all role bindings and verifies none match the new user's label.
-		allBindings, err := opampClient.RoleBindingService.ListRoleBindings(t.Context())
+		allBindings, err := opampClient.RoleBindingService.ListRoleBindings(t.Context(), "default")
 		require.NoError(t, err)
 
 		for _, binding := range allBindings.Items {
