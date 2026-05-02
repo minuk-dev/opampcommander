@@ -31,7 +31,6 @@ type Client struct {
 	NamespaceService         *NamespaceService
 	UserService              *UserService
 	RoleService              *RoleService
-	RBACService              *RBACService
 	RoleBindingService       *RoleBindingService
 }
 
@@ -59,7 +58,6 @@ func New(endpoint string, opt ...Option) *Client {
 		NamespaceService:         nil,
 		UserService:              nil,
 		RoleService:              nil,
-		RBACService:              nil,
 		RoleBindingService:       nil,
 	}
 
@@ -77,7 +75,6 @@ func New(endpoint string, opt ...Option) *Client {
 	client.NamespaceService = NewNamespaceService(&service)
 	client.UserService = NewUserService(&service)
 	client.RoleService = NewRoleService(&service)
-	client.RBACService = NewRBACService(&service)
 	client.RoleBindingService = NewRoleBindingService(&service)
 
 	return client

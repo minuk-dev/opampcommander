@@ -388,27 +388,6 @@ definitions:
           $ref: '#/definitions/Condition'
         type: array
     type: object
-  CheckPermissionRequest:
-    properties:
-      action:
-        description: Action is the action to check access for.
-        type: string
-      namespace:
-        description: Namespace is the namespace to check permission in.
-        type: string
-      resource:
-        description: Resource is the resource to check access for.
-        type: string
-      userId:
-        description: UserID is the ID of the user to check.
-        type: string
-    type: object
-  CheckPermissionResponse:
-    properties:
-      allowed:
-        description: Allowed indicates whether the user has the permission.
-        type: boolean
-    type: object
   ComponentDetails:
     properties:
       type:
@@ -638,19 +617,6 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
-  ListResponse-Permission:
-    properties:
-      apiVersion:
-        type: string
-      items:
-        items:
-          $ref: '#/definitions/Permission'
-        type: array
-      kind:
-        type: string
-      metadata:
-        $ref: '#/definitions/ListMeta'
-    type: object
   ListResponse-Role:
     properties:
       apiVersion:
@@ -740,68 +706,6 @@ definitions:
           type: array
         description: Headers are HTTP headers to include in requests.
         type: object
-    type: object
-  Permission:
-    properties:
-      apiVersion:
-        description: APIVersion is the version of the API.
-        type: string
-      kind:
-        description: Kind is the type of the resource.
-        type: string
-      metadata:
-        allOf:
-        - $ref: '#/definitions/PermissionMetadata'
-        description: Metadata contains the metadata of the permission.
-      spec:
-        allOf:
-        - $ref: '#/definitions/PermissionSpec'
-        description: Spec contains the specification of the permission.
-      status:
-        allOf:
-        - $ref: '#/definitions/PermissionStatus'
-        description: Status contains the status of the permission.
-    type: object
-  PermissionMetadata:
-    properties:
-      createdAt:
-        description: CreatedAt is the timestamp when the permission was created.
-        type: string
-      deletedAt:
-        description: DeletedAt is the timestamp when the permission was soft deleted.
-        type: string
-      uid:
-        description: UID is the unique identifier of the permission.
-        type: string
-      updatedAt:
-        description: UpdatedAt is the timestamp when the permission was last updated.
-        type: string
-    type: object
-  PermissionSpec:
-    properties:
-      action:
-        description: Action is the action this permission grants.
-        type: string
-      description:
-        description: Description is the description of the permission.
-        type: string
-      isBuiltIn:
-        description: IsBuiltIn indicates whether the permission is a built-in permission.
-        type: boolean
-      name:
-        description: Name is the name of the permission (e.g., "agent:read").
-        type: string
-      resource:
-        description: Resource is the resource this permission applies to.
-        type: string
-    type: object
-  PermissionStatus:
-    properties:
-      conditions:
-        description: Conditions contains the conditions of the permission.
-        items:
-          $ref: '#/definitions/Condition'
-        type: array
     type: object
   PingResponse:
     properties:
@@ -1043,20 +947,10 @@ definitions:
     type: object
   UserProfileResponse:
     properties:
-      permissions:
-        description: Permissions contains the effective permissions for the user.
-        items:
-          $ref: '#/definitions/Permission'
-        type: array
-      roles:
-        description: Roles contains the roles assigned to the user.
-        items:
-          $ref: '#/definitions/Role'
-        type: array
       user:
         allOf:
         - $ref: '#/definitions/User'
-        description: User contains the user information.
+        description: User is the authenticated user.
     type: object
   UserSpec:
     properties:
@@ -2264,119 +2158,6 @@ paths:
       summary: Ping
       tags:
       - ping
-  /api/v1/rbac/check:
-    post:
-      consumes:
-      - application/json
-      description: Check whether a user has a specific permission.
-      parameters:
-      - description: Permission check request
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/CheckPermissionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/CheckPermissionResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Check Permission
-      tags:
-      - rbac
-  /api/v1/rbac/sync:
-    post:
-      consumes:
-      - application/json
-      description: Synchronize RBAC policies.
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Sync Policies
-      tags:
-      - rbac
-  /api/v1/rbac/users/{id}/permissions:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve the permissions of a user.
-      parameters:
-      - description: UID of the user
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/ListResponse-Permission'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Get User Permissions
-      tags:
-      - rbac
-  /api/v1/rbac/users/{id}/roles:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve the roles assigned to a user.
-      parameters:
-      - description: UID of the user
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/ListResponse-Role'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Get User Roles
-      tags:
-      - rbac
   /api/v1/roles:
     get:
       consumes:

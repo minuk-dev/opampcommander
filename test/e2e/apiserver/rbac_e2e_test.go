@@ -118,38 +118,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	// Test 7: Get user roles via RBAC endpoint
-	t.Run("GetUserRoles", func(t *testing.T) {
-		if createdRoleUID == "" {
-			t.Skip("No role created in previous test")
-		}
-
-		profile, err := opampClient.UserService.GetMyProfile(t.Context())
-		require.NoError(t, err)
-		userUID := profile.User.Metadata.UID
-
-		resp, err := opampClient.RBACService.GetUserRoles(t.Context(), userUID)
-		require.NoError(t, err)
-		assert.GreaterOrEqual(t, len(resp.Items), 1, "User should have at least one role assigned")
-	})
-
-	// Test 8: Check permission
-	t.Run("CheckPermission", func(t *testing.T) {
-		profile, err := opampClient.UserService.GetMyProfile(t.Context())
-		require.NoError(t, err)
-		userUID := profile.User.Metadata.UID
-
-		result, err := opampClient.RBACService.CheckPermission(t.Context(), &v1.CheckPermissionRequest{
-			UserID:    userUID,
-			Namespace: "*",
-			Resource:  "agent",
-			Action:    "read",
-		})
-		require.NoError(t, err)
-		assert.IsType(t, true, result.Allowed)
-	})
-
-	// Test 9: Delete RoleBinding
+	// Test 7: Delete RoleBinding
 	t.Run("DeleteRoleBinding", func(t *testing.T) {
 		if createdRoleUID == "" {
 			t.Skip("No role created in previous test")
@@ -159,7 +128,7 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	// Test 10: Delete role
+	// Test 8: Delete role
 	t.Run("DeleteRole", func(t *testing.T) {
 		if createdRoleUID == "" {
 			t.Skip("No role created in previous test")

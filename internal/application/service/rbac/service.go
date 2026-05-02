@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"sort"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
@@ -22,9 +21,7 @@ var _ applicationport.RBACManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the RBACManageUsecase interface.
 type Service struct {
-	rbacUsecase                userport.RBACUsecase
 	roleUsecase                userport.RoleUsecase
-	permissionUsecase          userport.PermissionUsecase
 	roleBindingPersistencePort userport.RoleBindingPersistencePort
 	userUsecase                userport.UserUsecase
 	mapper                     *helper.Mapper
@@ -33,55 +30,18 @@ type Service struct {
 
 // New creates a new instance of the Service struct.
 func New(
-	rbacUsecase userport.RBACUsecase,
 	roleUsecase userport.RoleUsecase,
-	permissionUsecase userport.PermissionUsecase,
 	roleBindingPersistencePort userport.RoleBindingPersistencePort,
 	userUsecase userport.UserUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		rbacUsecase:                rbacUsecase,
 		roleUsecase:                roleUsecase,
-		permissionUsecase:          permissionUsecase,
 		roleBindingPersistencePort: roleBindingPersistencePort,
 		userUsecase:                userUsecase,
 		mapper:                     helper.NewMapper(),
 		logger:                     logger,
 	}
-}
-
-// CheckPermission implements [applicationport.RBACManageUsecase].
-func (s *Service) CheckPermission(
-	ctx context.Context,
-	req *v1.CheckPermissionRequest,
-) (*v1.CheckPermissionResponse, error) {
-	userID, err := uuid.Parse(req.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse user ID: %w", err)
-	}
-
-	allowed, err := s.rbacUsecase.CheckPermission(ctx, userID, req.Namespace, req.Resource, req.Action)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check permission: %w", err)
-	}
-
-	return &v1.CheckPermissionResponse{
-		Allowed: allowed,
-	}, nil
-}
-
-// GetUserRoles implements [applicationport.RBACManageUsecase].
-func (s *Service) GetUserRoles(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*v1.ListResponse[v1.Role], error) {
-	user, err := s.userUsecase.GetUser(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	return s.buildRolesResponse(ctx, user), nil
 }
 
 // GetMyRoles implements [applicationport.RBACManageUsecase].
@@ -95,19 +55,6 @@ func (s *Service) GetMyRoles(ctx context.Context, email string) (*v1.ListRespons
 	return s.buildRolesResponse(ctx, user), nil
 }
 
-// GetUserRoleBindings implements [applicationport.RBACManageUsecase].
-func (s *Service) GetUserRoleBindings(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*v1.ListResponse[v1.RoleBinding], error) {
-	user, err := s.userUsecase.GetUser(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	return s.buildRoleBindingsResponse(ctx, user), nil
-}
-
 // GetMyRoleBindings implements [applicationport.RBACManageUsecase].
 // Looks up the user by email — avoids an extra DB round-trip when the caller already holds the email.
 func (s *Service) GetMyRoleBindings(ctx context.Context, email string) (*v1.ListResponse[v1.RoleBinding], error) {
@@ -117,36 +64,6 @@ func (s *Service) GetMyRoleBindings(ctx context.Context, email string) (*v1.List
 	}
 
 	return s.buildRoleBindingsResponse(ctx, user), nil
-}
-
-// GetUserPermissions implements [applicationport.RBACManageUsecase].
-func (s *Service) GetUserPermissions(
-	ctx context.Context,
-	userID uuid.UUID,
-) (*v1.ListResponse[v1.Permission], error) {
-	permissions, err := s.rbacUsecase.GetUserPermissions(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user permissions: %w", err)
-	}
-
-	return &v1.ListResponse[v1.Permission]{
-		Kind:       v1.PermissionKind,
-		APIVersion: v1.APIVersion,
-		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
-		Items: lo.Map(permissions, func(permission *usermodel.Permission, _ int) v1.Permission {
-			return *s.mapper.MapPermissionToAPI(permission)
-		}),
-	}, nil
-}
-
-// SyncPolicies implements [applicationport.RBACManageUsecase].
-func (s *Service) SyncPolicies(ctx context.Context) error {
-	err := s.rbacUsecase.SyncPolicies(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to sync policies: %w", err)
-	}
-
-	return nil
 }
 
 // buildRolesResponse builds a sorted role list for the given user, always including the default role.

@@ -23,7 +23,6 @@ import (
 	namespacecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/namespace"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
-	rbaccontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rbac"
 	rolecontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/role"
 	rolebindingcontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rolebinding"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
@@ -85,10 +84,8 @@ func provideHTTPComponents() fx.Option {
 			server.NewController, helper.AsController(Identity[*server.Controller]),
 			github.NewController, helper.AsController(Identity[*github.Controller]),
 			basic.NewController, helper.AsController(Identity[*basic.Controller]),
-			// RBAC controllers
 			usercontroller.NewController, helper.AsController(Identity[*usercontroller.Controller]),
 			rolecontroller.NewController, helper.AsController(Identity[*rolecontroller.Controller]),
-			rbaccontroller.NewController, helper.AsController(Identity[*rbaccontroller.Controller]),
 			rolebindingcontroller.NewController, helper.AsController(Identity[*rolebindingcontroller.Controller]),
 		),
 		// OpAMP specific connection context

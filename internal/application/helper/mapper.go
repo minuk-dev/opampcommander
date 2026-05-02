@@ -451,62 +451,6 @@ func (mapper *Mapper) MapRoleToAPI(domain *usermodel.Role) *v1.Role {
 	}
 }
 
-// MapPermissionToAPI maps a domain model Permission to an API model Permission.
-func (mapper *Mapper) MapPermissionToAPI(domain *usermodel.Permission) *v1.Permission {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.Permission{
-		Kind:       v1.PermissionKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.PermissionMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.PermissionSpec{
-			Name:        domain.Spec.Name,
-			Description: domain.Spec.Description,
-			Resource:    domain.Spec.Resource,
-			Action:      domain.Spec.Action,
-			IsBuiltIn:   domain.Spec.IsBuiltIn,
-		},
-		Status: v1.PermissionStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
-// MapUserRoleToAPI maps a domain model UserRole to an API model UserRole.
-func (mapper *Mapper) MapUserRoleToAPI(domain *usermodel.UserRole) *v1.UserRole {
-	if domain == nil {
-		return nil
-	}
-
-	return &v1.UserRole{
-		Kind:       v1.UserRoleKind,
-		APIVersion: v1.APIVersion,
-		Metadata: v1.UserRoleMetadata{
-			UID:       domain.Metadata.UID.String(),
-			CreatedAt: v1.NewTime(domain.Metadata.CreatedAt),
-			UpdatedAt: v1.NewTime(domain.Metadata.UpdatedAt),
-			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
-		},
-		Spec: v1.UserRoleSpec{
-			UserID:     domain.Spec.UserID.String(),
-			RoleID:     domain.Spec.RoleID.String(),
-			Namespace:  domain.Spec.Namespace,
-			AssignedAt: v1.NewTime(domain.Spec.AssignedAt),
-			AssignedBy: domain.Spec.AssignedBy.String(),
-		},
-		Status: v1.UserRoleStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
-		},
-	}
-}
-
 // MapRoleBindingToAPI maps a domain model RoleBinding to an API model RoleBinding.
 func (mapper *Mapper) MapRoleBindingToAPI(domain *usermodel.RoleBinding) *v1.RoleBinding {
 	if domain == nil {
