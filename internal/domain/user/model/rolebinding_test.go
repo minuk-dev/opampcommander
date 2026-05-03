@@ -25,8 +25,31 @@ func TestNewRoleBinding(t *testing.T) {
 	assert.Nil(t, rb.Metadata.DeletedAt)
 	assert.Equal(t, "Role", rb.Spec.RoleRef.Kind)
 	assert.Equal(t, "Viewer", rb.Spec.RoleRef.Name)
-	assert.Nil(t, rb.Spec.LabelSelector)
+	assert.Nil(t, rb.Spec.Subjects)
 	assert.Empty(t, rb.Status.Conditions)
+}
+
+func TestRoleBinding_MatchesUser(t *testing.T) {
+	t.Parallel()
+
+	user := usermodel.NewUser("alice@example.com", "alice")
+
+	rb := usermodel.NewRoleBinding("production", "viewer-binding",
+		usermodel.RoleRef{Kind: "Role", Name: "Viewer"},
+	)
+	assert.False(t, rb.MatchesUser(user), "no subjects must not match")
+
+	rb.Spec.Subjects = []usermodel.Subject{
+		{Kind: usermodel.SubjectKindUser, Name: "bob@example.com"},
+	}
+	assert.False(t, rb.MatchesUser(user), "different subject must not match")
+
+	rb.Spec.Subjects = append(rb.Spec.Subjects,
+		usermodel.Subject{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"},
+	)
+	assert.True(t, rb.MatchesUser(user), "matching subject must match")
+
+	assert.False(t, rb.MatchesUser(nil), "nil user must not match")
 }
 
 func TestRoleBinding_IsDeleted(t *testing.T) {

@@ -74,7 +74,7 @@ func (s *RBACService) GetUserPermissions(
 	permissionMap := make(map[string]*usermodel.Permission)
 
 	for _, binding := range allBindings.Items {
-		if !bindingMatchesUser(binding, user) {
+		if !binding.MatchesUser(user) {
 			continue
 		}
 
@@ -266,7 +266,7 @@ func (s *RBACService) collectGroupingPolicies(
 		roleUID := role.Metadata.UID.String()
 
 		for _, user := range usersResp.Items {
-			if labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels) {
+			if binding.MatchesUser(user) {
 				groupings = append(groupings, groupingPolicy{
 					userID:    user.Metadata.UID.String(),
 					roleID:    roleUID,
@@ -277,24 +277,4 @@ func (s *RBACService) collectGroupingPolicies(
 	}
 
 	return groupings, nil
-}
-
-// bindingMatchesUser returns true if the binding's labelSelector matches the user's labels.
-func bindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
-	return labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels)
-}
-
-// labelsMatch returns true if all selector pairs are present in labels.
-func labelsMatch(selector, labels map[string]string) bool {
-	if len(selector) == 0 {
-		return false
-	}
-
-	for key, value := range selector {
-		if labels[key] != value {
-			return false
-		}
-	}
-
-	return true
 }

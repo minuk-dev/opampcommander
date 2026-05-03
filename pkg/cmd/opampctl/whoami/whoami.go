@@ -134,6 +134,11 @@ func (o *CommandOptions) populateDetailedFields(cmd *cobra.Command, data *shortI
 		}
 
 		if entry.RoleBinding != nil {
+			subjects := make([]subjectForCLI, 0, len(entry.RoleBinding.Spec.Subjects))
+			for _, s := range entry.RoleBinding.Spec.Subjects {
+				subjects = append(subjects, subjectForCLI{Kind: s.Kind, Name: s.Name})
+			}
+
 			roleCLI.BindingReason = &roleBindingForCLI{
 				Namespace: entry.RoleBinding.Metadata.Namespace,
 				Name:      entry.RoleBinding.Metadata.Name,
@@ -141,8 +146,8 @@ func (o *CommandOptions) populateDetailedFields(cmd *cobra.Command, data *shortI
 					Kind: entry.RoleBinding.Spec.RoleRef.Kind,
 					Name: entry.RoleBinding.Spec.RoleRef.Name,
 				},
-				LabelSelector: entry.RoleBinding.Spec.LabelSelector,
-				CreatedAt:     entry.RoleBinding.Metadata.CreatedAt.Time,
+				Subjects:  subjects,
+				CreatedAt: entry.RoleBinding.Metadata.CreatedAt.Time,
 			}
 		}
 
@@ -172,14 +177,19 @@ type roleForCLI struct {
 }
 
 type roleBindingForCLI struct {
-	Namespace     string            `json:"namespace"`
-	Name          string            `json:"name"`
-	RoleRef       roleRefForCLI     `json:"roleRef"`
-	LabelSelector map[string]string `json:"labelSelector,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"`
+	Namespace string          `json:"namespace"`
+	Name      string          `json:"name"`
+	RoleRef   roleRefForCLI   `json:"roleRef"`
+	Subjects  []subjectForCLI `json:"subjects,omitempty"`
+	CreatedAt time.Time       `json:"createdAt"`
 }
 
 type roleRefForCLI struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+type subjectForCLI struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
 }

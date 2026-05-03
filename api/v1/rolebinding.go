@@ -34,12 +34,12 @@ type RoleBindingMetadata struct {
 } // @name RoleBindingMetadata
 
 // RoleBindingSpec defines the role binding details.
-// LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.
+// Subjects enumerates the principals (e.g. Users) that this binding grants the referenced role to.
 type RoleBindingSpec struct {
 	// RoleRef references the role to bind.
 	RoleRef RoleBindingRoleRef `json:"roleRef" yaml:"roleRef"`
-	// LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.
-	LabelSelector map[string]string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
+	// Subjects lists the principals that this binding grants the role to.
+	Subjects []RoleBindingSubject `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 } // @name RoleBindingSpec
 
 // RoleBindingRoleRef references a Role resource.
@@ -49,6 +49,16 @@ type RoleBindingRoleRef struct {
 	// Name is the display name of the role.
 	Name string `json:"name" yaml:"name"`
 } // @name RoleBindingRoleRef
+
+// RoleBindingSubject references a principal that a RoleBinding grants its role to.
+type RoleBindingSubject struct {
+	// Kind is the type of subject (e.g., "User").
+	Kind string `json:"kind" yaml:"kind"`
+	// Name is the principal identifier (for User, the email address).
+	Name string `json:"name" yaml:"name"`
+	// APIVersion is the API version of the referenced subject; optional.
+	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
+} // @name RoleBindingSubject
 
 // RoleBindingStatus represents the current state of the role binding.
 type RoleBindingStatus struct {

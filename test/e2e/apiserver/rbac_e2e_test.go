@@ -109,8 +109,8 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 				UpdatedAt: v1.Time{},
 			},
 			Spec: v1.RoleBindingSpec{
-				RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "Test Viewer Role"},
-				LabelSelector: map[string]string{"login-type": "basic"},
+				RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Test Viewer Role"},
+				Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "test@test.com"}},
 			},
 			//exhaustruct:ignore
 			Status: v1.RoleBindingStatus{},

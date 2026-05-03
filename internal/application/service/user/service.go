@@ -206,8 +206,8 @@ func (s *Service) toUserRoleEntry(role *usermodel.Role, binding *usermodel.RoleB
 	return entry
 }
 
-// findMatchingBinding returns the first binding whose namespace, role reference, and label
-// selector all match — i.e. the binding that would currently produce this assignment.
+// findMatchingBinding returns the first binding whose namespace, role reference, and subjects
+// all match — i.e. the binding that would currently produce this assignment.
 // Returns nil when no binding matches (assignment came from a stale sync or default-role injection).
 func findMatchingBinding(
 	bindings []*usermodel.RoleBinding,
@@ -217,7 +217,7 @@ func findMatchingBinding(
 	matches := func(b *usermodel.RoleBinding) bool {
 		return b.Metadata.Namespace == namespace &&
 			b.Spec.RoleRef.Name == roleName &&
-			labelSelectorMatches(b.Spec.LabelSelector, user.Metadata.Labels)
+			b.MatchesUser(user)
 	}
 
 	binding, ok := lo.Find(bindings, matches)
@@ -226,16 +226,6 @@ func findMatchingBinding(
 	}
 
 	return binding
-}
-
-func labelSelectorMatches(selector, labels map[string]string) bool {
-	if len(selector) == 0 {
-		return false
-	}
-
-	return lo.EveryBy(lo.Entries(selector), func(kv lo.Entry[string, string]) bool {
-		return labels[kv.Key] == kv.Value
-	})
 }
 
 func compareBindings(a, b *usermodel.RoleBinding) int {

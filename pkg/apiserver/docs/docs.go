@@ -1998,76 +1998,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users/me/rolebindings": {
-            "get": {
-                "description": "Retrieve the role bindings that apply to the currently authenticated user based on label selectors.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "user"
-                ],
-                "summary": "Get My RoleBindings",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/ListResponse-RoleBinding"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/me/roles": {
-            "get": {
-                "description": "Retrieve the roles assigned to the currently authenticated user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "user"
-                ],
-                "summary": "Get My Roles",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/ListResponse-Role"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/users/{id}": {
             "get": {
                 "description": "Retrieve a user by its UID.",
@@ -3477,13 +3407,6 @@ const docTemplate = `{
         "RoleBindingSpec": {
             "type": "object",
             "properties": {
-                "labelSelector": {
-                    "description": "LabelSelector binds the role to any user whose metadata labels match all specified key/value pairs.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
                 "roleRef": {
                     "description": "RoleRef references the role to bind.",
                     "allOf": [
@@ -3491,6 +3414,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/RoleBindingRoleRef"
                         }
                     ]
+                },
+                "subjects": {
+                    "description": "Subjects lists the principals that this binding grants the role to.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RoleBindingSubject"
+                    }
                 }
             }
         },
@@ -3503,6 +3433,23 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/Condition"
                     }
+                }
+            }
+        },
+        "RoleBindingSubject": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "description": "APIVersion is the API version of the referenced subject; optional.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is the type of subject (e.g., \"User\").",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the principal identifier (for User, the email address).",
+                    "type": "string"
                 }
             }
         },
@@ -3715,11 +3662,39 @@ const docTemplate = `{
         "UserProfileResponse": {
             "type": "object",
             "properties": {
+                "roles": {
+                    "description": "Roles contains the roles assigned to the user together with the binding that granted each role.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/UserRoleEntry"
+                    }
+                },
                 "user": {
                     "description": "User is the authenticated user.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/User"
+                        }
+                    ]
+                }
+            }
+        },
+        "UserRoleEntry": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "description": "Role is the role assigned to the user.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/Role"
+                        }
+                    ]
+                },
+                "roleBinding": {
+                    "description": "RoleBinding is the binding that granted this role, if any.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RoleBinding"
                         }
                     ]
                 }
