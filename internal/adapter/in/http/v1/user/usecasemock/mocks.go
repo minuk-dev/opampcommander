@@ -105,7 +105,7 @@ func (_m *MockUsecase) DeleteUser(ctx context.Context, uid uuid.UUID) error {
 	return ret.Error(0)
 }
 
-func (_m *MockUsecase) GetUserProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error) {
+func (_m *MockUsecase) GetMyProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error) {
 	ret := _m.Called(ctx, email)
 
 	var r0 *v1.UserProfileResponse
@@ -119,61 +119,3 @@ func (_m *MockUsecase) GetUserProfile(ctx context.Context, email string) (*v1.Us
 
 	return r0, ret.Error(1)
 }
-
-// ---- MockRBACUsecase (RBACManageUsecase) ----
-
-// NewMockRBACUsecase creates a new instance of MockRBACUsecase.
-func NewMockRBACUsecase(t interface {
-	mock.TestingT
-	Cleanup(func())
-}) *MockRBACUsecase {
-	m := &MockRBACUsecase{}
-	m.Mock.Test(t)
-	t.Cleanup(func() { m.AssertExpectations(t) })
-
-	return m
-}
-
-// MockRBACUsecase is a mock type for the RBACUsecase (RBACManageUsecase) interface.
-type MockRBACUsecase struct {
-	mock.Mock
-}
-
-type MockRBACUsecase_Expecter struct {
-	mock *mock.Mock
-}
-
-func (_m *MockRBACUsecase) EXPECT() *MockRBACUsecase_Expecter {
-	return &MockRBACUsecase_Expecter{mock: &_m.Mock}
-}
-
-func (_m *MockRBACUsecase) GetMyRoles(ctx context.Context, email string) (*v1.ListResponse[v1.Role], error) {
-	ret := _m.Called(ctx, email)
-
-	var r0 *v1.ListResponse[v1.Role]
-	if rf, ok := ret.Get(0).(func(context.Context, string) *v1.ListResponse[v1.Role]); ok {
-		r0 = rf(ctx, email)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.ListResponse[v1.Role])
-		}
-	}
-
-	return r0, ret.Error(1)
-}
-
-func (_m *MockRBACUsecase) GetMyRoleBindings(ctx context.Context, email string) (*v1.ListResponse[v1.RoleBinding], error) {
-	ret := _m.Called(ctx, email)
-
-	var r0 *v1.ListResponse[v1.RoleBinding]
-	if rf, ok := ret.Get(0).(func(context.Context, string) *v1.ListResponse[v1.RoleBinding]); ok {
-		r0 = rf(ctx, email)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.ListResponse[v1.RoleBinding])
-		}
-	}
-
-	return r0, ret.Error(1)
-}
-

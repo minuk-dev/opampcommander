@@ -6,6 +6,9 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
 
+// SubjectKindUser identifies a Subject that names an individual user by email.
+const SubjectKindUser = "User"
+
 // RoleBinding represents a binding of a role to a user within a namespace.
 type RoleBinding struct {
 	Metadata RoleBindingMetadata
@@ -23,10 +26,10 @@ type RoleBindingMetadata struct {
 }
 
 // RoleBindingSpec defines the role binding details.
-// LabelSelector binds the role to any user whose labels match all specified key/value pairs.
+// Subjects enumerates the principals (e.g. Users) that this binding grants the referenced role to.
 type RoleBindingSpec struct {
-	RoleRef       RoleRef
-	LabelSelector map[string]string
+	RoleRef  RoleRef
+	Subjects []Subject
 }
 
 // RoleRef references a role by kind and name.
@@ -35,13 +38,21 @@ type RoleRef struct {
 	Name string
 }
 
+// Subject names a principal that a RoleBinding grants its role to.
+// Kind is e.g. "User"; Name is the principal identifier (for User, the email address).
+type Subject struct {
+	Kind       string
+	Name       string
+	APIVersion string
+}
+
 // RoleBindingStatus represents the current state of the role binding.
 type RoleBindingStatus struct {
 	Conditions []model.Condition
 }
 
 // NewRoleBinding creates a new RoleBinding instance.
-// Set Spec.LabelSelector to define the set of users this binding applies to.
+// Set Spec.Subjects to define the set of principals this binding applies to.
 func NewRoleBinding(namespace, name string, roleRef RoleRef) *RoleBinding {
 	now := time.Now()
 
@@ -54,8 +65,8 @@ func NewRoleBinding(namespace, name string, roleRef RoleRef) *RoleBinding {
 			DeletedAt: nil,
 		},
 		Spec: RoleBindingSpec{
-			RoleRef:       roleRef,
-			LabelSelector: nil,
+			RoleRef:  roleRef,
+			Subjects: nil,
 		},
 		Status: RoleBindingStatus{
 			Conditions: []model.Condition{},
@@ -77,4 +88,26 @@ func (rb *RoleBinding) MarkDeleted() {
 // SetUpdatedAt sets the updatedAt timestamp.
 func (rb *RoleBinding) SetUpdatedAt(t time.Time) {
 	rb.Metadata.UpdatedAt = t
+}
+
+// MatchesUser returns true when any of the binding's Subjects names the given user.
+// Currently only Subject.Kind == "User" is supported, matching against the user's email.
+// Subjects with empty Name and users with empty Email never match — guards against
+// an "" == "" false positive on malformed input.
+func (rb *RoleBinding) MatchesUser(user *User) bool {
+	if user == nil || user.Spec.Email == "" {
+		return false
+	}
+
+	for _, s := range rb.Spec.Subjects {
+		if s.Kind != SubjectKindUser || s.Name == "" {
+			continue
+		}
+
+		if s.Name == user.Spec.Email {
+			return true
+		}
+	}
+
+	return false
 }

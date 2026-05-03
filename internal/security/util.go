@@ -61,29 +61,26 @@ func NewAnonymousUser() *User {
 	}
 }
 
+//nolint:gochecknoglobals
+var jwtBypassPrefixes = []string{
+	"/auth",
+	"/api/v1/auth/basic",
+	"/api/v1/auth/github",
+	"/api/v1/ping",
+	"/api/v1/opamp",
+	"/api/v1/version",
+	"/healthz",
+	"/readyz",
+	"/swagger",
+	"/docs",
+}
+
 // NewAuthJWTMiddleware creates a new Gin middleware for JWT authentication.
 func NewAuthJWTMiddleware(
 	service *Service,
 ) gin.HandlerFunc {
-	var (
-		bypassPrefix = []string{
-			"/auth",
-			"/api/v1/auth",
-			"/api/v1/ping",
-			"/api/v1/opamp",
-			"/api/v1/version",
-			"/healthz",
-			"/readyz",
-			"/swagger",
-			"/docs",
-		}
-		authenticatedPrefix = []string{
-			"/api/v1",
-		}
-	)
-
 	return func(ctx *gin.Context) {
-		if hasAnyPrefix(ctx.Request.URL.Path, bypassPrefix) {
+		if hasAnyPrefix(ctx.Request.URL.Path, jwtBypassPrefixes) {
 			saveUser(ctx, NewAnonymousUser())
 			ctx.Next()
 
@@ -112,17 +109,14 @@ func NewAuthJWTMiddleware(
 			}
 		}
 
-		if !user.Authenticated {
-			if hasAnyPrefix(ctx.Request.URL.Path, authenticatedPrefix) {
-				// If the path requires authentication, return 401 Unauthorized
-				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-					"error": "unauthorized",
-				})
+		if !user.Authenticated && hasAnyPrefix(ctx.Request.URL.Path, []string{"/api/v1"}) {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
 
-				return
-			}
+			return
 		}
-		// Save the user in the context
+
 		saveUser(ctx, user)
 		ctx.Next()
 	}

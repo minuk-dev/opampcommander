@@ -135,6 +135,36 @@ func (c *Enforcer) GetGroupingPolicy() ([][]string, error) {
 	return policies, nil
 }
 
+// GetRoleAssignmentsForUser returns the (role, namespace) pairs currently loaded for the given user.
+// The grouping policy stores rows as [userUID, roleUID, namespace] — see RBACService.SyncPolicies.
+func (c *Enforcer) GetRoleAssignmentsForUser(_ context.Context, userUID string) ([]userport.UserRoleAssignment, error) {
+	const expectedRowLen = 3
+
+	policies, err := c.enforcer.GetGroupingPolicy()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get grouping policy: %w", err)
+	}
+
+	assignments := make([]userport.UserRoleAssignment, 0)
+
+	for _, row := range policies {
+		if len(row) < expectedRowLen {
+			continue
+		}
+
+		if row[0] != userUID {
+			continue
+		}
+
+		assignments = append(assignments, userport.UserRoleAssignment{
+			RoleUID:   row[1],
+			Namespace: row[2],
+		})
+	}
+
+	return assignments, nil
+}
+
 // AddNamedPolicy adds a named policy rule of the given policy type.
 func (c *Enforcer) AddNamedPolicy(_ context.Context, ptype string, params ...any) (bool, error) {
 	added, err := c.enforcer.AddNamedPolicy(ptype, params...)

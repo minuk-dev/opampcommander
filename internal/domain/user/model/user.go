@@ -22,7 +22,7 @@ type UserMetadata struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
-	Labels    map[string]string // arbitrary key/value pairs; used for label-selector based role bindings
+	Labels    map[string]string // arbitrary key/value pairs attached to the user (e.g. login-type, github-org-*)
 }
 
 // UserSpec defines the desired state of the user.

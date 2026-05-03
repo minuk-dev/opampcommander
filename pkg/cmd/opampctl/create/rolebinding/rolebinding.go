@@ -52,9 +52,9 @@ YAML FORMAT:
     roleRef:
       kind: Role
       name: <role-display-name>
-    subject:
-      kind: User
-      name: <user-email>
+    subjects:
+      - kind: User
+        name: <user-email>
 
 EXAMPLES:
 
@@ -69,9 +69,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: Agent Viewer
-       subject:
-         kind: User
-         name: alice@example.com
+       subjects:
+         - kind: User
+           name: alice@example.com
 
   2. Grant full CRUD on agents in staging:
      ---
@@ -84,9 +84,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: Agent Editor
-       subject:
-         kind: User
-         name: bob@example.com
+       subjects:
+         - kind: User
+           name: bob@example.com
 
   3. Cluster-wide binding (like K8s ClusterRoleBinding):
      Grant agentgroup admin access across ALL namespaces:
@@ -100,9 +100,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: AgentGroup Admin
-       subject:
-         kind: User
-         name: ops-lead@example.com
+       subjects:
+         - kind: User
+           name: ops-lead@example.com
 
   4. Grant certificate management in a specific namespace:
      ---
@@ -115,9 +115,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: Certificate Manager
-       subject:
-         kind: User
-         name: security@example.com
+       subjects:
+         - kind: User
+           name: security@example.com
 
   5. Multi-resource viewer (when the role includes multiple resources):
      ---
@@ -130,9 +130,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: Full Viewer
-       subject:
-         kind: User
-         name: junior-dev@example.com
+       subjects:
+         - kind: User
+           name: junior-dev@example.com
 
   6. Agent package deployer in staging:
      ---
@@ -145,9 +145,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: Package Deployer
-       subject:
-         kind: User
-         name: release-engineer@example.com
+       subjects:
+         - kind: User
+           name: release-engineer@example.com
 
   7. Remote config editor for a team namespace:
      ---
@@ -160,9 +160,9 @@ EXAMPLES:
        roleRef:
          kind: Role
          name: Remote Config Editor
-       subject:
-         kind: User
-         name: team-lead@example.com
+       subjects:
+         - kind: User
+           name: team-lead@example.com
 
 USAGE:
   opampctl create rolebinding -f binding.yaml

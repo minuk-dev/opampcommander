@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -123,46 +122,32 @@ func (o *CommandOptions) populateDetailedFields(cmd *cobra.Command, data *shortI
 	}
 
 	data.Labels = profile.User.Metadata.Labels
+	data.Roles = make([]roleForCLI, 0, len(profile.Roles))
 
-	roles, err := o.client.UserService.GetMyRoles(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get roles: %w", err)
-	}
-
-	bindings, err := o.client.UserService.GetMyRoleBindings(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get role bindings: %w", err)
-	}
-
-	bindingByRoleName := make(map[string]v1.RoleBinding, len(bindings.Items))
-
-	for _, binding := range bindings.Items {
-		if _, exists := bindingByRoleName[binding.Spec.RoleRef.Name]; !exists {
-			bindingByRoleName[binding.Spec.RoleRef.Name] = binding
-		}
-	}
-
-	data.Roles = make([]roleForCLI, 0, len(roles.Items))
-
-	for _, role := range roles.Items {
+	for _, entry := range profile.Roles {
 		//exhaustruct:ignore
 		roleCLI := roleForCLI{
-			Name:        role.Spec.DisplayName,
-			Description: role.Spec.Description,
-			IsBuiltIn:   role.Spec.IsBuiltIn,
-			Permissions: len(role.Spec.Permissions),
+			Name:        entry.Role.Spec.DisplayName,
+			Description: entry.Role.Spec.Description,
+			IsBuiltIn:   entry.Role.Spec.IsBuiltIn,
+			Permissions: len(entry.Role.Spec.Permissions),
 		}
 
-		if binding, ok := bindingByRoleName[role.Spec.DisplayName]; ok {
+		if entry.RoleBinding != nil {
+			subjects := make([]subjectForCLI, 0, len(entry.RoleBinding.Spec.Subjects))
+			for _, s := range entry.RoleBinding.Spec.Subjects {
+				subjects = append(subjects, subjectForCLI{Kind: s.Kind, Name: s.Name})
+			}
+
 			roleCLI.BindingReason = &roleBindingForCLI{
-				Namespace: binding.Metadata.Namespace,
-				Name:      binding.Metadata.Name,
+				Namespace: entry.RoleBinding.Metadata.Namespace,
+				Name:      entry.RoleBinding.Metadata.Name,
 				RoleRef: roleRefForCLI{
-					Kind: binding.Spec.RoleRef.Kind,
-					Name: binding.Spec.RoleRef.Name,
+					Kind: entry.RoleBinding.Spec.RoleRef.Kind,
+					Name: entry.RoleBinding.Spec.RoleRef.Name,
 				},
-				LabelSelector: binding.Spec.LabelSelector,
-				CreatedAt:     binding.Metadata.CreatedAt.Time,
+				Subjects:  subjects,
+				CreatedAt: entry.RoleBinding.Metadata.CreatedAt.Time,
 			}
 		}
 
@@ -192,14 +177,19 @@ type roleForCLI struct {
 }
 
 type roleBindingForCLI struct {
-	Namespace     string            `json:"namespace"`
-	Name          string            `json:"name"`
-	RoleRef       roleRefForCLI     `json:"roleRef"`
-	LabelSelector map[string]string `json:"labelSelector,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"`
+	Namespace string          `json:"namespace"`
+	Name      string          `json:"name"`
+	RoleRef   roleRefForCLI   `json:"roleRef"`
+	Subjects  []subjectForCLI `json:"subjects,omitempty"`
+	CreatedAt time.Time       `json:"createdAt"`
 }
 
 type roleRefForCLI struct {
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+}
+
+type subjectForCLI struct {
 	Kind string `json:"kind"`
 	Name string `json:"name"`
 }

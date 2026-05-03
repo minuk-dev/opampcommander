@@ -18,10 +18,6 @@ const (
 	DeleteUserURL = "/api/v1/users/{id}"
 	// GetUserProfileURL is the path to get the current user's profile.
 	GetUserProfileURL = "/api/v1/users/me"
-	// GetMyRolesURL is the path to get the current user's roles.
-	GetMyRolesURL = "/api/v1/users/me/roles"
-	// GetMyRoleBindingsURL is the path to get the current user's role bindings.
-	GetMyRoleBindingsURL = "/api/v1/users/me/rolebindings"
 )
 
 // UserService provides methods to interact with users.
@@ -97,50 +93,6 @@ func (s *UserService) GetMyProfile(ctx context.Context) (*v1.UserProfileResponse
 
 	if res.Result() == nil {
 		return nil, fmt.Errorf("failed to get user profile: %w", ErrEmptyResponse)
-	}
-
-	return &result, nil
-}
-
-// GetMyRoles retrieves the roles assigned to the currently authenticated user.
-func (s *UserService) GetMyRoles(ctx context.Context) (*v1.ListResponse[v1.Role], error) {
-	var result v1.ListResponse[v1.Role]
-
-	res, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetResult(&result).
-		Get(GetMyRolesURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get my roles: %w", err)
-	}
-
-	if res.IsError() {
-		return nil, fmt.Errorf("failed to get my roles: %w", &ResponseError{
-			StatusCode:   res.StatusCode(),
-			ErrorMessage: res.String(),
-		})
-	}
-
-	return &result, nil
-}
-
-// GetMyRoleBindings retrieves the role bindings that match the currently authenticated user.
-func (s *UserService) GetMyRoleBindings(ctx context.Context) (*v1.ListResponse[v1.RoleBinding], error) {
-	var result v1.ListResponse[v1.RoleBinding]
-
-	res, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetResult(&result).
-		Get(GetMyRoleBindingsURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get my role bindings: %w", err)
-	}
-
-	if res.IsError() {
-		return nil, fmt.Errorf("failed to get my role bindings: %w", &ResponseError{
-			StatusCode:   res.StatusCode(),
-			ErrorMessage: res.String(),
-		})
 	}
 
 	return &result, nil

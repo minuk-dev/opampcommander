@@ -57,6 +57,8 @@ func (s *RBACService) CheckPermission(
 }
 
 // GetUserPermissions implements [userport.RBACUsecase].
+// Returns the union of permissions from (a) the built-in default role, granted to every user
+// regardless of bindings, and (b) every RoleBinding whose Subjects name this user.
 func (s *RBACService) GetUserPermissions(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -73,8 +75,19 @@ func (s *RBACService) GetUserPermissions(
 
 	permissionMap := make(map[string]*usermodel.Permission)
 
+	// Default role applies to every user even without a RoleBinding. Best-effort: log
+	// and continue if the default role isn't seeded yet.
+	defaultRole, defaultErr := s.rolePersistencePort.GetRoleByName(ctx, usermodel.RoleDefault)
+	if defaultErr != nil {
+		s.logger.WarnContext(ctx, "default role not found while resolving permissions",
+			slog.Any("error", defaultErr),
+		)
+	} else {
+		s.collectRolePermissions(ctx, defaultRole, permissionMap)
+	}
+
 	for _, binding := range allBindings.Items {
-		if !bindingMatchesUser(binding, user) {
+		if !binding.MatchesUser(user) {
 			continue
 		}
 
@@ -88,23 +101,7 @@ func (s *RBACService) GetUserPermissions(
 			continue
 		}
 
-		for _, permissionID := range role.Spec.Permissions {
-			if _, exists := permissionMap[permissionID]; exists {
-				continue
-			}
-
-			permission, permErr := s.permissionPersistencePort.GetPermissionByName(ctx, permissionID)
-			if permErr != nil {
-				s.logger.WarnContext(ctx, "failed to get permission by name",
-					slog.String("permissionID", permissionID),
-					slog.Any("error", permErr),
-				)
-
-				continue
-			}
-
-			permissionMap[permissionID] = permission
-		}
+		s.collectRolePermissions(ctx, role, permissionMap)
 	}
 
 	permissions := make([]*usermodel.Permission, 0, len(permissionMap))
@@ -152,6 +149,14 @@ func (s *RBACService) SyncPolicies(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to add grouping policy: %w", err)
 		}
+	}
+
+	// The Casbin MongoDB adapter rejects SavePolicy when there is nothing to insert
+	// (it does an InsertMany that requires at least one document). On a fresh DB the
+	// default role has no permissions and there are no users yet — skip persistence
+	// in that case; the next mutation (user login, role/binding edit) will resync.
+	if len(policies) == 0 && len(groupings) == 0 {
+		return nil
 	}
 
 	err = s.rbacEnforcerPort.SavePolicy(ctx)
@@ -235,66 +240,114 @@ func (s *RBACService) collectGroupingPolicies(
 		return nil, fmt.Errorf("failed to list users for policy sync: %w", err)
 	}
 
-	var groupings []groupingPolicy
-
-	// Auto-assign the built-in default role to every user in the "default" namespace.
-	if defaultRole, ok := roleByName[usermodel.RoleDefault]; ok {
-		defaultRoleUID := defaultRole.Metadata.UID.String()
-
-		for _, user := range usersResp.Items {
-			groupings = append(groupings, groupingPolicy{
-				userID:    user.Metadata.UID.String(),
-				roleID:    defaultRoleUID,
-				namespace: usermodel.DefaultNamespace,
-			})
-		}
-	}
-
-	for _, binding := range bindingsResp.Items {
-		role, ok := roleByName[binding.Spec.RoleRef.Name]
-		if !ok {
-			s.logger.WarnContext(ctx, "role not found for role binding during sync",
-				slog.String("namespace", binding.Metadata.Namespace),
-				slog.String("name", binding.Metadata.Name),
-				slog.String("roleRef", binding.Spec.RoleRef.Name),
-			)
-
+	// Index users by email so each Subject can be resolved in O(1) instead of
+	// scanning every user per binding.
+	usersByEmail := make(map[string]*usermodel.User, len(usersResp.Items))
+	for _, user := range usersResp.Items {
+		if user.Spec.Email == "" {
 			continue
 		}
 
-		namespace := binding.Metadata.Namespace
-		roleUID := role.Metadata.UID.String()
+		usersByEmail[user.Spec.Email] = user
+	}
 
-		for _, user := range usersResp.Items {
-			if labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels) {
-				groupings = append(groupings, groupingPolicy{
-					userID:    user.Metadata.UID.String(),
-					roleID:    roleUID,
-					namespace: namespace,
-				})
-			}
-		}
+	groupings := s.defaultRoleGroupings(roleByName, usersResp.Items)
+
+	for _, binding := range bindingsResp.Items {
+		groupings = append(groupings, s.bindingGroupings(ctx, binding, roleByName, usersByEmail)...)
 	}
 
 	return groupings, nil
 }
 
-// bindingMatchesUser returns true if the binding's labelSelector matches the user's labels.
-func bindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {
-	return labelsMatch(binding.Spec.LabelSelector, user.Metadata.Labels)
+// defaultRoleGroupings auto-assigns the built-in default role to every user in the "default" namespace.
+func (s *RBACService) defaultRoleGroupings(
+	roleByName map[string]*usermodel.Role,
+	users []*usermodel.User,
+) []groupingPolicy {
+	defaultRole, ok := roleByName[usermodel.RoleDefault]
+	if !ok {
+		return nil
+	}
+
+	defaultRoleUID := defaultRole.Metadata.UID.String()
+	groupings := make([]groupingPolicy, 0, len(users))
+
+	for _, user := range users {
+		groupings = append(groupings, groupingPolicy{
+			userID:    user.Metadata.UID.String(),
+			roleID:    defaultRoleUID,
+			namespace: usermodel.DefaultNamespace,
+		})
+	}
+
+	return groupings
 }
 
-// labelsMatch returns true if all selector pairs are present in labels.
-func labelsMatch(selector, labels map[string]string) bool {
-	if len(selector) == 0 {
-		return false
+// bindingGroupings produces grouping policies for one RoleBinding by resolving each Subject
+// against the email→user index. Unknown roles or unresolvable subjects are logged and skipped.
+func (s *RBACService) bindingGroupings(
+	ctx context.Context,
+	binding *usermodel.RoleBinding,
+	roleByName map[string]*usermodel.Role,
+	usersByEmail map[string]*usermodel.User,
+) []groupingPolicy {
+	role, ok := roleByName[binding.Spec.RoleRef.Name]
+	if !ok {
+		s.logger.WarnContext(ctx, "role not found for role binding during sync",
+			slog.String("namespace", binding.Metadata.Namespace),
+			slog.String("name", binding.Metadata.Name),
+			slog.String("roleRef", binding.Spec.RoleRef.Name),
+		)
+
+		return nil
 	}
 
-	for key, value := range selector {
-		if labels[key] != value {
-			return false
+	namespace := binding.Metadata.Namespace
+	roleUID := role.Metadata.UID.String()
+	groupings := make([]groupingPolicy, 0, len(binding.Spec.Subjects))
+
+	for _, subject := range binding.Spec.Subjects {
+		if subject.Kind != usermodel.SubjectKindUser || subject.Name == "" {
+			continue
 		}
+
+		user, found := usersByEmail[subject.Name]
+		if !found {
+			continue
+		}
+
+		groupings = append(groupings, groupingPolicy{
+			userID:    user.Metadata.UID.String(),
+			roleID:    roleUID,
+			namespace: namespace,
+		})
 	}
 
-	return true
+	return groupings
+}
+
+// collectRolePermissions resolves every permission of role and inserts it into out (deduped by ID).
+func (s *RBACService) collectRolePermissions(
+	ctx context.Context,
+	role *usermodel.Role,
+	out map[string]*usermodel.Permission,
+) {
+	for _, permissionID := range role.Spec.Permissions {
+		if _, exists := out[permissionID]; exists {
+			continue
+		}
+
+		permission, err := s.permissionPersistencePort.GetPermissionByName(ctx, permissionID)
+		if err != nil {
+			s.logger.WarnContext(ctx, "failed to get permission by name",
+				slog.String("permissionID", permissionID),
+				slog.Any("error", err),
+			)
+
+			continue
+		}
+
+		out[permissionID] = permission
+	}
 }

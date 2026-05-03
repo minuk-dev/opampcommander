@@ -102,7 +102,7 @@ func TestRoleBindingService_GetRoleBinding(t *testing.T) {
 
 		rb := func() *usermodel.RoleBinding {
 			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
-			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+			rb.Spec.Subjects = []usermodel.Subject{{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"}}
 
 			return rb
 		}()
@@ -149,7 +149,7 @@ func TestRoleBindingService_ListRoleBindings(t *testing.T) {
 
 		rb := func() *usermodel.RoleBinding {
 			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
-			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+			rb.Spec.Subjects = []usermodel.Subject{{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"}}
 
 			return rb
 		}()
@@ -200,7 +200,7 @@ func TestRoleBindingService_CreateRoleBinding(t *testing.T) {
 
 		rb := func() *usermodel.RoleBinding {
 			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
-			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+			rb.Spec.Subjects = []usermodel.Subject{{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"}}
 
 			return rb
 		}()
@@ -224,7 +224,7 @@ func TestRoleBindingService_CreateRoleBinding(t *testing.T) {
 
 		rb := func() *usermodel.RoleBinding {
 			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
-			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+			rb.Spec.Subjects = []usermodel.Subject{{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"}}
 
 			return rb
 		}()
@@ -253,7 +253,7 @@ func TestRoleBindingService_UpdateRoleBinding(t *testing.T) {
 
 		rb := func() *usermodel.RoleBinding {
 			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
-			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+			rb.Spec.Subjects = []usermodel.Subject{{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"}}
 
 			return rb
 		}()
@@ -285,7 +285,7 @@ func TestRoleBindingService_UpdateRoleBinding(t *testing.T) {
 
 		rb := func() *usermodel.RoleBinding {
 			rb := usermodel.NewRoleBinding("production", "viewer-binding", usermodel.RoleRef{Kind: "Role", Name: "Viewer"})
-			rb.Spec.LabelSelector = map[string]string{"email": "alice@example.com"}
+			rb.Spec.Subjects = []usermodel.Subject{{Kind: usermodel.SubjectKindUser, Name: "alice@example.com"}}
 
 			return rb
 		}()

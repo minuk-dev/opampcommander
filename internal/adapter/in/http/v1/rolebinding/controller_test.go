@@ -42,8 +42,8 @@ func TestRoleBindingController_List(t *testing.T) {
 					Name:      "viewer-binding",
 				},
 				Spec: v1.RoleBindingSpec{
-					RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-					LabelSelector: map[string]string{"login-type": "github"},
+					RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+					Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 				},
 			},
 			{
@@ -54,8 +54,8 @@ func TestRoleBindingController_List(t *testing.T) {
 					Name:      "admin-binding",
 				},
 				Spec: v1.RoleBindingSpec{
-					RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Admin"},
-					LabelSelector: map[string]string{"login-type": "basic"},
+					RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Admin"},
+					Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "bob@example.com"}},
 				},
 			},
 		}
@@ -148,8 +148,8 @@ func TestRoleBindingController_Get(t *testing.T) {
 			Name:      "viewer-binding",
 		},
 		Spec: v1.RoleBindingSpec{
-			RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-			LabelSelector: map[string]string{"login-type": "github"},
+			RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+			Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 		},
 		Status: v1.RoleBindingStatus{},
 	}
@@ -225,8 +225,8 @@ func TestRoleBindingController_Create(t *testing.T) {
 			Name:      "viewer-binding",
 		},
 		Spec: v1.RoleBindingSpec{
-			RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-			LabelSelector: map[string]string{"login-type": "github"},
+			RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+			Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 		},
 		Status: v1.RoleBindingStatus{},
 	}
@@ -238,8 +238,8 @@ func TestRoleBindingController_Create(t *testing.T) {
 			Name: "viewer-binding",
 		},
 		Spec: v1.RoleBindingSpec{
-			RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-			LabelSelector: map[string]string{"login-type": "github"},
+			RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+			Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 		},
 	}
 
@@ -303,8 +303,8 @@ func TestRoleBindingController_Create_InternalError(t *testing.T) {
 			Name: "viewer-binding",
 		},
 		Spec: v1.RoleBindingSpec{
-			RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-			LabelSelector: map[string]string{"login-type": "github"},
+			RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+			Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 		},
 	}
 
@@ -341,8 +341,8 @@ func TestRoleBindingController_Update(t *testing.T) {
 			Name:      "viewer-binding",
 		},
 		Spec: v1.RoleBindingSpec{
-			RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-			LabelSelector: map[string]string{"login-type": "github"},
+			RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+			Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 		},
 		Status: v1.RoleBindingStatus{},
 	}
@@ -408,8 +408,8 @@ func TestRoleBindingController_Update_InternalError(t *testing.T) {
 			Name:      "viewer-binding",
 		},
 		Spec: v1.RoleBindingSpec{
-			RoleRef:       v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
-			LabelSelector: map[string]string{"login-type": "github"},
+			RoleRef:  v1.RoleBindingRoleRef{Kind: "Role", Name: "Viewer"},
+			Subjects: []v1.RoleBindingSubject{{Kind: "User", Name: "alice@example.com"}},
 		},
 	}
 

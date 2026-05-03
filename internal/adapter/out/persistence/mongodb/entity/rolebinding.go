@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"maps"
 	"time"
 
 	"github.com/samber/lo"
@@ -35,14 +34,21 @@ type RoleBindingMetadata struct {
 
 // RoleBindingSpec represents the specification of a role binding.
 type RoleBindingSpec struct {
-	RoleRef       RoleBindingRoleRef `bson:"roleRef"`
-	LabelSelector map[string]string  `bson:"labelSelector,omitempty"`
+	RoleRef  RoleBindingRoleRef   `bson:"roleRef"`
+	Subjects []RoleBindingSubject `bson:"subjects,omitempty"`
 }
 
 // RoleBindingRoleRef references a role in MongoDB.
 type RoleBindingRoleRef struct {
 	Kind string `bson:"kind"`
 	Name string `bson:"name"`
+}
+
+// RoleBindingSubject references a principal that a RoleBinding grants its role to.
+type RoleBindingSubject struct {
+	Kind       string `bson:"kind"`
+	Name       string `bson:"name"`
+	APIVersion string `bson:"apiVersion,omitempty"`
 }
 
 // RoleBindingStatus represents the status of a role binding.
@@ -70,15 +76,20 @@ func (m *RoleBindingMetadata) toDomain() usermodel.RoleBindingMetadata {
 }
 
 func (s *RoleBindingSpec) toDomain() usermodel.RoleBindingSpec {
-	labelSelector := make(map[string]string, len(s.LabelSelector))
-	maps.Copy(labelSelector, s.LabelSelector)
+	subjects := lo.Map(s.Subjects, func(item RoleBindingSubject, _ int) usermodel.Subject {
+		return usermodel.Subject{
+			Kind:       item.Kind,
+			Name:       item.Name,
+			APIVersion: item.APIVersion,
+		}
+	})
 
 	return usermodel.RoleBindingSpec{
 		RoleRef: usermodel.RoleRef{
 			Kind: s.RoleRef.Kind,
 			Name: s.RoleRef.Name,
 		},
-		LabelSelector: labelSelector,
+		Subjects: subjects,
 	}
 }
 
@@ -114,15 +125,20 @@ func roleBindingMetadataFromDomain(metadata usermodel.RoleBindingMetadata) RoleB
 }
 
 func roleBindingSpecFromDomain(spec usermodel.RoleBindingSpec) RoleBindingSpec {
-	labelSelector := make(map[string]string, len(spec.LabelSelector))
-	maps.Copy(labelSelector, spec.LabelSelector)
+	subjects := lo.Map(spec.Subjects, func(item usermodel.Subject, _ int) RoleBindingSubject {
+		return RoleBindingSubject{
+			Kind:       item.Kind,
+			Name:       item.Name,
+			APIVersion: item.APIVersion,
+		}
+	})
 
 	return RoleBindingSpec{
 		RoleRef: RoleBindingRoleRef{
 			Kind: spec.RoleRef.Kind,
 			Name: spec.RoleRef.Name,
 		},
-		LabelSelector: labelSelector,
+		Subjects: subjects,
 	}
 }
 

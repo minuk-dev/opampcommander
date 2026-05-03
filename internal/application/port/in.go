@@ -110,7 +110,7 @@ type UserManageUsecase interface {
 	ListUsers(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.User], error)
 	CreateUser(ctx context.Context, user *v1.User) (*v1.User, error)
 	DeleteUser(ctx context.Context, uid uuid.UUID) error
-	GetUserProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error)
+	GetMyProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error)
 }
 
 // RoleManageUsecase is a use case that handles role management operations.
@@ -120,15 +120,6 @@ type RoleManageUsecase interface {
 	CreateRole(ctx context.Context, role *v1.Role) (*v1.Role, error)
 	UpdateRole(ctx context.Context, uid uuid.UUID, role *v1.Role) (*v1.Role, error)
 	DeleteRole(ctx context.Context, uid uuid.UUID) error
-}
-
-// RBACManageUsecase is a use case that handles RBAC management operations.
-type RBACManageUsecase interface {
-	// GetMyRoles returns the roles of the user identified by email.
-	// Avoids a second DB round-trip when the caller already holds the email (e.g. JWT claims).
-	GetMyRoles(ctx context.Context, email string) (*v1.ListResponse[v1.Role], error)
-	// GetMyRoleBindings returns the rolebindings matching the user identified by email.
-	GetMyRoleBindings(ctx context.Context, email string) (*v1.ListResponse[v1.RoleBinding], error)
 }
 
 // RoleBindingManageUsecase is a use case that handles RoleBinding management operations.

@@ -53,6 +53,13 @@ func NewAuthorizationMiddleware(
 			return
 		}
 
+		// /api/v1/users/me requires authentication but has no RBAC policy.
+		if fullPath == "/api/v1/users/me" {
+			ctx.Next()
+
+			return
+		}
+
 		namespace, resource, action, done := resolveRBACTarget(ctx, fullPath)
 		if done {
 			return
@@ -77,9 +84,6 @@ func isExemptFromRBAC(fullPath string) bool {
 	case "/api/v1/ping",
 		"/api/v1/version",
 		"/api/v1/opamp",
-		"/api/v1/users/me",
-		"/api/v1/users/me/roles",
-		"/api/v1/users/me/rolebindings",
 		"/api/v1/namespaces",
 		"/api/v1/namespaces/:namespace":
 		return true
@@ -246,6 +250,8 @@ func namespacedResourceSingular(plural string) (string, bool) {
 		return "agentremoteconfig", true
 	case "rolebindings":
 		return "rolebinding", true
+	case "roles":
+		return "role", true
 	default:
 		return "", false
 	}
@@ -255,8 +261,6 @@ func globalResourceSingular(plural string) (string, bool) {
 	switch plural {
 	case "users":
 		return "user", true
-	case "roles":
-		return "role", true
 	case "servers":
 		return "server", true
 	default:

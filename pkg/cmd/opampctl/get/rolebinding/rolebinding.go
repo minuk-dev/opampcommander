@@ -147,12 +147,17 @@ func (opt *CommandOptions) get(cmd *cobra.Command, names []string) error {
 
 //nolint:lll
 type formattedRoleBinding struct {
-	Namespace     string            `json:"namespace"               short:"namespace"     text:"namespace"               yaml:"namespace"`
-	Name          string            `json:"name"                    short:"name"          text:"name"                    yaml:"name"`
-	RoleRef       string            `json:"roleRef"                 short:"roleRef"       text:"roleRef"                 yaml:"roleRef"`
-	LabelSelector map[string]string `json:"labelSelector,omitempty" short:"labelSelector" text:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
-	CreatedAt     time.Time         `json:"createdAt"               short:"createdAt"     text:"createdAt"               yaml:"createdAt"`
-	DeletedAt     *time.Time        `json:"deletedAt,omitempty"     short:"-"             text:"deletedAt,omitempty"     yaml:"deletedAt,omitempty"`
+	Namespace string             `json:"namespace"           short:"namespace" text:"namespace"           yaml:"namespace"`
+	Name      string             `json:"name"                short:"name"      text:"name"                yaml:"name"`
+	RoleRef   string             `json:"roleRef"             short:"roleRef"   text:"roleRef"             yaml:"roleRef"`
+	Subjects  []formattedSubject `json:"subjects,omitempty"  short:"subjects"  text:"subjects,omitempty"  yaml:"subjects,omitempty"`
+	CreatedAt time.Time          `json:"createdAt"           short:"createdAt" text:"createdAt"           yaml:"createdAt"`
+	DeletedAt *time.Time         `json:"deletedAt,omitempty" short:"-"         text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+}
+
+type formattedSubject struct {
+	Kind string `json:"kind" short:"kind" text:"kind" yaml:"kind"`
+	Name string `json:"name" short:"name" text:"name" yaml:"name"`
 }
 
 func toFormatted(roleBinding v1.RoleBinding) formattedRoleBinding {
@@ -163,12 +168,16 @@ func toFormatted(roleBinding v1.RoleBinding) formattedRoleBinding {
 		deletedAt = &t
 	}
 
+	subjects := lo.Map(roleBinding.Spec.Subjects, func(s v1.RoleBindingSubject, _ int) formattedSubject {
+		return formattedSubject{Kind: s.Kind, Name: s.Name}
+	})
+
 	return formattedRoleBinding{
-		Namespace:     roleBinding.Metadata.Namespace,
-		Name:          roleBinding.Metadata.Name,
-		RoleRef:       roleBinding.Spec.RoleRef.Kind + "/" + roleBinding.Spec.RoleRef.Name,
-		LabelSelector: roleBinding.Spec.LabelSelector,
-		CreatedAt:     roleBinding.Metadata.CreatedAt.Time,
-		DeletedAt:     deletedAt,
+		Namespace: roleBinding.Metadata.Namespace,
+		Name:      roleBinding.Metadata.Name,
+		RoleRef:   roleBinding.Spec.RoleRef.Kind + "/" + roleBinding.Spec.RoleRef.Name,
+		Subjects:  subjects,
+		CreatedAt: roleBinding.Metadata.CreatedAt.Time,
+		DeletedAt: deletedAt,
 	}
 }
