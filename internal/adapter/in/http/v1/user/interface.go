@@ -6,6 +6,3 @@ import (
 
 // Usecase is an alias for the UserManageUsecase interface.
 type Usecase = applicationport.UserManageUsecase
-
-// RBACUsecase is an alias for the RBACManageUsecase interface.
-type RBACUsecase = applicationport.RBACManageUsecase

@@ -52,8 +52,19 @@ type UserStatus struct {
 	Roles []string `json:"roles,omitempty"`
 } // @name UserStatus
 
+// UserRoleEntry pairs a role with the role binding that granted it.
+// RoleBinding is nil only for built-in roles that are implicitly assigned (e.g. "default").
+type UserRoleEntry struct {
+	// Role is the role assigned to the user.
+	Role Role `json:"role"`
+	// RoleBinding is the binding that granted this role, if any.
+	RoleBinding *RoleBinding `json:"roleBinding,omitempty"`
+} // @name UserRoleEntry
+
 // UserProfileResponse represents the response for the current user's profile.
 type UserProfileResponse struct {
 	// User is the authenticated user.
 	User User `json:"user"`
+	// Roles contains the roles assigned to the user together with the binding that granted each role.
+	Roles []UserRoleEntry `json:"roles,omitempty"`
 } // @name UserProfileResponse

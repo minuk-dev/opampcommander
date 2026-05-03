@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
@@ -123,46 +122,27 @@ func (o *CommandOptions) populateDetailedFields(cmd *cobra.Command, data *shortI
 	}
 
 	data.Labels = profile.User.Metadata.Labels
+	data.Roles = make([]roleForCLI, 0, len(profile.Roles))
 
-	roles, err := o.client.UserService.GetMyRoles(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get roles: %w", err)
-	}
-
-	bindings, err := o.client.UserService.GetMyRoleBindings(cmd.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get role bindings: %w", err)
-	}
-
-	bindingByRoleName := make(map[string]v1.RoleBinding, len(bindings.Items))
-
-	for _, binding := range bindings.Items {
-		if _, exists := bindingByRoleName[binding.Spec.RoleRef.Name]; !exists {
-			bindingByRoleName[binding.Spec.RoleRef.Name] = binding
-		}
-	}
-
-	data.Roles = make([]roleForCLI, 0, len(roles.Items))
-
-	for _, role := range roles.Items {
+	for _, entry := range profile.Roles {
 		//exhaustruct:ignore
 		roleCLI := roleForCLI{
-			Name:        role.Spec.DisplayName,
-			Description: role.Spec.Description,
-			IsBuiltIn:   role.Spec.IsBuiltIn,
-			Permissions: len(role.Spec.Permissions),
+			Name:        entry.Role.Spec.DisplayName,
+			Description: entry.Role.Spec.Description,
+			IsBuiltIn:   entry.Role.Spec.IsBuiltIn,
+			Permissions: len(entry.Role.Spec.Permissions),
 		}
 
-		if binding, ok := bindingByRoleName[role.Spec.DisplayName]; ok {
+		if entry.RoleBinding != nil {
 			roleCLI.BindingReason = &roleBindingForCLI{
-				Namespace: binding.Metadata.Namespace,
-				Name:      binding.Metadata.Name,
+				Namespace: entry.RoleBinding.Metadata.Namespace,
+				Name:      entry.RoleBinding.Metadata.Name,
 				RoleRef: roleRefForCLI{
-					Kind: binding.Spec.RoleRef.Kind,
-					Name: binding.Spec.RoleRef.Name,
+					Kind: entry.RoleBinding.Spec.RoleRef.Kind,
+					Name: entry.RoleBinding.Spec.RoleRef.Name,
 				},
-				LabelSelector: binding.Spec.LabelSelector,
-				CreatedAt:     binding.Metadata.CreatedAt.Time,
+				LabelSelector: entry.RoleBinding.Spec.LabelSelector,
+				CreatedAt:     entry.RoleBinding.Metadata.CreatedAt.Time,
 			}
 		}
 

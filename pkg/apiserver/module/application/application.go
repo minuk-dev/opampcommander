@@ -13,7 +13,6 @@ import (
 	certificateApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/certificate"
 	namespaceApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/opamp"
-	rbacApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rbac"
 	roleApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/role"
 	rolebindingApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/rolebinding"
 	userApplicationService "github.com/minuk-dev/opampcommander/internal/application/service/user"
@@ -54,15 +53,12 @@ func New() fx.Option {
 				fx.As(new(port.AgentRemoteConfigManageUsecase)),
 			),
 
-			// RBAC application services
+			// user & RBAC application services
 			userApplicationService.New,
 			fx.Annotate(Identity[*userApplicationService.Service], fx.As(new(port.UserManageUsecase))),
 
 			roleApplicationService.New,
 			fx.Annotate(Identity[*roleApplicationService.Service], fx.As(new(port.RoleManageUsecase))),
-
-			rbacApplicationService.New,
-			fx.Annotate(Identity[*rbacApplicationService.Service], fx.As(new(port.RBACManageUsecase))),
 
 			rolebindingApplicationService.New,
 			fx.Annotate(

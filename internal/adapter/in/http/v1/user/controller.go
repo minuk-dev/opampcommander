@@ -2,6 +2,7 @@
 package user
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
@@ -19,19 +21,16 @@ type Controller struct {
 
 	// usecases
 	userUsecase Usecase
-	rbacUsecase RBACUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
 	usecase Usecase,
-	rbacUsecase RBACUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	return &Controller{
 		logger:      logger,
 		userUsecase: usecase,
-		rbacUsecase: rbacUsecase,
 	}
 }
 
@@ -43,18 +42,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/users/me",
 			Handler:     "http.v1.user.Me",
 			HandlerFunc: c.Me,
-		},
-		{
-			Method:      http.MethodGet,
-			Path:        "/api/v1/users/me/roles",
-			Handler:     "http.v1.user.GetMyRoles",
-			HandlerFunc: c.GetMyRoles,
-		},
-		{
-			Method:      http.MethodGet,
-			Path:        "/api/v1/users/me/rolebindings",
-			Handler:     "http.v1.user.GetMyRoleBindings",
-			HandlerFunc: c.GetMyRoleBindings,
 		},
 		{
 			Method:      http.MethodGet,
@@ -216,7 +203,7 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-// Me retrieves the current user's profile with roles and permissions.
+// Me retrieves the current user's profile with roles and the bindings that granted them.
 //
 // @Summary  Get Current User Profile
 // @Tags user
@@ -237,8 +224,20 @@ func (c *Controller) Me(ctx *gin.Context) {
 		return
 	}
 
-	profile, err := c.userUsecase.GetUserProfile(ctx.Request.Context(), *secUser.Email)
+	profile, err := c.userUsecase.GetMyProfile(ctx.Request.Context(), *secUser.Email)
 	if err != nil {
+		if errors.Is(err, port.ErrResourceNotExist) {
+			//exhaustruct:ignore
+			syntheticSpec := v1.UserSpec{Email: *secUser.Email, IsActive: true}
+			//exhaustruct:ignore
+			syntheticUser := v1.User{Kind: v1.UserKind, APIVersion: "v1", Spec: syntheticSpec}
+			//exhaustruct:ignore
+			syntheticProfile := &v1.UserProfileResponse{User: syntheticUser}
+			ctx.JSON(http.StatusOK, syntheticProfile)
+
+			return
+		}
+
 		c.logger.Error("failed to get user profile", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the user profile.")
 
@@ -246,73 +245,4 @@ func (c *Controller) Me(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, profile)
-}
-
-// GetMyRoles retrieves the roles assigned to the currently authenticated user.
-//
-// @Summary  Get My Roles
-// @Tags user
-// @Description Retrieve the roles assigned to the currently authenticated user.
-// @Accept json
-// @Produce json
-// @Success 200 {object} v1.ListResponse[v1.Role]
-// @Failure 401 {object} ErrorModel
-// @Failure 500 {object} ErrorModel
-// @Router /api/v1/users/me/roles [get].
-func (c *Controller) GetMyRoles(ctx *gin.Context) {
-	email, ok := c.resolveCurrentEmail(ctx)
-	if !ok {
-		return
-	}
-
-	response, err := c.rbacUsecase.GetMyRoles(ctx.Request.Context(), email)
-	if err != nil {
-		c.logger.Error("failed to get user roles", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving your roles.")
-
-		return
-	}
-
-	ctx.JSON(http.StatusOK, response)
-}
-
-// GetMyRoleBindings retrieves the role bindings that match the currently authenticated user.
-//
-// @Summary  Get My RoleBindings
-// @Tags user
-// @Description Retrieve the role bindings that apply to the currently authenticated user based on label selectors.
-// @Accept json
-// @Produce json
-// @Success 200 {object} v1.ListResponse[v1.RoleBinding]
-// @Failure 401 {object} ErrorModel
-// @Failure 500 {object} ErrorModel
-// @Router /api/v1/users/me/rolebindings [get].
-func (c *Controller) GetMyRoleBindings(ctx *gin.Context) {
-	email, ok := c.resolveCurrentEmail(ctx)
-	if !ok {
-		return
-	}
-
-	response, err := c.rbacUsecase.GetMyRoleBindings(ctx.Request.Context(), email)
-	if err != nil {
-		c.logger.Error("failed to get user role bindings", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving your role bindings.")
-
-		return
-	}
-
-	ctx.JSON(http.StatusOK, response)
-}
-
-// resolveCurrentEmail extracts the email of the currently authenticated user from JWT context.
-// It writes the error response and returns false if authentication fails.
-func (c *Controller) resolveCurrentEmail(ctx *gin.Context) (string, bool) {
-	secUser, err := security.GetUser(ctx)
-	if err != nil || secUser == nil || !secUser.Authenticated || secUser.Email == nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-
-		return "", false
-	}
-
-	return *secUser.Email, true
 }
