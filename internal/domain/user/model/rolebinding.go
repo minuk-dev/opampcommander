@@ -92,13 +92,19 @@ func (rb *RoleBinding) SetUpdatedAt(t time.Time) {
 
 // MatchesUser returns true when any of the binding's Subjects names the given user.
 // Currently only Subject.Kind == "User" is supported, matching against the user's email.
+// Subjects with empty Name and users with empty Email never match — guards against
+// an "" == "" false positive on malformed input.
 func (rb *RoleBinding) MatchesUser(user *User) bool {
-	if user == nil {
+	if user == nil || user.Spec.Email == "" {
 		return false
 	}
 
 	for _, s := range rb.Spec.Subjects {
-		if s.Kind == SubjectKindUser && s.Name == user.Spec.Email {
+		if s.Kind != SubjectKindUser || s.Name == "" {
+			continue
+		}
+
+		if s.Name == user.Spec.Email {
 			return true
 		}
 	}

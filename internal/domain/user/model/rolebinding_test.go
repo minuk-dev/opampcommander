@@ -50,6 +50,16 @@ func TestRoleBinding_MatchesUser(t *testing.T) {
 	assert.True(t, rb.MatchesUser(user), "matching subject must match")
 
 	assert.False(t, rb.MatchesUser(nil), "nil user must not match")
+
+	emptyUser := usermodel.NewUser("", "noemail")
+	rbWithEmpty := usermodel.NewRoleBinding("production", "rb-empty",
+		usermodel.RoleRef{Kind: "Role", Name: "Viewer"},
+	)
+	rbWithEmpty.Spec.Subjects = []usermodel.Subject{
+		{Kind: usermodel.SubjectKindUser, Name: ""},
+	}
+	assert.False(t, rbWithEmpty.MatchesUser(emptyUser),
+		"empty subject name must not match empty email")
 }
 
 func TestRoleBinding_IsDeleted(t *testing.T) {
