@@ -2,10 +2,11 @@
 package user
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -148,61 +149,40 @@ func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) ([
 		return nil, fmt.Errorf("failed to get role assignments from enforcer: %w", err)
 	}
 
-	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
+	bindingsResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
 
-	// Sort bindings so the matching binding lookup is deterministic when multiple match.
-	sort.Slice(allBindings.Items, func(i, j int) bool {
-		a, b := allBindings.Items[i], allBindings.Items[j]
-		if a.Metadata.Namespace != b.Metadata.Namespace {
-			return a.Metadata.Namespace < b.Metadata.Namespace
-		}
+	// Pre-sort so binding lookup is deterministic when multiple bindings could match.
+	bindings := bindingsResp.Items
+	slices.SortFunc(bindings, compareBindings)
 
-		return a.Metadata.Name < b.Metadata.Name
-	})
+	entries := lo.FilterMap(assignments,
+		func(assignment userport.UserRoleAssignment, _ int) (v1.UserRoleEntry, bool) {
+			role, lookupErr := s.resolveRole(ctx, assignment.RoleUID)
+			if lookupErr != nil {
+				s.logger.WarnContext(ctx, "role from enforcer not found in store — skipping",
+					slog.String("roleUID", assignment.RoleUID),
+					slog.String("namespace", assignment.Namespace),
+					slog.Any("error", lookupErr),
+				)
 
-	entries := make([]v1.UserRoleEntry, 0, len(assignments))
+				//exhaustruct:ignore
+				return v1.UserRoleEntry{}, false
+			}
 
-	for _, assignment := range assignments {
-		role, lookupErr := s.lookupRoleByUIDString(ctx, assignment.RoleUID)
-		if lookupErr != nil {
-			s.logger.WarnContext(ctx, "role from enforcer not found in store — skipping",
-				slog.String("roleUID", assignment.RoleUID),
-				slog.String("namespace", assignment.Namespace),
-				slog.Any("error", lookupErr),
-			)
+			binding := findMatchingBinding(bindings, role.Spec.DisplayName, assignment.Namespace, user)
 
-			continue
-		}
+			return s.toUserRoleEntry(role, binding), true
+		})
 
-		matched := findMatchingBinding(allBindings.Items, role.Spec.DisplayName, assignment.Namespace, user)
-
-		roleAPI := s.mapper.MapRoleToAPI(role)
-		//exhaustruct:ignore
-		entry := v1.UserRoleEntry{Role: *roleAPI}
-
-		if matched != nil {
-			entry.RoleBinding = s.mapper.MapRoleBindingToAPI(matched)
-		}
-
-		entries = append(entries, entry)
-	}
-
-	sort.Slice(entries, func(left, right int) bool {
-		if entries[left].Role.Spec.DisplayName != entries[right].Role.Spec.DisplayName {
-			return entries[left].Role.Spec.DisplayName < entries[right].Role.Spec.DisplayName
-		}
-
-		// Stable secondary key: namespace of the binding (empty for unmatched).
-		return bindingNamespace(entries[left].RoleBinding) < bindingNamespace(entries[right].RoleBinding)
-	})
+	slices.SortFunc(entries, compareEntries)
 
 	return entries, nil
 }
 
-func (s *Service) lookupRoleByUIDString(ctx context.Context, raw string) (*usermodel.Role, error) {
+func (s *Service) resolveRole(ctx context.Context, raw string) (*usermodel.Role, error) {
 	uid, err := uuid.Parse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("invalid role UID %q: %w", raw, err)
@@ -216,6 +196,16 @@ func (s *Service) lookupRoleByUIDString(ctx context.Context, raw string) (*userm
 	return role, nil
 }
 
+func (s *Service) toUserRoleEntry(role *usermodel.Role, binding *usermodel.RoleBinding) v1.UserRoleEntry {
+	//exhaustruct:ignore
+	entry := v1.UserRoleEntry{Role: *s.mapper.MapRoleToAPI(role)}
+	if binding != nil {
+		entry.RoleBinding = s.mapper.MapRoleBindingToAPI(binding)
+	}
+
+	return entry
+}
+
 // findMatchingBinding returns the first binding whose namespace, role reference, and label
 // selector all match — i.e. the binding that would currently produce this assignment.
 // Returns nil when no binding matches (assignment came from a stale sync or default-role injection).
@@ -224,23 +214,18 @@ func findMatchingBinding(
 	roleName, namespace string,
 	user *usermodel.User,
 ) *usermodel.RoleBinding {
-	for _, binding := range bindings {
-		if binding.Metadata.Namespace != namespace {
-			continue
-		}
-
-		if binding.Spec.RoleRef.Name != roleName {
-			continue
-		}
-
-		if !labelSelectorMatches(binding.Spec.LabelSelector, user.Metadata.Labels) {
-			continue
-		}
-
-		return binding
+	matches := func(b *usermodel.RoleBinding) bool {
+		return b.Metadata.Namespace == namespace &&
+			b.Spec.RoleRef.Name == roleName &&
+			labelSelectorMatches(b.Spec.LabelSelector, user.Metadata.Labels)
 	}
 
-	return nil
+	binding, ok := lo.Find(bindings, matches)
+	if !ok {
+		return nil
+	}
+
+	return binding
 }
 
 func labelSelectorMatches(selector, labels map[string]string) bool {
@@ -251,6 +236,20 @@ func labelSelectorMatches(selector, labels map[string]string) bool {
 	return lo.EveryBy(lo.Entries(selector), func(kv lo.Entry[string, string]) bool {
 		return labels[kv.Key] == kv.Value
 	})
+}
+
+func compareBindings(a, b *usermodel.RoleBinding) int {
+	return cmp.Or(
+		cmp.Compare(a.Metadata.Namespace, b.Metadata.Namespace),
+		cmp.Compare(a.Metadata.Name, b.Metadata.Name),
+	)
+}
+
+func compareEntries(a, b v1.UserRoleEntry) int {
+	return cmp.Or(
+		cmp.Compare(a.Role.Spec.DisplayName, b.Role.Spec.DisplayName),
+		cmp.Compare(bindingNamespace(a.RoleBinding), bindingNamespace(b.RoleBinding)),
+	)
 }
 
 func bindingNamespace(b *v1.RoleBinding) string {
