@@ -122,24 +122,39 @@ func (s *Service) GetMyProfile(ctx context.Context, email string) (*v1.UserProfi
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 
+	roles, err := s.buildRoleEntries(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build role entries: %w", err)
+	}
+
 	return &v1.UserProfileResponse{
 		User:  *s.mapper.MapUserToAPI(user),
-		Roles: s.buildRoleEntries(ctx, user),
+		Roles: roles,
 	}, nil
 }
 
 // buildRoleEntries returns a sorted slice of roles with their associated bindings.
 // The built-in default role is always included even when no binding matches.
+// When multiple bindings grant the same role, the binding with the lexicographically
+// smallest namespace/name is selected for determinism.
 //
 //nolint:funlen // Multi-step: list bindings, deduplicate roles, always append default, sort.
-func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) []v1.UserRoleEntry {
+func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) ([]v1.UserRoleEntry, error) {
 	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
 	if err != nil {
-		s.logger.WarnContext(ctx, "failed to list role bindings for user profile", slog.Any("error", err))
-
-		//exhaustruct:ignore
-		allBindings = &model.ListResponse[*usermodel.RoleBinding]{Items: nil}
+		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
+
+	// Sort bindings so that when multiple bindings grant the same role, the winner
+	// is always the lexicographically smallest by namespace/name — deterministic.
+	sort.Slice(allBindings.Items, func(i, j int) bool {
+		a, b := allBindings.Items[i], allBindings.Items[j]
+		if a.Metadata.Namespace != b.Metadata.Namespace {
+			return a.Metadata.Namespace < b.Metadata.Namespace
+		}
+
+		return a.Metadata.Name < b.Metadata.Name
+	})
 
 	type entry struct {
 		role    *usermodel.Role
@@ -207,7 +222,7 @@ func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) []
 		}
 
 		return result
-	})
+	}), nil
 }
 
 func roleBindingMatchesUser(binding *usermodel.RoleBinding, user *usermodel.User) bool {

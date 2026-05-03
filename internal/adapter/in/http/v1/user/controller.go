@@ -227,6 +227,9 @@ func (c *Controller) Me(ctx *gin.Context) {
 	profile, err := c.userUsecase.GetMyProfile(ctx.Request.Context(), *secUser.Email)
 	if err != nil {
 		if errors.Is(err, port.ErrResourceNotExist) {
+			// User is authenticated (JWT is valid) but has no DB record yet.
+			// This is expected for the admin account before its first login creates a record.
+			// Roles are omitted because label-based binding matching requires a DB record.
 			//exhaustruct:ignore
 			syntheticSpec := v1.UserSpec{Email: *secUser.Email, IsActive: true}
 			//exhaustruct:ignore

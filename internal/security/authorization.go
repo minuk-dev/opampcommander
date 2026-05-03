@@ -53,7 +53,8 @@ func NewAuthorizationMiddleware(
 			return
 		}
 
-		if isAuthenticatedButSkipsRBAC(fullPath) {
+		// /api/v1/users/me requires authentication but has no RBAC policy.
+		if fullPath == "/api/v1/users/me" {
 			ctx.Next()
 
 			return
@@ -89,12 +90,6 @@ func isExemptFromRBAC(fullPath string) bool {
 	}
 
 	return false
-}
-
-// isAuthenticatedButSkipsRBAC returns true for paths that require authentication
-// but do not need RBAC enforcement (e.g., self-access endpoints).
-func isAuthenticatedButSkipsRBAC(fullPath string) bool {
-	return fullPath == "/api/v1/users/me"
 }
 
 // resolveRBACTarget determines namespace, resource, and action from the request.
