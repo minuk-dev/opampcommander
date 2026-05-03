@@ -88,6 +88,16 @@ type RoleBindingPersistencePort interface {
 	DeleteRoleBinding(ctx context.Context, namespace, name string) error
 }
 
+// UserRoleAssignment is an effective (role, namespace) pair held by the RBAC enforcer for a user.
+// This is the source of truth for "what roles is this user actually granted right now",
+// independent of the upstream RoleBinding documents that produced it.
+type UserRoleAssignment struct {
+	// RoleUID is the UID of the role granted to the user.
+	RoleUID string
+	// Namespace is the namespace in which the role is granted.
+	Namespace string
+}
+
 // RBACEnforcerPort is an interface that defines the methods for Casbin enforcer operations.
 //
 //nolint:interfacebloat // Casbin enforcer adapter naturally requires many operations.
@@ -104,6 +114,10 @@ type RBACEnforcerPort interface {
 	RemoveGroupingPolicy(ctx context.Context, params ...any) (bool, error)
 	// GetGroupingPolicy gets all grouping policies.
 	GetGroupingPolicy() ([][]string, error)
+	// GetRoleAssignmentsForUser returns the (role, namespace) pairs the enforcer has loaded for the given user.
+	// This reflects the actually-enforced state, which may diverge from the upstream RoleBinding documents
+	// when sync has not run since labels or bindings changed.
+	GetRoleAssignmentsForUser(ctx context.Context, userUID string) ([]UserRoleAssignment, error)
 	// AddNamedPolicy adds a named policy to the enforcer.
 	AddNamedPolicy(ctx context.Context, ptype string, params ...any) (bool, error)
 	// RemoveNamedPolicy removes a named policy from the enforcer.
