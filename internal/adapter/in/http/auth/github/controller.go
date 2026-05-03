@@ -24,6 +24,7 @@ type Controller struct {
 	logger      *slog.Logger
 	service     *security.Service
 	userUsecase userport.UserUsecase
+	rbacUsecase userport.RBACUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
@@ -31,11 +32,13 @@ func NewController(
 	logger *slog.Logger,
 	service *security.Service,
 	userUsecase userport.UserUsecase,
+	rbacUsecase userport.RBACUsecase,
 ) *Controller {
 	return &Controller{
 		logger:      logger,
 		service:     service,
 		userUsecase: userUsecase,
+		rbacUsecase: rbacUsecase,
 	}
 }
 
@@ -244,9 +247,9 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 }
 
 // ensureUser creates or updates a user record on login.
-// Always syncs provider labels (login-type, github-org-*).
+// Always syncs provider labels (login-type, github-org-*) and re-applies RBAC policies
+// so the freshly-saved user picks up the built-in default role (and any matching bindings).
 // Failures are logged but do not block the login flow.
-// The built-in default role is granted automatically via SyncPolicies — no explicit assignment needed here.
 func (c *Controller) ensureUser(ctx context.Context, email, provider string, groups []string) {
 	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
 
@@ -262,7 +265,11 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string, gro
 				slog.String("email", email),
 				slog.Any("error", saveErr),
 			)
+
+			return
 		}
+
+		c.syncRBACPolicies(ctx, email)
 
 		return
 	case err != nil && !errors.Is(err, port.ErrResourceNotExist):
@@ -282,6 +289,22 @@ func (c *Controller) ensureUser(ctx context.Context, email, provider string, gro
 		c.logger.Warn("failed to create user on login",
 			slog.String("email", email),
 			slog.Any("error", saveErr),
+		)
+
+		return
+	}
+
+	c.syncRBACPolicies(ctx, email)
+}
+
+// syncRBACPolicies re-runs the Casbin policy sync so newly persisted users/bindings take effect.
+// Best-effort: failures are logged but do not block the login flow.
+func (c *Controller) syncRBACPolicies(ctx context.Context, email string) {
+	err := c.rbacUsecase.SyncPolicies(ctx)
+	if err != nil {
+		c.logger.Warn("failed to sync RBAC policies after login",
+			slog.String("email", email),
+			slog.Any("error", err),
 		)
 	}
 }

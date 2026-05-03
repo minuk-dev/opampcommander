@@ -22,6 +22,7 @@ var _ applicationport.RoleBindingManageUsecase = (*Service)(nil)
 type Service struct {
 	roleBindingUsecase userport.RoleBindingUsecase
 	roleUsecase        userport.RoleUsecase
+	rbacUsecase        userport.RBACUsecase
 	mapper             *helper.Mapper
 	logger             *slog.Logger
 }
@@ -30,11 +31,13 @@ type Service struct {
 func New(
 	roleBindingUsecase userport.RoleBindingUsecase,
 	roleUsecase userport.RoleUsecase,
+	rbacUsecase userport.RBACUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
 		roleBindingUsecase: roleBindingUsecase,
 		roleUsecase:        roleUsecase,
+		rbacUsecase:        rbacUsecase,
 		mapper:             helper.NewMapper(),
 		logger:             logger,
 	}
@@ -92,6 +95,8 @@ func (s *Service) CreateRoleBinding(
 		return nil, fmt.Errorf("create role binding: %w", err)
 	}
 
+	s.syncPolicies(ctx, "create", created.Metadata.Namespace, created.Metadata.Name)
+
 	return s.mapper.MapRoleBindingToAPI(created), nil
 }
 
@@ -112,6 +117,8 @@ func (s *Service) UpdateRoleBinding(
 		return nil, fmt.Errorf("update role binding: %w", err)
 	}
 
+	s.syncPolicies(ctx, "update", namespace, name)
+
 	return s.mapper.MapRoleBindingToAPI(updated), nil
 }
 
@@ -125,5 +132,22 @@ func (s *Service) DeleteRoleBinding(
 		return fmt.Errorf("delete role binding: %w", err)
 	}
 
+	s.syncPolicies(ctx, "delete", namespace, name)
+
 	return nil
+}
+
+// syncPolicies re-runs the Casbin policy sync after a binding mutation so the change
+// takes effect without requiring a server restart. Best-effort: failures are logged
+// but do not fail the API call (the binding is already persisted).
+func (s *Service) syncPolicies(ctx context.Context, op, namespace, name string) {
+	err := s.rbacUsecase.SyncPolicies(ctx)
+	if err != nil {
+		s.logger.WarnContext(ctx, "failed to sync RBAC policies after role binding mutation",
+			slog.String("op", op),
+			slog.String("namespace", namespace),
+			slog.String("name", name),
+			slog.Any("error", err),
+		)
+	}
 }

@@ -151,6 +151,14 @@ func (s *RBACService) SyncPolicies(ctx context.Context) error {
 		}
 	}
 
+	// The Casbin MongoDB adapter rejects SavePolicy when there is nothing to insert
+	// (it does an InsertMany that requires at least one document). On a fresh DB the
+	// default role has no permissions and there are no users yet — skip persistence
+	// in that case; the next mutation (user login, role/binding edit) will resync.
+	if len(policies) == 0 && len(groupings) == 0 {
+		return nil
+	}
+
 	err = s.rbacEnforcerPort.SavePolicy(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to save policies: %w", err)

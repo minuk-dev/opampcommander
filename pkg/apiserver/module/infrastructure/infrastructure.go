@@ -57,6 +57,8 @@ func New() fx.Option {
 		fx.Invoke(registerDefaultNamespaceHook),
 		// Default role initialization
 		fx.Invoke(registerDefaultRoleHook),
+		// RBAC policy sync — must run after the default role is seeded.
+		fx.Invoke(registerSyncPoliciesHook),
 	)
 }
 

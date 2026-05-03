@@ -18,6 +18,26 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
+// stubRBACUsecase is a no-op RBACUsecase for tests that only exercise role-binding CRUD
+// — RBAC sync is fire-and-forget so tests don't need to assert on it.
+type stubRBACUsecase struct{}
+
+var _ userport.RBACUsecase = (*stubRBACUsecase)(nil)
+
+func (*stubRBACUsecase) CheckPermission(context.Context, uuid.UUID, string, string, string) (bool, error) {
+	return true, nil
+}
+
+func (*stubRBACUsecase) GetUserPermissions(context.Context, uuid.UUID) ([]*usermodel.Permission, error) {
+	return nil, nil
+}
+
+func (*stubRBACUsecase) GetEffectivePermissions(context.Context, uuid.UUID) ([]*usermodel.Permission, error) {
+	return nil, nil
+}
+
+func (*stubRBACUsecase) SyncPolicies(context.Context) error { return nil }
+
 var (
 	errMock     = errors.New("mock error")
 	errNotFound = errors.New("not found")
@@ -180,7 +200,7 @@ func newSvc(t *testing.T, rb *mockRoleBindingUsecase, role *mockRoleUsecase) *ro
 
 	base := testutil.NewBase(t)
 
-	return rolebindingsvc.New(rb, role, base.Logger)
+	return rolebindingsvc.New(rb, role, &stubRBACUsecase{}, base.Logger)
 }
 
 func newRB() *usermodel.RoleBinding {
