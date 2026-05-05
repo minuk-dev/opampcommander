@@ -3,6 +3,7 @@
 package apiserver_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,6 +40,66 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		assert.Equal(t, "test@test.com", profile.User.Spec.Email)
 		assert.Equal(t, "test-admin", profile.User.Spec.Username)
 		assert.True(t, profile.User.Spec.IsActive)
+	})
+
+	// DefaultRole_HasBuiltInGetPermissions verifies that the built-in "default" role exists
+	// at startup with GET permissions on every namespace-scoped resource. Together with the
+	// SyncPolicies hook that auto-grants the default role to every user in the "default"
+	// namespace, this is what gives every authenticated user read access there.
+	t.Run("DefaultRole_HasBuiltInGetPermissions", func(t *testing.T) {
+		expected := []string{
+			"agent:GET",
+			"agentgroup:GET",
+			"agentpackage:GET",
+			"agentremoteconfig:GET",
+			"certificate:GET",
+			"rolebinding:GET",
+		}
+
+		resp, err := opampClient.RoleService.ListRoles(t.Context())
+		require.NoError(t, err)
+
+		var defaultRole *v1.Role
+
+		for i := range resp.Items {
+			if resp.Items[i].Spec.DisplayName == "default" {
+				defaultRole = &resp.Items[i]
+
+				break
+			}
+		}
+
+		require.NotNil(t, defaultRole, "built-in default role must exist")
+		assert.True(t, defaultRole.Spec.IsBuiltIn, "default role must be marked built-in")
+
+		for _, name := range expected {
+			assert.True(t, slices.Contains(defaultRole.Spec.Permissions, name),
+				"default role missing built-in permission %q (got %v)",
+				name, defaultRole.Spec.Permissions)
+		}
+	})
+
+	// DefaultRole_AppearsOnUserProfile verifies the default role surfaces on /users/me
+	// for every authenticated user, with no RoleBinding (granted implicitly by SyncPolicies).
+	t.Run("DefaultRole_AppearsOnUserProfile", func(t *testing.T) {
+		profile, err := opampClient.UserService.GetMyProfile(t.Context())
+		require.NoError(t, err)
+
+		var defaultEntry *v1.UserRoleEntry
+
+		for i := range profile.Roles {
+			if profile.Roles[i].Role.Spec.DisplayName == "default" {
+				defaultEntry = &profile.Roles[i]
+
+				break
+			}
+		}
+
+		require.NotNil(t, defaultEntry, "profile must include the default role")
+		assert.Nil(t, defaultEntry.RoleBinding,
+			"default role is granted implicitly — no RoleBinding should be reported")
+		assert.NotEmpty(t, defaultEntry.Role.Spec.Permissions,
+			"default role on profile must carry its built-in permissions")
 	})
 
 	// Test 2: List users
