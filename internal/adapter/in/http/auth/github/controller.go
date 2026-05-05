@@ -231,7 +231,15 @@ func (c *Controller) Callback(ctx *gin.Context) {
 	state := ctx.Query("state")
 	code := ctx.Query("code")
 
-	cliRedirect, _ := c.service.CLIRedirectFromState(state)
+	cliRedirect, err := c.service.CLIRedirectFromState(state)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to generate state",
+			"details": fmt.Sprintf("error: %v", err),
+		})
+
+		return
+	}
 
 	result, err := c.service.Exchange(ctx.Request.Context(), state, code)
 	if err != nil {
