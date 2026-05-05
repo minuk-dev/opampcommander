@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	usermodel "github.com/minuk-dev/opampcommander/internal/domain/user/model"
@@ -55,6 +56,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/auth/info",
 			Handler:     "http.github.Info",
 			HandlerFunc: c.Info,
+		},
+		{
+			Method:      "POST",
+			Path:        "/api/v1/auth/refresh",
+			Handler:     "http.auth.Refresh",
+			HandlerFunc: c.Refresh,
 		},
 	}
 }
@@ -101,7 +108,51 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 	c.ensureUser(ctx.Request.Context(), username, result.Email, usermodel.IdentityProviderBasic)
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
-		Token: result.Token,
+		Token:        result.Token,
+		RefreshToken: result.RefreshToken,
+		ExpiresAt:    v1.NewTime(result.ExpiresAt),
+	})
+}
+
+// Refresh handles refresh token exchange.
+//
+// @Summary Refresh access token
+// @Tags auth
+// @Description Exchange a refresh token for a new access token (and rotated refresh token).
+// @Accept json
+// @Produce json
+// @Param request body RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} AuthnTokenResponse
+// @Failure 400 {object} map[string]any
+// @Failure 401 {object} map[string]any
+// @Router /api/v1/auth/refresh [post].
+func (c *Controller) Refresh(ctx *gin.Context) {
+	var req v1auth.RefreshTokenRequest
+
+	err := ctx.ShouldBindJSON(&req)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid request body",
+			"details": fmt.Sprintf("error: %v", err),
+		})
+
+		return
+	}
+
+	result, err := c.service.Refresh(req.RefreshToken)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error":   "invalid or expired refresh token",
+			"details": fmt.Sprintf("error: %v", err),
+		})
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
+		Token:        result.Token,
+		RefreshToken: result.RefreshToken,
+		ExpiresAt:    v1.NewTime(result.ExpiresAt),
 	})
 }
 

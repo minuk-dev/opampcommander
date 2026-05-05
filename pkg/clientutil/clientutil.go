@@ -23,6 +23,8 @@ const (
 
 	// BearerTokenKey is the key used to store the bearer token in the file cache.
 	BearerTokenKey = "bearer"
+	// RefreshTokenKey is the key used to store the refresh token in the file cache.
+	RefreshTokenKey = "refresh"
 )
 
 var (
@@ -34,6 +36,7 @@ var (
 )
 
 // NewClient creates a new authenticated Client.
+// Resolution order: cached access token → cached refresh token → interactive login.
 func NewClient(
 	config *config.GlobalConfig,
 ) (*client.Client, error) {
@@ -42,17 +45,24 @@ func NewClient(
 	}
 
 	cli, err := NewAuthedClient(config)
+	if err == nil {
+		return cli, nil
+	}
+
+	if !errors.Is(err, filecache.ErrNoCachedKey) && !errors.Is(err, ErrUnauthorized) {
+		return nil, fmt.Errorf("failed to create authenticated client: %w", err)
+	}
+
+	cli, refreshErr := NewAuthedClientByRefreshToken(config)
+	if refreshErr == nil {
+		return cli, nil
+	}
+
+	config.Log.Logger.Debug("refresh token unavailable, falling back to interactive login",
+		slog.String("reason", refreshErr.Error()))
+
+	cli, err = NewAuthedClientByIssuingTokenInCli(config)
 	if err != nil {
-		if errors.Is(err, filecache.ErrNoCachedKey) ||
-			errors.Is(err, ErrUnauthorized) {
-			cli, err = NewAuthedClientByIssuingTokenInCli(config)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create authenticated client: %w", err)
-			}
-
-			return cli, nil
-		}
-
 		return nil, fmt.Errorf("failed to create authenticated client: %w", err)
 	}
 
@@ -118,8 +128,45 @@ func NewAuthedClient(
 	return cli, nil
 }
 
+// NewAuthedClientByRefreshToken attempts to mint a fresh access token from the cached refresh token.
+// Returns ErrUnauthorized if the refresh token is missing, expired, or rejected by the server.
+func NewAuthedClientByRefreshToken(
+	conf *config.GlobalConfig,
+) (*client.Client, error) {
+	endpoint := configutil.GetCurrentOpAMPCommanderEndpoint(conf)
+	cacheDir := configutil.GetCurrentCacheDir(conf)
+	user := configutil.GetCurrentUser(conf)
+
+	cache := filecache.New(cacheDir, TokenPath(user.Name), afero.NewOsFs())
+
+	refreshToken, err := cache.Get(RefreshTokenKey)
+	if err != nil {
+		return nil, fmt.Errorf("no cached refresh token: %w", err)
+	}
+
+	cli := client.New(endpoint,
+		client.WithLogger(conf.Log.Logger),
+		client.WithVerbose(conf.Log.Level == slog.LevelDebug),
+	)
+
+	resp, err := cli.AuthService.Refresh(string(refreshToken))
+	if err != nil {
+		var httpErr *client.ResponseError
+		if errors.As(err, &httpErr) && httpErr.StatusCode == http.StatusUnauthorized {
+			return nil, ErrUnauthorized
+		}
+
+		return nil, fmt.Errorf("failed to refresh token: %w", err)
+	}
+
+	persistTokens(cache, conf.Log.Logger, resp.Token, resp.RefreshToken)
+	cli.SetAuthToken(resp.Token)
+
+	return cli, nil
+}
+
 // NewAuthedClientByIssuingTokenInCli creates a new authenticated OpAMP client by issuing a token in the CLI.
-// It supports different authentication methods such as basic auth, manual token input, and GitHub device.
+// It supports different authentication methods such as basic auth, manual token input, and GitHub.
 func NewAuthedClientByIssuingTokenInCli(
 	conf *config.GlobalConfig,
 ) (*client.Client, error) {
@@ -127,60 +174,71 @@ func NewAuthedClientByIssuingTokenInCli(
 	cacheDir := configutil.GetCurrentCacheDir(conf)
 	user := configutil.GetCurrentUser(conf)
 
-	filesystem := afero.NewOsFs()
-	tokenPrefix := TokenPath(user.Name)
-	filecache := filecache.New(cacheDir, tokenPrefix, filesystem)
+	cache := filecache.New(cacheDir, TokenPath(user.Name), afero.NewOsFs())
 
 	cli := client.New(endpoint,
 		client.WithLogger(conf.Log.Logger),
 		client.WithVerbose(conf.Log.Level == slog.LevelDebug),
 	)
 
-	bearerToken, err := getAuthToken(cli, user, conf.Output)
+	tokens, err := getAuthTokens(cli, user, conf.Output, conf.Log.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get auth token: %w", err)
 	}
 
-	err = cacheToken(filecache, BearerTokenKey, bearerToken)
-	if err != nil {
-		// Log the error but do not return it, as we still want to return the client.
-		conf.Log.Logger.Warn("failed to cache bearer token", "error", err)
-	}
-
-	cli.SetAuthToken(string(bearerToken))
+	persistTokens(cache, conf.Log.Logger, tokens.access, tokens.refresh)
+	cli.SetAuthToken(tokens.access)
 
 	return cli, nil
 }
 
-// getAuthToken handles the authentication process based on the user's auth type.
-func getAuthToken(cli *client.Client, user *config.User, writer io.Writer) ([]byte, error) {
+// authTokens carries the freshly minted access/refresh token pair from an interactive login.
+type authTokens struct {
+	access  string
+	refresh string
+}
+
+// getAuthTokens runs the configured login flow for the user and returns the resulting tokens.
+func getAuthTokens(cli *client.Client, user *config.User, writer io.Writer, logger *slog.Logger) (authTokens, error) {
 	switch user.Auth.Type {
 	case config.AuthTypeBasic:
-		return getAuthTokenByBasicAuth(cli, user.Auth.Username, user.Auth.Password)
+		return getTokensByBasicAuth(cli, user.Auth.Username, user.Auth.Password)
 	case config.AuthTypeManual:
-		return []byte(user.Auth.BearerToken), nil
+		return authTokens{access: user.Auth.BearerToken, refresh: ""}, nil
 	case config.AuthTypeGithub:
-		return getAuthTokenByGithub(cli, writer)
+		return getTokensByGithub(cli, user.Auth.Flow, writer, logger)
 	default:
-		return nil, &UnsupportedAuthMethodError{Method: user.Auth.Type}
+		return authTokens{}, &UnsupportedAuthMethodError{Method: user.Auth.Type}
 	}
 }
 
-// getAuthTokenByBasicAuth retrieves the auth token using basic authentication.
-func getAuthTokenByBasicAuth(cli *client.Client, username, password string) ([]byte, error) {
-	authToken, err := cli.AuthService.GetAuthTokenByBasicAuth(username, password)
+func getTokensByBasicAuth(cli *client.Client, username, password string) (authTokens, error) {
+	resp, err := cli.AuthService.GetAuthTokenByBasicAuth(username, password)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get auth token by basic auth: %w", err)
+		return authTokens{}, fmt.Errorf("failed to get auth token by basic auth: %w", err)
 	}
 
-	return []byte(authToken.Token), nil
+	return authTokens{access: resp.Token, refresh: resp.RefreshToken}, nil
 }
 
-// getAuthTokenByGithub handles the GitHub device authentication flow.
-func getAuthTokenByGithub(cli *client.Client, writer io.Writer) ([]byte, error) {
+// getTokensByGithub dispatches to the configured GitHub login flow (device or browser).
+// Default (empty) is "device" for backward compatibility.
+func getTokensByGithub(cli *client.Client, flow string, writer io.Writer, logger *slog.Logger) (authTokens, error) {
+	switch flow {
+	case "", config.GithubAuthFlowDevice:
+		return getTokensByGithubDevice(cli, writer)
+	case config.GithubAuthFlowBrowser:
+		return getTokensByGithubBrowser(cli, writer, logger)
+	default:
+		return authTokens{}, &UnsupportedAuthMethodError{Method: "github:" + flow}
+	}
+}
+
+// getTokensByGithubDevice implements the OAuth2 device authorization grant.
+func getTokensByGithubDevice(cli *client.Client, writer io.Writer) (authTokens, error) {
 	deviceAuthResponse, err := cli.AuthService.GetDeviceAuthToken()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get device auth token: %w", err)
+		return authTokens{}, fmt.Errorf("failed to get device auth token: %w", err)
 	}
 
 	_, err = fmt.Fprintf(writer,
@@ -191,28 +249,36 @@ func getAuthTokenByGithub(cli *client.Client, writer io.Writer) ([]byte, error) 
 		deviceAuthResponse.UserCode,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to write device auth instructions: %w", err)
+		return authTokens{}, fmt.Errorf("failed to write device auth instructions: %w", err)
 	}
 
-	authToken, err := cli.AuthService.ExchangeDeviceAuthToken(
+	resp, err := cli.AuthService.ExchangeDeviceAuthToken(
 		deviceAuthResponse.DeviceCode,
 		deviceAuthResponse.Expiry.Time,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to exchange device auth token: %w", err)
+		return authTokens{}, fmt.Errorf("failed to exchange device auth token: %w", err)
 	}
 
-	return []byte(authToken.Token), nil
+	return authTokens{access: resp.Token, refresh: resp.RefreshToken}, nil
 }
 
-// cacheToken caches the authentication token for future use.
-func cacheToken(filecache *filecache.FileCache, key string, token []byte) error {
-	err := filecache.Set(key, token)
-	if err != nil {
-		return fmt.Errorf("failed to cache token: %w", err)
+// persistTokens writes the access and refresh tokens to the file cache.
+// Failures are logged but not propagated, so login still succeeds even if caching fails.
+func persistTokens(cache *filecache.FileCache, logger *slog.Logger, access, refresh string) {
+	if access != "" {
+		err := cache.Set(BearerTokenKey, []byte(access))
+		if err != nil {
+			logger.Warn("failed to cache bearer token", "error", err)
+		}
 	}
 
-	return nil
+	if refresh != "" {
+		err := cache.Set(RefreshTokenKey, []byte(refresh))
+		if err != nil {
+			logger.Warn("failed to cache refresh token", "error", err)
+		}
+	}
 }
 
 // TokenPath constructs the file path for the cached token of a specific user.

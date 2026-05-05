@@ -66,16 +66,15 @@ func (s *Service) Exchange(ctx context.Context, state, code string) (LoginResult
 
 	groups := s.listGitHubOrgs(ctx, client)
 
-	claims := s.newOPAMPClaims(email.GetEmail())
-
-	tokenString, err := s.createToken(claims)
+	result, err := s.issueLoginResult(email.GetEmail())
 	if err != nil {
-		return LoginResult{}, fmt.Errorf("failed to create JWT token: %w", err)
+		return LoginResult{}, err
 	}
 
-	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
+	result.Groups = groups
+	s.logger.Debug("Created JWT token for user", slog.String("email", result.Email))
 
-	return LoginResult{Token: tokenString, Email: claims.Email, Groups: groups}, nil
+	return result, nil
 }
 
 // DeviceAuth initiates the OAuth2 device authorization flow.
@@ -143,16 +142,15 @@ func (s *Service) ExchangeDeviceAuth(
 
 	groups := s.listGitHubOrgs(ctx, client)
 
-	claims := s.newOPAMPClaims(email.GetEmail())
-
-	tokenString, err := s.createToken(claims)
+	result, err := s.issueLoginResult(email.GetEmail())
 	if err != nil {
-		return LoginResult{}, fmt.Errorf("failed to create JWT token: %w", err)
+		return LoginResult{}, err
 	}
 
-	s.logger.Debug("Created JWT token for user", slog.String("email", claims.Email))
+	result.Groups = groups
+	s.logger.Debug("Created JWT token for user", slog.String("email", result.Email))
 
-	return LoginResult{Token: tokenString, Email: claims.Email, Groups: groups}, nil
+	return result, nil
 }
 
 // listGitHubOrgs fetches the authenticated user's GitHub org memberships.
@@ -179,40 +177,55 @@ func (s *Service) listGitHubOrgs(ctx context.Context, client *github.Client) []s
 }
 
 func (s *Service) validateState(state string) error {
+	_, err := s.parseStateClaims(state)
+
+	return err
+}
+
+func (s *Service) parseStateClaims(state string) (*OAuthStateClaims, error) {
 	token, err := jwt.ParseWithClaims(state,
 		//exhaustruct:ignore
-		&OAuthStateClaims{}, // only to convey the type of claims we expect
+		&OAuthStateClaims{},
 		func(_ *jwt.Token) (any, error) {
 			return []byte(s.oauthStateSettings.SigningKey), nil
 		})
 	if err != nil {
-		return fmt.Errorf("failed to parse JWT token for state: %w", err)
-	}
-
-	exp, err := token.Claims.GetExpirationTime()
-	if err != nil {
-		return fmt.Errorf("failed to get expiration time from token claims: %w", err)
-	}
-
-	if exp == nil || exp.Before(time.Now()) {
-		return ErrStateExpired
+		return nil, fmt.Errorf("failed to parse JWT token for state: %w", err)
 	}
 
 	if !token.Valid {
-		return ErrInvalidState
+		return nil, ErrInvalidState
+	}
+
+	claims, ok := token.Claims.(*OAuthStateClaims)
+	if !ok {
+		return nil, ErrInvalidState
+	}
+
+	exp, err := claims.GetExpirationTime()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get expiration time from token claims: %w", err)
+	}
+
+	if exp == nil || exp.Before(time.Now()) {
+		return nil, ErrStateExpired
 	}
 
 	s.logger.Debug("Validated state token", slog.String("state", state))
 
-	return nil
+	return claims, nil
 }
 
 // OAuthStateClaims defines the custom claims for the JWT token used for the state parameter in OAuth2 authentication.
 type OAuthStateClaims struct {
 	jwt.RegisteredClaims
+
+	// CLIRedirect, when non-empty, signals the callback handler to redirect the browser
+	// to this loopback URI (with token query params) instead of returning JSON.
+	CLIRedirect string `json:"cliRedirect,omitempty"`
 }
 
-func (s *Service) createState() (string, error) {
+func (s *Service) createState(cliRedirect string) (string, error) {
 	randBytes := make([]byte, StateLength)
 
 	_, err := rand.Read(randBytes)
@@ -222,12 +235,13 @@ func (s *Service) createState() (string, error) {
 
 	now := time.Now()
 	claims := OAuthStateClaims{
+		CLIRedirect: cliRedirect,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    s.oauthStateSettings.Issuer,
 			Subject:   "oauth2_state",
 			Audience:  s.oauthStateSettings.Audience,
 			NotBefore: jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(s.oauthStateSettings.Expiration)), // 5 minutes expiration
+			ExpiresAt: jwt.NewNumericDate(now.Add(s.oauthStateSettings.Expiration)),
 			IssuedAt:  jwt.NewNumericDate(now),
 			ID:        base64.URLEncoding.EncodeToString(randBytes),
 		},

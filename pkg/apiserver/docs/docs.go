@@ -78,6 +78,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/auth/github/authcode": {
+            "get": {
+                "description": "Returns an OAuth2 authorization URL whose state encodes a CLI loopback redirect URI.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth",
+                    "github"
+                ],
+                "summary": "GitHub OAuth2 Auth Code URL with CLI loopback redirect",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Loopback redirect URI (http(s)://127.0.0.1:PORT/...)",
+                        "name": "redirect_uri",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/OAuth2AuthCodeURLResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/github/device": {
             "get": {
                 "description": "Initiates device authorization for GitHub OAuth2.",
@@ -178,6 +225,54 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/InfoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "description": "Exchange a refresh token for a new access token (and rotated refresh token).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RefreshTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AuthnTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "401": {
@@ -2172,6 +2267,9 @@ const docTemplate = `{
                             "$ref": "#/definitions/AuthnTokenResponse"
                         }
                     },
+                    "302": {
+                        "description": "Found"
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -2727,8 +2825,16 @@ const docTemplate = `{
         "AuthnTokenResponse": {
             "type": "object",
             "properties": {
+                "expiresAt": {
+                    "description": "ExpiresAt is the time when the access token expires.",
+                    "type": "string"
+                },
+                "refreshToken": {
+                    "description": "RefreshToken is the refresh token used to obtain a new access token without re-authentication.",
+                    "type": "string"
+                },
                 "token": {
-                    "description": "Token is the authentication token.",
+                    "description": "Token is the access token.",
                     "type": "string"
                 }
             }
@@ -3288,6 +3394,18 @@ const docTemplate = `{
             "properties": {
                 "message": {
                     "description": "Message is the response message.",
+                    "type": "string"
+                }
+            }
+        },
+        "RefreshTokenRequest": {
+            "type": "object",
+            "required": [
+                "refreshToken"
+            ],
+            "properties": {
+                "refreshToken": {
+                    "description": "RefreshToken is the refresh token previously issued by the server.",
                     "type": "string"
                 }
             }

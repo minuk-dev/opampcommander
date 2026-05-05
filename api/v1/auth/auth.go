@@ -13,9 +13,19 @@ type InfoResponse struct {
 
 // AuthnTokenResponse defines the response structure for authentication token requests.
 type AuthnTokenResponse struct {
-	// Token is the authentication token.
+	// Token is the access token.
 	Token string `json:"token"`
+	// RefreshToken is the refresh token used to obtain a new access token without re-authentication.
+	RefreshToken string `json:"refreshToken,omitempty"`
+	// ExpiresAt is the time when the access token expires.
+	ExpiresAt v1.Time `json:"expiresAt,omitzero"`
 } // @name AuthnTokenResponse
+
+// RefreshTokenRequest defines the request body for refreshing an access token.
+type RefreshTokenRequest struct {
+	// RefreshToken is the refresh token previously issued by the server.
+	RefreshToken string `binding:"required" json:"refreshToken"`
+} // @name RefreshTokenRequest
 
 // OAuth2AuthCodeURLResponse defines the response structure for OAuth2 authorization URL requests.
 // It contains the URL that the client should redirect to for OAuth2 authentication.

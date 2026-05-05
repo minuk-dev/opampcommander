@@ -92,6 +92,9 @@ $HOME/.config/opampcommander/opampctl/config.yaml`)
 	flags.BoolP("verbose", "v", false, "Enable verbose output. Equivalent to --log.level=debug")
 	flags.String("log.format", "text", "Log output format (text, json)")
 	flags.String("log.level", "info", "Log level (debug, info, warn)")
+	flags.String("auth-flow", "",
+		"Override the GitHub auth flow for this invocation: 'device' or 'browser'. "+
+			"Empty falls back to the user's config (default: device).")
 }
 
 // ApplyCmdFlags applies the command flags to the global configuration and returns the updated configuration.
@@ -140,7 +143,27 @@ func ApplyCmdFlags(globalConfig *config.GlobalConfig, cmd *cobra.Command) (*conf
 	}
 	globalConfig.Output = cmd.OutOrStdout()
 
+	authFlow, err := flags.GetString("auth-flow")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get auth-flow flag: %w", err)
+	}
+
+	if authFlow != "" {
+		applyAuthFlowOverride(globalConfig, authFlow)
+	}
+
 	return globalConfig, nil
+}
+
+// applyAuthFlowOverride sets the github auth flow on the current user, overriding any value
+// from the config file for this invocation.
+func applyAuthFlowOverride(globalConfig *config.GlobalConfig, flow string) {
+	user := GetCurrentUser(globalConfig)
+	if user == nil {
+		return
+	}
+
+	user.Auth.Flow = flow
 }
 
 // GetLogger creates a new logger for the opampctl tool.
