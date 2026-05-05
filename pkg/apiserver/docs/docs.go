@@ -253,7 +253,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "description": "Refresh token",
-                        "name": "body",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
