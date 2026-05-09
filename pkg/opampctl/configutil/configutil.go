@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 
+	"github.com/samber/mo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -143,27 +144,26 @@ func ApplyCmdFlags(globalConfig *config.GlobalConfig, cmd *cobra.Command) (*conf
 	}
 	globalConfig.Output = cmd.OutOrStdout()
 
-	authFlow, err := flags.GetString("auth-flow")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get auth-flow flag: %w", err)
-	}
-
-	if authFlow != "" {
-		applyAuthFlowOverride(globalConfig, authFlow)
-	}
-
 	return globalConfig, nil
 }
 
-// applyAuthFlowOverride sets the github auth flow on the current user, overriding any value
-// from the config file for this invocation.
-func applyAuthFlowOverride(globalConfig *config.GlobalConfig, flow string) {
-	user := GetCurrentUser(globalConfig)
-	if user == nil {
-		return
+// ApplyPostLoadFlags applies command flags that depend on the loaded config.
+// Must be called AFTER viper.Unmarshal so GetCurrentUser sees the resolved Users slice.
+// Currently handles --auth-flow override; safe to extend with future post-load flags.
+func ApplyPostLoadFlags(globalConfig *config.GlobalConfig, cmd *cobra.Command) error {
+	flowFlag, err := cmd.Flags().GetString("auth-flow")
+	if err != nil {
+		return fmt.Errorf("failed to get auth-flow flag: %w", err)
 	}
 
-	user.Auth.Flow = flow
+	// Empty value (flag unset) is a no-op so the user's config wins.
+	mo.EmptyableToOption(flowFlag).ForEach(func(flow string) {
+		if user := GetCurrentUser(globalConfig); user != nil {
+			user.Auth.Flow = flow
+		}
+	})
+
+	return nil
 }
 
 // GetLogger creates a new logger for the opampctl tool.
