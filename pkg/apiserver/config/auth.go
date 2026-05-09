@@ -42,5 +42,8 @@ type JWTSettings struct {
 	SigningKey string
 	Issuer     string
 	Expiration time.Duration
-	Audience   []string
+	// RefreshExpiration is the lifetime of refresh tokens issued alongside access tokens.
+	// Zero means refresh tokens are disabled.
+	RefreshExpiration time.Duration
+	Audience          []string
 }

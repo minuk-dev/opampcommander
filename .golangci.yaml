@@ -96,6 +96,7 @@ linters:
             - golang.org/x/oauth2/github
             - github.com/golang-jwt/jwt/v5
             - github.com/google/go-github/v72/github
+            - github.com/pkg/browser
             # RBAC
             - github.com/casbin/casbin/v2
             - github.com/casbin/mongodb-adapter/v4

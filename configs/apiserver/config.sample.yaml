@@ -29,6 +29,7 @@ auth:
   jwt:
     issuer: "opampcommander"
     expire: 5m
+    refreshExpire: 168h
     secret: "your_jwt_secret"
     audience:
     - "opampcommander"

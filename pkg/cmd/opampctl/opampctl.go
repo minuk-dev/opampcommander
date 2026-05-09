@@ -101,5 +101,10 @@ func (opt *CommandOption) PersistentPrepare(cmd *cobra.Command, _ []string) erro
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	err = configutil.ApplyPostLoadFlags(opt.globalConfig, cmd)
+	if err != nil {
+		return fmt.Errorf("failed to apply post-load flags: %w", err)
+	}
+
 	return nil
 }
