@@ -222,13 +222,13 @@ func getTokensByBasicAuth(cli *client.Client, username, password string) (authTo
 }
 
 // getTokensByGithub dispatches to the configured GitHub login flow (device or browser).
-// Default (empty) is "device" for backward compatibility.
+// Default (empty) is "browser".
 func getTokensByGithub(cli *client.Client, flow string, writer io.Writer, logger *slog.Logger) (authTokens, error) {
 	switch flow {
-	case "", config.GithubAuthFlowDevice:
-		return getTokensByGithubDevice(cli, writer)
-	case config.GithubAuthFlowBrowser:
+	case "", config.GithubAuthFlowBrowser:
 		return getTokensByGithubBrowser(cli, writer, logger)
+	case config.GithubAuthFlowDevice:
+		return getTokensByGithubDevice(cli, writer)
 	default:
 		return authTokens{}, &UnsupportedAuthMethodError{Method: "github:" + flow}
 	}

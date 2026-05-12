@@ -131,18 +131,18 @@ type Auth struct {
 }
 
 const (
-	// GithubAuthFlowDevice runs the OAuth2 device authorization grant (default).
+	// GithubAuthFlowBrowser runs the OAuth2 authorization-code grant via a localhost
+	// loopback redirect (default). opampctl spawns an ephemeral http server, opens
+	// the user's browser, and captures the tokens delivered by the apiserver callback.
+	GithubAuthFlowBrowser = "browser"
+	// GithubAuthFlowDevice runs the OAuth2 device authorization grant.
 	// User reads a code from the terminal, enters it on github.com.
 	GithubAuthFlowDevice = "device"
-	// GithubAuthFlowBrowser runs the OAuth2 authorization-code grant via a localhost
-	// loopback redirect. opampctl spawns an ephemeral http server, opens the user's
-	// browser, and captures the tokens delivered by the apiserver callback.
-	GithubAuthFlowBrowser = "browser"
 )
 
 // GithubAuth represents the GitHub authentication method for a user in the opampctl configuration.
 type GithubAuth struct {
-	// Flow selects the GitHub OAuth2 sub-flow: "device" (default) or "browser".
+	// Flow selects the GitHub OAuth2 sub-flow: "browser" (default) or "device".
 	Flow string `json:"flow,omitempty" mapstructure:"flow,omitempty" yaml:"flow,omitempty"`
 }
 
