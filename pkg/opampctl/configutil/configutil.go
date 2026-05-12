@@ -94,8 +94,8 @@ $HOME/.config/opampcommander/opampctl/config.yaml`)
 	flags.String("log.format", "text", "Log output format (text, json)")
 	flags.String("log.level", "info", "Log level (debug, info, warn)")
 	flags.String("auth-flow", "",
-		"Override the GitHub auth flow for this invocation: 'device' or 'browser'. "+
-			"Empty falls back to the user's config (default: device).")
+		"Override the GitHub auth flow for this invocation: 'browser' or 'device'. "+
+			"Empty falls back to the user's config (default: browser).")
 }
 
 // ApplyCmdFlags applies the command flags to the global configuration and returns the updated configuration.
