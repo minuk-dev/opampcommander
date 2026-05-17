@@ -81,19 +81,24 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.MINUK_CLUSTER_DEPLOY_KEY }}
 
-      - name: Deploy alpha to minuk-cluster
+      - name: Deploy alpha and alpha-ha to minuk-cluster
         if: startsWith(github.ref, 'refs/heads/')
         run: |
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
 
-          yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")).newTag = strenv(VERSION)' \
-            -i argocd/apps/opampcommander/overlays/alpha/kustomization.yaml
+          overlays=(alpha alpha-ha)
+          for overlay in "${overlays[@]}"; do
+            yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")).newTag = strenv(VERSION)' \
+              -i "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+          done
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          git add argocd/apps/opampcommander/overlays/alpha/kustomization.yaml
-          git commit -m "chore(deploy): update opampcommander alpha to ${VERSION}"
+          for overlay in "${overlays[@]}"; do
+            git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+          done
+          git commit -m "chore(deploy): update opampcommander alpha and alpha-ha to ${VERSION}"
 
           # retry on push conflict from concurrent CI runs
           for i in 1 2 3; do
