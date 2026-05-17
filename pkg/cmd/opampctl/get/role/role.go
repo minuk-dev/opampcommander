@@ -89,10 +89,7 @@ type ItemForCLI struct {
 
 // List retrieves the list of roles.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{}
-	if opt.includeDeleted {
-		listOpts = append(listOpts, client.WithIncludeDeleted(true))
-	}
+	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
 
 	roles, err := clientutil.ListRoleFully(cmd.Context(), opt.client, listOpts...)
 	if err != nil {
@@ -126,10 +123,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 		Err  error
 	}
 
-	getOpts := []client.GetOption{}
-	if opt.includeDeleted {
-		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
-	}
+	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
 	results := lo.Map(ids, func(id string, _ int) roleWithErr {
 		role, err := opt.client.RoleService.GetRole(cmd.Context(), id, getOpts...)

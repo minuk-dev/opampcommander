@@ -39,20 +39,10 @@ func (s *RoleService) ListRoles(
 	ctx context.Context,
 	opts ...ListOption,
 ) (*RoleListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	return listResources[v1.Role](
-		ctx,
-		s.service,
-		ListRoleURL,
-		ListSettings{
-			limit:          listSettings.limit,
-			continueToken:  listSettings.continueToken,
-			includeDeleted: listSettings.includeDeleted,
-		},
+		ctx, s.service, ListRoleURL, listSettings,
 	)
 }
 

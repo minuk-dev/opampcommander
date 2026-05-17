@@ -40,20 +40,10 @@ func (s *UserService) ListUsers(
 	ctx context.Context,
 	opts ...ListOption,
 ) (*UserListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	return listResources[v1.User](
-		ctx,
-		s.service,
-		ListUserURL,
-		ListSettings{
-			limit:          listSettings.limit,
-			continueToken:  listSettings.continueToken,
-			includeDeleted: listSettings.includeDeleted,
-		},
+		ctx, s.service, ListUserURL, listSettings,
 	)
 }
 

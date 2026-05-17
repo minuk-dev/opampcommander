@@ -96,10 +96,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (opt *CommandOptions) list(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{}
-	if opt.includeDeleted {
-		listOpts = append(listOpts, client.WithIncludeDeleted(true))
-	}
+	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
 
 	resp, err := opt.client.RoleBindingService.ListRoleBindings(cmd.Context(), opt.namespace, listOpts...)
 	if err != nil {
@@ -124,10 +121,7 @@ func (opt *CommandOptions) get(cmd *cobra.Command, names []string) error {
 		err error
 	}
 
-	getOpts := []client.GetOption{}
-	if opt.includeDeleted {
-		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
-	}
+	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
 	results := lo.Map(names, func(name string, _ int) result {
 		rb, err := opt.client.RoleBindingService.GetRoleBinding(cmd.Context(), opt.namespace, name, getOpts...)

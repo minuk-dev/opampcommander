@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	uuid "github.com/google/uuid"
@@ -71,10 +70,7 @@ func (s *AgentService) ListAgents(
 	namespace string,
 	opts ...ListOption,
 ) (*AgentListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var result AgentListResponse
 
@@ -82,18 +78,7 @@ func (s *AgentService) ListAgents(
 		SetContext(ctx).
 		SetPathParam("namespace", namespace).
 		SetResult(&result)
-
-	if listSettings.limit != nil && *listSettings.limit > 0 {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil && *listSettings.continueToken != "" {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	listSettings.applyTo(req)
 
 	response, err := req.Get(ListAgentURL)
 	if err != nil {
@@ -117,10 +102,7 @@ func (s *AgentService) SearchAgents(
 	query string,
 	opts ...ListOption,
 ) (*AgentListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var result AgentListResponse
 
@@ -129,14 +111,7 @@ func (s *AgentService) SearchAgents(
 		SetPathParam("namespace", namespace).
 		SetQueryParam("q", query).
 		SetResult(&result)
-
-	if listSettings.limit != nil && *listSettings.limit > 0 {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil && *listSettings.continueToken != "" {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
+	listSettings.applyTo(req)
 
 	response, err := req.Get(SearchAgentURL)
 	if err != nil {

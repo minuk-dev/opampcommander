@@ -4,7 +4,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -41,10 +40,7 @@ func (s *RoleBindingService) GetRoleBinding(
 	name string,
 	opts ...GetOption,
 ) (*v1.RoleBinding, error) {
-	var getSettings GetSettings
-	for _, opt := range opts {
-		opt.Apply(&getSettings)
-	}
+	getSettings := newGetSettings(opts)
 
 	var roleBinding v1.RoleBinding
 
@@ -53,10 +49,7 @@ func (s *RoleBindingService) GetRoleBinding(
 		SetResult(&roleBinding).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name)
-
-	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	getSettings.applyTo(req)
 
 	res, err := req.Get(GetRoleBindingURL)
 	if err != nil {
@@ -82,10 +75,7 @@ func (s *RoleBindingService) ListRoleBindings(
 	namespace string,
 	opts ...ListOption,
 ) (*RoleBindingListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var listResponse RoleBindingListResponse
 
@@ -93,18 +83,7 @@ func (s *RoleBindingService) ListRoleBindings(
 		SetContext(ctx).
 		SetResult(&listResponse).
 		SetPathParam("namespace", namespace)
-
-	if listSettings.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	listSettings.applyTo(req)
 
 	res, err := req.Get(ListRoleBindingURL)
 	if err != nil {

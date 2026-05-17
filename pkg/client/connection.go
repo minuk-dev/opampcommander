@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	uuid "github.com/google/uuid"
 
@@ -68,31 +67,15 @@ func (s *ConnectionService) ListConnections(
 	namespace string,
 	opts ...ListOption,
 ) (*v1.ConnectionListResponse, error) {
-	var (
-		listSettings ListSettings
-		result       v1.ConnectionListResponse
-	)
+	listSettings := newListSettings(opts)
 
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	var result v1.ConnectionListResponse
 
 	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetPathParam("namespace", namespace).
 		SetResult(&result)
-
-	if listSettings.limit != nil && *listSettings.limit > 0 {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil && *listSettings.continueToken != "" {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	listSettings.applyTo(req)
 
 	response, err := req.Get(ListConnectionsPath)
 	if err != nil {

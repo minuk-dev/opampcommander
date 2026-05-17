@@ -102,10 +102,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agent packages.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{}
-	if opt.includeDeleted {
-		listOpts = append(listOpts, client.WithIncludeDeleted(true))
-	}
+	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
 
 	var (
 		agentpackages []v1.AgentPackage
@@ -142,10 +139,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		Err          error
 	}
 
-	getOpts := []client.GetOption{}
-	if opt.includeDeleted {
-		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
-	}
+	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
 	agentPackagesWithErr := lo.Map(names, func(name string, _ int) AgentPackageWithErr {
 		agentPackage, err := opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), opt.namespace, name, getOpts...)

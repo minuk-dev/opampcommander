@@ -102,10 +102,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of certificates.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{}
-	if opt.includeDeleted {
-		listOpts = append(listOpts, client.WithIncludeDeleted(true))
-	}
+	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
 
 	var (
 		certificates []v1.Certificate
@@ -142,10 +139,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		Err         error
 	}
 
-	getOpts := []client.GetOption{}
-	if opt.includeDeleted {
-		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
-	}
+	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
 	certificatesWithErr := lo.Map(names, func(name string, _ int) CertificateWithErr {
 		certificate, err := opt.client.CertificateService.GetCertificate(cmd.Context(), opt.namespace, name, getOpts...)

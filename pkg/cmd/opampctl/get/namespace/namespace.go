@@ -89,10 +89,7 @@ func (opt *CommandOptions) Run(
 
 // List retrieves the list of namespaces.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{}
-	if opt.includeDeleted {
-		listOpts = append(listOpts, client.WithIncludeDeleted(true))
-	}
+	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
 
 	resp, err := opt.client.NamespaceService.ListNamespaces(
 		cmd.Context(), listOpts...,
@@ -140,10 +137,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 func (opt *CommandOptions) Get( //nolint:funlen // CLI display logic requires branching
 	cmd *cobra.Command, names []string,
 ) error {
-	getOpts := []client.GetOption{}
-	if opt.includeDeleted {
-		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
-	}
+	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
 	namespaces := make([]v1.Namespace, 0, len(names))
 

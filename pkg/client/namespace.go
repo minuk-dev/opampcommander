@@ -50,21 +50,10 @@ func (s *NamespaceService) ListNamespaces(
 	ctx context.Context,
 	opts ...ListOption,
 ) (*NamespaceListResponse, error) {
-	var listSettings ListSettings
-
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	return listResources[v1.Namespace](
-		ctx,
-		s.service,
-		ListNamespaceURL,
-		ListSettings{
-			limit:          listSettings.limit,
-			continueToken:  listSettings.continueToken,
-			includeDeleted: listSettings.includeDeleted,
-		},
+		ctx, s.service, ListNamespaceURL, listSettings,
 	)
 }
 

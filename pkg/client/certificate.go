@@ -4,7 +4,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -41,10 +40,7 @@ func (s *CertificateService) GetCertificate(
 	name string,
 	opts ...GetOption,
 ) (*v1.Certificate, error) {
-	var getSettings GetSettings
-	for _, opt := range opts {
-		opt.Apply(&getSettings)
-	}
+	getSettings := newGetSettings(opts)
 
 	var certificate v1.Certificate
 
@@ -53,10 +49,7 @@ func (s *CertificateService) GetCertificate(
 		SetResult(&certificate).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name)
-
-	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	getSettings.applyTo(req)
 
 	res, err := req.Get(GetCertificateURL)
 	if err != nil {
@@ -82,10 +75,7 @@ func (s *CertificateService) ListCertificates(
 	namespace string,
 	opts ...ListOption,
 ) (*CertificateListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var listResponse CertificateListResponse
 
@@ -93,18 +83,7 @@ func (s *CertificateService) ListCertificates(
 		SetContext(ctx).
 		SetResult(&listResponse).
 		SetPathParam("namespace", namespace)
-
-	if listSettings.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	listSettings.applyTo(req)
 
 	res, err := req.Get(ListCertificateURL)
 	if err != nil {

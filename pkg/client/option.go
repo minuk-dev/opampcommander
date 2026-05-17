@@ -2,6 +2,10 @@ package client
 
 import (
 	"log/slog"
+	"strconv"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/samber/mo"
 
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 )
@@ -66,13 +70,12 @@ type ListOption interface {
 
 // ListSettings holds the settings for listing resources.
 type ListSettings struct {
-	// how many items to return
-	// specially, if this is set to 0, it will return all items
-	limit *int
-	// continue token for pagination
-	continueToken *string
-	// include deleted resources
-	includeDeleted *bool
+	// limit caps the number of items returned; absent means no client-side limit.
+	limit mo.Option[int]
+	// continueToken paginates the request; absent means start from the beginning.
+	continueToken mo.Option[string]
+	// includeDeleted asks the server to include soft-deleted resources.
+	includeDeleted mo.Option[bool]
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -90,21 +93,21 @@ func WithLimit(limit int) ListOption {
 	}
 
 	return ListOptionFunc(func(opt *ListSettings) {
-		opt.limit = &limit
+		opt.limit = mo.Some(limit)
 	})
 }
 
 // WithContinueToken sets the continue token for pagination.
 func WithContinueToken(token string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
-		opt.continueToken = &token
+		opt.continueToken = mo.Some(token)
 	})
 }
 
 // WithIncludeDeleted sets whether to include deleted resources.
 func WithIncludeDeleted(includeDeleted bool) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
-		opt.includeDeleted = &includeDeleted
+		opt.includeDeleted = mo.Some(includeDeleted)
 	})
 }
 
@@ -115,8 +118,8 @@ type GetOption interface {
 
 // GetSettings holds the settings for getting a single resource.
 type GetSettings struct {
-	// include deleted resources
-	includeDeleted *bool
+	// includeDeleted asks the server to return the resource even if it is soft-deleted.
+	includeDeleted mo.Option[bool]
 }
 
 // GetOptionFunc is a function type that implements the GetOption interface.
@@ -130,6 +133,45 @@ func (f GetOptionFunc) Apply(opt *GetSettings) {
 // WithGetIncludeDeleted sets whether to include deleted resources for get operations.
 func WithGetIncludeDeleted(includeDeleted bool) GetOption {
 	return GetOptionFunc(func(opt *GetSettings) {
-		opt.includeDeleted = &includeDeleted
+		opt.includeDeleted = mo.Some(includeDeleted)
 	})
+}
+
+// applyTo writes the present settings onto the given Resty request as query parameters.
+// Absent options leave the request untouched.
+func (s ListSettings) applyTo(req *resty.Request) {
+	s.limit.ForEach(func(v int) { req.SetQueryParam("limit", strconv.Itoa(v)) })
+	s.continueToken.ForEach(func(v string) { req.SetQueryParam("continue", v) })
+
+	if s.includeDeleted.OrElse(false) {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+}
+
+// applyTo writes the present settings onto the given Resty request as query parameters.
+// Absent options leave the request untouched.
+func (s GetSettings) applyTo(req *resty.Request) {
+	if s.includeDeleted.OrElse(false) {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+}
+
+// newListSettings folds the given ListOptions into a single ListSettings value.
+func newListSettings(opts []ListOption) ListSettings {
+	var settings ListSettings
+	for _, opt := range opts {
+		opt.Apply(&settings)
+	}
+
+	return settings
+}
+
+// newGetSettings folds the given GetOptions into a single GetSettings value.
+func newGetSettings(opts []GetOption) GetSettings {
+	var settings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&settings)
+	}
+
+	return settings
 }
