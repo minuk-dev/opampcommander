@@ -70,12 +70,12 @@ type ListOption interface {
 
 // ListSettings holds the settings for listing resources.
 type ListSettings struct {
-	// limit caps the number of items returned; absent means no client-side limit.
-	limit mo.Option[int]
-	// continueToken paginates the request; absent means start from the beginning.
-	continueToken mo.Option[string]
+	// limit caps the number of items returned; nil means no client-side limit.
+	limit *int
+	// continueToken paginates the request; nil means start from the beginning.
+	continueToken *string
 	// includeDeleted asks the server to include soft-deleted resources.
-	includeDeleted mo.Option[bool]
+	includeDeleted *bool
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -93,21 +93,21 @@ func WithLimit(limit int) ListOption {
 	}
 
 	return ListOptionFunc(func(opt *ListSettings) {
-		opt.limit = mo.Some(limit)
+		opt.limit = &limit
 	})
 }
 
 // WithContinueToken sets the continue token for pagination.
 func WithContinueToken(token string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
-		opt.continueToken = mo.Some(token)
+		opt.continueToken = &token
 	})
 }
 
 // WithIncludeDeleted sets whether to include deleted resources.
 func WithIncludeDeleted(includeDeleted bool) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
-		opt.includeDeleted = mo.Some(includeDeleted)
+		opt.includeDeleted = &includeDeleted
 	})
 }
 
@@ -119,7 +119,7 @@ type GetOption interface {
 // GetSettings holds the settings for getting a single resource.
 type GetSettings struct {
 	// includeDeleted asks the server to return the resource even if it is soft-deleted.
-	includeDeleted mo.Option[bool]
+	includeDeleted *bool
 }
 
 // GetOptionFunc is a function type that implements the GetOption interface.
@@ -133,17 +133,21 @@ func (f GetOptionFunc) Apply(opt *GetSettings) {
 // WithGetIncludeDeleted sets whether to include deleted resources for get operations.
 func WithGetIncludeDeleted(includeDeleted bool) GetOption {
 	return GetOptionFunc(func(opt *GetSettings) {
-		opt.includeDeleted = mo.Some(includeDeleted)
+		opt.includeDeleted = &includeDeleted
 	})
 }
 
 // applyTo writes the present settings onto the given Resty request as query parameters.
 // Absent options leave the request untouched.
 func (s ListSettings) applyTo(req *resty.Request) {
-	s.limit.ForEach(func(v int) { req.SetQueryParam("limit", strconv.Itoa(v)) })
-	s.continueToken.ForEach(func(v string) { req.SetQueryParam("continue", v) })
+	mo.PointerToOption(s.limit).ForEach(func(v int) {
+		req.SetQueryParam("limit", strconv.Itoa(v))
+	})
+	mo.PointerToOption(s.continueToken).ForEach(func(v string) {
+		req.SetQueryParam("continue", v)
+	})
 
-	if s.includeDeleted.OrElse(false) {
+	if mo.PointerToOption(s.includeDeleted).OrElse(false) {
 		req.SetQueryParam("includeDeleted", "true")
 	}
 }
@@ -151,7 +155,7 @@ func (s ListSettings) applyTo(req *resty.Request) {
 // applyTo writes the present settings onto the given Resty request as query parameters.
 // Absent options leave the request untouched.
 func (s GetSettings) applyTo(req *resty.Request) {
-	if s.includeDeleted.OrElse(false) {
+	if mo.PointerToOption(s.includeDeleted).OrElse(false) {
 		req.SetQueryParam("includeDeleted", "true")
 	}
 }

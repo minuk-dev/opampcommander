@@ -348,13 +348,26 @@ func TestE2E_RoleBinding_IncludeDeleted(t *testing.T) {
 
 	c := startIncludeDeletedAPIServer(t, "opampcommander_e2e_include_deleted_rolebinding")
 
+	// RoleBinding creation validates that the referenced Role exists, so create one first.
+	roleName := "Include Deleted Test Role"
+
+	//exhaustruct:ignore
+	_, err := c.RoleService.CreateRole(t.Context(), &v1.Role{
+		Spec: v1.RoleSpec{
+			DisplayName: roleName,
+			Description: "role for include-deleted rolebinding test",
+			Permissions: []string{"agent:read"},
+		},
+	})
+	require.NoError(t, err)
+
 	name := "deleted-binding"
 
 	//exhaustruct:ignore
-	_, err := c.RoleBindingService.CreateRoleBinding(t.Context(), "default", &v1.RoleBinding{
+	_, err = c.RoleBindingService.CreateRoleBinding(t.Context(), "default", &v1.RoleBinding{
 		Metadata: v1.RoleBindingMetadata{Name: name, Namespace: "default"},
 		Spec: v1.RoleBindingSpec{
-			RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: "viewer"},
+			RoleRef: v1.RoleBindingRoleRef{Kind: "Role", Name: roleName},
 			Subjects: []v1.RoleBindingSubject{
 				{Kind: "User", Name: "user@example.com"},
 			},
