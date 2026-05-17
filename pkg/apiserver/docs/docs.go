@@ -882,12 +882,6 @@ const docTemplate = `{
                         "description": "Token to continue listing agents",
                         "name": "continue",
                         "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Include soft-deleted agents",
-                        "name": "includeDeleted",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -950,12 +944,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Token to continue listing agents",
                         "name": "continue",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Include soft-deleted agents",
-                        "name": "includeDeleted",
                         "in": "query"
                     }
                 ],
@@ -1420,12 +1408,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Token to continue listing connections",
                         "name": "continue",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Include soft-deleted connections",
-                        "name": "includeDeleted",
                         "in": "query"
                     }
                 ],

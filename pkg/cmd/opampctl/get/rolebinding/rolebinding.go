@@ -26,8 +26,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
-	namespace  string
+	formatType     string
+	includeDeleted bool
+	namespace      string
 
 	// internal
 	client *client.Client
@@ -67,6 +68,7 @@ Examples:
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted role bindings")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the role binding")
 
 	return cmd
@@ -94,7 +96,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (opt *CommandOptions) list(cmd *cobra.Command) error {
-	resp, err := opt.client.RoleBindingService.ListRoleBindings(cmd.Context(), opt.namespace)
+	listOpts := []client.ListOption{}
+	if opt.includeDeleted {
+		listOpts = append(listOpts, client.WithIncludeDeleted(true))
+	}
+
+	resp, err := opt.client.RoleBindingService.ListRoleBindings(cmd.Context(), opt.namespace, listOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to list role bindings: %w", err)
 	}
@@ -117,8 +124,13 @@ func (opt *CommandOptions) get(cmd *cobra.Command, names []string) error {
 		err error
 	}
 
+	getOpts := []client.GetOption{}
+	if opt.includeDeleted {
+		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
+	}
+
 	results := lo.Map(names, func(name string, _ int) result {
-		rb, err := opt.client.RoleBindingService.GetRoleBinding(cmd.Context(), opt.namespace, name)
+		rb, err := opt.client.RoleBindingService.GetRoleBinding(cmd.Context(), opt.namespace, name, getOpts...)
 
 		return result{rb: rb, err: err}
 	})

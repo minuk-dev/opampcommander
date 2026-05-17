@@ -39,15 +39,26 @@ func (s *AgentPackageService) GetAgentPackage(
 	ctx context.Context,
 	namespace string,
 	name string,
+	opts ...GetOption,
 ) (*v1.AgentPackage, error) {
+	var getSettings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&getSettings)
+	}
+
 	var agentPackage v1.AgentPackage
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&agentPackage).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Get(GetAgentPackageURL)
+		SetPathParam("id", name)
+
+	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	res, err := req.Get(GetAgentPackageURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent package(restyError): %w", err)
 	}

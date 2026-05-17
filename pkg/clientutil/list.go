@@ -155,19 +155,21 @@ func ListAgentPackageFully(
 	ctx context.Context,
 	cli *client.Client,
 	namespace string,
+	opts ...client.ListOption,
 ) ([]v1.AgentPackage, error) {
 	var agentPackages []v1.AgentPackage
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
 	for {
-		// List agent packages with the current continue token
-		resp, err := cli.AgentPackageService.ListAgentPackages(
-			ctx,
-			namespace,
+		// Build options for each request
+		requestOpts := append([]client.ListOption{
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
-		)
+		}, opts...)
+
+		// List agent packages with the current continue token
+		resp, err := cli.AgentPackageService.ListAgentPackages(ctx, namespace, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agent packages: %w", err)
 		}
@@ -189,19 +191,21 @@ func ListAgentRemoteConfigFully(
 	ctx context.Context,
 	cli *client.Client,
 	namespace string,
+	opts ...client.ListOption,
 ) ([]v1.AgentRemoteConfig, error) {
 	var agentRemoteConfigs []v1.AgentRemoteConfig
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
 	for {
-		// List agent remote configs with the current continue token
-		resp, err := cli.AgentRemoteConfigService.ListAgentRemoteConfigs(
-			ctx,
-			namespace,
+		// Build options for each request
+		requestOpts := append([]client.ListOption{
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
-		)
+		}, opts...)
+
+		// List agent remote configs with the current continue token
+		resp, err := cli.AgentRemoteConfigService.ListAgentRemoteConfigs(ctx, namespace, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agent remote configs: %w", err)
 		}
@@ -223,19 +227,21 @@ func ListCertificateFully(
 	ctx context.Context,
 	cli *client.Client,
 	namespace string,
+	opts ...client.ListOption,
 ) ([]v1.Certificate, error) {
 	var certificates []v1.Certificate
 	// Initialize the continue token to an empty string
 	continueToken := ""
 
 	for {
-		// List certificates with the current continue token
-		resp, err := cli.CertificateService.ListCertificates(
-			ctx,
-			namespace,
+		// Build options for each request
+		requestOpts := append([]client.ListOption{
 			client.WithContinueToken(continueToken),
 			client.WithLimit(ChunkSize),
-		)
+		}, opts...)
+
+		// List certificates with the current continue token
+		resp, err := cli.CertificateService.ListCertificates(ctx, namespace, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list certificates: %w", err)
 		}
@@ -253,20 +259,22 @@ func ListCertificateFully(
 
 // ListNamespaceFully lists all namespaces.
 // It continues to fetch namespaces until there are no more namespaces to fetch.
-func ListNamespaceFully(ctx context.Context, cli *client.Client) ([]v1.Namespace, error) {
+func ListNamespaceFully(ctx context.Context, cli *client.Client, opts ...client.ListOption) ([]v1.Namespace, error) {
 	var namespaces []v1.Namespace
 
 	continueToken := ""
 
 	for {
-		opts := []client.ListOption{
+		requestOpts := []client.ListOption{
 			client.WithLimit(ChunkSize),
 		}
 		if continueToken != "" {
-			opts = append(opts, client.WithContinueToken(continueToken))
+			requestOpts = append(requestOpts, client.WithContinueToken(continueToken))
 		}
 
-		resp, err := cli.NamespaceService.ListNamespaces(ctx, opts...)
+		requestOpts = append(requestOpts, opts...)
+
+		resp, err := cli.NamespaceService.ListNamespaces(ctx, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list namespaces: %w", err)
 		}
@@ -308,20 +316,22 @@ func ListAcrossNamespaces[T any](
 
 // ListUserFully lists all users.
 // It continues to fetch users until there are no more users to fetch.
-func ListUserFully(ctx context.Context, cli *client.Client) ([]v1.User, error) {
+func ListUserFully(ctx context.Context, cli *client.Client, opts ...client.ListOption) ([]v1.User, error) {
 	var users []v1.User
 
 	continueToken := ""
 
 	for {
-		opts := []client.ListOption{
+		requestOpts := []client.ListOption{
 			client.WithLimit(ChunkSize),
 		}
 		if continueToken != "" {
-			opts = append(opts, client.WithContinueToken(continueToken))
+			requestOpts = append(requestOpts, client.WithContinueToken(continueToken))
 		}
 
-		resp, err := cli.UserService.ListUsers(ctx, opts...)
+		requestOpts = append(requestOpts, opts...)
+
+		resp, err := cli.UserService.ListUsers(ctx, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list users: %w", err)
 		}
@@ -337,20 +347,22 @@ func ListUserFully(ctx context.Context, cli *client.Client) ([]v1.User, error) {
 
 // ListRoleFully lists all roles.
 // It continues to fetch roles until there are no more roles to fetch.
-func ListRoleFully(ctx context.Context, cli *client.Client) ([]v1.Role, error) {
+func ListRoleFully(ctx context.Context, cli *client.Client, opts ...client.ListOption) ([]v1.Role, error) {
 	var roles []v1.Role
 
 	continueToken := ""
 
 	for {
-		opts := []client.ListOption{
+		requestOpts := []client.ListOption{
 			client.WithLimit(ChunkSize),
 		}
 		if continueToken != "" {
-			opts = append(opts, client.WithContinueToken(continueToken))
+			requestOpts = append(requestOpts, client.WithContinueToken(continueToken))
 		}
 
-		resp, err := cli.RoleService.ListRoles(ctx, opts...)
+		requestOpts = append(requestOpts, opts...)
+
+		resp, err := cli.RoleService.ListRoles(ctx, requestOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list roles: %w", err)
 		}

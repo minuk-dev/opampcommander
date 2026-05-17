@@ -25,7 +25,8 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType string
+	formatType     string
+	includeDeleted bool
 
 	// internal
 	client *client.Client
@@ -52,6 +53,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted roles")
 
 	return cmd
 }
@@ -87,7 +89,12 @@ type ItemForCLI struct {
 
 // List retrieves the list of roles.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	roles, err := clientutil.ListRoleFully(cmd.Context(), opt.client)
+	listOpts := []client.ListOption{}
+	if opt.includeDeleted {
+		listOpts = append(listOpts, client.WithIncludeDeleted(true))
+	}
+
+	roles, err := clientutil.ListRoleFully(cmd.Context(), opt.client, listOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to list roles: %w", err)
 	}
@@ -119,8 +126,13 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 		Err  error
 	}
 
+	getOpts := []client.GetOption{}
+	if opt.includeDeleted {
+		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
+	}
+
 	results := lo.Map(ids, func(id string, _ int) roleWithErr {
-		role, err := opt.client.RoleService.GetRole(cmd.Context(), id)
+		role, err := opt.client.RoleService.GetRole(cmd.Context(), id, getOpts...)
 
 		return roleWithErr{
 			Role: role,

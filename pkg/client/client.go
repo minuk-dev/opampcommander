@@ -143,14 +143,30 @@ func (c *Client) SetVerbose(verbose bool) {
 	c.common.Resty.SetDebug(verbose)
 }
 
-func getResource[T any](ctx context.Context, c *service, url string, id string) (*T, error) {
+func getResource[T any](
+	ctx context.Context,
+	svc *service,
+	url string,
+	id string,
+	opts ...GetOption,
+) (*T, error) {
+	var getSettings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&getSettings)
+	}
+
 	var result T
 
-	res, err := c.Resty.R().
+	req := svc.Resty.R().
 		SetContext(ctx).
 		SetPathParam("id", id).
-		SetResult(&result).
-		Get(url)
+		SetResult(&result)
+
+	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	res, err := req.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource: %w", err)
 	}

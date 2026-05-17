@@ -58,8 +58,8 @@ func (s *UserService) ListUsers(
 }
 
 // GetUser retrieves a user by its UID.
-func (s *UserService) GetUser(ctx context.Context, uid string) (*v1.User, error) {
-	return getResource[v1.User](ctx, s.service, GetUserURL, uid)
+func (s *UserService) GetUser(ctx context.Context, uid string, opts ...GetOption) (*v1.User, error) {
+	return getResource[v1.User](ctx, s.service, GetUserURL, uid, opts...)
 }
 
 // CreateUser creates a new user.

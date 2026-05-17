@@ -1,3 +1,4 @@
+//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (
@@ -38,15 +39,26 @@ func (s *RoleBindingService) GetRoleBinding(
 	ctx context.Context,
 	namespace string,
 	name string,
+	opts ...GetOption,
 ) (*v1.RoleBinding, error) {
+	var getSettings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&getSettings)
+	}
+
 	var roleBinding v1.RoleBinding
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&roleBinding).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Get(GetRoleBindingURL)
+		SetPathParam("id", name)
+
+	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	res, err := req.Get(GetRoleBindingURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role binding(restyError): %w", err)
 	}
@@ -88,6 +100,10 @@ func (s *RoleBindingService) ListRoleBindings(
 
 	if listSettings.continueToken != nil {
 		req.SetQueryParam("continue", *listSettings.continueToken)
+	}
+
+	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
 	}
 
 	res, err := req.Get(ListRoleBindingURL)

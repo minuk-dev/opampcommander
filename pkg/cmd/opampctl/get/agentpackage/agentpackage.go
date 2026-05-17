@@ -28,9 +28,10 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType    string
-	namespace     string
-	allNamespaces bool
+	formatType     string
+	includeDeleted bool
+	namespace      string
+	allNamespaces  bool
 
 	// internal
 	client *client.Client
@@ -57,6 +58,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
+	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted agent packages")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent package")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
@@ -100,15 +102,20 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agent packages.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
+	listOpts := []client.ListOption{}
+	if opt.includeDeleted {
+		listOpts = append(listOpts, client.WithIncludeDeleted(true))
+	}
+
 	var (
 		agentpackages []v1.AgentPackage
 		err           error
 	)
 
 	if opt.allNamespaces {
-		agentpackages, err = opt.listAllNamespaces(cmd)
+		agentpackages, err = opt.listAllNamespaces(cmd, listOpts...)
 	} else {
-		agentpackages, err = clientutil.ListAgentPackageFully(cmd.Context(), opt.client, opt.namespace)
+		agentpackages, err = clientutil.ListAgentPackageFully(cmd.Context(), opt.client, opt.namespace, listOpts...)
 	}
 
 	if err != nil {
@@ -135,8 +142,13 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 		Err          error
 	}
 
+	getOpts := []client.GetOption{}
+	if opt.includeDeleted {
+		getOpts = append(getOpts, client.WithGetIncludeDeleted(true))
+	}
+
 	agentPackagesWithErr := lo.Map(names, func(name string, _ int) AgentPackageWithErr {
-		agentPackage, err := opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), opt.namespace, name)
+		agentPackage, err := opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), opt.namespace, name, getOpts...)
 
 		return AgentPackageWithErr{
 			AgentPackage: agentPackage,
@@ -176,11 +188,13 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
 	return nil
 }
 
-func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.AgentPackage, error) {
+func (opt *CommandOptions) listAllNamespaces(
+	cmd *cobra.Command, listOpts ...client.ListOption,
+) ([]v1.AgentPackage, error) {
 	agentpackages, err := clientutil.ListAcrossNamespaces(
 		cmd.Context(), opt.client,
 		func(ctx context.Context, namespace string) ([]v1.AgentPackage, error) {
-			return clientutil.ListAgentPackageFully(ctx, opt.client, namespace)
+			return clientutil.ListAgentPackageFully(ctx, opt.client, namespace, listOpts...)
 		},
 	)
 	if err != nil {

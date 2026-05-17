@@ -1714,10 +1714,6 @@ paths:
         in: query
         name: continue
         type: string
-      - description: Include soft-deleted agents
-        in: query
-        name: includeDeleted
-        type: boolean
       produces:
       - application/json
       responses:
@@ -1841,10 +1837,6 @@ paths:
         in: query
         name: continue
         type: string
-      - description: Include soft-deleted agents
-        in: query
-        name: includeDeleted
-        type: boolean
       produces:
       - application/json
       responses:
@@ -2078,10 +2070,6 @@ paths:
         in: query
         name: continue
         type: string
-      - description: Include soft-deleted connections
-        in: query
-        name: includeDeleted
-        type: boolean
       produces:
       - application/json
       responses:

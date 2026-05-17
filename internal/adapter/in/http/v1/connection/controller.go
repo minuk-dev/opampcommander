@@ -61,7 +61,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of connections to return"
 // @Param continue query string false "Token to continue listing connections"
-// @Param includeDeleted query bool false "Include soft-deleted connections"
 // @Success 200 {object} v1.ListResponse[v1.Connection]
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/connections [get].
@@ -78,17 +77,10 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
-
-		return
-	}
-
 	response, err := c.adminUsecase.ListConnections(ctx.Request.Context(), namespace, &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
-		IncludeDeleted: includeDeleted,
+		IncludeDeleted: false,
 	})
 	if err != nil {
 		c.logger.Error("failed to list connections", "error", err.Error())

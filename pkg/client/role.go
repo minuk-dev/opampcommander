@@ -57,8 +57,8 @@ func (s *RoleService) ListRoles(
 }
 
 // GetRole retrieves a role by its UID.
-func (s *RoleService) GetRole(ctx context.Context, uid string) (*v1.Role, error) {
-	return getResource[v1.Role](ctx, s.service, GetRoleURL, uid)
+func (s *RoleService) GetRole(ctx context.Context, uid string, opts ...GetOption) (*v1.Role, error) {
+	return getResource[v1.Role](ctx, s.service, GetRoleURL, uid, opts...)
 }
 
 // CreateRole creates a new role.

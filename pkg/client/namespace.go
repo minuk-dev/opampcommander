@@ -35,9 +35,10 @@ func NewNamespaceService(service *service) *NamespaceService {
 func (s *NamespaceService) GetNamespace(
 	ctx context.Context,
 	name string,
+	opts ...GetOption,
 ) (*v1.Namespace, error) {
 	return getResource[v1.Namespace](
-		ctx, s.service, GetNamespaceURL, name,
+		ctx, s.service, GetNamespaceURL, name, opts...,
 	)
 }
 

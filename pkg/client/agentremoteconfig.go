@@ -39,15 +39,26 @@ func (s *AgentRemoteConfigService) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	opts ...GetOption,
 ) (*v1.AgentRemoteConfig, error) {
+	var getSettings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&getSettings)
+	}
+
 	var agentRemoteConfig v1.AgentRemoteConfig
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&agentRemoteConfig).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Get(GetAgentRemoteConfigURL)
+		SetPathParam("id", name)
+
+	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	res, err := req.Get(GetAgentRemoteConfigURL)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get agent remote config(restyError): %w", err,

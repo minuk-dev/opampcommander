@@ -39,15 +39,26 @@ func (s *CertificateService) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
+	opts ...GetOption,
 ) (*v1.Certificate, error) {
+	var getSettings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&getSettings)
+	}
+
 	var certificate v1.Certificate
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&certificate).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Get(GetCertificateURL)
+		SetPathParam("id", name)
+
+	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	res, err := req.Get(GetCertificateURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate(restyError): %w", err)
 	}
