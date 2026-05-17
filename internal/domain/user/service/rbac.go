@@ -63,7 +63,7 @@ func (s *RBACService) GetUserPermissions(
 	ctx context.Context,
 	userID uuid.UUID,
 ) ([]*usermodel.Permission, error) {
-	user, err := s.userPersistencePort.GetUser(ctx, userID)
+	user, err := s.userPersistencePort.GetUser(ctx, userID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}

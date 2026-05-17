@@ -170,7 +170,7 @@ func TestCertificateController_Get(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything).Return(cert, nil)
+	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(cert, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/"+testCertName, nil)
@@ -187,7 +187,8 @@ func TestCertificateController_Get_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
+	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/notfound", nil)
@@ -204,7 +205,7 @@ func TestCertificateController_Get_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/"+testCertName, nil)

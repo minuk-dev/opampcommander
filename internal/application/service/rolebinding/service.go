@@ -47,8 +47,9 @@ func New(
 func (s *Service) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
+	options *model.GetOptions,
 ) (*v1.RoleBinding, error) {
-	rb, err := s.roleBindingUsecase.GetRoleBinding(ctx, namespace, name)
+	rb, err := s.roleBindingUsecase.GetRoleBinding(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get role binding: %w", err)
 	}

@@ -40,26 +40,16 @@ func (s *UserService) ListUsers(
 	ctx context.Context,
 	opts ...ListOption,
 ) (*UserListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	return listResources[v1.User](
-		ctx,
-		s.service,
-		ListUserURL,
-		ListSettings{
-			limit:          listSettings.limit,
-			continueToken:  listSettings.continueToken,
-			includeDeleted: listSettings.includeDeleted,
-		},
+		ctx, s.service, ListUserURL, listSettings,
 	)
 }
 
 // GetUser retrieves a user by its UID.
-func (s *UserService) GetUser(ctx context.Context, uid string) (*v1.User, error) {
-	return getResource[v1.User](ctx, s.service, GetUserURL, uid)
+func (s *UserService) GetUser(ctx context.Context, uid string, opts ...GetOption) (*v1.User, error) {
+	return getResource[v1.User](ctx, s.service, GetUserURL, uid, opts...)
 }
 
 // CreateUser creates a new user.

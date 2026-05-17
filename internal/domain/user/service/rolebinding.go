@@ -34,8 +34,9 @@ func NewRoleBindingService(
 func (s *RoleBindingService) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
+	options *model.GetOptions,
 ) (*usermodel.RoleBinding, error) {
-	rb, err := s.roleBindingPersistencePort.GetRoleBinding(ctx, namespace, name)
+	rb, err := s.roleBindingPersistencePort.GetRoleBinding(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role binding from persistence: %w", err)
 	}

@@ -66,8 +66,9 @@ func NewNamespaceService(
 func (s *Service) GetNamespace(
 	ctx context.Context,
 	name string,
+	options *model.GetOptions,
 ) (*v1.Namespace, error) {
-	ns, err := s.namespaceUsecase.GetNamespace(ctx, name)
+	ns, err := s.namespaceUsecase.GetNamespace(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace: %w", err)
 	}
@@ -108,7 +109,7 @@ func (s *Service) CreateNamespace(
 ) (*v1.Namespace, error) {
 	name := apiModel.Metadata.Name
 
-	existing, getErr := s.namespaceUsecase.GetNamespace(ctx, name)
+	existing, getErr := s.namespaceUsecase.GetNamespace(ctx, name, nil)
 	if getErr == nil && existing != nil {
 		return nil, fmt.Errorf("%w: %s", ErrNamespaceAlreadyExists, name)
 	}
@@ -140,7 +141,7 @@ func (s *Service) UpdateNamespace(
 	name string,
 	apiModel *v1.Namespace,
 ) (*v1.Namespace, error) {
-	existing, err := s.namespaceUsecase.GetNamespace(ctx, name)
+	existing, err := s.namespaceUsecase.GetNamespace(ctx, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace for update: %w", err)
 	}

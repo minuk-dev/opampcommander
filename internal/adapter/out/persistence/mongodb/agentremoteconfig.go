@@ -62,9 +62,14 @@ func NewAgentRemoteConfigRepository(
 
 // GetAgentRemoteConfig implements agentport.AgentRemoteConfigPersistencePort.
 func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
-	ctx context.Context, namespace string, name string,
+	ctx context.Context, namespace string, name string, options *model.GetOptions,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	filter := a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = a.filterByNamespaceAndName(namespace, name)
+	} else {
+		filter = a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	}
 
 	result := a.collection.FindOne(ctx, filter)
 

@@ -1,10 +1,8 @@
-//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -43,10 +41,7 @@ func (s *AgentGroupService) GetAgentGroup(
 	name string,
 	opts ...GetOption,
 ) (*v1.AgentGroup, error) {
-	var getSettings GetSettings
-	for _, opt := range opts {
-		opt.Apply(&getSettings)
-	}
+	getSettings := newGetSettings(opts)
 
 	var agentGroup v1.AgentGroup
 
@@ -55,10 +50,7 @@ func (s *AgentGroupService) GetAgentGroup(
 		SetResult(&agentGroup).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name)
-
-	if getSettings.includeDeleted != nil && *getSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	getSettings.applyTo(req)
 
 	res, err := req.Get(GetAgentGroupURL)
 	if err != nil {
@@ -84,10 +76,7 @@ func (s *AgentGroupService) ListAgentGroups(
 	namespace string,
 	opts ...ListOption,
 ) (*AgentGroupListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var listResponse AgentGroupListResponse
 
@@ -95,18 +84,7 @@ func (s *AgentGroupService) ListAgentGroups(
 		SetContext(ctx).
 		SetResult(&listResponse).
 		SetPathParam("namespace", namespace)
-
-	if listSettings.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	listSettings.applyTo(req)
 
 	res, err := req.Get(ListAgentGroupURL)
 	if err != nil {
@@ -130,27 +108,16 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 	name string,
 	opts ...ListOption,
 ) (*AgentListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var listResponse AgentListResponse
 
 	req := s.service.Resty.R().
 		SetContext(ctx).
-		SetResult(&listResponse)
-
-	if listSettings.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	req.SetPathParam("namespace", namespace)
-	req.SetPathParam("name", name)
+		SetResult(&listResponse).
+		SetPathParam("namespace", namespace).
+		SetPathParam("name", name)
+	listSettings.applyTo(req)
 
 	res, err := req.Get(ListAgentsByAgentGroupURL)
 	if err != nil {

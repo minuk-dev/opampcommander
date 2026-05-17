@@ -31,8 +31,9 @@ func (m *MockCertificatePersistencePort) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.Certificate, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -107,9 +108,9 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 			Status: agentmodel.CertificateStatus{},
 		}
 
-		mockPort.On("GetCertificate", ctx, "default", "test-cert").Return(expectedCert, nil)
+		mockPort.On("GetCertificate", ctx, "default", "test-cert", (*model.GetOptions)(nil)).Return(expectedCert, nil)
 
-		cert, err := certService.GetCertificate(ctx, "default", "test-cert")
+		cert, err := certService.GetCertificate(ctx, "default", "test-cert", nil)
 
 		require.NoError(t, err)
 		assert.NotNil(t, cert)
@@ -127,9 +128,10 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 
 		certService := agentservice.NewCertificateService(mockPort, logger)
 
-		mockPort.On("GetCertificate", ctx, "default", "non-existent").Return(nil, port.ErrResourceNotExist)
+		mockPort.On("GetCertificate", ctx, "default", "non-existent", (*model.GetOptions)(nil)).
+			Return(nil, port.ErrResourceNotExist)
 
-		cert, err := certService.GetCertificate(ctx, "default", "non-existent")
+		cert, err := certService.GetCertificate(ctx, "default", "non-existent", nil)
 
 		require.Error(t, err)
 		assert.Nil(t, cert)
@@ -146,9 +148,10 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 
 		certService := agentservice.NewCertificateService(mockPort, logger)
 
-		mockPort.On("GetCertificate", ctx, "default", "test-cert").Return(nil, errCertificatePersistence)
+		mockPort.On("GetCertificate", ctx, "default", "test-cert", (*model.GetOptions)(nil)).
+			Return(nil, errCertificatePersistence)
 
-		cert, err := certService.GetCertificate(ctx, "default", "test-cert")
+		cert, err := certService.GetCertificate(ctx, "default", "test-cert", nil)
 
 		require.Error(t, err)
 		assert.Nil(t, cert)
@@ -381,7 +384,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 			},
 		}
 
-		mockPort.On("GetCertificate", ctx, "default", "cert-to-delete").Return(existingCert, nil)
+		mockPort.On("GetCertificate", ctx, "default", "cert-to-delete", (*model.GetOptions)(nil)).Return(existingCert, nil)
 		mockPort.On("PutCertificate", ctx, mock.AnythingOfType("*agentmodel.Certificate")).Return(updatedCert, nil)
 
 		cert, err := certService.DeleteCertificate(ctx, "default", "cert-to-delete", deletedAt, deletedBy)
@@ -400,7 +403,8 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 
 		certService := agentservice.NewCertificateService(mockPort, logger)
 
-		mockPort.On("GetCertificate", ctx, "default", "non-existent").Return(nil, port.ErrResourceNotExist)
+		mockPort.On("GetCertificate", ctx, "default", "non-existent", (*model.GetOptions)(nil)).
+			Return(nil, port.ErrResourceNotExist)
 
 		cert, err := certService.DeleteCertificate(ctx, "default", "non-existent", time.Now(), "admin")
 
@@ -425,7 +429,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 			Status:   agentmodel.CertificateStatus{Conditions: []model.Condition{}},
 		}
 
-		mockPort.On("GetCertificate", ctx, "default", "cert-to-delete").Return(existingCert, nil)
+		mockPort.On("GetCertificate", ctx, "default", "cert-to-delete", (*model.GetOptions)(nil)).Return(existingCert, nil)
 		mockPort.On(
 			"PutCertificate", ctx, mock.AnythingOfType("*agentmodel.Certificate"),
 		).Return(nil, errCertificatePersistence)

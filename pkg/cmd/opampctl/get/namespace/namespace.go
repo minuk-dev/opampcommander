@@ -22,8 +22,9 @@ var ErrCommandExecutionFailed = errors.New("command execution failed")
 type CommandOptions struct {
 	*config.GlobalConfig
 
-	formatType string
-	client     *client.Client
+	formatType     string
+	includeDeleted bool
+	client         *client.Client
 }
 
 // NewCommand creates a new namespace command.
@@ -44,6 +45,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVarP(
 		&options.formatType, "output", "o", "short",
 		"Output format (short, text, json, yaml)",
+	)
+	cmd.Flags().BoolVar(
+		&options.includeDeleted, "include-deleted", false,
+		"Include soft-deleted namespaces",
 	)
 
 	return cmd
@@ -84,8 +89,10 @@ func (opt *CommandOptions) Run(
 
 // List retrieves the list of namespaces.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
+	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+
 	resp, err := opt.client.NamespaceService.ListNamespaces(
-		cmd.Context(),
+		cmd.Context(), listOpts...,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to list namespaces: %w", err)
@@ -130,11 +137,13 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 func (opt *CommandOptions) Get( //nolint:funlen // CLI display logic requires branching
 	cmd *cobra.Command, names []string,
 ) error {
+	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
+
 	namespaces := make([]v1.Namespace, 0, len(names))
 
 	for _, name := range names {
 		result, err := opt.client.NamespaceService.GetNamespace(
-			cmd.Context(), name,
+			cmd.Context(), name, getOpts...,
 		)
 		if err != nil {
 			cmd.PrintErrf(

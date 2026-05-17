@@ -35,9 +35,10 @@ func NewNamespaceService(service *service) *NamespaceService {
 func (s *NamespaceService) GetNamespace(
 	ctx context.Context,
 	name string,
+	opts ...GetOption,
 ) (*v1.Namespace, error) {
 	return getResource[v1.Namespace](
-		ctx, s.service, GetNamespaceURL, name,
+		ctx, s.service, GetNamespaceURL, name, opts...,
 	)
 }
 
@@ -49,21 +50,10 @@ func (s *NamespaceService) ListNamespaces(
 	ctx context.Context,
 	opts ...ListOption,
 ) (*NamespaceListResponse, error) {
-	var listSettings ListSettings
-
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	return listResources[v1.Namespace](
-		ctx,
-		s.service,
-		ListNamespaceURL,
-		ListSettings{
-			limit:          listSettings.limit,
-			continueToken:  listSettings.continueToken,
-			includeDeleted: listSettings.includeDeleted,
-		},
+		ctx, s.service, ListNamespaceURL, listSettings,
 	)
 }
 

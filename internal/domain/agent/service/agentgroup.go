@@ -348,7 +348,7 @@ func (s *AgentGroupService) resolveRemoteConfig(
 	// Case 1: Reference to existing AgentRemoteConfig resource
 	if remoteConfig.AgentRemoteConfigRef != nil {
 		arc, err := s.remoteConfigPersistencePort.GetAgentRemoteConfig(
-			ctx, namespace, *remoteConfig.AgentRemoteConfigRef)
+			ctx, namespace, *remoteConfig.AgentRemoteConfigRef, nil)
 		if err != nil {
 			return agentmodel.AgentConfigFile{}, "", fmt.Errorf("get agent remote config %s: %w",
 				*remoteConfig.AgentRemoteConfigRef, err)
@@ -438,7 +438,7 @@ func (s *AgentGroupService) buildOpAMPConnection(
 	}
 
 	if conn.CertificateName != nil {
-		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName)
+		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
 		if err != nil {
 			logger.Warn("failed to get certificate for OpAMP connection",
 				slog.String("certificateName", *conn.CertificateName),
@@ -469,7 +469,7 @@ func (s *AgentGroupService) buildTelemetryConnection(
 	}
 
 	if conn.CertificateName != nil {
-		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName)
+		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
 		if err != nil {
 			logger.Warn("failed to get certificate for telemetry connection",
 				slog.String("certificateName", *conn.CertificateName),
@@ -500,7 +500,7 @@ func (s *AgentGroupService) buildOtherConnections(
 			}
 
 			if conn.CertificateName != nil {
-				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName)
+				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
 				if err != nil {
 					logger.Warn("failed to get certificate for other connection",
 						slog.String("certificateName", *conn.CertificateName),

@@ -22,7 +22,7 @@ func ensureDefaultNamespace(
 	logger *slog.Logger,
 ) error {
 	_, err := namespaceUsecase.GetNamespace(
-		ctx, agentmodel.DefaultNamespaceName,
+		ctx, agentmodel.DefaultNamespaceName, nil,
 	)
 	if err == nil {
 		return nil

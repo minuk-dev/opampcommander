@@ -30,8 +30,9 @@ func NewNamespaceService(
 func (s *NamespaceService) GetNamespace(
 	ctx context.Context,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.Namespace, error) {
-	namespace, err := s.persistence.GetNamespace(ctx, name)
+	namespace, err := s.persistence.GetNamespace(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get namespace: %w", err)
 	}
@@ -72,7 +73,7 @@ func (s *NamespaceService) DeleteNamespace(
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	namespace, err := s.persistence.GetNamespace(ctx, name)
+	namespace, err := s.persistence.GetNamespace(ctx, name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get namespace for deletion: %w", err)
 	}

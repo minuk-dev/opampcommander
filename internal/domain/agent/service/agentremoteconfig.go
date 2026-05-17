@@ -29,8 +29,9 @@ func (s *AgentRemoteConfigService) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name)
+	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent remote config: %w", err)
 	}
@@ -78,7 +79,7 @@ func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name)
+	resource, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get agent remote config for deletion: %w", err)
 	}

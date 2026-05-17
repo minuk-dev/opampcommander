@@ -1,9 +1,9 @@
+//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -38,15 +38,20 @@ func (s *RoleBindingService) GetRoleBinding(
 	ctx context.Context,
 	namespace string,
 	name string,
+	opts ...GetOption,
 ) (*v1.RoleBinding, error) {
+	getSettings := newGetSettings(opts)
+
 	var roleBinding v1.RoleBinding
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&roleBinding).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Get(GetRoleBindingURL)
+		SetPathParam("id", name)
+	getSettings.applyTo(req)
+
+	res, err := req.Get(GetRoleBindingURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role binding(restyError): %w", err)
 	}
@@ -70,10 +75,7 @@ func (s *RoleBindingService) ListRoleBindings(
 	namespace string,
 	opts ...ListOption,
 ) (*RoleBindingListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var listResponse RoleBindingListResponse
 
@@ -81,14 +83,7 @@ func (s *RoleBindingService) ListRoleBindings(
 		SetContext(ctx).
 		SetResult(&listResponse).
 		SetPathParam("namespace", namespace)
-
-	if listSettings.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
+	listSettings.applyTo(req)
 
 	res, err := req.Get(ListRoleBindingURL)
 	if err != nil {

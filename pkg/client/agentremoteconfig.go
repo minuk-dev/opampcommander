@@ -4,7 +4,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -39,15 +38,20 @@ func (s *AgentRemoteConfigService) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	opts ...GetOption,
 ) (*v1.AgentRemoteConfig, error) {
+	getSettings := newGetSettings(opts)
+
 	var agentRemoteConfig v1.AgentRemoteConfig
 
-	res, err := s.service.Resty.R().
+	req := s.service.Resty.R().
 		SetContext(ctx).
 		SetResult(&agentRemoteConfig).
 		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Get(GetAgentRemoteConfigURL)
+		SetPathParam("id", name)
+	getSettings.applyTo(req)
+
+	res, err := req.Get(GetAgentRemoteConfigURL)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"failed to get agent remote config(restyError): %w", err,
@@ -76,10 +80,7 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 	namespace string,
 	opts ...ListOption,
 ) (*AgentRemoteConfigListResponse, error) {
-	var listSettings ListSettings
-	for _, opt := range opts {
-		opt.Apply(&listSettings)
-	}
+	listSettings := newListSettings(opts)
 
 	var listResponse AgentRemoteConfigListResponse
 
@@ -87,18 +88,7 @@ func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 		SetContext(ctx).
 		SetResult(&listResponse).
 		SetPathParam("namespace", namespace)
-
-	if listSettings.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*listSettings.limit))
-	}
-
-	if listSettings.continueToken != nil {
-		req.SetQueryParam("continue", *listSettings.continueToken)
-	}
-
-	if listSettings.includeDeleted != nil && *listSettings.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	listSettings.applyTo(req)
 
 	res, err := req.Get(ListAgentRemoteConfigURL)
 	if err != nil {

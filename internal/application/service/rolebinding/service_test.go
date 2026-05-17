@@ -53,8 +53,9 @@ var _ userport.RoleBindingUsecase = (*mockRoleBindingUsecase)(nil)
 func (m *mockRoleBindingUsecase) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
+	options *model.GetOptions,
 ) (*usermodel.RoleBinding, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -135,8 +136,12 @@ type mockRoleUsecase struct {
 
 var _ userport.RoleUsecase = (*mockRoleUsecase)(nil)
 
-func (m *mockRoleUsecase) GetRole(ctx context.Context, uid uuid.UUID) (*usermodel.Role, error) {
-	args := m.Called(ctx, uid)
+func (m *mockRoleUsecase) GetRole(
+	ctx context.Context,
+	uid uuid.UUID,
+	options *model.GetOptions,
+) (*usermodel.Role, error) {
+	args := m.Called(ctx, uid, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -222,9 +227,9 @@ func TestService_GetRoleBinding(t *testing.T) {
 		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		rb := newRB()
-		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
+		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding", (*model.GetOptions)(nil)).Return(rb, nil)
 
-		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding")
+		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding", nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, "production", result.Metadata.Namespace)
@@ -240,10 +245,10 @@ func TestService_GetRoleBinding(t *testing.T) {
 		mockRole := new(mockRoleUsecase)
 		svc := newSvc(t, mockRBUsecase, mockRole)
 
-		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding").
+		mockRBUsecase.On("GetRoleBinding", ctx, "production", "viewer-binding", (*model.GetOptions)(nil)).
 			Return(nil, errMock)
 
-		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding")
+		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding", nil)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

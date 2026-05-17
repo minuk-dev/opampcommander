@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -143,14 +142,24 @@ func (c *Client) SetVerbose(verbose bool) {
 	c.common.Resty.SetDebug(verbose)
 }
 
-func getResource[T any](ctx context.Context, c *service, url string, id string) (*T, error) {
+func getResource[T any](
+	ctx context.Context,
+	svc *service,
+	url string,
+	id string,
+	opts ...GetOption,
+) (*T, error) {
+	getSettings := newGetSettings(opts)
+
 	var result T
 
-	res, err := c.Resty.R().
+	req := svc.Resty.R().
 		SetContext(ctx).
 		SetPathParam("id", id).
-		SetResult(&result).
-		Get(url)
+		SetResult(&result)
+	getSettings.applyTo(req)
+
+	res, err := req.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get resource: %w", err)
 	}
@@ -180,18 +189,7 @@ func listResources[T any](
 	req := service.Resty.R().
 		SetContext(ctx).
 		SetResult(&listResponse)
-
-	if option.limit != nil {
-		req.SetQueryParam("limit", strconv.Itoa(*option.limit))
-	}
-
-	if option.continueToken != nil {
-		req.SetQueryParam("continue", *option.continueToken)
-	}
-
-	if option.includeDeleted != nil && *option.includeDeleted {
-		req.SetQueryParam("includeDeleted", "true")
-	}
+	option.applyTo(req)
 
 	res, err := req.Get(url)
 	if err != nil {

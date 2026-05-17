@@ -50,9 +50,9 @@ func NewNamespaceRepository(
 
 // GetNamespace implements agentport.NamespacePersistencePort.
 func (a *NamespaceMongoAdapter) GetNamespace(
-	ctx context.Context, name string,
+	ctx context.Context, name string, options *model.GetOptions,
 ) (*agentmodel.Namespace, error) {
-	namespaceEntity, err := a.common.get(ctx, name, nil)
+	namespaceEntity, err := a.common.get(ctx, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get namespace: %w", err)
 	}

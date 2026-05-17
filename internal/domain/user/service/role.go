@@ -1,4 +1,3 @@
-//nolint:dupl // Service pattern - similar structure is intentional.
 package userservice
 
 import (
@@ -40,8 +39,9 @@ func NewRoleService(
 func (s *RoleService) GetRole(
 	ctx context.Context,
 	uid uuid.UUID,
+	options *model.GetOptions,
 ) (*usermodel.Role, error) {
-	role, err := s.rolePersistencePort.GetRole(ctx, uid)
+	role, err := s.rolePersistencePort.GetRole(ctx, uid, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from persistence: %w", err)
 	}
@@ -93,7 +93,7 @@ func (s *RoleService) DeleteRole(
 	ctx context.Context,
 	uid uuid.UUID,
 ) error {
-	role, err := s.rolePersistencePort.GetRole(ctx, uid)
+	role, err := s.rolePersistencePort.GetRole(ctx, uid, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get role from persistence: %w", err)
 	}

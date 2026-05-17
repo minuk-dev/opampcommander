@@ -1,4 +1,3 @@
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
@@ -55,9 +54,9 @@ func NewRoleRepository(
 
 // GetRole implements userport.RolePersistencePort.
 func (a *RoleMongoAdapter) GetRole(
-	ctx context.Context, uid uuid.UUID,
+	ctx context.Context, uid uuid.UUID, options *model.GetOptions,
 ) (*usermodel.Role, error) {
-	en, err := a.common.get(ctx, uid.String(), nil)
+	en, err := a.common.get(ctx, uid.String(), options)
 	if err != nil {
 		return nil, fmt.Errorf("get role: %w", err)
 	}

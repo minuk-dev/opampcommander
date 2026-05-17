@@ -153,7 +153,7 @@ func TestRoleBindingController_Get(t *testing.T) {
 		},
 		Status: v1.RoleBindingStatus{},
 	}
-	usecase.EXPECT().GetRoleBinding(mock.Anything, mock.Anything, mock.Anything).Return(rb, nil)
+	usecase.EXPECT().GetRoleBinding(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(rb, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
@@ -174,7 +174,7 @@ func TestRoleBindingController_Get_NotFound(t *testing.T) {
 	router := ctrlBase.Router
 
 	usecase.EXPECT().
-		GetRoleBinding(mock.Anything, mock.Anything, mock.Anything).
+		GetRoleBinding(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
@@ -196,7 +196,7 @@ func TestRoleBindingController_Get_InternalError(t *testing.T) {
 	router := ctrlBase.Router
 
 	usecase.EXPECT().
-		GetRoleBinding(mock.Anything, mock.Anything, mock.Anything).
+		GetRoleBinding(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()

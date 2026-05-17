@@ -62,8 +62,14 @@ func NewRoleBindingRepository(
 func (a *RoleBindingMongoAdapter) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
+	options *model.GetOptions,
 ) (*usermodel.RoleBinding, error) {
-	filter := a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = a.filterByNamespaceAndName(namespace, name)
+	} else {
+		filter = a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	}
 
 	result := a.common.collection.FindOne(ctx, filter)
 
@@ -106,7 +112,7 @@ func (a *RoleBindingMongoAdapter) PutRoleBinding(
 		return roleBinding, nil
 	}
 
-	return a.GetRoleBinding(ctx, roleBinding.Metadata.Namespace, roleBinding.Metadata.Name)
+	return a.GetRoleBinding(ctx, roleBinding.Metadata.Namespace, roleBinding.Metadata.Name, nil)
 }
 
 // ListRoleBindings implements userport.RoleBindingPersistencePort.

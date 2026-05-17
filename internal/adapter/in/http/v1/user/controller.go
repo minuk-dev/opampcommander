@@ -80,6 +80,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {object} v1.ListResponse[v1.User]
 // @Param limit query int false "Maximum number of users to return"
 // @Param continue query string false "Token to continue listing users"
+// @Param includeDeleted query bool false "Include soft-deleted users"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/users [get].
@@ -93,10 +94,17 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
 	response, err := c.userUsecase.ListUsers(ctx.Request.Context(), &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
-		IncludeDeleted: false,
+		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
 		c.logger.Error("failed to list users", "error", err.Error())
@@ -116,6 +124,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Accept  json
 // @Produce  json
 // @Param  id path string true "UID of the user"
+// @Param  includeDeleted query bool false "Include soft-deleted user"
 // @Success  200 {object} User
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
@@ -129,7 +138,16 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userUsecase.GetUser(ctx.Request.Context(), uid)
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	user, err := c.userUsecase.GetUser(ctx.Request.Context(), uid, &model.GetOptions{
+		IncludeDeleted: includeDeleted,
+	})
 	if err != nil {
 		c.logger.Error("failed to get user", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the user.")

@@ -2,6 +2,10 @@ package client
 
 import (
 	"log/slog"
+	"strconv"
+
+	"github.com/go-resty/resty/v2"
+	"github.com/samber/mo"
 
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 )
@@ -66,12 +70,11 @@ type ListOption interface {
 
 // ListSettings holds the settings for listing resources.
 type ListSettings struct {
-	// how many items to return
-	// specially, if this is set to 0, it will return all items
+	// limit caps the number of items returned; nil means no client-side limit.
 	limit *int
-	// continue token for pagination
+	// continueToken paginates the request; nil means start from the beginning.
 	continueToken *string
-	// include deleted resources
+	// includeDeleted asks the server to include soft-deleted resources.
 	includeDeleted *bool
 }
 
@@ -115,7 +118,7 @@ type GetOption interface {
 
 // GetSettings holds the settings for getting a single resource.
 type GetSettings struct {
-	// include deleted resources
+	// includeDeleted asks the server to return the resource even if it is soft-deleted.
 	includeDeleted *bool
 }
 
@@ -132,4 +135,47 @@ func WithGetIncludeDeleted(includeDeleted bool) GetOption {
 	return GetOptionFunc(func(opt *GetSettings) {
 		opt.includeDeleted = &includeDeleted
 	})
+}
+
+// applyTo writes the present settings onto the given Resty request as query parameters.
+// Absent options leave the request untouched.
+func (s ListSettings) applyTo(req *resty.Request) {
+	mo.PointerToOption(s.limit).ForEach(func(v int) {
+		req.SetQueryParam("limit", strconv.Itoa(v))
+	})
+	mo.PointerToOption(s.continueToken).ForEach(func(v string) {
+		req.SetQueryParam("continue", v)
+	})
+
+	if mo.PointerToOption(s.includeDeleted).OrElse(false) {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+}
+
+// applyTo writes the present settings onto the given Resty request as query parameters.
+// Absent options leave the request untouched.
+func (s GetSettings) applyTo(req *resty.Request) {
+	if mo.PointerToOption(s.includeDeleted).OrElse(false) {
+		req.SetQueryParam("includeDeleted", "true")
+	}
+}
+
+// newListSettings folds the given ListOptions into a single ListSettings value.
+func newListSettings(opts []ListOption) ListSettings {
+	var settings ListSettings
+	for _, opt := range opts {
+		opt.Apply(&settings)
+	}
+
+	return settings
+}
+
+// newGetSettings folds the given GetOptions into a single GetSettings value.
+func newGetSettings(opts []GetOption) GetSettings {
+	var settings GetSettings
+	for _, opt := range opts {
+		opt.Apply(&settings)
+	}
+
+	return settings
 }

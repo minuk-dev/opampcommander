@@ -77,6 +77,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {object} v1.ListResponse[v1.Role]
 // @Param limit query int false "Maximum number of roles to return"
 // @Param continue query string false "Token to continue listing roles"
+// @Param includeDeleted query bool false "Include soft-deleted roles"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/roles [get].
@@ -90,10 +91,17 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
 	response, err := c.roleUsecase.ListRoles(ctx.Request.Context(), &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
-		IncludeDeleted: false,
+		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
 		c.logger.Error("failed to list roles", "error", err.Error())
@@ -113,6 +121,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Accept  json
 // @Produce  json
 // @Param  id path string true "UID of the role"
+// @Param  includeDeleted query bool false "Include soft-deleted role"
 // @Success  200 {object} Role
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
@@ -126,7 +135,16 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	role, err := c.roleUsecase.GetRole(ctx.Request.Context(), uid)
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	role, err := c.roleUsecase.GetRole(ctx.Request.Context(), uid, &model.GetOptions{
+		IncludeDeleted: includeDeleted,
+	})
 	if err != nil {
 		c.logger.Error("failed to get role", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the role.")

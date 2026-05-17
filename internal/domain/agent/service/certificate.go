@@ -35,8 +35,9 @@ func (c *CertificateService) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.Certificate, error) {
-	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, namespace, name)
+	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate from persistence: %w", err)
 	}
@@ -78,7 +79,7 @@ func (c *CertificateService) DeleteCertificate(
 	deletedAt time.Time,
 	deletedBy string,
 ) (*agentmodel.Certificate, error) {
-	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, namespace, name)
+	certificate, err := c.certificatePersistencePort.GetCertificate(ctx, namespace, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate from persistence: %w", err)
 	}

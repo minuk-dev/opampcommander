@@ -32,8 +32,9 @@ var _ userport.RoleBindingPersistencePort = (*mockRoleBindingPersistencePort)(ni
 func (m *mockRoleBindingPersistencePort) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
+	options *model.GetOptions,
 ) (*usermodel.RoleBinding, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -107,9 +108,9 @@ func TestRoleBindingService_GetRoleBinding(t *testing.T) {
 			return rb
 		}()
 
-		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding").Return(rb, nil)
+		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding", (*model.GetOptions)(nil)).Return(rb, nil)
 
-		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding")
+		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding", nil)
 
 		require.NoError(t, err)
 		assert.Equal(t, rb, result)
@@ -124,10 +125,10 @@ func TestRoleBindingService_GetRoleBinding(t *testing.T) {
 		mockPort := new(mockRoleBindingPersistencePort)
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
-		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding").
+		mockPort.On("GetRoleBinding", ctx, "production", "viewer-binding", (*model.GetOptions)(nil)).
 			Return(nil, errRoleBindingPersistence)
 
-		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding")
+		result, err := svc.GetRoleBinding(ctx, "production", "viewer-binding", nil)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

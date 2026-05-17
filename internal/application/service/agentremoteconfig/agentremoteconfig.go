@@ -49,9 +49,10 @@ func (s *Service) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*v1.AgentRemoteConfig, error) {
 	config, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(
-		ctx, namespace, name,
+		ctx, namespace, name, options,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get agent remote config: %w", err)
@@ -139,7 +140,7 @@ func (s *Service) UpdateAgentRemoteConfig(
 	apiModel *v1.AgentRemoteConfig,
 ) (*v1.AgentRemoteConfig, error) {
 	existing, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(
-		ctx, namespace, name,
+		ctx, namespace, name, nil,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get existing agent remote config: %w", err)

@@ -53,7 +53,8 @@ type AgentNotificationUsecase interface {
 // NamespaceUsecase is an interface that defines the methods for namespace use cases.
 type NamespaceUsecase interface {
 	// GetNamespace retrieves a namespace by its name.
-	GetNamespace(ctx context.Context, name string) (*agentmodel.Namespace, error)
+	GetNamespace(ctx context.Context, name string,
+		options *model.GetOptions) (*agentmodel.Namespace, error)
 	// ListNamespaces lists all namespaces.
 	ListNamespaces(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Namespace], error)
@@ -69,7 +70,7 @@ type NamespaceUsecase interface {
 type AgentPackageUsecase interface {
 	// GetAgentPackage retrieves an agent package by its namespace and name.
 	GetAgentPackage(ctx context.Context, namespace string,
-		name string) (*agentmodel.AgentPackage, error)
+		name string, options *model.GetOptions) (*agentmodel.AgentPackage, error)
 	// ListAgentPackages lists all agent packages.
 	ListAgentPackages(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentPackage], error)
@@ -85,7 +86,7 @@ type AgentPackageUsecase interface {
 type AgentRemoteConfigUsecase interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its namespace and name.
 	GetAgentRemoteConfig(ctx context.Context, namespace string,
-		name string) (*agentmodel.AgentRemoteConfig, error)
+		name string, options *model.GetOptions) (*agentmodel.AgentRemoteConfig, error)
 	// ListAgentRemoteConfigs lists all agent remote configs.
 	ListAgentRemoteConfigs(
 		ctx context.Context, options *model.ListOptions,
@@ -131,7 +132,7 @@ type AgentGroupRelatedUsecase interface {
 // CertificateUsecase defines the interface for certificate use cases.
 type CertificateUsecase interface {
 	GetCertificate(ctx context.Context, namespace string,
-		name string) (*agentmodel.Certificate, error)
+		name string, options *model.GetOptions) (*agentmodel.Certificate, error)
 	SaveCertificate(ctx context.Context,
 		certificate *agentmodel.Certificate) (*agentmodel.Certificate, error)
 	ListCertificate(ctx context.Context,

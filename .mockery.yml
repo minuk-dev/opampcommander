@@ -18,6 +18,15 @@ packages:
   github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup:
     config:
       all: true
+  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentpackage:
+    config:
+      all: true
+  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/certificate:
+    config:
+      all: true
   github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rolebinding:
+    config:
+      all: true
+  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user:
     config:
       all: true

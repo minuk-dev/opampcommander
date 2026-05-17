@@ -59,6 +59,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Accept  json
 // @Produce json
 // @Param namespace path string true "Namespace"
+// @Param limit query int false "Maximum number of connections to return"
+// @Param continue query string false "Token to continue listing connections"
 // @Success 200 {object} v1.ListResponse[v1.Connection]
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/connections [get].

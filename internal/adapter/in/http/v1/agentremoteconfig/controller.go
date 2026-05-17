@@ -82,11 +82,20 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false,
+		)
+
+		return
+	}
+
 	response, err := c.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
 		ctx.Request.Context(), &model.ListOptions{
 			Limit:          limit,
 			Continue:       continueToken,
-			IncludeDeleted: false,
+			IncludeDeleted: includeDeleted,
 		},
 	)
 	if err != nil {
@@ -124,8 +133,19 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false,
+		)
+
+		return
+	}
+
 	config, err := c.agentRemoteConfigUsecase.GetAgentRemoteConfig(
-		ctx.Request.Context(), namespace, name,
+		ctx.Request.Context(), namespace, name, &model.GetOptions{
+			IncludeDeleted: includeDeleted,
+		},
 	)
 	if err != nil {
 		c.logger.Error(

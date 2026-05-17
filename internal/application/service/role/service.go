@@ -37,8 +37,8 @@ func New(roleUsecase userport.RoleUsecase, logger *slog.Logger) *Service {
 }
 
 // GetRole implements [applicationport.RoleManageUsecase].
-func (s *Service) GetRole(ctx context.Context, uid uuid.UUID) (*v1.Role, error) {
-	role, err := s.roleUsecase.GetRole(ctx, uid)
+func (s *Service) GetRole(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.Role, error) {
+	role, err := s.roleUsecase.GetRole(ctx, uid, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
@@ -86,7 +86,7 @@ func (s *Service) CreateRole(ctx context.Context, apiRole *v1.Role) (*v1.Role, e
 
 // UpdateRole implements [applicationport.RoleManageUsecase].
 func (s *Service) UpdateRole(ctx context.Context, uid uuid.UUID, apiRole *v1.Role) (*v1.Role, error) {
-	existing, err := s.roleUsecase.GetRole(ctx, uid)
+	existing, err := s.roleUsecase.GetRole(ctx, uid, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}

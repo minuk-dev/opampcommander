@@ -49,8 +49,9 @@ func (a *Service) GetAgentPackage(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*v1.AgentPackage, error) {
-	agentPackage, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name)
+	agentPackage, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get agent package: %w", err)
 	}
@@ -114,7 +115,7 @@ func (a *Service) UpdateAgentPackage(
 	name string,
 	agentPackage *v1.AgentPackage,
 ) (*v1.AgentPackage, error) {
-	existingDomainModel, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name)
+	existingDomainModel, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get existing agent package: %w", err)
 	}

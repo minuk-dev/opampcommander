@@ -178,7 +178,7 @@ func TestAgentPackageController_Get(t *testing.T) {
 			},
 		},
 	}
-	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(agentPkg, nil)
+	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(agentPkg, nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL+"/pkg1", nil)
@@ -195,7 +195,8 @@ func TestAgentPackageController_Get_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil, port.ErrResourceNotExist)
+	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, port.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL+"/notfound", nil)
@@ -212,7 +213,8 @@ func TestAgentPackageController_Get_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil, assert.AnError)
+	usecase.EXPECT().GetAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(nil, assert.AnError)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL+"/pkg1", nil)

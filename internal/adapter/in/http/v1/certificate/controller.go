@@ -78,6 +78,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of certificates to return"
 // @Param continue query string false "Token to continue listing certificates"
+// @Param includeDeleted query bool false "Include soft-deleted certificates"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/certificates [get].
@@ -91,10 +92,17 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
 	response, err := c.certificateUsecase.ListCertificates(ctx.Request.Context(), &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
-		IncludeDeleted: false,
+		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
 		c.logger.Error("failed to list certificates", "error", err.Error())
@@ -114,6 +122,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Success 200 {object} v1.Certificate
 // @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the certificate"
+// @Param includeDeleted query bool false "Include soft-deleted certificate"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
@@ -133,7 +142,16 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	certificate, err := c.certificateUsecase.GetCertificate(ctx.Request.Context(), namespace, name)
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	certificate, err := c.certificateUsecase.GetCertificate(ctx.Request.Context(), namespace, name, &model.GetOptions{
+		IncludeDeleted: includeDeleted,
+	})
 	if err != nil {
 		c.logger.Error("failed to get certificate", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the certificate.")

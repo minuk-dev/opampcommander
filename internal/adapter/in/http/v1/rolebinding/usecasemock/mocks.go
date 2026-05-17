@@ -7,7 +7,7 @@ package usecasemock
 import (
 	"context"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -39,48 +39,105 @@ func (_m *MockUsecase) EXPECT() *MockUsecase_Expecter {
 	return &MockUsecase_Expecter{mock: &_m.Mock}
 }
 
-// GetRoleBinding provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetRoleBinding(ctx context.Context, namespace string, name string) (*v1.RoleBinding, error) {
-	ret := _mock.Called(ctx, namespace, name)
+// CreateRoleBinding provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) CreateRoleBinding(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error) {
+	ret := _mock.Called(ctx, rb)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetRoleBinding")
+		panic("no return value specified for CreateRoleBinding")
 	}
 
 	var r0 *v1.RoleBinding
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*v1.RoleBinding, error)); ok {
-		return returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1.RoleBinding) (*v1.RoleBinding, error)); ok {
+		return returnFunc(ctx, rb)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *v1.RoleBinding); ok {
-		r0 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1.RoleBinding) *v1.RoleBinding); ok {
+		r0 = returnFunc(ctx, rb)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.RoleBinding)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1.RoleBinding) error); ok {
+		r1 = returnFunc(ctx, rb)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockUsecase_GetRoleBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRoleBinding'
-type MockUsecase_GetRoleBinding_Call struct {
+// MockUsecase_CreateRoleBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateRoleBinding'
+type MockUsecase_CreateRoleBinding_Call struct {
 	*mock.Call
 }
 
-// GetRoleBinding is a helper method to define mock.On call
+// CreateRoleBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - rb *v1.RoleBinding
+func (_e *MockUsecase_Expecter) CreateRoleBinding(ctx interface{}, rb interface{}) *MockUsecase_CreateRoleBinding_Call {
+	return &MockUsecase_CreateRoleBinding_Call{Call: _e.mock.On("CreateRoleBinding", ctx, rb)}
+}
+
+func (_c *MockUsecase_CreateRoleBinding_Call) Run(run func(ctx context.Context, rb *v1.RoleBinding)) *MockUsecase_CreateRoleBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *v1.RoleBinding
+		if args[1] != nil {
+			arg1 = args[1].(*v1.RoleBinding)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_CreateRoleBinding_Call) Return(roleBinding *v1.RoleBinding, err error) *MockUsecase_CreateRoleBinding_Call {
+	_c.Call.Return(roleBinding, err)
+	return _c
+}
+
+func (_c *MockUsecase_CreateRoleBinding_Call) RunAndReturn(run func(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error)) *MockUsecase_CreateRoleBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteRoleBinding provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) DeleteRoleBinding(ctx context.Context, namespace string, name string) error {
+	ret := _mock.Called(ctx, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteRoleBinding")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUsecase_DeleteRoleBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteRoleBinding'
+type MockUsecase_DeleteRoleBinding_Call struct {
+	*mock.Call
+}
+
+// DeleteRoleBinding is a helper method to define mock.On call
 //   - ctx context.Context
 //   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) GetRoleBinding(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_GetRoleBinding_Call {
-	return &MockUsecase_GetRoleBinding_Call{Call: _e.mock.On("GetRoleBinding", ctx, namespace, name)}
+func (_e *MockUsecase_Expecter) DeleteRoleBinding(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteRoleBinding_Call {
+	return &MockUsecase_DeleteRoleBinding_Call{Call: _e.mock.On("DeleteRoleBinding", ctx, namespace, name)}
 }
 
-func (_c *MockUsecase_GetRoleBinding_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_GetRoleBinding_Call {
+func (_c *MockUsecase_DeleteRoleBinding_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteRoleBinding_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -103,12 +160,92 @@ func (_c *MockUsecase_GetRoleBinding_Call) Run(run func(ctx context.Context, nam
 	return _c
 }
 
-func (_c *MockUsecase_GetRoleBinding_Call) Return(rb *v1.RoleBinding, err error) *MockUsecase_GetRoleBinding_Call {
-	_c.Call.Return(rb, err)
+func (_c *MockUsecase_DeleteRoleBinding_Call) Return(err error) *MockUsecase_DeleteRoleBinding_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockUsecase_GetRoleBinding_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) (*v1.RoleBinding, error)) *MockUsecase_GetRoleBinding_Call {
+func (_c *MockUsecase_DeleteRoleBinding_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteRoleBinding_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRoleBinding provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) GetRoleBinding(ctx context.Context, namespace string, name string, options *model.GetOptions) (*v1.RoleBinding, error) {
+	ret := _mock.Called(ctx, namespace, name, options)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRoleBinding")
+	}
+
+	var r0 *v1.RoleBinding
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.GetOptions) (*v1.RoleBinding, error)); ok {
+		return returnFunc(ctx, namespace, name, options)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.GetOptions) *v1.RoleBinding); ok {
+		r0 = returnFunc(ctx, namespace, name, options)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.RoleBinding)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *model.GetOptions) error); ok {
+		r1 = returnFunc(ctx, namespace, name, options)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_GetRoleBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRoleBinding'
+type MockUsecase_GetRoleBinding_Call struct {
+	*mock.Call
+}
+
+// GetRoleBinding is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - name string
+//   - options *model.GetOptions
+func (_e *MockUsecase_Expecter) GetRoleBinding(ctx interface{}, namespace interface{}, name interface{}, options interface{}) *MockUsecase_GetRoleBinding_Call {
+	return &MockUsecase_GetRoleBinding_Call{Call: _e.mock.On("GetRoleBinding", ctx, namespace, name, options)}
+}
+
+func (_c *MockUsecase_GetRoleBinding_Call) Run(run func(ctx context.Context, namespace string, name string, options *model.GetOptions)) *MockUsecase_GetRoleBinding_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 *model.GetOptions
+		if args[3] != nil {
+			arg3 = args[3].(*model.GetOptions)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_GetRoleBinding_Call) Return(roleBinding *v1.RoleBinding, err error) *MockUsecase_GetRoleBinding_Call {
+	_c.Call.Return(roleBinding, err)
+	return _c
+}
+
+func (_c *MockUsecase_GetRoleBinding_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, options *model.GetOptions) (*v1.RoleBinding, error)) *MockUsecase_GetRoleBinding_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -171,80 +308,12 @@ func (_c *MockUsecase_ListRoleBindings_Call) Run(run func(ctx context.Context, o
 	return _c
 }
 
-func (_c *MockUsecase_ListRoleBindings_Call) Return(v *v1.ListResponse[v1.RoleBinding], err error) *MockUsecase_ListRoleBindings_Call {
-	_c.Call.Return(v, err)
+func (_c *MockUsecase_ListRoleBindings_Call) Return(listResponse *v1.ListResponse[v1.RoleBinding], err error) *MockUsecase_ListRoleBindings_Call {
+	_c.Call.Return(listResponse, err)
 	return _c
 }
 
 func (_c *MockUsecase_ListRoleBindings_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.RoleBinding], error)) *MockUsecase_ListRoleBindings_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// CreateRoleBinding provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) CreateRoleBinding(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error) {
-	ret := _mock.Called(ctx, rb)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CreateRoleBinding")
-	}
-
-	var r0 *v1.RoleBinding
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1.RoleBinding) (*v1.RoleBinding, error)); ok {
-		return returnFunc(ctx, rb)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *v1.RoleBinding) *v1.RoleBinding); ok {
-		r0 = returnFunc(ctx, rb)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.RoleBinding)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *v1.RoleBinding) error); ok {
-		r1 = returnFunc(ctx, rb)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockUsecase_CreateRoleBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CreateRoleBinding'
-type MockUsecase_CreateRoleBinding_Call struct {
-	*mock.Call
-}
-
-// CreateRoleBinding is a helper method to define mock.On call
-//   - ctx context.Context
-//   - rb *v1.RoleBinding
-func (_e *MockUsecase_Expecter) CreateRoleBinding(ctx interface{}, rb interface{}) *MockUsecase_CreateRoleBinding_Call {
-	return &MockUsecase_CreateRoleBinding_Call{Call: _e.mock.On("CreateRoleBinding", ctx, rb)}
-}
-
-func (_c *MockUsecase_CreateRoleBinding_Call) Run(run func(ctx context.Context, rb *v1.RoleBinding)) *MockUsecase_CreateRoleBinding_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *v1.RoleBinding
-		if args[1] != nil {
-			arg1 = args[1].(*v1.RoleBinding)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockUsecase_CreateRoleBinding_Call) Return(rb *v1.RoleBinding, err error) *MockUsecase_CreateRoleBinding_Call {
-	_c.Call.Return(rb, err)
-	return _c
-}
-
-func (_c *MockUsecase_CreateRoleBinding_Call) RunAndReturn(run func(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error)) *MockUsecase_CreateRoleBinding_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -319,75 +388,12 @@ func (_c *MockUsecase_UpdateRoleBinding_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *MockUsecase_UpdateRoleBinding_Call) Return(rb *v1.RoleBinding, err error) *MockUsecase_UpdateRoleBinding_Call {
-	_c.Call.Return(rb, err)
+func (_c *MockUsecase_UpdateRoleBinding_Call) Return(roleBinding *v1.RoleBinding, err error) *MockUsecase_UpdateRoleBinding_Call {
+	_c.Call.Return(roleBinding, err)
 	return _c
 }
 
 func (_c *MockUsecase_UpdateRoleBinding_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, rb *v1.RoleBinding) (*v1.RoleBinding, error)) *MockUsecase_UpdateRoleBinding_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// DeleteRoleBinding provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteRoleBinding(ctx context.Context, namespace string, name string) error {
-	ret := _mock.Called(ctx, namespace, name)
-
-	if len(ret) == 0 {
-		panic("no return value specified for DeleteRoleBinding")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = returnFunc(ctx, namespace, name)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockUsecase_DeleteRoleBinding_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteRoleBinding'
-type MockUsecase_DeleteRoleBinding_Call struct {
-	*mock.Call
-}
-
-// DeleteRoleBinding is a helper method to define mock.On call
-//   - ctx context.Context
-//   - namespace string
-//   - name string
-func (_e *MockUsecase_Expecter) DeleteRoleBinding(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteRoleBinding_Call {
-	return &MockUsecase_DeleteRoleBinding_Call{Call: _e.mock.On("DeleteRoleBinding", ctx, namespace, name)}
-}
-
-func (_c *MockUsecase_DeleteRoleBinding_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteRoleBinding_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockUsecase_DeleteRoleBinding_Call) Return(err error) *MockUsecase_DeleteRoleBinding_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockUsecase_DeleteRoleBinding_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteRoleBinding_Call {
 	_c.Call.Return(run)
 	return _c
 }
