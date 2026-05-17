@@ -1,4 +1,3 @@
-//nolint:dupl // Service pattern - similar structure is intentional.
 package userservice
 
 import (

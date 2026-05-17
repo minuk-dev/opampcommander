@@ -73,6 +73,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {object} v1.ListResponse[v1.RoleBinding]
 // @Param limit query int false "Maximum number of role bindings to return"
 // @Param continue query string false "Token to continue listing"
+// @Param includeDeleted query bool false "Include soft-deleted role bindings"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/rolebindings [get].
@@ -86,10 +87,17 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
 	response, err := c.usecase.ListRoleBindings(ctx.Request.Context(), &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
-		IncludeDeleted: false,
+		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
 		c.logger.Error("failed to list role bindings", "error", err.Error())
@@ -111,6 +119,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Success 200 {object} v1.RoleBinding
 // @Param namespace path string true "Namespace"
 // @Param name path string true "RoleBinding Name"
+// @Param includeDeleted query bool false "Include soft-deleted role binding"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
@@ -130,7 +139,16 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	roleBinding, err := c.usecase.GetRoleBinding(ctx.Request.Context(), namespace, name)
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	roleBinding, err := c.usecase.GetRoleBinding(ctx.Request.Context(), namespace, name, &model.GetOptions{
+		IncludeDeleted: includeDeleted,
+	})
 	if err != nil {
 		c.logger.Error("failed to get role binding", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the role binding.")

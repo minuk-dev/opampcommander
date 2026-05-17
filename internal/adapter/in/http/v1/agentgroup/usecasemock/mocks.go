@@ -7,7 +7,7 @@ package usecasemock
 import (
 	"context"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -97,8 +97,8 @@ func (_c *MockUsecase_CreateAgentGroup_Call) Run(run func(ctx context.Context, a
 	return _c
 }
 
-func (_c *MockUsecase_CreateAgentGroup_Call) Return(agentGroup *v1.AgentGroup, err error) *MockUsecase_CreateAgentGroup_Call {
-	_c.Call.Return(agentGroup, err)
+func (_c *MockUsecase_CreateAgentGroup_Call) Return(agentGroup1 *v1.AgentGroup, err error) *MockUsecase_CreateAgentGroup_Call {
+	_c.Call.Return(agentGroup1, err)
 	return _c
 }
 
@@ -308,8 +308,8 @@ func (_c *MockUsecase_ListAgentGroups_Call) Run(run func(ctx context.Context, op
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentGroups_Call) Return(v *v1.ListResponse[v1.AgentGroup], err error) *MockUsecase_ListAgentGroups_Call {
-	_c.Call.Return(v, err)
+func (_c *MockUsecase_ListAgentGroups_Call) Return(listResponse *v1.ListResponse[v1.AgentGroup], err error) *MockUsecase_ListAgentGroups_Call {
+	_c.Call.Return(listResponse, err)
 	return _c
 }
 
@@ -388,8 +388,8 @@ func (_c *MockUsecase_ListAgentsByAgentGroup_Call) Run(run func(ctx context.Cont
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentsByAgentGroup_Call) Return(v *v1.ListResponse[v1.Agent], err error) *MockUsecase_ListAgentsByAgentGroup_Call {
-	_c.Call.Return(v, err)
+func (_c *MockUsecase_ListAgentsByAgentGroup_Call) Return(listResponse *v1.ListResponse[v1.Agent], err error) *MockUsecase_ListAgentsByAgentGroup_Call {
+	_c.Call.Return(listResponse, err)
 	return _c
 }
 

@@ -63,9 +63,14 @@ func NewAgentPackageRepository(
 
 // GetAgentPackage implements agentport.AgentPackagePersistencePort.
 func (a *AgentPackageMongoAdapter) GetAgentPackage(
-	ctx context.Context, namespace string, name string,
+	ctx context.Context, namespace string, name string, options *model.GetOptions,
 ) (*agentmodel.AgentPackage, error) {
-	filter := a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = a.filterByNamespaceAndName(namespace, name)
+	} else {
+		filter = a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	}
 
 	result := a.collection.FindOne(ctx, filter)
 

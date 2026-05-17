@@ -1516,6 +1516,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted agent packages
+        in: query
+        name: includeDeleted
+        type: boolean
       responses:
         "200":
           description: OK
@@ -1618,6 +1622,10 @@ paths:
         name: name
         required: true
         type: string
+      - description: Include soft-deleted agent package
+        in: query
+        name: includeDeleted
+        type: boolean
       responses:
         "200":
           description: OK
@@ -1706,6 +1714,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted agents
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1829,6 +1841,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted agents
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1864,6 +1880,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted certificates
+        in: query
+        name: includeDeleted
+        type: boolean
       responses:
         "200":
           description: OK
@@ -1966,6 +1986,10 @@ paths:
         name: name
         required: true
         type: string
+      - description: Include soft-deleted certificate
+        in: query
+        name: includeDeleted
+        type: boolean
       responses:
         "200":
           description: OK
@@ -2046,6 +2070,18 @@ paths:
         name: namespace
         required: true
         type: string
+      - description: Maximum number of connections to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing connections
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted connections
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2073,6 +2109,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted role bindings
+        in: query
+        name: includeDeleted
+        type: boolean
       responses:
         "200":
           description: OK
@@ -2177,6 +2217,10 @@ paths:
         name: name
         required: true
         type: string
+      - description: Include soft-deleted role binding
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2282,6 +2326,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted roles
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2366,6 +2414,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Include soft-deleted role
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2460,6 +2512,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Include soft-deleted users
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2544,6 +2600,10 @@ paths:
         name: id
         required: true
         type: string
+      - description: Include soft-deleted user
+        in: query
+        name: includeDeleted
+        type: boolean
       produces:
       - application/json
       responses:

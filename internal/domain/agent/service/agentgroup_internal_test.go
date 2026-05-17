@@ -181,8 +181,9 @@ func (m *mockRemoteConfigPersistence) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -238,8 +239,9 @@ func (m *mockCertPersistence) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.Certificate, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -314,7 +316,8 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 			},
 		}
 
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(referencedConfig, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
+			Return(referencedConfig, nil)
 
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigRef: &refName,
@@ -342,7 +345,8 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
 
 		refName := "non-existent-config"
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(nil, errRemoteConfigNotFound)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
+			Return(nil, errRemoteConfigNotFound)
 
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigRef: &refName,
@@ -480,7 +484,8 @@ func TestApplyRemoteConfigs(t *testing.T) {
 			},
 		}
 
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(referencedConfig, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
+			Return(referencedConfig, nil)
 
 		err := svc.applyRemoteConfigs(ctx, agentGroup, testAgent)
 
@@ -661,7 +666,8 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName).Return(referencedConfig, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
+			Return(referencedConfig, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap[refName]
 

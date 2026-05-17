@@ -12,7 +12,7 @@ import (
 // UserUsecase is an interface that defines the methods for user use cases.
 type UserUsecase interface {
 	// GetUser retrieves a user by their UID.
-	GetUser(ctx context.Context, uid uuid.UUID) (*usermodel.User, error)
+	GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*usermodel.User, error)
 	// GetUserByEmail retrieves a user by their email.
 	GetUserByEmail(ctx context.Context, email string) (*usermodel.User, error)
 	// ListUsers lists all users.
@@ -26,7 +26,7 @@ type UserUsecase interface {
 // RoleUsecase is an interface that defines the methods for role use cases.
 type RoleUsecase interface {
 	// GetRole retrieves a role by its UID.
-	GetRole(ctx context.Context, uid uuid.UUID) (*usermodel.Role, error)
+	GetRole(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*usermodel.Role, error)
 	// GetRoleByName retrieves a role by its display name.
 	GetRoleByName(ctx context.Context, displayName string) (*usermodel.Role, error)
 	// ListRoles lists all roles.
@@ -83,7 +83,8 @@ type RBACUsecase interface {
 // RoleBindingUsecase is an interface that defines the methods for role binding use cases.
 type RoleBindingUsecase interface {
 	// GetRoleBinding retrieves a role binding by namespace and name.
-	GetRoleBinding(ctx context.Context, namespace, name string) (*usermodel.RoleBinding, error)
+	GetRoleBinding(ctx context.Context, namespace, name string,
+		options *model.GetOptions) (*usermodel.RoleBinding, error)
 	// ListRoleBindings lists all role bindings.
 	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
 	// CreateRoleBinding creates a new role binding.

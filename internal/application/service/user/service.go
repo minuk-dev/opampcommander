@@ -50,8 +50,8 @@ func New(
 }
 
 // GetUser implements [applicationport.UserManageUsecase].
-func (s *Service) GetUser(ctx context.Context, uid uuid.UUID) (*v1.User, error) {
-	user, err := s.userUsecase.GetUser(ctx, uid)
+func (s *Service) GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.User, error) {
+	user, err := s.userUsecase.GetUser(ctx, uid, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -188,7 +188,7 @@ func (s *Service) resolveRole(ctx context.Context, raw string) (*usermodel.Role,
 		return nil, fmt.Errorf("invalid role UID %q: %w", raw, err)
 	}
 
-	role, err := s.roleUsecase.GetRole(ctx, uid)
+	role, err := s.roleUsecase.GetRole(ctx, uid, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get role by UID: %w", err)
 	}

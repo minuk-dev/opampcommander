@@ -49,8 +49,9 @@ func (s *Service) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*v1.Certificate, error) {
-	certificate, err := s.certificateUsecase.GetCertificate(ctx, namespace, name)
+	certificate, err := s.certificateUsecase.GetCertificate(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("get certificate: %w", err)
 	}
@@ -123,7 +124,7 @@ func (s *Service) UpdateCertificate(
 	name string,
 	certificate *v1.Certificate,
 ) (*v1.Certificate, error) {
-	existingDomainModel, err := s.certificateUsecase.GetCertificate(ctx, namespace, name)
+	existingDomainModel, err := s.certificateUsecase.GetCertificate(ctx, namespace, name, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get existing certificate: %w", err)
 	}

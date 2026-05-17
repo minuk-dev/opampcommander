@@ -7,7 +7,7 @@ package usecasemock
 import (
 	"context"
 
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -97,8 +97,8 @@ func (_c *MockUsecase_CreateCertificate_Call) Run(run func(ctx context.Context, 
 	return _c
 }
 
-func (_c *MockUsecase_CreateCertificate_Call) Return(certificate *v1.Certificate, err error) *MockUsecase_CreateCertificate_Call {
-	_c.Call.Return(certificate, err)
+func (_c *MockUsecase_CreateCertificate_Call) Return(certificate1 *v1.Certificate, err error) *MockUsecase_CreateCertificate_Call {
+	_c.Call.Return(certificate1, err)
 	return _c
 }
 
@@ -171,8 +171,8 @@ func (_c *MockUsecase_DeleteCertificate_Call) RunAndReturn(run func(ctx context.
 }
 
 // GetCertificate provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetCertificate(ctx context.Context, namespace string, name string) (*v1.Certificate, error) {
-	ret := _mock.Called(ctx, namespace, name)
+func (_mock *MockUsecase) GetCertificate(ctx context.Context, namespace string, name string, options *model.GetOptions) (*v1.Certificate, error) {
+	ret := _mock.Called(ctx, namespace, name, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCertificate")
@@ -180,18 +180,18 @@ func (_mock *MockUsecase) GetCertificate(ctx context.Context, namespace string, 
 
 	var r0 *v1.Certificate
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (*v1.Certificate, error)); ok {
-		return returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.GetOptions) (*v1.Certificate, error)); ok {
+		return returnFunc(ctx, namespace, name, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) *v1.Certificate); ok {
-		r0 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.GetOptions) *v1.Certificate); ok {
+		r0 = returnFunc(ctx, namespace, name, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.Certificate)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *model.GetOptions) error); ok {
+		r1 = returnFunc(ctx, namespace, name, options)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -207,11 +207,12 @@ type MockUsecase_GetCertificate_Call struct {
 //   - ctx context.Context
 //   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) GetCertificate(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_GetCertificate_Call {
-	return &MockUsecase_GetCertificate_Call{Call: _e.mock.On("GetCertificate", ctx, namespace, name)}
+//   - options *model.GetOptions
+func (_e *MockUsecase_Expecter) GetCertificate(ctx interface{}, namespace interface{}, name interface{}, options interface{}) *MockUsecase_GetCertificate_Call {
+	return &MockUsecase_GetCertificate_Call{Call: _e.mock.On("GetCertificate", ctx, namespace, name, options)}
 }
 
-func (_c *MockUsecase_GetCertificate_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_GetCertificate_Call {
+func (_c *MockUsecase_GetCertificate_Call) Run(run func(ctx context.Context, namespace string, name string, options *model.GetOptions)) *MockUsecase_GetCertificate_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -225,10 +226,15 @@ func (_c *MockUsecase_GetCertificate_Call) Run(run func(ctx context.Context, nam
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 *model.GetOptions
+		if args[3] != nil {
+			arg3 = args[3].(*model.GetOptions)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -239,7 +245,7 @@ func (_c *MockUsecase_GetCertificate_Call) Return(certificate *v1.Certificate, e
 	return _c
 }
 
-func (_c *MockUsecase_GetCertificate_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) (*v1.Certificate, error)) *MockUsecase_GetCertificate_Call {
+func (_c *MockUsecase_GetCertificate_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, options *model.GetOptions) (*v1.Certificate, error)) *MockUsecase_GetCertificate_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -302,8 +308,8 @@ func (_c *MockUsecase_ListCertificates_Call) Run(run func(ctx context.Context, o
 	return _c
 }
 
-func (_c *MockUsecase_ListCertificates_Call) Return(v *v1.ListResponse[v1.Certificate], err error) *MockUsecase_ListCertificates_Call {
-	_c.Call.Return(v, err)
+func (_c *MockUsecase_ListCertificates_Call) Return(listResponse *v1.ListResponse[v1.Certificate], err error) *MockUsecase_ListCertificates_Call {
+	_c.Call.Return(listResponse, err)
 	return _c
 }
 

@@ -589,6 +589,12 @@ const docTemplate = `{
                         "description": "Token to continue listing agent packages",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent packages",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -689,6 +695,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent package",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -870,6 +882,12 @@ const docTemplate = `{
                         "description": "Token to continue listing agents",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agents",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -932,6 +950,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Token to continue listing agents",
                         "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agents",
+                        "name": "includeDeleted",
                         "in": "query"
                     }
                 ],
@@ -1104,6 +1128,12 @@ const docTemplate = `{
                         "description": "Token to continue listing certificates",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted certificates",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1204,6 +1234,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted certificate",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1373,6 +1409,24 @@ const docTemplate = `{
                         "name": "namespace",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of connections to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing connections",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted connections",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1410,6 +1464,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Token to continue listing",
                         "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted role bindings",
+                        "name": "includeDeleted",
                         "in": "query"
                     }
                 ],
@@ -1517,6 +1577,12 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted role binding",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1721,6 +1787,12 @@ const docTemplate = `{
                         "description": "Token to continue listing roles",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted roles",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1809,6 +1881,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted role",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1990,6 +2068,12 @@ const docTemplate = `{
                         "description": "Token to continue listing users",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted users",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2113,6 +2197,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted user",
+                        "name": "includeDeleted",
+                        "in": "query"
                     }
                 ],
                 "responses": {

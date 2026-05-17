@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -104,8 +104,8 @@ func (_c *MockManageUsecase_GetAgent_Call) Run(run func(ctx context.Context, nam
 	return _c
 }
 
-func (_c *MockManageUsecase_GetAgent_Call) Return(agent1 *v1.Agent, err error) *MockManageUsecase_GetAgent_Call {
-	_c.Call.Return(agent1, err)
+func (_c *MockManageUsecase_GetAgent_Call) Return(agent *v1.Agent, err error) *MockManageUsecase_GetAgent_Call {
+	_c.Call.Return(agent, err)
 	return _c
 }
 
@@ -178,8 +178,8 @@ func (_c *MockManageUsecase_ListAgents_Call) Run(run func(ctx context.Context, n
 	return _c
 }
 
-func (_c *MockManageUsecase_ListAgents_Call) Return(v *v1.ListResponse[v1.Agent], err error) *MockManageUsecase_ListAgents_Call {
-	_c.Call.Return(v, err)
+func (_c *MockManageUsecase_ListAgents_Call) Return(listResponse *v1.ListResponse[v1.Agent], err error) *MockManageUsecase_ListAgents_Call {
+	_c.Call.Return(listResponse, err)
 	return _c
 }
 
@@ -187,8 +187,6 @@ func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.C
 	_c.Call.Return(run)
 	return _c
 }
-
-
 
 // SearchAgents provides a mock function for the type MockManageUsecase
 func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, namespace string, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error) {
@@ -260,8 +258,8 @@ func (_c *MockManageUsecase_SearchAgents_Call) Run(run func(ctx context.Context,
 	return _c
 }
 
-func (_c *MockManageUsecase_SearchAgents_Call) Return(v *v1.ListResponse[v1.Agent], err error) *MockManageUsecase_SearchAgents_Call {
-	_c.Call.Return(v, err)
+func (_c *MockManageUsecase_SearchAgents_Call) Return(listResponse *v1.ListResponse[v1.Agent], err error) *MockManageUsecase_SearchAgents_Call {
+	_c.Call.Return(listResponse, err)
 	return _c
 }
 
@@ -269,8 +267,6 @@ func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context
 	_c.Call.Return(run)
 	return _c
 }
-
-
 
 // UpdateAgent provides a mock function for the type MockManageUsecase
 func (_mock *MockManageUsecase) UpdateAgent(ctx context.Context, namespace string, instanceUID uuid.UUID, agent *v1.Agent) (*v1.Agent, error) {

@@ -191,8 +191,9 @@ func (m *MockAgentRemoteConfigPersistencePort) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.AgentRemoteConfig, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -248,8 +249,9 @@ func (m *MockCertificatePersistencePortForGroup) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.Certificate, error) {
-	args := m.Called(ctx, namespace, name)
+	args := m.Called(ctx, namespace, name, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}

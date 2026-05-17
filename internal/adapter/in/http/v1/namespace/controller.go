@@ -79,12 +79,21 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false,
+		)
+
+		return
+	}
+
 	response, err := c.namespaceUsecase.ListNamespaces(
 		ctx.Request.Context(),
 		&model.ListOptions{
 			Limit:          limit,
 			Continue:       continueToken,
-			IncludeDeleted: false,
+			IncludeDeleted: includeDeleted,
 		},
 	)
 	if err != nil {
@@ -114,8 +123,19 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false,
+		)
+
+		return
+	}
+
 	namespace, err := c.namespaceUsecase.GetNamespace(
-		ctx.Request.Context(), name,
+		ctx.Request.Context(), name, &model.GetOptions{
+			IncludeDeleted: includeDeleted,
+		},
 	)
 	if err != nil {
 		c.logger.Error(

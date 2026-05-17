@@ -35,8 +35,9 @@ func NewUserService(
 func (s *UserService) GetUser(
 	ctx context.Context,
 	uid uuid.UUID,
+	options *model.GetOptions,
 ) (*usermodel.User, error) {
-	user, err := s.userPersistencePort.GetUser(ctx, uid)
+	user, err := s.userPersistencePort.GetUser(ctx, uid, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user from persistence: %w", err)
 	}

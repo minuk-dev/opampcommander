@@ -78,6 +78,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of agent packages to return"
 // @Param continue query string false "Token to continue listing agent packages"
+// @Param includeDeleted query bool false "Include soft-deleted agent packages"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentpackages [get].
@@ -91,10 +92,17 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
 	response, err := c.agentpackageUsecase.ListAgentPackages(ctx.Request.Context(), &model.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
-		IncludeDeleted: false,
+		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agent packages", "error", err.Error())
@@ -114,6 +122,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Success 200 {object} v1.AgentPackage
 // @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the agent package"
+// @Param includeDeleted query bool false "Include soft-deleted agent package"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
@@ -133,7 +142,16 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agentPackage, err := c.agentpackageUsecase.GetAgentPackage(ctx.Request.Context(), namespace, name)
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	agentPackage, err := c.agentpackageUsecase.GetAgentPackage(ctx.Request.Context(), namespace, name, &model.GetOptions{
+		IncludeDeleted: includeDeleted,
+	})
 	if err != nil {
 		c.logger.Error("failed to get agent package", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent package.")

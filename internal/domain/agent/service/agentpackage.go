@@ -29,8 +29,9 @@ func (s *AgentPackageService) GetAgentPackage(
 	ctx context.Context,
 	namespace string,
 	name string,
+	options *model.GetOptions,
 ) (*agentmodel.AgentPackage, error) {
-	agentPackage, err := s.persistence.GetAgentPackage(ctx, namespace, name)
+	agentPackage, err := s.persistence.GetAgentPackage(ctx, namespace, name, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent package: %w", err)
 	}
@@ -72,7 +73,7 @@ func (s *AgentPackageService) DeleteAgentPackage(
 	deletedAt time.Time,
 	deletedBy string,
 ) error {
-	agentPackage, err := s.persistence.GetAgentPackage(ctx, namespace, name)
+	agentPackage, err := s.persistence.GetAgentPackage(ctx, namespace, name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get agent package for deletion: %w", err)
 	}

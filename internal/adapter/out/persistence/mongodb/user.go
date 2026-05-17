@@ -58,9 +58,9 @@ func NewUserRepository(
 
 // GetUser implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) GetUser(
-	ctx context.Context, uid uuid.UUID,
+	ctx context.Context, uid uuid.UUID, options *model.GetOptions,
 ) (*usermodel.User, error) {
-	en, err := a.common.get(ctx, uid.String(), nil)
+	en, err := a.common.get(ctx, uid.String(), options)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}

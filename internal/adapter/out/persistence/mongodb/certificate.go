@@ -62,9 +62,14 @@ func NewCertificateRepository(
 
 // GetCertificate implements agentport.CertificatePersistencePort.
 func (c *CertificateMongoAdapter) GetCertificate(
-	ctx context.Context, namespace string, name string,
+	ctx context.Context, namespace string, name string, options *model.GetOptions,
 ) (*agentmodel.Certificate, error) {
-	filter := c.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = c.filterByNamespaceAndName(namespace, name)
+	} else {
+		filter = c.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	}
 
 	result := c.collection.FindOne(ctx, filter)
 

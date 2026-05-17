@@ -48,7 +48,8 @@ type ServerEventReceiverPort interface {
 // NamespacePersistencePort is an interface that defines the methods for namespace persistence.
 type NamespacePersistencePort interface {
 	// GetNamespace retrieves a namespace by its name.
-	GetNamespace(ctx context.Context, name string) (*agentmodel.Namespace, error)
+	GetNamespace(ctx context.Context, name string,
+		options *model.GetOptions) (*agentmodel.Namespace, error)
 	// PutNamespace saves or updates a namespace.
 	PutNamespace(ctx context.Context,
 		namespace *agentmodel.Namespace) (*agentmodel.Namespace, error)
@@ -84,7 +85,7 @@ type ServerPersistencePort interface {
 type AgentPackagePersistencePort interface {
 	// GetAgentPackage retrieves an agent package by its namespace and name.
 	GetAgentPackage(ctx context.Context, namespace string,
-		name string) (*agentmodel.AgentPackage, error)
+		name string, options *model.GetOptions) (*agentmodel.AgentPackage, error)
 	// PutAgentPackage saves or updates an agent package.
 	PutAgentPackage(ctx context.Context,
 		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
@@ -97,7 +98,7 @@ type AgentPackagePersistencePort interface {
 type AgentRemoteConfigPersistencePort interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its namespace and name.
 	GetAgentRemoteConfig(ctx context.Context, namespace string,
-		name string) (*agentmodel.AgentRemoteConfig, error)
+		name string, options *model.GetOptions) (*agentmodel.AgentRemoteConfig, error)
 	// PutAgentRemoteConfig saves or updates an agent remote config.
 	PutAgentRemoteConfig(
 		ctx context.Context,
@@ -113,7 +114,7 @@ type AgentRemoteConfigPersistencePort interface {
 // CertificatePersistencePort is an interface that defines the methods for certificate config persistence.
 type CertificatePersistencePort interface {
 	GetCertificate(ctx context.Context, namespace string,
-		name string) (*agentmodel.Certificate, error)
+		name string, options *model.GetOptions) (*agentmodel.Certificate, error)
 	PutCertificate(ctx context.Context,
 		certificate *agentmodel.Certificate) (*agentmodel.Certificate, error)
 	ListCertificate(ctx context.Context,

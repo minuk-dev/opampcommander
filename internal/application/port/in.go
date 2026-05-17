@@ -32,7 +32,8 @@ type AdminUsecase interface {
 
 // NamespaceManageUsecase is a use case that handles namespace management operations.
 type NamespaceManageUsecase interface {
-	GetNamespace(ctx context.Context, name string) (*v1.Namespace, error)
+	GetNamespace(ctx context.Context, name string,
+		options *model.GetOptions) (*v1.Namespace, error)
 	ListNamespaces(ctx context.Context,
 		options *model.ListOptions) (*v1.ListResponse[v1.Namespace], error)
 	CreateNamespace(ctx context.Context,
@@ -44,7 +45,8 @@ type NamespaceManageUsecase interface {
 
 // AgentPackageManageUsecase is a use case that handles agent package operations.
 type AgentPackageManageUsecase interface {
-	GetAgentPackage(ctx context.Context, namespace string, name string) (*v1.AgentPackage, error)
+	GetAgentPackage(ctx context.Context, namespace string, name string,
+		options *model.GetOptions) (*v1.AgentPackage, error)
 	ListAgentPackages(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)
 	CreateAgentPackage(ctx context.Context, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
 	UpdateAgentPackage(ctx context.Context, namespace string, name string,
@@ -82,7 +84,8 @@ type AgentGroupManageUsecase interface {
 
 // CertificateManageUsecase is a use case that handles certificate management operations.
 type CertificateManageUsecase interface {
-	GetCertificate(ctx context.Context, namespace string, name string) (*v1.Certificate, error)
+	GetCertificate(ctx context.Context, namespace string, name string,
+		options *model.GetOptions) (*v1.Certificate, error)
 	ListCertificates(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Certificate], error)
 	CreateCertificate(ctx context.Context, certificate *v1.Certificate) (*v1.Certificate, error)
 	UpdateCertificate(ctx context.Context, namespace string, name string,
@@ -93,7 +96,7 @@ type CertificateManageUsecase interface {
 // AgentRemoteConfigManageUsecase is a use case that handles agent remote config management operations.
 type AgentRemoteConfigManageUsecase interface {
 	GetAgentRemoteConfig(ctx context.Context, namespace string,
-		name string) (*v1.AgentRemoteConfig, error)
+		name string, options *model.GetOptions) (*v1.AgentRemoteConfig, error)
 	ListAgentRemoteConfigs(ctx context.Context,
 		options *model.ListOptions) (*v1.ListResponse[v1.AgentRemoteConfig], error)
 	CreateAgentRemoteConfig(ctx context.Context,
@@ -105,7 +108,7 @@ type AgentRemoteConfigManageUsecase interface {
 
 // UserManageUsecase is a use case that handles user management operations.
 type UserManageUsecase interface {
-	GetUser(ctx context.Context, uid uuid.UUID) (*v1.User, error)
+	GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*v1.User, error)
 	ListUsers(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.User], error)
 	CreateUser(ctx context.Context, user *v1.User) (*v1.User, error)
@@ -115,7 +118,7 @@ type UserManageUsecase interface {
 
 // RoleManageUsecase is a use case that handles role management operations.
 type RoleManageUsecase interface {
-	GetRole(ctx context.Context, uid uuid.UUID) (*v1.Role, error)
+	GetRole(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.Role, error)
 	ListRoles(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Role], error)
 	CreateRole(ctx context.Context, role *v1.Role) (*v1.Role, error)
 	UpdateRole(ctx context.Context, uid uuid.UUID, role *v1.Role) (*v1.Role, error)
@@ -124,7 +127,8 @@ type RoleManageUsecase interface {
 
 // RoleBindingManageUsecase is a use case that handles RoleBinding management operations.
 type RoleBindingManageUsecase interface {
-	GetRoleBinding(ctx context.Context, namespace, name string) (*v1.RoleBinding, error)
+	GetRoleBinding(ctx context.Context, namespace, name string,
+		options *model.GetOptions) (*v1.RoleBinding, error)
 	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.RoleBinding], error)
 	CreateRoleBinding(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error)
 	UpdateRoleBinding(ctx context.Context, namespace, name string, rb *v1.RoleBinding) (*v1.RoleBinding, error)

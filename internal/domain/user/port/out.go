@@ -12,7 +12,7 @@ import (
 // UserPersistencePort is an interface that defines the methods for user persistence.
 type UserPersistencePort interface {
 	// GetUser retrieves a user by their UID.
-	GetUser(ctx context.Context, uid uuid.UUID) (*usermodel.User, error)
+	GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*usermodel.User, error)
 	// GetUserByEmail retrieves a user by their email.
 	GetUserByEmail(ctx context.Context, email string) (*usermodel.User, error)
 	// PutUser saves or updates a user.
@@ -26,7 +26,7 @@ type UserPersistencePort interface {
 // RolePersistencePort is an interface that defines the methods for role persistence.
 type RolePersistencePort interface {
 	// GetRole retrieves a role by its UID.
-	GetRole(ctx context.Context, uid uuid.UUID) (*usermodel.Role, error)
+	GetRole(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*usermodel.Role, error)
 	// GetRoleByName retrieves a role by its display name.
 	GetRoleByName(ctx context.Context, displayName string) (*usermodel.Role, error)
 	// PutRole saves or updates a role.
@@ -79,7 +79,8 @@ type UserRolePersistencePort interface {
 // RoleBindingPersistencePort is an interface that defines the methods for role binding persistence.
 type RoleBindingPersistencePort interface {
 	// GetRoleBinding retrieves a role binding by namespace and name.
-	GetRoleBinding(ctx context.Context, namespace, name string) (*usermodel.RoleBinding, error)
+	GetRoleBinding(ctx context.Context, namespace, name string,
+		options *model.GetOptions) (*usermodel.RoleBinding, error)
 	// PutRoleBinding saves or updates a role binding.
 	PutRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
 	// ListRoleBindings retrieves a list of role bindings with pagination options.
