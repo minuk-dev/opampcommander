@@ -28,6 +28,14 @@ const (
 	// DefaultHTTPReadTimeout is the default timeout for reading HTTP requests.
 	// It should be set to a reasonable value to avoid security issues.
 	DefaultHTTPReadTimeout = 30 * time.Second
+
+	// DefaultHTTPIdleTimeout is how long a keep-alive connection stays open
+	// between requests. It must be longer than the OpAMP HTTP client's poll
+	// interval (default 30s) — otherwise the server can close an idle
+	// keep-alive connection exactly as the client tries to reuse it, which
+	// surfaces as `Post ... : EOF` on the agent. When unset, net/http falls
+	// back to ReadTimeout, which produces that exact race.
+	DefaultHTTPIdleTimeout = 120 * time.Second
 )
 
 var (
@@ -46,6 +54,7 @@ func NewHTTPServer(
 	//exhaustruct:ignore
 	srv := &http.Server{
 		ReadTimeout: DefaultHTTPReadTimeout,
+		IdleTimeout: DefaultHTTPIdleTimeout,
 		Addr:        settings.Address,
 		Handler:     engine,
 		ConnContext: connContext,
