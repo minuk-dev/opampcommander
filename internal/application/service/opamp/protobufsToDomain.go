@@ -92,6 +92,10 @@ func healthToDomain(health *protobufs.ComponentHealth) *agentmodel.AgentComponen
 }
 
 func effectiveConfigToDomain(effectiveConfig *protobufs.EffectiveConfig) *agentmodel.AgentEffectiveConfig {
+	if effectiveConfig == nil {
+		return nil
+	}
+
 	configMap := make(map[string]agentmodel.AgentConfigFile, len(effectiveConfig.GetConfigMap().GetConfigMap()))
 	for key, value := range effectiveConfig.GetConfigMap().GetConfigMap() {
 		configMap[key] = agentmodel.AgentConfigFile{
@@ -108,6 +112,10 @@ func effectiveConfigToDomain(effectiveConfig *protobufs.EffectiveConfig) *agentm
 }
 
 func packageStatusToDomain(packageStatuses *protobufs.PackageStatuses) *agentmodel.AgentPackageStatuses {
+	if packageStatuses == nil {
+		return nil
+	}
+
 	packages := make(map[string]agentmodel.AgentPackageStatusEntry, len(packageStatuses.GetPackages()))
 	for key, value := range packageStatuses.GetPackages() {
 		packages[key] = agentmodel.AgentPackageStatusEntry{
@@ -130,6 +138,10 @@ func packageStatusToDomain(packageStatuses *protobufs.PackageStatuses) *agentmod
 func availableComponentsToDomain(
 	availableComponents *protobufs.AvailableComponents,
 ) *agentmodel.AgentAvailableComponents {
+	if availableComponents == nil {
+		return nil
+	}
+
 	components := make(map[string]agentmodel.ComponentDetails, len(availableComponents.GetComponents()))
 	for key, value := range availableComponents.GetComponents() {
 		components[key] = componentDetailsToDomain(value)
