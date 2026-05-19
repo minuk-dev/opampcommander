@@ -350,6 +350,9 @@ const (
 	AgentConditionTypeConfigured AgentConditionType = "Configured"
 	// AgentConditionTypeRegistered represents the condition when the agent has been registered.
 	AgentConditionTypeRegistered AgentConditionType = "Registered"
+	// AgentConditionTypeInstanceUIDConflict records that another agent attempted to use this
+	// agent's instanceUID and was redirected to a freshly issued one.
+	AgentConditionTypeInstanceUIDConflict AgentConditionType = "InstanceUIDConflict"
 )
 
 // AgentConditionStatus represents the status of an agent condition.
@@ -1139,6 +1142,36 @@ func (a *Agent) MarkConnected(triggeredBy string) {
 func (a *Agent) MarkDisconnected(triggeredBy string) {
 	a.Status.Connected = false
 	a.SetCondition(AgentConditionTypeConnected, AgentConditionStatusFalse, triggeredBy, "Agent disconnected")
+}
+
+// RecordInstanceUIDConflict audits an InstanceUIDConflict event on the agent, always
+// replacing any prior conflict condition so the recorded message reflects the most recent
+// occurrence (SetCondition would skip refreshes when the status is unchanged).
+func (a *Agent) RecordInstanceUIDConflict(
+	now time.Time,
+	oldInstanceUID, newInstanceUID uuid.UUID,
+	conflictReason, triggeredBy string,
+) {
+	cond := AgentCondition{
+		Type:               AgentConditionTypeInstanceUIDConflict,
+		LastTransitionTime: now,
+		Status:             AgentConditionStatusTrue,
+		Reason:             triggeredBy,
+		Message: fmt.Sprintf(
+			"another agent attempted to use instanceUID %s; redirected to %s (reason: %s)",
+			oldInstanceUID, newInstanceUID, conflictReason,
+		),
+	}
+
+	for i, existing := range a.Status.Conditions {
+		if existing.Type == cond.Type {
+			a.Status.Conditions[i] = cond
+
+			return
+		}
+	}
+
+	a.Status.Conditions = append(a.Status.Conditions, cond)
 }
 
 // NewInstanceUID returns the new instance UID to inform the agent.

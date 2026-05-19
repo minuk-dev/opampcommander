@@ -163,18 +163,11 @@ func (s *Service) OnMessage(
 	)
 	logger.Info("start")
 
-	connection, err := s.injectInstanceUIDToConnection(ctx, conn, instanceUID)
-	if err != nil {
-		logger.Error("failed to inject instanceUID to connection", slog.String("error", err.Error()))
-		// even if injecting instanceUID fails, proceed to process the message
+	if response := s.handleInstanceUIDConflict(ctx, logger, conn, instanceUID, message); response != nil {
+		return response
 	}
 
-	if connection != nil {
-		logger = logger.With(
-			slog.String("connectionUID", connection.UID.String()),
-			slog.String("connectionType", connection.Type.String()),
-		)
-	}
+	connection, logger := s.prepareConnection(ctx, logger, conn, instanceUID)
 
 	currentServer, err := s.serverIdentityProvider.CurrentServer(ctx)
 	if err != nil {
@@ -367,6 +360,30 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	}
 
 	return nil
+}
+
+// prepareConnection resolves the agentmodel.Connection for the incoming network connection,
+// injects the instanceUID, and decorates the logger with connection-scoped fields. Errors
+// are logged and the caller is expected to continue without the connection if it is nil.
+func (s *Service) prepareConnection(
+	ctx context.Context,
+	logger *slog.Logger,
+	conn types.Connection,
+	instanceUID uuid.UUID,
+) (*agentmodel.Connection, *slog.Logger) {
+	connection, err := s.injectInstanceUIDToConnection(ctx, conn, instanceUID)
+	if err != nil {
+		logger.Error("failed to inject instanceUID to connection", slog.String("error", err.Error()))
+	}
+
+	if connection != nil {
+		logger = logger.With(
+			slog.String("connectionUID", connection.UID.String()),
+			slog.String("connectionType", connection.Type.String()),
+		)
+	}
+
+	return connection, logger
 }
 
 func (s *Service) injectInstanceUIDToConnection(
