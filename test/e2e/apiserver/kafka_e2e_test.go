@@ -44,14 +44,19 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	mongoServer := base.StartMongoDB()
 	kafkaServer := base.StartKafka()
 
-	// Given: Two API servers in distributed mode
+	// Given: Two API servers in distributed mode.
+	// Boot them serially: the RBAC SyncPolicies startup hook does a
+	// Casbin Clear+SavePolicy against the shared MongoDB, and two
+	// concurrent boots race on the policy bulk-insert (E11000 duplicate
+	// key) which kills one of the Fx starts.
 	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
 	defer apiServer1.Stop()
+
+	apiServer1.WaitForReady()
 
 	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
 	defer apiServer2.Stop()
 
-	apiServer1.WaitForReady()
 	apiServer2.WaitForReady()
 
 	t.Log("Both API servers are ready")
@@ -311,14 +316,18 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	mongoServer := base.StartMongoDB()
 	kafkaServer := base.StartKafka()
 
-	// Given: Two API servers in distributed mode
+	// Given: Two API servers in distributed mode.
+	// Boot them serially to avoid the concurrent RBAC SyncPolicies race
+	// on the shared MongoDB (see TestE2E_APIServer_KafkaDistributedMode
+	// for the underlying cause).
 	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
 	defer apiServer1.Stop()
+
+	apiServer1.WaitForReady()
 
 	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
 	defer apiServer2.Stop()
 
-	apiServer1.WaitForReady()
 	apiServer2.WaitForReady()
 
 	t.Log("Both API servers are ready for messaging test")

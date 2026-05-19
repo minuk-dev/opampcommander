@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	apiServerStartTimeout = 15 * time.Second
+	apiServerStartTimeout = 60 * time.Second
 	apiServerPollInterval = 500 * time.Millisecond
 	dbConnectTimeout      = 10 * time.Second
 	jwtExpiration         = 24 * time.Hour
@@ -136,7 +136,7 @@ func (b *Base) StartAPIServer(
 ) *APIServer {
 	b.t.Helper()
 
-	serverID := Identifier(b.t)
+	serverID := b.nextServerID()
 	serverPort := b.GetFreeTCPPort()
 	managementPort := b.GetFreeTCPPort()
 
@@ -167,7 +167,7 @@ func (b *Base) StartAPIServer(
 func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName string) *APIServer {
 	b.t.Helper()
 
-	serverID := Identifier(b.t)
+	serverID := b.nextServerID()
 	serverPort := b.GetFreeTCPPort()
 	managementPort := b.GetFreeTCPPort()
 

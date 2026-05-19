@@ -6,7 +6,9 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -18,6 +20,11 @@ type Base struct {
 	Dependencies map[string]Dependency
 
 	CacheDir string
+
+	// serverIDCounter hands out distinct ServerID suffixes for apiservers
+	// spawned in the same test. Two servers sharing an ID collide on
+	// ServerIdentityService.registerServer.
+	serverIDCounter atomic.Uint64
 }
 
 // Dependency is an interface that represents a dependency in the test environment.
@@ -38,12 +45,22 @@ func NewBase(tb testing.TB) *Base {
 		cacheDir = tb.TempDir()
 	}
 
+	//exhaustruct:ignore
 	return &Base{
 		t:            tb,
 		Logger:       slog.Default(),
 		Dependencies: make(map[string]Dependency),
 		CacheDir:     cacheDir,
 	}
+}
+
+// nextServerID returns a unique server ID for this test, derived from the test
+// name with a monotonic suffix so multiple apiservers in one test do not
+// collide.
+func (b *Base) nextServerID() string {
+	b.t.Helper()
+
+	return Identifier(b.t) + "-" + strconv.FormatUint(b.serverIDCounter.Add(1), 10)
 }
 
 // Identifier can be used as a name of host, container, image, volume, network, etc.

@@ -83,7 +83,7 @@ func (e *EventReceiverAdapter) StartReceiver(
 
 		err = handler(ctx, message)
 		if err != nil {
-			e.logger.Warn("failed to convert event to message",
+			e.logger.Warn("failed to handle received message",
 				append(logArgs, slog.String("error", err.Error()))...,
 			)
 
