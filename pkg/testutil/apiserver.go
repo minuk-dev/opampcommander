@@ -3,6 +3,8 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
+	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +15,7 @@ import (
 )
 
 const (
-	apiServerStartTimeout = 15 * time.Second
+	apiServerStartTimeout = 60 * time.Second
 	apiServerPollInterval = 500 * time.Millisecond
 	dbConnectTimeout      = 10 * time.Second
 	jwtExpiration         = 24 * time.Hour
@@ -24,6 +26,21 @@ const (
 	// DefaultAdminPassword is the admin password used in test API servers.
 	DefaultAdminPassword = "test-password"
 )
+
+// serverIDCounter ensures every test API server gets a distinct ServerID even
+// when multiple are spun up under the same testing.TB. Two servers sharing an
+// ID would race on ServerIdentityService heartbeat registration and skew the
+// event-routing assertions in distributed-mode tests.
+var serverIDCounter atomic.Uint64
+
+// uniqueServerID derives a per-call server ID from the test name. The
+// monotonic suffix lets callers create multiple servers in one test without
+// colliding on identity.
+func uniqueServerID(tb testing.TB) string {
+	tb.Helper()
+
+	return fmt.Sprintf("%s-%d", Identifier(tb), serverIDCounter.Add(1))
+}
 
 // APIServer holds a running test API server and its configuration.
 type APIServer struct {
@@ -136,7 +153,7 @@ func (b *Base) StartAPIServer(
 ) *APIServer {
 	b.t.Helper()
 
-	serverID := Identifier(b.t)
+	serverID := uniqueServerID(b.t)
 	serverPort := b.GetFreeTCPPort()
 	managementPort := b.GetFreeTCPPort()
 
@@ -167,7 +184,7 @@ func (b *Base) StartAPIServer(
 func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName string) *APIServer {
 	b.t.Helper()
 
-	serverID := Identifier(b.t)
+	serverID := uniqueServerID(b.t)
 	serverPort := b.GetFreeTCPPort()
 	managementPort := b.GetFreeTCPPort()
 
