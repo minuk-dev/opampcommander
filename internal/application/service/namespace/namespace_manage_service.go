@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/samber/lo"
 
@@ -18,6 +19,18 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
+
+// noopTransactionRunner is used when a TransactionRunner is not supplied.
+// It simply invokes the callback inline so behaviour matches the
+// pre-transaction implementation.
+type noopTransactionRunner struct{}
+
+func (noopTransactionRunner) WithinTransaction(
+	ctx context.Context,
+	fn func(ctx context.Context) error,
+) error {
+	return fn(ctx)
+}
 
 // ErrDefaultNamespaceUndeletable is returned when trying to delete the default namespace.
 var ErrDefaultNamespaceUndeletable = errors.New(
@@ -36,6 +49,7 @@ type Service struct {
 	certificateUsecase       agentport.CertificateUsecase
 	agentPackageUsecase      agentport.AgentPackageUsecase
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
+	txRunner                 port.TransactionRunner
 	mapper                   *helper.Mapper
 	clock                    clock.Clock
 	logger                   *slog.Logger
@@ -48,14 +62,20 @@ func NewNamespaceService(
 	certificateUsecase agentport.CertificateUsecase,
 	agentPackageUsecase agentport.AgentPackageUsecase,
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
+	txRunner port.TransactionRunner,
 	logger *slog.Logger,
 ) *Service {
+	if txRunner == nil {
+		txRunner = noopTransactionRunner{}
+	}
+
 	return &Service{
 		namespaceUsecase:         namespaceUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
 		certificateUsecase:       certificateUsecase,
 		agentPackageUsecase:      agentPackageUsecase,
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
+		txRunner:                 txRunner,
 		mapper:                   helper.NewMapper(),
 		clock:                    clock.NewRealClock(),
 		logger:                   logger,
@@ -163,9 +183,11 @@ func (s *Service) UpdateNamespace(
 }
 
 // DeleteNamespace implements [port.NamespaceManageUsecase].
-// Cascade deletes all agent groups, certificates, and agent packages in the namespace.
-//
-//nolint:funlen,cyclop // Cascade delete requires multiple steps.
+// Cascade deletes all agent groups, certificates, agent packages, and agent
+// remote configs in the namespace, then the namespace itself. The whole
+// cascade runs inside a single transaction so a mid-cascade failure rolls
+// every soft-delete back, preventing a zombie namespace with partially
+// deleted children.
 func (s *Service) DeleteNamespace(
 	ctx context.Context,
 	name string,
@@ -185,8 +207,60 @@ func (s *Service) DeleteNamespace(
 	}
 
 	now := s.clock.Now()
+	deletedByStr := deletedBy.String()
 
-	// Cascade: delete all agent groups in this namespace
+	err = s.txRunner.WithinTransaction(ctx, func(txCtx context.Context) error {
+		return s.cascadeDeleteNamespace(txCtx, name, now, deletedByStr)
+	})
+	if err != nil {
+		return fmt.Errorf("delete namespace %q: %w", name, err)
+	}
+
+	return nil
+}
+
+// cascadeDeleteNamespace performs the actual cascade. It must be idempotent
+// because [port.TransactionRunner] may retry on transient errors.
+func (s *Service) cascadeDeleteNamespace(
+	ctx context.Context,
+	name string,
+	now time.Time,
+	deletedBy string,
+) error {
+	err := s.deleteAgentGroupsInNamespace(ctx, name, now, deletedBy)
+	if err != nil {
+		return err
+	}
+
+	err = s.deleteCertificatesInNamespace(ctx, name, now, deletedBy)
+	if err != nil {
+		return err
+	}
+
+	err = s.deleteAgentPackagesInNamespace(ctx, name, now, deletedBy)
+	if err != nil {
+		return err
+	}
+
+	err = s.deleteAgentRemoteConfigsInNamespace(ctx, name, now, deletedBy)
+	if err != nil {
+		return err
+	}
+
+	err = s.namespaceUsecase.DeleteNamespace(ctx, name, now, deletedBy)
+	if err != nil {
+		return fmt.Errorf("delete namespace: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Service) deleteAgentGroupsInNamespace(
+	ctx context.Context,
+	name string,
+	now time.Time,
+	deletedBy string,
+) error {
 	agentGroups, err := s.agentGroupUsecase.ListAgentGroups(
 		ctx, &model.ListOptions{
 			Limit:          0,
@@ -208,7 +282,7 @@ func (s *Service) DeleteNamespace(
 			name,
 			agentGroup.Metadata.Name,
 			now,
-			deletedBy.String(),
+			deletedBy,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -218,7 +292,15 @@ func (s *Service) DeleteNamespace(
 		}
 	}
 
-	// Cascade: delete all certificates in this namespace
+	return nil
+}
+
+func (s *Service) deleteCertificatesInNamespace(
+	ctx context.Context,
+	name string,
+	now time.Time,
+	deletedBy string,
+) error {
 	certificates, err := s.certificateUsecase.ListCertificate(
 		ctx, &model.ListOptions{
 			Limit:          0,
@@ -240,7 +322,7 @@ func (s *Service) DeleteNamespace(
 			name,
 			certificate.Metadata.Name,
 			now,
-			deletedBy.String(),
+			deletedBy,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -250,7 +332,15 @@ func (s *Service) DeleteNamespace(
 		}
 	}
 
-	// Cascade: delete all agent packages in this namespace
+	return nil
+}
+
+func (s *Service) deleteAgentPackagesInNamespace(
+	ctx context.Context,
+	name string,
+	now time.Time,
+	deletedBy string,
+) error {
 	agentPackages, err := s.agentPackageUsecase.ListAgentPackages(
 		ctx, &model.ListOptions{
 			Limit:          0,
@@ -272,7 +362,7 @@ func (s *Service) DeleteNamespace(
 			name,
 			agentPackage.Metadata.Name,
 			now,
-			deletedBy.String(),
+			deletedBy,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -282,7 +372,15 @@ func (s *Service) DeleteNamespace(
 		}
 	}
 
-	// Cascade: delete all agent remote configs in this namespace
+	return nil
+}
+
+func (s *Service) deleteAgentRemoteConfigsInNamespace(
+	ctx context.Context,
+	name string,
+	now time.Time,
+	deletedBy string,
+) error {
 	agentRemoteConfigs, err := s.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
 		ctx, &model.ListOptions{
 			Limit:          0,
@@ -291,9 +389,7 @@ func (s *Service) DeleteNamespace(
 		},
 	)
 	if err != nil {
-		return fmt.Errorf(
-			"list agent remote configs for cascade: %w", err,
-		)
+		return fmt.Errorf("list agent remote configs for cascade: %w", err)
 	}
 
 	for _, arc := range agentRemoteConfigs.Items {
@@ -306,7 +402,7 @@ func (s *Service) DeleteNamespace(
 			name,
 			arc.Metadata.Name,
 			now,
-			deletedBy.String(),
+			deletedBy,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -314,13 +410,6 @@ func (s *Service) DeleteNamespace(
 				name, arc.Metadata.Name, err,
 			)
 		}
-	}
-
-	err = s.namespaceUsecase.DeleteNamespace(
-		ctx, name, now, deletedBy.String(),
-	)
-	if err != nil {
-		return fmt.Errorf("delete namespace: %w", err)
 	}
 
 	return nil

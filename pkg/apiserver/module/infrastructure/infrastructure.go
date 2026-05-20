@@ -30,6 +30,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
 	casbinEnforcer "github.com/minuk-dev/opampcommander/internal/adapter/out/rbac/casbin"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -106,6 +107,10 @@ func provideDatabaseComponents() fx.Option {
 			NewMongoDBClient,
 			NewMongoDatabase,
 			helper.AsHealthIndicator(NewMongoDBHealthIndicator),
+			fx.Annotate(
+				mongodb.NewTransactionRunner,
+				fx.As(new(applicationport.TransactionRunner)),
+			),
 			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(agentport.AgentPersistencePort))),
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
 			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(agentport.ServerPersistencePort))),

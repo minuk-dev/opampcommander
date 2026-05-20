@@ -8,7 +8,8 @@ import (
 
 const mongoDBImage = "mongo:4.4.10"
 
-// MongoDB wraps a testcontainer running a MongoDB instance.
+// MongoDB wraps a testcontainer running a MongoDB instance. The container is
+// started as a single-node replica set so MongoDB transactions are available.
 type MongoDB struct {
 	*Base
 	testcontainers.Container
@@ -16,11 +17,16 @@ type MongoDB struct {
 	URI string
 }
 
-// StartMongoDB starts a MongoDB container and returns a MongoDB instance.
+// StartMongoDB starts a MongoDB container (single-node replica set) and
+// returns a MongoDB instance.
 func (b *Base) StartMongoDB() *MongoDB {
 	b.t.Helper()
 
-	container, err := mongoTestContainer.Run(b.t.Context(), mongoDBImage)
+	container, err := mongoTestContainer.Run(
+		b.t.Context(),
+		mongoDBImage,
+		mongoTestContainer.WithReplicaSet("rs0"),
+	)
 	require.NoError(b.t, err)
 
 	uri, err := container.ConnectionString(b.t.Context())
