@@ -1,0 +1,19 @@
+# AgentGroup that references a standalone AgentRemoteConfig by name.
+# Use this when you want multiple AgentGroups to share the same config —
+# update the AgentRemoteConfig once and every group picks up the change.
+kind: AgentGroup
+apiVersion: v1
+metadata:
+  namespace: default
+  name: shared-config-group
+  attributes: {}
+spec:
+  priority: 50
+  selector:
+    identifyingAttributes:
+      service.name: my-service
+    nonIdentifyingAttributes: {}
+  agentConfig:
+    agentRemoteConfig:
+      # Name of an AgentRemoteConfig resource in the same namespace.
+      agentRemoteConfigName: shared-otel-config

@@ -1,0 +1,42 @@
+# Admin role: all actions on all namespace-scoped resources, including
+# RoleBinding (so an admin can grant access to others). Prefer scoping
+# this role to a specific namespace via the RoleBinding rather than
+# granting it cluster-wide.
+kind: Role
+apiVersion: v1
+metadata: {}
+spec:
+  displayName: admin
+  description: "Full control over namespace-scoped resources within bound namespaces"
+  permissions:
+    - agent:GET
+    - agent:LIST
+    - agent:CREATE
+    - agent:UPDATE
+    - agent:DELETE
+    - agentgroup:GET
+    - agentgroup:LIST
+    - agentgroup:CREATE
+    - agentgroup:UPDATE
+    - agentgroup:DELETE
+    - agentpackage:GET
+    - agentpackage:LIST
+    - agentpackage:CREATE
+    - agentpackage:UPDATE
+    - agentpackage:DELETE
+    - agentremoteconfig:GET
+    - agentremoteconfig:LIST
+    - agentremoteconfig:CREATE
+    - agentremoteconfig:UPDATE
+    - agentremoteconfig:DELETE
+    - certificate:GET
+    - certificate:LIST
+    - certificate:CREATE
+    - certificate:UPDATE
+    - certificate:DELETE
+    - rolebinding:GET
+    - rolebinding:LIST
+    - rolebinding:CREATE
+    - rolebinding:UPDATE
+    - rolebinding:DELETE
+  isBuiltIn: false

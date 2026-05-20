@@ -1,0 +1,60 @@
+# Collector with the OpAMP extension enabled, so the collector reports back
+# to opampcommander and receives further remote config updates from it.
+# This is what most agents managed by this server should look like.
+kind: AgentRemoteConfig
+apiVersion: v1
+metadata:
+  name: opamp-extension
+  namespace: default
+  attributes:
+    managed-by: opampcommander
+spec:
+  contentType: text/yaml
+  value: |
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+      opamp:
+        server:
+          ws:
+            # Adjust to your opampcommander deployment's externally reachable URL.
+            endpoint: ws://opampcommander.example.com:8080/v1/opamp
+            tls:
+              insecure: true
+        # Agent identity reported to opampcommander.
+        agent_description:
+          identifying_attributes:
+            service.name: my-service
+            service.version: 0.1.0
+          non_identifying_attributes:
+            deployment.environment: production
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      batch:
+    exporters:
+      debug:
+        verbosity: basic
+    service:
+      extensions: [health_check, opamp]
+      telemetry:
+        logs:
+          level: info
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug]
+        logs:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [debug]

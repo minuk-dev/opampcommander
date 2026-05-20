@@ -1,0 +1,19 @@
+# Binds a Role to one or more user principals within a namespace.
+# The Role grants permissions; the RoleBinding decides who gets them and
+# in which namespace.
+kind: RoleBinding
+apiVersion: v1
+metadata:
+  namespace: default
+  name: my-team-viewers
+spec:
+  roleRef:
+    kind: Role
+    # Display name of the Role resource being bound.
+    name: viewer
+  subjects:
+    - kind: User
+      # For Users the `name` is the user's email address.
+      name: alice@example.com
+    - kind: User
+      name: bob@example.com

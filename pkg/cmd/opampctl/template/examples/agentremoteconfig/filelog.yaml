@@ -1,0 +1,44 @@
+# Tail log files from disk and ship them as OTLP logs.
+# `include` accepts globs; `start_at: beginning` reads the whole file the first
+# time the receiver sees it, then tails from there.
+kind: AgentRemoteConfig
+apiVersion: v1
+metadata:
+  name: filelog
+  namespace: default
+  attributes:
+    purpose: log-collection
+spec:
+  contentType: text/yaml
+  value: |
+    receivers:
+      filelog:
+        include:
+          - /var/log/app/*.log
+        exclude:
+          - /var/log/app/*.gz
+        start_at: beginning
+        include_file_name: true
+        include_file_path: true
+        # Example: parse a JSON line and lift `severity` to the log record level.
+        operators:
+          - type: json_parser
+            timestamp:
+              parse_from: attributes.timestamp
+              layout: '%Y-%m-%dT%H:%M:%S.%fZ'
+            severity:
+              parse_from: attributes.severity
+    processors:
+      batch:
+        timeout: 5s
+    exporters:
+      otlp:
+        endpoint: otel-gateway.example.com:4317
+        tls:
+          insecure: false
+    service:
+      pipelines:
+        logs:
+          receivers: [filelog]
+          processors: [batch]
+          exporters: [otlp]

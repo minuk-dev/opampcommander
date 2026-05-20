@@ -1,0 +1,25 @@
+# AgentGroup selects a set of agents by their identifying or non-identifying
+# attributes and (optionally) applies a remote config to all of them.
+# This minimal example just selects agents — no config is applied yet.
+kind: AgentGroup
+apiVersion: v1
+metadata:
+  # Namespace the group lives in. Must already exist (see `template namespace`).
+  namespace: default
+  # Unique name within the namespace.
+  name: my-agent-group
+  # Free-form key/value metadata for this group.
+  attributes: {}
+spec:
+  # Higher-priority groups apply their config first when an agent matches
+  # multiple groups.
+  priority: 0
+  # An agent is a member of this group if every attribute below matches.
+  selector:
+    # Matched against the agent's OpAMP identifying attributes
+    # (service.name, service.version, ...).
+    identifyingAttributes:
+      service.name: my-service
+    # Matched against the agent's non-identifying attributes
+    # (host.arch, host.os.type, ...). Leave empty to skip.
+    nonIdentifyingAttributes: {}

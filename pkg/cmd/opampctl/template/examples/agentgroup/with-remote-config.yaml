@@ -1,0 +1,41 @@
+# AgentGroup with an inline remote config. The `value` is delivered verbatim
+# to each agent as its OpAMP remote configuration.
+kind: AgentGroup
+apiVersion: v1
+metadata:
+  namespace: default
+  name: my-agent-group
+  attributes:
+    env: production
+spec:
+  priority: 100
+  selector:
+    identifyingAttributes:
+      service.name: my-service
+    nonIdentifyingAttributes: {}
+  agentConfig:
+    agentRemoteConfig:
+      # Inline collector config. Use `agentRemoteConfigRef` instead to point
+      # at a standalone AgentRemoteConfig resource and share the config
+      # across multiple groups.
+      agentRemoteConfigSpec:
+        contentType: text/yaml
+        value: |
+          receivers:
+            otlp:
+              protocols:
+                grpc:
+                  endpoint: 0.0.0.0:4317
+                http:
+                  endpoint: 0.0.0.0:4318
+          processors:
+            batch:
+          exporters:
+            debug:
+              verbosity: detailed
+          service:
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [batch]
+                exporters: [debug]

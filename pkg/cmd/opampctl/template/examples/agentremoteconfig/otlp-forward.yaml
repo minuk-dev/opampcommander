@@ -1,0 +1,58 @@
+# Receive OTLP and forward to an upstream OTLP backend (e.g. another collector,
+# a vendor's OTLP endpoint, or otlp-receiver in a gateway tier).
+# Adds memory_limiter + batch — the recommended baseline for production.
+kind: AgentRemoteConfig
+apiVersion: v1
+metadata:
+  name: otlp-forward
+  namespace: default
+  attributes:
+    role: edge-collector
+spec:
+  contentType: text/yaml
+  value: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+    processors:
+      memory_limiter:
+        check_interval: 1s
+        limit_percentage: 75
+        spike_limit_percentage: 15
+      batch:
+        send_batch_size: 8192
+        timeout: 5s
+    exporters:
+      otlp:
+        # Replace with your upstream collector / vendor endpoint.
+        endpoint: otel-gateway.example.com:4317
+        tls:
+          insecure: false
+        # Optional auth headers — uncomment and set as needed.
+        # headers:
+        #   authorization: "Bearer ${env:OTEL_AUTH_TOKEN}"
+        sending_queue:
+          enabled: true
+          queue_size: 5000
+        retry_on_failure:
+          enabled: true
+          initial_interval: 5s
+          max_interval: 30s
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlp]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlp]
+        logs:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [otlp]

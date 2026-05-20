@@ -1,0 +1,24 @@
+# Certificate stores a PEM-encoded TLS keypair (and optional CA bundle) that
+# opampcommander can hand off to agents — e.g. mTLS material for the
+# collector's OTLP receivers/exporters.
+# Values shown here are placeholders; replace with real PEM blocks.
+kind: Certificate
+apiVersion: v1
+metadata:
+  name: my-tls-cert
+  namespace: default
+  attributes:
+    purpose: otlp-mtls
+spec:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    <leaf certificate goes here>
+    -----END CERTIFICATE-----
+  privateKey: |
+    -----BEGIN PRIVATE KEY-----
+    <private key goes here>
+    -----END PRIVATE KEY-----
+  caCert: |
+    -----BEGIN CERTIFICATE-----
+    <CA certificate goes here>
+    -----END CERTIFICATE-----

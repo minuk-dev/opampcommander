@@ -1,0 +1,52 @@
+# Host-level metrics collection (CPU, memory, disk, network, filesystem).
+# Pairs well with otelcol-contrib running as a DaemonSet or system service.
+kind: AgentRemoteConfig
+apiVersion: v1
+metadata:
+  name: hostmetrics
+  namespace: default
+  attributes:
+    purpose: host-monitoring
+spec:
+  contentType: text/yaml
+  value: |
+    receivers:
+      hostmetrics:
+        collection_interval: 30s
+        # Set when /proc, /sys, /etc are mounted from the host into a container.
+        # root_path: /hostfs
+        scrapers:
+          cpu:
+            metrics:
+              system.cpu.utilization:
+                enabled: true
+          memory:
+            metrics:
+              system.memory.utilization:
+                enabled: true
+          disk:
+          filesystem:
+            metrics:
+              system.filesystem.utilization:
+                enabled: true
+          network:
+          load:
+          processes:
+    processors:
+      resourcedetection:
+        detectors: [env, system]
+        timeout: 2s
+        override: false
+      batch:
+        timeout: 10s
+    exporters:
+      otlp:
+        endpoint: otel-gateway.example.com:4317
+        tls:
+          insecure: false
+    service:
+      pipelines:
+        metrics:
+          receivers: [hostmetrics]
+          processors: [resourcedetection, batch]
+          exporters: [otlp]
