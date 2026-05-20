@@ -27,8 +27,14 @@ start-mongodb:
 	@docker run -d --name mongodb-dev \
 		-p 27017:27017 \
 		-v $(PWD)/default.mongodb:/data/db \
-		mongo:4.4 || docker start mongodb-dev
-	@echo "MongoDB 4.4 started with data persisted in ./default.mongodb"
+		mongo:4.4 --replSet rs0 --bind_ip_all || docker start mongodb-dev
+	@echo "MongoDB 4.4 started (replica set rs0) with data persisted in ./default.mongodb"
+	@echo "Waiting for MongoDB to accept connections..."
+	@until docker exec mongodb-dev mongo --quiet --eval "db.runCommand({ ping: 1 }).ok" >/dev/null 2>&1; do sleep 1; done
+	@docker exec mongodb-dev mongo --quiet --eval \
+		"try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }" \
+		>/dev/null
+	@echo "Replica set rs0 initiated (transactions enabled)"
 
 stop-mongodb:
 	@docker stop mongodb-dev || true
