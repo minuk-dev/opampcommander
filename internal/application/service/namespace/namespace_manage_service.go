@@ -20,18 +20,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-// noopTransactionRunner is used when a TransactionRunner is not supplied.
-// It simply invokes the callback inline so behaviour matches the
-// pre-transaction implementation.
-type noopTransactionRunner struct{}
-
-func (noopTransactionRunner) WithinTransaction(
-	ctx context.Context,
-	fn func(ctx context.Context) error,
-) error {
-	return fn(ctx)
-}
-
 // ErrDefaultNamespaceUndeletable is returned when trying to delete the default namespace.
 var ErrDefaultNamespaceUndeletable = errors.New(
 	"default namespace cannot be deleted",
@@ -55,7 +43,9 @@ type Service struct {
 	logger                   *slog.Logger
 }
 
-// NewNamespaceService creates a new namespace manage service.
+// NewNamespaceService creates a new namespace manage service. txRunner must be
+// non-nil; FX wires the MongoDB implementation in production. Tests should
+// pass an explicit fake (see [testutil] or per-package recordingTxRunner).
 func NewNamespaceService(
 	namespaceUsecase agentport.NamespaceUsecase,
 	agentGroupUsecase agentport.AgentGroupUsecase,
@@ -65,10 +55,6 @@ func NewNamespaceService(
 	txRunner port.TransactionRunner,
 	logger *slog.Logger,
 ) *Service {
-	if txRunner == nil {
-		txRunner = noopTransactionRunner{}
-	}
-
 	return &Service{
 		namespaceUsecase:         namespaceUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
@@ -219,8 +205,10 @@ func (s *Service) DeleteNamespace(
 	return nil
 }
 
-// cascadeDeleteNamespace performs the actual cascade. It must be idempotent
-// because [port.TransactionRunner] may retry on transient errors.
+// cascadeDeleteNamespace performs the actual cascade. The mongo-driver
+// transaction runner may retry the callback on transient errors, so each
+// step must be re-runnable (soft-delete sets the same fields and is fine to
+// re-apply).
 func (s *Service) cascadeDeleteNamespace(
 	ctx context.Context,
 	name string,
@@ -249,7 +237,7 @@ func (s *Service) cascadeDeleteNamespace(
 
 	err = s.namespaceUsecase.DeleteNamespace(ctx, name, now, deletedBy)
 	if err != nil {
-		return fmt.Errorf("delete namespace: %w", err)
+		return fmt.Errorf("delete namespace row: %w", err)
 	}
 
 	return nil

@@ -84,109 +84,23 @@ func (a *commonEntityAdapter[Entity, KeyType]) get(
 	return &entity, nil
 }
 
-//nolint:funlen // Reason: unavoidable.
 func (a *commonEntityAdapter[Entity, KeyType]) list(
 	ctx context.Context,
 	options *model.ListOptions,
 ) (*model.ListResponse[*Entity], error) {
-	var (
-		// To prevent shadowing in goroutines, we use retval suffix.
-		countRetval         int64
-		continueTokenRetval string
-		entitiesRetval      []*Entity
-	)
-
-	var queryWg sync.WaitGroup
-
-	if options == nil {
-		//exhaustruct:ignore
-		options = &model.ListOptions{}
-	}
-
-	var (
-		fErr error
-		lErr error
-	)
-
-	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
-	if err != nil && options.Continue != "" {
-		return nil, fmt.Errorf("invalid continue token: %w", err)
-	}
-
-	// Build filter that optionally excludes soft-deleted documents
-	var baseFilter bson.M
-	if options.IncludeDeleted {
-		baseFilter = nil
-	} else {
-		baseFilter = a.excludeDeletedFilter()
-	}
-
-	queryWg.Go(func() {
-		entities, err := a.listWithContinueTokenAndLimit(ctx, continueTokenObjectID, options.Limit, baseFilter)
-		if err != nil {
-			fErr = fmt.Errorf("failed to list resources from mongodb: %w", err)
-
-			return
-		}
-
-		continueToken, err := getContinueTokenFromEntities(entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
-
-			return
-		}
-
-		entitiesRetval = entities
-		continueTokenRetval = continueToken
-	})
-	queryWg.Go(func() {
-		filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
-
-		cnt, err := a.collection.CountDocuments(ctx, filter)
-		if err != nil {
-			lErr = fmt.Errorf("failed to count resources in mongodb: %w", err)
-
-			return
-		}
-
-		countRetval = cnt
-	})
-	queryWg.Wait()
-
-	if fErr != nil || lErr != nil {
-		return nil, fmt.Errorf("list operation failed: %w %w", fErr, lErr)
-	}
-
-	return &model.ListResponse[*Entity]{
-		Items:              entitiesRetval,
-		Continue:           continueTokenRetval,
-		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
-	}, nil
+	return a.listWithFilter(ctx, options, nil)
 }
 
-//nolint:funlen // Reason: unavoidable, mirrors list with additional filter.
+//nolint:funlen // Reason: unavoidable, runs find + count and assembles a list response.
 func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 	ctx context.Context,
 	options *model.ListOptions,
 	extraFilter bson.M,
 ) (*model.ListResponse[*Entity], error) {
-	var (
-		countRetval         int64
-		continueTokenRetval string
-		entitiesRetval      []*Entity
-	)
-
-	var queryWg sync.WaitGroup
-
 	if options == nil {
 		//exhaustruct:ignore
 		options = &model.ListOptions{}
 	}
-
-	var (
-		fErr error
-		lErr error
-	)
 
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
 	if err != nil && options.Continue != "" {
@@ -200,7 +114,15 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 		baseFilter = combineFilters(a.excludeDeletedFilter(), extraFilter)
 	}
 
-	queryWg.Go(func() {
+	var (
+		countRetval         int64
+		continueTokenRetval string
+		entitiesRetval      []*Entity
+		fErr                error
+		lErr                error
+	)
+
+	findTask := func() {
 		entities, listErr := a.listWithContinueTokenAndLimit(
 			ctx, continueTokenObjectID, options.Limit, baseFilter,
 		)
@@ -219,8 +141,9 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 
 		entitiesRetval = entities
 		continueTokenRetval = continueToken
-	})
-	queryWg.Go(func() {
+	}
+
+	countTask := func() {
 		filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
 
 		cnt, countErr := a.collection.CountDocuments(ctx, filter)
@@ -231,8 +154,9 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 		}
 
 		countRetval = cnt
-	})
-	queryWg.Wait()
+	}
+
+	runListQueries(ctx, findTask, countTask)
 
 	if fErr != nil || lErr != nil {
 		return nil, fmt.Errorf("list operation failed: %w %w", fErr, lErr)
@@ -243,6 +167,27 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 		Continue:           continueTokenRetval,
 		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
 	}, nil
+}
+
+// runListQueries runs the find and count queries that back list operations.
+// Outside a MongoDB session it runs them in parallel to save a round-trip.
+// Inside a session (i.e. a transaction) the driver's *mongo.Session is NOT
+// goroutine-safe — see https://pkg.go.dev/go.mongodb.org/mongo-driver/v2/mongo#Session
+// — so we serialise to avoid session-state corruption / "transaction in progress"
+// errors when a List call happens inside [port.TransactionRunner].
+func runListQueries(ctx context.Context, findTask, countTask func()) {
+	if mongo.SessionFromContext(ctx) != nil {
+		findTask()
+		countTask()
+
+		return
+	}
+
+	var queryWg sync.WaitGroup
+
+	queryWg.Go(findTask)
+	queryWg.Go(countTask)
+	queryWg.Wait()
 }
 
 func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *Entity) error {

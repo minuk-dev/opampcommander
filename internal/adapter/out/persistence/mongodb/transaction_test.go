@@ -3,51 +3,35 @@ package mongodb_test
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
+	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 var errSimulatedCascade = errors.New("simulated cascade failure")
 
 // startReplicaSetMongo starts a mongo testcontainer configured as a single-node
-// replica set, which is required to use MongoDB transactions.
-//
-// The testcontainers mongodb module initiates the replica set using the
-// container's internal IP, which is not reachable from the host. We append
-// ?directConnection=true so the driver bypasses SDAM topology discovery and
-// talks to the published port directly; transactions still work because that
-// single node is the replica-set primary.
+// replica set (required for MongoDB transactions) and returns a connected
+// client.
 func startReplicaSetMongo(t *testing.T) *mongo.Client {
 	t.Helper()
+
+	base := testutil.NewBase(t)
+	mongoServer := base.StartMongoDB()
+
 	ctx := t.Context()
-
-	container, err := mongoTestContainer.Run(
-		ctx,
-		testMongoDBImage,
-		mongoTestContainer.WithReplicaSet("rs0"),
-	)
-	require.NoError(t, err)
-
-	uri, err := container.ConnectionString(ctx)
-	require.NoError(t, err)
-
-	if strings.Contains(uri, "?") {
-		uri += "&directConnection=true"
-	} else {
-		uri += "?directConnection=true"
-	}
-
-	client, err := mongo.Connect(options.Client().ApplyURI(uri))
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoServer.URI))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = client.Disconnect(ctx)
@@ -114,4 +98,59 @@ func TestTransactionRunner_RollsBackOnError(t *testing.T) {
 	cnt, err := coll.CountDocuments(ctx, bson.M{})
 	require.NoError(t, err)
 	assert.Zero(t, cnt, "all writes should be rolled back when callback errors")
+}
+
+// TestTransactionRunner_ListInsideTransaction guards against issue:
+// commonEntityAdapter.list/listWithFilter previously ran find + count in
+// parallel goroutines sharing the same ctx; inside a transaction this would
+// concurrently use a non-goroutine-safe *mongo.Session and corrupt session
+// state or trip "transaction in progress" errors. This test exercises the
+// real cascade pattern (put then list in the same transaction) to ensure
+// runListQueries correctly serialises inside a session.
+func TestTransactionRunner_ListInsideTransaction(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+
+	base := testutil.NewBase(t)
+	mongoServer := base.StartMongoDB()
+	ctx := t.Context()
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoServer.URI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = client.Disconnect(ctx)
+	})
+
+	database := client.Database("txdb_list")
+	require.NoError(t, mongodb.EnsureSchema(ctx, database))
+
+	repo := mongodb.NewAgentGroupRepository(database, base.Logger)
+	runner := mongodb.NewTransactionRunner(client)
+
+	group := agentmodel.NewAgentGroup(
+		"team-a", "grp",
+		agentmodel.OfAttributes(map[string]string{"env": "prod"}),
+		time.Now(), "tester",
+	)
+
+	var listResp *model.ListResponse[*agentmodel.AgentGroup]
+
+	err = runner.WithinTransaction(ctx, func(txCtx context.Context) error {
+		_, putErr := repo.PutAgentGroup(txCtx, group.Metadata.Namespace, group.Metadata.Name, group)
+		if putErr != nil {
+			return putErr //nolint:wrapcheck // test
+		}
+
+		resp, listErr := repo.ListAgentGroups(txCtx, &model.ListOptions{})
+		if listErr != nil {
+			return listErr //nolint:wrapcheck // test
+		}
+
+		listResp = resp
+
+		return nil
+	})
+	require.NoError(t, err, "put + list in the same transaction must not concurrently use the session")
+	require.NotNil(t, listResp)
+	assert.Len(t, listResp.Items, 1, "list inside the transaction must see the just-written row")
 }

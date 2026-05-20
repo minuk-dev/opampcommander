@@ -1,6 +1,8 @@
 package testutil
 
 import (
+	"strings"
+
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
@@ -17,8 +19,11 @@ type MongoDB struct {
 	URI string
 }
 
-// StartMongoDB starts a MongoDB container (single-node replica set) and
-// returns a MongoDB instance.
+// StartMongoDB starts a MongoDB container as a single-node replica set and
+// returns a MongoDB instance. The returned URI already includes
+// directConnection=true (see [WithDirectConnection]) so any client that
+// receives it can talk to the container from the host without needing to
+// resolve the rs.initiate-registered internal IP.
 func (b *Base) StartMongoDB() *MongoDB {
 	b.t.Helper()
 
@@ -35,6 +40,24 @@ func (b *Base) StartMongoDB() *MongoDB {
 	return &MongoDB{
 		Base:      b,
 		Container: container,
-		URI:       uri,
+		URI:       WithDirectConnection(uri),
 	}
+}
+
+// WithDirectConnection appends directConnection=true to a MongoDB URI. The
+// testcontainers mongodb module calls rs.initiate with the container's
+// internal Docker IP, which is not reachable from the host. Setting
+// directConnection=true makes the driver bypass SDAM topology discovery and
+// talk to the published port directly; transactions still work because that
+// single node IS the replica-set primary.
+func WithDirectConnection(uri string) string {
+	if strings.Contains(uri, "directConnection=") {
+		return uri
+	}
+
+	if strings.Contains(uri, "?") {
+		return uri + "&directConnection=true"
+	}
+
+	return uri + "?directConnection=true"
 }
