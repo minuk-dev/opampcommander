@@ -2546,6 +2546,12 @@
         "AgentGroup": {
             "type": "object",
             "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
                 "metadata": {
                     "$ref": "#/definitions/AgentGroupMetadata"
                 },
@@ -2659,6 +2665,12 @@
         "AgentPackage": {
             "type": "object",
             "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
                 "metadata": {
                     "$ref": "#/definitions/AgentPackageMetadata"
                 },

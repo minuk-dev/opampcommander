@@ -91,6 +91,10 @@ definitions:
     type: object
   AgentGroup:
     properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
       metadata:
         $ref: '#/definitions/AgentGroupMetadata'
       spec:
@@ -170,6 +174,10 @@ definitions:
     type: object
   AgentPackage:
     properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
       metadata:
         $ref: '#/definitions/AgentPackageMetadata'
       spec:
