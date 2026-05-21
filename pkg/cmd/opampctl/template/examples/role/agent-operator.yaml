@@ -1,0 +1,32 @@
+# Agent operator role: full management of agents, agent groups, and the
+# remote configs / packages applied to them. Cannot manage RBAC.
+kind: Role
+apiVersion: v1
+# Role metadata only carries server-assigned fields (uid, timestamps).
+# The role's user-visible name comes from `spec.displayName` below.
+metadata: {}
+spec:
+  displayName: agent-operator
+  description: "Manage agents, agent groups, and the configs/packages they use"
+  permissions:
+    - agent:GET
+    - agent:LIST
+    - agent:UPDATE
+    - agentgroup:GET
+    - agentgroup:LIST
+    - agentgroup:CREATE
+    - agentgroup:UPDATE
+    - agentgroup:DELETE
+    - agentpackage:GET
+    - agentpackage:LIST
+    - agentpackage:CREATE
+    - agentpackage:UPDATE
+    - agentpackage:DELETE
+    - agentremoteconfig:GET
+    - agentremoteconfig:LIST
+    - agentremoteconfig:CREATE
+    - agentremoteconfig:UPDATE
+    - agentremoteconfig:DELETE
+    - certificate:GET
+    - certificate:LIST
+  isBuiltIn: false

@@ -2,6 +2,7 @@
 package agentgroup
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,9 +13,13 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/internal/yamlfile"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
+
+// ErrNameRequired is returned when --name is missing and --file is not used.
+var ErrNameRequired = errors.New("--name is required (or use --file)")
 
 // CommandOptions contains the options for the create agentgroup command.
 type CommandOptions struct {
@@ -29,6 +34,7 @@ type CommandOptions struct {
 	nonIdentifyingAttributeSelector map[string]string
 	formatType                      string
 	agentConfigFile                 string
+	file                            string
 
 	// internal state
 	client *client.Client
@@ -70,8 +76,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		nil, "same as --non-identifying-attributes-selector")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
 	cmd.Flags().StringVar(&options.agentConfigFile, "agent-config", "", "Path to agent config file")
-
-	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
+	cmd.Flags().StringVarP(&options.file, "file", "f", "",
+		"Path to a full AgentGroup YAML definition. When set, individual CLI flags are ignored.")
 
 	return cmd
 }
@@ -90,29 +96,53 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // Run executes the create agentgroup command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	agentGroupService := opt.client.AgentGroupService
+	createRequest, namespace, err := opt.buildRequest()
+	if err != nil {
+		return err
+	}
 
-	var agentConfig *v1.AgentConfig
+	agentGroup, err := opt.client.AgentGroupService.CreateAgentGroup(cmd.Context(), namespace, createRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create agent group: %w", err)
+	}
 
-	if opt.agentConfigFile != "" {
-		data, err := os.ReadFile(filepath.Clean(opt.agentConfigFile))
-		if err != nil {
-			return fmt.Errorf("failed to read agent config file: %w", err)
-		}
+	err = formatter.Format(cmd.OutOrStdout(), toFormattedAgentGroup(agentGroup), formatter.FormatType(opt.formatType))
+	if err != nil {
+		return fmt.Errorf("failed to format output: %w", err)
+	}
 
+	return nil
+}
+
+func (opt *CommandOptions) buildRequest() (*v1.AgentGroup, string, error) {
+	if opt.file != "" {
 		//exhaustruct:ignore
-		agentConfig = &v1.AgentConfig{
-			AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
-				AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
-					Value:       string(data),
-					ContentType: "text/yaml",
-				},
-			},
+		req := &v1.AgentGroup{}
+
+		err := yamlfile.Load(opt.file, req)
+		if err != nil {
+			return nil, "", fmt.Errorf("load agent group from %s: %w", opt.file, err)
 		}
+
+		namespace := req.Metadata.Namespace
+		if namespace == "" {
+			namespace = opt.namespace
+		}
+
+		return req, namespace, nil
+	}
+
+	if opt.name == "" {
+		return nil, "", ErrNameRequired
+	}
+
+	agentConfig, err := opt.buildInlineAgentConfig()
+	if err != nil {
+		return nil, "", err
 	}
 
 	//exhaustruct:ignore
-	createRequest := &v1.AgentGroup{
+	return &v1.AgentGroup{
 		Metadata: v1.Metadata{
 			Name:       opt.name,
 			Attributes: opt.attributes,
@@ -125,19 +155,28 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			},
 			AgentConfig: agentConfig,
 		},
+	}, opt.namespace, nil
+}
+
+func (opt *CommandOptions) buildInlineAgentConfig() (*v1.AgentConfig, error) {
+	if opt.agentConfigFile == "" {
+		return nil, nil //nolint:nilnil // no config means no inline config; caller treats nil as absent
 	}
 
-	agentGroup, err := agentGroupService.CreateAgentGroup(cmd.Context(), opt.namespace, createRequest)
+	data, err := os.ReadFile(filepath.Clean(opt.agentConfigFile))
 	if err != nil {
-		return fmt.Errorf("failed to create agent group: %w", err)
+		return nil, fmt.Errorf("failed to read agent config file: %w", err)
 	}
 
-	err = formatter.Format(cmd.OutOrStdout(), toFormattedAgentGroup(agentGroup), formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format output: %w", err)
-	}
-
-	return nil
+	//exhaustruct:ignore
+	return &v1.AgentConfig{
+		AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
+			AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+				Value:       string(data),
+				ContentType: "text/yaml",
+			},
+		},
+	}, nil
 }
 
 //nolint:lll

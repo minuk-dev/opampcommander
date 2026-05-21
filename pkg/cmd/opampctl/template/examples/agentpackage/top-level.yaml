@@ -1,0 +1,27 @@
+# AgentPackage describes a downloadable artifact (e.g. an OpenTelemetry
+# Collector binary or a plugin) that opampcommander instructs agents to fetch.
+# The agent verifies the artifact against `contentHash`/`signature`.
+kind: AgentPackage
+apiVersion: v1
+metadata:
+  name: otelcol-contrib
+  namespace: default
+  attributes:
+    purpose: collector-binary
+spec:
+  # `top-level` means this package replaces the agent itself; `addon` is for
+  # plugins that load alongside the agent.
+  packageType: top-level
+  version: "0.122.0"
+  downloadUrl: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.122.0/otelcol-contrib_0.122.0_linux_amd64.tar.gz"
+  # Raw SHA-256 of the downloaded artifact, base64-encoded (NOT hex).
+  #   sha256sum file.tar.gz | xxd -r -p | base64
+  # Required for integrity verification at the agent.
+  contentHash: ""
+  # Optional detached signature over `contentHash`, base64-encoded raw bytes.
+  # Empty disables signature checking.
+  signature: ""
+  # Optional HTTP headers sent when downloading (e.g. auth for a private mirror).
+  headers: {}
+  # Optional hash for the whole package descriptor, base64-encoded raw bytes.
+  hash: ""

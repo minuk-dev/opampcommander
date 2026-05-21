@@ -1,0 +1,12 @@
+# Namespace with labels and annotations for organizational metadata.
+# Labels are queryable; annotations are free-form descriptors.
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: payments-prod
+  labels:
+    env: production
+    team: payments
+  annotations:
+    description: "Production payments service collectors"
+    owner: "payments-platform@example.com"

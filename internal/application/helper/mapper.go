@@ -86,46 +86,11 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *agentmodel.AgentGroup
 		return nil
 	}
 
-	var agentConfig *v1.AgentConfig
-
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	if domainAgentGroup.Spec.AgentRemoteConfig != nil || domainAgentGroup.Spec.AgentConnectionConfig != nil {
-		//exhaustruct:ignore
-		agentConfig = &v1.AgentConfig{}
-
-		//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-		if domainAgentGroup.Spec.AgentRemoteConfig != nil {
-			agentConfig.AgentRemoteConfig = &v1.AgentGroupRemoteConfig{
-				//nolint:staticcheck // backward compat
-				AgentRemoteConfigName: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigName,
-				//nolint:staticcheck // backward compat
-				AgentRemoteConfigRef:  domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigRef,
-				AgentRemoteConfigSpec: nil,
-			}
-
-			//nolint:staticcheck // backward compatibility
-			if domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
-				agentConfig.AgentRemoteConfig.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
-					//nolint:staticcheck // backward compat
-					Value: string(domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value),
-					//nolint:staticcheck // backward compat
-					ContentType: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
-				}
-			}
-		}
-
-		if domainAgentGroup.Spec.AgentConnectionConfig != nil {
-			agentConfig.ConnectionSettings = &v1.ConnectionSettings{
-				OpAMP:            mapper.mapOpAMPConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OpAMPConnection),
-				OwnMetrics:       mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnMetrics),
-				OwnLogs:          mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnLogs),
-				OwnTraces:        mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnTraces),
-				OtherConnections: mapper.mapOtherConnectionsToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OtherConnections),
-			}
-		}
-	}
+	agentConfig := mapper.mapAgentGroupAgentConfigToAPI(domainAgentGroup)
 
 	return &v1.AgentGroup{
+		Kind:       v1.AgentGroupKind,
+		APIVersion: v1.APIVersion,
 		Metadata: v1.Metadata{
 			Namespace:  domainAgentGroup.Metadata.Namespace,
 			Name:       domainAgentGroup.Metadata.Name,
@@ -237,6 +202,8 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *agentmodel.AgentPackage
 	}
 
 	return &v1.AgentPackage{
+		Kind:       v1.AgentPackageKind,
+		APIVersion: v1.APIVersion,
 		Metadata: v1.AgentPackageMetadata{
 			Name:       agentPackage.Metadata.Name,
 			Namespace:  agentPackage.Metadata.Namespace,
@@ -351,6 +318,8 @@ func (mapper *Mapper) MapAgentRemoteConfigToAPI(
 	}
 
 	return &v1.AgentRemoteConfig{
+		Kind:       v1.AgentRemoteConfigKind,
+		APIVersion: v1.APIVersion,
 		Metadata: v1.AgentRemoteConfigMetadata{
 			Name:       domain.Metadata.Name,
 			Namespace:  domain.Metadata.Namespace,
@@ -535,6 +504,8 @@ func (mapper *Mapper) MapNamespaceToAPI(
 	namespace *agentmodel.Namespace,
 ) *v1.Namespace {
 	return &v1.Namespace{
+		Kind:       v1.NamespaceKind,
+		APIVersion: v1.APIVersion,
 		Metadata: v1.NamespaceMetadata{
 			Name:        namespace.Metadata.Name,
 			Labels:      namespace.Metadata.Labels,
@@ -889,6 +860,49 @@ func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition)
 	}
 
 	return apiConditions
+}
+
+func (mapper *Mapper) mapAgentGroupAgentConfigToAPI(domainAgentGroup *agentmodel.AgentGroup) *v1.AgentConfig {
+	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
+	if domainAgentGroup.Spec.AgentRemoteConfig == nil && domainAgentGroup.Spec.AgentConnectionConfig == nil {
+		return nil
+	}
+
+	//exhaustruct:ignore
+	agentConfig := &v1.AgentConfig{}
+
+	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
+	if domainAgentGroup.Spec.AgentRemoteConfig != nil {
+		agentConfig.AgentRemoteConfig = &v1.AgentGroupRemoteConfig{
+			//nolint:staticcheck // backward compat
+			AgentRemoteConfigName: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigName,
+			//nolint:staticcheck // backward compat
+			AgentRemoteConfigRef:  domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigRef,
+			AgentRemoteConfigSpec: nil,
+		}
+
+		//nolint:staticcheck // backward compatibility
+		if domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
+			agentConfig.AgentRemoteConfig.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
+				//nolint:staticcheck // backward compat
+				Value: string(domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value),
+				//nolint:staticcheck // backward compat
+				ContentType: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
+			}
+		}
+	}
+
+	if domainAgentGroup.Spec.AgentConnectionConfig != nil {
+		agentConfig.ConnectionSettings = &v1.ConnectionSettings{
+			OpAMP:            mapper.mapOpAMPConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OpAMPConnection),
+			OwnMetrics:       mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnMetrics),
+			OwnLogs:          mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnLogs),
+			OwnTraces:        mapper.mapTelemetryConnectionToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OwnTraces),
+			OtherConnections: mapper.mapOtherConnectionsToAPI(domainAgentGroup.Spec.AgentConnectionConfig.OtherConnections),
+		}
+	}
+
+	return agentConfig
 }
 
 func p[T any](v T) *T {

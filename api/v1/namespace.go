@@ -7,8 +7,10 @@ const (
 
 // Namespace represents a namespace resource that groups agent groups.
 type Namespace struct {
-	Metadata NamespaceMetadata `json:"metadata"`
-	Status   NamespaceStatus   `json:"status"`
+	Kind       string            `json:"kind"`
+	APIVersion string            `json:"apiVersion"`
+	Metadata   NamespaceMetadata `json:"metadata"`
+	Status     NamespaceStatus   `json:"status"`
 } // @name Namespace
 
 // NamespaceMetadata represents the metadata of a namespace.

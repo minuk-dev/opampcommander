@@ -2554,6 +2554,12 @@ const docTemplate = `{
         "AgentGroup": {
             "type": "object",
             "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
                 "metadata": {
                     "$ref": "#/definitions/AgentGroupMetadata"
                 },
@@ -2667,6 +2673,12 @@ const docTemplate = `{
         "AgentPackage": {
             "type": "object",
             "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
                 "metadata": {
                     "$ref": "#/definitions/AgentPackageMetadata"
                 },

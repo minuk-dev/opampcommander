@@ -1,0 +1,7 @@
+# Namespace groups other resources (AgentGroup, AgentRemoteConfig, ...)
+# under a single tenant boundary. Names must be unique cluster-wide.
+kind: Namespace
+apiVersion: v1
+metadata:
+  # Namespace name. Used as the `service.namespace` value reported by agents.
+  name: my-namespace

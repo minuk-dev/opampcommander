@@ -2,6 +2,7 @@
 package agentpackage
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -10,9 +11,13 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/internal/yamlfile"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
+
+// ErrNameRequired is returned when --name is missing and --file is not used.
+var ErrNameRequired = errors.New("--name is required (or use --file)")
 
 // CommandOptions contains the options for the create agentpackage command.
 type CommandOptions struct {
@@ -28,6 +33,7 @@ type CommandOptions struct {
 	contentHash string
 	signature   string
 	headers     map[string]string
+	file        string
 	formatType  string
 
 	// internal state
@@ -65,8 +71,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&options.signature, "signature", "", "Signature of the package")
 	cmd.Flags().StringToStringVar(&options.headers, "headers", nil, "HTTP headers for downloading (key=value)")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
-
-	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
+	cmd.Flags().StringVarP(&options.file, "file", "f", "",
+		"Path to a full AgentPackage YAML definition. When set, individual CLI flags are ignored.")
 
 	return cmd
 }
@@ -85,10 +91,48 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // Run executes the create agentpackage command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	agentPackageService := opt.client.AgentPackageService
+	createRequest, namespace, err := opt.buildRequest()
+	if err != nil {
+		return err
+	}
+
+	agentPackage, err := opt.client.AgentPackageService.CreateAgentPackage(cmd.Context(), namespace, createRequest)
+	if err != nil {
+		return fmt.Errorf("failed to create agent package: %w", err)
+	}
+
+	err = formatter.Format(cmd.OutOrStdout(), toFormattedAgentPackage(agentPackage), formatter.FormatType(opt.formatType))
+	if err != nil {
+		return fmt.Errorf("failed to format output: %w", err)
+	}
+
+	return nil
+}
+
+func (opt *CommandOptions) buildRequest() (*v1.AgentPackage, string, error) {
+	if opt.file != "" {
+		//exhaustruct:ignore
+		req := &v1.AgentPackage{}
+
+		err := yamlfile.Load(opt.file, req)
+		if err != nil {
+			return nil, "", fmt.Errorf("load agent package from %s: %w", opt.file, err)
+		}
+
+		namespace := req.Metadata.Namespace
+		if namespace == "" {
+			namespace = opt.namespace
+		}
+
+		return req, namespace, nil
+	}
+
+	if opt.name == "" {
+		return nil, "", ErrNameRequired
+	}
 
 	//exhaustruct:ignore
-	createRequest := &v1.AgentPackage{
+	return &v1.AgentPackage{
 		Metadata: v1.AgentPackageMetadata{
 			Name:       opt.name,
 			Namespace:  opt.namespace,
@@ -102,19 +146,7 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 			Signature:   []byte(opt.signature),
 			Headers:     opt.headers,
 		},
-	}
-
-	agentPackage, err := agentPackageService.CreateAgentPackage(cmd.Context(), opt.namespace, createRequest)
-	if err != nil {
-		return fmt.Errorf("failed to create agent package: %w", err)
-	}
-
-	err = formatter.Format(cmd.OutOrStdout(), toFormattedAgentPackage(agentPackage), formatter.FormatType(opt.formatType))
-	if err != nil {
-		return fmt.Errorf("failed to format output: %w", err)
-	}
-
-	return nil
+	}, opt.namespace, nil
 }
 
 //nolint:lll

@@ -1,0 +1,44 @@
+# Scrape Prometheus-compatible /metrics endpoints and export as OTLP metrics.
+# The prometheus receiver consumes the same scrape_config schema as Prometheus.
+kind: AgentRemoteConfig
+apiVersion: v1
+metadata:
+  name: prometheus-scrape
+  namespace: default
+  attributes:
+    purpose: prometheus-bridge
+spec:
+  contentType: text/yaml
+  value: |
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: 'self'
+              scrape_interval: 30s
+              static_configs:
+                - targets: ['localhost:8888']
+            - job_name: 'app'
+              scrape_interval: 15s
+              metrics_path: /metrics
+              static_configs:
+                - targets:
+                    - 'app-1.local:9090'
+                    - 'app-2.local:9090'
+    processors:
+      batch:
+        timeout: 10s
+    exporters:
+      otlp:
+        endpoint: otel-gateway.example.com:4317
+        tls:
+          insecure: false
+      # Alternatively expose metrics on a /metrics endpoint for Prometheus to scrape.
+      # prometheus:
+      #   endpoint: 0.0.0.0:9464
+    service:
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [batch]
+          exporters: [otlp]

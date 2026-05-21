@@ -2,6 +2,7 @@
 package certificate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -11,9 +12,13 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/internal/yamlfile"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
+
+// ErrNameRequired is returned when --name is missing and --file is not used.
+var ErrNameRequired = errors.New("--name is required (or use --file)")
 
 // CommandOptions contains the options for the create certificate command.
 type CommandOptions struct {
@@ -29,6 +34,7 @@ type CommandOptions struct {
 	cert       string
 	key        string
 	caCert     string
+	file       string
 	formatType string
 
 	// internal state
@@ -66,8 +72,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&options.key, "key", "", "Private key content (PEM, alternative to --key-file)")
 	cmd.Flags().StringVar(&options.caCert, "ca-cert", "", "CA certificate content (PEM, alternative to --ca-cert-file)")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
-
-	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
+	cmd.Flags().StringVarP(&options.file, "file", "f", "",
+		"Path to a full Certificate YAML definition. When set, individual CLI flags are ignored.")
 
 	return cmd
 }
@@ -86,39 +92,12 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // Run executes the create certificate command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	certificateService := opt.client.CertificateService
-
-	// Load certificate content from files if specified
-	certContent, err := opt.loadCertContent()
+	createRequest, namespace, err := opt.buildRequest()
 	if err != nil {
 		return err
 	}
 
-	keyContent, err := opt.loadKeyContent()
-	if err != nil {
-		return err
-	}
-
-	caCertContent, err := opt.loadCaCertContent()
-	if err != nil {
-		return err
-	}
-
-	//exhaustruct:ignore
-	createRequest := &v1.Certificate{
-		Metadata: v1.CertificateMetadata{
-			Name:       opt.name,
-			Namespace:  opt.namespace,
-			Attributes: opt.attributes,
-		},
-		Spec: v1.CertificateSpec{
-			Cert:       certContent,
-			PrivateKey: keyContent,
-			CaCert:     caCertContent,
-		},
-	}
-
-	certificate, err := certificateService.CreateCertificate(cmd.Context(), opt.namespace, createRequest)
+	certificate, err := opt.client.CertificateService.CreateCertificate(cmd.Context(), namespace, createRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create certificate: %w", err)
 	}
@@ -129,6 +108,58 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+func (opt *CommandOptions) buildRequest() (*v1.Certificate, string, error) {
+	if opt.file != "" {
+		//exhaustruct:ignore
+		req := &v1.Certificate{}
+
+		err := yamlfile.Load(opt.file, req)
+		if err != nil {
+			return nil, "", fmt.Errorf("load certificate from %s: %w", opt.file, err)
+		}
+
+		namespace := req.Metadata.Namespace
+		if namespace == "" {
+			namespace = opt.namespace
+		}
+
+		return req, namespace, nil
+	}
+
+	if opt.name == "" {
+		return nil, "", ErrNameRequired
+	}
+
+	certContent, err := opt.loadCertContent()
+	if err != nil {
+		return nil, "", err
+	}
+
+	keyContent, err := opt.loadKeyContent()
+	if err != nil {
+		return nil, "", err
+	}
+
+	caCertContent, err := opt.loadCaCertContent()
+	if err != nil {
+		return nil, "", err
+	}
+
+	//exhaustruct:ignore
+	return &v1.Certificate{
+		Metadata: v1.CertificateMetadata{
+			Name:       opt.name,
+			Namespace:  opt.namespace,
+			Attributes: opt.attributes,
+		},
+		Spec: v1.CertificateSpec{
+			Cert:       certContent,
+			PrivateKey: keyContent,
+			CaCert:     caCertContent,
+		},
+	}, opt.namespace, nil
 }
 
 func (opt *CommandOptions) loadCertContent() (string, error) {

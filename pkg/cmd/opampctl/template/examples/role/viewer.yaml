@@ -1,0 +1,25 @@
+# Read-only role: list and inspect every namespace-scoped resource.
+# Permissions follow the "<resource>:<ACTION>" naming, where ACTION is
+# uppercase (GET, LIST, CREATE, UPDATE, DELETE).
+kind: Role
+apiVersion: v1
+# Role metadata only carries server-assigned fields (uid, timestamps).
+# The role's user-visible name comes from `spec.displayName` below.
+metadata: {}
+spec:
+  displayName: viewer
+  description: "Read-only access to namespace-scoped resources"
+  permissions:
+    - agent:GET
+    - agent:LIST
+    - agentgroup:GET
+    - agentgroup:LIST
+    - agentpackage:GET
+    - agentpackage:LIST
+    - agentremoteconfig:GET
+    - agentremoteconfig:LIST
+    - certificate:GET
+    - certificate:LIST
+    - rolebinding:GET
+    - rolebinding:LIST
+  isBuiltIn: false
