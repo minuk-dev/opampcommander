@@ -11,9 +11,12 @@ spec:
   packageType: addon
   version: "1.2.0"
   downloadUrl: "https://artifacts.example.com/plugins/my-receiver-1.2.0.tar.gz"
+  # Raw SHA-256, base64-encoded (NOT hex). See `template agentpackage top-level`.
   contentHash: ""
+  # Optional base64-encoded detached signature over `contentHash`.
   signature: ""
   headers:
     # Example: authenticate against a private artifact store.
     Authorization: "Bearer ${ARTIFACT_TOKEN}"
+  # Optional base64-encoded package descriptor hash.
   hash: ""

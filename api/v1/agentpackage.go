@@ -7,9 +7,11 @@ const (
 
 // AgentPackage represents an agent package resource.
 type AgentPackage struct {
-	Metadata AgentPackageMetadata `json:"metadata"`
-	Spec     AgentPackageSpec     `json:"spec"`
-	Status   AgentPackageStatus   `json:"status"`
+	Kind       string               `json:"kind"`
+	APIVersion string               `json:"apiVersion"`
+	Metadata   AgentPackageMetadata `json:"metadata"`
+	Spec       AgentPackageSpec     `json:"spec"`
+	Status     AgentPackageStatus   `json:"status"`
 } // @name AgentPackage
 
 // AgentPackageMetadata represents the metadata of an agent package.

@@ -3,6 +3,8 @@
 # uppercase (GET, LIST, CREATE, UPDATE, DELETE).
 kind: Role
 apiVersion: v1
+# Role metadata only carries server-assigned fields (uid, timestamps).
+# The role's user-visible name comes from `spec.displayName` below.
 metadata: {}
 spec:
   displayName: viewer

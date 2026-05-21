@@ -14,12 +14,14 @@ spec:
   packageType: top-level
   version: "0.122.0"
   downloadUrl: "https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.122.0/otelcol-contrib_0.122.0_linux_amd64.tar.gz"
-  # SHA-256 of the downloaded file (base64-encoded bytes). Required for
-  # integrity verification at the agent. Replace with the real digest.
+  # Raw SHA-256 of the downloaded artifact, base64-encoded (NOT hex).
+  #   sha256sum file.tar.gz | xxd -r -p | base64
+  # Required for integrity verification at the agent.
   contentHash: ""
-  # Optional detached signature over `contentHash`. Empty disables sig check.
+  # Optional detached signature over `contentHash`, base64-encoded raw bytes.
+  # Empty disables signature checking.
   signature: ""
   # Optional HTTP headers sent when downloading (e.g. auth for a private mirror).
   headers: {}
-  # Optional hash for the whole package descriptor (rarely needed).
+  # Optional hash for the whole package descriptor, base64-encoded raw bytes.
   hash: ""

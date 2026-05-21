@@ -7,9 +7,11 @@ const (
 
 // AgentGroup represents a struct that represents an agent group.
 type AgentGroup struct {
-	Metadata Metadata `json:"metadata"`
-	Spec     Spec     `json:"spec"`
-	Status   Status   `json:"status"`
+	Kind       string   `json:"kind"`
+	APIVersion string   `json:"apiVersion"`
+	Metadata   Metadata `json:"metadata"`
+	Spec       Spec     `json:"spec"`
+	Status     Status   `json:"status"`
 } // @name AgentGroup
 
 // Metadata represents metadata information for an agent group.

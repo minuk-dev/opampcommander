@@ -7,9 +7,11 @@ const (
 
 // AgentRemoteConfig represents an agent remote config resource.
 type AgentRemoteConfig struct {
-	Metadata AgentRemoteConfigMetadata `json:"metadata"`
-	Spec     AgentRemoteConfigSpec     `json:"spec"`
-	Status   AgentRemoteConfigStatus   `json:"status"`
+	Kind       string                    `json:"kind"`
+	APIVersion string                    `json:"apiVersion"`
+	Metadata   AgentRemoteConfigMetadata `json:"metadata"`
+	Spec       AgentRemoteConfigSpec     `json:"spec"`
+	Status     AgentRemoteConfigStatus   `json:"status"`
 } // @name AgentRemoteConfig
 
 // AgentRemoteConfigMetadata represents the metadata of an agent remote config.
