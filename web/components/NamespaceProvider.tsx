@@ -1,0 +1,95 @@
+'use client';
+
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import { api } from '@/lib/api-client';
+import { readNamespace, writeNamespace } from '@/lib/auth-storage';
+import type { ListResponse, Namespace } from '@/lib/types';
+import { useAuth } from './AuthProvider';
+
+interface NamespaceContextValue {
+  namespace: string;
+  setNamespace: (ns: string) => void;
+  namespaces: Namespace[];
+  refresh: () => Promise<void>;
+  loading: boolean;
+}
+
+const NamespaceContext = createContext<NamespaceContextValue | undefined>(
+  undefined,
+);
+
+const DEFAULT_NAMESPACE = 'default';
+
+export function NamespaceProvider({ children }: { children: ReactNode }) {
+  const { authenticated } = useAuth();
+  const [namespace, setNamespaceState] = useState<string>(
+    () => readNamespace() ?? DEFAULT_NAMESPACE,
+  );
+  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!authenticated) return;
+    setLoading(true);
+    try {
+      const res = await api.get<ListResponse<Namespace>>('/api/v1/namespaces', {
+        query: { limit: 200 },
+      });
+      setNamespaces(res.items ?? []);
+      // If the current selection no longer exists, fall back to default or
+      // the first available item.
+      const exists = (res.items ?? []).some(
+        (n) => n.metadata.name === namespace,
+      );
+      if (!exists) {
+        const fallback =
+          (res.items ?? []).find((n) => n.metadata.name === DEFAULT_NAMESPACE)
+            ?.metadata.name ??
+          res.items?.[0]?.metadata.name ??
+          DEFAULT_NAMESPACE;
+        setNamespaceState(fallback);
+        writeNamespace(fallback);
+      }
+    } catch {
+      // ignored — likely 401 will be handled by api-client
+    } finally {
+      setLoading(false);
+    }
+  }, [authenticated, namespace]);
+
+  useEffect(() => {
+    void refresh();
+    // refresh on first authenticated mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated]);
+
+  const setNamespace = useCallback((ns: string) => {
+    setNamespaceState(ns);
+    writeNamespace(ns);
+  }, []);
+
+  const value = useMemo<NamespaceContextValue>(
+    () => ({ namespace, setNamespace, namespaces, refresh, loading }),
+    [namespace, setNamespace, namespaces, refresh, loading],
+  );
+
+  return (
+    <NamespaceContext.Provider value={value}>
+      {children}
+    </NamespaceContext.Provider>
+  );
+}
+
+export function useNamespace(): NamespaceContextValue {
+  const ctx = useContext(NamespaceContext);
+  if (!ctx) throw new Error('useNamespace must be used within NamespaceProvider');
+  return ctx;
+}

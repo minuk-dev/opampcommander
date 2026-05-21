@@ -1,123 +1,194 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  IconButton,
   Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Typography,
-  CircularProgress,
-  Box,
-  Alert,
-  IconButton,
-  Button,
-  Chip,
 } from '@mui/material';
-import { Refresh as RefreshIcon, Add as AddIcon } from '@mui/icons-material';
-
-interface AgentGroup {
-  id: string;
-  name: string;
-  description?: string;
-  agentCount?: number;
-  createdAt?: string;
-  [key: string]: any;
-}
+import {
+  Refresh as RefreshIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import PageHeader from '@/components/PageHeader';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useNamespace } from '@/components/NamespaceProvider';
+import { api } from '@/lib/api-client';
+import type { AgentGroup, ListResponse } from '@/lib/types';
+import AgentGroupEditDialog from './AgentGroupEditDialog';
 
 export default function AgentGroupsPage() {
-  const [agentGroups, setAgentGroups] = useState<AgentGroup[]>([]);
+  const { namespace } = useNamespace();
+  const [groups, setGroups] = useState<AgentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<AgentGroup | null>(null);
+  const [deleting, setDeleting] = useState<AgentGroup | null>(null);
 
-  const fetchAgentGroups = async () => {
+  const fetchGroups = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('/api/agentgroups');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch agent groups');
-      }
-      
-      const data = await response.json();
-      setAgentGroups(data.items || []);
+      const data = await api.get<ListResponse<AgentGroup>>(
+        `/api/v1/namespaces/${namespace}/agentgroups`,
+        { query: { limit: 200 } },
+      );
+      setGroups(data.items ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Failed to fetch groups');
     } finally {
       setLoading(false);
     }
-  };
+  }, [namespace]);
 
   useEffect(() => {
-    fetchAgentGroups();
-  }, []);
+    void fetchGroups();
+  }, [fetchGroups]);
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
+  const onDelete = async () => {
+    if (!deleting) return;
+    try {
+      await api.delete(
+        `/api/v1/namespaces/${namespace}/agentgroups/${deleting.metadata.name}`,
+      );
+      setDeleting(null);
+      await fetchGroups();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+    }
+  };
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1">
-          Agent Groups
-        </Typography>
-        <Box>
-          <IconButton onClick={fetchAgentGroups} color="primary">
-            <RefreshIcon />
-          </IconButton>
-          <Button variant="contained" startIcon={<AddIcon />} sx={{ ml: 1 }}>
-            Create Group
-          </Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="Agent Groups"
+        subtitle={`Namespace: ${namespace}`}
+        actions={
+          <>
+            <IconButton color="primary" onClick={fetchGroups}>
+              <RefreshIcon />
+            </IconButton>
+            <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
+              New group
+            </Button>
+          </>
+        }
+      />
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
               <TableCell>Name</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Agent Count</TableCell>
-              <TableCell>Created At</TableCell>
+              <TableCell>Priority</TableCell>
+              <TableCell>Agents</TableCell>
+              <TableCell>Connected</TableCell>
+              <TableCell>Healthy</TableCell>
+              <TableCell>Created</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {agentGroups.length === 0 ? (
+            {loading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center">
-                  No agent groups found
+                <TableCell colSpan={7} align="center">
+                  <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
+            ) : groups.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} align="center">No agent groups</TableCell>
+              </TableRow>
             ) : (
-              agentGroups.map((group) => (
-                <TableRow key={group.id} hover>
-                  <TableCell>{group.id}</TableCell>
-                  <TableCell>{group.name || '-'}</TableCell>
-                  <TableCell>{group.description || '-'}</TableCell>
+              groups.map((g) => (
+                <TableRow key={g.metadata.name} hover>
                   <TableCell>
-                    <Chip label={group.agentCount || 0} color="primary" size="small" />
+                    <Link href={`/agentgroups/${g.metadata.name}`}>
+                      {g.metadata.name}
+                    </Link>
                   </TableCell>
-                  <TableCell>{group.createdAt || '-'}</TableCell>
+                  <TableCell>{g.spec.priority}</TableCell>
+                  <TableCell>
+                    <Chip label={g.status.numAgents} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={`${g.status.numConnectedAgents}/${g.status.numAgents}`}
+                      color="success"
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={`${g.status.numHealthyAgents}/${g.status.numAgents}`}
+                      color={g.status.numUnhealthyAgents ? 'warning' : 'success'}
+                      size="small"
+                      variant="outlined"
+                    />
+                  </TableCell>
+                  <TableCell>{g.metadata.createdAt}</TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" gap={1} justifyContent="flex-end">
+                      <Button size="small" onClick={() => setEditing(g)}>
+                        Edit
+                      </Button>
+                      <IconButton size="small" onClick={() => setDeleting(g)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </TableContainer>
+
+      <AgentGroupEditDialog
+        open={createOpen}
+        mode="create"
+        onClose={() => setCreateOpen(false)}
+        onSaved={() => {
+          setCreateOpen(false);
+          void fetchGroups();
+        }}
+      />
+      <AgentGroupEditDialog
+        open={editing !== null}
+        mode="edit"
+        initial={editing ?? undefined}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          setEditing(null);
+          void fetchGroups();
+        }}
+      />
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete agent group"
+        message={`Are you sure you want to delete "${deleting?.metadata.name}"?`}
+        confirmLabel="Delete"
+        destructive
+        onClose={() => setDeleting(null)}
+        onConfirm={onDelete}
+      />
     </Box>
   );
 }
