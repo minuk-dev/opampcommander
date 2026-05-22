@@ -66,9 +66,7 @@ export default function AgentGroupsPage() {
   const onDelete = async () => {
     if (!deleting) return;
     try {
-      await api.delete(
-        `/api/v1/namespaces/${namespace}/agentgroups/${deleting.metadata.name}`,
-      );
+      await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${deleting.metadata.name}`);
       setDeleting(null);
       await fetchGroups();
     } catch (err) {
@@ -93,7 +91,11 @@ export default function AgentGroupsPage() {
         }
       />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
@@ -117,7 +119,9 @@ export default function AgentGroupsPage() {
               </TableRow>
             ) : groups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">No agent groups</TableCell>
+                <TableCell colSpan={7} align="center">
+                  No agent groups
+                </TableCell>
               </TableRow>
             ) : (
               groups.map((g) => (

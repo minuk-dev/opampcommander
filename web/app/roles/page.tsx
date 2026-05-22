@@ -53,7 +53,11 @@ export default function RolesPage() {
           {
             header: 'Built-in',
             render: (r) => (
-              <Chip size="small" label={r.spec.isBuiltIn ? 'yes' : 'no'} color={r.spec.isBuiltIn ? 'info' : 'default'} />
+              <Chip
+                size="small"
+                label={r.spec.isBuiltIn ? 'yes' : 'no'}
+                color={r.spec.isBuiltIn ? 'info' : 'default'}
+              />
             ),
           },
         ]}

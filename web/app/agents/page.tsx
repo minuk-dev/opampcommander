@@ -51,9 +51,7 @@ function attrMatchesDescription(agent: Agent, needle: string): boolean {
     ...Object.entries(desc?.identifyingAttributes ?? {}),
     ...Object.entries(desc?.nonIdentifyingAttributes ?? {}),
   ];
-  return collect.some(
-    ([k, v]) => k.toLowerCase().includes(lc) || v.toLowerCase().includes(lc),
-  );
+  return collect.some(([k, v]) => k.toLowerCase().includes(lc) || v.toLowerCase().includes(lc));
 }
 
 function AgentsInner() {
@@ -103,7 +101,9 @@ function AgentsInner() {
         /* listing might be RBAC-denied; group filter still works via URL */
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [namespace]);
 
   const fetchAgents = useCallback(
@@ -272,9 +272,7 @@ function AgentsInner() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   InputProps={{
-                    startAdornment: (
-                      <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                    ),
+                    startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
                   }}
                 />
               )}
@@ -287,9 +285,8 @@ function AgentsInner() {
 
           {mode === 'description' && (
             <Box sx={{ color: 'text.secondary', fontSize: 12 }}>
-              Description search filters the current page on the client. Combine
-              with a smaller namespace or refine via UID / group for large
-              deployments.
+              Description search filters the current page on the client. Combine with a smaller
+              namespace or refine via UID / group for large deployments.
             </Box>
           )}
 
@@ -301,9 +298,7 @@ function AgentsInner() {
                   <Chip
                     icon={<GroupIcon />}
                     label={`Group: ${agentGroupParam}`}
-                    onClick={() =>
-                      router.push(`/agentgroups/${agentGroupParam}`)
-                    }
+                    onClick={() => router.push(`/agentgroups/${agentGroupParam}`)}
                     onDelete={clearGroup}
                     color="primary"
                     variant="outlined"
@@ -339,7 +334,11 @@ function AgentsInner() {
         </Stack>
       </Paper>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <TableContainer component={Paper}>
         <Table>

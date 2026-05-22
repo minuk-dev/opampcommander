@@ -39,7 +39,9 @@ export default function ServersPage() {
     }
   }, []);
 
-  useEffect(() => { void fetchItems(); }, [fetchItems]);
+  useEffect(() => {
+    void fetchItems();
+  }, [fetchItems]);
 
   return (
     <Box>
@@ -52,7 +54,11 @@ export default function ServersPage() {
           </IconButton>
         }
       />
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -64,9 +70,17 @@ export default function ServersPage() {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={3} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={3} align="center">No servers</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  No servers
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((s) => (
                 <TableRow key={s.id} hover>

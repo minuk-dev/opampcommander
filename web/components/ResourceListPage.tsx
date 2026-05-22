@@ -42,7 +42,12 @@ interface Props<T> {
   itemName: (row: T) => string;
   columns: Column<T>[];
   renderCreate?: (props: { open: boolean; onClose: () => void; onSaved: () => void }) => ReactNode;
-  renderEdit?: (props: { open: boolean; row: T; onClose: () => void; onSaved: () => void }) => ReactNode;
+  renderEdit?: (props: {
+    open: boolean;
+    row: T;
+    onClose: () => void;
+    onSaved: () => void;
+  }) => ReactNode;
   canEdit?: boolean;
   canDelete?: boolean;
   // When set, the row action menu includes a "View detail" entry that
@@ -118,7 +123,11 @@ export default function ResourceListPage<T>({
   const buildActions = (row: T): RowAction[] => {
     const out: RowAction[] = [];
     if (detailHref) {
-      out.push({ label: 'View detail', icon: <ViewIcon fontSize="small" />, href: detailHref(row) });
+      out.push({
+        label: 'View detail',
+        icon: <ViewIcon fontSize="small" />,
+        href: detailHref(row),
+      });
     }
     if (canEdit && renderEdit) {
       out.push({
@@ -153,7 +162,11 @@ export default function ResourceListPage<T>({
               <RefreshIcon />
             </IconButton>
             {renderCreate && (
-              <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
+              <Button
+                startIcon={<AddIcon />}
+                variant="contained"
+                onClick={() => setCreateOpen(true)}
+              >
                 New
               </Button>
             )}
@@ -161,7 +174,11 @@ export default function ResourceListPage<T>({
         }
       />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
@@ -177,9 +194,17 @@ export default function ResourceListPage<T>({
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={columnCount} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={columnCount} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={columnCount} align="center">{emptyMessage}</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={columnCount} align="center">
+                  {emptyMessage}
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((row, i) => (
                 <TableRow key={i} hover>
@@ -201,14 +226,21 @@ export default function ResourceListPage<T>({
       {renderCreate?.({
         open: createOpen,
         onClose: () => setCreateOpen(false),
-        onSaved: () => { setCreateOpen(false); void fetchItems(); },
+        onSaved: () => {
+          setCreateOpen(false);
+          void fetchItems();
+        },
       })}
-      {editing && renderEdit?.({
-        open: editing !== null,
-        row: editing,
-        onClose: () => setEditing(null),
-        onSaved: () => { setEditing(null); void fetchItems(); },
-      })}
+      {editing &&
+        renderEdit?.({
+          open: editing !== null,
+          row: editing,
+          onClose: () => setEditing(null),
+          onSaved: () => {
+            setEditing(null);
+            void fetchItems();
+          },
+        })}
       <ConfirmDialog
         open={deleting !== null}
         title={`Delete ${title.toLowerCase()}`}

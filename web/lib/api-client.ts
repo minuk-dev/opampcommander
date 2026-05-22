@@ -71,10 +71,7 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-async function doFetch<T>(
-  path: string,
-  opts: RequestOptions,
-): Promise<T> {
+async function doFetch<T>(path: string, opts: RequestOptions): Promise<T> {
   const url = new URL(buildUrl(path), window.location.origin);
   if (opts.query) {
     for (const [k, v] of Object.entries(opts.query)) {
@@ -89,9 +86,9 @@ async function doFetch<T>(
   };
 
   if (opts.basicAuth) {
-    headers.Authorization =
-      `Basic ${ 
-      btoa(`${opts.basicAuth.username}:${opts.basicAuth.password}`)}`;
+    headers.Authorization = `Basic ${btoa(
+      `${opts.basicAuth.username}:${opts.basicAuth.password}`,
+    )}`;
   } else {
     const auth = readAuth();
     if (auth?.token) {
@@ -109,8 +106,7 @@ async function doFetch<T>(
     if (!headers['Content-Type']) {
       headers['Content-Type'] = 'application/json';
     }
-    init.body =
-      typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
+    init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
   }
 
   let res = await fetch(url.toString(), init);
@@ -126,9 +122,7 @@ async function doFetch<T>(
       clearAuth();
       const here = window.location.pathname + window.location.search;
       if (window.location.pathname !== '/login') {
-        window.location.assign(
-          `/login?from=${encodeURIComponent(here)}`,
-        );
+        window.location.assign(`/login?from=${encodeURIComponent(here)}`);
       }
       const err: ApiError = Object.assign(new Error('Unauthorized'), {
         status: 401,

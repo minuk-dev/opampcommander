@@ -69,9 +69,7 @@ function AgentDetailInner() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<Agent>(
-        `/api/v1/namespaces/${namespace}/agents/${params.id}`,
-      );
+      const data = await api.get<Agent>(`/api/v1/namespaces/${namespace}/agents/${params.id}`);
       setAgent(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch agent');
@@ -159,18 +157,10 @@ function AgentDetailInner() {
             <Button startIcon={<RefreshIcon />} onClick={fetchAgent}>
               Refresh
             </Button>
-            <Button
-              startIcon={<RestartIcon />}
-              onClick={requestRestart}
-              disabled={restartBusy}
-            >
+            <Button startIcon={<RestartIcon />} onClick={requestRestart} disabled={restartBusy}>
               Request restart
             </Button>
-            <Button
-              startIcon={<EditIcon />}
-              variant="contained"
-              onClick={() => setEditOpen(true)}
-            >
+            <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditOpen(true)}>
               Edit spec
             </Button>
           </>
@@ -197,9 +187,7 @@ function AgentDetailInner() {
               <Typography variant="body2" mt={1}>
                 Last reported: {agent.status.lastReportedAt || '—'}
               </Typography>
-              <Typography variant="body2">
-                Sequence #: {agent.status.sequenceNum ?? '—'}
-              </Typography>
+              <Typography variant="body2">Sequence #: {agent.status.sequenceNum ?? '—'}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -280,16 +268,19 @@ function AgentDetailInner() {
           )}
           {tab === 1 && (
             <Stack spacing={2}>
-              {Object.entries(
-                agent.status.effectiveConfig?.configMap.configMap ?? {},
-              ).length === 0 ? (
+              {Object.entries(agent.status.effectiveConfig?.configMap.configMap ?? {}).length ===
+              0 ? (
                 <Typography color="text.secondary">No effective config reported.</Typography>
               ) : (
-                Object.entries(
-                  agent.status.effectiveConfig?.configMap.configMap ?? {},
-                ).map(([name, file]) => (
-                  <JsonBlock key={name} title={`${name} (${file.contentType})`} value={file.body} />
-                ))
+                Object.entries(agent.status.effectiveConfig?.configMap.configMap ?? {}).map(
+                  ([name, file]) => (
+                    <JsonBlock
+                      key={name}
+                      title={`${name} (${file.contentType})`}
+                      value={file.body}
+                    />
+                  ),
+                )
               )}
             </Stack>
           )}

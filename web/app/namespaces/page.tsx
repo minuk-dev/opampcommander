@@ -20,11 +20,7 @@ import {
   TableRow,
   TextField,
 } from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Refresh as RefreshIcon,
-} from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -111,7 +107,11 @@ export default function NamespacesPage() {
         }
       />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <TableContainer component={Paper}>
         <Table>
@@ -126,9 +126,17 @@ export default function NamespacesPage() {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center">No namespaces</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No namespaces
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((ns) => (
                 <TableRow key={ns.metadata.name} hover>
@@ -176,7 +184,9 @@ export default function NamespacesPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={onCreate} disabled={!newName}>Create</Button>
+          <Button variant="contained" onClick={onCreate} disabled={!newName}>
+            Create
+          </Button>
         </DialogActions>
       </Dialog>
       <ConfirmDialog

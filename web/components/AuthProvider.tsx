@@ -12,12 +12,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { CircularProgress, Box } from '@mui/material';
 import { api, type ApiError } from '@/lib/api-client';
-import {
-  type StoredAuth,
-  clearAuth,
-  readAuth,
-  writeAuth,
-} from '@/lib/auth-storage';
+import { type StoredAuth, clearAuth, readAuth, writeAuth } from '@/lib/auth-storage';
 import type { AuthInfo } from '@/lib/types';
 
 interface AuthContextValue {
@@ -113,10 +108,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
-  const applyTokens = useCallback((a: StoredAuth) => {
-    writeAuth(a);
-    void refresh();
-  }, [refresh]);
+  const applyTokens = useCallback(
+    (a: StoredAuth) => {
+      writeAuth(a);
+      void refresh();
+    },
+    [refresh],
+  );
 
   const logout = useCallback(() => {
     clearAuth();

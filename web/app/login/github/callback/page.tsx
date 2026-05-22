@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Card,
-  CardContent,
-  CircularProgress,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Card, CardContent, CircularProgress, Typography } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
@@ -36,19 +29,12 @@ function CallbackInner() {
     applyTokens({ token, refreshToken, expiresAt });
     // Sanitize `from` to a same-origin internal path.
     const rawFrom = search.get('from') || '/';
-    const from =
-      rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/';
+    const from = rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/';
     router.replace(from);
   }, [applyTokens, router, search]);
 
   return (
-    <Box
-      display="flex"
-      minHeight="100vh"
-      alignItems="center"
-      justifyContent="center"
-      p={2}
-    >
+    <Box display="flex" minHeight="100vh" alignItems="center" justifyContent="center" p={2}>
       <Card sx={{ maxWidth: 400, width: '100%' }}>
         <CardContent>
           {error ? (

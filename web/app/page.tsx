@@ -35,14 +35,7 @@ import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
-import type {
-  Agent,
-  AgentGroup,
-  Connection,
-  ListResponse,
-  Server,
-  VersionInfo,
-} from '@/lib/types';
+import type { Agent, AgentGroup, Connection, ListResponse, Server, VersionInfo } from '@/lib/types';
 
 interface QuadrantProps {
   title: string;
@@ -54,10 +47,7 @@ interface QuadrantProps {
 
 function Quadrant({ title, href, icon, loading, children }: QuadrantProps) {
   return (
-    <Card
-      variant="outlined"
-      sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-    >
+    <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardHeader
         avatar={<Box sx={{ color: 'primary.main', display: 'flex' }}>{icon}</Box>}
         title={
@@ -156,17 +146,16 @@ export default function DashboardPage() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const [agents, groups, conns, servers, packages, configs, certs, version] =
-      await Promise.all([
-        safeList<Agent>(`/api/v1/namespaces/${namespace}/agents`),
-        safeList<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`),
-        safeList<Connection>(`/api/v1/namespaces/${namespace}/connections`),
-        safeList<Server>('/api/v1/servers'),
-        safeList<unknown>(`/api/v1/namespaces/${namespace}/agentpackages`),
-        safeList<unknown>(`/api/v1/namespaces/${namespace}/agentremoteconfigs`),
-        safeList<unknown>(`/api/v1/namespaces/${namespace}/certificates`),
-        api.get<VersionInfo>('/api/v1/version').catch(() => null),
-      ]);
+    const [agents, groups, conns, servers, packages, configs, certs, version] = await Promise.all([
+      safeList<Agent>(`/api/v1/namespaces/${namespace}/agents`),
+      safeList<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`),
+      safeList<Connection>(`/api/v1/namespaces/${namespace}/connections`),
+      safeList<Server>('/api/v1/servers'),
+      safeList<unknown>(`/api/v1/namespaces/${namespace}/agentpackages`),
+      safeList<unknown>(`/api/v1/namespaces/${namespace}/agentremoteconfigs`),
+      safeList<unknown>(`/api/v1/namespaces/${namespace}/certificates`),
+      api.get<VersionInfo>('/api/v1/version').catch(() => null),
+    ]);
     setData({
       agents: agents.items,
       agentTotal: agents.total ?? agents.items.length,
@@ -186,10 +175,8 @@ export default function DashboardPage() {
     void refresh();
   }, [refresh]);
 
-  const connectedCount =
-    data?.agents.filter((a) => a.status.connected).length ?? 0;
-  const healthyCount =
-    data?.agents.filter((a) => a.status.componentHealth?.healthy).length ?? 0;
+  const connectedCount = data?.agents.filter((a) => a.status.connected).length ?? 0;
+  const healthyCount = data?.agents.filter((a) => a.status.componentHealth?.healthy).length ?? 0;
   const aliveConns = data?.connections.filter((c) => c.alive).length ?? 0;
   const aliveServers =
     data?.servers.filter((s) =>
@@ -254,9 +241,7 @@ export default function DashboardPage() {
               <LinearProgress
                 variant="determinate"
                 value={
-                  data && data.agents.length > 0
-                    ? (healthyCount / data.agents.length) * 100
-                    : 0
+                  data && data.agents.length > 0 ? (healthyCount / data.agents.length) * 100 : 0
                 }
                 color={
                   data && data.agents.length > 0 && healthyCount === data.agents.length
@@ -321,9 +306,8 @@ export default function DashboardPage() {
                             {g.metadata.name}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            priority {g.spec.priority} ·{' '}
-                            {g.status.numHealthyAgents}/{g.status.numAgents}{' '}
-                            healthy
+                            priority {g.spec.priority} · {g.status.numHealthyAgents}/
+                            {g.status.numAgents} healthy
                           </Typography>
                         </Box>
                         <Chip
@@ -479,10 +463,7 @@ export default function DashboardPage() {
                   <Typography variant="caption" color="text.secondary">
                     Server build:
                   </Typography>
-                  <Typography
-                    variant="caption"
-                    sx={{ fontFamily: 'monospace' }}
-                  >
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
                     {data?.version?.gitVersion ?? '—'}
                   </Typography>
                 </Stack>

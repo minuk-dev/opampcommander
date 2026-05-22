@@ -59,16 +59,11 @@ function LoginInner() {
       // The backend's loopback flow accepts http(s)://(127.0.0.1|::1|localhost):PORT
       // redirect_uri values; the browser then receives ?token=... back.
       const origin = window.location.origin;
-      const redirectUri = `${origin}/login/github/callback?from=${encodeURIComponent(
-        from,
-      )}`;
-      const res = await api.get<OAuth2AuthCodeURLResponse>(
-        '/api/v1/auth/github/authcode',
-        {
-          query: { redirect_uri: redirectUri },
-          noAuthRedirect: true,
-        },
-      );
+      const redirectUri = `${origin}/login/github/callback?from=${encodeURIComponent(from)}`;
+      const res = await api.get<OAuth2AuthCodeURLResponse>('/api/v1/auth/github/authcode', {
+        query: { redirect_uri: redirectUri },
+        noAuthRedirect: true,
+      });
       window.location.assign(res.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'GitHub login failed');
@@ -83,8 +78,7 @@ function LoginInner() {
       alignItems="center"
       justifyContent="center"
       sx={{
-        background:
-          'linear-gradient(135deg, #1a237e 0%, #283593 60%, #1976d2 100%)',
+        background: 'linear-gradient(135deg, #1a237e 0%, #283593 60%, #1976d2 100%)',
         p: 2,
       }}
     >

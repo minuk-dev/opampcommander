@@ -37,7 +37,9 @@ export default function VersionPage() {
               <Stack spacing={1}>
                 {Object.entries(info).map(([k, v]) => (
                   <Stack key={k} direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">{k}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {k}
+                    </Typography>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
                       {typeof v === 'string' ? v : JSON.stringify(v)}
                     </Typography>

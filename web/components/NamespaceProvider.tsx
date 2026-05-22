@@ -22,9 +22,7 @@ interface NamespaceContextValue {
   loading: boolean;
 }
 
-const NamespaceContext = createContext<NamespaceContextValue | undefined>(
-  undefined,
-);
+const NamespaceContext = createContext<NamespaceContextValue | undefined>(undefined);
 
 const DEFAULT_NAMESPACE = 'default';
 
@@ -46,13 +44,10 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
       setNamespaces(res.items ?? []);
       // If the current selection no longer exists, fall back to default or
       // the first available item.
-      const exists = (res.items ?? []).some(
-        (n) => n.metadata.name === namespace,
-      );
+      const exists = (res.items ?? []).some((n) => n.metadata.name === namespace);
       if (!exists) {
         const fallback =
-          (res.items ?? []).find((n) => n.metadata.name === DEFAULT_NAMESPACE)
-            ?.metadata.name ??
+          (res.items ?? []).find((n) => n.metadata.name === DEFAULT_NAMESPACE)?.metadata.name ??
           res.items?.[0]?.metadata.name ??
           DEFAULT_NAMESPACE;
         setNamespaceState(fallback);
@@ -81,11 +76,7 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
     [namespace, setNamespace, namespaces, refresh, loading],
   );
 
-  return (
-    <NamespaceContext.Provider value={value}>
-      {children}
-    </NamespaceContext.Provider>
-  );
+  return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;
 }
 
 export function useNamespace(): NamespaceContextValue {

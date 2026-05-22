@@ -101,11 +101,7 @@ export default function CodeEditorDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
           <Box>{title}</Box>
           <ToggleButtonGroup
             size="small"

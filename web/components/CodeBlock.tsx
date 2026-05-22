@@ -46,7 +46,7 @@ export default function CodeBlock({
 }: Props) {
   const [format, setFormat] = useState<CodeFormat>(defaultFormat);
   const isRawString = typeof value === 'string';
-  const text = rawText ?? (isRawString ? (value) : serialize(value, format));
+  const text = rawText ?? (isRawString ? value : serialize(value, format));
   const showToggle = !rawText && !isRawString;
 
   const onCopy = async () => {
@@ -59,12 +59,7 @@ export default function CodeBlock({
 
   return (
     <Box>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        sx={{ mb: 1 }}
-      >
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
         <Box>
           {title &&
             (typeof title === 'string' ? (

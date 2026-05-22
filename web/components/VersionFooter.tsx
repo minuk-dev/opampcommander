@@ -44,7 +44,11 @@ export default function VersionFooter() {
           </div>
           {info ? (
             <>
-              {info.gitVersion && <div><strong>api</strong>: {info.gitVersion}</div>}
+              {info.gitVersion && (
+                <div>
+                  <strong>api</strong>: {info.gitVersion}
+                </div>
+              )}
               {info.gitCommit && <div>commit: {info.gitCommit.slice(0, 12)}</div>}
               {info.buildDate && <div>built: {info.buildDate}</div>}
               {info.goVersion && <div>go: {info.goVersion}</div>}
@@ -72,12 +76,7 @@ export default function VersionFooter() {
         }}
       >
         <Stack spacing={0}>
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="baseline"
-            sx={{ overflow: 'hidden' }}
-          >
+          <Stack direction="row" spacing={1} alignItems="baseline" sx={{ overflow: 'hidden' }}>
             <Typography
               variant="caption"
               sx={{
@@ -101,12 +100,7 @@ export default function VersionFooter() {
               {WEB_VERSION}
             </Typography>
           </Stack>
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="baseline"
-            sx={{ overflow: 'hidden' }}
-          >
+          <Stack direction="row" spacing={1} alignItems="baseline" sx={{ overflow: 'hidden' }}>
             <Typography
               variant="caption"
               sx={{

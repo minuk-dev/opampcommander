@@ -83,9 +83,7 @@ function AgentGroupDetailInner() {
 
   const onDelete = async () => {
     try {
-      await api.delete(
-        `/api/v1/namespaces/${namespace}/agentgroups/${params.name}`,
-      );
+      await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${params.name}`);
       router.push('/agentgroups');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');
@@ -138,11 +136,7 @@ function AgentGroupDetailInner() {
             >
               View agents
             </Button>
-            <Button
-              startIcon={<EditIcon />}
-              variant="contained"
-              onClick={() => setEditing(true)}
-            >
+            <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditing(true)}>
               Edit
             </Button>
           </>
@@ -158,10 +152,7 @@ function AgentGroupDetailInner() {
           ['Not connected', group.status.numNotConnectedAgents, 'default' as const],
         ].map(([label, value, color]) => (
           <Grid size={{ xs: 6, md: 2.4 }} key={String(label)}>
-            <Tooltip
-              title={`View agents in ${group.metadata.name}`}
-              placement="top"
-            >
+            <Tooltip title={`View agents in ${group.metadata.name}`} placement="top">
               <Card
                 component={Link}
                 href={agentsHref}
@@ -227,7 +218,9 @@ function AgentGroupDetailInner() {
               </Typography>
               <Stack direction="row" gap={0.5} flexWrap="wrap">
                 {Object.entries(group.metadata.attributes || {}).length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">none</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    none
+                  </Typography>
                 ) : (
                   Object.entries(group.metadata.attributes).map(([k, v]) => (
                     <Chip key={k} label={`${k}=${v}`} size="small" variant="outlined" />
@@ -251,8 +244,8 @@ function AgentGroupDetailInner() {
           {tab === 0 && (
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                Agents are matched to this group when their identifying / non-identifying
-                attributes contain all of the keys/values defined below.
+                Agents are matched to this group when their identifying / non-identifying attributes
+                contain all of the keys/values defined below.
               </Typography>
               <JsonBlock
                 title="Identifying attributes"

@@ -15,11 +15,8 @@ const HOP_BY_HOP = new Set([
   'host',
 ]);
 
-async function forward(
-  request: NextRequest,
-  segments: string[],
-): Promise<NextResponse> {
-  const targetPath = `/${  segments.map((s) => encodeURIComponent(s)).join('/')}`;
+async function forward(request: NextRequest, segments: string[]): Promise<NextResponse> {
+  const targetPath = `/${segments.map((s) => encodeURIComponent(s)).join('/')}`;
   const search = request.nextUrl.search;
   const target = `${OPAMP_API_URL}${targetPath}${search}`;
 

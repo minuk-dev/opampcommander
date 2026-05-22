@@ -44,7 +44,9 @@ export default function ConnectionsPage() {
     }
   }, [namespace]);
 
-  useEffect(() => { void fetchItems(); }, [fetchItems]);
+  useEffect(() => {
+    void fetchItems();
+  }, [fetchItems]);
 
   return (
     <Box>
@@ -57,7 +59,11 @@ export default function ConnectionsPage() {
           </IconButton>
         }
       />
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -71,9 +77,17 @@ export default function ConnectionsPage() {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
             ) : items.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center">No connections</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No connections
+                </TableCell>
+              </TableRow>
             ) : (
               items.map((c) => (
                 <TableRow key={c.id} hover>

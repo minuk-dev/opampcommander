@@ -12,12 +12,7 @@ interface Props {
   onSaved: (agent: Agent) => void;
 }
 
-export default function AgentEditDialog({
-  open,
-  agent,
-  onClose,
-  onSaved,
-}: Props) {
+export default function AgentEditDialog({ open, agent, onClose, onSaved }: Props) {
   const { namespace } = useNamespace();
   return (
     <CodeEditorDialog
@@ -25,10 +20,9 @@ export default function AgentEditDialog({
       title="Edit agent spec"
       description={
         <>
-          Edit <code>spec</code>. Common fields:{' '}
-          <code>newInstanceUid</code>, <code>connectionSettings</code>,{' '}
-          <code>remoteConfig</code>, <code>packagesAvailable</code>,{' '}
-          <code>restartRequiredAt</code>.
+          Edit <code>spec</code>. Common fields: <code>newInstanceUid</code>,{' '}
+          <code>connectionSettings</code>, <code>remoteConfig</code>, <code>packagesAvailable</code>
+          , <code>restartRequiredAt</code>.
         </>
       }
       initialValue={agent.spec ?? {}}
@@ -36,9 +30,10 @@ export default function AgentEditDialog({
       onSave={async (parsed) => {
         const next: Agent = {
           ...agent,
-          spec: (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-            ? (parsed as Agent['spec'])
-            : {}),
+          spec:
+            parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+              ? (parsed as Agent['spec'])
+              : {},
         };
         const updated = await api.put<Agent>(
           `/api/v1/namespaces/${namespace}/agents/${agent.metadata.instanceUid}`,

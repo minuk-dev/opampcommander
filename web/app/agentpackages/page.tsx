@@ -56,20 +56,17 @@ export default function AgentPackagesPage() {
             title="Create agent package"
             description={
               <>
-                Define metadata (<code>name</code>, <code>attributes</code>) and{' '}
-                spec (<code>packageType</code>, <code>version</code>,{' '}
-                <code>downloadUrl</code>, optional <code>contentHash</code>,{' '}
-                <code>signature</code>, <code>headers</code>, <code>hash</code>).
+                Define metadata (<code>name</code>, <code>attributes</code>) and spec (
+                <code>packageType</code>, <code>version</code>, <code>downloadUrl</code>, optional{' '}
+                <code>contentHash</code>, <code>signature</code>, <code>headers</code>,{' '}
+                <code>hash</code>).
               </>
             }
             initialValue={emptyPackage(namespace, '')}
             onClose={onClose}
             onSave={async (parsed) => {
               const body = parsed as AgentPackage;
-              await api.post(
-                `/api/v1/namespaces/${namespace}/agentpackages`,
-                body,
-              );
+              await api.post(`/api/v1/namespaces/${namespace}/agentpackages`, body);
               onSaved();
             }}
           />
@@ -95,4 +92,3 @@ export default function AgentPackagesPage() {
     </Box>
   );
 }
-

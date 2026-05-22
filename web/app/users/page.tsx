@@ -41,7 +41,12 @@ export default function UsersPage() {
               />
             ),
           },
-          { header: 'UID', render: (u) => <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{u.metadata.uid}</span> },
+          {
+            header: 'UID',
+            render: (u) => (
+              <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{u.metadata.uid}</span>
+            ),
+          },
           { header: 'Created', render: (u) => u.metadata.createdAt },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (

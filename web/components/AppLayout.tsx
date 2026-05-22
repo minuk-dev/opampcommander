@@ -203,11 +203,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   <ListItemButton
                     component={Link}
                     href={item.href}
-                    selected={
-                      item.href === '/'
-                        ? pathname === '/'
-                        : pathname.startsWith(item.href)
-                    }
+                    selected={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
                   >
                     <ListItemIcon>{item.icon}</ListItemIcon>
                     <ListItemText primary={item.text} />

@@ -50,13 +50,7 @@ function parse(text: string, format: Format): unknown {
   return JSON.parse(text);
 }
 
-export default function AgentGroupEditDialog({
-  open,
-  mode,
-  initial,
-  onClose,
-  onSaved,
-}: Props) {
+export default function AgentGroupEditDialog({ open, mode, initial, onClose, onSaved }: Props) {
   const { namespace } = useNamespace();
   const [format, setFormat] = useState<Format>('yaml');
   const [name, setName] = useState('');
@@ -116,10 +110,7 @@ export default function AgentGroupEditDialog({
           metadata: { ...initial.metadata, attributes },
           spec,
         };
-        await api.put(
-          `/api/v1/namespaces/${namespace}/agentgroups/${initial.metadata.name}`,
-          body,
-        );
+        await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${initial.metadata.name}`, body);
       }
       onSaved();
     } catch (err) {
@@ -132,11 +123,7 @@ export default function AgentGroupEditDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
+        <Stack direction="row" alignItems="center" justifyContent="space-between">
           {mode === 'create' ? 'Create agent group' : 'Edit agent group'}
           <ToggleButtonGroup
             size="small"
@@ -177,8 +164,8 @@ export default function AgentGroupEditDialog({
             }}
           />
           <Typography variant="body2" color="text.secondary">
-            Spec ({format.toUpperCase()}) — <code>priority</code>,{' '}
-            <code>selector</code>, <code>agentConfig</code>.
+            Spec ({format.toUpperCase()}) — <code>priority</code>, <code>selector</code>,{' '}
+            <code>agentConfig</code>.
           </Typography>
           <TextField
             value={specText}
@@ -198,11 +185,7 @@ export default function AgentGroupEditDialog({
         <Button onClick={onClose} disabled={busy}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          onClick={save}
-          disabled={busy || (mode === 'create' && !name)}
-        >
+        <Button variant="contained" onClick={save} disabled={busy || (mode === 'create' && !name)}>
           Save
         </Button>
       </DialogActions>

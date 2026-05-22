@@ -27,9 +27,7 @@ export default function RoleBindingsPage() {
         title="Role Bindings"
         subtitle={`Namespace: ${namespace}`}
         listPath={`/api/v1/namespaces/${namespace}/rolebindings`}
-        itemPath={(rb) =>
-          `/api/v1/namespaces/${namespace}/rolebindings/${rb.metadata.name}`
-        }
+        itemPath={(rb) => `/api/v1/namespaces/${namespace}/rolebindings/${rb.metadata.name}`}
         itemName={(rb) => rb.metadata.name}
         deps={[namespace]}
         canEdit
@@ -68,10 +66,7 @@ export default function RoleBindingsPage() {
             initialValue={emptyRoleBinding(namespace)}
             onClose={onClose}
             onSave={async (parsed) => {
-              await api.post(
-                `/api/v1/namespaces/${namespace}/rolebindings`,
-                parsed as RoleBinding,
-              );
+              await api.post(`/api/v1/namespaces/${namespace}/rolebindings`, parsed as RoleBinding);
               onSaved();
             }}
           />

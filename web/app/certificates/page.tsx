@@ -33,9 +33,7 @@ export default function CertificatesPage() {
         title="Certificates"
         subtitle={`Namespace: ${namespace}`}
         listPath={`/api/v1/namespaces/${namespace}/certificates`}
-        itemPath={(c) =>
-          `/api/v1/namespaces/${namespace}/certificates/${c.metadata.name}`
-        }
+        itemPath={(c) => `/api/v1/namespaces/${namespace}/certificates/${c.metadata.name}`}
         itemName={(c) => c.metadata.name}
         deps={[namespace]}
         canEdit
@@ -44,15 +42,33 @@ export default function CertificatesPage() {
           { header: 'Name', render: (c) => c.metadata.name },
           {
             header: 'Has cert',
-            render: (c) => <Chip size="small" label={c.spec.cert ? 'yes' : 'no'} color={c.spec.cert ? 'success' : 'default'} />,
+            render: (c) => (
+              <Chip
+                size="small"
+                label={c.spec.cert ? 'yes' : 'no'}
+                color={c.spec.cert ? 'success' : 'default'}
+              />
+            ),
           },
           {
             header: 'Has private key',
-            render: (c) => <Chip size="small" label={c.spec.privateKey ? 'yes' : 'no'} color={c.spec.privateKey ? 'success' : 'default'} />,
+            render: (c) => (
+              <Chip
+                size="small"
+                label={c.spec.privateKey ? 'yes' : 'no'}
+                color={c.spec.privateKey ? 'success' : 'default'}
+              />
+            ),
           },
           {
             header: 'Has CA',
-            render: (c) => <Chip size="small" label={c.spec.caCert ? 'yes' : 'no'} color={c.spec.caCert ? 'success' : 'default'} />,
+            render: (c) => (
+              <Chip
+                size="small"
+                label={c.spec.caCert ? 'yes' : 'no'}
+                color={c.spec.caCert ? 'success' : 'default'}
+              />
+            ),
           },
           { header: 'Created', render: (c) => c.metadata.createdAt },
         ]}
@@ -64,10 +80,7 @@ export default function CertificatesPage() {
             initialValue={emptyCertificate(namespace)}
             onClose={onClose}
             onSave={async (parsed) => {
-              await api.post(
-                `/api/v1/namespaces/${namespace}/certificates`,
-                parsed as Certificate,
-              );
+              await api.post(`/api/v1/namespaces/${namespace}/certificates`, parsed as Certificate);
               onSaved();
             }}
           />

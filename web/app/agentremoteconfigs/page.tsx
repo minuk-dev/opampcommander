@@ -27,9 +27,7 @@ export default function AgentRemoteConfigsPage() {
         title="Agent Remote Configs"
         subtitle={`Namespace: ${namespace}`}
         listPath={`/api/v1/namespaces/${namespace}/agentremoteconfigs`}
-        itemPath={(c) =>
-          `/api/v1/namespaces/${namespace}/agentremoteconfigs/${c.metadata.name}`
-        }
+        itemPath={(c) => `/api/v1/namespaces/${namespace}/agentremoteconfigs/${c.metadata.name}`}
         itemName={(c) => c.metadata.name}
         deps={[namespace]}
         canEdit

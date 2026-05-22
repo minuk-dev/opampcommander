@@ -84,9 +84,7 @@ export default function NamespaceSelector() {
             '.MuiSvgIcon-root': { color: 'inherit' },
           }}
         >
-          {namespaces.length === 0 && (
-            <MenuItem value={namespace}>{namespace}</MenuItem>
-          )}
+          {namespaces.length === 0 && <MenuItem value={namespace}>{namespace}</MenuItem>}
           {namespaces.map((n) => (
             <MenuItem key={n.metadata.name} value={n.metadata.name}>
               {n.metadata.name}
