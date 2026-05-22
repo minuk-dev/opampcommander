@@ -90,8 +90,8 @@ async function doFetch<T>(
 
   if (opts.basicAuth) {
     headers.Authorization =
-      'Basic ' +
-      btoa(`${opts.basicAuth.username}:${opts.basicAuth.password}`);
+      `Basic ${ 
+      btoa(`${opts.basicAuth.username}:${opts.basicAuth.password}`)}`;
   } else {
     const auth = readAuth();
     if (auth?.token) {

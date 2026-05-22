@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import { MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 export interface RowAction {
   label: string;

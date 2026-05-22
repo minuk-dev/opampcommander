@@ -2,7 +2,7 @@
 
 import {
   createContext,
-  ReactNode,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -11,9 +11,9 @@ import {
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircularProgress, Box } from '@mui/material';
-import { api, ApiError } from '@/lib/api-client';
+import { api, type ApiError } from '@/lib/api-client';
 import {
-  StoredAuth,
+  type StoredAuth,
   clearAuth,
   readAuth,
   writeAuth,

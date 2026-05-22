@@ -11,7 +11,7 @@ export default function VersionPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       try {
         const data = await api.get<Record<string, unknown>>('/api/v1/version');
         setInfo(data);

@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ContentCopy as CopyIcon } from '@mui/icons-material';
-import { ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { toYAML } from '@/lib/yaml';
 
 export type CodeFormat = 'yaml' | 'json';
@@ -46,7 +46,7 @@ export default function CodeBlock({
 }: Props) {
   const [format, setFormat] = useState<CodeFormat>(defaultFormat);
   const isRawString = typeof value === 'string';
-  const text = rawText ?? (isRawString ? (value as string) : serialize(value, format));
+  const text = rawText ?? (isRawString ? (value) : serialize(value, format));
   const showToggle = !rawText && !isRawString;
 
   const onCopy = async () => {

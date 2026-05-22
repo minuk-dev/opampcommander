@@ -20,7 +20,7 @@ export default function VersionFooter() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const data = await api.get<VersionInfo>('/api/v1/version');
         if (!cancelled) setInfo(data);

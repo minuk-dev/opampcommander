@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 
 const OPAMP_API_URL = process.env.OPAMP_API_URL || 'http://localhost:8080';
 
@@ -19,7 +19,7 @@ async function forward(
   request: NextRequest,
   segments: string[],
 ): Promise<NextResponse> {
-  const targetPath = '/' + segments.map((s) => encodeURIComponent(s)).join('/');
+  const targetPath = `/${  segments.map((s) => encodeURIComponent(s)).join('/')}`;
   const search = request.nextUrl.search;
   const target = `${OPAMP_API_URL}${targetPath}${search}`;
 

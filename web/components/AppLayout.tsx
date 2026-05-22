@@ -36,7 +36,7 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import NamespaceSelector from './NamespaceSelector';
 import VersionFooter from './VersionFooter';

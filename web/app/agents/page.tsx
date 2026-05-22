@@ -92,7 +92,7 @@ function AgentsInner() {
   // Load agent groups for the "Group" autocomplete and the chip cross-reference.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const res = await api.get<ListResponse<AgentGroup>>(
           `/api/v1/namespaces/${namespace}/agentgroups`,

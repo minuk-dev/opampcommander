@@ -31,7 +31,7 @@ import {
   HealthAndSafety as HealthIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';

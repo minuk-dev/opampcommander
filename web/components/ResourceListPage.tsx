@@ -21,10 +21,10 @@ import {
   Refresh as RefreshIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import PageHeader from './PageHeader';
 import ConfirmDialog from './ConfirmDialog';
-import RowActionsMenu, { RowAction } from './RowActionsMenu';
+import RowActionsMenu, { type RowAction } from './RowActionsMenu';
 import { api } from '@/lib/api-client';
 import type { ListResponse } from '@/lib/types';
 

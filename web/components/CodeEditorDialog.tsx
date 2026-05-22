@@ -14,7 +14,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { fromYAML, toYAML } from '@/lib/yaml';
 
 export type CodeFormat = 'yaml' | 'json';
