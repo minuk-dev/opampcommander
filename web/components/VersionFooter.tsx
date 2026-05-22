@@ -1,9 +1,10 @@
 'use client';
 
-import { Box, Tooltip, Typography } from '@mui/material';
+import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
+import { WEB_VERSION } from '@/lib/web-version';
 
 interface VersionInfo {
   gitVersion?: string;
@@ -24,7 +25,7 @@ export default function VersionFooter() {
         const data = await api.get<VersionInfo>('/api/v1/version');
         if (!cancelled) setInfo(data);
       } catch {
-        // best-effort; leave footer empty
+        // best-effort; leave api line as "—"
       }
     })();
     return () => {
@@ -32,22 +33,27 @@ export default function VersionFooter() {
     };
   }, []);
 
-  const label = info?.gitVersion || 'unknown';
+  const apiLabel = info?.gitVersion || '—';
 
   return (
     <Tooltip
       title={
-        info ? (
-          <Box sx={{ fontFamily: 'monospace', fontSize: 11 }}>
-            {info.gitVersion && <div>version: {info.gitVersion}</div>}
-            {info.gitCommit && <div>commit: {info.gitCommit.slice(0, 12)}</div>}
-            {info.buildDate && <div>built: {info.buildDate}</div>}
-            {info.goVersion && <div>go: {info.goVersion}</div>}
-            {info.platform && <div>platform: {info.platform}</div>}
-          </Box>
-        ) : (
-          'Loading version…'
-        )
+        <Box sx={{ fontFamily: 'monospace', fontSize: 11 }}>
+          <div>
+            <strong>web</strong>: {WEB_VERSION}
+          </div>
+          {info ? (
+            <>
+              {info.gitVersion && <div><strong>api</strong>: {info.gitVersion}</div>}
+              {info.gitCommit && <div>commit: {info.gitCommit.slice(0, 12)}</div>}
+              {info.buildDate && <div>built: {info.buildDate}</div>}
+              {info.goVersion && <div>go: {info.goVersion}</div>}
+              {info.platform && <div>platform: {info.platform}</div>}
+            </>
+          ) : (
+            <div>api: loading…</div>
+          )}
+        </Box>
       }
       placement="right"
     >
@@ -65,18 +71,66 @@ export default function VersionFooter() {
           '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontFamily: 'monospace',
-          }}
-        >
-          {label}
-        </Typography>
+        <Stack spacing={0}>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="baseline"
+            sx={{ overflow: 'hidden' }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                fontFamily: 'monospace',
+                flexShrink: 0,
+                width: 28,
+              }}
+            >
+              web
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontFamily: 'monospace',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {WEB_VERSION}
+            </Typography>
+          </Stack>
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="baseline"
+            sx={{ overflow: 'hidden' }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                fontFamily: 'monospace',
+                flexShrink: 0,
+                width: 28,
+              }}
+            >
+              api
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{
+                fontFamily: 'monospace',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {apiLabel}
+            </Typography>
+          </Stack>
+        </Stack>
       </Box>
     </Tooltip>
   );
