@@ -382,8 +382,13 @@ export interface OAuth2AuthCodeURLResponse {
 }
 
 export interface VersionInfo {
-  version: string;
-  commit?: string;
+  major?: string;
+  minor?: string;
+  gitVersion?: string;
+  gitCommit?: string;
+  gitTreeState?: string;
   buildDate?: string;
   goVersion?: string;
+  compiler?: string;
+  platform?: string;
 }

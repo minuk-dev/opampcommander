@@ -7,7 +7,6 @@ import {
   CircularProgress,
   IconButton,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -20,10 +19,12 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   Refresh as RefreshIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import PageHeader from './PageHeader';
 import ConfirmDialog from './ConfirmDialog';
+import RowActionsMenu, { RowAction } from './RowActionsMenu';
 import { api } from '@/lib/api-client';
 import type { ListResponse } from '@/lib/types';
 
@@ -44,6 +45,11 @@ interface Props<T> {
   renderEdit?: (props: { open: boolean; row: T; onClose: () => void; onSaved: () => void }) => ReactNode;
   canEdit?: boolean;
   canDelete?: boolean;
+  // When set, the row action menu includes a "View detail" entry that
+  // navigates to detailHref(row).
+  detailHref?: (row: T) => string;
+  // Extra actions added to the row menu (e.g. domain-specific operations).
+  extraActions?: (row: T) => RowAction[];
   query?: Record<string, string | number | boolean | undefined>;
   // re-run when these external deps change (e.g. namespace)
   deps?: ReadonlyArray<unknown>;
@@ -61,6 +67,8 @@ export default function ResourceListPage<T>({
   renderEdit,
   canEdit,
   canDelete,
+  detailHref,
+  extraActions,
   query,
   deps = [],
   emptyMessage = 'No items',
@@ -104,8 +112,35 @@ export default function ResourceListPage<T>({
     }
   };
 
-  const hasActions = canEdit || canDelete;
+  const hasActions = Boolean(canEdit || canDelete || detailHref || extraActions);
   const columnCount = columns.length + (hasActions ? 1 : 0);
+
+  const buildActions = (row: T): RowAction[] => {
+    const out: RowAction[] = [];
+    if (detailHref) {
+      out.push({ label: 'View detail', icon: <ViewIcon fontSize="small" />, href: detailHref(row) });
+    }
+    if (canEdit && renderEdit) {
+      out.push({
+        label: 'Edit',
+        icon: <EditIcon fontSize="small" />,
+        onClick: () => setEditing(row),
+      });
+    }
+    if (extraActions) {
+      out.push(...extraActions(row));
+    }
+    if (canDelete) {
+      out.push({
+        label: 'Delete',
+        icon: <DeleteIcon fontSize="small" />,
+        destructive: true,
+        divider: out.length > 0,
+        onClick: () => setDeleting(row),
+      });
+    }
+    return out;
+  };
 
   return (
     <Box>
@@ -153,18 +188,7 @@ export default function ResourceListPage<T>({
                   ))}
                   {hasActions && (
                     <TableCell align="right">
-                      <Stack direction="row" gap={0.5} justifyContent="flex-end">
-                        {canEdit && renderEdit && (
-                          <IconButton size="small" onClick={() => setEditing(row)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                        {canDelete && (
-                          <IconButton size="small" onClick={() => setDeleting(row)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Stack>
+                      <RowActionsMenu actions={buildActions(row)} />
                     </TableCell>
                   )}
                 </TableRow>

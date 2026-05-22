@@ -8,7 +8,6 @@ import {
   CircularProgress,
   IconButton,
   Paper,
-  Stack,
   Table,
   TableBody,
   TableCell,
@@ -20,13 +19,16 @@ import {
   Refresh as RefreshIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  InfoOutlined as InfoIcon,
+  Edit as EditIcon,
+  PeopleAlt as PeopleAltIcon,
+  Visibility as ViewIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { Tooltip } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import RowActionsMenu from '@/components/RowActionsMenu';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import type { AgentGroup, ListResponse } from '@/lib/types';
@@ -160,23 +162,32 @@ export default function AgentGroupsPage() {
                   </TableCell>
                   <TableCell>{g.metadata.createdAt}</TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" gap={0.5} justifyContent="flex-end">
-                      <Tooltip title="Details">
-                        <IconButton
-                          size="small"
-                          component={Link}
-                          href={`/agentgroups/${g.metadata.name}`}
-                        >
-                          <InfoIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Button size="small" onClick={() => setEditing(g)}>
-                        Edit
-                      </Button>
-                      <IconButton size="small" onClick={() => setDeleting(g)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
+                    <RowActionsMenu
+                      actions={[
+                        {
+                          label: 'View detail',
+                          icon: <ViewIcon fontSize="small" />,
+                          href: `/agentgroups/${g.metadata.name}`,
+                        },
+                        {
+                          label: 'View agents',
+                          icon: <PeopleAltIcon fontSize="small" />,
+                          href: `/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`,
+                        },
+                        {
+                          label: 'Edit',
+                          icon: <EditIcon fontSize="small" />,
+                          href: `/agentgroups/${g.metadata.name}?action=edit`,
+                        },
+                        {
+                          label: 'Delete',
+                          icon: <DeleteIcon fontSize="small" />,
+                          destructive: true,
+                          divider: true,
+                          onClick: () => setDeleting(g),
+                        },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))

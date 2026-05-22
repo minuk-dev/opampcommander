@@ -13,8 +13,6 @@ import {
   Stack,
   Tab,
   Tabs,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import {
@@ -23,13 +21,12 @@ import {
   Refresh as RefreshIcon,
   RestartAlt as RestartIcon,
 } from '@mui/icons-material';
-import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
-import { toYAML } from '@/lib/yaml';
 import type { Agent } from '@/lib/types';
 import AgentEditDialog from './AgentEditDialog';
 
@@ -55,17 +52,18 @@ function capabilityNames(bitmask: number | undefined): string[] {
   return table.filter(([b]) => (bitmask & b) !== 0).map(([, name]) => name);
 }
 
-export default function AgentDetailPage() {
+function AgentDetailInner() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const search = useSearchParams();
   const { namespace } = useNamespace();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
-  const [rawFormat, setRawFormat] = useState<'json' | 'yaml'>('json');
   const [editOpen, setEditOpen] = useState(false);
   const [restartBusy, setRestartBusy] = useState(false);
+  const [actionHandled, setActionHandled] = useState(false);
 
   const fetchAgent = useCallback(async () => {
     setLoading(true);
@@ -85,6 +83,21 @@ export default function AgentDetailPage() {
   useEffect(() => {
     void fetchAgent();
   }, [fetchAgent]);
+
+  // Honor ?action= once after the agent loads.
+  useEffect(() => {
+    if (!agent || actionHandled) return;
+    const action = search.get('action');
+    if (!action) return;
+    setActionHandled(true);
+    if (action === 'edit') {
+      setEditOpen(true);
+    } else if (action === 'restart') {
+      void requestRestart();
+    }
+    router.replace(`/agents/${params.id}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent, actionHandled]);
 
   const requestRestart = async () => {
     if (!agent) return;
@@ -282,27 +295,7 @@ export default function AgentDetailPage() {
           )}
           {tab === 2 && <JsonBlock value={agent.spec ?? {}} />}
           {tab === 3 && <JsonBlock value={agent.status.conditions ?? []} />}
-          {tab === 4 && (
-            <Stack spacing={2}>
-              <Stack direction="row" justifyContent="flex-end">
-                <ToggleButtonGroup
-                  size="small"
-                  exclusive
-                  value={rawFormat}
-                  onChange={(_, v: 'json' | 'yaml' | null) => v && setRawFormat(v)}
-                  aria-label="raw format"
-                >
-                  <ToggleButton value="json">JSON</ToggleButton>
-                  <ToggleButton value="yaml">YAML</ToggleButton>
-                </ToggleButtonGroup>
-              </Stack>
-              {rawFormat === 'json' ? (
-                <JsonBlock value={agent} />
-              ) : (
-                <JsonBlock value={toYAML(agent)} />
-              )}
-            </Stack>
-          )}
+          {tab === 4 && <JsonBlock value={agent} />}
         </CardContent>
       </Card>
 
@@ -316,5 +309,13 @@ export default function AgentDetailPage() {
         }}
       />
     </Box>
+  );
+}
+
+export default function AgentDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgentDetailInner />
+    </Suspense>
   );
 }

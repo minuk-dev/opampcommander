@@ -2,12 +2,17 @@
 
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
   CircularProgress,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -22,16 +27,34 @@ import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   Group as GroupIcon,
+  Visibility as ViewIcon,
+  Edit as EditIcon,
+  RestartAlt as RestartIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import RowActionsMenu from '@/components/RowActionsMenu';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
-import type { Agent, ListResponse } from '@/lib/types';
+import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
 
 const PAGE_SIZE = 50;
+
+type SearchMode = 'uid' | 'group' | 'description';
+
+function attrMatchesDescription(agent: Agent, needle: string): boolean {
+  const lc = needle.toLowerCase();
+  const desc = agent.metadata.description;
+  const collect = [
+    ...Object.entries(desc?.identifyingAttributes ?? {}),
+    ...Object.entries(desc?.nonIdentifyingAttributes ?? {}),
+  ];
+  return collect.some(
+    ([k, v]) => k.toLowerCase().includes(lc) || v.toLowerCase().includes(lc),
+  );
+}
 
 function AgentsInner() {
   const router = useRouter();
@@ -40,18 +63,48 @@ function AgentsInner() {
 
   const agentGroupParam = search.get('agentGroup') || '';
   const qParam = search.get('q') || '';
+  const descParam = search.get('desc') || '';
+  const modeParam =
+    (search.get('mode') as SearchMode | null) ||
+    (agentGroupParam ? 'group' : descParam ? 'description' : 'uid');
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<SearchMode>(modeParam);
+  const [groupOptions, setGroupOptions] = useState<AgentGroup[]>([]);
   const [query, setQuery] = useState(qParam);
   const [continueToken, setContinueToken] = useState<string | null>(null);
   const [continueStack, setContinueStack] = useState<string[]>([]);
 
-  // Keep the local input synced if the URL ?q= changes externally
+  // Keep the local input synced when URL drives the value (mode change etc.)
   useEffect(() => {
-    setQuery(qParam);
-  }, [qParam]);
+    if (mode === 'uid') setQuery(qParam);
+    else if (mode === 'description') setQuery(descParam);
+    else if (mode === 'group') setQuery(agentGroupParam);
+  }, [mode, qParam, descParam, agentGroupParam]);
+
+  // Sync mode state if URL changes externally
+  useEffect(() => {
+    setMode(modeParam);
+  }, [modeParam]);
+
+  // Load agent groups for the "Group" autocomplete and the chip cross-reference.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<ListResponse<AgentGroup>>(
+          `/api/v1/namespaces/${namespace}/agentgroups`,
+          { query: { limit: 500 } },
+        );
+        if (!cancelled) setGroupOptions(res.items ?? []);
+      } catch {
+        /* listing might be RBAC-denied; group filter still works via URL */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [namespace]);
 
   const fetchAgents = useCallback(
     async (token?: string) => {
@@ -70,6 +123,7 @@ function AgentsInner() {
           path = `/api/v1/namespaces/${namespace}/agents/search`;
           q.q = qParam;
         } else {
+          // Description search filters client-side over the unsearched list.
           path = `/api/v1/namespaces/${namespace}/agents`;
         }
 
@@ -90,19 +144,41 @@ function AgentsInner() {
     void fetchAgents();
   }, [fetchAgents]);
 
-  const updateUrl = (next: { q?: string; agentGroup?: string }) => {
+  const updateUrl = (next: {
+    q?: string;
+    agentGroup?: string;
+    desc?: string;
+    mode?: SearchMode;
+  }) => {
     const params = new URLSearchParams();
-    const q = next.q ?? qParam;
-    const g = next.agentGroup ?? agentGroupParam;
+    const m = next.mode ?? mode;
+    const q = next.q ?? (m === 'uid' ? qParam : '');
+    const g = next.agentGroup ?? (m === 'group' ? agentGroupParam : '');
+    const d = next.desc ?? (m === 'description' ? descParam : '');
     if (q) params.set('q', q);
     if (g) params.set('agentGroup', g);
+    if (d) params.set('desc', d);
+    if (m !== 'uid' || !q) params.set('mode', m);
     const qs = params.toString();
     router.replace(qs ? `/agents?${qs}` : '/agents');
   };
 
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    updateUrl({ q: query.trim() });
+    const value = query.trim();
+    if (mode === 'uid') {
+      updateUrl({ q: value, agentGroup: '', desc: '', mode: 'uid' });
+    } else if (mode === 'group') {
+      updateUrl({ agentGroup: value, q: '', desc: '', mode: 'group' });
+    } else {
+      updateUrl({ desc: value, q: '', agentGroup: '', mode: 'description' });
+    }
+  };
+
+  const setSearchMode = (next: SearchMode) => {
+    setMode(next);
+    setQuery('');
+    updateUrl({ q: '', agentGroup: '', desc: '', mode: next });
   };
 
   const clearGroup = () => updateUrl({ agentGroup: '' });
@@ -117,7 +193,10 @@ function AgentsInner() {
     void fetchAgents(continueToken);
   };
 
-  const filterActive = Boolean(agentGroupParam || qParam);
+  const filterActive = Boolean(agentGroupParam || qParam || descParam);
+  const visibleAgents = descParam
+    ? agents.filter((a) => attrMatchesDescription(a, descParam))
+    : agents;
 
   return (
     <Box>
@@ -134,33 +213,85 @@ function AgentsInner() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack spacing={1.5}>
           <form onSubmit={onSearch}>
-            <Stack direction="row" gap={1}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder={
-                  agentGroupParam
-                    ? 'UID search disabled while group filter is active'
-                    : 'Search by instance UID…'
-                }
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                disabled={Boolean(agentGroupParam)}
-                InputProps={{
-                  startAdornment: (
-                    <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                  ),
-                }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={Boolean(agentGroupParam)}
-              >
+            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1}>
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel id="search-mode-label">Search by</InputLabel>
+                <Select
+                  labelId="search-mode-label"
+                  label="Search by"
+                  value={mode}
+                  onChange={(e) => setSearchMode(e.target.value as SearchMode)}
+                >
+                  <MenuItem value="group">Agent Group</MenuItem>
+                  <MenuItem value="uid">Instance UID</MenuItem>
+                  <MenuItem value="description">Description</MenuItem>
+                </Select>
+              </FormControl>
+
+              {mode === 'group' ? (
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  freeSolo
+                  options={groupOptions.map((g) => g.metadata.name)}
+                  value={query}
+                  onInputChange={(_, v) => setQuery(v)}
+                  onChange={(_, v) =>
+                    updateUrl({
+                      agentGroup: v ?? '',
+                      q: '',
+                      desc: '',
+                      mode: 'group',
+                    })
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Select or type an agent group name…"
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <GroupIcon sx={{ ml: 1, mr: 0.5, color: 'text.secondary' }} />
+                            {params.InputProps.startAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+              ) : (
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder={
+                    mode === 'uid'
+                      ? 'Instance UID contains… (server-side)'
+                      : 'Attribute key/value contains… (client-side, current page)'
+                  }
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                    ),
+                  }}
+                />
+              )}
+
+              <Button type="submit" variant="contained">
                 Search
               </Button>
             </Stack>
           </form>
+
+          {mode === 'description' && (
+            <Box sx={{ color: 'text.secondary', fontSize: 12 }}>
+              Description search filters the current page on the client. Combine
+              with a smaller namespace or refine via UID / group for large
+              deployments.
+            </Box>
+          )}
 
           {filterActive && (
             <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
@@ -190,6 +321,19 @@ function AgentsInner() {
                   size="small"
                 />
               )}
+              {descParam && (
+                <Chip
+                  icon={<SearchIcon />}
+                  label={`Description: ${descParam}`}
+                  onDelete={() => {
+                    setQuery('');
+                    updateUrl({ desc: '' });
+                  }}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+              )}
             </Stack>
           )}
         </Stack>
@@ -207,29 +351,36 @@ function AgentsInner() {
               <TableCell>Type</TableCell>
               <TableCell>Last Reported</TableCell>
               <TableCell>Sequence</TableCell>
+              <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
+                <TableCell colSpan={7} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
-            ) : agents.length === 0 ? (
+            ) : visibleAgents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
-                  No agents found
+                <TableCell colSpan={7} align="center">
+                  {descParam
+                    ? `No agents on this page match description "${descParam}"`
+                    : 'No agents found'}
                 </TableCell>
               </TableRow>
             ) : (
-              agents.map((agent) => (
+              visibleAgents.map((agent) => (
                 <TableRow
                   key={agent.metadata.instanceUid}
                   hover
                   component={Link}
                   href={`/agents/${agent.metadata.instanceUid}`}
-                  sx={{ textDecoration: 'none', cursor: 'pointer' }}
+                  sx={{
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
                 >
                   <TableCell sx={{ fontFamily: 'monospace' }}>
                     {agent.metadata.instanceUid}
@@ -251,6 +402,27 @@ function AgentsInner() {
                   <TableCell>{agent.status.connectionType || '-'}</TableCell>
                   <TableCell>{agent.status.lastReportedAt || '-'}</TableCell>
                   <TableCell>{agent.status.sequenceNum ?? '-'}</TableCell>
+                  <TableCell align="right">
+                    <RowActionsMenu
+                      actions={[
+                        {
+                          label: 'View detail',
+                          icon: <ViewIcon fontSize="small" />,
+                          href: `/agents/${agent.metadata.instanceUid}`,
+                        },
+                        {
+                          label: 'Edit spec',
+                          icon: <EditIcon fontSize="small" />,
+                          href: `/agents/${agent.metadata.instanceUid}?action=edit`,
+                        },
+                        {
+                          label: 'Request restart',
+                          icon: <RestartIcon fontSize="small" />,
+                          href: `/agents/${agent.metadata.instanceUid}?action=restart`,
+                        },
+                      ]}
+                    />
+                  </TableCell>
                 </TableRow>
               ))
             )}

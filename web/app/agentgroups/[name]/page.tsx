@@ -24,24 +24,28 @@ import {
   CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import type { AgentGroup } from '@/lib/types';
 import AgentGroupEditDialog from '../AgentGroupEditDialog';
 
-export default function AgentGroupDetailPage() {
+function AgentGroupDetailInner() {
   const params = useParams<{ name: string }>();
   const router = useRouter();
+  const search = useSearchParams();
   const { namespace } = useNamespace();
   const [group, setGroup] = useState<AgentGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionHandled, setActionHandled] = useState(false);
 
   const fetchGroup = useCallback(async () => {
     setLoading(true);
@@ -61,6 +65,33 @@ export default function AgentGroupDetailPage() {
   useEffect(() => {
     void fetchGroup();
   }, [fetchGroup]);
+
+  // Auto-trigger ?action= once after load (e.g. from the list page menu).
+  useEffect(() => {
+    if (!group || actionHandled) return;
+    const action = search.get('action');
+    if (!action) return;
+    setActionHandled(true);
+    if (action === 'edit') {
+      setEditing(true);
+    } else if (action === 'delete') {
+      setDeleting(true);
+    }
+    router.replace(`/agentgroups/${params.name}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group, actionHandled]);
+
+  const onDelete = async () => {
+    try {
+      await api.delete(
+        `/api/v1/namespaces/${namespace}/agentgroups/${params.name}`,
+      );
+      router.push('/agentgroups');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -249,6 +280,23 @@ export default function AgentGroupDetailPage() {
           void fetchGroup();
         }}
       />
+      <ConfirmDialog
+        open={deleting}
+        title="Delete agent group"
+        message={`Delete "${group.metadata.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        destructive
+        onClose={() => setDeleting(false)}
+        onConfirm={onDelete}
+      />
     </Box>
+  );
+}
+
+export default function AgentGroupDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgentGroupDetailInner />
+    </Suspense>
   );
 }
