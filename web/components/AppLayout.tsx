@@ -54,22 +54,22 @@ interface NavSection {
   items: NavItem[];
 }
 
-// Namespaces and Version are intentionally excluded:
-//  - Namespace is a tenant context selected from the top bar.
-//  - Version is shown in the bottom-left footer.
+// Sidebar ordering reflects domain importance:
+//  - Agent domain first (AgentGroup before Agent — groups are the unit of intent).
+//  - Access (user/role management).
+//  - Admin (cluster-level operator views) at the bottom.
+// Namespaces / Version excluded — namespace is a top-bar tenant selector,
+// version is shown in the bottom-left footer.
 const sections: NavSection[] = [
   {
     heading: 'Overview',
-    items: [
-      { text: 'Dashboard', icon: <DashboardIcon />, href: '/' },
-      { text: 'Servers', icon: <DnsIcon />, href: '/servers' },
-    ],
+    items: [{ text: 'Dashboard', icon: <DashboardIcon />, href: '/' }],
   },
   {
     heading: 'Agents',
     items: [
-      { text: 'Agents', icon: <ComputerIcon />, href: '/agents' },
       { text: 'Agent Groups', icon: <GroupIcon />, href: '/agentgroups' },
+      { text: 'Agents', icon: <ComputerIcon />, href: '/agents' },
       { text: 'Connections', icon: <CableIcon />, href: '/connections' },
       { text: 'Agent Packages', icon: <PackageIcon />, href: '/agentpackages' },
       { text: 'Remote Configs', icon: <TuneIcon />, href: '/agentremoteconfigs' },
@@ -83,6 +83,10 @@ const sections: NavSection[] = [
       { text: 'Roles', icon: <RoleIcon />, href: '/roles' },
       { text: 'Role Bindings', icon: <RoleBindingIcon />, href: '/rolebindings' },
     ],
+  },
+  {
+    heading: 'Admin',
+    items: [{ text: 'Servers', icon: <DnsIcon />, href: '/servers' }],
   },
 ];
 

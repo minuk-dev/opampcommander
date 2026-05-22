@@ -13,6 +13,8 @@ import {
   Stack,
   Tab,
   Tabs,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import {
@@ -27,6 +29,7 @@ import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { toYAML } from '@/lib/yaml';
 import type { Agent } from '@/lib/types';
 import AgentEditDialog from './AgentEditDialog';
 
@@ -60,6 +63,7 @@ export default function AgentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
+  const [rawFormat, setRawFormat] = useState<'json' | 'yaml'>('json');
   const [editOpen, setEditOpen] = useState(false);
   const [restartBusy, setRestartBusy] = useState(false);
 
@@ -278,7 +282,27 @@ export default function AgentDetailPage() {
           )}
           {tab === 2 && <JsonBlock value={agent.spec ?? {}} />}
           {tab === 3 && <JsonBlock value={agent.status.conditions ?? []} />}
-          {tab === 4 && <JsonBlock value={agent} />}
+          {tab === 4 && (
+            <Stack spacing={2}>
+              <Stack direction="row" justifyContent="flex-end">
+                <ToggleButtonGroup
+                  size="small"
+                  exclusive
+                  value={rawFormat}
+                  onChange={(_, v: 'json' | 'yaml' | null) => v && setRawFormat(v)}
+                  aria-label="raw format"
+                >
+                  <ToggleButton value="json">JSON</ToggleButton>
+                  <ToggleButton value="yaml">YAML</ToggleButton>
+                </ToggleButtonGroup>
+              </Stack>
+              {rawFormat === 'json' ? (
+                <JsonBlock value={agent} />
+              ) : (
+                <JsonBlock value={toYAML(agent)} />
+              )}
+            </Stack>
+          )}
         </CardContent>
       </Card>
 

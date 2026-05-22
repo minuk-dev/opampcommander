@@ -10,22 +10,18 @@ import {
   CircularProgress,
   Divider,
   Grid,
-  Paper,
   Stack,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Tabs,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
   Edit as EditIcon,
+  PeopleAlt as PeopleAltIcon,
+  CalendarToday as CalendarIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -34,7 +30,7 @@ import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
-import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
+import type { AgentGroup } from '@/lib/types';
 import AgentGroupEditDialog from '../AgentGroupEditDialog';
 
 export default function AgentGroupDetailPage() {
@@ -42,27 +38,19 @@ export default function AgentGroupDetailPage() {
   const router = useRouter();
   const { namespace } = useNamespace();
   const [group, setGroup] = useState<AgentGroup | null>(null);
-  const [members, setMembers] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
   const [editing, setEditing] = useState(false);
 
-  const fetchAll = useCallback(async () => {
+  const fetchGroup = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [g, agents] = await Promise.all([
-        api.get<AgentGroup>(
-          `/api/v1/namespaces/${namespace}/agentgroups/${params.name}`,
-        ),
-        api.get<ListResponse<Agent>>(
-          `/api/v1/namespaces/${namespace}/agentgroups/${params.name}/agents`,
-          { query: { limit: 200 } },
-        ),
-      ]);
+      const g = await api.get<AgentGroup>(
+        `/api/v1/namespaces/${namespace}/agentgroups/${params.name}`,
+      );
       setGroup(g);
-      setMembers(agents.items ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch group');
     } finally {
@@ -71,8 +59,8 @@ export default function AgentGroupDetailPage() {
   }, [namespace, params.name]);
 
   useEffect(() => {
-    void fetchAll();
-  }, [fetchAll]);
+    void fetchGroup();
+  }, [fetchGroup]);
 
   if (loading) {
     return (
@@ -92,6 +80,8 @@ export default function AgentGroupDetailPage() {
     );
   }
 
+  const agentsHref = `/agents?agentGroup=${encodeURIComponent(group.metadata.name)}`;
+
   return (
     <Box>
       <Button
@@ -106,10 +96,22 @@ export default function AgentGroupDetailPage() {
         subtitle={`Namespace: ${group.metadata.namespace} · priority ${group.spec.priority}`}
         actions={
           <>
-            <Button startIcon={<RefreshIcon />} onClick={fetchAll}>
+            <Button startIcon={<RefreshIcon />} onClick={fetchGroup}>
               Refresh
             </Button>
-            <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditing(true)}>
+            <Button
+              startIcon={<PeopleAltIcon />}
+              component={Link}
+              href={agentsHref}
+              variant="outlined"
+            >
+              View agents
+            </Button>
+            <Button
+              startIcon={<EditIcon />}
+              variant="contained"
+              onClick={() => setEditing(true)}
+            >
               Edit
             </Button>
           </>
@@ -118,28 +120,96 @@ export default function AgentGroupDetailPage() {
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {[
-          ['Total', group.status.numAgents],
-          ['Connected', group.status.numConnectedAgents],
-          ['Healthy', group.status.numHealthyAgents],
-          ['Unhealthy', group.status.numUnhealthyAgents],
-          ['Not connected', group.status.numNotConnectedAgents],
-        ].map(([label, value]) => (
-          <Grid size={{ xs: 6, md: 2.4 }} key={label}>
-            <Card>
-              <CardContent>
-                <Typography variant="overline" color="text.secondary">
-                  {label}
-                </Typography>
-                <Typography variant="h5">{value}</Typography>
-              </CardContent>
-            </Card>
+          ['Total', group.status.numAgents, 'default' as const],
+          ['Connected', group.status.numConnectedAgents, 'success' as const],
+          ['Healthy', group.status.numHealthyAgents, 'success' as const],
+          ['Unhealthy', group.status.numUnhealthyAgents, 'warning' as const],
+          ['Not connected', group.status.numNotConnectedAgents, 'default' as const],
+        ].map(([label, value, color]) => (
+          <Grid size={{ xs: 6, md: 2.4 }} key={String(label)}>
+            <Tooltip
+              title={`View agents in ${group.metadata.name}`}
+              placement="top"
+            >
+              <Card
+                component={Link}
+                href={agentsHref}
+                sx={{
+                  display: 'block',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  cursor: 'pointer',
+                  transition: 'transform 0.1s, box-shadow 0.1s',
+                  '&:hover': { transform: 'translateY(-1px)', boxShadow: 4 },
+                }}
+              >
+                <CardContent>
+                  <Typography variant="overline" color="text.secondary">
+                    {label}
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    color={
+                      color === 'warning' && Number(value) > 0
+                        ? 'warning.main'
+                        : color === 'success' && Number(value) > 0
+                          ? 'success.main'
+                          : 'text.primary'
+                    }
+                  >
+                    {value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Tooltip>
           </Grid>
         ))}
       </Grid>
 
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={2}
+            divider={<Divider orientation="vertical" flexItem />}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CalendarIcon fontSize="small" color="action" />
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Created
+                </Typography>
+                <Typography variant="body2">{group.metadata.createdAt}</Typography>
+              </Box>
+            </Stack>
+            {group.metadata.deletedAt && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Deleted
+                </Typography>
+                <Typography variant="body2">{group.metadata.deletedAt}</Typography>
+              </Box>
+            )}
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Attributes
+              </Typography>
+              <Stack direction="row" gap={0.5} flexWrap="wrap">
+                {Object.entries(group.metadata.attributes || {}).length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">none</Typography>
+                ) : (
+                  Object.entries(group.metadata.attributes).map(([k, v]) => (
+                    <Chip key={k} label={`${k}=${v}`} size="small" variant="outlined" />
+                  ))
+                )}
+              </Stack>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
       <Card>
         <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label={`Members (${members.length})`} />
           <Tab label="Selector" />
           <Tab label="Agent config" />
           <Tab label="Conditions" />
@@ -148,55 +218,11 @@ export default function AgentGroupDetailPage() {
         <Divider />
         <CardContent>
           {tab === 0 && (
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Instance UID</TableCell>
-                    <TableCell>Connected</TableCell>
-                    <TableCell>Healthy</TableCell>
-                    <TableCell>Last reported</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {members.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        No matching agents
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    members.map((a) => (
-                      <TableRow key={a.metadata.instanceUid} hover>
-                        <TableCell sx={{ fontFamily: 'monospace' }}>
-                          <Link href={`/agents/${a.metadata.instanceUid}`}>
-                            {a.metadata.instanceUid}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={a.status.connected ? 'Connected' : 'Disconnected'}
-                            color={a.status.connected ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={a.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
-                            color={a.status.componentHealth?.healthy ? 'success' : 'warning'}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{a.status.lastReportedAt || '-'}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-          {tab === 1 && (
             <Stack spacing={2}>
+              <Typography variant="body2" color="text.secondary">
+                Agents are matched to this group when their identifying / non-identifying
+                attributes contain all of the keys/values defined below.
+              </Typography>
               <JsonBlock
                 title="Identifying attributes"
                 value={group.spec.selector.identifyingAttributes ?? {}}
@@ -207,9 +233,9 @@ export default function AgentGroupDetailPage() {
               />
             </Stack>
           )}
-          {tab === 2 && <JsonBlock value={group.spec.agentConfig ?? {}} />}
-          {tab === 3 && <JsonBlock value={group.status.conditions ?? []} />}
-          {tab === 4 && <JsonBlock value={group} />}
+          {tab === 1 && <JsonBlock value={group.spec.agentConfig ?? {}} />}
+          {tab === 2 && <JsonBlock value={group.status.conditions ?? []} />}
+          {tab === 3 && <JsonBlock value={group} />}
         </CardContent>
       </Card>
 
@@ -220,7 +246,7 @@ export default function AgentGroupDetailPage() {
         onClose={() => setEditing(false)}
         onSaved={() => {
           setEditing(false);
-          void fetchAll();
+          void fetchGroup();
         }}
       />
     </Box>

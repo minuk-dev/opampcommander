@@ -16,10 +16,16 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
 } from '@mui/material';
-import { Refresh as RefreshIcon, Search as SearchIcon } from '@mui/icons-material';
+import {
+  Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Group as GroupIcon,
+} from '@mui/icons-material';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
@@ -27,31 +33,47 @@ import type { Agent, ListResponse } from '@/lib/types';
 
 const PAGE_SIZE = 50;
 
-export default function AgentsPage() {
+function AgentsInner() {
+  const router = useRouter();
+  const search = useSearchParams();
   const { namespace } = useNamespace();
+
+  const agentGroupParam = search.get('agentGroup') || '';
+  const qParam = search.get('q') || '';
+
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
-  const [submittedQuery, setSubmittedQuery] = useState('');
+  const [query, setQuery] = useState(qParam);
   const [continueToken, setContinueToken] = useState<string | null>(null);
   const [continueStack, setContinueStack] = useState<string[]>([]);
+
+  // Keep the local input synced if the URL ?q= changes externally
+  useEffect(() => {
+    setQuery(qParam);
+  }, [qParam]);
 
   const fetchAgents = useCallback(
     async (token?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const path = submittedQuery
-          ? `/api/v1/namespaces/${namespace}/agents/search`
-          : `/api/v1/namespaces/${namespace}/agents`;
-        const data = await api.get<ListResponse<Agent>>(path, {
-          query: {
-            limit: PAGE_SIZE,
-            continue: token,
-            q: submittedQuery || undefined,
-          },
-        });
+        let path: string;
+        const q: Record<string, string | number | undefined> = {
+          limit: PAGE_SIZE,
+          continue: token,
+        };
+
+        if (agentGroupParam) {
+          path = `/api/v1/namespaces/${namespace}/agentgroups/${agentGroupParam}/agents`;
+        } else if (qParam) {
+          path = `/api/v1/namespaces/${namespace}/agents/search`;
+          q.q = qParam;
+        } else {
+          path = `/api/v1/namespaces/${namespace}/agents`;
+        }
+
+        const data = await api.get<ListResponse<Agent>>(path, { query: q });
         setAgents(data.items ?? []);
         setContinueToken(data.metadata?.continue || null);
       } catch (err) {
@@ -60,7 +82,7 @@ export default function AgentsPage() {
         setLoading(false);
       }
     },
-    [namespace, submittedQuery],
+    [namespace, qParam, agentGroupParam],
   );
 
   useEffect(() => {
@@ -68,9 +90,25 @@ export default function AgentsPage() {
     void fetchAgents();
   }, [fetchAgents]);
 
+  const updateUrl = (next: { q?: string; agentGroup?: string }) => {
+    const params = new URLSearchParams();
+    const q = next.q ?? qParam;
+    const g = next.agentGroup ?? agentGroupParam;
+    if (q) params.set('q', q);
+    if (g) params.set('agentGroup', g);
+    const qs = params.toString();
+    router.replace(qs ? `/agents?${qs}` : '/agents');
+  };
+
   const onSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmittedQuery(query.trim());
+    updateUrl({ q: query.trim() });
+  };
+
+  const clearGroup = () => updateUrl({ agentGroup: '' });
+  const clearSearch = () => {
+    setQuery('');
+    updateUrl({ q: '' });
   };
 
   const next = () => {
@@ -78,6 +116,8 @@ export default function AgentsPage() {
     setContinueStack((s) => [...s, continueToken]);
     void fetchAgents(continueToken);
   };
+
+  const filterActive = Boolean(agentGroupParam || qParam);
 
   return (
     <Box>
@@ -92,34 +132,67 @@ export default function AgentsPage() {
       />
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <form onSubmit={onSearch}>
-          <Stack direction="row" gap={1}>
-            <TextField
-              size="small"
-              fullWidth
-              placeholder="Search by instance UID…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-              }}
-            />
-            <Button type="submit" variant="contained">
-              Search
-            </Button>
-            {submittedQuery && (
-              <Button
-                variant="text"
-                onClick={() => {
-                  setQuery('');
-                  setSubmittedQuery('');
+        <Stack spacing={1.5}>
+          <form onSubmit={onSearch}>
+            <Stack direction="row" gap={1}>
+              <TextField
+                size="small"
+                fullWidth
+                placeholder={
+                  agentGroupParam
+                    ? 'UID search disabled while group filter is active'
+                    : 'Search by instance UID…'
+                }
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                disabled={Boolean(agentGroupParam)}
+                InputProps={{
+                  startAdornment: (
+                    <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  ),
                 }}
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={Boolean(agentGroupParam)}
               >
-                Clear
+                Search
               </Button>
-            )}
-          </Stack>
-        </form>
+            </Stack>
+          </form>
+
+          {filterActive && (
+            <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
+              <Box sx={{ color: 'text.secondary', fontSize: 13 }}>Filters:</Box>
+              {agentGroupParam && (
+                <Tooltip title="Open agent group">
+                  <Chip
+                    icon={<GroupIcon />}
+                    label={`Group: ${agentGroupParam}`}
+                    onClick={() =>
+                      router.push(`/agentgroups/${agentGroupParam}`)
+                    }
+                    onDelete={clearGroup}
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                  />
+                </Tooltip>
+              )}
+              {qParam && (
+                <Chip
+                  icon={<SearchIcon />}
+                  label={`UID contains: ${qParam}`}
+                  onDelete={clearSearch}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+            </Stack>
+          )}
+        </Stack>
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -201,5 +274,13 @@ export default function AgentsPage() {
         </Button>
       </Stack>
     </Box>
+  );
+}
+
+export default function AgentsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgentsInner />
+    </Suspense>
   );
 }

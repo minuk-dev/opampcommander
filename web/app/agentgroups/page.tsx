@@ -20,8 +20,10 @@ import {
   Refresh as RefreshIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  InfoOutlined as InfoIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { Tooltip } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -119,13 +121,26 @@ export default function AgentGroupsPage() {
               groups.map((g) => (
                 <TableRow key={g.metadata.name} hover>
                   <TableCell>
-                    <Link href={`/agentgroups/${g.metadata.name}`}>
-                      {g.metadata.name}
-                    </Link>
+                    <Tooltip title="View agents in this group" placement="right">
+                      <Link
+                        href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
+                        style={{ fontWeight: 500 }}
+                      >
+                        {g.metadata.name}
+                      </Link>
+                    </Tooltip>
                   </TableCell>
                   <TableCell>{g.spec.priority}</TableCell>
                   <TableCell>
-                    <Chip label={g.status.numAgents} size="small" />
+                    <Tooltip title="View agents in this group" placement="top">
+                      <Chip
+                        component={Link}
+                        href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
+                        label={g.status.numAgents}
+                        size="small"
+                        clickable
+                      />
+                    </Tooltip>
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -145,7 +160,16 @@ export default function AgentGroupsPage() {
                   </TableCell>
                   <TableCell>{g.metadata.createdAt}</TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" gap={1} justifyContent="flex-end">
+                    <Stack direction="row" gap={0.5} justifyContent="flex-end">
+                      <Tooltip title="Details">
+                        <IconButton
+                          size="small"
+                          component={Link}
+                          href={`/agentgroups/${g.metadata.name}`}
+                        >
+                          <InfoIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Button size="small" onClick={() => setEditing(g)}>
                         Edit
                       </Button>
