@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { CircularProgress, Box } from '@mui/material';
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import {
   StoredAuth,
   clearAuth,
@@ -62,11 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearAuth();
         setToken(null);
       }
-    } catch {
-      clearAuth();
-      setToken(null);
-      setAuthenticated(false);
-      setEmail(null);
+    } catch (err) {
+      // Only wipe the session for an explicit 401. Transient network or
+      // server errors should leave the (possibly still valid) token in
+      // place so we don't log the user out on a flaky connection.
+      const status = (err as ApiError)?.status;
+      if (status === 401) {
+        clearAuth();
+        setToken(null);
+        setAuthenticated(false);
+        setEmail(null);
+      }
     }
   }, []);
 

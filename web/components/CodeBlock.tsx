@@ -28,14 +28,15 @@ interface Props {
 function serialize(value: unknown, format: CodeFormat): string {
   if (format === 'yaml') return toYAML(value);
   try {
-    return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    return JSON.stringify(value, null, 2);
   } catch {
     return String(value);
   }
 }
 
-// CodeBlock is the canonical viewer for structured payloads. It always shows
-// a YAML/JSON toggle so the user knows both formats are available.
+// CodeBlock is the canonical viewer for structured payloads. It shows a
+// YAML/JSON toggle for structured values. Plain strings (e.g. an
+// already-serialized config file body) bypass the toggle and render as-is.
 export default function CodeBlock({
   value,
   title,
@@ -44,7 +45,9 @@ export default function CodeBlock({
   rawText,
 }: Props) {
   const [format, setFormat] = useState<CodeFormat>(defaultFormat);
-  const text = rawText ?? serialize(value, format);
+  const isRawString = typeof value === 'string';
+  const text = rawText ?? (isRawString ? (value as string) : serialize(value, format));
+  const showToggle = !rawText && !isRawString;
 
   const onCopy = async () => {
     try {
@@ -71,7 +74,7 @@ export default function CodeBlock({
             ))}
         </Box>
         <Stack direction="row" gap={1} alignItems="center">
-          {!rawText && (
+          {showToggle && (
             <ToggleButtonGroup
               size="small"
               exclusive

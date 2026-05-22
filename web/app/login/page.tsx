@@ -21,7 +21,11 @@ import type { OAuth2AuthCodeURLResponse } from '@/lib/types';
 function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
-  const from = search.get('from') || '/';
+  // Constrain `from` to same-origin internal paths so a malicious link like
+  // `/login?from=javascript:alert(1)` or `/login?from=https://evil` can't
+  // pivot the post-login redirect off-site.
+  const rawFrom = search.get('from') || '/';
+  const from = rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/';
   const { authenticated, loginBasic } = useAuth();
 
   const [username, setUsername] = useState('');

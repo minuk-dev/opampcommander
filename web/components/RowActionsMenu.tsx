@@ -60,10 +60,10 @@ export default function RowActionsMenu({ actions, tooltip = 'Actions' }: Props) 
           paper: { sx: { minWidth: 180 } },
         }}
       >
-        {actions.map((a, i) => (
-          <span key={`${a.label}-${i}`}>
-            {a.divider && <Divider />}
+        {actions.flatMap((a, i) => {
+          const item = (
             <MenuItem
+              key={`m-${i}`}
               onClick={(e) => {
                 e.stopPropagation();
                 setAnchor(null);
@@ -75,15 +75,19 @@ export default function RowActionsMenu({ actions, tooltip = 'Actions' }: Props) 
               }}
               sx={
                 a.destructive
-                  ? { color: 'error.main', '& .MuiListItemIcon-root': { color: 'error.main' } }
+                  ? {
+                      color: 'error.main',
+                      '& .MuiListItemIcon-root': { color: 'error.main' },
+                    }
                   : undefined
               }
             >
               {a.icon && <ListItemIcon>{a.icon}</ListItemIcon>}
               {a.label}
             </MenuItem>
-          </span>
-        ))}
+          );
+          return a.divider ? [<Divider key={`d-${i}`} />, item] : [item];
+        })}
       </Menu>
     </>
   );

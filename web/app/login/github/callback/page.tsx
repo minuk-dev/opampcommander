@@ -34,7 +34,10 @@ function CallbackInner() {
       return;
     }
     applyTokens({ token, refreshToken, expiresAt });
-    const from = search.get('from') || '/';
+    // Sanitize `from` to a same-origin internal path.
+    const rawFrom = search.get('from') || '/';
+    const from =
+      rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/';
     router.replace(from);
   }, [applyTokens, router, search]);
 
