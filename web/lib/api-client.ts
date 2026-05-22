@@ -122,7 +122,9 @@ async function doFetch<T>(path: string, opts: RequestOptions): Promise<T> {
       clearAuth();
       const here = window.location.pathname + window.location.search;
       if (window.location.pathname !== '/login') {
-        window.location.assign(`/login?from=${encodeURIComponent(here)}`);
+        // Replace, not assign — back button shouldn't return to a page that
+        // will immediately 401-bounce again.
+        window.location.replace(`/login?from=${encodeURIComponent(here)}`);
       }
       const err: ApiError = Object.assign(new Error('Unauthorized'), {
         status: 401,

@@ -27,9 +27,12 @@ function CallbackInner() {
       return;
     }
     applyTokens({ token, refreshToken, expiresAt });
-    // Sanitize `from` to a same-origin internal path.
+    // Sanitize `from` to a same-origin internal path (and never /login).
     const rawFrom = search.get('from') || '/';
-    const from = rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/';
+    const isInternal = rawFrom.startsWith('/') && !rawFrom.startsWith('//');
+    const isLoginPath =
+      rawFrom === '/login' || rawFrom.startsWith('/login/') || rawFrom.startsWith('/login?');
+    const from = isInternal && !isLoginPath ? rawFrom : '/';
     router.replace(from);
   }, [applyTokens, router, search]);
 
