@@ -83,13 +83,11 @@ export default function CodeEditorDialog({
     }
   };
 
-  const format_now = format;
-
   const save = async () => {
     setBusy(true);
     setError(null);
     try {
-      const parsed = parse(text, format_now);
+      const parsed = parse(text, format);
       await onSave(parsed);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
@@ -106,7 +104,7 @@ export default function CodeEditorDialog({
           <ToggleButtonGroup
             size="small"
             exclusive
-            value={format_now}
+            value={format}
             onChange={(_, v: CodeFormat | null) => v && switchFormat(v)}
             aria-label="format"
           >

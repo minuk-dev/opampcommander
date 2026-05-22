@@ -28,13 +28,13 @@ export default function AgentEditDialog({ open, agent, onClose, onSaved }: Props
       initialValue={agent.spec ?? {}}
       onClose={onClose}
       onSave={async (parsed) => {
-        const next: Agent = {
-          ...agent,
-          spec:
-            parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-              ? (parsed as Agent['spec'])
-              : {},
-        };
+        // Reject non-object payloads explicitly so the user sees the error
+        // instead of silently saving an empty spec.
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          const got = Array.isArray(parsed) ? 'array' : typeof parsed;
+          throw new Error(`spec must be an object (got ${got})`);
+        }
+        const next: Agent = { ...agent, spec: parsed as Agent['spec'] };
         const updated = await api.put<Agent>(
           `/api/v1/namespaces/${namespace}/agents/${agent.metadata.instanceUid}`,
           next,

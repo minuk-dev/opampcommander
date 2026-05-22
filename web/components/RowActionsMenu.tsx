@@ -29,6 +29,10 @@ export default function RowActionsMenu({ actions, tooltip = 'Actions' }: Props) 
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
 
+  // Don't render an empty action surface — a menu with no items is just
+  // a confusing flash on click.
+  if (actions.length === 0) return null;
+
   return (
     <>
       <Tooltip title={tooltip}>

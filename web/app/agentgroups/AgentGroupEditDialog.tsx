@@ -91,8 +91,16 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
     setBusy(true);
     setError(null);
     try {
-      const spec = parse(specText, format) as AgentGroupSpec;
-      const attributes = parse(attributesText, format) as Record<string, string>;
+      const parsedSpec = parse(specText, format);
+      const parsedAttrs = parse(attributesText, format);
+      if (!parsedSpec || typeof parsedSpec !== 'object' || Array.isArray(parsedSpec)) {
+        throw new Error('spec must be an object');
+      }
+      if (!parsedAttrs || typeof parsedAttrs !== 'object' || Array.isArray(parsedAttrs)) {
+        throw new Error('attributes must be an object');
+      }
+      const spec = parsedSpec as AgentGroupSpec;
+      const attributes = parsedAttrs as Record<string, string>;
       if (mode === 'create') {
         const body: Partial<AgentGroup> = {
           metadata: {

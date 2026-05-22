@@ -82,22 +82,7 @@ function AgentDetailInner() {
     void fetchAgent();
   }, [fetchAgent]);
 
-  // Honor ?action= once after the agent loads.
-  useEffect(() => {
-    if (!agent || actionHandled) return;
-    const action = search.get('action');
-    if (!action) return;
-    setActionHandled(true);
-    if (action === 'edit') {
-      setEditOpen(true);
-    } else if (action === 'restart') {
-      void requestRestart();
-    }
-    router.replace(`/agents/${params.id}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, actionHandled]);
-
-  const requestRestart = async () => {
+  const requestRestart = useCallback(async () => {
     if (!agent) return;
     setRestartBusy(true);
     try {
@@ -118,7 +103,21 @@ function AgentDetailInner() {
     } finally {
       setRestartBusy(false);
     }
-  };
+  }, [agent, namespace, params.id]);
+
+  // Honor ?action= once after the agent loads.
+  useEffect(() => {
+    if (!agent || actionHandled) return;
+    const action = search.get('action');
+    if (!action) return;
+    setActionHandled(true);
+    if (action === 'edit') {
+      setEditOpen(true);
+    } else if (action === 'restart') {
+      void requestRestart();
+    }
+    router.replace(`/agents/${params.id}`);
+  }, [agent, actionHandled, search, router, params.id, requestRestart]);
 
   const capabilities = useMemo(
     () => capabilityNames(agent?.metadata.capabilities),

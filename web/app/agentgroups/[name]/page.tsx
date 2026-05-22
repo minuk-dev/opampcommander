@@ -78,8 +78,7 @@ function AgentGroupDetailInner() {
       setDeleting(true);
     }
     router.replace(`/agentgroups/${params.name}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [group, actionHandled]);
+  }, [group, actionHandled, search, router, params.name]);
 
   const onDelete = async () => {
     try {

@@ -198,18 +198,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 </ListSubheader>
               }
             >
-              {section.items.map((item) => (
-                <ListItem key={item.text} disablePadding>
-                  <ListItemButton
-                    component={Link}
-                    href={item.href}
-                    selected={item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)}
-                  >
-                    <ListItemIcon>{item.icon}</ListItemIcon>
-                    <ListItemText primary={item.text} />
-                  </ListItemButton>
-                </ListItem>
-              ))}
+              {section.items.map((item) => {
+                // Boundary-aware match: a subroute like /agents/123 still
+                // highlights /agents, but /agentgroups never highlights
+                // /agents even though they share a prefix.
+                const isActive =
+                  item.href === '/'
+                    ? pathname === '/'
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <ListItem key={item.text} disablePadding>
+                    <ListItemButton component={Link} href={item.href} selected={isActive}>
+                      <ListItemIcon>{item.icon}</ListItemIcon>
+                      <ListItemText primary={item.text} />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </List>
           ))}
         </Box>

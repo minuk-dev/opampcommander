@@ -42,11 +42,14 @@ async function forward(request: NextRequest, segments: string[]): Promise<NextRe
   try {
     upstream = await fetch(target, init);
   } catch (err) {
+    // Log full details server-side; do not leak the upstream URL to the
+    // browser (it may differ from what the user knows about, and at minimum
+    // exposes internal hostnames).
+    console.error('proxy upstream unreachable', { target, err });
     return NextResponse.json(
       {
         error: 'upstream_unreachable',
-        message: err instanceof Error ? err.message : String(err),
-        target,
+        message: err instanceof Error ? err.message : 'unknown',
       },
       { status: 502 },
     );
