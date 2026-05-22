@@ -96,8 +96,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <Typography variant="h6" noWrap component="div" sx={{ flexShrink: 0 }}>
             OpAMP Commander
           </Typography>
-          <Box sx={{ flexGrow: 1 }} />
+          <Box
+            sx={{
+              borderLeft: '1px solid rgba(255,255,255,0.3)',
+              height: 32,
+              alignSelf: 'center',
+            }}
+          />
           <NamespaceSelector />
+          <Box sx={{ flexGrow: 1 }} />
           <Tooltip title={email || 'Account'}>
             <IconButton
               color="inherit"
