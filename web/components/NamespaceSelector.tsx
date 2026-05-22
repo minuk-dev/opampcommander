@@ -14,11 +14,14 @@ import {
   TextField,
 } from '@mui/material';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Divider } from '@mui/material';
 import { useNamespace } from './NamespaceProvider';
 import { api } from '@/lib/api-client';
 import type { Namespace } from '@/lib/types';
 
 export default function NamespaceSelector() {
+  const router = useRouter();
   const { namespace, setNamespace, namespaces, refresh } = useNamespace();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -28,6 +31,10 @@ export default function NamespaceSelector() {
   const handleChange = (val: string) => {
     if (val === '__create__') {
       setCreateOpen(true);
+      return;
+    }
+    if (val === '__manage__') {
+      router.push('/namespaces');
       return;
     }
     setNamespace(val);
@@ -85,7 +92,9 @@ export default function NamespaceSelector() {
               {n.metadata.name}
             </MenuItem>
           ))}
+          <Divider />
           <MenuItem value="__create__">+ Create namespace…</MenuItem>
+          <MenuItem value="__manage__">Manage namespaces…</MenuItem>
         </Select>
       </FormControl>
 

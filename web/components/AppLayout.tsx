@@ -22,7 +22,6 @@ import {
   Dashboard as DashboardIcon,
   Group as GroupIcon,
   Computer as ComputerIcon,
-  Folder as FolderIcon,
   Cable as CableIcon,
   Dns as DnsIcon,
   Inventory2 as PackageIcon,
@@ -33,15 +32,17 @@ import {
   Link as RoleBindingIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
-  Info as InfoIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import NamespaceSelector from './NamespaceSelector';
+import VersionFooter from './VersionFooter';
 
 const drawerWidth = 240;
+const SIDEBAR_OPEN_KEY = 'opamp.sidebarOpen';
 
 interface NavItem {
   text: string;
@@ -53,14 +54,15 @@ interface NavSection {
   items: NavItem[];
 }
 
+// Namespaces and Version are intentionally excluded:
+//  - Namespace is a tenant context selected from the top bar.
+//  - Version is shown in the bottom-left footer.
 const sections: NavSection[] = [
   {
     heading: 'Overview',
     items: [
       { text: 'Dashboard', icon: <DashboardIcon />, href: '/' },
-      { text: 'Namespaces', icon: <FolderIcon />, href: '/namespaces' },
       { text: 'Servers', icon: <DnsIcon />, href: '/servers' },
-      { text: 'Version', icon: <InfoIcon />, href: '/version' },
     ],
   },
   {
@@ -88,11 +90,40 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { email, logout } = useAuth();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+
+  // Hydrate persisted sidebar state after mount (avoids SSR/CSR mismatch).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
+    if (stored === null) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDrawerOpen(stored === '1');
+  }, []);
+
+  const toggleDrawer = () => {
+    setDrawerOpen((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(SIDEBAR_OPEN_KEY, next ? '1' : '0');
+      }
+      return next;
+    });
+  };
 
   return (
     <Box sx={{ display: 'flex' }}>
       <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar sx={{ gap: 2 }}>
+          <IconButton
+            color="inherit"
+            aria-label="toggle navigation"
+            onClick={toggleDrawer}
+            edge="start"
+            size="large"
+          >
+            <MenuIcon />
+          </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexShrink: 0 }}>
             OpAMP Commander
           </Typography>
@@ -138,15 +169,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </Toolbar>
       </AppBar>
       <Drawer
-        variant="permanent"
+        variant="persistent"
+        open={drawerOpen}
         sx={{
-          width: drawerWidth,
+          width: drawerOpen ? drawerWidth : 0,
           flexShrink: 0,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+          [`& .MuiDrawer-paper`]: {
+            width: drawerWidth,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+          },
         }}
       >
         <Toolbar />
-        <Box sx={{ overflow: 'auto' }}>
+        <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
           {sections.map((section) => (
             <List
               key={section.heading}
@@ -176,8 +213,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </List>
           ))}
         </Box>
+        <VersionFooter />
       </Drawer>
-      <Box component="main" sx={{ flexGrow: 1, p: 3, minWidth: 0 }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          minWidth: 0,
+          transition: (theme) =>
+            theme.transitions.create('margin', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.leavingScreen,
+            }),
+        }}
+      >
         <Toolbar />
         {children}
       </Box>
