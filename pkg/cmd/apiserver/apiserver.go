@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -84,11 +85,12 @@ type CommandOption struct {
 		}
 		Type   string `mapstructure:"type"`
 		OAuth2 struct {
-			Provider     string `mapstructure:"provider"`
-			ClientID     string `mapstructure:"clientId"`
-			ClientSecret string `mapstructure:"clientSecret"`
-			RedirectURI  string `mapstructure:"redirectUri"`
-			State        struct {
+			Provider             string   `mapstructure:"provider"`
+			ClientID             string   `mapstructure:"clientId"`
+			ClientSecret         string   `mapstructure:"clientSecret"`
+			RedirectURI          string   `mapstructure:"redirectUri"`
+			AllowedRedirectHosts []string `mapstructure:"allowedRedirectHosts"`
+			State                struct {
 				Mode string `mapstructure:"mode"`
 				JWT  struct {
 					Issuer   string        `mapstructure:"issuer"`
@@ -197,6 +199,12 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("auth.oauth2.clientId", "", "OAuth2 client ID")
 	cmd.Flags().String("auth.oauth2.clientSecret", "", "OAuth2 client secret")
 	cmd.Flags().String("auth.oauth2.redirectUri", "", "OAuth2 redirect URL")
+	cmd.Flags().StringSlice(
+		"auth.oauth2.allowedRedirectHosts",
+		nil,
+		"additional hosts the OAuth2 authcode endpoint accepts as redirect "+
+			"targets (loopback hosts are always allowed)",
+	)
 	cmd.Flags().String("auth.oauth2.state.mode", "jwt", "OAuth2 state mode (jwt)")
 	cmd.Flags().String("auth.oauth2.state.jwt.secret", "", "OAuth2 state JWT secret")
 
@@ -231,7 +239,18 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	opt.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace '.' with '_' for environment variables
 	opt.viper.AutomaticEnv()                                   // read in environment variables that match
 
-	err = opt.viper.Unmarshal(opt)
+	// viper's StringSlice env-var support is famously fragile — without a
+	// decode hook, `AUTH_OAUTH2_ALLOWEDREDIRECTHOSTS=a,b,c` lands as a
+	// single-element slice. Adding StringToSliceHookFunc(",") makes every
+	// `[]string` mapstructure field accept comma-separated env values,
+	// while preserving native YAML list semantics. The Duration hook is
+	// preserved for the existing time.Duration fields.
+	err = opt.viper.Unmarshal(opt, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		),
+	))
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}
@@ -277,9 +296,10 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				Audience:          opt.Auth.JWT.Audience,
 			},
 			OAuthSettings: &appconfig.OAuthSettings{
-				ClientID:    opt.Auth.OAuth2.ClientID,
-				Secret:      opt.Auth.OAuth2.ClientSecret,
-				CallbackURL: opt.Auth.OAuth2.RedirectURI,
+				ClientID:             opt.Auth.OAuth2.ClientID,
+				Secret:               opt.Auth.OAuth2.ClientSecret,
+				CallbackURL:          opt.Auth.OAuth2.RedirectURI,
+				AllowedRedirectHosts: opt.Auth.OAuth2.AllowedRedirectHosts,
 				JWTSettings: appconfig.JWTSettings{
 					Issuer:            opt.Auth.OAuth2.State.JWT.Issuer,
 					Expiration:        opt.Auth.OAuth2.State.JWT.Expire,

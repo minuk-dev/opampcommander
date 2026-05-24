@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -160,7 +161,7 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 		return
 	}
 
-	err := validateLoopbackRedirect(redirectURI)
+	err := ValidateRedirect(redirectURI, c.service.AllowedRedirectHosts())
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "invalid redirect_uri",
@@ -188,12 +189,24 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 // errInvalidScheme indicates the redirect_uri scheme is not http/https.
 var errInvalidScheme = errors.New("redirect_uri scheme must be http or https")
 
-// errNonLoopbackHost indicates the redirect_uri host is not a loopback address.
-var errNonLoopbackHost = errors.New("redirect_uri host must be a loopback address (127.0.0.1, ::1, localhost)")
+// errDisallowedHost indicates the redirect_uri host is neither a loopback
+// address nor a configured allowlist entry.
+var errDisallowedHost = errors.New(
+	"redirect_uri host must be a loopback address (127.0.0.1, ::1, localhost) " +
+		"or a configured allowed host",
+)
 
-// validateLoopbackRedirect ensures the redirect URI points to a loopback host.
-// Only loopback hosts are accepted to avoid serving as an open redirect for token leakage.
-func validateLoopbackRedirect(rawURL string) error {
+// errEmptyHost indicates the redirect_uri parses to no host (e.g. "http:///x").
+var errEmptyHost = errors.New("redirect_uri must include a host")
+
+// ValidateRedirect ensures the redirect URI is safe to redirect tokens to.
+// Loopback hosts (127.0.0.1, ::1, localhost) are always accepted so the CLI
+// loopback flow keeps working; additional hosts can be allowlisted via the
+// auth.oauth2.allowedRedirectHosts config (e.g. a deployed web UI host).
+// Comparison is case-insensitive because DNS hostnames are case-insensitive
+// and operators should not get tripped up by browser-vs-config casing.
+// Exported so the validation can be reused (and tested in black-box).
+func ValidateRedirect(rawURL string, allowedHosts []string) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("parse: %w", err)
@@ -203,13 +216,27 @@ func validateLoopbackRedirect(rawURL string) error {
 		return fmt.Errorf("%w: got %q", errInvalidScheme, parsed.Scheme)
 	}
 
-	host := parsed.Hostname()
+	host := strings.ToLower(parsed.Hostname())
+	if host == "" {
+		return errEmptyHost
+	}
+
 	switch host {
 	case "127.0.0.1", "::1", "localhost":
 		return nil
-	default:
-		return fmt.Errorf("%w: got %q", errNonLoopbackHost, host)
 	}
+
+	for _, allowed := range allowedHosts {
+		// Normalize on both sides and skip blank entries so a config like
+		// `allowedRedirectHosts: ["", "foo.dev"]` doesn't accidentally
+		// accept the empty-host edge case after lower-casing.
+		allowed = strings.TrimSpace(strings.ToLower(allowed))
+		if allowed != "" && allowed == host {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%w: got %q", errDisallowedHost, host)
 }
 
 // Callback handles the callback from GitHub after the user has authenticated.
