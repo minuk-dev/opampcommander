@@ -14,8 +14,11 @@ import (
 )
 
 // defaultRoleBuiltInPermissions lists the permission names every user should hold
-// via the built-in default role. Admins can still customize the default role's
-// permissions via the API; this set is treated as a floor that startup re-applies.
+// via the built-in default role. This set is treated as a floor that startup
+// re-applies: admins can ADD permissions to the default role via the API and those
+// additions are preserved, but any permission listed in
+// defaultRoleDeprecatedPermissions is removed on every startup, even if an admin
+// re-added it.
 //
 // The floor grants read access (GET + LIST where both endpoints exist) to the
 // resources a regular user needs to use the dashboard / CLI. Sensitive resources
@@ -37,13 +40,18 @@ func defaultRoleBuiltInPermissions() []usermodel.PermissionSpec {
 		{usermodel.ResourceRoleBinding, []string{usermodel.ActionGet}},
 	}
 
-	specs := make([]usermodel.PermissionSpec, 0)
+	capacity := 0
+	for _, e := range entries {
+		capacity += len(e.actions)
+	}
+
+	specs := make([]usermodel.PermissionSpec, 0, capacity)
 
 	for _, e := range entries {
 		for _, action := range e.actions {
 			specs = append(specs, usermodel.PermissionSpec{
 				Name:        e.resource + ":" + action,
-				Description: "Built-in: " + action + " access to " + e.resource + " for the default role",
+				Description: "Built-in: " + action + " access to " + e.resource,
 				Resource:    e.resource,
 				Action:      action,
 				IsBuiltIn:   true,
@@ -56,7 +64,8 @@ func defaultRoleBuiltInPermissions() []usermodel.PermissionSpec {
 
 // defaultRoleDeprecatedPermissions lists permission names that were once part of the
 // built-in default floor but are no longer granted. ensureDefaultRole removes any of
-// these from an existing default role on startup so deployments upgrade cleanly.
+// these from the default role on every startup, so deployments upgrade cleanly even
+// if an admin explicitly re-added one — keep that in mind before adding new entries.
 func defaultRoleDeprecatedPermissions() []string {
 	return []string{
 		usermodel.ResourceCertificate + ":" + usermodel.ActionGet,
