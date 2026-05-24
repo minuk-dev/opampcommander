@@ -47,6 +47,32 @@ func TestValidateRedirect(t *testing.T) {
 			[]string{"opampcommander-alpha.minuk.dev"},
 			false,
 		},
+
+		// Hostnames are case-insensitive: uppercase URL host should still
+		// match a lower-case allowlist entry (and vice versa).
+		{
+			"uppercase URL host matches lower allowlist",
+			"https://OPAMPCOMMANDER-ALPHA.MINUK.DEV/cb",
+			[]string{"opampcommander-alpha.minuk.dev"},
+			false,
+		},
+		{
+			"mixed-case allowlist still matches",
+			"https://opampcommander-alpha.minuk.dev/cb",
+			[]string{"OpAmPcOmMaNdEr-AlPhA.minuk.dev"},
+			false,
+		},
+
+		// Empty hostname (e.g. `http:///path`) must never sneak through,
+		// even if the allowlist happens to contain an empty entry.
+		{"empty host bare", "http:///path", nil, true},
+		{"empty host bare with blank allowlist", "http:///path", []string{""}, true},
+		{
+			"blank allowlist entries are ignored",
+			"https://opampcommander-alpha.minuk.dev/cb",
+			[]string{"", "   ", "opampcommander-alpha.minuk.dev"},
+			false,
+		},
 	}
 
 	for _, tc := range cases {

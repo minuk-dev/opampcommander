@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"slices"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -196,10 +196,15 @@ var errDisallowedHost = errors.New(
 		"or a configured allowed host",
 )
 
+// errEmptyHost indicates the redirect_uri parses to no host (e.g. "http:///x").
+var errEmptyHost = errors.New("redirect_uri must include a host")
+
 // ValidateRedirect ensures the redirect URI is safe to redirect tokens to.
 // Loopback hosts (127.0.0.1, ::1, localhost) are always accepted so the CLI
 // loopback flow keeps working; additional hosts can be allowlisted via the
 // auth.oauth2.allowedRedirectHosts config (e.g. a deployed web UI host).
+// Comparison is case-insensitive because DNS hostnames are case-insensitive
+// and operators should not get tripped up by browser-vs-config casing.
 // Exported so the validation can be reused (and tested in black-box).
 func ValidateRedirect(rawURL string, allowedHosts []string) error {
 	parsed, err := url.Parse(rawURL)
@@ -211,14 +216,24 @@ func ValidateRedirect(rawURL string, allowedHosts []string) error {
 		return fmt.Errorf("%w: got %q", errInvalidScheme, parsed.Scheme)
 	}
 
-	host := parsed.Hostname()
+	host := strings.ToLower(parsed.Hostname())
+	if host == "" {
+		return errEmptyHost
+	}
+
 	switch host {
 	case "127.0.0.1", "::1", "localhost":
 		return nil
 	}
 
-	if slices.Contains(allowedHosts, host) {
-		return nil
+	for _, allowed := range allowedHosts {
+		// Normalize on both sides and skip blank entries so a config like
+		// `allowedRedirectHosts: ["", "foo.dev"]` doesn't accidentally
+		// accept the empty-host edge case after lower-casing.
+		allowed = strings.TrimSpace(strings.ToLower(allowed))
+		if allowed != "" && allowed == host {
+			return nil
+		}
 	}
 
 	return fmt.Errorf("%w: got %q", errDisallowedHost, host)
