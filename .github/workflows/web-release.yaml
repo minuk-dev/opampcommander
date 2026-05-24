@@ -21,10 +21,17 @@ jobs:
           fetch-depth: 0
       # scripts/version.sh mirrors .goreleaser.yaml's snapshot.version_template
       # so this image lands with the same tag as the apiserver image built by
-      # the release workflow on the same commit.
+      # the release workflow on the same commit. Snapshot-ness MUST be decided
+      # off github.ref (the same signal release.yaml uses to pass --snapshot
+      # to goreleaser); a git-state check would mis-tag commits that happen to
+      # sit at a released tag on main.
       - name: Compute version
         run: |
-          VERSION=$(./scripts/version.sh)
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=$(./scripts/version.sh)
+          else
+            VERSION=$(./scripts/version.sh --snapshot)
+          fi
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
           echo "Computed version: ${VERSION}"
       - name: Login to GHCR
