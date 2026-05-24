@@ -260,24 +260,12 @@ func (s *RBACService) collectGroupingPolicies(
 	return groupings, nil
 }
 
-// defaultRoleGroupings auto-assigns the built-in default role to every user with the
-// "*" domain so its permissions (which include both namespace-scoped reads in the
-// "default" namespace and global reads such as role:LIST / server:LIST) are reachable.
-//
-// The Casbin matcher in configs/rbac_model.conf gates every permission check by either
-//
-//	g(sub, role, r.dom) || g(sub, role, "*")
-//
-// so a grouping scoped to a single namespace (e.g. "default") can only satisfy requests
-// whose r.dom matches that exact namespace. Global endpoints like /api/v1/servers and
-// /api/v1/roles enter the middleware with r.dom == "*", which a namespace-scoped
-// grouping cannot match. Using "*" here lets the same default role grant both
-// namespace-scoped reads and the global reads listed on the built-in floor.
-//
-// Trade-off: every authenticated user can read namespace-scoped resources in *any*
-// namespace, not just "default". That is consistent with the intent of the default
-// role as a baseline read floor for every authenticated user, but be aware of it when
-// adding new permissions here.
+// defaultRoleGroupings auto-assigns the built-in default role to every user in the
+// "default" namespace. The default role's built-in floor therefore must only contain
+// permissions on namespace-scoped resources (see defaultRoleBuiltInPermissions);
+// global resources are intentionally admin-only because the Casbin matcher gates
+// global requests (r.dom == "*") through g(sub, role, "*") which this grouping does
+// not produce.
 func (s *RBACService) defaultRoleGroupings(
 	roleByName map[string]*usermodel.Role,
 	users []*usermodel.User,
@@ -294,7 +282,7 @@ func (s *RBACService) defaultRoleGroupings(
 		groupings = append(groupings, groupingPolicy{
 			userID:    user.Metadata.UID.String(),
 			roleID:    defaultRoleUID,
-			namespace: usermodel.WildcardAll,
+			namespace: usermodel.DefaultNamespace,
 		})
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
@@ -78,6 +79,45 @@ func (a *APIServer) Client() *client.Client {
 	return client.New(a.Endpoint,
 		client.WithBasicAuth(a.AdminUsername(), a.AdminPassword()),
 	)
+}
+
+// IssueTokenForEmail signs an access JWT for the given email using the same key,
+// issuer, and audience as the running test server. The token mirrors what the
+// production basic/GitHub auth flows would issue, so RBAC enforcement can be
+// exercised in tests for any user that already exists in the user store.
+//
+// The caller is responsible for ensuring a user record with this email exists —
+// the authorization middleware rejects requests whose email does not resolve to a
+// stored user. Use the admin client's UserService.CreateUser to seed it first.
+func (a *APIServer) IssueTokenForEmail(email string) string {
+	a.t.Helper()
+
+	jwtSettings := a.Settings.AuthSettings.JWTSettings
+	now := time.Now()
+
+	claims := jwt.MapClaims{
+		"email":     email,
+		"tokenType": "access",
+		"iss":       jwtSettings.Issuer,
+		"sub":       "opampcommander",
+		"aud":       jwtSettings.Audience,
+		"nbf":       now.Unix(),
+		"iat":       now.Unix(),
+		"exp":       now.Add(jwtSettings.Expiration).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	signed, err := token.SignedString([]byte(jwtSettings.SigningKey))
+	require.NoError(a.t, err, "failed to sign test JWT")
+
+	return signed
+}
+
+// ClientAs returns a client authenticated as the given email. The user must
+// already exist (see IssueTokenForEmail).
+func (a *APIServer) ClientAs(email string) *client.Client {
+	return client.New(a.Endpoint, client.WithBearerToken(a.IssueTokenForEmail(email)))
 }
 
 func buildServerSettings(

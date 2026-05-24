@@ -21,8 +21,15 @@ import (
 // re-added it.
 //
 // The floor grants read access (GET + LIST where both endpoints exist) to the
-// resources a regular user needs to use the dashboard / CLI. Sensitive resources
-// (certificates) and write access to RBAC objects are intentionally excluded.
+// namespace-scoped resources a regular user needs to use the dashboard / CLI in the
+// "default" namespace. The default role is auto-assigned to users in the "default"
+// namespace only (see RBACService.defaultRoleGroupings), so granting permissions on
+// GLOBAL resources here (server, role, ...) would have no effect — the Casbin
+// matcher gates global requests through g(sub, role, "*") which this grouping does
+// not produce. Cross-namespace and global access remain admin-only by design.
+//
+// Sensitive resources (certificates) and write access to RBAC objects are
+// intentionally excluded.
 func defaultRoleBuiltInPermissions() []usermodel.PermissionSpec {
 	type entry struct {
 		resource string
@@ -35,8 +42,6 @@ func defaultRoleBuiltInPermissions() []usermodel.PermissionSpec {
 		{usermodel.ResourceAgentPackage, []string{usermodel.ActionGet, usermodel.ActionList}},
 		{usermodel.ResourceAgentRemoteConfig, []string{usermodel.ActionGet, usermodel.ActionList}},
 		{usermodel.ResourceConnection, []string{usermodel.ActionGet, usermodel.ActionList}},
-		{usermodel.ResourceServer, []string{usermodel.ActionGet, usermodel.ActionList}},
-		{usermodel.ResourceRole, []string{usermodel.ActionGet, usermodel.ActionList}},
 		{usermodel.ResourceRoleBinding, []string{usermodel.ActionGet}},
 	}
 
