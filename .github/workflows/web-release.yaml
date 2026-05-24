@@ -1,0 +1,88 @@
+name: web-release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  packages: write
+  contents: write
+
+jobs:
+  web-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # scripts/version.sh mirrors .goreleaser.yaml's snapshot.version_template
+      # so this image lands with the same tag as the apiserver image built by
+      # the release workflow on the same commit.
+      - name: Compute version
+        run: |
+          VERSION=$(./scripts/version.sh)
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "Computed version: ${VERSION}"
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and push web image (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/minuk-dev/opampcommander-web:${{ env.VERSION }}
+          provenance: false
+          cache-from: type=gha,scope=opampcommander-web
+          cache-to: type=gha,mode=max,scope=opampcommander-web
+
+      - name: Setup SSH agent for minuk-cluster deploy
+        if: startsWith(github.ref, 'refs/heads/')
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MINUK_CLUSTER_DEPLOY_KEY }}
+
+      - name: Deploy alpha and alpha-ha to minuk-cluster
+        if: startsWith(github.ref, 'refs/heads/')
+        run: |
+          git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
+          cd /tmp/minuk-cluster
+
+          overlays=(alpha alpha-ha)
+          # Only touch the web entry if minuk-cluster already declares it,
+          # so this workflow stays a no-op while that side is being wired up.
+          for overlay in "${overlays[@]}"; do
+            kustomization="argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+            if yq -e '.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")' "${kustomization}" >/dev/null 2>&1; then
+              yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")).newTag = strenv(VERSION)' \
+                -i "${kustomization}"
+            fi
+          done
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          for overlay in "${overlays[@]}"; do
+            git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+          done
+          if git diff --cached --quiet; then
+            echo "No web image tag updates needed."
+            exit 0
+          fi
+          git commit -m "chore(deploy): update opampcommander-web alpha and alpha-ha to ${VERSION}"
+
+          # retry on push conflict from concurrent CI runs (release runs in parallel)
+          for i in 1 2 3; do
+            git push && break
+            git pull --rebase && sleep $((i * 3))
+          done
