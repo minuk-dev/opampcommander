@@ -42,18 +42,28 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		assert.True(t, profile.User.Spec.IsActive)
 	})
 
-	// DefaultRole_HasBuiltInGetPermissions verifies that the built-in "default" role exists
-	// at startup with GET permissions on every namespace-scoped resource. Together with the
-	// SyncPolicies hook that auto-grants the default role to every user in the "default"
-	// namespace, this is what gives every authenticated user read access there.
-	t.Run("DefaultRole_HasBuiltInGetPermissions", func(t *testing.T) {
+	// DefaultRole_HasBuiltInReadPermissions verifies that the built-in "default" role exists
+	// at startup with GET/LIST permissions on the resources every authenticated user needs
+	// to use the dashboard / CLI. Together with the SyncPolicies hook that auto-grants the
+	// default role to every user in the "default" namespace, this is what gives every
+	// authenticated user baseline read access there.
+	t.Run("DefaultRole_HasBuiltInReadPermissions", func(t *testing.T) {
 		expected := []string{
-			"agent:GET",
-			"agentgroup:GET",
-			"agentpackage:GET",
-			"agentremoteconfig:GET",
-			"certificate:GET",
+			"agent:GET", "agent:LIST",
+			"agentgroup:GET", "agentgroup:LIST",
+			"agentpackage:GET", "agentpackage:LIST",
+			"agentremoteconfig:GET", "agentremoteconfig:LIST",
+			"connection:GET", "connection:LIST",
+			"server:GET", "server:LIST",
+			"role:GET", "role:LIST",
 			"rolebinding:GET",
+		}
+
+		// Permissions that must NOT appear on the default role.
+		forbidden := []string{
+			"certificate:GET", "certificate:LIST",
+			"role:CREATE", "role:UPDATE", "role:DELETE",
+			"rolebinding:CREATE", "rolebinding:UPDATE", "rolebinding:DELETE",
 		}
 
 		resp, err := opampClient.RoleService.ListRoles(t.Context())
@@ -75,6 +85,12 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		for _, name := range expected {
 			assert.True(t, slices.Contains(defaultRole.Spec.Permissions, name),
 				"default role missing built-in permission %q (got %v)",
+				name, defaultRole.Spec.Permissions)
+		}
+
+		for _, name := range forbidden {
+			assert.False(t, slices.Contains(defaultRole.Spec.Permissions, name),
+				"default role must not grant %q (got %v)",
 				name, defaultRole.Spec.Permissions)
 		}
 	})
