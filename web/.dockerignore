@@ -1,0 +1,17 @@
+node_modules
+.next
+.turbo
+out
+build
+coverage
+.env
+.env.local
+.env.*.local
+README.md
+.git
+.gitignore
+.github
+.vscode
+*.log
+npm-debug.log*
+.DS_Store
