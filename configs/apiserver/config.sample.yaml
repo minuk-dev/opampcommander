@@ -39,6 +39,12 @@ auth:
     clientId: "your_client_id"
     clientSecret: "your_client_secret"
     redirectUri: "http://localhost:8080/auth/callback"
+    # Additional hosts the /api/v1/auth/github/authcode endpoint will accept
+    # as redirect_uri targets, on top of the always-allowed loopback hosts
+    # (127.0.0.1, ::1, localhost). Set this to the deployed web UI host(s)
+    # so browser logins from the dashboard work end-to-end.
+    allowedRedirectHosts:
+      - opampcommander.minuk.dev
     state: # to prevent CSRF attacks
       mode: jwt
       jwt:

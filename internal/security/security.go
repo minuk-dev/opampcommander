@@ -70,12 +70,20 @@ var _ Usecase = (*Service)(nil)
 
 // Service provides security-related functionality for the opampcommander application.
 type Service struct {
-	logger             *slog.Logger
-	oauth2Config       *oauth2.Config
-	oauthStateSettings config.JWTSettings
-	adminSettings      config.AdminSettings
-	tokenSettings      config.JWTSettings
-	httpClient         *http.Client
+	logger               *slog.Logger
+	oauth2Config         *oauth2.Config
+	oauthStateSettings   config.JWTSettings
+	adminSettings        config.AdminSettings
+	tokenSettings        config.JWTSettings
+	httpClient           *http.Client
+	allowedRedirectHosts []string
+}
+
+// AllowedRedirectHosts returns the configured extra hosts that the
+// authcode endpoint will accept as redirect targets (in addition to
+// loopback hosts).
+func (s *Service) AllowedRedirectHosts() []string {
+	return s.allowedRedirectHosts
 }
 
 // OPAMPClaims defines the custom claims for the JWT token used for opampcommander's authentication.
@@ -95,6 +103,9 @@ func New(
 	httpClient *http.Client,
 ) *Service {
 	var oauth2Cfg *oauth2.Config
+
+	var allowedRedirectHosts []string
+
 	if settings.OAuthSettings != nil {
 		oauth2Cfg = &oauth2.Config{
 			ClientID:     settings.OAuthSettings.ClientID,
@@ -103,15 +114,17 @@ func New(
 			Scopes:       []string{"user:email", "read:org"},
 			Endpoint:     oauth2github.Endpoint,
 		}
+		allowedRedirectHosts = settings.OAuthSettings.AllowedRedirectHosts
 	}
 
 	return &Service{
-		logger:             logger,
-		oauth2Config:       oauth2Cfg,
-		oauthStateSettings: settings.JWTSettings,
-		adminSettings:      settings.AdminSettings,
-		tokenSettings:      settings.JWTSettings,
-		httpClient:         httpClient,
+		logger:               logger,
+		oauth2Config:         oauth2Cfg,
+		oauthStateSettings:   settings.JWTSettings,
+		adminSettings:        settings.AdminSettings,
+		tokenSettings:        settings.JWTSettings,
+		httpClient:           httpClient,
+		allowedRedirectHosts: allowedRedirectHosts,
 	}
 }
 

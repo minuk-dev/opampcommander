@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -160,7 +161,7 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 		return
 	}
 
-	err := validateLoopbackRedirect(redirectURI)
+	err := ValidateRedirect(redirectURI, c.service.AllowedRedirectHosts())
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error":   "invalid redirect_uri",
@@ -188,12 +189,19 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 // errInvalidScheme indicates the redirect_uri scheme is not http/https.
 var errInvalidScheme = errors.New("redirect_uri scheme must be http or https")
 
-// errNonLoopbackHost indicates the redirect_uri host is not a loopback address.
-var errNonLoopbackHost = errors.New("redirect_uri host must be a loopback address (127.0.0.1, ::1, localhost)")
+// errDisallowedHost indicates the redirect_uri host is neither a loopback
+// address nor a configured allowlist entry.
+var errDisallowedHost = errors.New(
+	"redirect_uri host must be a loopback address (127.0.0.1, ::1, localhost) " +
+		"or a configured allowed host",
+)
 
-// validateLoopbackRedirect ensures the redirect URI points to a loopback host.
-// Only loopback hosts are accepted to avoid serving as an open redirect for token leakage.
-func validateLoopbackRedirect(rawURL string) error {
+// ValidateRedirect ensures the redirect URI is safe to redirect tokens to.
+// Loopback hosts (127.0.0.1, ::1, localhost) are always accepted so the CLI
+// loopback flow keeps working; additional hosts can be allowlisted via the
+// auth.oauth2.allowedRedirectHosts config (e.g. a deployed web UI host).
+// Exported so the validation can be reused (and tested in black-box).
+func ValidateRedirect(rawURL string, allowedHosts []string) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("parse: %w", err)
@@ -207,9 +215,13 @@ func validateLoopbackRedirect(rawURL string) error {
 	switch host {
 	case "127.0.0.1", "::1", "localhost":
 		return nil
-	default:
-		return fmt.Errorf("%w: got %q", errNonLoopbackHost, host)
 	}
+
+	if slices.Contains(allowedHosts, host) {
+		return nil
+	}
+
+	return fmt.Errorf("%w: got %q", errDisallowedHost, host)
 }
 
 // Callback handles the callback from GitHub after the user has authenticated.

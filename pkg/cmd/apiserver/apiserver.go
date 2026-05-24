@@ -84,11 +84,12 @@ type CommandOption struct {
 		}
 		Type   string `mapstructure:"type"`
 		OAuth2 struct {
-			Provider     string `mapstructure:"provider"`
-			ClientID     string `mapstructure:"clientId"`
-			ClientSecret string `mapstructure:"clientSecret"`
-			RedirectURI  string `mapstructure:"redirectUri"`
-			State        struct {
+			Provider             string   `mapstructure:"provider"`
+			ClientID             string   `mapstructure:"clientId"`
+			ClientSecret         string   `mapstructure:"clientSecret"`
+			RedirectURI          string   `mapstructure:"redirectUri"`
+			AllowedRedirectHosts []string `mapstructure:"allowedRedirectHosts"`
+			State                struct {
 				Mode string `mapstructure:"mode"`
 				JWT  struct {
 					Issuer   string        `mapstructure:"issuer"`
@@ -197,6 +198,12 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("auth.oauth2.clientId", "", "OAuth2 client ID")
 	cmd.Flags().String("auth.oauth2.clientSecret", "", "OAuth2 client secret")
 	cmd.Flags().String("auth.oauth2.redirectUri", "", "OAuth2 redirect URL")
+	cmd.Flags().StringSlice(
+		"auth.oauth2.allowedRedirectHosts",
+		nil,
+		"additional hosts the OAuth2 authcode endpoint accepts as redirect "+
+			"targets (loopback hosts are always allowed)",
+	)
 	cmd.Flags().String("auth.oauth2.state.mode", "jwt", "OAuth2 state mode (jwt)")
 	cmd.Flags().String("auth.oauth2.state.jwt.secret", "", "OAuth2 state JWT secret")
 
@@ -277,9 +284,10 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				Audience:          opt.Auth.JWT.Audience,
 			},
 			OAuthSettings: &appconfig.OAuthSettings{
-				ClientID:    opt.Auth.OAuth2.ClientID,
-				Secret:      opt.Auth.OAuth2.ClientSecret,
-				CallbackURL: opt.Auth.OAuth2.RedirectURI,
+				ClientID:             opt.Auth.OAuth2.ClientID,
+				Secret:               opt.Auth.OAuth2.ClientSecret,
+				CallbackURL:          opt.Auth.OAuth2.RedirectURI,
+				AllowedRedirectHosts: opt.Auth.OAuth2.AllowedRedirectHosts,
 				JWTSettings: appconfig.JWTSettings{
 					Issuer:            opt.Auth.OAuth2.State.JWT.Issuer,
 					Expiration:        opt.Auth.OAuth2.State.JWT.Expire,

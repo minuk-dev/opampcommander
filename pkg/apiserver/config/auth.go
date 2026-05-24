@@ -32,6 +32,12 @@ type OAuthSettings struct {
 	Secret string
 	// CallbackURL is the URL to which GitHub will redirect after authentication.
 	CallbackURL string
+	// AllowedRedirectHosts is the list of additional hostnames that the
+	// /api/v1/auth/github/authcode endpoint will accept as redirect targets,
+	// in addition to the always-allowed loopback hosts (127.0.0.1, ::1,
+	// localhost). Use this to allowlist the web UI deployment (e.g.
+	// "opampcommander-alpha.minuk.dev"). Empty by default.
+	AllowedRedirectHosts []string
 	// JWTSettings holds the JWT configuration settings.
 	// This is used for the state parameter in OAuth2 authentication.
 	JWTSettings JWTSettings
