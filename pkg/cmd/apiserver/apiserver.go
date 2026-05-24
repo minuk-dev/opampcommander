@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
@@ -238,7 +239,18 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	opt.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_")) // replace '.' with '_' for environment variables
 	opt.viper.AutomaticEnv()                                   // read in environment variables that match
 
-	err = opt.viper.Unmarshal(opt)
+	// viper's StringSlice env-var support is famously fragile — without a
+	// decode hook, `AUTH_OAUTH2_ALLOWEDREDIRECTHOSTS=a,b,c` lands as a
+	// single-element slice. Adding StringToSliceHookFunc(",") makes every
+	// `[]string` mapstructure field accept comma-separated env values,
+	// while preserving native YAML list semantics. The Duration hook is
+	// preserved for the existing time.Duration fields.
+	err = opt.viper.Unmarshal(opt, viper.DecodeHook(
+		mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToTimeDurationHookFunc(),
+			mapstructure.StringToSliceHookFunc(","),
+		),
+	))
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}

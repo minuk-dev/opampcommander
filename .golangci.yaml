@@ -66,6 +66,7 @@ linters:
             - github.com/spf13/cobra
             - github.com/spf13/viper
             - github.com/spf13/afero
+            - github.com/go-viper/mapstructure/v2
             - go.uber.org/fx
             - github.com/gin-gonic/gin
             # Basic Libraries
