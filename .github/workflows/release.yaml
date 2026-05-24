@@ -75,22 +75,6 @@ jobs:
           echo "Creating multi-arch manifest: $MANIFEST_TAG"
           docker buildx imagetools create -t "$MANIFEST_TAG" "$AMD64_IMAGE" "$ARM64_IMAGE"
 
-      # Build the web image with the same VERSION goreleaser produced so the
-      # apiserver and the web stay in lockstep and minuk-cluster bumps both
-      # tags atomically.
-      - name: Build and push web image (multi-arch)
-        if: startsWith(github.ref, 'refs/heads/')
-        uses: docker/build-push-action@v6
-        with:
-          context: ./web
-          file: ./web/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/minuk-dev/opampcommander-web:${{ env.VERSION }}
-          provenance: false
-          cache-from: type=gha,scope=opampcommander-web
-          cache-to: type=gha,mode=max,scope=opampcommander-web
-
       - name: Setup SSH agent for minuk-cluster deploy
         if: startsWith(github.ref, 'refs/heads/')
         uses: webfactory/ssh-agent@v0.9.0
@@ -104,17 +88,10 @@ jobs:
           cd /tmp/minuk-cluster
 
           overlays=(alpha alpha-ha)
-          # Bump apiserver and web tags together. The web entry is only
-          # updated if present, so this workflow can land before the
-          # minuk-cluster side adds the web manifest entry.
           for overlay in "${overlays[@]}"; do
             kustomization="argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
             yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")).newTag = strenv(VERSION)' \
               -i "${kustomization}"
-            if yq -e '.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")' "${kustomization}" >/dev/null 2>&1; then
-              yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")).newTag = strenv(VERSION)' \
-                -i "${kustomization}"
-            fi
           done
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -122,9 +99,9 @@ jobs:
           for overlay in "${overlays[@]}"; do
             git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
           done
-          git commit -m "chore(deploy): update opampcommander alpha and alpha-ha to ${VERSION}"
+          git commit -m "chore(deploy): update opampcommander apiserver alpha and alpha-ha to ${VERSION}"
 
-          # retry on push conflict from concurrent CI runs
+          # retry on push conflict from concurrent CI runs (web-release runs in parallel)
           for i in 1 2 3; do
             git push && break
             git pull --rebase && sleep $((i * 3))
