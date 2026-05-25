@@ -27,6 +27,7 @@ type Service struct {
 	roleUsecase                userport.RoleUsecase
 	roleBindingPersistencePort userport.RoleBindingPersistencePort
 	rbacEnforcerPort           userport.RBACEnforcerPort
+	rbacUsecase                userport.RBACUsecase
 	mapper                     *helper.Mapper
 	logger                     *slog.Logger
 }
@@ -37,6 +38,7 @@ func New(
 	roleUsecase userport.RoleUsecase,
 	roleBindingPersistencePort userport.RoleBindingPersistencePort,
 	rbacEnforcerPort userport.RBACEnforcerPort,
+	rbacUsecase userport.RBACUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -44,6 +46,7 @@ func New(
 		roleUsecase:                roleUsecase,
 		roleBindingPersistencePort: roleBindingPersistencePort,
 		rbacEnforcerPort:           rbacEnforcerPort,
+		rbacUsecase:                rbacUsecase,
 		mapper:                     helper.NewMapper(),
 		logger:                     logger,
 	}
@@ -103,6 +106,18 @@ func (s *Service) CreateUser(ctx context.Context, apiUser *v1.User) (*v1.User, e
 	err := s.userUsecase.SaveUser(ctx, domainUser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Re-sync Casbin so the new user is enrolled in the built-in default role
+	// grouping. Without this, admin-API-created users would have no Casbin
+	// groupings and every RBAC-gated request would 403 until the next event
+	// that triggers SyncPolicies (e.g. their first login or a rolebinding edit).
+	syncErr := s.rbacUsecase.SyncPolicies(ctx)
+	if syncErr != nil {
+		s.logger.WarnContext(ctx, "failed to sync RBAC policies after user create — default role grouping may be delayed",
+			slog.String("email", domainUser.Spec.Email),
+			slog.Any("error", syncErr),
+		)
 	}
 
 	return s.mapper.MapUserToAPI(domainUser), nil

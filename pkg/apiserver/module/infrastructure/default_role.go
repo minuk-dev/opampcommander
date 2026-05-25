@@ -14,23 +14,67 @@ import (
 )
 
 // defaultRoleBuiltInPermissions lists the permission names every user should hold
-// in the default namespace via the built-in default role: GET on every
-// namespace-scoped resource. Admins can still customize the default role's
-// permissions via the API; this set is treated as a floor that startup re-applies.
+// via the built-in default role. This set is treated as a floor that startup
+// re-applies: admins can ADD permissions to the default role via the API and those
+// additions are preserved, but any permission listed in
+// defaultRoleDeprecatedPermissions is removed on every startup, even if an admin
+// re-added it.
+//
+// The floor grants read access (GET + LIST where both endpoints exist) to the
+// namespace-scoped resources a regular user needs to use the dashboard / CLI in the
+// "default" namespace. The default role is auto-assigned to users in the "default"
+// namespace only (see RBACService.defaultRoleGroupings), so granting permissions on
+// GLOBAL resources here (server, role, ...) would have no effect — the Casbin
+// matcher gates global requests through g(sub, role, "*") which this grouping does
+// not produce. Cross-namespace and global access remain admin-only by design.
+//
+// Sensitive resources (certificates) and write access to RBAC objects are
+// intentionally excluded.
 func defaultRoleBuiltInPermissions() []usermodel.PermissionSpec {
-	specs := make([]usermodel.PermissionSpec, 0, len(usermodel.NamespaceScopedResources()))
+	type entry struct {
+		resource string
+		actions  []string
+	}
 
-	for _, resource := range usermodel.NamespaceScopedResources() {
-		specs = append(specs, usermodel.PermissionSpec{
-			Name:        resource + ":" + usermodel.ActionGet,
-			Description: "Built-in: read access to " + resource + " in the default namespace",
-			Resource:    resource,
-			Action:      usermodel.ActionGet,
-			IsBuiltIn:   true,
-		})
+	entries := []entry{
+		{usermodel.ResourceAgent, []string{usermodel.ActionGet, usermodel.ActionList}},
+		{usermodel.ResourceAgentGroup, []string{usermodel.ActionGet, usermodel.ActionList}},
+		{usermodel.ResourceAgentPackage, []string{usermodel.ActionGet, usermodel.ActionList}},
+		{usermodel.ResourceAgentRemoteConfig, []string{usermodel.ActionGet, usermodel.ActionList}},
+		{usermodel.ResourceConnection, []string{usermodel.ActionGet, usermodel.ActionList}},
+		{usermodel.ResourceRoleBinding, []string{usermodel.ActionGet}},
+	}
+
+	capacity := 0
+	for _, e := range entries {
+		capacity += len(e.actions)
+	}
+
+	specs := make([]usermodel.PermissionSpec, 0, capacity)
+
+	for _, e := range entries {
+		for _, action := range e.actions {
+			specs = append(specs, usermodel.PermissionSpec{
+				Name:        e.resource + ":" + action,
+				Description: "Built-in: " + action + " access to " + e.resource,
+				Resource:    e.resource,
+				Action:      action,
+				IsBuiltIn:   true,
+			})
+		}
 	}
 
 	return specs
+}
+
+// defaultRoleDeprecatedPermissions lists permission names that were once part of the
+// built-in default floor but are no longer granted. ensureDefaultRole removes any of
+// these from the default role on every startup, so deployments upgrade cleanly even
+// if an admin explicitly re-added one — keep that in mind before adding new entries.
+func defaultRoleDeprecatedPermissions() []string {
+	return []string{
+		usermodel.ResourceCertificate + ":" + usermodel.ActionGet,
+	}
 }
 
 // ensureDefaultPermissions persists the built-in permission docs the default role refers to,
@@ -83,21 +127,29 @@ func ensureDefaultRole(
 
 	existing, err := rolePersistencePort.GetRoleByName(ctx, usermodel.RoleDefault)
 	if err == nil {
-		added := false
+		changed := false
 
 		for _, name := range builtInNames {
 			if !existing.HasPermission(name) {
 				existing.AddPermission(name)
 
-				added = true
+				changed = true
 			}
 		}
 
-		if !added {
+		for _, name := range defaultRoleDeprecatedPermissions() {
+			if existing.HasPermission(name) {
+				existing.RemovePermission(name)
+
+				changed = true
+			}
+		}
+
+		if !changed {
 			return nil
 		}
 
-		logger.Info("adding missing built-in permissions to default role")
+		logger.Info("reconciling built-in permissions on default role")
 
 		_, err = rolePersistencePort.PutRole(ctx, existing)
 		if err != nil {

@@ -3,6 +3,8 @@
 package apiserver_test
 
 import (
+	"errors"
+	"net/http"
 	"slices"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -42,18 +45,31 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		assert.True(t, profile.User.Spec.IsActive)
 	})
 
-	// DefaultRole_HasBuiltInGetPermissions verifies that the built-in "default" role exists
-	// at startup with GET permissions on every namespace-scoped resource. Together with the
-	// SyncPolicies hook that auto-grants the default role to every user in the "default"
-	// namespace, this is what gives every authenticated user read access there.
-	t.Run("DefaultRole_HasBuiltInGetPermissions", func(t *testing.T) {
+	// DefaultRole_HasBuiltInReadPermissions verifies that the built-in "default" role exists
+	// at startup with GET/LIST permissions on the resources every authenticated user needs
+	// to use the dashboard / CLI. Together with the SyncPolicies hook that auto-grants the
+	// default role to every user in the "default" namespace, this is what gives every
+	// authenticated user baseline read access there.
+	t.Run("DefaultRole_HasBuiltInReadPermissions", func(t *testing.T) {
 		expected := []string{
-			"agent:GET",
-			"agentgroup:GET",
-			"agentpackage:GET",
-			"agentremoteconfig:GET",
-			"certificate:GET",
+			"agent:GET", "agent:LIST",
+			"agentgroup:GET", "agentgroup:LIST",
+			"agentpackage:GET", "agentpackage:LIST",
+			"agentremoteconfig:GET", "agentremoteconfig:LIST",
+			"connection:GET", "connection:LIST",
 			"rolebinding:GET",
+		}
+
+		// Permissions that must NOT appear on the default role. Global resources
+		// (server, role) are intentionally excluded because the default role is
+		// grouped to the "default" namespace only — granting global perms here
+		// would be unreachable in Casbin and is reserved for admins.
+		forbidden := []string{
+			"certificate:GET", "certificate:LIST",
+			"server:GET", "server:LIST",
+			"role:GET", "role:LIST",
+			"role:CREATE", "role:UPDATE", "role:DELETE",
+			"rolebinding:CREATE", "rolebinding:UPDATE", "rolebinding:DELETE",
 		}
 
 		resp, err := opampClient.RoleService.ListRoles(t.Context())
@@ -77,6 +93,89 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 				"default role missing built-in permission %q (got %v)",
 				name, defaultRole.Spec.Permissions)
 		}
+
+		for _, name := range forbidden {
+			assert.False(t, slices.Contains(defaultRole.Spec.Permissions, name),
+				"default role must not grant %q (got %v)",
+				name, defaultRole.Spec.Permissions)
+		}
+	})
+
+	// DefaultRole_RuntimeEnforcement asserts that the permission strings on the default
+	// role actually translate into allowed/denied responses at the HTTP layer for a
+	// non-admin user. It guards against regressions where the role lists the right
+	// permissions but Casbin (matcher, grouping domain) silently blocks them — which
+	// the prior assertion of role.Spec.Permissions would not catch.
+	t.Run("DefaultRole_RuntimeEnforcement", func(t *testing.T) {
+		const nonAdminEmail = "regular@user.example.com"
+
+		created, err := opampClient.UserService.CreateUser(t.Context(), &v1.User{
+			Kind:       v1.UserKind,
+			APIVersion: "v1",
+			//exhaustruct:ignore
+			Metadata: v1.UserMetadata{},
+			Spec: v1.UserSpec{
+				Email:    nonAdminEmail,
+				Username: "regular-user",
+				IsActive: true,
+			},
+			//exhaustruct:ignore
+			Status: v1.UserStatus{},
+		})
+		require.NoError(t, err, "admin must be able to create the non-admin test user")
+		require.NotEmpty(t, created.Metadata.UID)
+
+		nonAdminClient := apiServer.ClientAs(nonAdminEmail)
+
+		t.Run("Allowed: list agents in default namespace", func(t *testing.T) {
+			_, err := nonAdminClient.AgentService.ListAgents(t.Context(), "default")
+			assert.NoError(t, err, "default role grants agent:LIST in default namespace")
+		})
+
+		t.Run("Allowed: list agentgroups in default namespace", func(t *testing.T) {
+			_, err := nonAdminClient.AgentGroupService.ListAgentGroups(t.Context(), "default")
+			assert.NoError(t, err, "default role grants agentgroup:LIST in default namespace")
+		})
+
+		t.Run("Allowed: list connections in default namespace", func(t *testing.T) {
+			_, err := nonAdminClient.ConnectionService.ListConnections(t.Context(), "default")
+			assert.NoError(t, err, "default role grants connection:LIST in default namespace")
+		})
+
+		t.Run("Forbidden: list certificates (removed from default floor)", func(t *testing.T) {
+			_, err := nonAdminClient.CertificateService.ListCertificates(t.Context(), "default")
+			assertHTTPForbidden(t, err)
+		})
+
+		t.Run("Forbidden: list servers (global, admin-only)", func(t *testing.T) {
+			// /api/v1/servers has no dedicated client method — issue a raw GET with
+			// the non-admin token so we exercise the same RBAC middleware path.
+			status := nonAdminGetStatus(t, apiServer, nonAdminEmail, "/api/v1/servers")
+			assert.Equal(t, http.StatusForbidden, status, "default users must not be able to list servers")
+		})
+
+		t.Run("Forbidden: list roles (global, admin-only)", func(t *testing.T) {
+			_, err := nonAdminClient.RoleService.ListRoles(t.Context())
+			assertHTTPForbidden(t, err)
+		})
+
+		t.Run("Forbidden: list agents in non-default namespace", func(t *testing.T) {
+			_, err := nonAdminClient.AgentService.ListAgents(t.Context(), "other-namespace")
+			assertHTTPForbidden(t, err)
+		})
+
+		t.Run("Forbidden: create agentgroup in default namespace (no write perm)", func(t *testing.T) {
+			//exhaustruct:ignore
+			_, err := nonAdminClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+				Kind:       v1.AgentGroupKind,
+				APIVersion: "v1",
+				Metadata: v1.Metadata{
+					Namespace: "default",
+					Name:      "test-blocked",
+				},
+			})
+			assertHTTPForbidden(t, err)
+		})
 	})
 
 	// DefaultRole_AppearsOnUserProfile verifies the default role surfaces on /users/me
@@ -198,4 +297,34 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		err := opampClient.RoleService.DeleteRole(t.Context(), createdRoleUID)
 		require.NoError(t, err)
 	})
+}
+
+// assertHTTPForbidden fails the test unless err is a client.ResponseError carrying
+// a 403 status code. Surfaces a clear message when the response is wrong (e.g. a
+// 500 from the server slipping through as "blocked").
+func assertHTTPForbidden(t *testing.T, err error) {
+	t.Helper()
+
+	require.Error(t, err, "expected a 403 response, got success")
+
+	var respErr *client.ResponseError
+	require.True(t, errors.As(err, &respErr), "expected client.ResponseError, got %T: %v", err, err)
+	assert.Equal(t, http.StatusForbidden, respErr.StatusCode, "expected 403; full error: %v", err)
+}
+
+// nonAdminGetStatus issues a GET to the given path as the given email and returns
+// the response status code. Used for endpoints with no dedicated client method.
+func nonAdminGetStatus(t *testing.T, apiServer *testutil.APIServer, email, path string) int {
+	t.Helper()
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, apiServer.Endpoint+path, nil)
+	require.NoError(t, err)
+
+	req.Header.Set("Authorization", "Bearer "+apiServer.IssueTokenForEmail(email))
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	return res.StatusCode
 }

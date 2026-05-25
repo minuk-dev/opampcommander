@@ -244,14 +244,14 @@ func namespacedResourceSingular(plural string) (string, bool) {
 		return "agentgroup", true
 	case "agentpackages":
 		return "agentpackage", true
-	case "certificates":
-		return "certificate", true
 	case "agentremoteconfigs":
 		return "agentremoteconfig", true
+	case "certificates":
+		return "certificate", true
+	case "connections":
+		return "connection", true
 	case "rolebindings":
 		return "rolebinding", true
-	case "roles":
-		return "role", true
 	default:
 		return "", false
 	}
@@ -263,6 +263,8 @@ func globalResourceSingular(plural string) (string, bool) {
 		return "user", true
 	case "servers":
 		return "server", true
+	case "roles":
+		return "role", true
 	default:
 		return "", false
 	}

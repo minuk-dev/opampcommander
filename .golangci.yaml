@@ -148,6 +148,7 @@ linters:
             - github.com/testcontainers/testcontainers-go/modules/mongodb
             - github.com/testcontainers/testcontainers-go/wait
             - github.com/google/go-github/v72/github
+            - github.com/golang-jwt/jwt/v5
 formatters:
   enable:
     - gci

@@ -260,7 +260,12 @@ func (s *RBACService) collectGroupingPolicies(
 	return groupings, nil
 }
 
-// defaultRoleGroupings auto-assigns the built-in default role to every user in the "default" namespace.
+// defaultRoleGroupings auto-assigns the built-in default role to every user in the
+// "default" namespace. The default role's built-in floor therefore must only contain
+// permissions on namespace-scoped resources (see defaultRoleBuiltInPermissions);
+// global resources are intentionally admin-only because the Casbin matcher gates
+// global requests (r.dom == "*") through g(sub, role, "*") which this grouping does
+// not produce.
 func (s *RBACService) defaultRoleGroupings(
 	roleByName map[string]*usermodel.Role,
 	users []*usermodel.User,
