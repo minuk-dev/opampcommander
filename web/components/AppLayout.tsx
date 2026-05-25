@@ -4,12 +4,15 @@ import {
   AppBar,
   Box,
   Drawer,
+  FormControlLabel,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   ListSubheader,
+  Stack,
+  Switch,
   Toolbar,
   Typography,
   IconButton,
@@ -40,6 +43,7 @@ import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import NamespaceSelector from './NamespaceSelector';
+import { usePermissions } from './PermissionsProvider';
 import VersionFooter from './VersionFooter';
 
 const drawerWidth = 240;
@@ -49,6 +53,9 @@ interface NavItem {
   text: string;
   icon: ReactNode;
   href: string;
+  // RBAC requirement to make this item visible. Items with no `requires`
+  // (e.g. Dashboard) are always shown.
+  requires?: { resource: string; action: string };
 }
 interface NavSection {
   heading: string;
@@ -69,33 +76,109 @@ const sections: NavSection[] = [
   {
     heading: 'Agents',
     items: [
-      { text: 'Agent Groups', icon: <GroupIcon />, href: '/agentgroups' },
-      { text: 'Agents', icon: <ComputerIcon />, href: '/agents' },
-      { text: 'Connections', icon: <CableIcon />, href: '/connections' },
-      { text: 'Agent Packages', icon: <PackageIcon />, href: '/agentpackages' },
-      { text: 'Remote Configs', icon: <TuneIcon />, href: '/agentremoteconfigs' },
-      { text: 'Certificates', icon: <CertIcon />, href: '/certificates' },
+      {
+        text: 'Agent Groups',
+        icon: <GroupIcon />,
+        href: '/agentgroups',
+        requires: { resource: 'agentgroup', action: 'LIST' },
+      },
+      {
+        text: 'Agents',
+        icon: <ComputerIcon />,
+        href: '/agents',
+        requires: { resource: 'agent', action: 'LIST' },
+      },
+      {
+        text: 'Connections',
+        icon: <CableIcon />,
+        href: '/connections',
+        requires: { resource: 'connection', action: 'LIST' },
+      },
+      {
+        text: 'Agent Packages',
+        icon: <PackageIcon />,
+        href: '/agentpackages',
+        requires: { resource: 'agentpackage', action: 'LIST' },
+      },
+      {
+        text: 'Remote Configs',
+        icon: <TuneIcon />,
+        href: '/agentremoteconfigs',
+        requires: { resource: 'agentremoteconfig', action: 'LIST' },
+      },
+      {
+        text: 'Certificates',
+        icon: <CertIcon />,
+        href: '/certificates',
+        requires: { resource: 'certificate', action: 'LIST' },
+      },
     ],
   },
   {
     heading: 'Access',
     items: [
-      { text: 'Users', icon: <PeopleIcon />, href: '/users' },
-      { text: 'Roles', icon: <RoleIcon />, href: '/roles' },
-      { text: 'Role Bindings', icon: <RoleBindingIcon />, href: '/rolebindings' },
+      {
+        text: 'Users',
+        icon: <PeopleIcon />,
+        href: '/users',
+        requires: { resource: 'user', action: 'LIST' },
+      },
+      {
+        text: 'Roles',
+        icon: <RoleIcon />,
+        href: '/roles',
+        requires: { resource: 'role', action: 'LIST' },
+      },
+      {
+        text: 'Role Bindings',
+        icon: <RoleBindingIcon />,
+        href: '/rolebindings',
+        requires: { resource: 'rolebinding', action: 'LIST' },
+      },
     ],
   },
   {
     heading: 'Admin',
-    items: [{ text: 'Servers', icon: <DnsIcon />, href: '/servers' }],
+    items: [
+      {
+        text: 'Servers',
+        icon: <DnsIcon />,
+        href: '/servers',
+        requires: { resource: 'server', action: 'LIST' },
+      },
+    ],
   },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { email, logout } = useAuth();
+  const { hasPermission, showAll, setShowAll } = usePermissions();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
+
+  // Filter nav items by RBAC. Items without `requires` (Dashboard) always show;
+  // others need the resource:LIST permission unless the user has toggled
+  // "Show restricted menus" on (e.g. for exploration). Sections with no
+  // visible items are dropped entirely so we don't leave dangling headers.
+  const visibleSections = sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) =>
+          showAll || !item.requires || hasPermission(item.requires.resource, item.requires.action),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
+
+  const hiddenCount = sections.reduce(
+    (sum, s) =>
+      sum +
+      s.items.filter(
+        (item) => item.requires && !hasPermission(item.requires.resource, item.requires.action),
+      ).length,
+    0,
+  );
 
   // Hydrate persisted sidebar state after mount (avoids SSR/CSR mismatch).
   useEffect(() => {
@@ -195,7 +278,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         <Toolbar />
         <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
-          {sections.map((section) => (
+          {visibleSections.map((section) => (
             <List
               key={section.heading}
               dense
@@ -224,6 +307,44 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               })}
             </List>
           ))}
+        </Box>
+        <Box
+          sx={{
+            px: 2,
+            py: 1,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Tooltip
+            title={
+              hiddenCount > 0
+                ? `Reveal ${hiddenCount} menu item${hiddenCount === 1 ? '' : 's'} hidden because you lack LIST permission. Pages may still return 403 when opened.`
+                : 'Reveal menu items hidden by RBAC. You currently have access to all items.'
+            }
+            placement="right"
+          >
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={showAll}
+                  onChange={(e) => setShowAll(e.target.checked)}
+                />
+              }
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="baseline">
+                  <Typography variant="caption">Show restricted menus</Typography>
+                  {hiddenCount > 0 && !showAll && (
+                    <Typography variant="caption" color="text.disabled">
+                      ({hiddenCount})
+                    </Typography>
+                  )}
+                </Stack>
+              }
+              sx={{ m: 0, '& .MuiFormControlLabel-label': { ml: 1 } }}
+            />
+          </Tooltip>
         </Box>
         <VersionFooter />
       </Drawer>
