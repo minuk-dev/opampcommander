@@ -1,7 +1,10 @@
 # User samples.
+#
+# CreateUser always provisions an active user (spec.isActive is ignored on
+# POST); use a follow-up PUT to deactivate.
 
-- label: Active user
-  description: Email + username, isActive=true
+- label: New user
+  description: Email + username
   value:
     kind: User
     apiVersion: v1
@@ -12,18 +15,3 @@
     spec:
       email: alice@example.com
       username: alice
-      isActive: true
-
-- label: Inactive user
-  description: Disabled account (cannot sign in)
-  value:
-    kind: User
-    apiVersion: v1
-    metadata:
-      uid: ""
-      createdAt: "{{now}}"
-      updatedAt: "{{now}}"
-    spec:
-      email: legacy@example.com
-      username: legacy-bot
-      isActive: false

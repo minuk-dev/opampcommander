@@ -1,39 +1,31 @@
 # RoleBinding samples.
+#
+# Subject kind 'User' (identified by email) is currently the only kind the
+# apiserver expands during RBAC sync; 'Group' subjects are accepted in the
+# request body but produce no Casbin groupings yet.
+#
+# Role names referenced below must already exist as a Role's spec.displayName.
+# Only "default" is auto-seeded — create the other roles first (or change
+# roleRef.name to a role you have created).
 
-- label: Bind built-in Viewer to a user
+- label: Bind a role to a single user
   description: Subject kind=User, identified by email
   value:
     kind: RoleBinding
     apiVersion: v1
     metadata:
       namespace: "{{namespace}}"
-      name: viewer-alice
+      name: agent-operator-alice
     spec:
       roleRef:
         kind: Role
-        name: Viewer
+        name: Agent operator
       subjects:
         - kind: User
           name: alice@example.com
 
-- label: Bind built-in Admin to a GitHub org
-  description: Anyone with the github-org-acme label gets Admin
-  value:
-    kind: RoleBinding
-    apiVersion: v1
-    metadata:
-      namespace: "{{namespace}}"
-      name: admin-github-acme
-    spec:
-      roleRef:
-        kind: Role
-        name: Admin
-      subjects:
-        - kind: Group
-          name: github-org-acme
-
-- label: Bind custom role to multiple users
-  description: Two subjects against a user-defined role name
+- label: Bind a role to multiple users
+  description: Two subjects against the same role
   value:
     kind: RoleBinding
     apiVersion: v1

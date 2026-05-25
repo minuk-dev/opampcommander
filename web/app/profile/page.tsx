@@ -31,15 +31,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     api
       .get<UserProfileResponse>('/api/v1/users/me')
       .then((p) => {
         if (!cancelled) setProfile(p);
       })
       .catch((err) => {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : 'Failed to load profile');
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load profile');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -57,7 +55,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (error || !profile) {
+  if (error || !profile?.user) {
     return (
       <Box>
         <PageHeader title="My profile" />
@@ -196,15 +194,7 @@ export default function ProfilePage() {
   );
 }
 
-function Field({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
+function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <Box>
       <Typography variant="overline" color="text.secondary">
@@ -212,6 +202,7 @@ function Field({
       </Typography>
       <Typography
         variant="body1"
+        component="div"
         sx={mono ? { fontFamily: 'var(--font-geist-mono), monospace', fontSize: 14 } : undefined}
       >
         {value}

@@ -17,7 +17,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import { loadAgentGroupSamples, type AgentGroupSample } from '@/lib/samples';
@@ -68,9 +68,12 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   const [samplesError, setSamplesError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setSamples(null);
+      setSamplesError(null);
+      return;
+    }
     let cancelled = false;
-    setSamplesError(null);
     loadAgentGroupSamples()
       .then((list) => {
         if (!cancelled) setSamples(list);
@@ -96,15 +99,23 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
     setSampleAnchor(null);
   };
 
+  // Reset on the closed→open transition only. Parents may pass a freshly
+  // fetched `initial` reference for the same logical row mid-edit (e.g. list
+  // refresh), which must not stomp the user's in-progress buffers.
+  const wasOpen = useRef(false);
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpen.current) {
+      const i = initialRef.current;
       setError(null);
       setFormat('yaml');
-      setName(initial?.metadata.name ?? '');
-      setSpecText(serialize(initial?.spec ?? defaultSpec(), 'yaml'));
-      setAttributesText(serialize(initial?.metadata.attributes ?? {}, 'yaml'));
+      setName(i?.metadata.name ?? '');
+      setSpecText(serialize(i?.spec ?? defaultSpec(), 'yaml'));
+      setAttributesText(serialize(i?.metadata.attributes ?? {}, 'yaml'));
     }
-  }, [open, initial]);
+    wasOpen.current = open;
+  }, [open]);
 
   const switchFormat = (next: Format) => {
     if (next === format) return;
@@ -187,8 +198,8 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
               onClose={() => setSampleAnchor(null)}
             >
               {(samples ?? []).length === 0 && <MenuItem disabled>No samples available</MenuItem>}
-              {(samples ?? []).map((s) => (
-                <MenuItem key={s.label} onClick={() => applySample(s)}>
+              {(samples ?? []).map((s, i) => (
+                <MenuItem key={`${i}-${s.label}`} onClick={() => applySample(s)}>
                   <ListItemText primary={s.label} secondary={s.description} />
                 </MenuItem>
               ))}
@@ -208,9 +219,7 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
-          {samplesError && (
-            <Alert severity="warning">Failed to load samples: {samplesError}</Alert>
-          )}
+          {samplesError && <Alert severity="warning">Failed to load samples: {samplesError}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
             label="Name"

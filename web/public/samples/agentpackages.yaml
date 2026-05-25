@@ -1,4 +1,9 @@
-# AgentPackage samples — replace SHA256s/URLs with the real values.
+# AgentPackage samples.
+#
+# spec.contentHash and spec.signature are []byte server-side and therefore
+# decoded as base64 from JSON — supply real base64-encoded bytes (e.g. the
+# output of `sha256sum file | xxd -r -p | base64`). The placeholders below
+# parse but obviously do not match real artifacts.
 
 - label: OTel Collector — linux/amd64 tarball
   description: Top-level package with download URL + version
@@ -12,7 +17,7 @@
       packageType: TopLevel
       version: 0.110.0
       downloadUrl: https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.110.0/otelcol-contrib_0.110.0_linux_amd64.tar.gz
-      contentHash: sha256:REPLACE_WITH_RELEASE_SHA256
+      contentHash: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
 - label: Add-on package with signature
   description: Non-top-level package and a signature blob placeholder
@@ -26,7 +31,7 @@
       packageType: AddOn
       version: 1.2.3
       downloadUrl: https://example.com/packages/custom-receiver-1.2.3.tar.gz
-      contentHash: sha256:REPLACE_WITH_SHA256
-      signature: base64-encoded-signature
+      contentHash: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      signature: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       headers:
         Authorization: Bearer REPLACE_TOKEN

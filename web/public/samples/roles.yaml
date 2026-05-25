@@ -1,9 +1,18 @@
 # Role samples. Edit freely — entries appear in the editor's "Load sample" menu.
-# Keep "Default role (built-in floor)" in sync with
-# pkg/apiserver/module/infrastructure/default_role.go (defaultRoleBuiltInPermissions).
+#
+# Notes:
+# - spec.isBuiltIn is ignored by CreateRole (always false on create) and is
+#   immutable on PUT. Use these samples in the *edit* dialog to reset/replace
+#   the permissions of an existing role, or in the *create* dialog as a
+#   permission template under a new displayName.
+# - Permission names must match an existing Permission record (the apiserver
+#   seeds one per resource×action). Wildcards like "*:*" are NOT seeded.
+# - Keep "Default role (reset baseline)" in sync with
+#   pkg/apiserver/module/infrastructure/default_role.go
+#   (defaultRoleBuiltInPermissions).
 
-- label: Default role (built-in floor)
-  description: Reset spec.permissions to the read-only floor every user gets
+- label: Default role (reset baseline)
+  description: Restore spec.permissions on the existing "default" role to the read-only floor
   value:
     kind: Role
     apiVersion: v1
@@ -14,7 +23,6 @@
     spec:
       displayName: default
       description: Default role assigned to all new users on first login
-      isBuiltIn: true
       permissions:
         - agent:GET
         - agent:LIST
@@ -40,7 +48,6 @@
     spec:
       displayName: Viewer (custom)
       description: Read-only access to all resources
-      isBuiltIn: false
       permissions:
         - agent:GET
         - agent:LIST
@@ -77,7 +84,6 @@
     spec:
       displayName: Agent operator
       description: Manage agents and groups; read other resources
-      isBuiltIn: false
       permissions:
         - agent:GET
         - agent:LIST
@@ -116,7 +122,6 @@
     spec:
       displayName: Namespace admin
       description: Full control of namespace-scoped resources
-      isBuiltIn: false
       permissions:
         - agent:GET
         - agent:LIST
@@ -153,19 +158,3 @@
         - rolebinding:CREATE
         - rolebinding:UPDATE
         - rolebinding:DELETE
-
-- label: Cluster admin (everything)
-  description: "Wildcard: any action on any resource"
-  value:
-    kind: Role
-    apiVersion: v1
-    metadata:
-      uid: ""
-      createdAt: "{{now}}"
-      updatedAt: "{{now}}"
-    spec:
-      displayName: Cluster admin
-      description: Wildcard access to everything
-      isBuiltIn: false
-      permissions:
-        - "*:*"

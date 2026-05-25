@@ -11,9 +11,12 @@ import { fromYAML } from '@/lib/yaml';
 export type SamplesPath = `/samples/${string}.yaml`;
 
 function interpolate(text: string, vars: Record<string, string>): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key) =>
-    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : `{{${key}}}`,
-  );
+  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (!Object.prototype.hasOwnProperty.call(vars, key)) return match;
+    const v = vars[key];
+    if (typeof v !== 'string') return match;
+    return v;
+  });
 }
 
 async function fetchYaml<T>(path: SamplesPath, vars: Record<string, string>): Promise<T> {

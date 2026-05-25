@@ -18,7 +18,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { loadSamples, type SamplesPath } from '@/lib/samples';
 import { fromYAML, toYAML } from '@/lib/yaml';
 
@@ -82,22 +82,42 @@ export default function CodeEditorDialog({
   const [loadedSamples, setLoadedSamples] = useState<CodeSample[] | null>(null);
   const [samplesError, setSamplesError] = useState<string | null>(null);
 
+  // Reset buffer only on the closed→open transition. Parents commonly pass a
+  // freshly-constructed initialValue (e.g. emptyFoo()) each render; depending
+  // on its identity would wipe in-progress edits on every parent re-render.
+  const wasOpen = useRef(false);
+  const initialValueRef = useRef(initialValue);
+  const defaultFormatRef = useRef(defaultFormat);
+  initialValueRef.current = initialValue;
+  defaultFormatRef.current = defaultFormat;
   useEffect(() => {
-    if (open) {
-      setFormat(defaultFormat);
-      setText(serialize(initialValue, defaultFormat));
+    if (open && !wasOpen.current) {
+      setFormat(defaultFormatRef.current);
+      setText(serialize(initialValueRef.current, defaultFormatRef.current));
       setError(null);
     }
-  }, [open, initialValue, defaultFormat]);
+    wasOpen.current = open;
+  }, [open]);
 
-  // Stable JSON key so we don't refetch every render when the parent
-  // creates a fresh samplesVars object each time.
+  // Stable JSON key so we don't refetch every render when the parent creates
+  // a fresh samplesVars object each time. samplesVars itself MUST stay out of
+  // the dep array — using both defeats the stabilization.
   const varsKey = samplesVars ? JSON.stringify(samplesVars) : '';
+  const samplesVarsRef = useRef(samplesVars);
+  samplesVarsRef.current = samplesVars;
   useEffect(() => {
-    if (!open || !samplesUrl) return;
-    let cancelled = false;
+    if (!open) {
+      // Drop stale samples loaded for a previous open/URL so the next open
+      // shows "Loading…" instead of the previous file's entries.
+      setLoadedSamples(null);
+      setSamplesError(null);
+      return;
+    }
+    if (!samplesUrl) return;
+    setLoadedSamples(null);
     setSamplesError(null);
-    loadSamples(samplesUrl, samplesVars ?? {})
+    let cancelled = false;
+    loadSamples(samplesUrl, samplesVarsRef.current ?? {})
       .then((list) => {
         if (!cancelled) setLoadedSamples(list);
       })
@@ -110,7 +130,7 @@ export default function CodeEditorDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, samplesUrl, varsKey, samplesVars]);
+  }, [open, samplesUrl, varsKey]);
 
   const effectiveSamples = samples ?? loadedSamples ?? [];
 
@@ -176,8 +196,8 @@ export default function CodeEditorDialog({
                   {effectiveSamples.length === 0 && (
                     <MenuItem disabled>No samples available</MenuItem>
                   )}
-                  {effectiveSamples.map((s) => (
-                    <MenuItem key={s.label} onClick={() => applySample(s)}>
+                  {effectiveSamples.map((s, i) => (
+                    <MenuItem key={`${i}-${s.label}`} onClick={() => applySample(s)}>
                       <ListItemText primary={s.label} secondary={s.description} />
                     </MenuItem>
                   ))}

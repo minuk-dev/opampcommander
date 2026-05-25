@@ -159,11 +159,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <Typography variant="body2">{email || 'unknown'}</Typography>
             </MenuItem>
             <Divider />
-            <MenuItem
-              component={Link}
-              href="/profile"
-              onClick={() => setMenuAnchor(null)}
-            >
+            <MenuItem component={Link} href="/profile" onClick={() => setMenuAnchor(null)}>
               <ListItemIcon>
                 <BadgeIcon fontSize="small" />
               </ListItemIcon>
