@@ -4,6 +4,7 @@ import { type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from './AuthProvider';
 import { NamespaceProvider } from './NamespaceProvider';
+import { PermissionsProvider } from './PermissionsProvider';
 import AppLayout from './AppLayout';
 
 const PUBLIC_ROUTES = new Set<string>(['/login', '/login/github/callback']);
@@ -23,7 +24,9 @@ function ShellInner({ children }: { children: ReactNode }) {
 
   return (
     <NamespaceProvider>
-      <AppLayout>{children}</AppLayout>
+      <PermissionsProvider>
+        <AppLayout>{children}</AppLayout>
+      </PermissionsProvider>
     </NamespaceProvider>
   );
 }
