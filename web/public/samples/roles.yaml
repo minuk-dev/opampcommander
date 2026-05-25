@@ -1,0 +1,171 @@
+# Role samples. Edit freely — entries appear in the editor's "Load sample" menu.
+# Keep "Default role (built-in floor)" in sync with
+# pkg/apiserver/module/infrastructure/default_role.go (defaultRoleBuiltInPermissions).
+
+- label: Default role (built-in floor)
+  description: Reset spec.permissions to the read-only floor every user gets
+  value:
+    kind: Role
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      displayName: default
+      description: Default role assigned to all new users on first login
+      isBuiltIn: true
+      permissions:
+        - agent:GET
+        - agent:LIST
+        - agentgroup:GET
+        - agentgroup:LIST
+        - agentpackage:GET
+        - agentpackage:LIST
+        - agentremoteconfig:GET
+        - agentremoteconfig:LIST
+        - connection:GET
+        - connection:LIST
+        - rolebinding:GET
+
+- label: Read-only viewer
+  description: GET/LIST on every resource
+  value:
+    kind: Role
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      displayName: Viewer (custom)
+      description: Read-only access to all resources
+      isBuiltIn: false
+      permissions:
+        - agent:GET
+        - agent:LIST
+        - agentgroup:GET
+        - agentgroup:LIST
+        - agentpackage:GET
+        - agentpackage:LIST
+        - agentremoteconfig:GET
+        - agentremoteconfig:LIST
+        - certificate:GET
+        - certificate:LIST
+        - connection:GET
+        - connection:LIST
+        - rolebinding:GET
+        - rolebinding:LIST
+        - server:GET
+        - server:LIST
+        - user:GET
+        - user:LIST
+        - role:GET
+        - role:LIST
+        - permission:GET
+        - permission:LIST
+
+- label: Agent operator
+  description: Full control over agents + agent groups, read elsewhere
+  value:
+    kind: Role
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      displayName: Agent operator
+      description: Manage agents and groups; read other resources
+      isBuiltIn: false
+      permissions:
+        - agent:GET
+        - agent:LIST
+        - agent:CREATE
+        - agent:UPDATE
+        - agent:DELETE
+        - agentgroup:GET
+        - agentgroup:LIST
+        - agentgroup:CREATE
+        - agentgroup:UPDATE
+        - agentgroup:DELETE
+        - agentremoteconfig:GET
+        - agentremoteconfig:LIST
+        - agentremoteconfig:CREATE
+        - agentremoteconfig:UPDATE
+        - agentremoteconfig:DELETE
+        - agentpackage:GET
+        - agentpackage:LIST
+        - agentpackage:CREATE
+        - agentpackage:UPDATE
+        - agentpackage:DELETE
+        - connection:GET
+        - connection:LIST
+        - certificate:GET
+        - certificate:LIST
+
+- label: Namespace admin
+  description: All actions on every namespace-scoped resource
+  value:
+    kind: Role
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      displayName: Namespace admin
+      description: Full control of namespace-scoped resources
+      isBuiltIn: false
+      permissions:
+        - agent:GET
+        - agent:LIST
+        - agent:CREATE
+        - agent:UPDATE
+        - agent:DELETE
+        - agentgroup:GET
+        - agentgroup:LIST
+        - agentgroup:CREATE
+        - agentgroup:UPDATE
+        - agentgroup:DELETE
+        - agentpackage:GET
+        - agentpackage:LIST
+        - agentpackage:CREATE
+        - agentpackage:UPDATE
+        - agentpackage:DELETE
+        - agentremoteconfig:GET
+        - agentremoteconfig:LIST
+        - agentremoteconfig:CREATE
+        - agentremoteconfig:UPDATE
+        - agentremoteconfig:DELETE
+        - certificate:GET
+        - certificate:LIST
+        - certificate:CREATE
+        - certificate:UPDATE
+        - certificate:DELETE
+        - connection:GET
+        - connection:LIST
+        - connection:CREATE
+        - connection:UPDATE
+        - connection:DELETE
+        - rolebinding:GET
+        - rolebinding:LIST
+        - rolebinding:CREATE
+        - rolebinding:UPDATE
+        - rolebinding:DELETE
+
+- label: Cluster admin (everything)
+  description: "Wildcard: any action on any resource"
+  value:
+    kind: Role
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      displayName: Cluster admin
+      description: Wildcard access to everything
+      isBuiltIn: false
+      permissions:
+        - "*:*"

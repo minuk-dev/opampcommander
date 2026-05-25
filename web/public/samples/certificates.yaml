@@ -1,0 +1,61 @@
+# Certificate samples — PEM blobs are placeholders; replace before saving.
+
+- label: mTLS client cert
+  description: cert + privateKey for an agent to authenticate to OpAMP
+  value:
+    kind: Certificate
+    apiVersion: v1
+    metadata:
+      name: agent-client-mtls
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      cert: |
+        -----BEGIN CERTIFICATE-----
+        MIIBkTCB+wIJA...replace me...
+        -----END CERTIFICATE-----
+      privateKey: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvAIBADANB...replace me...
+        -----END PRIVATE KEY-----
+
+- label: CA bundle only
+  description: Trust roots for verifying the server
+  value:
+    kind: Certificate
+    apiVersion: v1
+    metadata:
+      name: opamp-ca-bundle
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      caCert: |
+        -----BEGIN CERTIFICATE-----
+        MIIDazCCAlOgAw...replace me...
+        -----END CERTIFICATE-----
+
+- label: Full mTLS (cert + key + CA)
+  description: Client cert and trust roots together
+  value:
+    kind: Certificate
+    apiVersion: v1
+    metadata:
+      name: agent-mtls-bundle
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      cert: |
+        -----BEGIN CERTIFICATE-----
+        MIIBkTCB+wIJA...replace me...
+        -----END CERTIFICATE-----
+      privateKey: |
+        -----BEGIN PRIVATE KEY-----
+        MIIEvAIBADANB...replace me...
+        -----END PRIVATE KEY-----
+      caCert: |
+        -----BEGIN CERTIFICATE-----
+        MIIDazCCAlOgAw...replace me...
+        -----END CERTIFICATE-----

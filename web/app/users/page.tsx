@@ -55,6 +55,7 @@ export default function UsersPage() {
             title="Create user"
             description="Set spec.email, spec.username, spec.isActive."
             initialValue={emptyUser()}
+            samplesUrl="/samples/users.yaml"
             onClose={onClose}
             onSave={async (parsed) => {
               await api.post('/api/v1/users', parsed as User);

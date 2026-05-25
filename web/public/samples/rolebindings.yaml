@@ -1,0 +1,51 @@
+# RoleBinding samples.
+
+- label: Bind built-in Viewer to a user
+  description: Subject kind=User, identified by email
+  value:
+    kind: RoleBinding
+    apiVersion: v1
+    metadata:
+      namespace: "{{namespace}}"
+      name: viewer-alice
+    spec:
+      roleRef:
+        kind: Role
+        name: Viewer
+      subjects:
+        - kind: User
+          name: alice@example.com
+
+- label: Bind built-in Admin to a GitHub org
+  description: Anyone with the github-org-acme label gets Admin
+  value:
+    kind: RoleBinding
+    apiVersion: v1
+    metadata:
+      namespace: "{{namespace}}"
+      name: admin-github-acme
+    spec:
+      roleRef:
+        kind: Role
+        name: Admin
+      subjects:
+        - kind: Group
+          name: github-org-acme
+
+- label: Bind custom role to multiple users
+  description: Two subjects against a user-defined role name
+  value:
+    kind: RoleBinding
+    apiVersion: v1
+    metadata:
+      namespace: "{{namespace}}"
+      name: agent-operators
+    spec:
+      roleRef:
+        kind: Role
+        name: Agent operator
+      subjects:
+        - kind: User
+          name: alice@example.com
+        - kind: User
+          name: bob@example.com

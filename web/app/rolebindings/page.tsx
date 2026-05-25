@@ -64,6 +64,8 @@ export default function RoleBindingsPage() {
             title="Create role binding"
             description="metadata.name + spec.roleRef + spec.subjects[]."
             initialValue={emptyRoleBinding(namespace)}
+            samplesUrl="/samples/rolebindings.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               await api.post(`/api/v1/namespaces/${namespace}/rolebindings`, parsed as RoleBinding);
@@ -76,6 +78,8 @@ export default function RoleBindingsPage() {
             open={open}
             title={`Edit ${row.metadata.name}`}
             initialValue={row}
+            samplesUrl="/samples/rolebindings.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               await api.put(

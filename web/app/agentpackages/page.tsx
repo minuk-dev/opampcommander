@@ -63,6 +63,8 @@ export default function AgentPackagesPage() {
               </>
             }
             initialValue={emptyPackage(namespace, '')}
+            samplesUrl="/samples/agentpackages.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               const body = parsed as AgentPackage;
@@ -77,6 +79,8 @@ export default function AgentPackagesPage() {
             title={`Edit ${row.metadata.name}`}
             description="Edit the package as JSON."
             initialValue={row}
+            samplesUrl="/samples/agentpackages.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               const body = parsed as AgentPackage;

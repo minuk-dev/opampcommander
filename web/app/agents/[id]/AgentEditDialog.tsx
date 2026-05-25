@@ -26,6 +26,7 @@ export default function AgentEditDialog({ open, agent, onClose, onSaved }: Props
         </>
       }
       initialValue={agent.spec ?? {}}
+      samplesUrl="/samples/agentspecs.yaml"
       onClose={onClose}
       onSave={async (parsed) => {
         // Reject non-object payloads explicitly so the user sees the error

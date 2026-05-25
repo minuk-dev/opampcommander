@@ -1,0 +1,117 @@
+# AgentRemoteConfig samples. spec.value carries the actual collector config
+# string — kept as a YAML block scalar (|) so it stays readable.
+
+- label: OTLP → debug (minimal)
+  description: Receive OTLP, log to stdout via debug exporter
+  value:
+    metadata:
+      name: otlp-debug
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      contentType: text/yaml
+      value: |
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: 0.0.0.0:4317
+              http:
+                endpoint: 0.0.0.0:4318
+
+        processors:
+          batch: {}
+
+        exporters:
+          debug:
+            verbosity: basic
+
+        service:
+          pipelines:
+            traces:
+              receivers: [otlp]
+              processors: [batch]
+              exporters: [debug]
+            metrics:
+              receivers: [otlp]
+              processors: [batch]
+              exporters: [debug]
+            logs:
+              receivers: [otlp]
+              processors: [batch]
+              exporters: [debug]
+
+- label: OTLP → remote backend (OTLP HTTP)
+  description: Includes batch + memory_limiter and an auth header
+  value:
+    metadata:
+      name: otlp-to-backend
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      contentType: text/yaml
+      value: |
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: 0.0.0.0:4317
+
+        processors:
+          batch: {}
+          memory_limiter:
+            check_interval: 1s
+            limit_mib: 512
+
+        exporters:
+          otlphttp:
+            endpoint: https://otlp.example.com
+            headers:
+              authorization: Bearer REPLACE_ME
+
+        service:
+          pipelines:
+            traces:
+              receivers: [otlp]
+              processors: [memory_limiter, batch]
+              exporters: [otlphttp]
+            metrics:
+              receivers: [otlp]
+              processors: [memory_limiter, batch]
+              exporters: [otlphttp]
+
+- label: Prometheus scrape pipeline
+  description: Scrape an HTTP target and forward via OTLP HTTP
+  value:
+    metadata:
+      name: prometheus-scrape
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      contentType: text/yaml
+      value: |
+        receivers:
+          prometheus:
+            config:
+              scrape_configs:
+                - job_name: app
+                  scrape_interval: 30s
+                  static_configs:
+                    - targets: ['localhost:9090']
+
+        processors:
+          batch: {}
+
+        exporters:
+          otlphttp:
+            endpoint: https://otlp.example.com
+
+        service:
+          pipelines:
+            metrics:
+              receivers: [prometheus]
+              processors: [batch]
+              exporters: [otlphttp]

@@ -1,0 +1,73 @@
+# AgentGroup samples. Unlike the other files these entries carry top-level
+# `name`, `attributes`, and `spec` because the edit dialog has three separate
+# text areas (Name, Attributes, Spec) rather than one combined editor.
+
+- label: Match all agents
+  description: Lowest priority, empty selector
+  name: match-all
+  attributes:
+    description: Catch-all group
+  spec:
+    priority: 0
+    selector:
+      identifyingAttributes: {}
+      nonIdentifyingAttributes: {}
+
+- label: Match by service.name
+  description: Selector against an identifying attribute
+  name: svc-otelcol
+  attributes:
+    team: platform
+  spec:
+    priority: 10
+    selector:
+      identifyingAttributes:
+        service.name: otelcol
+      nonIdentifyingAttributes: {}
+
+- label: With agentConfig → remote config ref
+  description: Apply an existing AgentRemoteConfig by name
+  name: prod-otelcol
+  attributes:
+    env: prod
+  spec:
+    priority: 100
+    selector:
+      identifyingAttributes:
+        service.namespace: prod
+      nonIdentifyingAttributes: {}
+    agentConfig:
+      agentRemoteConfig:
+        agentRemoteConfigRef: otlp-to-backend
+
+- label: Inline agentConfig (text/yaml)
+  description: Embed the collector config directly in the spec
+  name: inline-config
+  attributes: {}
+  spec:
+    priority: 50
+    selector:
+      identifyingAttributes:
+        service.name: otelcol
+      nonIdentifyingAttributes: {}
+    agentConfig:
+      agentRemoteConfig:
+        agentRemoteConfigSpec:
+          contentType: text/yaml
+          value: |
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+            processors:
+              batch: {}
+            exporters:
+              debug:
+                verbosity: basic
+            service:
+              pipelines:
+                traces:
+                  receivers: [otlp]
+                  processors: [batch]
+                  exporters: [debug]

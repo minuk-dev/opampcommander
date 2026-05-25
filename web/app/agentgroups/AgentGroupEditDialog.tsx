@@ -7,15 +7,20 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { loadAgentGroupSamples, type AgentGroupSample } from '@/lib/samples';
 import { fromYAML, toYAML } from '@/lib/yaml';
 import type { AgentGroup, AgentGroupSpec } from '@/lib/types';
 
@@ -58,6 +63,38 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   const [attributesText, setAttributesText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sampleAnchor, setSampleAnchor] = useState<HTMLElement | null>(null);
+  const [samples, setSamples] = useState<AgentGroupSample[] | null>(null);
+  const [samplesError, setSamplesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setSamplesError(null);
+    loadAgentGroupSamples()
+      .then((list) => {
+        if (!cancelled) setSamples(list);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSamplesError(err instanceof Error ? err.message : String(err));
+          setSamples([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const applySample = (s: AgentGroupSample) => {
+    if (mode === 'create') {
+      setName(s.name);
+    }
+    setAttributesText(serialize(s.attributes, format));
+    setSpecText(serialize(s.spec, format));
+    setError(null);
+    setSampleAnchor(null);
+  };
 
   useEffect(() => {
     if (open) {
@@ -131,22 +168,49 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
           {mode === 'create' ? 'Create agent group' : 'Edit agent group'}
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={format}
-            onChange={(_, v: Format | null) => v && switchFormat(v)}
-            aria-label="format"
-          >
-            <ToggleButton value="yaml">YAML</ToggleButton>
-            <ToggleButton value="json">JSON</ToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" alignItems="center" gap={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              endIcon={<ArrowDropDownIcon />}
+              onClick={(e) => setSampleAnchor(e.currentTarget)}
+              aria-label="load sample"
+              disabled={!samples}
+            >
+              {samples ? 'Load sample' : 'Loading…'}
+            </Button>
+            <Menu
+              anchorEl={sampleAnchor}
+              open={Boolean(sampleAnchor)}
+              onClose={() => setSampleAnchor(null)}
+            >
+              {(samples ?? []).length === 0 && <MenuItem disabled>No samples available</MenuItem>}
+              {(samples ?? []).map((s) => (
+                <MenuItem key={s.label} onClick={() => applySample(s)}>
+                  <ListItemText primary={s.label} secondary={s.description} />
+                </MenuItem>
+              ))}
+            </Menu>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={format}
+              onChange={(_, v: Format | null) => v && switchFormat(v)}
+              aria-label="format"
+            >
+              <ToggleButton value="yaml">YAML</ToggleButton>
+              <ToggleButton value="json">JSON</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
         </Stack>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
+          {samplesError && (
+            <Alert severity="warning">Failed to load samples: {samplesError}</Alert>
+          )}
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
             label="Name"

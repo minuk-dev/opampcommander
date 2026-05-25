@@ -78,6 +78,8 @@ export default function CertificatesPage() {
             title="Create certificate"
             description="PEM-encoded cert/privateKey/caCert as JSON strings."
             initialValue={emptyCertificate(namespace)}
+            samplesUrl="/samples/certificates.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               await api.post(`/api/v1/namespaces/${namespace}/certificates`, parsed as Certificate);
@@ -90,6 +92,8 @@ export default function CertificatesPage() {
             open={open}
             title={`Edit ${row.metadata.name}`}
             initialValue={row}
+            samplesUrl="/samples/certificates.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               await api.put(

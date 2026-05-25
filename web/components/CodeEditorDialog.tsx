@@ -8,16 +8,27 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
 import { type ReactNode, useEffect, useState } from 'react';
+import { loadSamples, type SamplesPath } from '@/lib/samples';
 import { fromYAML, toYAML } from '@/lib/yaml';
 
 export type CodeFormat = 'yaml' | 'json';
+
+export interface CodeSample {
+  label: string;
+  description?: string;
+  value: unknown;
+}
 
 interface Props {
   open: boolean;
@@ -25,6 +36,13 @@ interface Props {
   description?: ReactNode;
   initialValue: unknown;
   defaultFormat?: CodeFormat;
+  // Inline list of samples (synchronous). Prefer samplesUrl in new code.
+  samples?: CodeSample[];
+  // Path under /samples/*.yaml (see web/public/samples/). When set, the menu
+  // is populated on dialog open from this file. {{namespace}}, {{now}}, etc.
+  // in the YAML are substituted from samplesVars (plus a built-in `now`).
+  samplesUrl?: SamplesPath;
+  samplesVars?: Record<string, string>;
   onClose: () => void;
   onSave: (parsed: unknown) => Promise<void> | void;
 }
@@ -50,6 +68,9 @@ export default function CodeEditorDialog({
   description,
   initialValue,
   defaultFormat = 'yaml',
+  samples,
+  samplesUrl,
+  samplesVars,
   onClose,
   onSave,
 }: Props) {
@@ -57,6 +78,9 @@ export default function CodeEditorDialog({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sampleAnchor, setSampleAnchor] = useState<HTMLElement | null>(null);
+  const [loadedSamples, setLoadedSamples] = useState<CodeSample[] | null>(null);
+  const [samplesError, setSamplesError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -65,6 +89,30 @@ export default function CodeEditorDialog({
       setError(null);
     }
   }, [open, initialValue, defaultFormat]);
+
+  // Stable JSON key so we don't refetch every render when the parent
+  // creates a fresh samplesVars object each time.
+  const varsKey = samplesVars ? JSON.stringify(samplesVars) : '';
+  useEffect(() => {
+    if (!open || !samplesUrl) return;
+    let cancelled = false;
+    setSamplesError(null);
+    loadSamples(samplesUrl, samplesVars ?? {})
+      .then((list) => {
+        if (!cancelled) setLoadedSamples(list);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSamplesError(err instanceof Error ? err.message : String(err));
+          setLoadedSamples([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, samplesUrl, varsKey, samplesVars]);
+
+  const effectiveSamples = samples ?? loadedSamples ?? [];
 
   const switchFormat = (next: CodeFormat) => {
     if (next === format) return;
@@ -83,6 +131,12 @@ export default function CodeEditorDialog({
     }
   };
 
+  const applySample = (sample: CodeSample) => {
+    setText(serialize(sample.value, format));
+    setError(null);
+    setSampleAnchor(null);
+  };
+
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -99,18 +153,48 @@ export default function CodeEditorDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
           <Box>{title}</Box>
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={format}
-            onChange={(_, v: CodeFormat | null) => v && switchFormat(v)}
-            aria-label="format"
-          >
-            <ToggleButton value="yaml">YAML</ToggleButton>
-            <ToggleButton value="json">JSON</ToggleButton>
-          </ToggleButtonGroup>
+          <Stack direction="row" alignItems="center" gap={1}>
+            {(samples || samplesUrl) && (
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  endIcon={<ArrowDropDownIcon />}
+                  onClick={(e) => setSampleAnchor(e.currentTarget)}
+                  aria-label="load sample"
+                  disabled={!samples && !loadedSamples}
+                >
+                  {samples || loadedSamples ? 'Load sample' : 'Loading…'}
+                </Button>
+                <Menu
+                  anchorEl={sampleAnchor}
+                  open={Boolean(sampleAnchor)}
+                  onClose={() => setSampleAnchor(null)}
+                >
+                  {effectiveSamples.length === 0 && (
+                    <MenuItem disabled>No samples available</MenuItem>
+                  )}
+                  {effectiveSamples.map((s) => (
+                    <MenuItem key={s.label} onClick={() => applySample(s)}>
+                      <ListItemText primary={s.label} secondary={s.description} />
+                    </MenuItem>
+                  ))}
+                </Menu>
+              </>
+            )}
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={format}
+              onChange={(_, v: CodeFormat | null) => v && switchFormat(v)}
+              aria-label="format"
+            >
+              <ToggleButton value="yaml">YAML</ToggleButton>
+              <ToggleButton value="json">JSON</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -120,6 +204,7 @@ export default function CodeEditorDialog({
               {description}
             </Typography>
           )}
+          {samplesError && <Alert severity="warning">Failed to load samples: {samplesError}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
             value={text}

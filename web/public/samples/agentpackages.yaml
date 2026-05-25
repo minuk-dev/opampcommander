@@ -1,0 +1,32 @@
+# AgentPackage samples — replace SHA256s/URLs with the real values.
+
+- label: OTel Collector — linux/amd64 tarball
+  description: Top-level package with download URL + version
+  value:
+    metadata:
+      name: otelcol-contrib-linux-amd64
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      packageType: TopLevel
+      version: 0.110.0
+      downloadUrl: https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.110.0/otelcol-contrib_0.110.0_linux_amd64.tar.gz
+      contentHash: sha256:REPLACE_WITH_RELEASE_SHA256
+
+- label: Add-on package with signature
+  description: Non-top-level package and a signature blob placeholder
+  value:
+    metadata:
+      name: custom-receiver-addon
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      packageType: AddOn
+      version: 1.2.3
+      downloadUrl: https://example.com/packages/custom-receiver-1.2.3.tar.gz
+      contentHash: sha256:REPLACE_WITH_SHA256
+      signature: base64-encoded-signature
+      headers:
+        Authorization: Bearer REPLACE_TOKEN
