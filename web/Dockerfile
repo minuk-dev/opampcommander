@@ -16,10 +16,19 @@ RUN apk add --no-cache libc6-compat && npm ci --no-audit --no-fund
 # --- builder: produce .next/standalone ---------------------------------------
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
+# VERSION is the tag this image will be pushed under (computed by
+# scripts/version.sh in CI). It's baked into the bundle as
+# NEXT_PUBLIC_WEB_VERSION so the running app can show its own version
+# without a separate runtime lookup. Required — fail the build rather
+# than silently shipping the stale package.json fallback when CI forgets
+# to pass it. For local builds, pass e.g. `--build-arg VERSION=dev`.
+ARG VERSION
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_WEB_VERSION=${VERSION}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN test -n "${VERSION}" || (echo "ERROR: VERSION build-arg is required (pass --build-arg VERSION=...)" >&2 && exit 1) \
+ && npm run build
 
 # --- runtime: minimal, non-root ---------------------------------------------
 FROM node:${NODE_VERSION} AS runner
