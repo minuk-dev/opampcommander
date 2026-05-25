@@ -67,6 +67,7 @@ export default function RolesPage() {
             title="Create role"
             description="Set spec.displayName, spec.description, spec.permissions[]."
             initialValue={emptyRole()}
+            samplesUrl="/samples/roles.yaml"
             onClose={onClose}
             onSave={async (parsed) => {
               await api.post('/api/v1/roles', parsed as Role);
@@ -79,6 +80,7 @@ export default function RolesPage() {
             open={open}
             title={`Edit ${row.spec.displayName}`}
             initialValue={row}
+            samplesUrl="/samples/roles.yaml"
             onClose={onClose}
             onSave={async (parsed) => {
               await api.put(`/api/v1/roles/${row.metadata.uid}`, parsed as Role);

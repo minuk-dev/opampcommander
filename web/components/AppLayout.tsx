@@ -32,6 +32,7 @@ import {
   Link as RoleBindingIcon,
   Logout as LogoutIcon,
   AccountCircle as AccountIcon,
+  Badge as BadgeIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -158,6 +159,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <Typography variant="body2">{email || 'unknown'}</Typography>
             </MenuItem>
             <Divider />
+            <MenuItem component={Link} href="/profile" onClick={() => setMenuAnchor(null)}>
+              <ListItemIcon>
+                <BadgeIcon fontSize="small" />
+              </ListItemIcon>
+              My profile
+            </MenuItem>
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);

@@ -52,6 +52,8 @@ export default function AgentRemoteConfigsPage() {
             title="Create remote config"
             description="metadata.name + spec.value (config body) + spec.contentType (e.g. text/yaml)."
             initialValue={emptyConfig(namespace)}
+            samplesUrl="/samples/agentremoteconfigs.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               await api.post(
@@ -67,6 +69,8 @@ export default function AgentRemoteConfigsPage() {
             open={open}
             title={`Edit ${row.metadata.name}`}
             initialValue={row}
+            samplesUrl="/samples/agentremoteconfigs.yaml"
+            samplesVars={{ namespace }}
             onClose={onClose}
             onSave={async (parsed) => {
               await api.put(

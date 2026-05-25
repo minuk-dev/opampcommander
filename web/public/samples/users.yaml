@@ -1,0 +1,17 @@
+# User samples.
+#
+# CreateUser always provisions an active user (spec.isActive is ignored on
+# POST); use a follow-up PUT to deactivate.
+
+- label: New user
+  description: Email + username
+  value:
+    kind: User
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      email: alice@example.com
+      username: alice

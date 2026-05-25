@@ -1,0 +1,40 @@
+# Samples for the Agent detail "Edit spec" dialog. Each value is the
+# *spec* subtree only — the dialog edits agent.spec, not the whole agent.
+
+- label: Set OpAMP endpoint
+  description: Point the agent at a different OpAMP server
+  value:
+    connectionSettings:
+      opamp:
+        destinationEndpoint: wss://opamp.example.com/v1/opamp
+        headers:
+          Authorization:
+            - Bearer REPLACE_ME
+
+- label: Bind a remote config
+  description: Apply an AgentRemoteConfig by name
+  value:
+    remoteConfig:
+      remoteConfigNames:
+        - otlp-debug
+
+- label: Request restart
+  description: Sets restartRequiredAt to now
+  value:
+    restartRequiredAt: "{{now}}"
+
+- label: Full example (endpoint + mTLS + remote config + package)
+  description: Combine the common knobs
+  value:
+    connectionSettings:
+      opamp:
+        destinationEndpoint: wss://opamp.example.com/v1/opamp
+        certificateName: agent-client-mtls
+      ownMetrics:
+        destinationEndpoint: https://otlp.example.com/v1/metrics
+    remoteConfig:
+      remoteConfigNames:
+        - otlp-to-backend
+    packagesAvailable:
+      packages:
+        - otelcol-contrib-linux-amd64
