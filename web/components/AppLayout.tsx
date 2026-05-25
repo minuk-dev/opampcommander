@@ -165,7 +165,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => showAll || !item.requires || hasPermission(item.requires.resource, item.requires.action),
+        (item) =>
+          showAll || !item.requires || hasPermission(item.requires.resource, item.requires.action),
       ),
     }))
     .filter((section) => section.items.length > 0);
