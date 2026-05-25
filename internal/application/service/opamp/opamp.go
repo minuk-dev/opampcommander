@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,10 @@ import (
 const (
 	// DefaultOnConnectionCloseTimeout is the default timeout for closing a connection.
 	DefaultOnConnectionCloseTimeout = 5 * time.Second
+	// DefaultHeartbeatSaveThrottle is the minimum interval between persisting agent state
+	// when the incoming message is heartbeat-only (no field reports). Bursts of heartbeats
+	// share a single MongoDB write; non-heartbeat messages are always persisted immediately.
+	DefaultHeartbeatSaveThrottle = 60 * time.Second
 )
 
 // Service is a struct that implements the OpAMPUsecase interface.
@@ -38,6 +43,9 @@ type Service struct {
 
 	connectionUsecase        agentport.ConnectionUsecase
 	onConnectionCloseTimeout time.Duration
+
+	heartbeatSaveThrottle time.Duration
+	lastSaveAt            sync.Map // instanceUID(string) -> time.Time
 }
 
 // New creates a new instance of the OpAMP service.
@@ -64,6 +72,7 @@ func New(
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
+		heartbeatSaveThrottle:    DefaultHeartbeatSaveThrottle,
 	}
 }
 
@@ -192,9 +201,13 @@ func (s *Service) OnMessage(
 		logger.Error("failed to report agent", slog.String("error", err.Error()))
 	}
 
-	err = s.agentUsecase.SaveAgent(ctx, agent)
-	if err != nil {
-		logger.Error("failed to save agent", slog.String("error", err.Error()))
+	if s.shouldPersistAgent(instanceUID, message) {
+		err = s.agentUsecase.SaveAgent(ctx, agent)
+		if err != nil {
+			logger.Error("failed to save agent", slog.String("error", err.Error()))
+		} else {
+			s.lastSaveAt.Store(instanceUID.String(), s.clock.Now())
+		}
 	}
 
 	// Note: NotifyAgentUpdated is NOT called here to avoid infinite loop.
@@ -359,6 +372,14 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 		return fmt.Errorf("failed to delete connection: %w", err)
 	}
 
+	// HTTP connections fire OnConnectionClose on every request; deleting the throttle
+	// entry there would force a MongoDB write on every heartbeat. WebSocket connections
+	// are persistent and a close is a genuine disconnect, so the entry must be cleared
+	// so the next reconnect's first message is persisted immediately.
+	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
+		s.lastSaveAt.Delete(connection.InstanceUID.String())
+	}
+
 	return nil
 }
 
@@ -410,6 +431,49 @@ func (s *Service) injectInstanceUIDToConnection(
 	}
 
 	return connection, nil
+}
+
+// shouldPersistAgent decides whether the agent's in-memory state should be flushed to
+// the datastore for this incoming message. Non-heartbeat messages (carrying any
+// reported field) are always persisted. For heartbeat-only messages — which dominate
+// the volume at scale — persistence is throttled per agent to amortise writes.
+func (s *Service) shouldPersistAgent(instanceUID uuid.UUID, message *protobufs.AgentToServer) bool {
+	if !isHeartbeatOnly(message) {
+		return true
+	}
+
+	last, ok := s.lastSaveAt.Load(instanceUID.String())
+	if !ok {
+		return true
+	}
+
+	lastAt, ok := last.(time.Time)
+	if !ok {
+		return true
+	}
+
+	return s.clock.Now().Sub(lastAt) >= s.heartbeatSaveThrottle
+}
+
+// isHeartbeatOnly reports whether the AgentToServer message carries no reported field
+// updates beyond identification. The fixed Capabilities bitfield is intentionally
+// excluded — agents include it on every message even when nothing has changed.
+func isHeartbeatOnly(msg *protobufs.AgentToServer) bool {
+	if msg == nil {
+		return true
+	}
+
+	return msg.GetAgentDescription() == nil &&
+		msg.GetHealth() == nil &&
+		msg.GetEffectiveConfig() == nil &&
+		msg.GetRemoteConfigStatus() == nil &&
+		msg.GetConnectionSettingsStatus() == nil &&
+		msg.GetPackageStatuses() == nil &&
+		msg.GetCustomCapabilities() == nil &&
+		msg.GetAvailableComponents() == nil &&
+		msg.GetAgentDisconnect() == nil &&
+		msg.GetConnectionSettingsRequest() == nil &&
+		msg.GetFlags() == 0
 }
 
 func (s *Service) syncConnectionNamespace(

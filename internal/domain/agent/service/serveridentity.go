@@ -70,6 +70,11 @@ func (s *ServerIdentityService) CurrentServer(ctx context.Context) (*agentmodel.
 	return server, nil
 }
 
+// CurrentServerID implements agentport.ServerIdentityProvider interface.
+func (s *ServerIdentityService) CurrentServerID() string {
+	return s.id
+}
+
 // Name returns the name of the runner.
 func (s *ServerIdentityService) Name() string {
 	return "ServerIdentityService"

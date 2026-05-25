@@ -208,6 +208,10 @@ func (m *mockServerIdentityProvider) CurrentServer(_ context.Context) (*agentmod
 	}, nil
 }
 
+func (m *mockServerIdentityProvider) CurrentServerID() string {
+	return m.serverID
+}
+
 func startKafkaContainer(ctx context.Context, t *testing.T) (testcontainers.Container, string) {
 	t.Helper()
 

@@ -146,6 +146,12 @@ func (m *MockServerIdentityProvider) CurrentServer(ctx context.Context) (*agentm
 	return server, args.Error(1) //nolint:wrapcheck // mock error
 }
 
+func (m *MockServerIdentityProvider) CurrentServerID() string {
+	args := m.Called()
+
+	return args.String(0)
+}
+
 func TestAgentService_ListAgentsBySelector(t *testing.T) {
 	t.Parallel()
 

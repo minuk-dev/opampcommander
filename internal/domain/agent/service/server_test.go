@@ -348,6 +348,7 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 
 	mockEventSender := new(MockServerEventSenderPort)
 	mockEventReceiver := new(MockServerEventReceiverPort)
+	mockIdentity := new(MockServerIdentityProvider)
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
@@ -356,6 +357,7 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 		mockPersistence,
 		mockEventSender,
 		mockEventReceiver,
+		mockIdentity,
 		mockConnection,
 		mockAgent,
 	)
@@ -392,6 +394,7 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 
 	mockEventSender := new(MockServerEventSenderPort)
 	mockEventReceiver := new(MockServerEventReceiverPort)
+	mockIdentity := new(MockServerIdentityProvider)
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
@@ -400,6 +403,7 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 		mockPersistence,
 		mockEventSender,
 		mockEventReceiver,
+		mockIdentity,
 		mockConnection,
 		mockAgent,
 	)
@@ -430,6 +434,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 
 	mockEventSender := new(MockServerEventSenderPort)
 	mockEventReceiver := new(MockServerEventReceiverPort)
+	mockIdentity := new(MockServerIdentityProvider)
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
@@ -438,6 +443,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 		mockPersistence,
 		mockEventSender,
 		mockEventReceiver,
+		mockIdentity,
 		mockConnection,
 		mockAgent,
 	)
@@ -472,6 +478,7 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 
 	mockEventSender := new(MockServerEventSenderPort)
 	mockEventReceiver := new(MockServerEventReceiverPort)
+	mockIdentity := new(MockServerIdentityProvider)
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
@@ -480,6 +487,7 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 		mockPersistence,
 		mockEventSender,
 		mockEventReceiver,
+		mockIdentity,
 		mockConnection,
 		mockAgent,
 	)
@@ -499,4 +507,109 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 
 	mockPersistence.AssertExpectations(t)
 	mockPersistence.AssertNumberOfCalls(t, "GetServer", 2)
+}
+
+func TestServerService_SendMessageToServer_LocalShortCircuit(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	now := time.Now()
+	currentServerID := testServerID
+	instanceUID := uuid.New()
+
+	mockPersistence := new(MockServerPersistencePort)
+	mockEventSender := new(MockServerEventSenderPort)
+	mockEventReceiver := new(MockServerEventReceiverPort)
+	mockIdentity := new(MockServerIdentityProvider)
+	mockConnection := new(MockConnectionUsecase)
+	mockAgent := new(MockAgentUsecase)
+
+	mockIdentity.On("CurrentServerID").Return(currentServerID)
+
+	// Local dispatch path: handleSendServerToAgentEvent fetches the agent and asks
+	// the connection usecase to forward a ServerToAgent message.
+	agentEntity := &agentmodel.Agent{
+		Metadata: agentmodel.AgentMetadata{InstanceUID: instanceUID},
+	}
+	mockAgent.On("GetAgent", ctx, instanceUID).Return(agentEntity, nil)
+	mockConnection.On("SendServerToAgent", ctx, instanceUID, mock.Anything).Return(nil)
+
+	svc := agentservice.NewServerService(
+		slog.Default(),
+		mockPersistence,
+		mockEventSender,
+		mockEventReceiver,
+		mockIdentity,
+		mockConnection,
+		mockAgent,
+	)
+	svc.SetClock(newTestFakeClock(now))
+
+	target := &agentmodel.Server{ID: currentServerID, LastHeartbeatAt: now}
+	msg := serverevent.Message{
+		Source: currentServerID,
+		Target: currentServerID,
+		Type:   serverevent.MessageTypeSendServerToAgent,
+		Payload: serverevent.MessagePayload{
+			MessageForServerToAgent: &serverevent.MessageForServerToAgent{
+				TargetAgentInstanceUIDs: []uuid.UUID{instanceUID},
+			},
+		},
+	}
+
+	err := svc.SendMessageToServer(ctx, target, msg)
+	require.NoError(t, err)
+
+	mockConnection.AssertCalled(t, "SendServerToAgent", ctx, instanceUID, mock.Anything)
+	mockEventSender.AssertNotCalled(t, "SendMessageToServer",
+		mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	now := time.Now()
+	currentServerID := testServerID
+	remoteServerID := "server-2"
+
+	mockPersistence := new(MockServerPersistencePort)
+	mockEventSender := new(MockServerEventSenderPort)
+	mockEventReceiver := new(MockServerEventReceiverPort)
+	mockIdentity := new(MockServerIdentityProvider)
+	mockConnection := new(MockConnectionUsecase)
+	mockAgent := new(MockAgentUsecase)
+
+	mockIdentity.On("CurrentServerID").Return(currentServerID)
+	mockEventSender.On("SendMessageToServer", ctx, remoteServerID, mock.Anything).Return(nil)
+
+	svc := agentservice.NewServerService(
+		slog.Default(),
+		mockPersistence,
+		mockEventSender,
+		mockEventReceiver,
+		mockIdentity,
+		mockConnection,
+		mockAgent,
+	)
+	svc.SetClock(newTestFakeClock(now))
+
+	target := &agentmodel.Server{ID: remoteServerID, LastHeartbeatAt: now}
+	msg := serverevent.Message{
+		Source: currentServerID,
+		Target: remoteServerID,
+		Type:   serverevent.MessageTypeSendServerToAgent,
+		Payload: serverevent.MessagePayload{
+			MessageForServerToAgent: &serverevent.MessageForServerToAgent{
+				TargetAgentInstanceUIDs: []uuid.UUID{uuid.New()},
+			},
+		},
+	}
+
+	err := svc.SendMessageToServer(ctx, target, msg)
+	require.NoError(t, err)
+
+	mockEventSender.AssertCalled(t, "SendMessageToServer", ctx, remoteServerID, mock.Anything)
+	mockConnection.AssertNotCalled(t, "SendServerToAgent",
+		mock.Anything, mock.Anything, mock.Anything)
 }

@@ -2,6 +2,7 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -16,6 +17,9 @@ import (
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
+
+// ErrServerIDRequired is returned when Kafka messaging is configured without a server ID.
+var ErrServerIDRequired = errors.New("server ID is required for kafka messaging consumer group")
 
 const (
 	// DefaultSenderCloseTimeout is the default timeout for closing the Kafka sender.
@@ -46,6 +50,7 @@ func (e *UnsupportedEventProtocolError) Error() string {
 
 func newEventSenderAndReceiver(
 	settings *config.EventSettings,
+	serverID config.ServerID,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	serverIdentityProvider agentport.ServerIdentityProvider,
@@ -62,7 +67,7 @@ func newEventSenderAndReceiver(
 			return nil, nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
 
-		receiver, err := createKafkaReceiver(settings, logger, lifecycle)
+		receiver, err := createKafkaReceiver(settings, serverID, logger, lifecycle)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 		}
@@ -123,11 +128,22 @@ func createKafkaSender(
 }
 
 // createKafkaReceiver creates a Kafka receiver with lifecycle management.
+//
+// Each server uses its own consumer group so that every server receives every
+// inter-server event (broadcast). The receiver then filters by event.Subject
+// to keep only those targeting this server. A single shared consumer group
+// would route each event to exactly one consumer, silently dropping events
+// addressed to other servers.
 func createKafkaReceiver(
 	settings *config.EventSettings,
+	serverID config.ServerID,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 ) (*cekafka.Consumer, error) {
+	if serverID.String() == "" {
+		return nil, ErrServerIDRequired
+	}
+
 	brokers := settings.KafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Consumer.Return.Errors = true
@@ -137,7 +153,7 @@ func createKafkaReceiver(
 	saramaConfig.Metadata.Retry.Backoff = DefaultKafkaRetryBackoff
 
 	topic := settings.KafkaSettings.Topic
-	groupID := "opampcommander-consumer-group"
+	groupID := "opampcommander-consumer-group-" + serverID.String()
 
 	consumer, err := cekafka.NewConsumer(brokers, saramaConfig, groupID, topic)
 	if err != nil {

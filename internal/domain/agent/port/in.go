@@ -155,6 +155,8 @@ type ServerUsecase interface {
 type ServerIdentityProvider interface {
 	// CurrentServer returns the current server.
 	CurrentServer(ctx context.Context) (*agentmodel.Server, error)
+	// CurrentServerID returns the identifier of the current server without performing I/O.
+	CurrentServerID() string
 }
 
 // ServerMessageUsecase is an interface that defines the methods for server message use cases.
