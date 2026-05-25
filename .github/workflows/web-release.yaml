@@ -50,6 +50,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ghcr.io/minuk-dev/opampcommander-web:${{ env.VERSION }}
+          build-args: |
+            VERSION=${{ env.VERSION }}
           provenance: false
           cache-from: type=gha,scope=opampcommander-web
           cache-to: type=gha,mode=max,scope=opampcommander-web
