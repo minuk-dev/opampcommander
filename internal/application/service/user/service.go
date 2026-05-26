@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
@@ -47,7 +48,7 @@ func New(
 		roleBindingPersistencePort: roleBindingPersistencePort,
 		rbacEnforcerPort:           rbacEnforcerPort,
 		rbacUsecase:                rbacUsecase,
-		mapper:                     helper.NewMapper(),
+		mapper:                     helper.NewMapper(clock.RealClock{}, 0),
 		logger:                     logger,
 	}
 }

@@ -35,11 +35,13 @@ func NewAgentPackageService(
 	agentpackageUsecase agentport.AgentPackageUsecase,
 	logger *slog.Logger,
 ) *Service {
+	realClock := clock.NewRealClock()
+
 	return &Service{
 		agentpackageUsecase: agentpackageUsecase,
-		mapper:              helper.NewMapper(),
+		mapper:              helper.NewMapper(realClock, 0),
 		sanityFilter:        filter.NewSanity(),
-		clock:               clock.NewRealClock(),
+		clock:               realClock,
 		logger:              logger,
 	}
 }

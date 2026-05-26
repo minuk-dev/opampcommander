@@ -354,3 +354,73 @@ func TestAgentConditions(t *testing.T) {
 		assert.False(t, agent.IsConditionTrue(agentmodel.AgentConditionTypeHealthy))
 	})
 }
+
+func TestAgent_IsConnectedAt(t *testing.T) {
+	t.Parallel()
+
+	const staleness = 90 * time.Second
+
+	now := time.Date(2026, time.May, 27, 12, 0, 0, 0, time.UTC)
+
+	cases := []struct {
+		name           string
+		connected      bool
+		lastReportedAt time.Time
+		want           bool
+	}{
+		{
+			name:           "explicit disconnect short-circuits even with recent heartbeat",
+			connected:      false,
+			lastReportedAt: now.Add(-1 * time.Second),
+			want:           false,
+		},
+		{
+			name:           "zero LastReportedAt is not connected",
+			connected:      true,
+			lastReportedAt: time.Time{},
+			want:           false,
+		},
+		{
+			name:           "fresh heartbeat is connected",
+			connected:      true,
+			lastReportedAt: now.Add(-30 * time.Second),
+			want:           true,
+		},
+		{
+			name:           "heartbeat just inside the staleness window is connected",
+			connected:      true,
+			lastReportedAt: now.Add(-(staleness - time.Second)),
+			want:           true,
+		},
+		{
+			name:           "heartbeat exactly at the staleness boundary is disconnected (strict <)",
+			connected:      true,
+			lastReportedAt: now.Add(-staleness),
+			want:           false,
+		},
+		{
+			name:           "heartbeat past the staleness window is disconnected",
+			connected:      true,
+			lastReportedAt: now.Add(-(staleness + time.Second)),
+			want:           false,
+		},
+		{
+			name:           "LastReportedAt in the future (clock skew) is connected",
+			connected:      true,
+			lastReportedAt: now.Add(5 * time.Second),
+			want:           true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			a := agentmodel.NewAgent(uuid.New())
+			a.Status.Connected = tc.connected
+			a.Status.LastReportedAt = tc.lastReportedAt
+
+			assert.Equal(t, tc.want, a.IsConnectedAt(now, staleness))
+		})
+	}
+}

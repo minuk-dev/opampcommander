@@ -6,6 +6,7 @@ linters:
   exclusions:
     paths:
       - "pkg/apiserver/docs/docs.go" # Generated file for Swagger documentation
+      - "web/*" # web is not managed go directory
     rules:
       - path: _test\.go
         linters:
@@ -32,7 +33,7 @@ linters:
     exhaustruct:
       exclude:
         - '.+/cobra\.Command$'
-        - 'go.mongodb.org/mongo-driver/v2/bson.Binary'
+        - "go.mongodb.org/mongo-driver/v2/bson.Binary"
     ireturn:
       allow:
         - generic
@@ -158,3 +159,6 @@ formatters:
         - standard
         - default
         - prefix(github.com/minuk-dev/opampcommander)
+  exclusions:
+    paths:
+      - "web/*"

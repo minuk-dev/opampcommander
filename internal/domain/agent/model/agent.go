@@ -131,6 +131,32 @@ func (a *Agent) IsConnected(_ context.Context) bool {
 	return !a.Status.LastReportedAt.IsZero()
 }
 
+// DefaultConnectionStaleness is the default age above which an agent's last
+// reported timestamp marks it as no-longer-connected. Set to 3× the typical
+// OpAMP heartbeat interval (30s) so a single missed heartbeat does not flip
+// the agent's connected state.
+const DefaultConnectionStaleness = 90 * time.Second
+
+// IsConnectedAt reports whether the agent is effectively connected at `now`,
+// combining the explicit Status.Connected flag with heartbeat staleness.
+//
+// The explicit flag captures genuine disconnect events (currently only fired
+// on WebSocket close). The staleness check catches HTTP-polling agents that
+// simply stop polling without any disconnect signal — their Status.Connected
+// stays true after the last poll, but their LastReportedAt drifts past the
+// staleness window.
+func (a *Agent) IsConnectedAt(now time.Time, staleness time.Duration) bool {
+	if !a.Status.Connected {
+		return false
+	}
+
+	if a.Status.LastReportedAt.IsZero() {
+		return false
+	}
+
+	return now.Sub(a.Status.LastReportedAt) < staleness
+}
+
 // NeedFullStateCommand checks if the agent needs to send a ReportFullState command.
 func (a *Agent) NeedFullStateCommand() bool {
 	return !a.HasInstanceUID() || !a.Metadata.IsComplete()

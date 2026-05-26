@@ -35,11 +35,13 @@ func NewCertificateService(
 	certificateUsecase agentport.CertificateUsecase,
 	logger *slog.Logger,
 ) *Service {
+	realClock := clock.NewRealClock()
+
 	return &Service{
 		certificateUsecase: certificateUsecase,
-		mapper:             helper.NewMapper(),
+		mapper:             helper.NewMapper(realClock, 0),
 		sanityFilter:       filter.NewSanity(),
-		clock:              clock.NewRealClock(),
+		clock:              realClock,
 		logger:             logger,
 	}
 }

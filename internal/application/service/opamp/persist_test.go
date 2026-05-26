@@ -28,69 +28,76 @@ func TestIsHeartbeatOnly(t *testing.T) {
 		},
 		{
 			name: "empty message is a heartbeat",
-			msg:  &protobufs.AgentToServer{}, //nolint:exhaustruct // testing zero value
+			msg:  &protobufs.AgentToServer{},
 			want: true,
 		},
 		{
 			name: "capabilities-only is a heartbeat — bitmask included on every message",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct // testing single field
+			msg: &protobufs.AgentToServer{
 				Capabilities: 0xff,
 			},
 			want: true,
 		},
 		{
 			name: "description present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				AgentDescription: &protobufs.AgentDescription{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				AgentDescription: &protobufs.AgentDescription{},
 			},
 			want: false,
 		},
 		{
 			name: "health present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				Health: &protobufs.ComponentHealth{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				Health: &protobufs.ComponentHealth{},
 			},
 			want: false,
 		},
 		{
 			name: "effective config present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				EffectiveConfig: &protobufs.EffectiveConfig{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				EffectiveConfig: &protobufs.EffectiveConfig{},
 			},
 			want: false,
 		},
 		{
 			name: "remote config status present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				RemoteConfigStatus: &protobufs.RemoteConfigStatus{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				RemoteConfigStatus: &protobufs.RemoteConfigStatus{},
 			},
 			want: false,
 		},
 		{
 			name: "package statuses present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				PackageStatuses: &protobufs.PackageStatuses{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				PackageStatuses: &protobufs.PackageStatuses{},
 			},
 			want: false,
 		},
 		{
 			name: "agent disconnect present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				AgentDisconnect: &protobufs.AgentDisconnect{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				AgentDisconnect: &protobufs.AgentDisconnect{},
 			},
 			want: false,
 		},
 		{
 			name: "non-zero flags is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
 				Flags: uint64(protobufs.AgentToServerFlags_AgentToServerFlags_RequestInstanceUid),
 			},
 			want: false,
 		},
 		{
 			name: "connection settings request present is not a heartbeat",
-			msg: &protobufs.AgentToServer{ //nolint:exhaustruct
-				ConnectionSettingsRequest: &protobufs.ConnectionSettingsRequest{}, //nolint:exhaustruct
+			msg: &protobufs.AgentToServer{
+				ConnectionSettingsRequest: &protobufs.ConnectionSettingsRequest{},
+			},
+			want: false,
+		},
+		{
+			name: "custom message present is not a heartbeat",
+			msg: &protobufs.AgentToServer{
+				CustomMessage: &protobufs.CustomMessage{},
 			},
 			want: false,
 		},
@@ -109,8 +116,8 @@ func TestIsHeartbeatOnly(t *testing.T) {
 // fields shouldPersistAgent reads. The real constructor pulls in too many
 // dependencies for a unit test focused on this one decision.
 func shouldPersistAgentFixture(now time.Time, throttle time.Duration) *Service {
-	return &Service{ //nolint:exhaustruct // only the fields under test are needed
-		clock:                 newPersistTestClock(now),
+	return &Service{
+		clock:                 &persistTestClock{now: now},
 		logger:                slog.Default(),
 		heartbeatSaveThrottle: throttle,
 	}
@@ -122,9 +129,9 @@ func TestShouldPersistAgent(t *testing.T) {
 	now := time.Date(2026, time.May, 26, 12, 0, 0, 0, time.UTC)
 	throttle := 60 * time.Second
 
-	heartbeat := &protobufs.AgentToServer{}   //nolint:exhaustruct
-	nonHeartbeat := &protobufs.AgentToServer{ //nolint:exhaustruct
-		Health: &protobufs.ComponentHealth{Healthy: true}, //nolint:exhaustruct
+	heartbeat := &protobufs.AgentToServer{}
+	nonHeartbeat := &protobufs.AgentToServer{
+		Health: &protobufs.ComponentHealth{Healthy: true},
 	}
 
 	t.Run("non-heartbeat always persists regardless of lastSaveAt", func(t *testing.T) {
@@ -176,13 +183,9 @@ func TestShouldPersistAgent(t *testing.T) {
 	})
 }
 
-// newPersistTestClock returns a fixed clock for the persistence-throttle tests.
+// persistTestClock is a fixed clock for the persistence-throttle tests.
 // We reuse the existing test clock pattern from server_test.go but keep this
 // file self-contained.
-func newPersistTestClock(t time.Time) clock.Clock {
-	return &persistTestClock{now: t}
-}
-
 type persistTestClock struct {
 	now time.Time
 }

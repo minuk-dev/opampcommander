@@ -55,6 +55,8 @@ func NewNamespaceService(
 	txRunner port.TransactionRunner,
 	logger *slog.Logger,
 ) *Service {
+	realClock := clock.NewRealClock()
+
 	return &Service{
 		namespaceUsecase:         namespaceUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
@@ -62,8 +64,8 @@ func NewNamespaceService(
 		agentPackageUsecase:      agentPackageUsecase,
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		txRunner:                 txRunner,
-		mapper:                   helper.NewMapper(),
-		clock:                    clock.NewRealClock(),
+		mapper:                   helper.NewMapper(realClock, 0),
+		clock:                    realClock,
 		logger:                   logger,
 	}
 }
