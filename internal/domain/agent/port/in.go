@@ -115,6 +115,15 @@ type AgentGroupUsecase interface {
 		deletedAt time.Time, deletedBy string) error
 	// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.
 	GetAgentGroupsForAgent(ctx context.Context, agent *agentmodel.Agent) ([]*agentmodel.AgentGroup, error)
+	// PropagateAgentRemoteConfigChange re-applies all agent groups in the given namespace that
+	// reference the named AgentRemoteConfig (via AgentRemoteConfigRef). Use this when the
+	// AgentRemoteConfig resource itself changes — the agent group itself was not modified, so
+	// the normal SaveAgentGroup-triggered propagation does not fire.
+	PropagateAgentRemoteConfigChange(ctx context.Context, namespace, remoteConfigName string) error
+	// ApplyMatchingAgentGroupsToAgent finds all agent groups that match the given agent and
+	// applies their remote configs and connection settings. Use this when an agent reports a
+	// new description so it picks up its assigned configs without waiting for a group update.
+	ApplyMatchingAgentGroupsToAgent(ctx context.Context, agent *agentmodel.Agent) error
 }
 
 // AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.

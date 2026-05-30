@@ -487,14 +487,16 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
 			Return(referencedConfig, nil)
 
-		err := svc.applyRemoteConfigs(ctx, agentGroup, testAgent)
+		resolved, err := svc.collectGroupRemoteConfigs(ctx, agentGroup)
 
 		require.NoError(t, err)
-		// Verify config was applied with original name (no prefix)
-		configFile, exists := testAgent.Spec.RemoteConfig.ConfigMap.ConfigMap[refName]
-		assert.True(t, exists, "Config should be applied with original name")
+		// Verify config was resolved under its original name (no prefix)
+		configFile, exists := resolved[refName]
+		assert.True(t, exists, "Config should be resolved under its original name")
 		assert.Equal(t, referencedConfig.Spec.Value, configFile.Body)
 		mockRemoteConfigPort.AssertExpectations(t)
+
+		_ = testAgent
 	})
 
 	t.Run("Applies inline config to agent with AgentGroupName prefix", func(t *testing.T) {
@@ -530,14 +532,16 @@ func TestApplyRemoteConfigs(t *testing.T) {
 			},
 		}
 
-		err := svc.applyRemoteConfigs(ctx, agentGroup, testAgent)
+		resolved, err := svc.collectGroupRemoteConfigs(ctx, agentGroup)
 
 		require.NoError(t, err)
-		// Verify config was applied with prefixed name
+		// Verify config was resolved under its prefixed name
 		expectedName := "staging/local-config"
-		configFile, exists := testAgent.Spec.RemoteConfig.ConfigMap.ConfigMap[expectedName]
-		assert.True(t, exists, "Config should be applied with prefixed name: %s", expectedName)
+		configFile, exists := resolved[expectedName]
+		assert.True(t, exists, "Config should be resolved under prefixed name: %s", expectedName)
 		assert.Equal(t, inlineValue, configFile.Body)
+
+		_ = testAgent
 	})
 }
 
@@ -595,24 +599,27 @@ func TestNameCollisionPrevention(t *testing.T) {
 			},
 		}
 
-		// Apply configs from both groups
-		err := svc.applyRemoteConfigs(ctx, groupAlpha, testAgent)
+		// Resolve configs from both groups
+		alphaResolved, err := svc.collectGroupRemoteConfigs(ctx, groupAlpha)
 		require.NoError(t, err)
 
-		err = svc.applyRemoteConfigs(ctx, groupBeta, testAgent)
+		betaResolved, err := svc.collectGroupRemoteConfigs(ctx, groupBeta)
 		require.NoError(t, err)
 
 		// Verify both configs exist with different prefixed names
-		alphaConfig, alphaExists := testAgent.Spec.RemoteConfig.ConfigMap.ConfigMap["group-alpha/config"]
-		betaConfig, betaExists := testAgent.Spec.RemoteConfig.ConfigMap.ConfigMap["group-beta/config"]
+		alphaConfig, alphaExists := alphaResolved["group-alpha/config"]
+		betaConfig, betaExists := betaResolved["group-beta/config"]
 
 		assert.True(t, alphaExists, "Alpha config should exist")
 		assert.True(t, betaExists, "Beta config should exist")
 		assert.Equal(t, []byte("content from alpha"), alphaConfig.Body)
 		assert.Equal(t, []byte("content from beta"), betaConfig.Body)
 
-		// Verify we have exactly 2 configs (no collision)
-		assert.Len(t, testAgent.Spec.RemoteConfig.ConfigMap.ConfigMap, 2)
+		// Verify each group resolves to exactly its own config (no collision when keyed by prefixed name)
+		assert.Len(t, alphaResolved, 1)
+		assert.Len(t, betaResolved, 1)
+
+		_ = testAgent
 	})
 }
 
@@ -666,7 +673,11 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
+		// updateAgentsByAgentGroup now applies the union of all matching groups per agent
+		// (ApplyMatchingAgentGroupsToAgent), which calls GetAgentGroupsForAgent → ListAgentGroups.
+		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", mock.Anything, "", refName, (*model.GetOptions)(nil)).
 			Return(referencedConfig, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap[refName]
@@ -726,6 +737,9 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
+		// updateAgentsByAgentGroup → ApplyMatchingAgentGroupsToAgent → GetAgentGroupsForAgent.
+		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
 			// Verify the config has the prefixed name
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap["staging/inline-config"]

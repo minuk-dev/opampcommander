@@ -112,6 +112,18 @@ func (f *fakeAgentGroupUsecase) GetAgentGroupsForAgent(
 	return nil, errNotImplemented
 }
 
+func (f *fakeAgentGroupUsecase) PropagateAgentRemoteConfigChange(
+	context.Context, string, string,
+) error {
+	return nil
+}
+
+func (f *fakeAgentGroupUsecase) ApplyMatchingAgentGroupsToAgent(
+	context.Context, *agentmodel.Agent,
+) error {
+	return nil
+}
+
 type fakeCertificateUsecase struct{}
 
 func (f *fakeCertificateUsecase) GetCertificate(
