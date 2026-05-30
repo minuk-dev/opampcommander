@@ -41,12 +41,14 @@ func NewManageService(
 	agentUsecase agentport.AgentUsecase,
 	logger *slog.Logger,
 ) *ManageService {
+	realClock := clock.NewRealClock()
+
 	return &ManageService{
 		agentgroupUsecase: agentgroupUsecase,
 		agentUsecase:      agentUsecase,
-		mapper:            helper.NewMapper(),
+		mapper:            helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		sanityFilter:      filter.NewSanity(),
-		clock:             clock.NewRealClock(),
+		clock:             realClock,
 		logger:            logger,
 	}
 }

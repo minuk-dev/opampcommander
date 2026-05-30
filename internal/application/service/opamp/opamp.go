@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,23 @@ import (
 const (
 	// DefaultOnConnectionCloseTimeout is the default timeout for closing a connection.
 	DefaultOnConnectionCloseTimeout = 5 * time.Second
+	// DefaultHeartbeatSaveThrottle is the minimum interval between persisting agent state
+	// when the incoming message is heartbeat-only (no field reports). Bursts of heartbeats
+	// share a single MongoDB write; non-heartbeat messages are always persisted immediately.
+	//
+	// Kept short (10s) so the API surface still reflects per-agent state — SequenceNum,
+	// LastReportedAt — within an order of magnitude of the OpAMP heartbeat interval.
+	// Bigger values would amortise more aggressively but the API would lag enough to
+	// be observably stale (e2e SequenceNum test relies on increment visibility).
+	DefaultHeartbeatSaveThrottle = 10 * time.Second
+	// DefaultLastSaveAtGCInterval is how often the lastSaveAt map is swept for stale
+	// entries. HTTP-polling agents never trigger the WebSocket-only Delete path on
+	// connection close, so their entries would accumulate forever without this sweep.
+	DefaultLastSaveAtGCInterval = 5 * time.Minute
+	// DefaultLastSaveAtTTL is the age at which a lastSaveAt entry is considered stale
+	// and eligible for GC. Set generously above the throttle window so we never evict
+	// a live agent's entry mid-throttle.
+	DefaultLastSaveAtTTL = 30 * time.Minute
 )
 
 // Service is a struct that implements the OpAMPUsecase interface.
@@ -38,6 +56,11 @@ type Service struct {
 
 	connectionUsecase        agentport.ConnectionUsecase
 	onConnectionCloseTimeout time.Duration
+
+	heartbeatSaveThrottle time.Duration
+	lastSaveAt            sync.Map // instanceUID(string) -> time.Time
+	lastSaveAtGCInterval  time.Duration
+	lastSaveAtTTL         time.Duration
 }
 
 // New creates a new instance of the OpAMP service.
@@ -64,6 +87,10 @@ func New(
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
+		heartbeatSaveThrottle:    DefaultHeartbeatSaveThrottle,
+		lastSaveAt:               sync.Map{},
+		lastSaveAtGCInterval:     DefaultLastSaveAtGCInterval,
+		lastSaveAtTTL:            DefaultLastSaveAtTTL,
 	}
 }
 
@@ -74,6 +101,11 @@ func (s *Service) Name() string {
 
 // Run starts a loop to handle asynchronous operations for the service.
 func (s *Service) Run(ctx context.Context) error {
+	// Run GC on its own goroutine so a long sweep (lastSaveAt can hold hundreds of
+	// thousands of entries at scale) never delays connection-close cleanup on the
+	// main loop. Both goroutines exit on ctx cancellation.
+	go s.runLastSaveAtGC(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -184,17 +216,26 @@ func (s *Service) OnMessage(
 
 	s.syncConnectionNamespace(ctx, logger, connection, agent)
 
+	// Capture a single timestamp so the throttle window is anchored on message
+	// arrival, not on SaveAgent return — Mongo latency spikes would otherwise
+	// push the next throttle boundary out by the write duration.
+	receivedAt := s.clock.Now()
+
 	// Update agent connection status
-	agent.UpdateLastCommunicationInfo(s.clock.Now(), connection)
+	agent.UpdateLastCommunicationInfo(receivedAt, connection)
 
 	err = s.report(agent, message, currentServer)
 	if err != nil {
 		logger.Error("failed to report agent", slog.String("error", err.Error()))
 	}
 
-	err = s.agentUsecase.SaveAgent(ctx, agent)
-	if err != nil {
-		logger.Error("failed to save agent", slog.String("error", err.Error()))
+	if s.shouldPersistAgent(instanceUID, message) {
+		err = s.agentUsecase.SaveAgent(ctx, agent)
+		if err != nil {
+			logger.Error("failed to save agent", slog.String("error", err.Error()))
+		} else {
+			s.lastSaveAt.Store(instanceUID.String(), receivedAt)
+		}
 	}
 
 	// Note: NotifyAgentUpdated is NOT called here to avoid infinite loop.
@@ -253,6 +294,68 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	}
 
 	logger.Info("end")
+}
+
+// gcLastSaveAt removes lastSaveAt entries older than lastSaveAtTTL. Entries for
+// HTTP-polling agents are never cleared by cleanUpConnection (WebSocket-only),
+// so this sweep is what bounds the map's footprint when HTTP agents go away
+// without explicit teardown.
+func (s *Service) gcLastSaveAt() {
+	cutoff := s.clock.Now().Add(-s.effectiveLastSaveAtTTL())
+	removed := 0
+
+	s.lastSaveAt.Range(func(key, val any) bool {
+		lastAt, isTime := val.(time.Time)
+		if !isTime || lastAt.Before(cutoff) {
+			s.lastSaveAt.Delete(key)
+
+			removed++
+		}
+
+		return true
+	})
+
+	if removed > 0 {
+		s.logger.Debug("garbage-collected stale lastSaveAt entries",
+			slog.Int("removed", removed),
+			slog.Duration("ttl", s.effectiveLastSaveAtTTL()),
+		)
+	}
+}
+
+// runLastSaveAtGC ticks gcLastSaveAt on its own goroutine until ctx is done.
+func (s *Service) runLastSaveAtGC(ctx context.Context) {
+	gcTicker := time.NewTicker(s.effectiveLastSaveAtGCInterval())
+	defer gcTicker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-gcTicker.C:
+			s.gcLastSaveAt()
+		}
+	}
+}
+
+// effectiveLastSaveAtGCInterval returns the configured GC interval, or the
+// default when zero. Reading via a helper keeps Run side-effect-free for tests
+// that build *Service via struct literal without invoking New().
+func (s *Service) effectiveLastSaveAtGCInterval() time.Duration {
+	if s.lastSaveAtGCInterval <= 0 {
+		return DefaultLastSaveAtGCInterval
+	}
+
+	return s.lastSaveAtGCInterval
+}
+
+// effectiveLastSaveAtTTL returns the configured GC TTL, or the default when zero.
+func (s *Service) effectiveLastSaveAtTTL() time.Duration {
+	if s.lastSaveAtTTL <= 0 {
+		return DefaultLastSaveAtTTL
+	}
+
+	return s.lastSaveAtTTL
 }
 
 func (s *Service) report(
@@ -337,8 +440,13 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	)
 	logger.Info("start cleaning up connection")
 
-	// Update agent connection status to disconnected
-	if !connection.IsAnonymous() {
+	// Update agent connection status to disconnected.
+	//
+	// Only WebSocket close represents a genuine disconnect. HTTP polling agents fire
+	// OnConnectionClose after every request; treating those as disconnects would both
+	// (a) flip agent.Status.Connected on every poll, and (b) defeat the heartbeat-save
+	// throttle by writing to MongoDB on every request.
+	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
 		agent, err := s.agentUsecase.GetAgent(ctx, connection.InstanceUID)
 		if err != nil {
 			logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
@@ -357,6 +465,13 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	err = s.connectionUsecase.DeleteConnection(ctx, connection)
 	if err != nil {
 		return fmt.Errorf("failed to delete connection: %w", err)
+	}
+
+	// WebSocket close is a genuine disconnect — clear the throttle entry so the first
+	// message after reconnect is persisted immediately. HTTP polling agents do not get
+	// here because their close is treated as request-end, not disconnect.
+	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
+		s.lastSaveAt.Delete(connection.InstanceUID.String())
 	}
 
 	return nil
@@ -410,6 +525,50 @@ func (s *Service) injectInstanceUIDToConnection(
 	}
 
 	return connection, nil
+}
+
+// shouldPersistAgent decides whether the agent's in-memory state should be flushed to
+// the datastore for this incoming message. Non-heartbeat messages (carrying any
+// reported field) are always persisted. For heartbeat-only messages — which dominate
+// the volume at scale — persistence is throttled per agent to amortise writes.
+func (s *Service) shouldPersistAgent(instanceUID uuid.UUID, message *protobufs.AgentToServer) bool {
+	if !isHeartbeatOnly(message) {
+		return true
+	}
+
+	last, found := s.lastSaveAt.Load(instanceUID.String())
+	if !found {
+		return true
+	}
+
+	lastAt, isTime := last.(time.Time)
+	if !isTime {
+		return true
+	}
+
+	return s.clock.Now().Sub(lastAt) >= s.heartbeatSaveThrottle
+}
+
+// isHeartbeatOnly reports whether the AgentToServer message carries no reported field
+// updates beyond identification. The fixed Capabilities bitfield is intentionally
+// excluded — agents include it on every message even when nothing has changed.
+func isHeartbeatOnly(msg *protobufs.AgentToServer) bool {
+	if msg == nil {
+		return true
+	}
+
+	return msg.GetAgentDescription() == nil &&
+		msg.GetHealth() == nil &&
+		msg.GetEffectiveConfig() == nil &&
+		msg.GetRemoteConfigStatus() == nil &&
+		msg.GetConnectionSettingsStatus() == nil &&
+		msg.GetPackageStatuses() == nil &&
+		msg.GetCustomCapabilities() == nil &&
+		msg.GetCustomMessage() == nil &&
+		msg.GetAvailableComponents() == nil &&
+		msg.GetAgentDisconnect() == nil &&
+		msg.GetConnectionSettingsRequest() == nil &&
+		msg.GetFlags() == 0
 }
 
 func (s *Service) syncConnectionNamespace(

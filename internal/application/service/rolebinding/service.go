@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/samber/lo"
+	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/application/helper"
@@ -38,7 +39,7 @@ func New(
 		roleBindingUsecase: roleBindingUsecase,
 		roleUsecase:        roleUsecase,
 		rbacUsecase:        rbacUsecase,
-		mapper:             helper.NewMapper(),
+		mapper:             helper.NewMapper(clock.RealClock{}, 0),
 		logger:             logger,
 	}
 }

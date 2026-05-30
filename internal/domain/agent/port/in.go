@@ -46,8 +46,6 @@ type AgentUsecase interface {
 type AgentNotificationUsecase interface {
 	// NotifyAgentUpdated notifies the connected server that the agent has pending messages.
 	NotifyAgentUpdated(ctx context.Context, agent *agentmodel.Agent) error
-	// RestartAgent requests the agent to restart.
-	RestartAgent(ctx context.Context, instanceUID uuid.UUID) error
 }
 
 // NamespaceUsecase is an interface that defines the methods for namespace use cases.
@@ -155,6 +153,8 @@ type ServerUsecase interface {
 type ServerIdentityProvider interface {
 	// CurrentServer returns the current server.
 	CurrentServer(ctx context.Context) (*agentmodel.Server, error)
+	// CurrentServerID returns the identifier of the current server without performing I/O.
+	CurrentServerID() string
 }
 
 // ServerMessageUsecase is an interface that defines the methods for server message use cases.

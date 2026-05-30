@@ -113,12 +113,6 @@ func (m *MockAgentNotificationUsecase) NotifyAgentUpdated(ctx context.Context, a
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
 
-func (m *MockAgentNotificationUsecase) RestartAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	args := m.Called(ctx, instanceUID)
-
-	return args.Error(0) //nolint:wrapcheck // mock error
-}
-
 func TestService_SearchAgents(t *testing.T) {
 	t.Parallel()
 

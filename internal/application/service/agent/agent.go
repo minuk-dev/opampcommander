@@ -46,13 +46,15 @@ func New(
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
 	logger *slog.Logger,
 ) *Service {
+	realClock := clock.RealClock{}
+
 	return &Service{
 		agentUsecase:             agentUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
 
-		mapper: helper.NewMapper(),
+		mapper: helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		logger: logger,
-		clock:  clock.RealClock{},
+		clock:  realClock,
 	}
 }
 

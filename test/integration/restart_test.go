@@ -189,7 +189,3 @@ func (m *mockAgentNotificationUsecase) NotifyAgentUpdated(_ context.Context, _ *
 
 	return nil
 }
-
-func (m *mockAgentNotificationUsecase) RestartAgent(_ context.Context, _ uuid.UUID) error {
-	return nil
-}

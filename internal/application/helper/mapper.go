@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
@@ -16,11 +17,33 @@ import (
 )
 
 // Mapper is a struct that provides methods to map between domain models and API models.
-type Mapper struct{}
+//
+// The injected clock is consulted for time-sensitive derivations (e.g. evaluating
+// heartbeat-staleness for the Agent.Connected API field). Tests using mapped
+// output for assertions can pass a fake clock for deterministic results.
+//
+// connectionStaleness controls how long after an agent's LastReportedAt the
+// API still treats it as connected. Operators tuning the OpAMP heartbeat
+// interval should pass a value at least 2-3× their interval.
+type Mapper struct {
+	clock               clock.PassiveClock
+	connectionStaleness time.Duration
+}
 
-// NewMapper creates a new instance of Mapper.
-func NewMapper() *Mapper {
-	return &Mapper{}
+// NewMapper creates a new instance of Mapper. A nil clock falls back to
+// k8s.io/utils/clock.RealClock so a misconfigured call site never crashes
+// at MapAgentToAPI time — better to be visibly wrong than silently nil.
+// A non-positive connectionStaleness falls back to agentmodel.DefaultConnectionStaleness.
+func NewMapper(clk clock.PassiveClock, connectionStaleness time.Duration) *Mapper {
+	if clk == nil {
+		clk = clock.RealClock{}
+	}
+
+	if connectionStaleness <= 0 {
+		connectionStaleness = agentmodel.DefaultConnectionStaleness
+	}
+
+	return &Mapper{clock: clk, connectionStaleness: connectionStaleness}
 }
 
 // MapAPIToAgentGroup maps an API model AgentGroup to a domain model AgentGroup.
@@ -184,10 +207,13 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 			ComponentHealth:     mapper.mapComponentHealthToAPI(&agent.Status.ComponentHealth),
 			AvailableComponents: mapper.mapAvailableComponentsToAPI(&agent.Status.AvailableComponents),
 			Conditions:          mapper.mapAgentConditionsToAPI(agent.Status.Conditions),
-			Connected:           agent.Status.Connected,
-			ConnectionType:      agent.Status.ConnectionType.String(),
-			SequenceNum:         agent.Status.SequenceNum,
-			LastReportedAt:      mapper.formatTime(agent.Status.LastReportedAt),
+			// Derive effective connectedness from heartbeat staleness so HTTP-polling
+			// agents that stop polling are reported as disconnected, even though the
+			// stored Status.Connected flag is only flipped on WebSocket close.
+			Connected:      agent.IsConnectedAt(mapper.clock.Now(), mapper.connectionStaleness),
+			ConnectionType: agent.Status.ConnectionType.String(),
+			SequenceNum:    agent.Status.SequenceNum,
+			LastReportedAt: mapper.formatTime(agent.Status.LastReportedAt),
 		},
 	}
 }

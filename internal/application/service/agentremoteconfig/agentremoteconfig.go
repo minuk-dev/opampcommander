@@ -35,11 +35,13 @@ func NewAgentRemoteConfigService(
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	logger *slog.Logger,
 ) *Service {
+	realClock := clock.NewRealClock()
+
 	return &Service{
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
-		mapper:                   helper.NewMapper(),
+		mapper:                   helper.NewMapper(realClock, 0),
 		sanityFilter:             filter.NewSanity(),
-		clock:                    clock.NewRealClock(),
+		clock:                    realClock,
 		logger:                   logger,
 	}
 }

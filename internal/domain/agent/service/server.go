@@ -40,6 +40,7 @@ type ServerService struct {
 	serverPersistencePort   agentport.ServerPersistencePort
 	serverEventSenderPort   agentport.ServerEventSenderPort
 	serverEventReceiverPort agentport.ServerEventReceiverPort
+	serverIdentityProvider  agentport.ServerIdentityProvider
 	connectionUsecase       agentport.ConnectionUsecase
 	agentUsecase            agentport.AgentUsecase
 }
@@ -50,6 +51,7 @@ func NewServerService(
 	serverPersistencePort agentport.ServerPersistencePort,
 	serverEventSenderPort agentport.ServerEventSenderPort,
 	serverEventReceiverPort agentport.ServerEventReceiverPort,
+	serverIdentityProvider agentport.ServerIdentityProvider,
 	connectionUsecase agentport.ConnectionUsecase,
 	agentUsecase agentport.AgentUsecase,
 ) *ServerService {
@@ -70,6 +72,7 @@ func NewServerService(
 		serverPersistencePort:   serverPersistencePort,
 		serverEventSenderPort:   serverEventSenderPort,
 		serverEventReceiverPort: serverEventReceiverPort,
+		serverIdentityProvider:  serverIdentityProvider,
 		heartbeatTimeout:        DefaultHeartbeatTimeout,
 		connectionUsecase:       connectionUsecase,
 		agentUsecase:            agentUsecase,
@@ -166,6 +169,9 @@ func (s *ServerService) SendMessageToServerByServerID(
 }
 
 // SendMessageToServer sends a message to the specified server.
+//
+// If the target server is the current server, the message is dispatched in-process
+// instead of going through the messaging backend (Kafka), avoiding a needless round-trip.
 func (s *ServerService) SendMessageToServer(
 	ctx context.Context,
 	server *agentmodel.Server,
@@ -173,6 +179,20 @@ func (s *ServerService) SendMessageToServer(
 ) error {
 	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
 		return fmt.Errorf("%w: server ID %s is not alive", ErrServerNotAlive, server.ID)
+	}
+
+	if s.serverIdentityProvider != nil && server.ID == s.serverIdentityProvider.CurrentServerID() {
+		s.logger.Debug("dispatching message locally (target is current server)",
+			slog.String("serverID", server.ID),
+			slog.String("messageType", message.Type.String()),
+		)
+
+		err := s.handleServerEvent(ctx, &message)
+		if err != nil {
+			return fmt.Errorf("failed to dispatch local message: %w", err)
+		}
+
+		return nil
 	}
 
 	s.logger.Info("sending message to server",

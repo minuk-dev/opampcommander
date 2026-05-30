@@ -45,7 +45,11 @@ func New() fx.Option {
 			Identity[*agentservice.ServerIdentityService],
 			fx.As(new(agentport.ServerIdentityProvider)),
 		),
-		fx.Annotate(agentservice.NewAgentNotificationService, fx.As(new(agentport.AgentNotificationUsecase))),
+		agentservice.NewAgentNotificationService,
+		fx.Annotate(
+			Identity[*agentservice.AgentNotificationService],
+			fx.As(new(agentport.AgentNotificationUsecase)),
+		),
 		// RBAC domain services
 		fx.Annotate(userservice.NewUserService, fx.As(new(userport.UserUsecase))),
 		fx.Annotate(userservice.NewRoleService, fx.As(new(userport.RoleUsecase))),
@@ -56,6 +60,7 @@ func New() fx.Option {
 		helper.AsRunner(Identity[*agentservice.AgentGroupService]),
 		helper.AsRunner(Identity[*agentservice.ServerService]),
 		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),
+		helper.AsRunner(Identity[*agentservice.AgentNotificationService]),
 	}
 
 	return fx.Module(
