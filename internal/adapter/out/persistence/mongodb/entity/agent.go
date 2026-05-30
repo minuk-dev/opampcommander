@@ -151,9 +151,18 @@ type AgentConfigFile struct {
 	ContentType string      `bson:"contentType"`
 }
 
-// AgentSpecRemoteConfig is a struct to manage remote config names for agent spec.
+// AgentSpecRemoteConfig stores the remote config files materialised onto the agent's spec.
+// Both name and content (Body/ContentType) are persisted so the next OpAMP response can
+// reproduce the AgentRemoteConfig message even after a cache miss or server restart.
+//
+// LegacyRemoteConfig holds the names-only array used by the pre-content schema. We still
+// decode it so existing documents are not silently emptied on first read after upgrade —
+// the names become placeholders so AgentGroup reconcile knows what to re-resolve.
+// New writes only populate ConfigMap; LegacyRemoteConfig has `omitempty` so it never
+// persists once a fresh write happens.
 type AgentSpecRemoteConfig struct {
-	RemoteConfig []string `bson:"remoteConfig"`
+	ConfigMap          map[string]AgentConfigFile `bson:"configMap,omitempty"`
+	LegacyRemoteConfig []string                   `bson:"remoteConfig,omitempty"`
 }
 
 // AgentRemoteConfigData is a struct to manage remote config data.
@@ -401,7 +410,7 @@ func (ach *AgentComponentHealth) ToDomain() *agentmodel.AgentComponentHealth {
 
 // ToDomain converts the AgentSpecRemoteConfig to domain model.
 func (asrc *AgentSpecRemoteConfig) ToDomain() agentmodel.AgentSpecRemoteConfig {
-	if asrc == nil || len(asrc.RemoteConfig) == 0 {
+	if asrc == nil || (len(asrc.ConfigMap) == 0 && len(asrc.LegacyRemoteConfig) == 0) {
 		return agentmodel.AgentSpecRemoteConfig{
 			ConfigMap: agentmodel.AgentConfigMap{
 				ConfigMap: nil,
@@ -409,14 +418,7 @@ func (asrc *AgentSpecRemoteConfig) ToDomain() agentmodel.AgentSpecRemoteConfig {
 		}
 	}
 
-	// Convert RemoteConfig names to ConfigMap with empty placeholders
-	configMap := make(map[string]agentmodel.AgentConfigFile)
-	for _, name := range asrc.RemoteConfig {
-		configMap[name] = agentmodel.AgentConfigFile{
-			Body:        nil,
-			ContentType: "",
-		}
-	}
+	configMap := asrc.buildDomainConfigMap()
 
 	return agentmodel.AgentSpecRemoteConfig{
 		ConfigMap: agentmodel.AgentConfigMap{
@@ -427,24 +429,44 @@ func (asrc *AgentSpecRemoteConfig) ToDomain() agentmodel.AgentSpecRemoteConfig {
 
 // ToDomainPtr converts the AgentSpecRemoteConfig to domain model pointer.
 func (asrc *AgentSpecRemoteConfig) ToDomainPtr() *agentmodel.AgentSpecRemoteConfig {
-	if asrc == nil || len(asrc.RemoteConfig) == 0 {
+	if asrc == nil || (len(asrc.ConfigMap) == 0 && len(asrc.LegacyRemoteConfig) == 0) {
 		return nil
 	}
 
-	// Convert RemoteConfig names to ConfigMap with empty placeholders
-	configMap := make(map[string]agentmodel.AgentConfigFile)
-	for _, name := range asrc.RemoteConfig {
-		configMap[name] = agentmodel.AgentConfigFile{
-			Body:        nil,
-			ContentType: "",
-		}
-	}
+	configMap := asrc.buildDomainConfigMap()
 
 	return &agentmodel.AgentSpecRemoteConfig{
 		ConfigMap: agentmodel.AgentConfigMap{
 			ConfigMap: configMap,
 		},
 	}
+}
+
+// buildDomainConfigMap merges the new content-bearing ConfigMap with the legacy
+// names-only array. Legacy names appear as empty placeholders; the AgentGroup
+// reconcile loop sees the key set, recognises this agent as in-scope, and rewrites
+// the spec with full content on the next pass. The reconcile loop's "skip when
+// fingerprint unchanged" guard intentionally does not engage here because the
+// before/after content differs (nil placeholders vs. real bytes).
+func (asrc *AgentSpecRemoteConfig) buildDomainConfigMap() map[string]agentmodel.AgentConfigFile {
+	configMap := make(map[string]agentmodel.AgentConfigFile, len(asrc.ConfigMap)+len(asrc.LegacyRemoteConfig))
+
+	for _, name := range asrc.LegacyRemoteConfig {
+		configMap[name] = agentmodel.AgentConfigFile{
+			Body:        nil,
+			ContentType: "",
+		}
+	}
+
+	// New-shape entries win over legacy placeholders for the same name.
+	for name, file := range asrc.ConfigMap {
+		configMap[name] = agentmodel.AgentConfigFile{
+			Body:        file.Body.Data,
+			ContentType: file.ContentType,
+		}
+	}
+
+	return configMap
 }
 
 // ToDomain converts the AgentCustomCapabilities to domain model.
@@ -640,14 +662,20 @@ func AgentSpecRemoteConfigFromDomain(arc *agentmodel.AgentSpecRemoteConfig) *Age
 		return nil
 	}
 
-	// Extract config names from ConfigMap
-	names := make([]string, 0, len(arc.ConfigMap.ConfigMap))
-	for name := range arc.ConfigMap.ConfigMap {
-		names = append(names, name)
+	configMap := make(map[string]AgentConfigFile, len(arc.ConfigMap.ConfigMap))
+	for name, file := range arc.ConfigMap.ConfigMap {
+		configMap[name] = AgentConfigFile{
+			Body: bson.Binary{
+				Subtype: bson.TypeBinaryGeneric,
+				Data:    file.Body,
+			},
+			ContentType: file.ContentType,
+		}
 	}
 
 	return &AgentSpecRemoteConfig{
-		RemoteConfig: names,
+		ConfigMap:          configMap,
+		LegacyRemoteConfig: nil,
 	}
 }
 

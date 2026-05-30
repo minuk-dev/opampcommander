@@ -24,6 +24,7 @@ var _ port.AgentRemoteConfigManageUsecase = (*Service)(nil)
 // Service is a service for managing agent remote configs.
 type Service struct {
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
+	agentGroupUsecase        agentport.AgentGroupUsecase
 	mapper                   *helper.Mapper
 	sanityFilter             *filter.Sanity
 	clock                    clock.Clock
@@ -33,12 +34,14 @@ type Service struct {
 // NewAgentRemoteConfigService creates a new AgentRemoteConfigService.
 func NewAgentRemoteConfigService(
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
+	agentGroupUsecase agentport.AgentGroupUsecase,
 	logger *slog.Logger,
 ) *Service {
 	realClock := clock.NewRealClock()
 
 	return &Service{
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
+		agentGroupUsecase:        agentGroupUsecase,
 		mapper:                   helper.NewMapper(realClock, 0),
 		sanityFilter:             filter.NewSanity(),
 		clock:                    realClock,
@@ -131,6 +134,8 @@ func (s *Service) CreateAgentRemoteConfig(
 		return nil, fmt.Errorf("create agent remote config: %w", err)
 	}
 
+	s.triggerGroupPropagation(ctx, saved.Metadata.Namespace, saved.Metadata.Name)
+
 	return s.mapper.MapAgentRemoteConfigToAPI(saved), nil
 }
 
@@ -158,6 +163,8 @@ func (s *Service) UpdateAgentRemoteConfig(
 		return nil, fmt.Errorf("update agent remote config: %w", err)
 	}
 
+	s.triggerGroupPropagation(ctx, updated.Metadata.Namespace, updated.Metadata.Name)
+
 	return s.mapper.MapAgentRemoteConfigToAPI(updated), nil
 }
 
@@ -184,5 +191,30 @@ func (s *Service) DeleteAgentRemoteConfig(
 		return fmt.Errorf("delete agent remote config: %w", err)
 	}
 
+	s.triggerGroupPropagation(ctx, namespace, name)
+
 	return nil
+}
+
+// triggerGroupPropagation asks the agent group service to re-apply any groups in the
+// namespace that reference this config. Runs in its own goroutine so a slow
+// changedAgentGroupCh consumer cannot block the HTTP handler; the periodic
+// reconciliation loop is the durable safety net.
+//
+// We detach the goroutine from the request ctx with context.WithoutCancel so the
+// propagation finishes even if the HTTP request is cancelled right after mutation.
+func (s *Service) triggerGroupPropagation(ctx context.Context, namespace, name string) {
+	bgCtx := context.WithoutCancel(ctx)
+
+	go func() {
+		err := s.agentGroupUsecase.PropagateAgentRemoteConfigChange(bgCtx, namespace, name)
+		if err != nil {
+			s.logger.Warn(
+				"failed to propagate agent remote config change to groups",
+				slog.String("namespace", namespace),
+				slog.String("name", name),
+				slog.String("error", err.Error()),
+			)
+		}
+	}()
 }

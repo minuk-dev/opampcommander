@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync"
 	"time"
 
@@ -224,19 +225,9 @@ func (s *Service) OnMessage(
 	// Update agent connection status
 	agent.UpdateLastCommunicationInfo(receivedAt, connection)
 
-	err = s.report(agent, message, currentServer)
-	if err != nil {
-		logger.Error("failed to report agent", slog.String("error", err.Error()))
-	}
+	s.reportAndReconcileGroups(ctx, logger, message, agent, currentServer)
 
-	if s.shouldPersistAgent(instanceUID, message) {
-		err = s.agentUsecase.SaveAgent(ctx, agent)
-		if err != nil {
-			logger.Error("failed to save agent", slog.String("error", err.Error()))
-		} else {
-			s.lastSaveAt.Store(instanceUID.String(), receivedAt)
-		}
-	}
+	s.maybePersistAgent(ctx, logger, instanceUID, message, agent, receivedAt)
 
 	// Note: NotifyAgentUpdated is NOT called here to avoid infinite loop.
 	// OnMessage already sends a response via fetchServerToAgent.
@@ -569,6 +560,110 @@ func isHeartbeatOnly(msg *protobufs.AgentToServer) bool {
 		msg.GetAgentDisconnect() == nil &&
 		msg.GetConnectionSettingsRequest() == nil &&
 		msg.GetFlags() == 0
+}
+
+// identitySnapshot captures the fields of an agent that determine which agent groups
+// match it. We compare these before and after applying the incoming AgentToServer
+// message to decide whether to re-evaluate matching agent groups.
+type identitySnapshot struct {
+	namespace                string
+	identifyingAttributes    map[string]string
+	nonIdentifyingAttributes map[string]string
+}
+
+func snapshotIdentity(agent *agentmodel.Agent) identitySnapshot {
+	return identitySnapshot{
+		namespace:                agent.Metadata.Namespace,
+		identifyingAttributes:    maps.Clone(agent.Metadata.Description.IdentifyingAttributes),
+		nonIdentifyingAttributes: maps.Clone(agent.Metadata.Description.NonIdentifyingAttributes),
+	}
+}
+
+func identityChanged(prev identitySnapshot, agent *agentmodel.Agent) bool {
+	if prev.namespace != agent.Metadata.Namespace {
+		return true
+	}
+
+	if !maps.Equal(prev.identifyingAttributes, agent.Metadata.Description.IdentifyingAttributes) {
+		return true
+	}
+
+	return !maps.Equal(prev.nonIdentifyingAttributes, agent.Metadata.Description.NonIdentifyingAttributes)
+}
+
+// reportAndReconcileGroups absorbs incoming AgentToServer reports into the agent and
+// re-evaluates which agent groups apply when the description changed. The identity
+// snapshot/compare is skipped unless the incoming message carries an AgentDescription —
+// that is the only report() input that can affect AgentGroup selectors, and skipping
+// the snapshot avoids two map allocations on every heartbeat plus a full ListAgentGroups
+// scan when agents put monotonic counters under NonIdentifyingAttributes.
+func (s *Service) reportAndReconcileGroups(
+	ctx context.Context,
+	logger *slog.Logger,
+	message *protobufs.AgentToServer,
+	agent *agentmodel.Agent,
+	currentServer *agentmodel.Server,
+) {
+	hasDescription := message.GetAgentDescription() != nil
+
+	var prevIdentity identitySnapshot
+	if hasDescription {
+		prevIdentity = snapshotIdentity(agent)
+	}
+
+	err := s.report(agent, message, currentServer)
+	if err != nil {
+		logger.Error("failed to report agent", slog.String("error", err.Error()))
+	}
+
+	if hasDescription {
+		s.maybeApplyMatchingAgentGroups(ctx, logger, agent, prevIdentity)
+	}
+}
+
+// maybePersistAgent writes the agent through the throttle if the message warrants it,
+// updating the lastSaveAt anchor on success so the next throttle window is measured
+// from this arrival time.
+func (s *Service) maybePersistAgent(
+	ctx context.Context,
+	logger *slog.Logger,
+	instanceUID uuid.UUID,
+	message *protobufs.AgentToServer,
+	agent *agentmodel.Agent,
+	receivedAt time.Time,
+) {
+	if !s.shouldPersistAgent(instanceUID, message) {
+		return
+	}
+
+	err := s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		logger.Error("failed to save agent", slog.String("error", err.Error()))
+
+		return
+	}
+
+	s.lastSaveAt.Store(instanceUID.String(), receivedAt)
+}
+
+// maybeApplyMatchingAgentGroups re-evaluates which agent groups apply to the agent when
+// its identity changed after processing the incoming AgentToServer message. This is the
+// trigger that picks up groups for a newly-described agent without waiting for either a
+// group update or the periodic reconciler.
+func (s *Service) maybeApplyMatchingAgentGroups(
+	ctx context.Context,
+	logger *slog.Logger,
+	agent *agentmodel.Agent,
+	prev identitySnapshot,
+) {
+	if !identityChanged(prev, agent) {
+		return
+	}
+
+	err := s.agentGroupUsecase.ApplyMatchingAgentGroupsToAgent(ctx, agent)
+	if err != nil {
+		logger.Warn("failed to apply matching agent groups", slog.String("error", err.Error()))
+	}
 }
 
 func (s *Service) syncConnectionNamespace(

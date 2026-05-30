@@ -5,11 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
+	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
 )
 
 const (
@@ -18,6 +22,10 @@ const (
 	ChangedAgentGroupBufferSize = 100
 	// PropagationChunkSize is the number of agents to process in each batch when propagating changes.
 	PropagationChunkSize = 50
+	// DefaultReconcileInterval is how often the background loop re-scans every agent group
+	// to repair any drift the event-driven path missed (e.g. messages dropped because the
+	// buffered channel was full, or a SaveAgent that failed midway).
+	DefaultReconcileInterval = 5 * time.Minute
 )
 
 // ErrInvalidRemoteConfig is returned when inline remote config is missing required fields.
@@ -69,7 +77,14 @@ func (s *AgentGroupService) Name() string {
 }
 
 // Run implements lifecycle.Runner.
+//
+// Reconciliation runs on its own goroutine so a long pass (full collection scan +
+// per-group agent updates) never blocks the changedAgentGroupCh consumer below.
+// An initial reconcile fires immediately so post-restart drift is repaired without
+// waiting the full DefaultReconcileInterval.
 func (s *AgentGroupService) Run(ctx context.Context) error {
+	go s.runReconcileLoop(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -226,6 +241,153 @@ func matchesSelector(agent *agentmodel.Agent, selector agentmodel.AgentSelector)
 	return true
 }
 
+// PropagateAgentRemoteConfigChange queues propagation for every agent group in the
+// namespace that references the named AgentRemoteConfig via AgentRemoteConfigRef. Inline
+// configs are stored on the group itself and need no re-propagation when an external
+// AgentRemoteConfig changes.
+//
+// Per-group queue failures are logged and the loop continues — the reconcile loop is
+// the durable safety net, but stopping mid-list would leave later groups stale until
+// the next tick for no good reason.
+func (s *AgentGroupService) PropagateAgentRemoteConfigChange(
+	ctx context.Context,
+	namespace string,
+	remoteConfigName string,
+) error {
+	groups, err := s.persistencePort.ListAgentGroups(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("list agent groups for remote-config change: %w", err)
+	}
+
+	for _, group := range groups.Items {
+		if group.IsDeleted() || group.Metadata.Namespace != namespace {
+			continue
+		}
+
+		if !agentGroupReferencesRemoteConfig(group, remoteConfigName) {
+			continue
+		}
+
+		err := s.propagateAgentGroupChangesToAgents(ctx, group)
+		if err != nil {
+			s.logger.Warn("failed to queue agent group propagation after remote config change",
+				slog.String("agent_group", group.Metadata.Name),
+				slog.String("namespace", group.Metadata.Namespace),
+				slog.String("remote_config", remoteConfigName),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+
+	return nil
+}
+
+// ApplyMatchingAgentGroupsToAgent computes the desired remote-config and connection
+// state from the union of all matching, non-deleted agent groups and applies it to the
+// agent in place. RemoteConfigs are REPLACED (not merged) so entries left behind by
+// previously-matching groups are cleared. The caller is responsible for persisting.
+func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
+	ctx context.Context,
+	agent *agentmodel.Agent,
+) error {
+	groups, err := s.GetAgentGroupsForAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("get agent groups for agent: %w", err)
+	}
+
+	desired := make(map[string]agentmodel.AgentConfigFile)
+
+	for _, group := range groups {
+		configs, err := s.collectGroupRemoteConfigs(ctx, group)
+		if err != nil {
+			return fmt.Errorf("collect remote configs from group %s: %w", group.Metadata.Name, err)
+		}
+
+		maps.Copy(desired, configs)
+	}
+
+	setAgentRemoteConfigs(agent, desired)
+
+	// Connection settings still follow per-group apply semantics (last group wins).
+	// Multi-group connection conflicts remain a known limitation.
+	for _, group := range groups {
+		err := s.applyConnectionSettings(ctx, group, agent)
+		if err != nil {
+			return fmt.Errorf("apply connection settings from group %s: %w", group.Metadata.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// collectGroupRemoteConfigs resolves every remote config declared on the group into a
+// flat name → file map without mutating any agent. ApplyMatchingAgentGroupsToAgent
+// composes the result across all matching groups so an agent's spec reflects the
+// current desired state — not the cumulative history of every group that ever matched.
+func (s *AgentGroupService) collectGroupRemoteConfigs(
+	ctx context.Context,
+	group *agentmodel.AgentGroup,
+) (map[string]agentmodel.AgentConfigFile, error) {
+	out := make(map[string]agentmodel.AgentConfigFile)
+
+	agentGroupName := group.Metadata.Name
+	namespace := group.Metadata.Namespace
+
+	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
+	if cfg := group.Spec.AgentRemoteConfig; cfg != nil {
+		file, name, err := s.resolveRemoteConfig(ctx, namespace, agentGroupName, *cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		out[name] = file
+	}
+
+	for _, cfg := range group.Spec.AgentRemoteConfigs {
+		file, name, err := s.resolveRemoteConfig(ctx, namespace, agentGroupName, cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		out[name] = file
+	}
+
+	return out, nil
+}
+
+// setAgentRemoteConfigs replaces the agent's spec.RemoteConfig with exactly the given
+// set, nil-ing the field when the desired set is empty. This is what enables drop-on-
+// reconcile semantics — any keys not present in `configs` are removed.
+func setAgentRemoteConfigs(agent *agentmodel.Agent, configs map[string]agentmodel.AgentConfigFile) {
+	if len(configs) == 0 {
+		agent.Spec.RemoteConfig = nil
+
+		return
+	}
+
+	agent.Spec.RemoteConfig = &agentmodel.AgentSpecRemoteConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
+			ConfigMap: configs,
+		},
+	}
+}
+
+func (s *AgentGroupService) runReconcileLoop(ctx context.Context) {
+	s.reconcileAll(ctx)
+
+	ticker := time.NewTicker(DefaultReconcileInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.reconcileAll(ctx)
+		}
+	}
+}
+
 func (s *AgentGroupService) propagateAgentGroupChangesToAgents(
 	ctx context.Context,
 	agentGroup *agentmodel.AgentGroup,
@@ -236,6 +398,89 @@ func (s *AgentGroupService) propagateAgentGroupChangesToAgents(
 	case <-ctx.Done():
 		return fmt.Errorf("context cancelled: %w", ctx.Err())
 	}
+}
+
+// reconcileAll re-scans every non-deleted agent group and re-applies it to its matching
+// agents. updateAgentsByAgentGroup is idempotent — it only writes when the agent's
+// desired spec actually changed — so this is cheap when nothing has drifted.
+func (s *AgentGroupService) reconcileAll(ctx context.Context) {
+	groups, err := s.persistencePort.ListAgentGroups(ctx, nil)
+	if err != nil {
+		s.logger.Error("reconcile loop: failed to list agent groups",
+			slog.String("error", err.Error()))
+
+		return
+	}
+
+	for _, group := range groups.Items {
+		if group.IsDeleted() {
+			continue
+		}
+
+		err := s.updateAgentsByAgentGroup(ctx, group)
+		if err != nil {
+			s.logger.Warn("reconcile loop: failed to update agents for group",
+				slog.String("agent_group", group.Metadata.Name),
+				slog.String("namespace", group.Metadata.Namespace),
+				slog.String("error", err.Error()),
+			)
+		}
+	}
+}
+
+// agentSpecFingerprint hashes the parts of an agent's spec that are mutated by
+// applyAgentGroupToAgent. The reconcile loop uses this to skip SaveAgent (and the
+// cache write that follows) when applying a group leaves the agent unchanged.
+//
+// On marshalling failure the caller's `before == after` comparison must NOT skip the
+// save, so we return a unique sentinel keyed on the agent identity — two unique
+// sentinels never compare equal across calls for the same agent (they include a
+// counter), forcing the save path on error.
+func agentSpecFingerprint(agent *agentmodel.Agent) string {
+	var connHash []byte
+	if agent.Spec.ConnectionInfo != nil {
+		connHash = agent.Spec.ConnectionInfo.Hash
+	}
+
+	payload := struct {
+		RemoteConfig *agentmodel.AgentSpecRemoteConfig
+		ConnHash     []byte
+	}{
+		RemoteConfig: agent.Spec.RemoteConfig,
+		ConnHash:     connHash,
+	}
+
+	hash, err := vo.NewHashFromAny(payload)
+	if err != nil {
+		// Unique per call so before != after; the caller will fall through to SaveAgent.
+		return "err:" + agent.Metadata.InstanceUID.String() + ":" + strconv.FormatInt(fingerprintErrSeq.Add(1), 10)
+	}
+
+	return hash.String()
+}
+
+// successive marshal failures so before != after in agentSpecFingerprint's callers;
+// not a configuration knob.
+//
+//nolint:gochecknoglobals // process-wide error-path counter used only to differentiate
+var fingerprintErrSeq atomic.Int64
+
+// agentGroupReferencesRemoteConfig reports whether any of the group's remote configs
+// references the named AgentRemoteConfig resource (i.e. via AgentRemoteConfigRef).
+func agentGroupReferencesRemoteConfig(group *agentmodel.AgentGroup, name string) bool {
+	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
+	if cfg := group.Spec.AgentRemoteConfig; cfg != nil && cfg.AgentRemoteConfigRef != nil &&
+		*cfg.AgentRemoteConfigRef == name {
+		return true
+	}
+
+	for _, cfg := range group.Spec.AgentRemoteConfigs {
+		if cfg.AgentRemoteConfigRef != nil && *cfg.AgentRemoteConfigRef == name {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *AgentGroupService) updateAgentsByAgentGroup(
@@ -259,9 +504,19 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 		}
 
 		for _, agent := range agentsResp.Items {
-			err := s.applyAgentGroupToAgent(ctx, agentGroup, agent)
+			before := agentSpecFingerprint(agent)
+
+			// Apply the full desired state (union of every matching group), not just
+			// this group's contribution — otherwise we'd keep adding configs without
+			// ever dropping ones a group removed.
+			err := s.ApplyMatchingAgentGroupsToAgent(ctx, agent)
 			if err != nil {
-				return fmt.Errorf("apply agent group to agent %s: %w", agent.Metadata.InstanceUID, err)
+				return fmt.Errorf("apply matching groups to agent %s: %w", agent.Metadata.InstanceUID, err)
+			}
+
+			after := agentSpecFingerprint(agent)
+			if before == after {
+				continue
 			}
 
 			err = s.agentUsecase.SaveAgent(ctx, agent)
@@ -276,64 +531,6 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 		}
 
 		continueToken = agentsResp.Continue
-	}
-
-	return nil
-}
-
-func (s *AgentGroupService) applyAgentGroupToAgent(
-	ctx context.Context,
-	agentGroup *agentmodel.AgentGroup,
-	agent *agentmodel.Agent,
-) error {
-	err := s.applyRemoteConfigs(ctx, agentGroup, agent)
-	if err != nil {
-		return err
-	}
-
-	err = s.applyConnectionSettings(ctx, agentGroup, agent)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *AgentGroupService) applyRemoteConfigs(
-	ctx context.Context,
-	agentGroup *agentmodel.AgentGroup,
-	agent *agentmodel.Agent,
-) error {
-	agentGroupName := agentGroup.Metadata.Name
-	namespace := agentGroup.Metadata.Namespace
-
-	// Handle single remote config (API compatibility)
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	if agentGroup.Spec.AgentRemoteConfig != nil {
-		//nolint:staticcheck // backward compatibility
-		configFile, configName, err := s.resolveRemoteConfig(
-			ctx, namespace, agentGroupName, *agentGroup.Spec.AgentRemoteConfig)
-		if err != nil {
-			return err
-		}
-
-		err = agent.ApplyRemoteConfig(configName, configFile)
-		if err != nil {
-			return fmt.Errorf("apply remote config %s: %w", configName, err)
-		}
-	}
-
-	// Handle multiple remote configs
-	for _, remoteConfig := range agentGroup.Spec.AgentRemoteConfigs {
-		configFile, configName, err := s.resolveRemoteConfig(ctx, namespace, agentGroupName, remoteConfig)
-		if err != nil {
-			return err
-		}
-
-		err = agent.ApplyRemoteConfig(configName, configFile)
-		if err != nil {
-			return fmt.Errorf("apply remote config %s: %w", configName, err)
-		}
 	}
 
 	return nil
