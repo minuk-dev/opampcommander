@@ -193,6 +193,55 @@ func (ag *AgentGroup) MarkDeleted(deletedAt time.Time, deletedBy string) {
 	})
 }
 
+// SetCondition upserts a condition in the agent group's status. LastTransitionTime only
+// advances when the status actually changes (standard condition semantics); Reason and
+// Message are always refreshed so the latest detail — e.g. the current failure message —
+// is visible even across repeated reconciles that keep the same status.
+func (ag *AgentGroup) SetCondition(
+	conditionType model.ConditionType,
+	status model.ConditionStatus,
+	now time.Time,
+	reason string,
+	message string,
+) {
+	for idx, condition := range ag.Status.Conditions {
+		if condition.Type != conditionType {
+			continue
+		}
+
+		if condition.Status != status {
+			ag.Status.Conditions[idx].LastTransitionTime = now
+		}
+
+		ag.Status.Conditions[idx].Status = status
+		ag.Status.Conditions[idx].Reason = reason
+		ag.Status.Conditions[idx].Message = message
+
+		return
+	}
+
+	ag.Status.Conditions = append(ag.Status.Conditions, model.Condition{
+		Type:               conditionType,
+		LastTransitionTime: now,
+		Status:             status,
+		Reason:             reason,
+		Message:            message,
+	})
+}
+
+// GetCondition returns a copy of the condition of the given type, or nil if absent.
+func (ag *AgentGroup) GetCondition(conditionType model.ConditionType) *model.Condition {
+	for _, condition := range ag.Status.Conditions {
+		if condition.Type == conditionType {
+			cond := condition
+
+			return &cond
+		}
+	}
+
+	return nil
+}
+
 // GetCreatedAt returns the timestamp when the agent group was created.
 func (ag *AgentGroup) GetCreatedAt() *time.Time {
 	for _, condition := range ag.Status.Conditions {

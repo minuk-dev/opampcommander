@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -623,6 +624,230 @@ func TestNameCollisionPrevention(t *testing.T) {
 	})
 }
 
+func TestRecordRemoteConfigCondition(t *testing.T) {
+	t.Parallel()
+
+	newSvc := func() (*AgentGroupService, *mockAgentGroupPersistence) {
+		mockPersistence := new(mockAgentGroupPersistence)
+		svc := NewAgentGroupService(
+			mockPersistence,
+			new(mockRemoteConfigPersistence),
+			new(mockCertPersistence),
+			new(mockAgentUsecase),
+			slog.Default(),
+		)
+
+		return svc, mockPersistence
+	}
+
+	t.Run("records False condition with error message when inline config is invalid", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		svc, mockPersistence := newSvc()
+
+		// Inline config missing AgentRemoteConfigName -> ErrInvalidRemoteConfig.
+		inlineSpec := &agentmodel.AgentRemoteConfigSpec{Value: []byte("x"), ContentType: "text/plain"}
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "broken"},
+			Spec: agentmodel.AgentGroupSpec{
+				AgentRemoteConfigs: []agentmodel.AgentGroupAgentRemoteConfig{
+					{AgentRemoteConfigSpec: inlineSpec},
+				},
+			},
+		}
+
+		// recordRemoteConfigCondition re-reads the group before writing the condition.
+		mockPersistence.On("GetAgentGroup", mock.Anything, "default", "broken", (*model.GetOptions)(nil)).
+			Return(group, nil)
+		mockPersistence.On("PutAgentGroup", mock.Anything, "default", "broken", mock.Anything).
+			Return(group, nil)
+
+		err := svc.recordRemoteConfigCondition(ctx, group)
+
+		require.ErrorIs(t, err, ErrInvalidRemoteConfig)
+
+		cond := group.GetCondition(model.ConditionTypeRemoteConfigApplied)
+		require.NotNil(t, cond)
+		assert.Equal(t, model.ConditionStatusFalse, cond.Status)
+		assert.Contains(t, cond.Message, "invalid remote config")
+		mockPersistence.AssertExpectations(t)
+	})
+
+	t.Run("records True condition when inline config resolves", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		svc, mockPersistence := newSvc()
+
+		name := "ok-config"
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "good"},
+			Spec: agentmodel.AgentGroupSpec{
+				AgentRemoteConfigs: []agentmodel.AgentGroupAgentRemoteConfig{
+					{
+						AgentRemoteConfigName: &name,
+						AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{
+							Value:       []byte("receivers: {}"),
+							ContentType: "text/yaml",
+						},
+					},
+				},
+			},
+		}
+
+		// recordRemoteConfigCondition re-reads the group before writing the condition.
+		mockPersistence.On("GetAgentGroup", mock.Anything, "default", "good", (*model.GetOptions)(nil)).
+			Return(group, nil)
+		mockPersistence.On("PutAgentGroup", mock.Anything, "default", "good", mock.Anything).
+			Return(group, nil)
+
+		err := svc.recordRemoteConfigCondition(ctx, group)
+
+		require.NoError(t, err)
+
+		cond := group.GetCondition(model.ConditionTypeRemoteConfigApplied)
+		require.NotNil(t, cond)
+		assert.Equal(t, model.ConditionStatusTrue, cond.Status)
+		mockPersistence.AssertExpectations(t)
+	})
+
+	t.Run("skips groups that declare no remote config", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		svc, mockPersistence := newSvc()
+
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "no-config"},
+			Spec:     agentmodel.AgentGroupSpec{},
+		}
+
+		err := svc.recordRemoteConfigCondition(ctx, group)
+
+		require.NoError(t, err)
+		assert.Nil(t, group.GetCondition(model.ConditionTypeRemoteConfigApplied))
+		// No remote config declared -> nothing to record -> no persistence write.
+		mockPersistence.AssertNotCalled(t, "PutAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("does not re-persist when condition is unchanged", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		svc, mockPersistence := newSvc()
+
+		name := "ok-config"
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "good"},
+			Spec: agentmodel.AgentGroupSpec{
+				AgentRemoteConfigs: []agentmodel.AgentGroupAgentRemoteConfig{
+					{
+						AgentRemoteConfigName: &name,
+						AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{
+							Value:       []byte("receivers: {}"),
+							ContentType: "text/yaml",
+						},
+					},
+				},
+			},
+		}
+
+		// The re-read returns the same object both times; after the first write it carries
+		// the condition, so the second call sees no change.
+		mockPersistence.On("GetAgentGroup", mock.Anything, "default", "good", (*model.GetOptions)(nil)).
+			Return(group, nil)
+		// Only the first call should persist; the second sees an unchanged condition.
+		mockPersistence.On("PutAgentGroup", mock.Anything, "default", "good", mock.Anything).
+			Return(group, nil).Once()
+
+		require.NoError(t, svc.recordRemoteConfigCondition(ctx, group))
+		require.NoError(t, svc.recordRemoteConfigCondition(ctx, group))
+
+		mockPersistence.AssertExpectations(t)
+	})
+}
+
+func TestDeleteAgentGroup_PropagatesDeletion(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mockPersistence := new(mockAgentGroupPersistence)
+	svc := NewAgentGroupService(
+		mockPersistence,
+		new(mockRemoteConfigPersistence),
+		new(mockCertPersistence),
+		new(mockAgentUsecase),
+		slog.Default(),
+	)
+
+	existing := &agentmodel.AgentGroup{
+		Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "to-delete"},
+		Spec: agentmodel.AgentGroupSpec{
+			Selector: agentmodel.AgentSelector{
+				IdentifyingAttributes: map[string]string{"service.name": "my-service"},
+			},
+		},
+	}
+
+	mockPersistence.On("GetAgentGroup", ctx, "default", "to-delete", (*model.GetOptions)(nil)).
+		Return(existing, nil)
+	mockPersistence.On("PutAgentGroup", ctx, "default", "to-delete", mock.Anything).
+		Return(existing, nil)
+
+	err := svc.DeleteAgentGroup(ctx, "default", "to-delete", time.Date(2026, time.May, 31, 12, 0, 0, 0, time.UTC), "admin")
+	require.NoError(t, err)
+
+	// The deletion must be queued so former members get the group's config dropped.
+	select {
+	case queued := <-svc.changedAgentGroupCh:
+		assert.True(t, queued.IsDeleted(), "queued group should be marked deleted")
+		assert.Equal(t, "to-delete", queued.Metadata.Name)
+	default:
+		t.Fatal("DeleteAgentGroup did not propagate the deletion to agents")
+	}
+
+	mockPersistence.AssertExpectations(t)
+}
+
+func TestShouldReconcileDeletedGroup(t *testing.T) {
+	t.Parallel()
+
+	// Uses the default real clock; offsets are far larger than the test runtime so the
+	// in/out-of-window comparisons are not racy.
+	svc := NewAgentGroupService(
+		new(mockAgentGroupPersistence),
+		new(mockRemoteConfigPersistence),
+		new(mockCertPersistence),
+		new(mockAgentUsecase),
+		slog.Default(),
+	)
+
+	newDeletedGroup := func(deletedAt time.Time) *agentmodel.AgentGroup {
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "g"},
+			Spec:     agentmodel.AgentGroupSpec{},
+		}
+		group.MarkDeleted(deletedAt, "admin")
+
+		return group
+	}
+
+	t.Run("within window", func(t *testing.T) {
+		t.Parallel()
+
+		group := newDeletedGroup(time.Now().Add(-DeletedGroupReconcileWindow / 2))
+		assert.True(t, svc.shouldReconcileDeletedGroup(group))
+	})
+
+	t.Run("outside window", func(t *testing.T) {
+		t.Parallel()
+
+		group := newDeletedGroup(time.Now().Add(-2 * DeletedGroupReconcileWindow))
+		assert.False(t, svc.shouldReconcileDeletedGroup(group))
+	})
+}
+
 func TestUpdateAgentsByAgentGroup(t *testing.T) {
 	t.Parallel()
 
@@ -679,6 +904,12 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", mock.Anything, "", refName, (*model.GetOptions)(nil)).
 			Return(referencedConfig, nil)
+		// updateAgentsByAgentGroup records the RemoteConfigApplied condition on the group;
+		// recordRemoteConfigCondition re-reads it first, then persists.
+		mockPersistence.On("GetAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(agentGroup, nil)
+		mockPersistence.On("PutAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(agentGroup, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap[refName]
 
@@ -740,6 +971,12 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		// updateAgentsByAgentGroup → ApplyMatchingAgentGroupsToAgent → GetAgentGroupsForAgent.
 		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
+		// updateAgentsByAgentGroup records the RemoteConfigApplied condition on the group;
+		// recordRemoteConfigCondition re-reads it first, then persists.
+		mockPersistence.On("GetAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(agentGroup, nil)
+		mockPersistence.On("PutAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Return(agentGroup, nil)
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
 			// Verify the config has the prefixed name
 			_, exists := a.Spec.RemoteConfig.ConfigMap.ConfigMap["staging/inline-config"]
