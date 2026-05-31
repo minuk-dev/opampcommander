@@ -768,6 +768,82 @@ func TestRecordRemoteConfigCondition(t *testing.T) {
 	})
 }
 
+func TestRecordAgentRemoteConfigCondition(t *testing.T) {
+	t.Parallel()
+
+	svc := NewAgentGroupService(
+		new(mockAgentGroupPersistence),
+		new(mockRemoteConfigPersistence),
+		new(mockCertPersistence),
+		new(mockAgentUsecase),
+		slog.Default(),
+	)
+
+	group := &agentmodel.AgentGroup{
+		Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "grp"},
+	}
+
+	withAssignedConfig := func(a *agentmodel.Agent) {
+		a.Spec.RemoteConfig = &agentmodel.AgentSpecRemoteConfig{
+			ConfigMap: agentmodel.AgentConfigMap{
+				ConfigMap: map[string]agentmodel.AgentConfigFile{"grp/cfg": {}},
+			},
+		}
+	}
+
+	t.Run("config-accepting agent gets True", func(t *testing.T) {
+		t.Parallel()
+
+		a := agentmodel.NewAgent(uuid.New())
+		a.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
+		withAssignedConfig(a)
+
+		changed := svc.recordAgentRemoteConfigCondition(a, group)
+		assert.True(t, changed)
+
+		cond := a.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied)
+		require.NotNil(t, cond)
+		assert.Equal(t, agentmodel.AgentConditionStatusTrue, cond.Status)
+	})
+
+	t.Run("agent without AcceptsRemoteConfig gets False with explanation", func(t *testing.T) {
+		t.Parallel()
+
+		a := agentmodel.NewAgent(uuid.New()) // default capabilities: none
+		withAssignedConfig(a)
+
+		changed := svc.recordAgentRemoteConfigCondition(a, group)
+		assert.True(t, changed)
+
+		cond := a.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied)
+		require.NotNil(t, cond)
+		assert.Equal(t, agentmodel.AgentConditionStatusFalse, cond.Status)
+		assert.Contains(t, cond.Message, "does not accept remote config")
+	})
+
+	t.Run("no assigned config leaves the condition untouched", func(t *testing.T) {
+		t.Parallel()
+
+		a := agentmodel.NewAgent(uuid.New())
+
+		changed := svc.recordAgentRemoteConfigCondition(a, group)
+
+		assert.False(t, changed)
+		assert.Nil(t, a.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied))
+	})
+
+	t.Run("unchanged condition reports no change on repeat", func(t *testing.T) {
+		t.Parallel()
+
+		a := agentmodel.NewAgent(uuid.New())
+		a.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
+		withAssignedConfig(a)
+
+		assert.True(t, svc.recordAgentRemoteConfigCondition(a, group))
+		assert.False(t, svc.recordAgentRemoteConfigCondition(a, group))
+	})
+}
+
 func TestDeleteAgentGroup_PropagatesDeletion(t *testing.T) {
 	t.Parallel()
 
