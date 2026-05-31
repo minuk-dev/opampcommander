@@ -219,6 +219,13 @@ func (c *Controller) ensureUser(ctx context.Context, username, email, provider s
 		return
 	}
 
+	// No active user with this email. If a soft-deleted record exists, the user was
+	// deliberately deleted: do not resurrect or duplicate it. They can still authenticate
+	// but stay without a record (RBAC denies) until an admin restores them.
+	if c.isDeletedUser(ctx, email) {
+		return
+	}
+
 	newUser := usermodel.NewUserWithIdentity(provider, username, email, username)
 	newUser.SetLabel(usermodel.LabelLoginType, provider)
 
@@ -233,6 +240,32 @@ func (c *Controller) ensureUser(ctx context.Context, username, email, provider s
 	}
 
 	c.syncRBACPolicies(ctx, email)
+}
+
+// isDeletedUser reports whether a soft-deleted user record exists for the email.
+// On lookup failure it returns true (fail-closed): recreating on a transient error is the
+// behaviour that produced duplicate accounts, so we'd rather skip creation and let the user retry.
+func (c *Controller) isDeletedUser(ctx context.Context, email string) bool {
+	deleted, err := c.userUsecase.GetUserByEmailIncludingDeleted(ctx, email)
+	if err != nil {
+		if errors.Is(err, port.ErrResourceNotExist) {
+			return false
+		}
+
+		c.logger.Warn("failed to check for soft-deleted user on login; skipping user creation",
+			slog.String("email", email),
+			slog.Any("error", err),
+		)
+
+		return true
+	}
+
+	c.logger.Warn("not recreating soft-deleted user on login",
+		slog.String("email", email),
+		slog.String("uid", deleted.Metadata.UID.String()),
+	)
+
+	return true
 }
 
 // syncRBACPolicies re-runs the Casbin policy sync so newly persisted users/bindings take effect.
