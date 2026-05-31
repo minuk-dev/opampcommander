@@ -10,6 +10,7 @@ import (
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // sanitizeResourceName validates and returns a safe resource name for MongoDB queries.
@@ -187,6 +188,20 @@ var (
 						{Key: "serverId", Value: 1},
 					},
 					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: userCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "spec.email", Value: 1},
+					},
+					// Case-insensitive collation so this index backs the collated GetUserByEmail
+					// lookups (same emailCollation), which run on every login and every
+					// authenticated request's user resolution — otherwise they full-scan users.
+					Options: options.Index().SetCollation(emailCollation),
 				},
 			},
 		},

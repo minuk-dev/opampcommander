@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"regexp"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -20,12 +20,21 @@ import (
 
 var _ userport.UserPersistencePort = (*UserMongoAdapter)(nil)
 
-// emailRegex validates and extracts a safe email string to prevent query injection.
-var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-
 const (
 	userCollectionName = "users"
+
+	// collationStrengthCaseInsensitive is Collation.Strength=2: compare ignoring case but
+	// keeping accents — the standard "case-insensitive" comparison level.
+	collationStrengthCaseInsensitive = 2
 )
+
+// emailCollation matches email addresses case-insensitively. Emails are stored as the provider
+// supplied them, but looked up case-insensitively so that "Admin@x" and "admin@x" resolve to the
+// same record — without this, a varying-case email would be treated as a new user and recreated
+// on every login. The matching index in mongodb.go declares the same collation so lookups stay indexed.
+//
+//nolint:gochecknoglobals,exhaustruct // shared, immutable collation; only Locale/Strength apply.
+var emailCollation = &options.Collation{Locale: "en", Strength: collationStrengthCaseInsensitive}
 
 // UserMongoAdapter is a struct that implements the UserPersistencePort interface.
 type UserMongoAdapter struct {
@@ -69,38 +78,20 @@ func (a *UserMongoAdapter) GetUser(
 }
 
 // GetUserByEmail implements userport.UserPersistencePort.
+// Soft-deleted records are excluded, so callers treat a deleted user as absent.
 func (a *UserMongoAdapter) GetUserByEmail(
 	ctx context.Context, email string,
 ) (*usermodel.User, error) {
-	sanitized := emailRegex.FindString(email)
-	if sanitized == "" {
-		return nil, fmt.Errorf("invalid email address %q: %w", email, port.ErrResourceNotExist)
-	}
+	return a.findUserByEmail(ctx, email, false)
+}
 
-	filter := bson.M{
-		"spec.email":         sanitized,
-		"metadata.deletedAt": nil,
-	}
-
-	result := a.common.collection.FindOne(ctx, filter)
-
-	err := result.Err()
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, port.ErrResourceNotExist
-		}
-
-		return nil, fmt.Errorf("get user by email: %w", err)
-	}
-
-	var userEntity entity.User
-
-	err = result.Decode(&userEntity)
-	if err != nil {
-		return nil, fmt.Errorf("decode user by email: %w", err)
-	}
-
-	return userEntity.ToDomain(), nil
+// GetUserByEmailIncludingDeleted implements userport.UserPersistencePort.
+// Unlike GetUserByEmail it also returns soft-deleted records, so the login flow can tell a
+// brand-new email apart from one whose user was deliberately deleted (and must not be recreated).
+func (a *UserMongoAdapter) GetUserByEmailIncludingDeleted(
+	ctx context.Context, email string,
+) (*usermodel.User, error) {
+	return a.findUserByEmail(ctx, email, true)
 }
 
 // PutUser implements userport.UserPersistencePort.
@@ -158,4 +149,43 @@ func (a *UserMongoAdapter) DeleteUser(
 	}
 
 	return nil
+}
+
+// findUserByEmail looks up a single user by email. The email is used only as an exact-match
+// value (not a $regex/operator), so the BSON driver encodes it as a plain string value — a
+// caller-supplied string cannot inject a query operator. Matching is case-insensitive
+// (emailCollation) so dedup works regardless of how the provider cased the address; this is
+// also why non-standard-but-valid emails like "admin@admin" are findable instead of being
+// recreated on every login.
+func (a *UserMongoAdapter) findUserByEmail(
+	ctx context.Context, email string, includeDeleted bool,
+) (*usermodel.User, error) {
+	if email == "" {
+		return nil, fmt.Errorf("empty email address: %w", port.ErrResourceNotExist)
+	}
+
+	filter := bson.M{"spec.email": email}
+	if !includeDeleted {
+		filter["metadata.deletedAt"] = nil
+	}
+
+	result := a.common.collection.FindOne(ctx, filter, options.FindOne().SetCollation(emailCollation))
+
+	err := result.Err()
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, port.ErrResourceNotExist
+		}
+
+		return nil, fmt.Errorf("get user by email: %w", err)
+	}
+
+	var userEntity entity.User
+
+	err = result.Decode(&userEntity)
+	if err != nil {
+		return nil, fmt.Errorf("decode user by email: %w", err)
+	}
+
+	return userEntity.ToDomain(), nil
 }

@@ -13,8 +13,11 @@ import (
 type UserPersistencePort interface {
 	// GetUser retrieves a user by their UID.
 	GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*usermodel.User, error)
-	// GetUserByEmail retrieves a user by their email.
+	// GetUserByEmail retrieves a user by their email, excluding soft-deleted records.
 	GetUserByEmail(ctx context.Context, email string) (*usermodel.User, error)
+	// GetUserByEmailIncludingDeleted retrieves a user by their email, including soft-deleted records.
+	// Used by the login flow to avoid recreating a user that was deliberately deleted.
+	GetUserByEmailIncludingDeleted(ctx context.Context, email string) (*usermodel.User, error)
 	// PutUser saves or updates a user.
 	PutUser(ctx context.Context, user *usermodel.User) (*usermodel.User, error)
 	// ListUsers retrieves a list of users with pagination options.
