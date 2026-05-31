@@ -14,6 +14,7 @@ import (
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model/vo"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 const (
@@ -26,6 +27,13 @@ const (
 	// to repair any drift the event-driven path missed (e.g. messages dropped because the
 	// buffered channel was full, or a SaveAgent that failed midway).
 	DefaultReconcileInterval = 5 * time.Minute
+	// DeletedGroupReconcileWindow is how long after deletion the reconcile loop keeps
+	// re-processing a deleted group so its former members get the deleted group's config
+	// dropped even if the delete-time propagation event was lost (full buffer, or a crash
+	// between persisting the deletion and queuing it). Past this window the group's members
+	// are assumed already cleared and re-scanning it would be wasted work, so it is skipped.
+	// Sized above DefaultReconcileInterval so at least one reconcile tick falls inside it.
+	DeletedGroupReconcileWindow = 3 * DefaultReconcileInterval
 )
 
 // ErrInvalidRemoteConfig is returned when inline remote config is missing required fields.
@@ -50,6 +58,7 @@ type AgentGroupService struct {
 	changedAgentGroupCh chan *agentmodel.AgentGroup
 
 	// utils
+	clock  clock.Clock
 	logger *slog.Logger
 }
 
@@ -66,9 +75,15 @@ func NewAgentGroupService(
 		remoteConfigPersistencePort: agentRemoteConfigPersistencePort,
 		certificatePersistencePort:  certificatePersistencePort,
 		agentUsecase:                agentUsecase,
+		clock:                       clock.NewRealClock(),
 		logger:                      logger,
 		changedAgentGroupCh:         make(chan *agentmodel.AgentGroup, ChangedAgentGroupBufferSize),
 	}
+}
+
+// SetClock overrides the clock used for condition timestamps. Intended for tests.
+func (s *AgentGroupService) SetClock(c clock.Clock) {
+	s.clock = c
 }
 
 // Name implements lifecycle.Runner.
@@ -168,6 +183,25 @@ func (s *AgentGroupService) DeleteAgentGroup(
 	_, err = s.persistencePort.PutAgentGroup(ctx, namespace, name, agentGroup)
 	if err != nil {
 		return fmt.Errorf("failed to delete agent group: %w", err)
+	}
+
+	// Propagate the deletion so agents that matched this group have their remote config
+	// recomputed (the union of the remaining non-deleted matching groups). Without this an
+	// agent keeps the deleted group's config indefinitely: the reconcile loop and the event
+	// path are group-driven, and a deleted group is otherwise never revisited. The deleted
+	// group still carries its selector, so updateAgentsByAgentGroup can find its former
+	// members and ApplyMatchingAgentGroupsToAgent drops the now-deleted group's contribution.
+	//
+	// Best-effort, non-blocking: a full buffer must not hang this request handler. The
+	// reconcile loop re-processes recently-deleted groups (DeletedGroupReconcileWindow) as
+	// the durable safety net, so a dropped event still self-heals.
+	select {
+	case s.changedAgentGroupCh <- agentGroup:
+	default:
+		s.logger.Warn("agent group deletion not queued (buffer full); reconcile will drain former members",
+			slog.String("agent_group", name),
+			slog.String("namespace", namespace),
+		)
 	}
 
 	return nil
@@ -300,7 +334,17 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 	for _, group := range groups {
 		configs, err := s.collectGroupRemoteConfigs(ctx, group)
 		if err != nil {
-			return fmt.Errorf("collect remote configs from group %s: %w", group.Metadata.Name, err)
+			// A single group with an invalid/unresolvable config must not block the
+			// other matching groups from applying. The failure is surfaced on that
+			// group's RemoteConfigApplied condition (see recordRemoteConfigCondition),
+			// so skipping here is observable rather than silent.
+			s.logger.Warn("skip agent group with unresolved remote config",
+				slog.String("agent_group", group.Metadata.Name),
+				slog.String("namespace", group.Metadata.Namespace),
+				slog.String("error", err.Error()),
+			)
+
+			continue
 		}
 
 		maps.Copy(desired, configs)
@@ -400,9 +444,11 @@ func (s *AgentGroupService) propagateAgentGroupChangesToAgents(
 	}
 }
 
-// reconcileAll re-scans every non-deleted agent group and re-applies it to its matching
-// agents. updateAgentsByAgentGroup is idempotent — it only writes when the agent's
-// desired spec actually changed — so this is cheap when nothing has drifted.
+// reconcileAll re-scans every agent group and re-applies it to its matching agents.
+// updateAgentsByAgentGroup is idempotent — it only writes when the agent's desired spec
+// actually changed — so this is cheap when nothing has drifted. Recently-deleted groups
+// are processed too (see shouldReconcileDeletedGroup) so a dropped delete event still
+// results in the deleted group's config being dropped from its former members.
 func (s *AgentGroupService) reconcileAll(ctx context.Context) {
 	groups, err := s.persistencePort.ListAgentGroups(ctx, nil)
 	if err != nil {
@@ -413,7 +459,7 @@ func (s *AgentGroupService) reconcileAll(ctx context.Context) {
 	}
 
 	for _, group := range groups.Items {
-		if group.IsDeleted() {
+		if group.IsDeleted() && !s.shouldReconcileDeletedGroup(group) {
 			continue
 		}
 
@@ -426,6 +472,19 @@ func (s *AgentGroupService) reconcileAll(ctx context.Context) {
 			)
 		}
 	}
+}
+
+// shouldReconcileDeletedGroup reports whether a deleted group is still inside the window
+// during which the reconcile loop keeps draining its former members (see
+// DeletedGroupReconcileWindow). Groups missing a deletion timestamp are treated as in-window
+// so they are not stranded with stale config on their members.
+func (s *AgentGroupService) shouldReconcileDeletedGroup(group *agentmodel.AgentGroup) bool {
+	deletedAt := group.GetDeletedAt()
+	if deletedAt == nil {
+		return true
+	}
+
+	return s.clock.Now().Sub(*deletedAt) <= DeletedGroupReconcileWindow
 }
 
 // agentSpecFingerprint hashes the parts of an agent's spec that are mutated by
@@ -483,10 +542,91 @@ func agentGroupReferencesRemoteConfig(group *agentmodel.AgentGroup, name string)
 	return false
 }
 
+// remoteConfigConditionReason identifies this service as the actor that records the
+// RemoteConfigApplied condition on agent groups.
+const remoteConfigConditionReason = agentGroupServiceName
+
+// groupDeclaresRemoteConfig reports whether the group declares any remote config at all.
+// Groups that declare none never get a RemoteConfigApplied condition — there is nothing
+// to apply, so recording one would be noise.
+func groupDeclaresRemoteConfig(group *agentmodel.AgentGroup) bool {
+	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
+	return group.Spec.AgentRemoteConfig != nil || len(group.Spec.AgentRemoteConfigs) > 0
+}
+
+// recordRemoteConfigCondition resolves the group's declared remote configs and records the
+// outcome on its RemoteConfigApplied condition so both failures and recoveries are visible
+// through the API instead of only the server log. The condition is written onto a freshly
+// re-read copy of the group — never onto the passed-in pointer, which is aliased to the one
+// SaveAgentGroup hands back to the HTTP caller (writing it would be a data race on
+// Status.Conditions) and may be a stale snapshot the reconcile loop read minutes ago
+// (writing it would clobber a concurrent edit). The group is re-persisted only when the
+// condition's status or message actually changed, so the periodic reconcile does not write
+// on every tick. The resolution error (if any) is returned so callers can react.
+func (s *AgentGroupService) recordRemoteConfigCondition(
+	ctx context.Context,
+	group *agentmodel.AgentGroup,
+) error {
+	// A deleted group is only processed to drain its former members; recording a condition
+	// (and re-persisting it) on a tombstone would be misleading and pointless.
+	if group.IsDeleted() || !groupDeclaresRemoteConfig(group) {
+		return nil
+	}
+
+	_, resolveErr := s.collectGroupRemoteConfigs(ctx, group)
+
+	status := model.ConditionStatusTrue
+	message := "remote config resolved successfully"
+
+	if resolveErr != nil {
+		status = model.ConditionStatusFalse
+		message = resolveErr.Error()
+	}
+
+	// Re-read the current persisted group so we mutate/persist a private copy rather than the
+	// shared (and possibly stale) pointer. Failure to load is non-fatal: the resolve result
+	// still flows back to the caller and the next reconcile retries the condition write.
+	fresh, err := s.persistencePort.GetAgentGroup(ctx, group.Metadata.Namespace, group.Metadata.Name, nil)
+	if err != nil {
+		s.logger.Warn("failed to load agent group to record RemoteConfigApplied condition",
+			slog.String("agent_group", group.Metadata.Name),
+			slog.String("namespace", group.Metadata.Namespace),
+			slog.String("error", err.Error()),
+		)
+
+		return resolveErr
+	}
+
+	// Skip the write when nothing changed to keep the reconcile loop idempotent.
+	if existing := fresh.GetCondition(model.ConditionTypeRemoteConfigApplied); existing != nil &&
+		existing.Status == status && existing.Message == message {
+		return resolveErr
+	}
+
+	fresh.SetCondition(model.ConditionTypeRemoteConfigApplied, status,
+		s.clock.Now(), remoteConfigConditionReason, message)
+
+	_, putErr := s.persistencePort.PutAgentGroup(ctx, fresh.Metadata.Namespace, fresh.Metadata.Name, fresh)
+	if putErr != nil {
+		s.logger.Warn("failed to persist RemoteConfigApplied condition on agent group",
+			slog.String("agent_group", fresh.Metadata.Name),
+			slog.String("namespace", fresh.Metadata.Namespace),
+			slog.String("error", putErr.Error()),
+		)
+	}
+
+	return resolveErr
+}
+
 func (s *AgentGroupService) updateAgentsByAgentGroup(
 	ctx context.Context,
 	agentGroup *agentmodel.AgentGroup,
 ) error {
+	// Resolve this group's config once up front and record the outcome on its condition.
+	// This is what makes an invalid config (e.g. an inline config missing its name, or a
+	// dangling AgentRemoteConfigRef) observable instead of failing silently per agent.
+	_ = s.recordRemoteConfigCondition(ctx, agentGroup)
+
 	var continueToken string
 
 	for {
@@ -583,7 +723,7 @@ func (s *AgentGroupService) applyConnectionSettings(
 		slog.String("agentgroup.metadata.name", agentGroup.Metadata.Name),
 	)
 
-	if agentGroup.HasAgentConnectionConfig() {
+	if !agentGroup.HasAgentConnectionConfig() {
 		logger.Debug("skip to apply connection settings because agentGroup has no connection config")
 
 		return nil

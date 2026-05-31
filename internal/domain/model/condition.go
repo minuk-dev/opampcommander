@@ -28,6 +28,12 @@ const (
 	ConditionTypeDeleted ConditionType = "Deleted"
 	// ConditionTypeAlive represents the condition when the server is alive.
 	ConditionTypeAlive ConditionType = "Alive"
+	// ConditionTypeRemoteConfigApplied represents whether the agent group's declared
+	// remote config could be resolved and applied to its matching agents. It is set to
+	// True on a successful resolve and False (with the error in Message) when the config
+	// is invalid or a referenced resource cannot be fetched, so failures surface through
+	// the API instead of only the server log.
+	ConditionTypeRemoteConfigApplied ConditionType = "RemoteConfigApplied"
 )
 
 // ConditionStatus represents the status of a condition.
