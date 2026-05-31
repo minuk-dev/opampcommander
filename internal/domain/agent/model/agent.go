@@ -379,6 +379,11 @@ const (
 	// AgentConditionTypeInstanceUIDConflict records that another agent attempted to use this
 	// agent's instanceUID and was redirected to a freshly issued one.
 	AgentConditionTypeInstanceUIDConflict AgentConditionType = "InstanceUIDConflict"
+	// AgentConditionTypeRemoteConfigApplied records the result of an agent group assigning a
+	// remote config to this agent: True when the config was applied to a config-accepting
+	// agent, False when a group assigned a config but the agent cannot accept remote config
+	// (missing the AcceptsRemoteConfig capability) so it will never be delivered.
+	AgentConditionTypeRemoteConfigApplied AgentConditionType = "RemoteConfigApplied"
 )
 
 // AgentConditionStatus represents the status of an agent condition.
@@ -1106,30 +1111,50 @@ func (a *Agent) HasRemoteConfig() bool {
 		len(a.Spec.RemoteConfig.ConfigMap.ConfigMap) > 0
 }
 
-// SetCondition sets or updates a condition in the agent's status.
+// HasAssignedRemoteConfig reports whether a remote config has been assigned to the agent's
+// spec, regardless of whether the agent can actually accept it. Unlike HasRemoteConfig this
+// does NOT require the AcceptsRemoteConfig capability — it is used to detect that something
+// (e.g. an agent group) assigned a config that may never be deliverable.
+func (a *Agent) HasAssignedRemoteConfig() bool {
+	return a.Spec.RemoteConfig != nil && len(a.Spec.RemoteConfig.ConfigMap.ConfigMap) > 0
+}
+
+// SetCondition sets or updates a condition in the agent's status using the current wall
+// clock. Prefer SetConditionAt from code that holds an injected clock.
 func (a *Agent) SetCondition(
 	conditionType AgentConditionType,
 	status AgentConditionStatus,
 	triggeredBy, message string,
 ) {
-	now := time.Now()
+	a.SetConditionAt(conditionType, status, time.Now(), triggeredBy, message)
+}
 
-	// Check if condition already exists
+// SetConditionAt upserts a condition with an explicit timestamp. LastTransitionTime only
+// advances when the status actually changes (standard condition semantics); Reason and
+// Message are always refreshed so the latest detail — e.g. which agent group last changed
+// the config — is visible even while the status holds steady.
+func (a *Agent) SetConditionAt(
+	conditionType AgentConditionType,
+	status AgentConditionStatus,
+	now time.Time,
+	triggeredBy, message string,
+) {
 	for idx, condition := range a.Status.Conditions {
-		if condition.Type == conditionType {
-			// Update existing condition only if status changed
-			if condition.Status != status {
-				a.Status.Conditions[idx].Status = status
-				a.Status.Conditions[idx].LastTransitionTime = now
-				a.Status.Conditions[idx].Reason = triggeredBy
-				a.Status.Conditions[idx].Message = message
-			}
-
-			return
+		if condition.Type != conditionType {
+			continue
 		}
+
+		if condition.Status != status {
+			a.Status.Conditions[idx].LastTransitionTime = now
+		}
+
+		a.Status.Conditions[idx].Status = status
+		a.Status.Conditions[idx].Reason = triggeredBy
+		a.Status.Conditions[idx].Message = message
+
+		return
 	}
 
-	// Add new condition
 	a.Status.Conditions = append(a.Status.Conditions, AgentCondition{
 		Type:               conditionType,
 		LastTransitionTime: now,

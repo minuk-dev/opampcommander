@@ -618,6 +618,40 @@ func (s *AgentGroupService) recordRemoteConfigCondition(
 	return resolveErr
 }
 
+// recordAgentRemoteConfigCondition reflects the result of an agent group assigning a remote
+// config to the agent onto the agent's RemoteConfigApplied condition, and reports whether the
+// condition changed (so the caller folds it into the save decision). When a config is assigned
+// to an agent that lacks the AcceptsRemoteConfig capability the condition is set to False with
+// an explanatory message — that attempt is otherwise completely invisible because the config
+// is silently never delivered. When no config is assigned the condition is left untouched.
+func (s *AgentGroupService) recordAgentRemoteConfigCondition(
+	agent *agentmodel.Agent,
+	agentGroup *agentmodel.AgentGroup,
+) bool {
+	if !agent.HasAssignedRemoteConfig() {
+		return false
+	}
+
+	status := agentmodel.AgentConditionStatusTrue
+	message := fmt.Sprintf("remote config applied by agent group %q", agentGroup.Metadata.Name)
+
+	if !agent.IsRemoteConfigSupported() {
+		status = agentmodel.AgentConditionStatusFalse
+		message = fmt.Sprintf(
+			"agent group %q assigned a remote config but the agent does not accept remote config "+
+				"(missing AcceptsRemoteConfig capability); it will not be delivered",
+			agentGroup.Metadata.Name,
+		)
+	}
+
+	prev := agent.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied)
+
+	agent.SetConditionAt(agentmodel.AgentConditionTypeRemoteConfigApplied, status,
+		s.clock.Now(), agentGroupServiceName, message)
+
+	return prev == nil || prev.Status != status || prev.Message != message
+}
+
 func (s *AgentGroupService) updateAgentsByAgentGroup(
 	ctx context.Context,
 	agentGroup *agentmodel.AgentGroup,
@@ -655,7 +689,15 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 			}
 
 			after := agentSpecFingerprint(agent)
-			if before == after {
+
+			// Record on the agent whether the group-driven config could actually be applied.
+			// Crucially this also flags agents that an agent group assigned a config to but
+			// that cannot accept remote config — otherwise that attempt is invisible. The
+			// condition can change even when the spec did not (e.g. capability flip), so it
+			// participates in the save decision alongside the spec fingerprint.
+			condChanged := s.recordAgentRemoteConfigCondition(agent, agentGroup)
+
+			if before == after && !condChanged {
 				continue
 			}
 
