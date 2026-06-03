@@ -1,10 +1,7 @@
-'use client';
-
-import { Alert, Box, Card, CardContent, CircularProgress, Stack, Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { Alert, Box, Card, CardContent, Stack, Typography } from '@mui/material';
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
-import { api } from '@/lib/api-client';
+import { serverGet } from '@/lib/server-api';
 import { WEB_VERSION } from '@/lib/web-version';
 
 function InfoRows({ entries }: { entries: Array<[string, unknown]> }) {
@@ -24,22 +21,19 @@ function InfoRows({ entries }: { entries: Array<[string, unknown]> }) {
   );
 }
 
-export default function VersionPage() {
-  const [apiInfo, setApiInfo] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await api.get<Record<string, unknown>>('/api/v1/version');
-        setApiInfo(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch version');
-      }
-    })();
-  }, []);
-
+// Server Component: the API version is fetched server-side using the bearer
+// token from the httpOnly session cookie (see lib/server-api). No client-side
+// effect/loading state needed — the page streams in already populated.
+export default async function VersionPage() {
   const webInfo = { version: WEB_VERSION };
+
+  let apiInfo: Record<string, unknown> | null = null;
+  let error: string | null = null;
+  try {
+    apiInfo = await serverGet<Record<string, unknown>>('/api/v1/version');
+  } catch (err) {
+    error = err instanceof Error ? err.message : 'Failed to fetch version';
+  }
 
   return (
     <Box>
@@ -64,11 +58,6 @@ export default function VersionPage() {
             {error && (
               <Box mt={1}>
                 <Alert severity="error">{error}</Alert>
-              </Box>
-            )}
-            {!apiInfo && !error && (
-              <Box display="flex" justifyContent="center" mt={2}>
-                <CircularProgress size={24} />
               </Box>
             )}
             {apiInfo && (

@@ -28,6 +28,15 @@ async function forward(request: NextRequest, segments: string[]): Promise<NextRe
   });
   headers.delete('host');
 
+  // Fall back to the httpOnly session cookie when the request didn't carry a
+  // bearer header (e.g. a server-side / RSC fetch that only forwards cookies).
+  if (!headers.has('authorization')) {
+    const token = request.cookies.get('opamp_token')?.value;
+    if (token) {
+      headers.set('authorization', `Bearer ${token}`);
+    }
+  }
+
   const init: RequestInit = {
     method: request.method,
     headers,

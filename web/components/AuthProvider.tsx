@@ -13,6 +13,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { CircularProgress, Box } from '@mui/material';
 import { api, type ApiError } from '@/lib/api-client';
 import { type StoredAuth, clearAuth, readAuth, writeAuth } from '@/lib/auth-storage';
+import { clearSessionCookie, setSessionCookie } from '@/lib/session';
 import type { AuthInfo } from '@/lib/types';
 
 interface AuthContextValue {
@@ -47,6 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setToken(auth.token);
+    // Migrate sessions that predate cookie auth: mirror the localStorage token
+    // into the httpOnly cookie so Server Components can read it.
+    void setSessionCookie(auth);
     try {
       const info = await api.get<AuthInfo>('/api/v1/auth/info', {
         noAuthRedirect: true,
@@ -98,11 +102,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         basicAuth: { username, password },
         noAuthRedirect: true,
       });
-      writeAuth({
+      const stored: StoredAuth = {
         token: data.token,
         refreshToken: data.refreshToken,
         expiresAt: data.expiresAt,
-      });
+      };
+      writeAuth(stored);
+      await setSessionCookie(stored);
       await refresh();
     },
     [refresh],
@@ -111,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyTokens = useCallback(
     (a: StoredAuth) => {
       writeAuth(a);
+      void setSessionCookie(a);
       void refresh();
     },
     [refresh],
@@ -118,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     clearAuth();
+    void clearSessionCookie();
     setToken(null);
     setEmail(null);
     setAuthenticated(false);
