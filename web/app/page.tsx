@@ -184,8 +184,7 @@ export default function DashboardPage() {
     ).length ?? 0;
 
   const topGroups = (data?.groups ?? [])
-    .slice()
-    .sort((a, b) => b.status.numAgents - a.status.numAgents)
+    .toSorted((a, b) => b.status.numAgents - a.status.numAgents)
     .slice(0, 5);
 
   return (
