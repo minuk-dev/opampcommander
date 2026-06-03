@@ -9,6 +9,17 @@ import { TOKEN_COOKIE } from '@/app/api/session/route';
 
 const OPAMP_API_URL = process.env.OPAMP_API_URL || 'http://localhost:8080';
 
+// Keep in sync with NAMESPACE_COOKIE in lib/auth-storage.ts.
+const NAMESPACE_COOKIE = 'opamp_namespace';
+const DEFAULT_NAMESPACE = 'default';
+
+// Namespace selection for Server Components, read from the cookie the client
+// writes on selection (lib/auth-storage writeNamespace).
+export async function readNamespace(): Promise<string> {
+  const ns = (await cookies()).get(NAMESPACE_COOKIE)?.value;
+  return ns || DEFAULT_NAMESPACE;
+}
+
 export class ServerApiError extends Error {
   status: number;
   constructor(status: number, message: string) {

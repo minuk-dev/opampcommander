@@ -22,7 +22,7 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   loginBasic: (username: string, password: string) => Promise<void>;
-  applyTokens: (a: StoredAuth) => void;
+  applyTokens: (a: StoredAuth) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -115,10 +115,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const applyTokens = useCallback(
-    (a: StoredAuth) => {
+    async (a: StoredAuth) => {
       writeAuth(a);
-      void setSessionCookie(a);
-      void refresh();
+      // Await the cookie so middleware sees the session on the next navigation.
+      await setSessionCookie(a);
+      await refresh();
     },
     [refresh],
   );
