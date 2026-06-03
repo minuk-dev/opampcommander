@@ -45,14 +45,17 @@ const PAGE_SIZE = 50;
 
 type SearchMode = 'uid' | 'group' | 'description';
 
-function attrMatchesDescription(agent: Agent, needle: string): boolean {
-  const lc = needle.toLowerCase();
+// `lcNeedle` is expected to be pre-lowercased by the caller so we don't redo
+// it for every agent in a filter pass.
+function attrMatchesDescription(agent: Agent, lcNeedle: string): boolean {
   const desc = agent.metadata.description;
   const collect = [
     ...Object.entries(desc?.identifyingAttributes ?? {}),
     ...Object.entries(desc?.nonIdentifyingAttributes ?? {}),
   ];
-  return collect.some(([k, v]) => k.toLowerCase().includes(lc) || v.toLowerCase().includes(lc));
+  return collect.some(
+    ([k, v]) => k.toLowerCase().includes(lcNeedle) || v.toLowerCase().includes(lcNeedle),
+  );
 }
 
 function AgentsInner() {
@@ -183,8 +186,9 @@ function AgentsInner() {
   };
 
   const filterActive = Boolean(agentGroupParam || qParam || descParam);
+  const lcDesc = descParam.toLowerCase();
   const visibleAgents = descParam
-    ? agents.filter((a) => attrMatchesDescription(a, descParam))
+    ? agents.filter((a) => attrMatchesDescription(a, lcDesc))
     : agents;
 
   return (
