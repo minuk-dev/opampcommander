@@ -31,10 +31,11 @@ import {
   HealthAndSafety as HealthIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { useSWR } from '@/lib/swr';
 import type { Agent, AgentGroup, Connection, ListResponse, Server, VersionInfo } from '@/lib/types';
 
 interface QuadrantProps {
@@ -139,41 +140,36 @@ async function safeList<T>(
   }
 }
 
+async function loadDashboard(namespace: string): Promise<DashboardData> {
+  const [agents, groups, conns, servers, packages, configs, certs, version] = await Promise.all([
+    safeList<Agent>(`/api/v1/namespaces/${namespace}/agents`),
+    safeList<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`),
+    safeList<Connection>(`/api/v1/namespaces/${namespace}/connections`),
+    safeList<Server>('/api/v1/servers'),
+    safeList<unknown>(`/api/v1/namespaces/${namespace}/agentpackages`),
+    safeList<unknown>(`/api/v1/namespaces/${namespace}/agentremoteconfigs`),
+    safeList<unknown>(`/api/v1/namespaces/${namespace}/certificates`),
+    api.get<VersionInfo>('/api/v1/version').catch(() => null),
+  ]);
+  return {
+    agents: agents.items,
+    agentTotal: agents.total ?? agents.items.length,
+    groups: groups.items,
+    connections: conns.items,
+    servers: servers.items,
+    packages: packages.total,
+    remoteConfigs: configs.total,
+    certificates: certs.total,
+    version,
+  };
+}
+
 export default function DashboardPage() {
   const { namespace } = useNamespace();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    const [agents, groups, conns, servers, packages, configs, certs, version] = await Promise.all([
-      safeList<Agent>(`/api/v1/namespaces/${namespace}/agents`),
-      safeList<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`),
-      safeList<Connection>(`/api/v1/namespaces/${namespace}/connections`),
-      safeList<Server>('/api/v1/servers'),
-      safeList<unknown>(`/api/v1/namespaces/${namespace}/agentpackages`),
-      safeList<unknown>(`/api/v1/namespaces/${namespace}/agentremoteconfigs`),
-      safeList<unknown>(`/api/v1/namespaces/${namespace}/certificates`),
-      api.get<VersionInfo>('/api/v1/version').catch(() => null),
-    ]);
-    setData({
-      agents: agents.items,
-      agentTotal: agents.total ?? agents.items.length,
-      groups: groups.items,
-      connections: conns.items,
-      servers: servers.items,
-      packages: packages.total,
-      remoteConfigs: configs.total,
-      certificates: certs.total,
-      version,
-    });
-    setLoading(false);
-  }, [namespace]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh();
-  }, [refresh]);
+  const { data, isLoading, isValidating, mutate } = useSWR(['dashboard', namespace], () =>
+    loadDashboard(namespace),
+  );
+  const loading = isLoading || isValidating;
 
   const connectedCount = data?.agents.filter((a) => a.status.connected).length ?? 0;
   const healthyCount = data?.agents.filter((a) => a.status.componentHealth?.healthy).length ?? 0;
@@ -194,7 +190,12 @@ export default function DashboardPage() {
         subtitle={`Overview for namespace "${namespace}"`}
         actions={
           <Tooltip title="Refresh">
-            <IconButton color="primary" onClick={refresh} aria-label="refresh">
+            <IconButton
+              color="primary"
+              onClick={() => mutate()}
+              disabled={isValidating}
+              aria-label="refresh"
+            >
               <RefreshIcon />
             </IconButton>
           </Tooltip>

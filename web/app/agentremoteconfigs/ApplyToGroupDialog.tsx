@@ -15,8 +15,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { AgentGroup, AgentRemoteConfig, ListResponse } from '@/lib/types';
 
 interface Props {
@@ -38,41 +39,38 @@ function currentRemoteConfig(g: AgentGroup): string {
 }
 
 export default function ApplyToGroupDialog({ open, namespace, config, onClose, onApplied }: Props) {
-  const [groups, setGroups] = useState<AgentGroup[]>([]);
   const [selected, setSelected] = useState('');
-  const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
-  const fetchGroups = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.get<ListResponse<AgentGroup>>(
-        `/api/v1/namespaces/${namespace}/agentgroups`,
-        { query: { limit: 200 } },
-      );
-      setGroups(data.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch agent groups');
-    } finally {
-      setLoading(false);
-    }
-  }, [namespace]);
+  // Only fetch while the dialog is open (null key disables the request).
+  const {
+    data,
+    error: fetchError,
+    isLoading: loading,
+  } = useApi<ListResponse<AgentGroup>>(
+    open ? [`/api/v1/namespaces/${namespace}/agentgroups`, { limit: 200 }] : null,
+  );
+  const groups = data?.items ?? [];
+  const error =
+    applyError ??
+    (fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch agent groups'
+        : null);
 
   useEffect(() => {
     if (!open) {
       setSelected('');
-      setError(null);
-      return;
+      setApplyError(null);
     }
-    void fetchGroups();
-  }, [open, fetchGroups]);
+  }, [open]);
 
   const apply = async () => {
     if (!config || !selected) return;
     setBusy(true);
-    setError(null);
+    setApplyError(null);
     try {
       // Re-fetch the group to apply on top of its latest state, then point its
       // remote config at this resource via agentRemoteConfigRef (clearing any
@@ -93,7 +91,7 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
       await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${selected}`, body);
       onApplied();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to apply');
+      setApplyError(err instanceof Error ? err.message : 'Failed to apply');
     } finally {
       setBusy(false);
     }

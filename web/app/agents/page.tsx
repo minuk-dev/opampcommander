@@ -38,6 +38,7 @@ import PageHeader from '@/components/PageHeader';
 import RowActionsMenu from '@/components/RowActionsMenu';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
 
 const PAGE_SIZE = 50;
@@ -70,10 +71,17 @@ function AgentsInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<SearchMode>(modeParam);
-  const [groupOptions, setGroupOptions] = useState<AgentGroup[]>([]);
   const [query, setQuery] = useState(qParam);
   const [continueToken, setContinueToken] = useState<string | null>(null);
   const [continueStack, setContinueStack] = useState<string[]>([]);
+
+  // Group list for the "Group" autocomplete + chip cross-reference. SWR dedupes
+  // this with the same fetch on other pages and silently no-ops on RBAC denial.
+  const { data: groupData } = useApi<ListResponse<AgentGroup>>([
+    `/api/v1/namespaces/${namespace}/agentgroups`,
+    { limit: 500 },
+  ]);
+  const groupOptions = groupData?.items ?? [];
 
   // Keep the local input synced when URL drives the value (mode change etc.)
   useEffect(() => {
@@ -86,25 +94,6 @@ function AgentsInner() {
   useEffect(() => {
     setMode(modeParam);
   }, [modeParam]);
-
-  // Load agent groups for the "Group" autocomplete and the chip cross-reference.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await api.get<ListResponse<AgentGroup>>(
-          `/api/v1/namespaces/${namespace}/agentgroups`,
-          { query: { limit: 500 } },
-        );
-        if (!cancelled) setGroupOptions(res.items ?? []);
-      } catch {
-        /* listing might be RBAC-denied; group filter still works via URL */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [namespace]);
 
   const fetchAgents = useCallback(
     async (token?: string) => {

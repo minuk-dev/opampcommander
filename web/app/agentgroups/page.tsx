@@ -25,52 +25,53 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { Tooltip } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import RowActionsMenu from '@/components/RowActionsMenu';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { AgentGroup, ListResponse } from '@/lib/types';
 import AgentGroupEditDialog from './AgentGroupEditDialog';
 
 export default function AgentGroupsPage() {
   const { namespace } = useNamespace();
-  const [groups, setGroups] = useState<AgentGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<AgentGroup | null>(null);
   const [deleting, setDeleting] = useState<AgentGroup | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchGroups = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.get<ListResponse<AgentGroup>>(
-        `/api/v1/namespaces/${namespace}/agentgroups`,
-        { query: { limit: 200 } },
-      );
-      setGroups(data.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch groups');
-    } finally {
-      setLoading(false);
-    }
-  }, [namespace]);
+  const {
+    data,
+    error: fetchError,
+    isLoading,
+    mutate,
+  } = useApi<ListResponse<AgentGroup>>([
+    `/api/v1/namespaces/${namespace}/agentgroups`,
+    { limit: 200 },
+  ]);
+  const groups = data?.items ?? [];
+  const loading = isLoading;
+  const error =
+    actionError ??
+    (fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch groups'
+        : null);
 
-  useEffect(() => {
-    void fetchGroups();
-  }, [fetchGroups]);
+  const fetchGroups = () => mutate();
 
   const onDelete = async () => {
     if (!deleting) return;
     try {
       await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${deleting.metadata.name}`);
       setDeleting(null);
-      await fetchGroups();
+      setActionError(null);
+      await mutate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setActionError(err instanceof Error ? err.message : 'Failed to delete');
     }
   };
 
