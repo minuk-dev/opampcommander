@@ -4,6 +4,7 @@
 // cookie and calls the backend directly, server-to-server.
 
 import 'server-only';
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { TOKEN_COOKIE } from '@/app/api/session/route';
 
@@ -14,11 +15,14 @@ const NAMESPACE_COOKIE = 'opamp_namespace';
 const DEFAULT_NAMESPACE = 'default';
 
 // Namespace selection for Server Components, read from the cookie the client
-// writes on selection (lib/auth-storage writeNamespace).
-export async function readNamespace(): Promise<string> {
+// writes on selection (lib/auth-storage writeNamespace). Wrapped in React
+// cache() so repeated reads across the RSC tree dedupe within a request — this
+// is non-fetch work, so it isn't covered by Next's fetch memoization (guide
+// 3.9).
+export const readNamespace = cache(async (): Promise<string> => {
   const ns = (await cookies()).get(NAMESPACE_COOKIE)?.value;
   return ns || DEFAULT_NAMESPACE;
-}
+});
 
 export class ServerApiError extends Error {
   status: number;
@@ -29,6 +33,8 @@ export class ServerApiError extends Error {
   }
 }
 
+// No React cache() wrapper needed: this is fetch-based, and Next.js already
+// memoizes identical fetches within a single request (guide 3.9).
 export async function serverGet<T>(path: string): Promise<T> {
   const token = (await cookies()).get(TOKEN_COOKIE)?.value;
   const clean = path.startsWith('/') ? path : `/${path}`;

@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { UserProfileResponse } from '@/lib/types';
 import { useAuth } from './AuthProvider';
 
@@ -39,8 +39,6 @@ function matches(perms: Set<string>, resource: string, action: string): boolean 
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { authenticated } = useAuth();
-  const [permissions, setPermissions] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [showAll, setShowAllState] = useState(false);
 
   // Hydrate showAll from localStorage after mount (avoid SSR/CSR mismatch).
@@ -50,40 +48,34 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     try {
       const stored = window.localStorage.getItem(SHOW_ALL_KEY);
       if (stored === null) return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShowAllState(stored === '1');
     } catch {
       // Keep the default (false).
     }
   }, []);
 
-  const refresh = useCallback(async () => {
-    if (!authenticated) {
-      setPermissions(new Set());
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const profile = await api.get<UserProfileResponse>('/api/v1/users/me');
-      const set = new Set<string>();
-      for (const entry of profile.roles ?? []) {
-        for (const p of entry.role.spec.permissions ?? []) {
-          set.add(p);
-        }
-      }
-      setPermissions(set);
-    } catch {
-      // On failure leave permissions empty; the toggle still lets the user
-      // navigate. api-client handles 401 globally.
-      setPermissions(new Set());
-    } finally {
-      setLoading(false);
-    }
-  }, [authenticated]);
+  // Shares the /api/v1/users/me request with the profile page via SWR's cache.
+  // A null key while unauthenticated disables the request (no permissions).
+  const {
+    data: profile,
+    isLoading: loading,
+    mutate,
+  } = useApi<UserProfileResponse>(authenticated ? '/api/v1/users/me' : null);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  const permissions = useMemo(() => {
+    const set = new Set<string>();
+    for (const entry of profile?.roles ?? []) {
+      for (const p of entry.role.spec.permissions ?? []) {
+        set.add(p);
+      }
+    }
+    return set;
+  }, [profile]);
+
+  const refresh = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
 
   const setShowAll = useCallback((v: boolean) => {
     setShowAllState(v);
