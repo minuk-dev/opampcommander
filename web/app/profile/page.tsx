@@ -19,33 +19,20 @@ import {
   Typography,
 } from '@mui/material';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { UserProfileResponse } from '@/lib/types';
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .get<UserProfileResponse>('/api/v1/users/me')
-      .then((p) => {
-        if (!cancelled) setProfile(p);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load profile');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Shares the /api/v1/users/me request with PermissionsProvider via SWR's
+  // cache, so loading this page issues no extra fetch (guide 4.3).
+  const {
+    data: profile,
+    error: fetchError,
+    isLoading: loading,
+  } = useApi<UserProfileResponse>('/api/v1/users/me');
+  const error =
+    fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to load profile' : null;
 
   if (loading) {
     return (

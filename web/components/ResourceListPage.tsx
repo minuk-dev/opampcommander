@@ -199,8 +199,8 @@ export default function ResourceListPage<T>({
                 </TableCell>
               </TableRow>
             ) : (
-              items.map((row, i) => (
-                <TableRow key={i} hover>
+              items.map((row) => (
+                <TableRow key={itemName(row)} hover>
                   {columns.map((c) => (
                     <TableCell key={c.header}>{c.render(row)}</TableCell>
                   ))}
