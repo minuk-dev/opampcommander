@@ -107,9 +107,9 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
       <DialogContent>
         <Stack spacing={2} mt={1}>
           <DialogContentText>
-            Point an agent group&apos;s remote config at{' '}
-            <code>{config?.metadata.name}</code>. The group&apos;s matching agents will receive this
-            config. Any existing remote config on the group will be replaced.
+            Point an agent group&apos;s remote config at <code>{config?.metadata.name}</code>. The
+            group&apos;s matching agents will receive this config. Any existing remote config on the
+            group will be replaced.
           </DialogContentText>
           {error && <Alert severity="error">{error}</Alert>}
           <FormControl fullWidth disabled={loading || busy}>
