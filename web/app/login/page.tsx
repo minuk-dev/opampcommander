@@ -104,6 +104,8 @@ function LoginInner() {
               <Stack spacing={2}>
                 <TextField
                   label="Username or email"
+                  name="username"
+                  id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
@@ -114,6 +116,8 @@ function LoginInner() {
                 <TextField
                   label="Password"
                   type="password"
+                  name="password"
+                  id="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"

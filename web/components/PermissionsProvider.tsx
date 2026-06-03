@@ -44,11 +44,16 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const [showAll, setShowAllState] = useState(false);
 
   // Hydrate showAll from localStorage after mount (avoid SSR/CSR mismatch).
+  // localStorage can throw in private browsing / when disabled — guard it.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(SHOW_ALL_KEY);
-    if (stored === null) return;
-    setShowAllState(stored === '1');
+    try {
+      const stored = window.localStorage.getItem(SHOW_ALL_KEY);
+      if (stored === null) return;
+      setShowAllState(stored === '1');
+    } catch {
+      // Keep the default (false).
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -83,7 +88,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const setShowAll = useCallback((v: boolean) => {
     setShowAllState(v);
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(SHOW_ALL_KEY, v ? '1' : '0');
+      try {
+        window.localStorage.setItem(SHOW_ALL_KEY, v ? '1' : '0');
+      } catch {
+        // Best-effort: preference just won't persist.
+      }
     }
   }, []);
 

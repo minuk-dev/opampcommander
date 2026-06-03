@@ -27,6 +27,7 @@ import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { Agent } from '@/lib/types';
 import AgentEditDialog from './AgentEditDialog';
 
@@ -57,30 +58,26 @@ function AgentDetailInner() {
   const router = useRouter();
   const search = useSearchParams();
   const { namespace } = useNamespace();
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [restartBusy, setRestartBusy] = useState(false);
   const [actionHandled, setActionHandled] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchAgent = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.get<Agent>(`/api/v1/namespaces/${namespace}/agents/${params.id}`);
-      setAgent(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch agent');
-    } finally {
-      setLoading(false);
-    }
-  }, [namespace, params.id]);
-
-  useEffect(() => {
-    void fetchAgent();
-  }, [fetchAgent]);
+  const {
+    data: agent,
+    error: fetchError,
+    isLoading: loading,
+    mutate,
+  } = useApi<Agent>(`/api/v1/namespaces/${namespace}/agents/${params.id}`);
+  const fetchAgent = () => mutate();
+  const error =
+    actionError ??
+    (fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch agent'
+        : null);
 
   const requestRestart = useCallback(async () => {
     if (!agent) return;
@@ -97,13 +94,14 @@ function AgentDetailInner() {
         `/api/v1/namespaces/${namespace}/agents/${params.id}`,
         next,
       );
-      setAgent(updated);
+      // Seed the cache with the server response; no need to refetch.
+      await mutate(updated, { revalidate: false });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to set restart');
+      setActionError(err instanceof Error ? err.message : 'Failed to set restart');
     } finally {
       setRestartBusy(false);
     }
-  }, [agent, namespace, params.id]);
+  }, [agent, namespace, params.id, mutate]);
 
   // Honor ?action= once after the agent loads.
   useEffect(() => {
@@ -294,7 +292,7 @@ function AgentDetailInner() {
         agent={agent}
         onClose={() => setEditOpen(false)}
         onSaved={(saved) => {
-          setAgent(saved);
+          void mutate(saved, { revalidate: false });
           setEditOpen(false);
         }}
       />

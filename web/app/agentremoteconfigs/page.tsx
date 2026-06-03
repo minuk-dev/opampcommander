@@ -1,11 +1,14 @@
 'use client';
 
 import { Box } from '@mui/material';
+import { PlaylistAddCheck as ApplyIcon } from '@mui/icons-material';
+import { useState } from 'react';
 import { useNamespace } from '@/components/NamespaceProvider';
 import ResourceListPage from '@/components/ResourceListPage';
 import JsonEditorDialog from '@/components/JsonEditorDialog';
 import { api } from '@/lib/api-client';
 import type { AgentRemoteConfig } from '@/lib/types';
+import ApplyToGroupDialog from './ApplyToGroupDialog';
 
 function emptyConfig(namespace: string): AgentRemoteConfig {
   return {
@@ -21,6 +24,7 @@ function emptyConfig(namespace: string): AgentRemoteConfig {
 
 export default function AgentRemoteConfigsPage() {
   const { namespace } = useNamespace();
+  const [applyTarget, setApplyTarget] = useState<AgentRemoteConfig | null>(null);
   return (
     <Box>
       <ResourceListPage<AgentRemoteConfig>
@@ -32,6 +36,13 @@ export default function AgentRemoteConfigsPage() {
         deps={[namespace]}
         canEdit
         canDelete
+        extraActions={(c) => [
+          {
+            label: 'Apply to agent group',
+            icon: <ApplyIcon fontSize="small" />,
+            onClick: () => setApplyTarget(c),
+          },
+        ]}
         columns={[
           { header: 'Name', render: (c) => c.metadata.name },
           { header: 'Content type', render: (c) => c.spec.contentType || '-' },
@@ -81,6 +92,13 @@ export default function AgentRemoteConfigsPage() {
             }}
           />
         )}
+      />
+      <ApplyToGroupDialog
+        open={applyTarget !== null}
+        namespace={namespace}
+        config={applyTarget}
+        onClose={() => setApplyTarget(null)}
+        onApplied={() => setApplyTarget(null)}
       />
     </Box>
   );

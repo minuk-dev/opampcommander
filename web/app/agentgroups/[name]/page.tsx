@@ -25,12 +25,13 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { AgentGroup } from '@/lib/types';
 import AgentGroupEditDialog from '../AgentGroupEditDialog';
 
@@ -39,38 +40,33 @@ function AgentGroupDetailInner() {
   const router = useRouter();
   const search = useSearchParams();
   const { namespace } = useNamespace();
-  const [group, setGroup] = useState<AgentGroup | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState(0);
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionHandled, setActionHandled] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchGroup = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const g = await api.get<AgentGroup>(
-        `/api/v1/namespaces/${namespace}/agentgroups/${params.name}`,
-      );
-      setGroup(g);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch group');
-    } finally {
-      setLoading(false);
-    }
-  }, [namespace, params.name]);
-
-  useEffect(() => {
-    void fetchGroup();
-  }, [fetchGroup]);
+  const {
+    data: group,
+    error: fetchError,
+    isLoading: loading,
+    mutate,
+  } = useApi<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups/${params.name}`);
+  const fetchGroup = () => mutate();
+  const error =
+    actionError ??
+    (fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch group'
+        : null);
 
   // Auto-trigger ?action= once after load (e.g. from the list page menu).
   useEffect(() => {
     if (!group || actionHandled) return;
     const action = search.get('action');
     if (!action) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActionHandled(true);
     if (action === 'edit') {
       setEditing(true);
@@ -85,7 +81,7 @@ function AgentGroupDetailInner() {
       await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${params.name}`);
       router.push('/agentgroups');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setActionError(err instanceof Error ? err.message : 'Failed to delete');
       setDeleting(false);
     }
   };

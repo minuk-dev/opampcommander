@@ -21,11 +21,12 @@ import {
   Refresh as RefreshIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import PageHeader from './PageHeader';
 import ConfirmDialog from './ConfirmDialog';
 import RowActionsMenu, { type RowAction } from './RowActionsMenu';
 import { api } from '@/lib/api-client';
+import { useApi } from '@/lib/swr';
 import type { ListResponse } from '@/lib/types';
 
 export interface Column<T> {
@@ -56,7 +57,8 @@ interface Props<T> {
   // Extra actions added to the row menu (e.g. domain-specific operations).
   extraActions?: (row: T) => RowAction[];
   query?: Record<string, string | number | boolean | undefined>;
-  // re-run when these external deps change (e.g. namespace)
+  // Deprecated: SWR keys off listPath + query, so re-fetching when the
+  // namespace changes is automatic. Kept so existing callers still type-check.
   deps?: ReadonlyArray<unknown>;
   emptyMessage?: string;
 }
@@ -75,45 +77,36 @@ export default function ResourceListPage<T>({
   detailHref,
   extraActions,
   query,
-  deps = [],
   emptyMessage = 'No items',
 }: Props<T>) {
-  const [items, setItems] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<T | null>(null);
   const [deleting, setDeleting] = useState<T | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<ListResponse<T>>(listPath, {
-        query: { limit: 200, ...query },
-      });
-      setItems(res.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch');
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listPath, JSON.stringify(query)]);
+  const {
+    data,
+    error: fetchError,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useApi<ListResponse<T>>([listPath, { limit: 200, ...query }]);
 
-  useEffect(() => {
-    void fetchItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchItems, ...deps]);
+  const items = data?.items ?? [];
+  const loading = isLoading;
+  const error =
+    actionError ??
+    (fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to fetch' : null);
 
   const onDelete = async () => {
     if (!deleting) return;
     try {
       await api.delete(itemPath(deleting));
       setDeleting(null);
-      await fetchItems();
+      setActionError(null);
+      await mutate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setActionError(err instanceof Error ? err.message : 'Failed to delete');
     }
   };
 
@@ -158,7 +151,7 @@ export default function ResourceListPage<T>({
         subtitle={subtitle}
         actions={
           <>
-            <IconButton color="primary" onClick={fetchItems}>
+            <IconButton color="primary" onClick={() => mutate()} disabled={isValidating}>
               <RefreshIcon />
             </IconButton>
             {renderCreate && (
@@ -228,7 +221,7 @@ export default function ResourceListPage<T>({
         onClose: () => setCreateOpen(false),
         onSaved: () => {
           setCreateOpen(false);
-          void fetchItems();
+          void mutate();
         },
       })}
       {editing &&
@@ -238,7 +231,7 @@ export default function ResourceListPage<T>({
           onClose: () => setEditing(null),
           onSaved: () => {
             setEditing(null);
-            void fetchItems();
+            void mutate();
           },
         })}
       <ConfirmDialog

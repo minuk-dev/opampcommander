@@ -2,8 +2,7 @@
 
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { api } from '@/lib/api-client';
+import { fetcher, useSWRImmutable } from '@/lib/swr';
 import { WEB_VERSION } from '@/lib/web-version';
 
 interface VersionInfo {
@@ -16,22 +15,9 @@ interface VersionInfo {
 }
 
 export default function VersionFooter() {
-  const [info, setInfo] = useState<VersionInfo | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const data = await api.get<VersionInfo>('/api/v1/version');
-        if (!cancelled) setInfo(data);
-      } catch {
-        // best-effort; leave api line as "—"
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Version is effectively static for the life of a server build — fetch it
+  // once and never revalidate on focus/reconnect.
+  const { data: info } = useSWRImmutable<VersionInfo>('/api/v1/version', fetcher);
 
   const apiLabel = info?.gitVersion || '—';
 
