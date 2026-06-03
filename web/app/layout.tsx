@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import './globals.css';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import AppShell from '@/components/AppShell';
@@ -27,9 +28,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <ThemeRegistry>
-          <AppShell>{children}</AppShell>
-        </ThemeRegistry>
+        {/* Emotion cache + useServerInsertedHTML so MUI styles render correctly
+            during SSR/RSC and don't cause hydration mismatches. */}
+        <AppRouterCacheProvider>
+          <ThemeRegistry>
+            <AppShell>{children}</AppShell>
+          </ThemeRegistry>
+        </AppRouterCacheProvider>
       </body>
     </html>
   );
