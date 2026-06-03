@@ -13,6 +13,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { CircularProgress, Box } from '@mui/material';
 import { api, type ApiError } from '@/lib/api-client';
 import { type StoredAuth, clearAuth, readAuth, writeAuth } from '@/lib/auth-storage';
+import { clearSessionCookie, setSessionCookie } from '@/lib/session';
 import type { AuthInfo } from '@/lib/types';
 
 interface AuthContextValue {
@@ -21,7 +22,7 @@ interface AuthContextValue {
   token: string | null;
   loading: boolean;
   loginBasic: (username: string, password: string) => Promise<void>;
-  applyTokens: (a: StoredAuth) => void;
+  applyTokens: (a: StoredAuth) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -47,6 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setToken(auth.token);
+    // Migrate sessions that predate cookie auth: mirror the localStorage token
+    // into the httpOnly cookie so Server Components can read it.
+    void setSessionCookie(auth);
     try {
       const info = await api.get<AuthInfo>('/api/v1/auth/info', {
         noAuthRedirect: true,
@@ -98,26 +102,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         basicAuth: { username, password },
         noAuthRedirect: true,
       });
-      writeAuth({
+      const stored: StoredAuth = {
         token: data.token,
         refreshToken: data.refreshToken,
         expiresAt: data.expiresAt,
-      });
+      };
+      writeAuth(stored);
+      await setSessionCookie(stored);
       await refresh();
     },
     [refresh],
   );
 
   const applyTokens = useCallback(
-    (a: StoredAuth) => {
+    async (a: StoredAuth) => {
       writeAuth(a);
-      void refresh();
+      // Await the cookie so middleware sees the session on the next navigation.
+      await setSessionCookie(a);
+      await refresh();
     },
     [refresh],
   );
 
   const logout = useCallback(() => {
     clearAuth();
+    void clearSessionCookie();
     setToken(null);
     setEmail(null);
     setAuthenticated(false);

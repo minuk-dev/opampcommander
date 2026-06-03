@@ -5,6 +5,9 @@ export const TOKEN_KEY = 'opamp.token';
 export const REFRESH_TOKEN_KEY = 'opamp.refreshToken';
 export const EXPIRES_AT_KEY = 'opamp.expiresAt';
 export const NAMESPACE_KEY = 'opamp.namespace';
+// Non-httpOnly cookie mirror of the selected namespace so Server Components
+// can read it via next/headers. Keep this name in sync with server-api.ts.
+export const NAMESPACE_COOKIE = 'opamp_namespace';
 
 export interface StoredAuth {
   token: string;
@@ -74,6 +77,12 @@ export function writeNamespace(ns: string): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(NAMESPACE_KEY, ns);
+  } catch {
+    // Best-effort.
+  }
+  // Mirror to a cookie (1-year, lax) so Server Components see the selection.
+  try {
+    document.cookie = `${NAMESPACE_COOKIE}=${encodeURIComponent(ns)}; path=/; samesite=lax; max-age=31536000`;
   } catch {
     // Best-effort.
   }

@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api-client';
 import { readNamespace, writeNamespace } from '@/lib/auth-storage';
 import type { ListResponse, Namespace } from '@/lib/types';
@@ -28,11 +29,20 @@ const DEFAULT_NAMESPACE = 'default';
 
 export function NamespaceProvider({ children }: { children: ReactNode }) {
   const { authenticated } = useAuth();
+  const router = useRouter();
   const [namespace, setNamespaceState] = useState<string>(
     () => readNamespace() ?? DEFAULT_NAMESPACE,
   );
   const [namespaces, setNamespaces] = useState<Namespace[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Ensure the namespace cookie reflects the current selection on mount, so
+  // Server Components have it even for sessions that predate cookie support.
+  useEffect(() => {
+    writeNamespace(namespace);
+    // mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!authenticated) return;
@@ -66,10 +76,15 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated]);
 
-  const setNamespace = useCallback((ns: string) => {
-    setNamespaceState(ns);
-    writeNamespace(ns);
-  }, []);
+  const setNamespace = useCallback(
+    (ns: string) => {
+      setNamespaceState(ns);
+      writeNamespace(ns);
+      // Re-run Server Components so RSC pages refetch for the new namespace.
+      router.refresh();
+    },
+    [router],
+  );
 
   const value = useMemo<NamespaceContextValue>(
     () => ({ namespace, setNamespace, namespaces, refresh, loading }),

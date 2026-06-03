@@ -1,5 +1,3 @@
-'use client';
-
 import {
   Box,
   Card,
@@ -7,7 +5,6 @@ import {
   CardContent,
   CardHeader,
   Chip,
-  CircularProgress,
   Divider,
   Grid,
   IconButton,
@@ -25,7 +22,6 @@ import {
   Tune as TuneIcon,
   VerifiedUser as CertIcon,
   ArrowForward as ArrowForwardIcon,
-  Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   HighlightOff as OffIcon,
   HealthAndSafety as HealthIcon,
@@ -33,30 +29,23 @@ import {
 import Link from 'next/link';
 import { type ReactNode } from 'react';
 import PageHeader from '@/components/PageHeader';
-import { useNamespace } from '@/components/NamespaceProvider';
-import { api } from '@/lib/api-client';
-import { useSWR } from '@/lib/swr';
+import DashboardRefresh from './DashboardRefresh';
+import { readNamespace, serverGet } from '@/lib/server-api';
 import type { Agent, AgentGroup, Connection, ListResponse, Server, VersionInfo } from '@/lib/types';
 
 interface QuadrantProps {
   title: string;
   href: string;
   icon: ReactNode;
-  loading?: boolean;
   children: ReactNode;
 }
 
-function Quadrant({ title, href, icon, loading, children }: QuadrantProps) {
+function Quadrant({ title, href, icon, children }: QuadrantProps) {
   return (
     <Card variant="outlined" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardHeader
         avatar={<Box sx={{ color: 'primary.main', display: 'flex' }}>{icon}</Box>}
-        title={
-          <Stack direction="row" alignItems="center" gap={1}>
-            <Typography variant="h6">{title}</Typography>
-            {loading && <CircularProgress size={14} />}
-          </Stack>
-        }
+        title={<Typography variant="h6">{title}</Typography>}
         action={
           <Tooltip title={`Open ${title}`}>
             <IconButton component={Link} href={href} aria-label={`view ${title}`}>
@@ -75,12 +64,10 @@ function Quadrant({ title, href, icon, loading, children }: QuadrantProps) {
 function Stat({
   label,
   value,
-  detail,
   color,
 }: {
   label: string;
   value: ReactNode;
-  detail?: ReactNode;
   color?: 'success' | 'warning' | 'error' | 'default';
 }) {
   return (
@@ -103,11 +90,6 @@ function Stat({
       >
         {value}
       </Typography>
-      {detail && (
-        <Typography variant="caption" color="text.secondary">
-          {detail}
-        </Typography>
-      )}
     </Box>
   );
 }
@@ -124,12 +106,9 @@ interface DashboardData {
   version: VersionInfo | null;
 }
 
-async function safeList<T>(
-  path: string,
-  limit = 200,
-): Promise<{ items: T[]; total: number | null }> {
+async function safeServerList<T>(path: string): Promise<{ items: T[]; total: number | null }> {
   try {
-    const res = await api.get<ListResponse<T>>(path, { query: { limit } });
+    const res = await serverGet<ListResponse<T>>(`${path}?limit=200`);
     const items = res.items ?? [];
     return {
       items,
@@ -142,14 +121,14 @@ async function safeList<T>(
 
 async function loadDashboard(namespace: string): Promise<DashboardData> {
   const [agents, groups, conns, servers, packages, configs, certs, version] = await Promise.all([
-    safeList<Agent>(`/api/v1/namespaces/${namespace}/agents`),
-    safeList<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`),
-    safeList<Connection>(`/api/v1/namespaces/${namespace}/connections`),
-    safeList<Server>('/api/v1/servers'),
-    safeList<unknown>(`/api/v1/namespaces/${namespace}/agentpackages`),
-    safeList<unknown>(`/api/v1/namespaces/${namespace}/agentremoteconfigs`),
-    safeList<unknown>(`/api/v1/namespaces/${namespace}/certificates`),
-    api.get<VersionInfo>('/api/v1/version').catch(() => null),
+    safeServerList<Agent>(`/api/v1/namespaces/${namespace}/agents`),
+    safeServerList<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`),
+    safeServerList<Connection>(`/api/v1/namespaces/${namespace}/connections`),
+    safeServerList<Server>('/api/v1/servers'),
+    safeServerList<unknown>(`/api/v1/namespaces/${namespace}/agentpackages`),
+    safeServerList<unknown>(`/api/v1/namespaces/${namespace}/agentremoteconfigs`),
+    safeServerList<unknown>(`/api/v1/namespaces/${namespace}/certificates`),
+    serverGet<VersionInfo>('/api/v1/version').catch(() => null),
   ]);
   return {
     agents: agents.items,
@@ -164,73 +143,71 @@ async function loadDashboard(namespace: string): Promise<DashboardData> {
   };
 }
 
-export default function DashboardPage() {
-  const { namespace } = useNamespace();
-  const { data, isLoading, isValidating, mutate } = useSWR(['dashboard', namespace], () =>
-    loadDashboard(namespace),
-  );
-  const loading = isLoading || isValidating;
+export default async function DashboardPage() {
+  const namespace = await readNamespace();
+  const data = await loadDashboard(namespace);
 
-  const connectedCount = data?.agents.filter((a) => a.status.connected).length ?? 0;
-  const healthyCount = data?.agents.filter((a) => a.status.componentHealth?.healthy).length ?? 0;
-  const aliveConns = data?.connections.filter((c) => c.alive).length ?? 0;
-  const aliveServers =
-    data?.servers.filter((s) =>
-      s.conditions?.some((c) => c.type === 'Alive' && c.status === 'True'),
-    ).length ?? 0;
+  const agentCount = data.agents.length;
+  const connectedCount = data.agents.filter((a) => a.status.connected).length;
+  const healthyCount = data.agents.filter((a) => a.status.componentHealth?.healthy).length;
+  const aliveConns = data.connections.filter((c) => c.alive).length;
+  const aliveServers = data.servers.filter((s) =>
+    s.conditions?.some((c) => c.type === 'Alive' && c.status === 'True'),
+  ).length;
 
-  const topGroups = (data?.groups ?? [])
+  const topGroups = data.groups
     .toSorted((a, b) => b.status.numAgents - a.status.numAgents)
     .slice(0, 5);
+
+  const resourceTiles = [
+    {
+      href: '/agentpackages',
+      icon: <PackageIcon color="primary" />,
+      total: data.packages,
+      label: 'Packages',
+    },
+    {
+      href: '/agentremoteconfigs',
+      icon: <TuneIcon color="primary" />,
+      total: data.remoteConfigs,
+      label: 'Remote Configs',
+    },
+    {
+      href: '/certificates',
+      icon: <CertIcon color="primary" />,
+      total: data.certificates,
+      label: 'Certificates',
+    },
+  ];
 
   return (
     <Box>
       <PageHeader
         title="Dashboard"
         subtitle={`Overview for namespace "${namespace}"`}
-        actions={
-          <Tooltip title="Refresh">
-            <IconButton
-              color="primary"
-              onClick={() => mutate()}
-              disabled={isValidating}
-              aria-label="refresh"
-            >
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-        }
+        actions={<DashboardRefresh />}
       />
 
       <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
         {/* Quadrant 1 — Agents */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Quadrant
-            title="Agents"
-            href="/agents"
-            icon={<ComputerIcon fontSize="large" />}
-            loading={loading}
-          >
+          <Quadrant title="Agents" href="/agents" icon={<ComputerIcon fontSize="large" />}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 4 }}>
-                <Stat label="Total" value={data?.agentTotal ?? '—'} />
+                <Stat label="Total" value={data.agentTotal} />
               </Grid>
               <Grid size={{ xs: 4 }}>
                 <Stat
                   label="Connected"
-                  value={`${connectedCount}/${data?.agents.length ?? 0}`}
+                  value={`${connectedCount}/${agentCount}`}
                   color={connectedCount > 0 ? 'success' : 'default'}
                 />
               </Grid>
               <Grid size={{ xs: 4 }}>
                 <Stat
                   label="Healthy"
-                  value={`${healthyCount}/${data?.agents.length ?? 0}`}
-                  color={
-                    data && data.agents.length > 0 && healthyCount === data.agents.length
-                      ? 'success'
-                      : 'warning'
-                  }
+                  value={`${healthyCount}/${agentCount}`}
+                  color={agentCount > 0 && healthyCount === agentCount ? 'success' : 'warning'}
                 />
               </Grid>
             </Grid>
@@ -240,18 +217,12 @@ export default function DashboardPage() {
               </Typography>
               <LinearProgress
                 variant="determinate"
-                value={
-                  data && data.agents.length > 0 ? (healthyCount / data.agents.length) * 100 : 0
-                }
-                color={
-                  data && data.agents.length > 0 && healthyCount === data.agents.length
-                    ? 'success'
-                    : 'warning'
-                }
+                value={agentCount > 0 ? (healthyCount / agentCount) * 100 : 0}
+                color={agentCount > 0 && healthyCount === agentCount ? 'success' : 'warning'}
                 sx={{ height: 6, mt: 0.5, borderRadius: 1 }}
               />
             </Box>
-            {data && data.agents.length === 0 && (
+            {agentCount === 0 && (
               <Typography variant="body2" color="text.secondary" mt={2}>
                 No agents reported yet in this namespace.
               </Typography>
@@ -261,15 +232,10 @@ export default function DashboardPage() {
 
         {/* Quadrant 2 — Agent Groups */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Quadrant
-            title="Agent Groups"
-            href="/agentgroups"
-            icon={<GroupIcon fontSize="large" />}
-            loading={loading}
-          >
+          <Quadrant title="Agent Groups" href="/agentgroups" icon={<GroupIcon fontSize="large" />}>
             {topGroups.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                {loading ? 'Loading…' : 'No agent groups yet.'}
+                No agent groups yet.
               </Typography>
             ) : (
               <Stack spacing={1}>
@@ -286,14 +252,7 @@ export default function DashboardPage() {
                       component={Link}
                       href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
                     >
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                        }}
-                      >
+                      <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                           <Typography
                             variant="subtitle2"
@@ -332,38 +291,14 @@ export default function DashboardPage() {
 
         {/* Quadrant 3 — Resources */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Quadrant
-            title="Resources"
-            href="/agentpackages"
-            icon={<PackageIcon fontSize="large" />}
-            loading={loading}
-          >
+          <Quadrant title="Resources" href="/agentpackages" icon={<PackageIcon fontSize="large" />}>
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               divider={<Divider orientation="vertical" flexItem />}
               spacing={2}
               justifyContent="space-around"
             >
-              {[
-                {
-                  href: '/agentpackages',
-                  icon: <PackageIcon color="primary" />,
-                  total: data?.packages,
-                  label: 'Packages',
-                },
-                {
-                  href: '/agentremoteconfigs',
-                  icon: <TuneIcon color="primary" />,
-                  total: data?.remoteConfigs,
-                  label: 'Remote Configs',
-                },
-                {
-                  href: '/certificates',
-                  icon: <CertIcon color="primary" />,
-                  total: data?.certificates,
-                  label: 'Certificates',
-                },
-              ].map((r) => (
+              {resourceTiles.map((r) => (
                 <Box
                   key={r.label}
                   component={Link}
@@ -393,12 +328,7 @@ export default function DashboardPage() {
 
         {/* Quadrant 4 — Cluster */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Quadrant
-            title="Cluster"
-            href="/servers"
-            icon={<DnsIcon fontSize="large" />}
-            loading={loading}
-          >
+          <Quadrant title="Cluster" href="/servers" icon={<DnsIcon fontSize="large" />}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
                 <Stack
@@ -418,7 +348,7 @@ export default function DashboardPage() {
                   <CableIcon color="primary" />
                   <Box>
                     <Typography variant="h6">
-                      {aliveConns}/{data?.connections.length ?? 0}
+                      {aliveConns}/{data.connections.length}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Connections (alive)
@@ -441,14 +371,14 @@ export default function DashboardPage() {
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
                 >
-                  {data && aliveServers > 0 ? (
+                  {aliveServers > 0 ? (
                     <CheckCircleIcon color="success" />
                   ) : (
                     <OffIcon color="warning" />
                   )}
                   <Box>
                     <Typography variant="h6">
-                      {aliveServers}/{data?.servers.length ?? 0}
+                      {aliveServers}/{data.servers.length}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       Servers (alive)
@@ -464,7 +394,7 @@ export default function DashboardPage() {
                     Server build:
                   </Typography>
                   <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
-                    {data?.version?.gitVersion ?? '—'}
+                    {data.version?.gitVersion ?? '—'}
                   </Typography>
                 </Stack>
               </Grid>

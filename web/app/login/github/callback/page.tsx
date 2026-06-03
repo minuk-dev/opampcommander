@@ -26,14 +26,15 @@ function CallbackInner() {
       setError('Missing token in callback');
       return;
     }
-    applyTokens({ token, refreshToken, expiresAt });
     // Sanitize `from` to a same-origin internal path (and never /login).
     const rawFrom = search.get('from') || '/';
     const isInternal = rawFrom.startsWith('/') && !rawFrom.startsWith('//');
     const isLoginPath =
       rawFrom === '/login' || rawFrom.startsWith('/login/') || rawFrom.startsWith('/login?');
     const from = isInternal && !isLoginPath ? rawFrom : '/';
-    router.replace(from);
+    // Wait for the session cookie to be set before navigating so middleware
+    // doesn't bounce us back to /login.
+    void applyTokens({ token, refreshToken, expiresAt }).then(() => router.replace(from));
   }, [applyTokens, router, search]);
 
   return (

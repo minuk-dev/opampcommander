@@ -84,13 +84,22 @@ describe('api-client', () => {
     window.localStorage.setItem(TOKEN_KEY, 'old');
     window.localStorage.setItem(REFRESH_KEY, 'rrr');
 
-    fetchSpy
-      // first call → 401
-      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
-      // refresh → 200 with rotated token
-      .mockResolvedValueOnce(jsonResponse({ token: 'new', refreshToken: 'rrr2' }))
-      // retry → 200
-      .mockResolvedValueOnce(jsonResponse({ ok: true }));
+    // The backend-path calls happen in order: 401 → refresh(200) → retry(200).
+    // A token rotation also fires a best-effort POST /api/session to sync the
+    // httpOnly cookie; route that separately so it doesn't consume the
+    // backend-path sequence.
+    const backendResponses = [
+      new Response('{}', { status: 401 }),
+      jsonResponse({ token: 'new', refreshToken: 'rrr2' }),
+      jsonResponse({ ok: true }),
+    ];
+    let i = 0;
+    fetchSpy.mockImplementation((url: string | URL) => {
+      if (String(url).includes('/api/session')) {
+        return Promise.resolve(jsonResponse({ ok: true }));
+      }
+      return Promise.resolve(backendResponses[i++]);
+    });
 
     const result = await api.get<{ ok: boolean }>('/api/v1/secure');
     expect(result).toEqual({ ok: true });
@@ -99,9 +108,13 @@ describe('api-client', () => {
     expect(window.localStorage.getItem(TOKEN_KEY)).toBe('new');
     expect(window.localStorage.getItem(REFRESH_KEY)).toBe('rrr2');
 
-    // retry used the new bearer
-    const retryInit = fetchSpy.mock.calls[2][1] as RequestInit;
+    // the retry to the secure endpoint used the new bearer
+    const secureCalls = fetchSpy.mock.calls.filter((c) => String(c[0]).includes('/api/v1/secure'));
+    const retryInit = secureCalls[1][1] as RequestInit;
     expect((retryInit.headers as Record<string, string>).Authorization).toBe('Bearer new');
+
+    // and the session cookie was synced with the rotated token
+    expect(fetchSpy.mock.calls.some((c) => String(c[0]).includes('/api/session'))).toBe(true);
   });
 
   it('does NOT redirect on 401 when noAuthRedirect is set', async () => {

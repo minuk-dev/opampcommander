@@ -3,6 +3,7 @@
 // and surfaces backend error payloads (RFC 9457 problem details).
 
 import { readAuth, writeAuth, clearAuth } from './auth-storage';
+import { setSessionCookie } from './session';
 
 export interface ApiError extends Error {
   status: number;
@@ -47,11 +48,14 @@ async function refreshToken(): Promise<boolean> {
       refreshToken?: string;
       expiresAt?: string;
     };
-    writeAuth({
+    const stored = {
       token: data.token,
       refreshToken: data.refreshToken,
       expiresAt: data.expiresAt,
-    });
+    };
+    writeAuth(stored);
+    // Keep the httpOnly session cookie in sync with the rotated token.
+    void setSessionCookie(stored);
     return true;
   } catch {
     return false;
