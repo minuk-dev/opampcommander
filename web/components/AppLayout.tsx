@@ -181,19 +181,28 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   );
 
   // Hydrate persisted sidebar state after mount (avoids SSR/CSR mismatch).
+  // localStorage can throw in private browsing / when disabled — guard it.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
-    if (stored === null) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDrawerOpen(stored === '1');
+    try {
+      const stored = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
+      if (stored === null) return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDrawerOpen(stored === '1');
+    } catch {
+      // Keep the default open state.
+    }
   }, []);
 
   const toggleDrawer = () => {
     setDrawerOpen((prev) => {
       const next = !prev;
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(SIDEBAR_OPEN_KEY, next ? '1' : '0');
+        try {
+          window.localStorage.setItem(SIDEBAR_OPEN_KEY, next ? '1' : '0');
+        } catch {
+          // Best-effort: preference just won't persist.
+        }
       }
       return next;
     });
