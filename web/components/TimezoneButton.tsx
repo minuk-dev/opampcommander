@@ -41,7 +41,10 @@ export default function TimezoneButton() {
           onClick={(e) => setAnchor(e.currentTarget)}
           sx={{ textTransform: 'none', maxWidth: 220, minWidth: 0 }}
         >
-          <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Box
+            component="span"
+            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
             {label}
           </Box>
         </Button>

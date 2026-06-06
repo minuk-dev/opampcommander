@@ -73,9 +73,8 @@ export function canonicalTimeZone(tz: unknown): string {
 export function listTimeZones(): string[] {
   let zones = FALLBACK_ZONES;
   try {
-    const supported = (
-      Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] }
-    ).supportedValuesOf;
+    const supported = (Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] })
+      .supportedValuesOf;
     if (typeof supported === 'function') {
       zones = supported('timeZone');
     }
