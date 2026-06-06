@@ -4,6 +4,7 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import './globals.css';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import AppShell from '@/components/AppShell';
+import { PreferencesProvider } from '@/components/PreferencesProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -31,9 +32,11 @@ export default function RootLayout({
         {/* Emotion cache + useServerInsertedHTML so MUI styles render correctly
             during SSR/RSC and don't cause hydration mismatches. */}
         <AppRouterCacheProvider>
-          <ThemeRegistry>
-            <AppShell>{children}</AppShell>
-          </ThemeRegistry>
+          <PreferencesProvider>
+            <ThemeRegistry>
+              <AppShell>{children}</AppShell>
+            </ThemeRegistry>
+          </PreferencesProvider>
         </AppRouterCacheProvider>
       </body>
     </html>

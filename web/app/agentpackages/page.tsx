@@ -4,6 +4,7 @@ import { Box } from '@mui/material';
 import { useNamespace } from '@/components/NamespaceProvider';
 import ResourceListPage from '@/components/ResourceListPage';
 import JsonEditorDialog from '@/components/JsonEditorDialog';
+import TimeDisplay from '@/components/TimeDisplay';
 import { api } from '@/lib/api-client';
 import type { AgentPackage } from '@/lib/types';
 
@@ -48,7 +49,7 @@ export default function AgentPackagesPage() {
               </span>
             ),
           },
-          { header: 'Created', render: (p) => p.metadata.createdAt },
+          { header: 'Created', render: (p) => <TimeDisplay value={p.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
           <JsonEditorDialog

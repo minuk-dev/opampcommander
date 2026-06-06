@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import Link from 'next/link';
 import PageHeader from '@/components/PageHeader';
+import TimeDisplay from '@/components/TimeDisplay';
 import { useApi } from '@/lib/swr';
 import type { UserProfileResponse } from '@/lib/types';
 
@@ -77,7 +78,7 @@ export default function ProfilePage() {
               }
             />
             <Field label="UID" value={user.metadata.uid || '(no DB record yet)'} mono />
-            <Field label="Created" value={user.metadata.createdAt || '-'} />
+            <Field label="Created" value={<TimeDisplay value={user.metadata.createdAt} />} />
           </Stack>
           {labelEntries.length > 0 && (
             <>

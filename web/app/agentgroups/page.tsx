@@ -29,6 +29,7 @@ import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import RowActionsMenu from '@/components/RowActionsMenu';
+import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import { useApi } from '@/lib/swr';
@@ -165,7 +166,9 @@ export default function AgentGroupsPage() {
                       variant="outlined"
                     />
                   </TableCell>
-                  <TableCell>{g.metadata.createdAt}</TableCell>
+                  <TableCell>
+                    <TimeDisplay value={g.metadata.createdAt} />
+                  </TableCell>
                   <TableCell align="right">
                     <RowActionsMenu
                       actions={[

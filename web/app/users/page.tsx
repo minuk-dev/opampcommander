@@ -3,6 +3,7 @@
 import { Box, Chip } from '@mui/material';
 import ResourceListPage from '@/components/ResourceListPage';
 import JsonEditorDialog from '@/components/JsonEditorDialog';
+import TimeDisplay from '@/components/TimeDisplay';
 import { api } from '@/lib/api-client';
 import type { User } from '@/lib/types';
 
@@ -47,7 +48,7 @@ export default function UsersPage() {
               <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{u.metadata.uid}</span>
             ),
           },
-          { header: 'Created', render: (u) => u.metadata.createdAt },
+          { header: 'Created', render: (u) => <TimeDisplay value={u.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
           <JsonEditorDialog

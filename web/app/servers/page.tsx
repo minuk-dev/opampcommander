@@ -18,6 +18,7 @@ import {
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import TimeDisplay from '@/components/TimeDisplay';
 import { api } from '@/lib/api-client';
 import type { ListResponse, Server } from '@/lib/types';
 
@@ -85,7 +86,9 @@ export default function ServersPage() {
               items.map((s) => (
                 <TableRow key={s.id} hover>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{s.id}</TableCell>
-                  <TableCell>{s.lastHeartbeatAt}</TableCell>
+                  <TableCell>
+                    <TimeDisplay value={s.lastHeartbeatAt} />
+                  </TableCell>
                   <TableCell>
                     <Stack direction="row" gap={0.5} flexWrap="wrap">
                       {(s.conditions ?? []).map((c, i) => (
