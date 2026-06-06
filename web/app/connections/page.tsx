@@ -19,6 +19,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import { useNamespace } from '@/components/NamespaceProvider';
+import TimeDisplay from '@/components/TimeDisplay';
 import { api } from '@/lib/api-client';
 import type { Connection, ListResponse } from '@/lib/types';
 
@@ -103,7 +104,9 @@ export default function ConnectionsPage() {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{c.lastCommunicatedAt}</TableCell>
+                  <TableCell>
+                    <TimeDisplay value={c.lastCommunicatedAt} />
+                  </TableCell>
                 </TableRow>
               ))
             )}

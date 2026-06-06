@@ -28,6 +28,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
+import TimeDisplay from '@/components/TimeDisplay';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
@@ -196,7 +197,9 @@ function AgentGroupDetailInner() {
                 <Typography variant="caption" color="text.secondary">
                   Created
                 </Typography>
-                <Typography variant="body2">{group.metadata.createdAt}</Typography>
+                <Typography variant="body2" component="div">
+                  <TimeDisplay value={group.metadata.createdAt} />
+                </Typography>
               </Box>
             </Stack>
             {group.metadata.deletedAt && (
@@ -204,7 +207,9 @@ function AgentGroupDetailInner() {
                 <Typography variant="caption" color="text.secondary">
                   Deleted
                 </Typography>
-                <Typography variant="body2">{group.metadata.deletedAt}</Typography>
+                <Typography variant="body2" component="div">
+                  <TimeDisplay value={group.metadata.deletedAt} />
+                </Typography>
               </Box>
             )}
             <Box>

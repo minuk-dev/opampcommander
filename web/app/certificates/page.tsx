@@ -4,6 +4,7 @@ import { Box, Chip } from '@mui/material';
 import { useNamespace } from '@/components/NamespaceProvider';
 import ResourceListPage from '@/components/ResourceListPage';
 import JsonEditorDialog from '@/components/JsonEditorDialog';
+import TimeDisplay from '@/components/TimeDisplay';
 import { api } from '@/lib/api-client';
 import type { Certificate } from '@/lib/types';
 
@@ -70,7 +71,7 @@ export default function CertificatesPage() {
               />
             ),
           },
-          { header: 'Created', render: (c) => c.metadata.createdAt },
+          { header: 'Created', render: (c) => <TimeDisplay value={c.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
           <JsonEditorDialog

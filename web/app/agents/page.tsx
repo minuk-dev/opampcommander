@@ -36,6 +36,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import RowActionsMenu from '@/components/RowActionsMenu';
+import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import { useApi } from '@/lib/swr';
@@ -392,7 +393,9 @@ function AgentsInner() {
                     />
                   </TableCell>
                   <TableCell>{agent.status.connectionType || '-'}</TableCell>
-                  <TableCell>{agent.status.lastReportedAt || '-'}</TableCell>
+                  <TableCell>
+                    <TimeDisplay value={agent.status.lastReportedAt} />
+                  </TableCell>
                   <TableCell>{agent.status.sequenceNum ?? '-'}</TableCell>
                   <TableCell align="right">
                     <RowActionsMenu

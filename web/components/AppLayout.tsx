@@ -37,6 +37,7 @@ import {
   AccountCircle as AccountIcon,
   Badge as BadgeIcon,
   Menu as MenuIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -44,6 +45,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import NamespaceSelector from './NamespaceSelector';
 import { usePermissions } from './PermissionsProvider';
+import TimezoneButton from './TimezoneButton';
 import VersionFooter from './VersionFooter';
 
 const drawerWidth = 240;
@@ -233,6 +235,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           />
           <NamespaceSelector />
           <Box sx={{ flexGrow: 1 }} />
+          <TimezoneButton />
           <Tooltip title={email || 'Account'}>
             <IconButton
               color="inherit"
@@ -256,6 +259,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <BadgeIcon fontSize="small" />
               </ListItemIcon>
               My profile
+            </MenuItem>
+            <MenuItem component={Link} href="/preferences" onClick={() => setMenuAnchor(null)}>
+              <ListItemIcon>
+                <SettingsIcon fontSize="small" />
+              </ListItemIcon>
+              Preferences
             </MenuItem>
             <MenuItem
               onClick={() => {

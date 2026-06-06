@@ -25,6 +25,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
+import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import { useApi } from '@/lib/swr';
@@ -182,7 +183,7 @@ function AgentDetailInner() {
                 )}
               </Stack>
               <Typography variant="body2" mt={1}>
-                Last reported: {agent.status.lastReportedAt || '—'}
+                Last reported: <TimeDisplay value={agent.status.lastReportedAt} />
               </Typography>
               <Typography variant="body2">Sequence #: {agent.status.sequenceNum ?? '—'}</Typography>
             </CardContent>

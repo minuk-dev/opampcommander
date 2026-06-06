@@ -24,6 +24,7 @@ import { Add as AddIcon, Delete as DeleteIcon, Refresh as RefreshIcon } from '@m
 import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
 import type { ListResponse, Namespace } from '@/lib/types';
@@ -144,8 +145,12 @@ export default function NamespacesPage() {
                   <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>
                     {ns.metadata.labels ? JSON.stringify(ns.metadata.labels) : '-'}
                   </TableCell>
-                  <TableCell>{ns.metadata.createdAt}</TableCell>
-                  <TableCell>{ns.metadata.deletedAt || '-'}</TableCell>
+                  <TableCell>
+                    <TimeDisplay value={ns.metadata.createdAt} />
+                  </TableCell>
+                  <TableCell>
+                    <TimeDisplay value={ns.metadata.deletedAt} />
+                  </TableCell>
                   <TableCell align="right">
                     <IconButton size="small" onClick={() => setDeleting(ns)}>
                       <DeleteIcon fontSize="small" />

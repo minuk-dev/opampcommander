@@ -4,6 +4,7 @@ import { Box, Chip, Stack } from '@mui/material';
 import { useNamespace } from '@/components/NamespaceProvider';
 import ResourceListPage from '@/components/ResourceListPage';
 import JsonEditorDialog from '@/components/JsonEditorDialog';
+import TimeDisplay from '@/components/TimeDisplay';
 import { api } from '@/lib/api-client';
 import type { RoleBinding } from '@/lib/types';
 
@@ -56,7 +57,7 @@ export default function RoleBindingsPage() {
               </Stack>
             ),
           },
-          { header: 'Created', render: (rb) => rb.metadata.createdAt || '-' },
+          { header: 'Created', render: (rb) => <TimeDisplay value={rb.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
           <JsonEditorDialog
