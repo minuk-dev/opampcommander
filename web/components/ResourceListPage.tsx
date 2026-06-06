@@ -24,10 +24,10 @@ import {
 import { type ReactNode, useState } from 'react';
 import PageHeader from './PageHeader';
 import ConfirmDialog from './ConfirmDialog';
+import PaginationFooter from './PaginationFooter';
 import RowActionsMenu, { type RowAction } from './RowActionsMenu';
 import { api } from '@/lib/api-client';
-import { useApi } from '@/lib/swr';
-import type { ListResponse } from '@/lib/types';
+import { useCursorPagination } from '@/lib/pagination';
 
 export interface Column<T> {
   header: string;
@@ -84,15 +84,8 @@ export default function ResourceListPage<T>({
   const [deleting, setDeleting] = useState<T | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const {
-    data,
-    error: fetchError,
-    isLoading,
-    isValidating,
-    mutate,
-  } = useApi<ListResponse<T>>([listPath, { limit: 200, ...query }]);
-
-  const items = data?.items ?? [];
+  const pagination = useCursorPagination<T>(listPath, { query });
+  const { items, isLoading, isValidating, error: fetchError, refresh } = pagination;
   const loading = isLoading;
   const error =
     actionError ??
@@ -104,7 +97,7 @@ export default function ResourceListPage<T>({
       await api.delete(itemPath(deleting));
       setDeleting(null);
       setActionError(null);
-      await mutate();
+      refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to delete');
     }
@@ -151,7 +144,7 @@ export default function ResourceListPage<T>({
         subtitle={subtitle}
         actions={
           <>
-            <IconButton color="primary" onClick={() => mutate()} disabled={isValidating}>
+            <IconButton color="primary" onClick={() => refresh()} disabled={isValidating}>
               <RefreshIcon />
             </IconButton>
             {renderCreate && (
@@ -216,12 +209,14 @@ export default function ResourceListPage<T>({
         </Table>
       </TableContainer>
 
+      <PaginationFooter pagination={pagination} />
+
       {renderCreate?.({
         open: createOpen,
         onClose: () => setCreateOpen(false),
         onSaved: () => {
           setCreateOpen(false);
-          void mutate();
+          refresh();
         },
       })}
       {editing &&
@@ -231,7 +226,7 @@ export default function ResourceListPage<T>({
           onClose: () => setEditing(null),
           onSaved: () => {
             setEditing(null);
-            void mutate();
+            refresh();
           },
         })}
       <ConfirmDialog
