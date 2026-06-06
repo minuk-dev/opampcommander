@@ -16,38 +16,19 @@ import {
 } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import PaginationFooter from '@/components/PaginationFooter';
 import { useNamespace } from '@/components/NamespaceProvider';
 import TimeDisplay from '@/components/TimeDisplay';
-import { api } from '@/lib/api-client';
-import type { Connection, ListResponse } from '@/lib/types';
+import { useCursorPagination } from '@/lib/pagination';
+import type { Connection } from '@/lib/types';
 
 export default function ConnectionsPage() {
   const { namespace } = useNamespace();
-  const [items, setItems] = useState<Connection[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<ListResponse<Connection>>(
-        `/api/v1/namespaces/${namespace}/connections`,
-        { query: { limit: 200 } },
-      );
-      setItems(res.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch');
-    } finally {
-      setLoading(false);
-    }
-  }, [namespace]);
-
-  useEffect(() => {
-    void fetchItems();
-  }, [fetchItems]);
+  const pagination = useCursorPagination<Connection>(`/api/v1/namespaces/${namespace}/connections`);
+  const { items, isLoading: loading, error: fetchError, refresh } = pagination;
+  const error =
+    fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to fetch' : null;
 
   return (
     <Box>
@@ -55,7 +36,7 @@ export default function ConnectionsPage() {
         title="Connections"
         subtitle={`Namespace: ${namespace}`}
         actions={
-          <IconButton color="primary" onClick={fetchItems}>
+          <IconButton color="primary" onClick={() => refresh()}>
             <RefreshIcon />
           </IconButton>
         }
@@ -113,6 +94,8 @@ export default function ConnectionsPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <PaginationFooter pagination={pagination} />
     </Box>
   );
 }

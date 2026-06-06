@@ -33,16 +33,15 @@ import {
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import PaginationFooter from '@/components/PaginationFooter';
 import RowActionsMenu from '@/components/RowActionsMenu';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
-import { api } from '@/lib/api-client';
+import { useCursorPagination } from '@/lib/pagination';
 import { useApi } from '@/lib/swr';
 import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
-
-const PAGE_SIZE = 50;
 
 type SearchMode = 'uid' | 'group' | 'description';
 
@@ -71,13 +70,26 @@ function AgentsInner() {
     (search.get('mode') as SearchMode | null) ||
     (agentGroupParam ? 'group' : descParam ? 'description' : 'uid');
 
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<SearchMode>(modeParam);
   const [query, setQuery] = useState(qParam);
-  const [continueToken, setContinueToken] = useState<string | null>(null);
-  const [continueStack, setContinueStack] = useState<string[]>([]);
+
+  // The three search modes hit different endpoints; description mode reuses the
+  // plain list and filters client-side (see visibleAgents below).
+  let listPath: string;
+  const listQuery: Record<string, string> = {};
+  if (agentGroupParam) {
+    listPath = `/api/v1/namespaces/${namespace}/agentgroups/${agentGroupParam}/agents`;
+  } else if (qParam) {
+    listPath = `/api/v1/namespaces/${namespace}/agents/search`;
+    listQuery.q = qParam;
+  } else {
+    listPath = `/api/v1/namespaces/${namespace}/agents`;
+  }
+
+  const pagination = useCursorPagination<Agent>(listPath, { query: listQuery });
+  const { items: agents, isLoading: loading, error: fetchError } = pagination;
+  const error =
+    fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to fetch agents' : null;
 
   // Group list for the "Group" autocomplete + chip cross-reference. SWR dedupes
   // this with the same fetch on other pages and silently no-ops on RBAC denial.
@@ -98,44 +110,6 @@ function AgentsInner() {
   useEffect(() => {
     setMode(modeParam);
   }, [modeParam]);
-
-  const fetchAgents = useCallback(
-    async (token?: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        let path: string;
-        const q: Record<string, string | number | undefined> = {
-          limit: PAGE_SIZE,
-          continue: token,
-        };
-
-        if (agentGroupParam) {
-          path = `/api/v1/namespaces/${namespace}/agentgroups/${agentGroupParam}/agents`;
-        } else if (qParam) {
-          path = `/api/v1/namespaces/${namespace}/agents/search`;
-          q.q = qParam;
-        } else {
-          // Description search filters client-side over the unsearched list.
-          path = `/api/v1/namespaces/${namespace}/agents`;
-        }
-
-        const data = await api.get<ListResponse<Agent>>(path, { query: q });
-        setAgents(data.items ?? []);
-        setContinueToken(data.metadata?.continue || null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch agents');
-      } finally {
-        setLoading(false);
-      }
-    },
-    [namespace, qParam, agentGroupParam],
-  );
-
-  useEffect(() => {
-    setContinueStack([]);
-    void fetchAgents();
-  }, [fetchAgents]);
 
   const updateUrl = (next: {
     q?: string;
@@ -180,12 +154,6 @@ function AgentsInner() {
     updateUrl({ q: '' });
   };
 
-  const next = () => {
-    if (!continueToken) return;
-    setContinueStack((s) => [...s, continueToken]);
-    void fetchAgents(continueToken);
-  };
-
   const filterActive = Boolean(agentGroupParam || qParam || descParam);
   const lcDesc = descParam.toLowerCase();
   const visibleAgents = descParam
@@ -198,7 +166,7 @@ function AgentsInner() {
         title="Agents"
         subtitle={`Namespace: ${namespace}`}
         actions={
-          <IconButton color="primary" onClick={() => fetchAgents()}>
+          <IconButton color="primary" onClick={() => pagination.refresh()}>
             <RefreshIcon />
           </IconButton>
         }
@@ -425,21 +393,7 @@ function AgentsInner() {
         </Table>
       </TableContainer>
 
-      <Stack direction="row" justifyContent="flex-end" mt={2} gap={1}>
-        <Button
-          disabled={continueStack.length === 0 || loading}
-          onClick={() => {
-            const prev = continueStack[continueStack.length - 2] || undefined;
-            setContinueStack((s) => s.slice(0, -1));
-            void fetchAgents(prev);
-          }}
-        >
-          Prev
-        </Button>
-        <Button disabled={!continueToken || loading} onClick={next}>
-          Next
-        </Button>
-      </Stack>
+      <PaginationFooter pagination={pagination} />
     </Box>
   );
 }

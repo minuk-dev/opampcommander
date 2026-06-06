@@ -28,12 +28,13 @@ import { Tooltip } from '@mui/material';
 import { useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PaginationFooter from '@/components/PaginationFooter';
 import RowActionsMenu from '@/components/RowActionsMenu';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
-import { useApi } from '@/lib/swr';
-import type { AgentGroup, ListResponse } from '@/lib/types';
+import { useCursorPagination } from '@/lib/pagination';
+import type { AgentGroup } from '@/lib/types';
 import AgentGroupEditDialog from './AgentGroupEditDialog';
 
 export default function AgentGroupsPage() {
@@ -43,17 +44,8 @@ export default function AgentGroupsPage() {
   const [deleting, setDeleting] = useState<AgentGroup | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const {
-    data,
-    error: fetchError,
-    isLoading,
-    mutate,
-  } = useApi<ListResponse<AgentGroup>>([
-    `/api/v1/namespaces/${namespace}/agentgroups`,
-    { limit: 200 },
-  ]);
-  const groups = data?.items ?? [];
-  const loading = isLoading;
+  const pagination = useCursorPagination<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`);
+  const { items: groups, isLoading: loading, error: fetchError, refresh } = pagination;
   const error =
     actionError ??
     (fetchError instanceof Error
@@ -62,7 +54,7 @@ export default function AgentGroupsPage() {
         ? 'Failed to fetch groups'
         : null);
 
-  const fetchGroups = () => mutate();
+  const fetchGroups = () => refresh();
 
   const onDelete = async () => {
     if (!deleting) return;
@@ -70,7 +62,7 @@ export default function AgentGroupsPage() {
       await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${deleting.metadata.name}`);
       setDeleting(null);
       setActionError(null);
-      await mutate();
+      refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to delete');
     }
@@ -203,6 +195,8 @@ export default function AgentGroupsPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <PaginationFooter pagination={pagination} />
 
       <AgentGroupEditDialog
         open={createOpen}
