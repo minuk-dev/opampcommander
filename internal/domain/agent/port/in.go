@@ -18,6 +18,10 @@ var (
 	ErrConnectionAlreadyExists = errors.New("connection already exists")
 	// ErrConnectionNotFound is an error that indicates that the connection was not found.
 	ErrConnectionNotFound = errors.New("connection not found")
+	// ErrAgentConnected indicates that a delete was attempted on a still-connected agent.
+	// The connection guard is enforced here in the domain so it cannot be bypassed by
+	// callers that hold an AgentUsecase directly.
+	ErrAgentConnected = errors.New("agent is still connected; only disconnected agents can be deleted")
 )
 
 // AgentUsecase is an interface that defines the methods for agent use cases.
@@ -34,6 +38,10 @@ type AgentUsecase interface {
 	) (*model.ListResponse[*agentmodel.Agent], error)
 	// SaveAgent saves the agent.
 	SaveAgent(ctx context.Context, agent *agentmodel.Agent) error
+	// DeleteAgent permanently (hard) removes a disconnected agent by its instance UID.
+	// It enforces the "only disconnected agents may be deleted" policy and returns
+	// ErrAgentConnected for a still-connected agent, so the guard cannot be bypassed.
+	DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error
 	// ListAgents lists agents filtered by namespace.
 	ListAgents(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)

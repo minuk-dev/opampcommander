@@ -294,6 +294,12 @@ func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agent *agentmodel.Agen
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
 
+func (m *MockAgentUsecase) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	args := m.Called(ctx, instanceUID)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
 func (m *MockAgentUsecase) ListAgents(
 	ctx context.Context,
 	namespace string,

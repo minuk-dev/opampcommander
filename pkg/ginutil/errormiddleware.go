@@ -145,6 +145,26 @@ func InternalServerError(ctx *gin.Context, err error, detail string) {
 	})
 }
 
+// ConflictError creates a standardized 409 Conflict error response.
+func ConflictError(ctx *gin.Context, err error, detail string) {
+	baseURL := GetErrorTypeURI(ctx)
+
+	ctx.JSON(http.StatusConflict, &api.ErrorModel{
+		Type:     baseURL,
+		Title:    "Conflict",
+		Status:   http.StatusConflict,
+		Detail:   detail,
+		Instance: ctx.Request.URL.String(),
+		Errors: []*api.ErrorDetail{
+			{
+				Message:  err.Error(),
+				Location: "server",
+				Value:    nil,
+			},
+		},
+	})
+}
+
 // ResourceNotFoundError creates a standardized 404 error response.
 func ResourceNotFoundError(ctx *gin.Context, resourceType, identifier string) {
 	baseURL := GetErrorTypeURI(ctx)

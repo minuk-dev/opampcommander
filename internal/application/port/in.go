@@ -3,6 +3,7 @@ package port
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
@@ -10,8 +11,19 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
+
+// ErrAgentConnected is returned when attempting to delete an agent that is still connected.
+// Only disconnected agents can be deleted. It aliases the domain sentinel (the guard is
+// enforced in the domain layer) so the HTTP layer can match it without importing the domain.
+var ErrAgentConnected = agentport.ErrAgentConnected
+
+// ErrAgentNamespaceMismatch is returned when an agent exists but does not belong to the
+// requested namespace. From that namespace's perspective the agent does not exist, so
+// callers should map this to a 404.
+var ErrAgentNamespaceMismatch = errors.New("agent does not belong to the specified namespace")
 
 // OpAMPUsecase is a use case that handles OpAMP protocol operations.
 // Please see [github.com/open-telemetry/opamp-go/server/types/ConnectionCallbacks].
@@ -63,6 +75,7 @@ type AgentManageUsecase interface {
 		options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
 	UpdateAgent(ctx context.Context, namespace string, instanceUID uuid.UUID,
 		agent *v1.Agent) (*v1.Agent, error)
+	DeleteAgent(ctx context.Context, namespace string, instanceUID uuid.UUID) error
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.

@@ -20,14 +20,17 @@ import {
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
   RestartAlt as RestartIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import JsonBlock from '@/components/JsonBlock';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { agentDeleteConfirmMessage, deleteAgent } from '@/lib/agents';
 import { useApi } from '@/lib/swr';
 import type { Agent } from '@/lib/types';
 import AgentEditDialog from './AgentEditDialog';
@@ -64,6 +67,7 @@ function AgentDetailInner() {
   const [restartBusy, setRestartBusy] = useState(false);
   const [actionHandled, setActionHandled] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const {
     data: agent,
@@ -103,6 +107,12 @@ function AgentDetailInner() {
       setRestartBusy(false);
     }
   }, [agent, namespace, params.id, mutate]);
+
+  const onDeleteAgent = useCallback(async () => {
+    await deleteAgent(namespace, params.id);
+    setDeleteOpen(false);
+    router.push('/agents');
+  }, [namespace, params.id, router]);
 
   // Honor ?action= once after the agent loads.
   useEffect(() => {
@@ -158,6 +168,11 @@ function AgentDetailInner() {
             <Button startIcon={<RestartIcon />} onClick={requestRestart} disabled={restartBusy}>
               Request restart
             </Button>
+            {!agent.status.connected && (
+              <Button startIcon={<DeleteIcon />} color="error" onClick={() => setDeleteOpen(true)}>
+                Delete
+              </Button>
+            )}
             <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditOpen(true)}>
               Edit spec
             </Button>
@@ -296,6 +311,16 @@ function AgentDetailInner() {
           void mutate(saved, { revalidate: false });
           setEditOpen(false);
         }}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete agent"
+        message={agentDeleteConfirmMessage(agent.metadata.instanceUid)}
+        confirmLabel="Delete"
+        destructive
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDeleteAgent}
       />
     </Box>
   );

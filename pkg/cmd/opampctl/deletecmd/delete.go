@@ -5,6 +5,7 @@ package deletecmd
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agent"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentpackage"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/agentremoteconfig"
@@ -29,6 +30,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		Short: "delete",
 	}
 
+	cmd.AddCommand(agent.NewCommand(agent.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
 	cmd.AddCommand(agentgroup.NewCommand(agentgroup.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))

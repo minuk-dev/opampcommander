@@ -203,6 +203,28 @@ func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *
 	return nil
 }
 
+// deleteOne permanently removes the document identified by key. It returns
+// port.ErrResourceNotExist when no matching document is found.
+//
+// WARNING: this is a HARD delete — it issues a real DeleteOne and does NOT apply
+// the soft-delete filter (excludeDeletedFilter) that get/list use. Most resources
+// in this codebase soft-delete by stamping metadata.deletedAt and rely on the
+// tombstone surviving (audit, IncludeDeleted reads, login flow). Only use this for
+// resource types that have no deletedAt field / no soft-delete semantics (today:
+// agents). Wiring it for a soft-deleted resource will silently purge tombstones.
+func (a *commonEntityAdapter[Entity, KeyType]) deleteOne(ctx context.Context, key KeyType) error {
+	result, err := a.collection.DeleteOne(ctx, a.filterByKey(key))
+	if err != nil {
+		return fmt.Errorf("failed to delete resource from mongodb: %w", err)
+	}
+
+	if result.DeletedCount == 0 {
+		return port.ErrResourceNotExist
+	}
+
+	return nil
+}
+
 func (a *commonEntityAdapter[Entity, KeyType]) listWithContinueTokenAndLimit(
 	ctx context.Context,
 	continueTokenObjectID bson.ObjectID,

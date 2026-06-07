@@ -15,6 +15,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent/usecasemock"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -309,6 +310,143 @@ func TestAgentControllerGetAgent(t *testing.T) {
 		// then
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+}
+
+func TestAgentControllerDeleteAgent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Delete Agent - happycase returns 204", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+
+		agentUsecase.EXPECT().
+			DeleteAgent(mock.Anything, "default", mock.Anything).
+			Return(nil)
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodDelete,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusNoContent, recorder.Code)
+		assert.Empty(t, recorder.Body.String())
+	})
+
+	t.Run("Delete Agent - connected agent returns 409", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+
+		agentUsecase.EXPECT().
+			DeleteAgent(mock.Anything, "default", mock.Anything).
+			Return(applicationport.ErrAgentConnected)
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodDelete,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusConflict, recorder.Code)
+
+		body := recorder.Body.String()
+		assert.Contains(t, body, "Conflict")
+	})
+
+	t.Run("Delete Agent - namespace mismatch returns 404", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+
+		agentUsecase.EXPECT().
+			DeleteAgent(mock.Anything, "default", mock.Anything).
+			Return(applicationport.ErrAgentNamespaceMismatch)
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodDelete,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
+	})
+
+	t.Run("Delete Agent - not found returns 404", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given
+		instanceUID := uuid.New()
+
+		agentUsecase.EXPECT().
+			DeleteAgent(mock.Anything, "default", mock.Anything).
+			Return(port.ErrResourceNotExist)
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodDelete,
+			"/api/v1/namespaces/default/agents/"+instanceUID.String(), nil,
+		)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
+	})
+
+	t.Run("Delete Agent - invalid uuid returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodDelete,
+			"/api/v1/namespaces/default/agents/not-a-uuid", nil,
+		)
+		require.NoError(t, err)
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 }
 

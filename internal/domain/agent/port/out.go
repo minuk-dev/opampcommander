@@ -19,6 +19,8 @@ type AgentPersistencePort interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error)
 	// PutAgent saves or updates an agent.
 	PutAgent(ctx context.Context, agent *agentmodel.Agent) error
+	// DeleteAgent permanently removes an agent by its instance UID.
+	DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error
 	// ListAgents retrieves a list of agents filtered by namespace with pagination options.
 	ListAgents(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)

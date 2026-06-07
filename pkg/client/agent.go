@@ -10,15 +10,22 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
+// agentByIDURL is the single source of truth for the per-agent path. The
+// Get/Update/Delete URL constants below alias it so a route rename only happens
+// in one place, while the exported names stay stable for client consumers.
+const agentByIDURL = "/api/v1/namespaces/{namespace}/agents/{id}"
+
 const (
 	// ListAgentURL is the path to list all agents in a namespace.
 	ListAgentURL = "/api/v1/namespaces/{namespace}/agents"
 	// SearchAgentURL is the path to search agents in a namespace.
 	SearchAgentURL = "/api/v1/namespaces/{namespace}/agents/search"
 	// GetAgentURL is the path to get an agent by ID in a namespace.
-	GetAgentURL = "/api/v1/namespaces/{namespace}/agents/{id}"
+	GetAgentURL = agentByIDURL
 	// UpdateAgentURL is the path to update an agent in a namespace.
-	UpdateAgentURL = "/api/v1/namespaces/{namespace}/agents/{id}"
+	UpdateAgentURL = agentByIDURL
+	// DeleteAgentURL is the path to delete an agent by ID in a namespace.
+	DeleteAgentURL = agentByIDURL
 )
 
 // AgentService provides methods to interact with agents.
@@ -126,6 +133,32 @@ func (s *AgentService) SearchAgents(
 	}
 
 	return &result, nil
+}
+
+// DeleteAgent deletes a disconnected agent by its namespace and ID.
+// The server rejects deletion of connected agents with a 409 Conflict.
+func (s *AgentService) DeleteAgent(
+	ctx context.Context,
+	namespace string,
+	id uuid.UUID,
+) error {
+	res, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("namespace", namespace).
+		SetPathParam("id", id.String()).
+		Delete(DeleteAgentURL)
+	if err != nil {
+		return fmt.Errorf("failed to delete agent: %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("failed to delete agent: %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return nil
 }
 
 // SetNewInstanceUIDRequest is a struct that represents the request to set a new instance UID for the agent.
