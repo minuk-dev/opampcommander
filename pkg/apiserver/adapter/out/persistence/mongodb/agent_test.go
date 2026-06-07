@@ -1,0 +1,1288 @@
+package mongodb_test
+
+import (
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/testcontainers/testcontainers-go"
+	mongoTestContainer "github.com/testcontainers/testcontainers-go/modules/mongodb"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/out/persistence/mongodb"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
+)
+
+const (
+	// Use 4.4.10 because the test environment is raspberry pi (arm64)
+	// but higher version does not support this hardware architecture.
+	testMongoDBImage = "mongo:4.4.10"
+)
+
+func TestAgentMongoAdapter_GetAgent(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(
+		ctx,
+		testMongoDBImage,
+	)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Disconnect(ctx)
+		require.NoError(t, err)
+	})
+
+	database := client.Database("testdb")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	t.Run("Happy case", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+		// given
+		agent := agentmodel.NewAgent(instanceUID)
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when
+		got, err := agentRepository.GetAgent(ctx, agent.Metadata.InstanceUID)
+
+		// then
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		assert.Equal(t, agent.Metadata.InstanceUID, got.Metadata.InstanceUID)
+	})
+
+	t.Run("Agent not found", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// when
+		got, err := agentRepository.GetAgent(ctx, instanceUID)
+
+		// then
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		assert.Nil(t, got)
+	})
+}
+
+func TestAgentMongoAdapter_ListAgents(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("Empty list when no agents exist", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_empty")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// when
+		listResponse, err := agentRepository.ListAgents(ctx, "default", nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Single agent in list", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_single")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		instanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID)
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when
+		listResponse, err := agentRepository.ListAgents(ctx, "default", nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, instanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+
+	t.Run("Multiple agents in list", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_multiple")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create multiple agents
+		agents := make([]*agentmodel.Agent, 3)
+
+		for idx := range 3 {
+			instanceUID := uuid.New()
+			agent := agentmodel.NewAgent(instanceUID)
+			agents[idx] = agent
+			err = agentRepository.PutAgent(ctx, agent)
+			require.NoError(t, err)
+		}
+
+		// when
+		listResponse, err := agentRepository.ListAgents(ctx, "default", nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 3)
+
+		// Check that all our agents are in the list
+		foundUIDs := make(map[uuid.UUID]bool)
+		for _, item := range listResponse.Items {
+			foundUIDs[item.Metadata.InstanceUID] = true
+		}
+
+		for _, agent := range agents {
+			assert.True(t, foundUIDs[agent.Metadata.InstanceUID])
+		}
+	})
+
+	t.Run("List with pagination options", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_pagination")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create 5 agents
+		for range 5 {
+			instanceUID := uuid.New()
+			agent := agentmodel.NewAgent(instanceUID)
+			err = agentRepository.PutAgent(ctx, agent)
+			require.NoError(t, err)
+		}
+
+		// when - list with limit of 3
+		listOptions := &model.ListOptions{
+			Limit:    3,
+			Continue: "",
+		}
+		listResponse, err := agentRepository.ListAgents(ctx, "default", listOptions)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.LessOrEqual(t, len(listResponse.Items), 3)
+
+		// All returned agents should have valid UUIDs
+		for _, item := range listResponse.Items {
+			assert.NotEqual(t, uuid.Nil, item.Metadata.InstanceUID)
+		}
+	})
+}
+
+func TestAgentMongoAdapter_PutAgent(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("Happy case", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		instanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID)
+
+		// when
+		err = agentRepository.PutAgent(ctx, agent)
+
+		// then
+		require.NoError(t, err)
+
+		// Verify agent was saved
+		got, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, instanceUID, got.Metadata.InstanceUID)
+	})
+}
+
+func TestAgentMongoAdapter_DeleteAgent(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("deletes an existing agent", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		instanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID)
+		require.NoError(t, agentRepository.PutAgent(ctx, agent))
+
+		// when
+		err = agentRepository.DeleteAgent(ctx, instanceUID)
+
+		// then
+		require.NoError(t, err)
+
+		_, err = agentRepository.GetAgent(ctx, instanceUID)
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
+	})
+
+	t.Run("returns ErrResourceNotExist for a missing agent", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// when
+		err = agentRepository.DeleteAgent(ctx, uuid.New())
+
+		// then
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
+	})
+}
+
+func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(
+		ctx,
+		testMongoDBImage,
+	)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Disconnect(ctx)
+		require.NoError(t, err)
+	})
+
+	database := client.Database("testdb")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	instanceUID := uuid.New()
+	// when
+	originalAgent := agentmodel.NewAgent(instanceUID)
+	originalAgent.Status.EffectiveConfig = agentmodel.AgentEffectiveConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
+			ConfigMap: map[string]agentmodel.AgentConfigFile{
+				"config.yaml": {
+					Body:        []byte("key: value"),
+					ContentType: "application/yaml",
+				},
+			},
+		},
+	}
+	err = agentRepository.PutAgent(ctx, originalAgent)
+	require.NoError(t, err)
+
+	loadedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// then
+	assert.Equal(t, originalAgent.Metadata.InstanceUID, loadedAgent.Metadata.InstanceUID)
+	assert.Equal(t,
+		originalAgent.Status.EffectiveConfig.ConfigMap.ConfigMap,
+		loadedAgent.Status.EffectiveConfig.ConfigMap.ConfigMap,
+	)
+}
+
+//nolint:maintidx // comprehensive integration test with multiple scenarios
+func TestAgentMongoAdapter_ListAgentsBySelector(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("Empty list when no agents match selector", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_empty")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create an agent with different attributes
+		instanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID, agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "other-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "windows",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - search for non-existent selector
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Find agents with matching identifying attributes", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_identifying")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create agents with matching identifying attributes
+		matchingAgent1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent1)
+		require.NoError(t, err)
+
+		matchingAgent2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "darwin",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent2)
+		require.NoError(t, err)
+
+		// Create agent with different identifying attributes
+		nonMatchingAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "other-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, nonMatchingAgent)
+		require.NoError(t, err)
+
+		// when
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+
+		foundUIDs := make(map[uuid.UUID]bool)
+		for _, item := range listResponse.Items {
+			foundUIDs[item.Metadata.InstanceUID] = true
+		}
+
+		assert.True(t, foundUIDs[matchingAgent1.Metadata.InstanceUID])
+		assert.True(t, foundUIDs[matchingAgent2.Metadata.InstanceUID])
+		assert.False(t, foundUIDs[nonMatchingAgent.Metadata.InstanceUID])
+	})
+
+	t.Run("Find agents with matching non-identifying attributes", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_non_identifying")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create agents with matching non-identifying attributes
+		matchingAgent1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-a",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent1)
+		require.NoError(t, err)
+
+		matchingAgent2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-b",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent2)
+		require.NoError(t, err)
+
+		// Create agent with different non-identifying attributes
+		nonMatchingAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "service-c",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "windows",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, nonMatchingAgent)
+		require.NoError(t, err)
+
+		// when
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+
+		foundUIDs := make(map[uuid.UUID]bool)
+		for _, item := range listResponse.Items {
+			foundUIDs[item.Metadata.InstanceUID] = true
+		}
+
+		assert.True(t, foundUIDs[matchingAgent1.Metadata.InstanceUID])
+		assert.True(t, foundUIDs[matchingAgent2.Metadata.InstanceUID])
+		assert.False(t, foundUIDs[nonMatchingAgent.Metadata.InstanceUID])
+	})
+
+	t.Run("Find agents with matching both identifying and non-identifying attributes", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_both")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create agent that matches both attributes
+		matchingAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "test-service",
+				"service.namespace": "production",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "linux",
+				"host.name": "server-01",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, matchingAgent)
+		require.NoError(t, err)
+
+		// Create agent that only matches identifying attributes
+		partialMatch1 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "test-service",
+				"service.namespace": "production",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "windows",
+				"host.name": "server-02",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, partialMatch1)
+		require.NoError(t, err)
+
+		// Create agent that only matches non-identifying attributes
+		partialMatch2 := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "other-service",
+				"service.namespace": "staging",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "linux",
+				"host.name": "server-01",
+			},
+		}))
+		err = agentRepository.PutAgent(ctx, partialMatch2)
+		require.NoError(t, err)
+
+		// when
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "test-service",
+				"service.namespace": "production",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type":   "linux",
+				"host.name": "server-01",
+			},
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, nil)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, matchingAgent.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+
+	t.Run("List with pagination options", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_pagination")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// Create 5 agents with same selector
+		for range 5 {
+			agent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+				IdentifyingAttributes: map[string]string{
+					"service.name": "test-service",
+				},
+				NonIdentifyingAttributes: map[string]string{
+					"os.type": "linux",
+				},
+			}))
+			err = agentRepository.PutAgent(ctx, agent)
+			require.NoError(t, err)
+		}
+
+		// when - list with limit of 3
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes: map[string]string{
+				"service.name": "test-service",
+			},
+			NonIdentifyingAttributes: map[string]string{
+				"os.type": "linux",
+			},
+		}
+		listOptions := &model.ListOptions{
+			Limit:    3,
+			Continue: "",
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, listOptions)
+
+		// then
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.LessOrEqual(t, len(listResponse.Items), 3)
+		assert.Equal(t, int64(2), listResponse.RemainingItemCount)
+
+		// All returned agents should have valid UUIDs and match the selector
+		for _, item := range listResponse.Items {
+			assert.NotEqual(t, uuid.Nil, item.Metadata.InstanceUID)
+			assert.Equal(t, "test-service", item.Metadata.Description.IdentifyingAttributes["service.name"])
+			assert.Equal(t, "linux", item.Metadata.Description.NonIdentifyingAttributes["os.type"])
+		}
+	})
+
+	t.Run("Invalid continue token", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector_invalid_token")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// when
+		selector := agentmodel.AgentSelector{
+			IdentifyingAttributes:    map[string]string{},
+			NonIdentifyingAttributes: map[string]string{},
+		}
+		listOptions := &model.ListOptions{
+			Limit:    10,
+			Continue: "invalid-token",
+		}
+		listResponse, err := agentRepository.ListAgentsBySelector(ctx, selector, listOptions)
+
+		// then
+		require.Error(t, err)
+		assert.Nil(t, listResponse)
+		assert.Contains(t, err.Error(), "invalid continue token")
+	})
+}
+
+func TestAgentMongoAdapter_NewInstanceUID(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+
+	t.Run("Agent with NewInstanceUID", func(t *testing.T) {
+		t.Parallel()
+		base := testutil.NewBase(t)
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_newinstanceuid")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given
+		instanceUID := uuid.New()
+		newInstanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID)
+		agent.Spec.NewInstanceUID = newInstanceUID
+
+		// when - Save agent
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.NotNil(t, retrievedAgent)
+		assert.Equal(t, newInstanceUID, retrievedAgent.Spec.NewInstanceUID)
+		assert.True(t, retrievedAgent.HasNewInstanceUID())
+		assert.Equal(t, newInstanceUID[:], retrievedAgent.NewInstanceUID())
+	})
+
+	t.Run("Agent without NewInstanceUID", func(t *testing.T) {
+		t.Parallel()
+		base := testutil.NewBase(t)
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_nonewinstanceuid")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given
+		instanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID)
+		// NewInstanceUID is not set (default nil/empty)
+
+		// when - Save agent
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.NotNil(t, retrievedAgent)
+		assert.Equal(t, uuid.Nil, retrievedAgent.Spec.NewInstanceUID)
+		assert.False(t, retrievedAgent.HasNewInstanceUID())
+		assert.Nil(t, retrievedAgent.NewInstanceUID())
+	})
+}
+
+func TestAgentMongoAdapter_SequenceNum(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(
+		ctx,
+		testMongoDBImage,
+	)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Disconnect(ctx)
+		require.NoError(t, err)
+	})
+
+	database := client.Database("testdb_sequencenum")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	t.Run("Agent with SequenceNum is persisted and retrieved", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent and set sequence number
+		agent := agentmodel.NewAgent(instanceUID)
+		server := &agentmodel.Server{
+			ID: "test-server",
+		}
+		agent.RecordLastReported(server, time.Now(), 42)
+
+		// when - Save to database
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify sequence number is preserved
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedAgent)
+		assert.Equal(t, uint64(42), retrievedAgent.Status.SequenceNum)
+		assert.Equal(t, server.ID, retrievedAgent.Status.LastReportedTo)
+	})
+
+	t.Run("Agent with zero SequenceNum", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent with default sequence number (0)
+		agent := agentmodel.NewAgent(instanceUID)
+		assert.Equal(t, uint64(0), agent.Status.SequenceNum)
+
+		// when - Save to database
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify sequence number is 0
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedAgent)
+		assert.Equal(t, uint64(0), retrievedAgent.Status.SequenceNum)
+	})
+
+	t.Run("Agent with large SequenceNum", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent with large sequence number
+		agent := agentmodel.NewAgent(instanceUID)
+		largeSeqNum := uint64(9223372036854775807) // Max int64 (safe for MongoDB)
+		server := &agentmodel.Server{
+			ID: "test-server",
+		}
+		agent.RecordLastReported(server, time.Now(), largeSeqNum)
+
+		// when - Save to database
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// then - Retrieve and verify large sequence number is preserved
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		require.NotNil(t, retrievedAgent)
+		assert.Equal(t, largeSeqNum, retrievedAgent.Status.SequenceNum)
+	})
+
+	t.Run("Update SequenceNum multiple times", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		instanceUID := uuid.New()
+
+		// given - Create agent
+		agent := agentmodel.NewAgent(instanceUID)
+		server := &agentmodel.Server{
+			ID: "test-server",
+		}
+
+		// First update
+		agent.RecordLastReported(server, time.Now(), 1)
+		err := agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		retrievedAgent, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(1), retrievedAgent.Status.SequenceNum)
+
+		// Second update
+		retrievedAgent.RecordLastReported(server, time.Now(), 2)
+		err = agentRepository.PutAgent(ctx, retrievedAgent)
+		require.NoError(t, err)
+
+		retrievedAgent2, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(2), retrievedAgent2.Status.SequenceNum)
+
+		// Third update
+		retrievedAgent2.RecordLastReported(server, time.Now(), 100)
+		err = agentRepository.PutAgent(ctx, retrievedAgent2)
+		require.NoError(t, err)
+
+		retrievedAgent3, err := agentRepository.GetAgent(ctx, instanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(100), retrievedAgent3.Status.SequenceNum)
+	})
+}
+
+func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("Search by instance UID prefix", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create agents with known UUIDs
+		agent1 := agentmodel.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
+		agent2 := agentmodel.NewAgent(uuid.MustParse("12345678-5678-5678-5678-567856785678"))
+		agent3 := agentmodel.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
+
+		err = agentRepository.PutAgent(ctx, agent1)
+		require.NoError(t, err)
+		err = agentRepository.PutAgent(ctx, agent2)
+		require.NoError(t, err)
+		err = agentRepository.PutAgent(ctx, agent3)
+		require.NoError(t, err)
+
+		// when - Search by prefix "12345678-1234"
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "12345678-1234", &model.ListOptions{})
+
+		// then - Should return only agent1
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, agent1.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+
+	t.Run("Search with no matches", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_no_match")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create an agent
+		agent := agentmodel.NewAgent(uuid.New())
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - Search for non-existent prefix
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "zzzzz", &model.ListOptions{})
+
+		// then - Should return empty list
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Search with pagination", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_pagination")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create multiple agents with same prefix
+		for i := range 5 {
+			agent := agentmodel.NewAgent(uuid.MustParse("aaaaaaaa-" + string(rune('0'+i)) + "000-1000-1000-100000000000"))
+			err = agentRepository.PutAgent(ctx, agent)
+			require.NoError(t, err)
+		}
+
+		// when - Search with limit
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "aaaa", &model.ListOptions{Limit: 2})
+
+		// then - Should return limited results
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 2)
+		assert.NotEmpty(t, listResponse.Continue)
+	})
+
+	t.Run("Case insensitive search", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_case")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create agent with lowercase UUID
+		agent := agentmodel.NewAgent(uuid.MustParse("abcdef01-2345-6789-abcd-ef0123456789"))
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - Search with uppercase
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "ABCD", &model.ListOptions{})
+
+		// then - Should find the agent
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Len(t, listResponse.Items, 1)
+		assert.Equal(t, agent.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+	})
+
+	t.Run("Empty query returns empty result", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_empty")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create an agent
+		agent := agentmodel.NewAgent(uuid.New())
+		err = agentRepository.PutAgent(ctx, agent)
+		require.NoError(t, err)
+
+		// when - Search with empty query
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "", &model.ListOptions{})
+
+		// then - Should return empty list
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items)
+	})
+
+	t.Run("Special regex characters are escaped", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_search_escape")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// given - Create agents
+		agent1 := agentmodel.NewAgent(uuid.MustParse("12345678-1234-1234-1234-123456789012"))
+		agent2 := agentmodel.NewAgent(uuid.MustParse("87654321-4321-4321-4321-210987654321"))
+		err = agentRepository.PutAgent(ctx, agent1)
+		require.NoError(t, err)
+		err = agentRepository.PutAgent(ctx, agent2)
+		require.NoError(t, err)
+
+		// when - Search with regex special characters (should be treated as literal)
+		listResponse, err := agentRepository.SearchAgents(ctx, "default", "1234.*", &model.ListOptions{})
+
+		// then - Should not match as regex pattern, should treat as literal string
+		require.NoError(t, err)
+		assert.NotNil(t, listResponse)
+		assert.Empty(t, listResponse.Items) // No agent has literal "1234.*" in UUID
+	})
+}

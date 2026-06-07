@@ -1,0 +1,318 @@
+// Package agent provides domain models for the agent
+package agent
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
+)
+
+// Controller is a struct that implements the agent controller.
+type Controller struct {
+	logger *slog.Logger
+
+	// usecases
+	agentUsecase ManageUsecase
+}
+
+// NewController creates a new instance of Controller.
+func NewController(
+	usecase ManageUsecase,
+	logger *slog.Logger,
+) *Controller {
+	controller := &Controller{
+		logger:       logger,
+		agentUsecase: usecase,
+	}
+
+	return controller
+}
+
+// RoutesInfo returns the routes information for the agent controller.
+func (c *Controller) RoutesInfo() gin.RoutesInfo {
+	return gin.RoutesInfo{
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/namespaces/:namespace/agents",
+			Handler:     "http.v1.agent.List",
+			HandlerFunc: c.List,
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/namespaces/:namespace/agents/search",
+			Handler:     "http.v1.agent.Search",
+			HandlerFunc: c.Search,
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Handler:     "http.v1.agent.Get",
+			HandlerFunc: c.Get,
+		},
+		{
+			Method:      http.MethodPut,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Handler:     "http.v1.agent.Update",
+			HandlerFunc: c.Update,
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Handler:     "http.v1.agent.Delete",
+			HandlerFunc: c.Delete,
+		},
+	}
+}
+
+// List retrieves a list of agents.
+//
+// @Summary  List Agents
+// @Tags agent
+// @Description Retrieve a list of agents in a namespace.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.ListResponse[v1.Agent]
+// @Param namespace path string true "Namespace"
+// @Param limit query int false "Maximum number of agents to return"
+// @Param continue query string false "Token to continue listing agents"
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/namespaces/{namespace}/agents [get].
+func (c *Controller) List(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &model.ListOptions{
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: false,
+	})
+	if err != nil {
+		c.logger.Error("failed to list agents", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of agents.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// Search searches agents by query string.
+//
+// @Summary  Search Agents
+// @Tags agent
+// @Description Search agents by instance UID query in a namespace.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.ListResponse[v1.Agent]
+// @Param namespace path string true "Namespace"
+// @Param q query string true "Search query for instance UID"
+// @Param limit query int false "Maximum number of agents to return"
+// @Param continue query string false "Token to continue listing agents"
+// @Failure 400 {object} ErrorModel
+// @Failure 500 {object} ErrorModel
+// @Router /api/v1/namespaces/{namespace}/agents/search [get].
+func (c *Controller) Search(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	query := ctx.Query("q")
+	if query == "" {
+		ginutil.HandleValidationError(ctx, "q", "", ginutil.ErrRequiredParam, false)
+
+		return
+	}
+
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), namespace, query, &model.ListOptions{
+		Limit:          limit,
+		Continue:       continueToken,
+		IncludeDeleted: false,
+	})
+	if err != nil {
+		c.logger.Error("failed to search agents", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while searching agents.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// Get retrieves an agent by its instance UID.
+//
+// @Summary  Get Agent
+// @Tags agent
+// @Description Retrieve an agent by its instance UID in a namespace.
+// @Accept  json
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  id path string true "Instance UID of the agent"
+// @Success  200 {object} Agent
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/namespaces/{namespace}/agents/{id} [get].
+func (c *Controller) Get(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), namespace, instanceUID)
+	if err != nil {
+		c.handleAgentError(ctx, err, "An error occurred while retrieving the agent.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, agent)
+}
+
+// Update updates an agent's metadata & spec.
+//
+// @Summary  Update Agent
+// @Tags agent
+// @Description Update an agent's metadata & spec in a namespace.
+// @Accept  json
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  id path string true "Instance UID of the agent"
+// @Param  agent body v1.Agent true "Agent update request"
+// @Success  200 {object} v1.Agent
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/namespaces/{namespace}/agents/{id} [put].
+func (c *Controller) Update(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	var req v1.Agent
+
+	err = ctx.ShouldBindJSON(&req)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, false)
+
+		return
+	}
+
+	updatedAgent, err := c.agentUsecase.UpdateAgent(ctx.Request.Context(), namespace, instanceUID, &req)
+	if err != nil {
+		c.handleAgentError(ctx, err, "An error occurred while updating the agent.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, updatedAgent)
+}
+
+// Delete permanently removes a disconnected agent.
+//
+// @Summary  Delete Agent
+// @Tags agent
+// @Description Permanently delete a disconnected agent by its instance UID in a namespace.
+// @Description Connected agents cannot be deleted and return 409 Conflict.
+// @Accept  json
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  id path string true "Instance UID of the agent"
+// @Success  204 "No Content"
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  409 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/namespaces/{namespace}/agents/{id} [delete].
+func (c *Controller) Delete(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	err = c.agentUsecase.DeleteAgent(ctx.Request.Context(), namespace, instanceUID)
+	if err != nil {
+		c.handleAgentError(ctx, err, "An error occurred while deleting the agent.")
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// handleAgentError maps agent management errors to HTTP responses, centralising the
+// status mapping shared by Get/Update/Delete:
+//   - ErrAgentNamespaceMismatch -> 404 (the agent exists, but not in this namespace)
+//   - ErrAgentConnected          -> 409 (a connected agent cannot be deleted)
+//   - everything else            -> delegated to ginutil.HandleDomainError (404/500)
+func (c *Controller) handleAgentError(ctx *gin.Context, err error, fallbackMessage string) {
+	switch {
+	case errors.Is(err, applicationport.ErrAgentNamespaceMismatch):
+		ginutil.ResourceNotFoundError(ctx, "agent", ctx.Param("id"))
+	case errors.Is(err, applicationport.ErrAgentConnected):
+		ginutil.ConflictError(ctx, err, "The agent is still connected and cannot be deleted.")
+	default:
+		c.logger.Error(fallbackMessage, "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, fallbackMessage)
+	}
+}

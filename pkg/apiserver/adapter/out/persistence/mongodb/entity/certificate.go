@@ -1,0 +1,121 @@
+package entity
+
+import (
+	"time"
+
+	"github.com/samber/lo"
+
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+)
+
+const (
+	// CertificateNamespaceFieldName is the field name for certificate namespace in MongoDB.
+	CertificateNamespaceFieldName = "metadata.namespace"
+	// CertificateNameFieldName is the field name for certificate name in MongoDB.
+	CertificateNameFieldName = "metadata.name"
+)
+
+// Certificate is the MongoDB entity for certificate.
+type Certificate struct {
+	Common `bson:",inline"`
+
+	Metadata CertificateMetadata `bson:"metadata"`
+	Spec     CertificateSpec     `bson:"spec"`
+	Status   CertificateStatus   `bson:"status"`
+}
+
+// CertificateMetadata represents the metadata of a certificate.
+type CertificateMetadata struct {
+	Name       string            `bson:"name"`
+	Namespace  string            `bson:"namespace"`
+	Attributes map[string]string `bson:"attributes,omitempty"`
+	CreatedAt  time.Time         `bson:"createdAt,omitempty"`
+	DeletedAt  time.Time         `bson:"deletedAt,omitempty"`
+}
+
+// CertificateSpec represents the specification of a certificate.
+type CertificateSpec struct {
+	Cert       []byte `bson:"cert,omitempty"`
+	PrivateKey []byte `bson:"privateKey,omitempty"`
+	CaCert     []byte `bson:"caCert,omitempty"`
+}
+
+// CertificateStatus represents the status of a certificate.
+type CertificateStatus struct {
+	Conditions []Condition `bson:"conditions,omitempty"`
+}
+
+// ToDomain converts the entity to domain model.
+func (c *Certificate) ToDomain() *agentmodel.Certificate {
+	return &agentmodel.Certificate{
+		Metadata: c.Metadata.toDomain(),
+		Spec:     c.Spec.toDomain(),
+		Status:   c.Status.toDomain(),
+	}
+}
+
+func (m *CertificateMetadata) toDomain() agentmodel.CertificateMetadata {
+	return agentmodel.CertificateMetadata{
+		Name:       m.Name,
+		Namespace:  m.Namespace,
+		Attributes: m.Attributes,
+		CreatedAt:  m.CreatedAt,
+		DeletedAt:  m.DeletedAt,
+	}
+}
+
+func (s *CertificateSpec) toDomain() agentmodel.CertificateSpec {
+	return agentmodel.CertificateSpec{
+		Cert:       s.Cert,
+		PrivateKey: s.PrivateKey,
+		CaCert:     s.CaCert,
+	}
+}
+
+func (s *CertificateStatus) toDomain() agentmodel.CertificateStatus {
+	return agentmodel.CertificateStatus{
+		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
+			return c.ToDomain()
+		}),
+	}
+}
+
+// CertificateFromDomain converts domain model to entity.
+func CertificateFromDomain(domain *agentmodel.Certificate) *Certificate {
+	return &Certificate{
+		Common: Common{
+			Version: VersionV1,
+			ID:      nil,
+		},
+		Metadata: certificateMetadataFromDomain(domain.Metadata),
+		Spec:     certificateSpecFromDomain(domain.Spec),
+		Status:   certificateStatusFromDomain(domain.Status),
+	}
+}
+
+func certificateMetadataFromDomain(metadata agentmodel.CertificateMetadata) CertificateMetadata {
+	return CertificateMetadata{
+		Name:       metadata.Name,
+		Namespace:  metadata.Namespace,
+		Attributes: metadata.Attributes,
+		CreatedAt:  metadata.CreatedAt,
+		DeletedAt:  metadata.DeletedAt,
+	}
+}
+
+func certificateSpecFromDomain(s agentmodel.CertificateSpec) CertificateSpec {
+	return CertificateSpec{
+		Cert:       s.Cert,
+		PrivateKey: s.PrivateKey,
+		CaCert:     s.CaCert,
+	}
+}
+
+func certificateStatusFromDomain(s agentmodel.CertificateStatus) CertificateStatus {
+	return CertificateStatus{
+		Conditions: lo.Map(s.Conditions, func(c model.Condition, _ int) Condition {
+			return NewConditionFromDomain(c)
+		}),
+	}
+}
