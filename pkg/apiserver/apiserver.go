@@ -1,100 +1,26 @@
-// Package apiserver provides app logic for the opampcommander apiserver.
+// Package apiserver is the public entry point for the opampcommander apiserver.
+//
+// It is a thin, FX-free facade over the composition root in
+// github.com/minuk-dev/opampcommander/pkg/apiserver/internal/app. Keeping FX out
+// of this package (and every other public package) is enforced by depguard.
 package apiserver
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"time"
-
-	"go.uber.org/fx"
-
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	adaptermodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/adapter"
-	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/application"
-	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/domain"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper/management"
-	infrastructuremodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/infrastructure"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/app"
 )
 
-const (
-	// DefaultServerStartTimeout = 30 * time.Second.
-	DefaultServerStartTimeout = 30 * time.Second
+// Server represents the apiserver application and its lifecycle.
+type Server = app.Server
 
-	// DefaultServerStopTimeout is the default timeout for stopping the server.
-	DefaultServerStopTimeout = 30 * time.Second
-)
-
-// Server is a struct that represents the server application.
-// It embeds the fx.App struct from the Uber Fx framework.
-type Server struct {
-	*fx.App
-
-	settings config.ServerSettings
-}
-
-// New creates a new instance of the Server struct.
+// New creates a new apiserver Server from the given settings.
 func New(settings config.ServerSettings) *Server {
-	app := fx.New(
-		// Hexagonal architecture layers
-		adaptermodule.NewAdapterModules(), // Adapters: HTTP, DB, messaging, scheduler
-		infrastructuremodule.New(),        // Bootstrap: Casbin RBAC + default seed hooks
-		applicationmodule.New(),           // Application services
-		domainmodule.New(),                // Domain services
-		NewConfigModule(&settings),        // Configuration
-
-		// Base utilities
-		helper.NewModule(),
-		management.NewModule(),
-		// Initialize HTTP server
-		fx.Invoke(func(*http.Server) {}),
-	)
-
-	server := &Server{
-		App:      app,
-		settings: settings,
-	}
-
-	return server
+	return app.New(settings)
 }
 
-// Run starts the server and blocks until the context is done.
-func (s *Server) Run(ctx context.Context) error {
-	startCtx, startCancel := context.WithTimeout(ctx, DefaultServerStartTimeout)
-	defer startCancel()
-
-	err := s.Start(startCtx)
-	if err != nil {
-		return fmt.Errorf("failed to start the server: %w", err)
-	}
-
-	<-ctx.Done()
-
-	// To gracefully shutdown, it needs stopCtx.
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), DefaultServerStopTimeout)
-	defer stopCancel()
-
-	err = s.Stop(stopCtx) //nolint:contextcheck
-	if err != nil {
-		return fmt.Errorf("failed to stop the server: %w", err)
-	}
-
-	return nil
-}
-
-// NewConfigModule creates a new module for configuration.
-func NewConfigModule(settings *config.ServerSettings) fx.Option {
-	return fx.Module(
-		"config",
-		// config
-		fx.Provide(helper.ValueFunc(settings)),
-		fx.Provide(helper.PointerFunc(settings.DatabaseSettings)),
-		fx.Provide(helper.PointerFunc(settings.AuthSettings)),
-		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
-		fx.Provide(helper.PointerFunc(settings.ManagementSettings.ObservabilitySettings)),
-		fx.Provide(helper.PointerFunc(settings.EventSettings)),
-		// serverID provider with explicit type
-		fx.Provide(func() config.ServerID { return settings.ServerID }),
-	)
+// VisualizeError renders an FX dependency-graph error into a human-readable form,
+// so callers can pretty-print startup failures without importing FX directly.
+func VisualizeError(err error) (string, error) {
+	//nolint:wrapcheck // thin pass-through to the composition root's VisualizeError
+	return app.VisualizeError(err)
 }

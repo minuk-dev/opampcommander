@@ -12,21 +12,21 @@ require-template-schema-exists: true
 template: testify
 template-schema: '{{.Template}}.schema.json'
 packages:
-  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent:
     config:
       all: true
-  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup:
     config:
       all: true
-  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentpackage:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentpackage:
     config:
       all: true
-  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/certificate:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate:
     config:
       all: true
-  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rolebinding:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding:
     config:
       all: true
-  github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user:
     config:
       all: true

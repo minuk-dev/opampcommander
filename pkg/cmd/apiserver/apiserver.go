@@ -12,10 +12,12 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
 // CommandOption contains the options for the apiserver command.
@@ -274,7 +276,7 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address:  opt.Address,
-		ServerID: appconfig.ServerID(opt.ServerID),
+		ServerID: agentmodel.ServerID(opt.ServerID),
 		DatabaseSettings: appconfig.DatabaseSettings{
 			Type:           appconfig.DatabaseType(opt.Database.Type),
 			Endpoints:      opt.Database.Endpoints,
@@ -282,25 +284,25 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			DatabaseName:   opt.Database.DatabaseName,
 			DDLAuto:        opt.Database.DDLAuto,
 		},
-		AuthSettings: appconfig.AuthSettings{
-			AdminSettings: appconfig.AdminSettings{
+		Security: security.Config{
+			AdminSettings: security.AdminSettings{
 				Username: opt.Auth.Admin.Username,
 				Password: opt.Auth.Admin.Password,
 				Email:    opt.Auth.Admin.Email,
 			},
-			JWTSettings: appconfig.JWTSettings{
+			JWTSettings: security.JWTSettings{
 				Issuer:            opt.Auth.JWT.Issuer,
 				Expiration:        opt.Auth.JWT.Expire,
 				RefreshExpiration: opt.Auth.JWT.RefreshExpire,
 				SigningKey:        opt.Auth.JWT.Secret,
 				Audience:          opt.Auth.JWT.Audience,
 			},
-			OAuthSettings: &appconfig.OAuthSettings{
+			OAuthSettings: &security.OAuthSettings{
 				ClientID:             opt.Auth.OAuth2.ClientID,
 				Secret:               opt.Auth.OAuth2.ClientSecret,
 				CallbackURL:          opt.Auth.OAuth2.RedirectURI,
 				AllowedRedirectHosts: opt.Auth.OAuth2.AllowedRedirectHosts,
-				JWTSettings: appconfig.JWTSettings{
+				JWTSettings: security.JWTSettings{
 					Issuer:            opt.Auth.OAuth2.State.JWT.Issuer,
 					Expiration:        opt.Auth.OAuth2.State.JWT.Expire,
 					RefreshExpiration: 0,
@@ -318,31 +320,31 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 		},
 		ManagementSettings: appconfig.ManagementSettings{
 			Address: opt.Management.Address,
-			ObservabilitySettings: appconfig.ObservabilitySettings{
+			Observability: observability.Config{
 				ServiceName: opt.ServiceName,
-				Metric: appconfig.MetricSettings{
+				Metric: observability.MetricSettings{
 					Enabled: opt.Management.Metric.Enabled,
-					Type:    appconfig.MetricType(opt.Management.Metric.Type),
-					MetricSettingsForPrometheus: appconfig.MetricSettingsForPrometheus{
+					Type:    observability.MetricType(opt.Management.Metric.Type),
+					MetricSettingsForPrometheus: observability.MetricSettingsForPrometheus{
 						Path: opt.Management.Metric.Prometheus.Path,
 					},
-					MetricSettingsForOpenTelemetry: appconfig.MetricsSettingsForOpenTelemetry{
+					MetricSettingsForOpenTelemetry: observability.MetricsSettingsForOpenTelemetry{
 						Endpoint: opt.Management.Metric.OpenTelemetry.Endpoint,
 					},
 				},
-				Log: appconfig.LogSettings{
+				Log: observability.LogSettings{
 					Enabled: opt.Management.Log.Enabled,
 					Level:   toSlogLevel(opt.Management.Log.Level),
-					Format:  appconfig.LogFormat(opt.Management.Log.Format),
+					Format:  observability.LogFormat(opt.Management.Log.Format),
 				},
-				Trace: appconfig.TraceSettings{
+				Trace: observability.TraceSettings{
 					Enabled:              opt.Management.Trace.Enabled,
-					Protocol:             appconfig.TraceProtocol(opt.Management.Trace.Protocol),
+					Protocol:             observability.TraceProtocol(opt.Management.Trace.Protocol),
 					Compression:          opt.Management.Trace.Compression,
-					CompressionAlgorithm: appconfig.TraceCompressionAlgorithm(opt.Management.Trace.CompressionAlgorithm),
+					CompressionAlgorithm: observability.TraceCompressionAlgorithm(opt.Management.Trace.CompressionAlgorithm),
 					Insecure:             opt.Management.Trace.Insecure,
 					Headers:              opt.Management.Trace.Headers,
-					Sampler:              appconfig.TraceSampler(opt.Management.Trace.Sampler),
+					Sampler:              observability.TraceSampler(opt.Management.Trace.Sampler),
 					SamplerRatio:         opt.Management.Trace.SamplerRatio,
 					Endpoint:             opt.Management.Trace.Endpoint,
 				},
@@ -361,7 +363,7 @@ func (opt *CommandOption) Run(cmd *cobra.Command, _ []string) error {
 
 	err := opt.app.Run(ctx)
 	if err != nil {
-		visualizedStr, visualizedErr := fx.VisualizeError(err)
+		visualizedStr, visualizedErr := apiserver.VisualizeError(err)
 		if visualizedErr != nil {
 			return fmt.Errorf("failed to visualize error of the server: %w", err)
 		}

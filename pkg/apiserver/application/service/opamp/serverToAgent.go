@@ -1,0 +1,160 @@
+package opamp
+
+import (
+	"context"
+	"errors"
+
+	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/samber/lo"
+
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
+)
+
+var (
+	// ErrNotSupportedOperation is returned when the operation is not supported by the agent.
+	ErrNotSupportedOperation = errors.New("operation not supported by the agent")
+)
+
+// fetchServerToAgent creates a ServerToAgent message from the agent.
+//
+//nolint:funlen // Complex message building requires multiple fields
+func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *agentmodel.Agent) *protobufs.ServerToAgent {
+	var flags uint64
+
+	instanceUID := agentModel.Metadata.InstanceUID
+
+	var (
+		remoteConfig *protobufs.AgentRemoteConfig
+	)
+
+	if agentModel.HasRemoteConfig() {
+		// Build RemoteConfig from ConfigMap
+		configMap := make(map[string]*protobufs.AgentConfigFile)
+		for name, configFile := range agentModel.Spec.RemoteConfig.ConfigMap.ConfigMap {
+			configMap[name] = &protobufs.AgentConfigFile{
+				Body:        configFile.Body,
+				ContentType: configFile.ContentType,
+			}
+		}
+
+		hash, err := vo.NewHashFromAny(configMap)
+		if err != nil {
+			s.logger.Error("failed to compute hash for remote config", "instance_uid", instanceUID, "error", err)
+
+			remoteConfig = nil
+		} else {
+			remoteConfig = &protobufs.AgentRemoteConfig{
+				Config: &protobufs.AgentConfigMap{
+					ConfigMap: configMap,
+				},
+				ConfigHash: hash.Bytes(),
+			}
+		}
+	}
+
+	var agentIdentification *protobufs.AgentIdentification
+	if agentModel.HasNewInstanceUID() {
+		// Agent has a new InstanceUID, need to inform the agent
+		agentIdentification = &protobufs.AgentIdentification{
+			NewInstanceUid: agentModel.NewInstanceUID(),
+		}
+	}
+
+	var command *protobufs.ServerToAgentCommand
+	if agentModel.ShouldBeRestarted() {
+		command = &protobufs.ServerToAgentCommand{
+			Type: protobufs.CommandType_CommandType_Restart,
+		}
+	}
+
+	var packagesAvailable *protobufs.PackagesAvailable
+
+	if agentModel.HasNewPackages() {
+		agentPackages := lo.OmitByValues(
+			lo.SliceToMap(agentModel.Spec.PackagesAvailable.Packages,
+				func(pkgName string) (string, *protobufs.PackageAvailable) {
+					agentPackage, err := s.agentPackageUsecase.GetAgentPackage(
+						ctx, agentModel.Metadata.Namespace, pkgName, nil,
+					)
+					if err != nil {
+						s.logger.Error("failed to get agent package", "name", pkgName, "error", err)
+
+						return pkgName, nil
+					}
+
+					return pkgName, &protobufs.PackageAvailable{
+						//nolint:godox // Tracked in issue tracker
+						// TODO: Support different package types in the future
+						Type:    protobufs.PackageType_PackageType_TopLevel,
+						Version: agentPackage.Spec.Version,
+						File: &protobufs.DownloadableFile{
+							DownloadUrl: agentPackage.Spec.DownloadURL,
+							ContentHash: agentPackage.Spec.ContentHash,
+							Signature:   agentPackage.Spec.Signature,
+							Headers: &protobufs.Headers{
+								Headers: lo.MapToSlice(agentPackage.Spec.Headers, func(k, v string) *protobufs.Header {
+									return &protobufs.Header{
+										Key:   k,
+										Value: v,
+									}
+								}),
+							},
+						},
+						Hash: agentPackage.Spec.Hash,
+					}
+				}), nil)
+
+		hash, err := vo.NewHashFromAny(agentPackages)
+		if err != nil {
+			s.logger.Error("failed to compute hash for packages available", "instance_uid", instanceUID, "error", err)
+		} else {
+			packagesAvailable = &protobufs.PackagesAvailable{
+				Packages:        agentPackages,
+				AllPackagesHash: hash.Bytes(),
+			}
+		}
+	}
+
+	var capabilities int32
+
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsConnectionSettingsRequest)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersPackages)
+	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus)
+
+	var connectionSettings *protobufs.ConnectionSettingsOffers
+	if agentModel.Spec.ConnectionInfo.HasConnectionSettings() {
+		connectionSettings = connectionInfoToProtobuf(agentModel.Spec.ConnectionInfo)
+	}
+
+	return &protobufs.ServerToAgent{
+		InstanceUid:         instanceUID[:],
+		ErrorResponse:       nil,
+		RemoteConfig:        remoteConfig,
+		ConnectionSettings:  connectionSettings,
+		PackagesAvailable:   packagesAvailable,
+		Flags:               flags,
+		Capabilities:        uint64(capabilities), // safe: int32 to uint64
+		AgentIdentification: agentIdentification,
+		Command:             command,
+		CustomCapabilities:  nil,
+		CustomMessage:       nil,
+	}
+}
+
+// createFallbackServerToAgent creates a fallback ServerToAgent message.
+// This is used when the agent is not found or when there is an error in creating
+// the ServerToAgent message.
+func (s *Service) createFallbackServerToAgent(
+	instanceUID uuid.UUID,
+) *protobufs.ServerToAgent {
+	//exhaustruct:ignore
+	return &protobufs.ServerToAgent{
+		InstanceUid: instanceUID[:],
+	}
+}

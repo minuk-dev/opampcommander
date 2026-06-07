@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/internal/application/service/agent"
-	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
-	modelagent "github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
-	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/internal/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 func TestRestartAgentIntegration(t *testing.T) {

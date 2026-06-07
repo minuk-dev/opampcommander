@@ -45,11 +45,11 @@ linters:
         - Provider$ # Provider is commonly used
         - '.+/management\.HTTPHandler$'
         - '.+/trace\.Sampler$'
-        - "github.com/minuk-dev/opampcommander/internal/domain/port.WebSocketConnection"
-        - "github.com/minuk-dev/opampcommander/internal/domain/port.ServerEventSenderPort" # cannot handle without interface
-        - "github.com/minuk-dev/opampcommander/internal/domain/port.ServerEventReceiverPort" # cannot handle without interface
-        - "github.com/minuk-dev/opampcommander/internal/domain/agent/port.ServerEventSenderPort" # cannot handle without interface
-        - "github.com/minuk-dev/opampcommander/internal/domain/agent/port.ServerEventReceiverPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port.WebSocketConnection"
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port.ServerEventSenderPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port.ServerEventReceiverPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.ServerEventSenderPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.ServerEventReceiverPort" # cannot handle without interface
         - "k8s.io/utils/clock.Timer"
         - "github.com/minuk-dev/opampcommander/pkg/utils/clock.Timer"
         # test
@@ -116,12 +116,16 @@ linters:
           deny:
             - pkg: github.com/minuk-dev/opampcommander/pkg/testutil
               desc: Do not use testutil in production code
-        internal:
+        fx-composition-root:
+          # FX is the composition root's concern only. Public packages (and any
+          # code outside pkg/apiserver/internal) must stay FX-free so the wiring
+          # can be swapped without rippling into business logic.
           files:
-            - "internal/**"
+            - "!**/pkg/apiserver/internal/**"
+            - "!**/*_test.go"
           deny:
             - pkg: go.uber.org/fx
-              desc: Do not use fx in internal packages.
+              desc: Only pkg/apiserver/internal (the composition root) may import fx.
         test:
           files:
             - "**/*_test.go"

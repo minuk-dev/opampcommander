@@ -1,0 +1,114 @@
+// Package app is the apiserver composition root: it wires the FX modules and
+// owns the application lifecycle. It is internal because it is the only place
+// allowed to depend on Uber FX; the public github.com/.../pkg/apiserver package
+// is a thin, FX-free wrapper over it.
+package app
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+
+	"go.uber.org/fx"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	adaptermodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter"
+	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/application"
+	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/domain"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper/management"
+	infrastructuremodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/infrastructure"
+)
+
+const (
+	// DefaultServerStartTimeout = 30 * time.Second.
+	DefaultServerStartTimeout = 30 * time.Second
+
+	// DefaultServerStopTimeout is the default timeout for stopping the server.
+	DefaultServerStopTimeout = 30 * time.Second
+)
+
+// Server is a struct that represents the server application.
+// It embeds the fx.App struct from the Uber Fx framework.
+type Server struct {
+	*fx.App
+
+	settings config.ServerSettings
+}
+
+// New creates a new instance of the Server struct.
+func New(settings config.ServerSettings) *Server {
+	app := fx.New(
+		// Hexagonal architecture layers
+		adaptermodule.NewAdapterModules(), // Adapters: HTTP, DB, messaging, scheduler
+		infrastructuremodule.New(),        // Bootstrap: Casbin RBAC + default seed hooks
+		applicationmodule.New(),           // Application services
+		domainmodule.New(),                // Domain services
+		NewConfigModule(&settings),        // Configuration
+
+		// Base utilities
+		helper.NewModule(),
+		management.NewModule(),
+		// Initialize HTTP server
+		fx.Invoke(func(*http.Server) {}),
+	)
+
+	server := &Server{
+		App:      app,
+		settings: settings,
+	}
+
+	return server
+}
+
+// Run starts the server and blocks until the context is done.
+func (s *Server) Run(ctx context.Context) error {
+	startCtx, startCancel := context.WithTimeout(ctx, DefaultServerStartTimeout)
+	defer startCancel()
+
+	err := s.Start(startCtx)
+	if err != nil {
+		return fmt.Errorf("failed to start the server: %w", err)
+	}
+
+	<-ctx.Done()
+
+	// To gracefully shutdown, it needs stopCtx.
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), DefaultServerStopTimeout)
+	defer stopCancel()
+
+	err = s.Stop(stopCtx) //nolint:contextcheck
+	if err != nil {
+		return fmt.Errorf("failed to stop the server: %w", err)
+	}
+
+	return nil
+}
+
+// VisualizeError renders an FX dependency-graph error into a human-readable form.
+// It is exposed so callers outside the composition root can pretty-print startup
+// failures without importing FX directly.
+func VisualizeError(err error) (string, error) {
+	//nolint:wrapcheck // thin pass-through to fx.VisualizeError
+	return fx.VisualizeError(err)
+}
+
+// NewConfigModule creates a new module for configuration.
+func NewConfigModule(settings *config.ServerSettings) fx.Option {
+	return fx.Module(
+		"config",
+		// config
+		fx.Provide(helper.ValueFunc(settings)),
+		fx.Provide(helper.PointerFunc(settings.DatabaseSettings)),
+		// security owns its config; the aggregate composes it and we inject it back.
+		fx.Provide(helper.PointerFunc(settings.Security)),
+		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
+		// observability owns its config; aggregated under ManagementSettings.
+		fx.Provide(helper.PointerFunc(settings.ManagementSettings.Observability)),
+		fx.Provide(helper.PointerFunc(settings.EventSettings)),
+		// serverID provider with explicit type (owned by the domain)
+		fx.Provide(func() agentmodel.ServerID { return settings.ServerID }),
+	)
+}
