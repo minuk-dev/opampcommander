@@ -169,11 +169,7 @@ function AgentDetailInner() {
               Request restart
             </Button>
             {!agent.status.connected && (
-              <Button
-                startIcon={<DeleteIcon />}
-                color="error"
-                onClick={() => setDeleteOpen(true)}
-              >
+              <Button startIcon={<DeleteIcon />} color="error" onClick={() => setDeleteOpen(true)}>
                 Delete
               </Button>
             )}
