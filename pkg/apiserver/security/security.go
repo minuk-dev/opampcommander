@@ -13,8 +13,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	oauth2github "golang.org/x/oauth2/github"
-
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 )
 
 // Token type values stored in the OPAMPClaims.TokenType claim.
@@ -72,9 +70,9 @@ var _ Usecase = (*Service)(nil)
 type Service struct {
 	logger               *slog.Logger
 	oauth2Config         *oauth2.Config
-	oauthStateSettings   config.JWTSettings
-	adminSettings        config.AdminSettings
-	tokenSettings        config.JWTSettings
+	oauthStateSettings   JWTSettings
+	adminSettings        AdminSettings
+	tokenSettings        JWTSettings
 	httpClient           *http.Client
 	allowedRedirectHosts []string
 }
@@ -99,7 +97,7 @@ type OPAMPClaims struct {
 // New creates a new instance of the Service struct with the provided logger and OAuth settings.
 func New(
 	logger *slog.Logger,
-	settings *config.AuthSettings,
+	settings *Config,
 	httpClient *http.Client,
 ) *Service {
 	var oauth2Cfg *oauth2.Config

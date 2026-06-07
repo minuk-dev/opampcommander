@@ -1,7 +1,7 @@
 package opamp_test
 
 import (
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/scheduler"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
 )

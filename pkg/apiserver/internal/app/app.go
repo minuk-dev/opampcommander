@@ -13,6 +13,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	adaptermodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter"
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/domain"
@@ -101,11 +102,13 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		// config
 		fx.Provide(helper.ValueFunc(settings)),
 		fx.Provide(helper.PointerFunc(settings.DatabaseSettings)),
-		fx.Provide(helper.PointerFunc(settings.AuthSettings)),
+		// security owns its config; the aggregate composes it and we inject it back.
+		fx.Provide(helper.PointerFunc(settings.Security)),
 		fx.Provide(helper.PointerFunc(settings.ManagementSettings)),
-		fx.Provide(helper.PointerFunc(settings.ManagementSettings.ObservabilitySettings)),
+		// observability owns its config; aggregated under ManagementSettings.
+		fx.Provide(helper.PointerFunc(settings.ManagementSettings.Observability)),
 		fx.Provide(helper.PointerFunc(settings.EventSettings)),
-		// serverID provider with explicit type
-		fx.Provide(func() config.ServerID { return settings.ServerID }),
+		// serverID provider with explicit type (owned by the domain)
+		fx.Provide(func() agentmodel.ServerID { return settings.ServerID }),
 	)
 }

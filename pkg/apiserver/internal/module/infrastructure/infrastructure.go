@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.uber.org/fx"
 
-	casbinEnforcer "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/out/rbac/casbin"
+	casbinEnforcer "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/rbac/casbin"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )

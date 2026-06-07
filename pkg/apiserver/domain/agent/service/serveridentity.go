@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -47,7 +46,7 @@ type ServerIdentityService struct {
 // NewServerIdentityService creates a new ServerIdentityService instance.
 func NewServerIdentityService(
 	serverPersistencePort agentport.ServerPersistencePort,
-	serverID config.ServerID,
+	serverID agentmodel.ServerID,
 	logger *slog.Logger,
 ) *ServerIdentityService {
 	return &ServerIdentityService{

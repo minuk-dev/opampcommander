@@ -1,0 +1,57 @@
+package security
+
+import "time"
+
+// Config holds the authentication configuration consumed by the security Service.
+// It is owned by the security package so that callers do not depend on the
+// aggregate config package; the config package composes this into its settings.
+type Config struct {
+	// JWTSettings holds the configuration settings for JSON Web Tokens (JWT).
+	JWTSettings JWTSettings
+	// AdminSettings holds the configuration settings for admin authentication.
+	AdminSettings AdminSettings
+	// OAuthSettings holds the configuration settings for OAuth2 authentication.
+	OAuthSettings *OAuthSettings
+}
+
+// AdminSettings holds the configuration settings for admin authentication.
+// This is used for basic authentication of the admin user.
+type AdminSettings struct {
+	// Username is the username for the admin user.
+	Username string
+	// Password is the password for the admin user.
+	Password string
+	// Email is the email address for the admin user.
+	// This is used in jwt claims.
+	Email string
+}
+
+// OAuthSettings holds the configuration settings for GitHub OAuth2 authentication.
+type OAuthSettings struct {
+	// ClientID is the OAuth2 client ID for GitHub authentication.
+	ClientID string
+	// Secret is the OAuth2 client secret for GitHub authentication.
+	Secret string
+	// CallbackURL is the URL to which GitHub will redirect after authentication.
+	CallbackURL string
+	// AllowedRedirectHosts is the list of additional hostnames that the
+	// /api/v1/auth/github/authcode endpoint will accept as redirect targets,
+	// in addition to the always-allowed loopback hosts (127.0.0.1, ::1,
+	// localhost). Use this to allowlist the web UI deployment (e.g.
+	// "opampcommander-alpha.minuk.dev"). Empty by default.
+	AllowedRedirectHosts []string
+	// JWTSettings holds the JWT configuration settings.
+	// This is used for the state parameter in OAuth2 authentication.
+	JWTSettings JWTSettings
+}
+
+// JWTSettings holds the configuration settings for JSON Web Tokens (JWT).
+type JWTSettings struct {
+	SigningKey string
+	Issuer     string
+	Expiration time.Duration
+	// RefreshExpiration is the lifetime of refresh tokens issued alongside access tokens.
+	// Zero means refresh tokens are disabled.
+	RefreshExpiration time.Duration
+	Audience          []string
+}

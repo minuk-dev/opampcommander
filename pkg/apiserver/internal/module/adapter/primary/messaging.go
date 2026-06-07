@@ -11,9 +11,10 @@ import (
 	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/messaging/inmemory"
-	inkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/messaging/kafka"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
+	inkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/kafka"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter/common"
 )
@@ -37,7 +38,7 @@ const (
 // the shared hub so events sent by the sender in the secondary adapter are observed.
 func newEventReceiver(
 	settings *config.EventSettings,
-	serverID config.ServerID,
+	serverID agentmodel.ServerID,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	serverIdentityProvider agentport.ServerIdentityProvider,
@@ -74,7 +75,7 @@ func newEventReceiver(
 // addressed to other servers.
 func createKafkaReceiver(
 	settings *config.EventSettings,
-	serverID config.ServerID,
+	serverID agentmodel.ServerID,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 ) (*cekafka.Consumer, error) {

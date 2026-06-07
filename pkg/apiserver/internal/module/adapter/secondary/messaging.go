@@ -10,8 +10,8 @@ import (
 	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/messaging/inmemory"
-	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/out/messaging/kafka"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
+	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter/common"

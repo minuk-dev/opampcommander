@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/scheduler"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
 )
 
 // Executor is a struct that schedules and manages the execution of runners.

@@ -3,7 +3,7 @@ package common
 import (
 	"log/slog"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/messaging/inmemory"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
 )
 
 // newInMemoryEventHub provides the shared in-memory event hub used in standalone

@@ -3,22 +3,22 @@ package config
 
 import (
 	"encoding/json"
+
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
-// ServerID is a unique identifier for an API server instance.
-type ServerID string
-
-// String returns the string representation of the ServerID.
-func (s ServerID) String() string {
-	return string(s)
-}
-
 // ServerSettings is a struct that holds the server settings.
+//
+// It aggregates the per-package configuration owned by the consuming packages
+// (security.Config, observability.Config via ManagementSettings, the server
+// identity type from the domain) together with the infrastructure settings used
+// only by the composition root (database, event, cache).
 type ServerSettings struct {
 	Address            string
-	ServerID           ServerID
+	ServerID           agentmodel.ServerID
 	DatabaseSettings   DatabaseSettings
-	AuthSettings       AuthSettings
+	Security           security.Config
 	ManagementSettings ManagementSettings
 	EventSettings      EventSettings
 	CacheSettings      CacheSettings

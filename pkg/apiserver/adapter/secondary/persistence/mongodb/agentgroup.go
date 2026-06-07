@@ -1,0 +1,276 @@
+package mongodb
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+)
+
+var _ agentport.AgentGroupPersistencePort = (*AgentGroupMongoAdapter)(nil)
+
+const (
+	agentGroupCollectionName     = "agentgroups"
+	agentGroupNamespaceFieldName = "metadata.namespace"
+	agentGroupNameFieldName      = "metadata.name"
+	agentGroupDeletedAtFieldName = "metadata.deletedAt"
+)
+
+// AgentGroupMongoAdapter is a struct that implements the AgentGroupPersistencePort interface.
+type AgentGroupMongoAdapter struct {
+	collection      *mongo.Collection
+	agentCollection *mongo.Collection
+	common          commonEntityAdapter[entity.AgentGroup, string]
+	logger          *slog.Logger
+}
+
+// NewAgentGroupRepository creates a new instance of AgentGroupMongoAdapter.
+func NewAgentGroupRepository(
+	mongoDatabase *mongo.Database,
+	logger *slog.Logger,
+) *AgentGroupMongoAdapter {
+	collection := mongoDatabase.Collection(agentGroupCollectionName)
+	agentCollection := mongoDatabase.Collection(agentCollectionName)
+	keyFunc := func(en *entity.AgentGroup) string {
+		return en.Metadata.Name
+	}
+	keyQueryFunc := func(key string) any {
+		return key
+	}
+
+	return &AgentGroupMongoAdapter{
+		collection:      collection,
+		agentCollection: agentCollection,
+		logger:          logger,
+		common: newCommonAdapter(
+			logger,
+			collection,
+			entity.AgentGroupKeyFieldName,
+			keyFunc,
+			keyQueryFunc,
+		),
+	}
+}
+
+// GetAgentGroup implements agentport.AgentGroupPersistencePort.
+func (a *AgentGroupMongoAdapter) GetAgentGroup(
+	ctx context.Context, namespace string, name string, options *model.GetOptions,
+) (*agentmodel.AgentGroup, error) {
+	var filter bson.M
+	if options != nil && options.IncludeDeleted {
+		filter = a.filterByNamespaceAndName(namespace, name)
+	} else {
+		filter = a.filterByNamespaceAndNameExcludingDeleted(namespace, name)
+	}
+
+	result := a.collection.FindOne(ctx, filter)
+
+	err := result.Err()
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, port.ErrResourceNotExist
+		}
+
+		return nil, fmt.Errorf("get agent group: %w", err)
+	}
+
+	var agentGroupEntity entity.AgentGroup
+
+	err = result.Decode(&agentGroupEntity)
+	if err != nil {
+		return nil, fmt.Errorf("decode agent group: %w", err)
+	}
+
+	agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, &agentGroupEntity)
+	if err != nil {
+		return nil, fmt.Errorf("get agent group statistics: %w", err)
+	}
+
+	return agentGroupEntity.ToDomain(agentGroupStatistics), nil
+}
+
+// ListAgentGroups implements agentport.AgentGroupPersistencePort.
+func (a *AgentGroupMongoAdapter) ListAgentGroups(
+	ctx context.Context, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	resp, err := a.common.list(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert entities to domain models with statistics
+	items := make([]*agentmodel.AgentGroup, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
+		if err != nil {
+			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Metadata.Name, err)
+		}
+
+		// Convert entity to domain model
+		domainModel := item.ToDomain(agentGroupStatistics)
+		items = append(items, domainModel)
+	}
+
+	return &model.ListResponse[*agentmodel.AgentGroup]{
+		Items:              items,
+		Continue:           resp.Continue,
+		RemainingItemCount: resp.RemainingItemCount,
+	}, nil
+}
+
+// PutAgentGroup implements agentport.AgentGroupPersistencePort.
+//
+//nolint:godox // Reason: TODO comment.
+func (a *AgentGroupMongoAdapter) PutAgentGroup(
+	ctx context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
+) (*agentmodel.AgentGroup, error) {
+	en := entity.AgentGroupFromDomain(agentGroup)
+
+	_, err := a.collection.ReplaceOne(ctx,
+		a.filterByNamespaceAndName(namespace, name),
+		en,
+		options.Replace().SetUpsert(true),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("put agent group: %w", err)
+	}
+
+	// If the agent group is soft deleted, return the input directly
+	// since GetAgentGroup filters out deleted items
+	if agentGroup.IsDeleted() {
+		return agentGroup, nil
+	}
+
+	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.
+	newAgentGroup, err := a.GetAgentGroup(ctx, namespace, name, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get agent group after put: %w", err)
+	}
+
+	return newAgentGroup, nil
+}
+
+func (a *AgentGroupMongoAdapter) filterByNamespaceAndName(namespace, name string) bson.M {
+	return bson.M{
+		agentGroupNamespaceFieldName: sanitizeResourceName(namespace),
+		agentGroupNameFieldName:      sanitizeResourceName(name),
+	}
+}
+
+func (a *AgentGroupMongoAdapter) filterByNamespaceAndNameExcludingDeleted(namespace, name string) bson.M {
+	filter := a.filterByNamespaceAndName(namespace, name)
+	filter[agentGroupDeletedAtFieldName] = nil
+
+	return filter
+}
+
+//nolint:funlen // Reason: mongodb aggregation pipeline is long.
+func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
+	ctx context.Context,
+	agentGroupEntity *entity.AgentGroup,
+) (*entity.AgentGroupStatistics, error) {
+	// Build filter conditions for agents matching this agent group's selector
+	selector := agentGroupEntity.Spec.Selector
+	allConditions := SelectorToMatchConditions(selector)
+
+	// Build match filter
+	matchFilter := buildFilter(allConditions)
+
+	// MongoDB aggregation pipeline to calculate agent statistics
+	// NOTE: Do NOT query status.conditions field - it can be null and causes MongoDB aggregation errors.
+	// Use status.connected (bool) and status.componentHealth.healthy (bool) fields instead.
+	// These fields are indexed for efficient querying.
+	pipeline := []bson.M{
+		// Match agents that belong to this agent group
+		{"$match": matchFilter},
+
+		// Group and count by status fields
+		// - status.connected: boolean field indicating connection status
+		// - status.componentHealth.healthy: boolean field indicating health status
+		{
+			"$group": bson.M{
+				"_id":       nil,
+				"numAgents": bson.M{"$sum": 1},
+				"numConnectedAgents": bson.M{
+					"$sum": bson.M{
+						"$cond": []any{
+							bson.M{"$eq": []any{"$status.connected", true}}, 1, 0,
+						},
+					},
+				},
+				"numHealthyAgents": bson.M{
+					"$sum": bson.M{
+						"$cond": []any{
+							bson.M{"$and": []any{
+								bson.M{"$eq": []any{"$status.connected", true}},
+								bson.M{"$eq": []any{"$status.componentHealth.healthy", true}},
+							}}, 1, 0,
+						},
+					},
+				},
+				"numUnhealthyAgents": bson.M{
+					"$sum": bson.M{
+						"$cond": []any{
+							bson.M{"$and": []any{
+								bson.M{"$eq": []any{"$status.connected", true}},
+								bson.M{"$ne": []any{"$status.componentHealth.healthy", true}},
+							}}, 1, 0,
+						},
+					},
+				},
+				"numNotConnectedAgents": bson.M{
+					"$sum": bson.M{
+						"$cond": []any{
+							bson.M{"$ne": []any{"$status.connected", true}}, 1, 0,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cursor, err := a.agentCollection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to aggregate agent statistics: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.common.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var result struct {
+		NumAgents             int64 `bson:"numAgents"`
+		NumConnectedAgents    int64 `bson:"numConnectedAgents"`
+		NumHealthyAgents      int64 `bson:"numHealthyAgents"`
+		NumUnhealthyAgents    int64 `bson:"numUnhealthyAgents"`
+		NumNotConnectedAgents int64 `bson:"numNotConnectedAgents"`
+	}
+
+	if cursor.Next(ctx) {
+		err := cursor.Decode(&result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode statistics result: %w", err)
+		}
+	}
+
+	return &entity.AgentGroupStatistics{
+		NumAgents:             result.NumAgents,
+		NumConnectedAgents:    result.NumConnectedAgents,
+		NumHealthyAgents:      result.NumHealthyAgents,
+		NumUnhealthyAgents:    result.NumUnhealthyAgents,
+		NumNotConnectedAgents: result.NumNotConnectedAgents,
+	}, nil
+}

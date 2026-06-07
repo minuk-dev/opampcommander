@@ -10,6 +10,9 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 )
 
@@ -47,12 +50,12 @@ type APIServer struct {
 
 // AdminUsername returns the admin username configured for this test server.
 func (a *APIServer) AdminUsername() string {
-	return a.Settings.AuthSettings.AdminSettings.Username
+	return a.Settings.Security.AdminSettings.Username
 }
 
 // AdminPassword returns the admin password configured for this test server.
 func (a *APIServer) AdminPassword() string {
-	return a.Settings.AuthSettings.AdminSettings.Password
+	return a.Settings.Security.AdminSettings.Password
 }
 
 // WaitForReady blocks until the API server responds to ping or the timeout expires.
@@ -92,7 +95,7 @@ func (a *APIServer) Client() *client.Client {
 func (a *APIServer) IssueTokenForEmail(email string) string {
 	a.t.Helper()
 
-	jwtSettings := a.Settings.AuthSettings.JWTSettings
+	jwtSettings := a.Settings.Security.JWTSettings
 	now := time.Now()
 
 	claims := jwt.MapClaims{
@@ -125,7 +128,7 @@ func buildServerSettings(
 ) config.ServerSettings {
 	return config.ServerSettings{
 		Address:  fmt.Sprintf("0.0.0.0:%d", serverPort),
-		ServerID: config.ServerID(serverID),
+		ServerID: agentmodel.ServerID(serverID),
 		//exhaustruct:ignore
 		EventSettings: config.EventSettings{
 			ProtocolType: config.EventProtocolTypeInMemory,
@@ -138,15 +141,15 @@ func buildServerSettings(
 			DDLAuto:        true,
 		},
 		//exhaustruct:ignore
-		AuthSettings: config.AuthSettings{
+		Security: security.Config{
 			//exhaustruct:ignore
-			AdminSettings: config.AdminSettings{
+			AdminSettings: security.AdminSettings{
 				Username: DefaultAdminUsername,
 				Password: DefaultAdminPassword,
 				Email:    "test@test.com",
 			},
 			//exhaustruct:ignore
-			JWTSettings: config.JWTSettings{
+			JWTSettings: security.JWTSettings{
 				SigningKey: "test-secret-key",
 				Issuer:     "e2e-test",
 				Expiration: jwtExpiration,
@@ -157,10 +160,10 @@ func buildServerSettings(
 		ManagementSettings: config.ManagementSettings{
 			Address: fmt.Sprintf(":%d", managementPort),
 			//exhaustruct:ignore
-			ObservabilitySettings: config.ObservabilitySettings{
+			Observability: observability.Config{
 				//exhaustruct:ignore
-				Log: config.LogSettings{
-					Format: config.LogFormatText,
+				Log: observability.LogSettings{
+					Format: observability.LogFormatText,
 				},
 			},
 		},

@@ -5,7 +5,7 @@ package helper
 import (
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/scheduler"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 )
 

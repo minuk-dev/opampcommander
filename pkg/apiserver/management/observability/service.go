@@ -2,6 +2,7 @@
 package observability
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,8 +13,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	traceapi "go.opentelemetry.io/otel/trace"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management"
 )
 
@@ -38,6 +37,12 @@ type Service struct {
 
 	routeInfos management.RoutesInfo // some observability types may provide management routes
 
+	// shutdownFuncs are run by Shutdown to flush and release observability
+	// pipelines (e.g. the trace exporter) on application stop. Owning them here
+	// keeps this package free of cross-cutting lifecycle dependencies; the
+	// composition root wires Shutdown into the FX lifecycle.
+	shutdownFuncs []func(context.Context) error
+
 	MeterProvider     metricapi.MeterProvider
 	TraceProvider     traceapi.TracerProvider
 	TextMapPropagator propagation.TextMapPropagator
@@ -46,8 +51,7 @@ type Service struct {
 
 // New creates a new observability Service based on the provided settings.
 func New(
-	settings *config.ObservabilitySettings,
-	shutdownlistner *helper.ShutdownListener,
+	settings *Config,
 ) (*Service, error) {
 	logger, err := newLogger(settings)
 	if err != nil {
@@ -88,21 +92,38 @@ func New(
 	}
 
 	if settings.Trace.Enabled {
-		service.TraceProvider, err = newTraceProvider(
+		traceProvider, shutdown, err := newTraceProvider(
 			service.serviceName,
-			shutdownlistner,
 			settings.Trace,
 			logger,
 		)
 		if err != nil {
 			logger.Warn("failed to initialize trace provider", slog.String("error", err.Error()))
 			// If trace provider cannot be initialized, we log the error but do not return it.
+		} else {
+			service.TraceProvider = traceProvider
+			service.shutdownFuncs = append(service.shutdownFuncs, shutdown)
 		}
 
 		service.TextMapPropagator = propagation.TraceContext{}
 	}
 
 	return service, nil
+}
+
+// Shutdown flushes and releases the observability pipelines (e.g. the trace
+// exporter) registered during New. It is safe to call when nothing was registered.
+func (service *Service) Shutdown(ctx context.Context) error {
+	var errs []error
+
+	for _, shutdown := range service.shutdownFuncs {
+		err := shutdown(ctx)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 // RoutesInfos returns the management routes provided by this service.

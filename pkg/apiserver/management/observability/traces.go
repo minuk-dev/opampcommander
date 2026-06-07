@@ -13,9 +13,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
-
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/helper"
 )
 
 var (
@@ -29,13 +26,12 @@ var (
 
 func newTraceProvider(
 	serviceName string,
-	shutdownlistener *helper.ShutdownListener,
-	traceConfig config.TraceSettings,
+	traceConfig TraceSettings,
 	_ *slog.Logger,
-) (*sdktrace.TracerProvider, error) {
+) (*sdktrace.TracerProvider, func(context.Context) error, error) {
 	sampler, err := toSampler(traceConfig.Sampler, traceConfig.SamplerRatio)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create trace sampler: %w", err)
+		return nil, nil, fmt.Errorf("failed to create trace sampler: %w", err)
 	}
 
 	traceCtx, cancel := context.WithCancel(context.Background())
@@ -49,14 +45,14 @@ func newTraceProvider(
 	if err != nil {
 		cancel()
 
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+		return nil, nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
 	exporter, err := newTraceExporter(traceCtx, traceConfig)
 	if err != nil {
 		cancel()
 
-		return nil, fmt.Errorf("failed to create trace exporter: %w", err)
+		return nil, nil, fmt.Errorf("failed to create trace exporter: %w", err)
 	}
 
 	bsp := sdktrace.NewBatchSpanProcessor(exporter)
@@ -66,31 +62,37 @@ func newTraceProvider(
 		sdktrace.WithSpanProcessor(bsp),
 	)
 
-	shutdownlistener.Register(bsp)
-	shutdownlistener.Register(exporter)
-	shutdownlistener.Register(traceProvider)
-	shutdownlistener.RegisterFunc(func(context.Context) error {
+	// shutdown flushes and releases the trace pipeline on application stop. It is
+	// returned to the caller (instead of registered with a shared listener) so the
+	// observability package stays free of cross-cutting lifecycle dependencies.
+	shutdown := func(ctx context.Context) error {
+		errs := []error{
+			bsp.Shutdown(ctx),
+			exporter.Shutdown(ctx),
+			traceProvider.Shutdown(ctx),
+		}
+
 		cancel()
 
-		return nil
-	})
+		return errors.Join(errs...)
+	}
 
 	//nolint:godox
 	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
 	// https://github.com/cloudevents/sdk-go/pull/1202
 	otel.SetTracerProvider(traceProvider)
 
-	return traceProvider, nil
+	return traceProvider, shutdown, nil
 }
 
 func newTraceExporter(
 	traceCtx context.Context,
-	traceConfig config.TraceSettings,
+	traceConfig TraceSettings,
 ) (*otlptrace.Exporter, error) {
 	switch traceConfig.Protocol {
-	case config.TraceProtocolHTTP:
+	case TraceProtocolHTTP:
 		return newHTTPTraceExporter(traceCtx, traceConfig)
-	case config.TraceProtocolGRPC:
+	case TraceProtocolGRPC:
 		return newGRPCTraceExporter(traceCtx, traceConfig)
 	default:
 		return nil, ErrUnsupportedProtocol
@@ -99,14 +101,14 @@ func newTraceExporter(
 
 func newHTTPTraceExporter(
 	traceCtx context.Context,
-	traceConfig config.TraceSettings,
+	traceConfig TraceSettings,
 ) (*otlptrace.Exporter, error) {
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(traceConfig.Endpoint),
 	}
 	if traceConfig.Compression {
 		switch traceConfig.CompressionAlgorithm {
-		case config.TraceCompressionAlgorithmGzip:
+		case TraceCompressionAlgorithmGzip:
 			opts = append(opts, otlptracehttp.WithCompression(otlptracehttp.GzipCompression))
 		default:
 			return nil, ErrUnsupportedCompressionAlgorithm
@@ -133,14 +135,14 @@ func newHTTPTraceExporter(
 
 func newGRPCTraceExporter(
 	traceCtx context.Context,
-	traceConfig config.TraceSettings,
+	traceConfig TraceSettings,
 ) (*otlptrace.Exporter, error) {
 	opts := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(traceConfig.Endpoint),
 	}
 	if traceConfig.Compression {
 		switch traceConfig.CompressionAlgorithm {
-		case config.TraceCompressionAlgorithmGzip:
+		case TraceCompressionAlgorithmGzip:
 			opts = append(opts, otlptracegrpc.WithCompressor(string(traceConfig.CompressionAlgorithm)))
 		default:
 			return nil, ErrUnsupportedCompressionAlgorithm
@@ -163,13 +165,13 @@ func newGRPCTraceExporter(
 	return exporter, nil
 }
 
-func toSampler(samplerType config.TraceSampler, ratio float64) (sdktrace.Sampler, error) {
+func toSampler(samplerType TraceSampler, ratio float64) (sdktrace.Sampler, error) {
 	switch samplerType {
-	case config.TraceSamplerAlways:
+	case TraceSamplerAlways:
 		return sdktrace.AlwaysSample(), nil
-	case config.TraceSamplerNever:
+	case TraceSamplerNever:
 		return sdktrace.NeverSample(), nil
-	case config.TraceSamplerProbability:
+	case TraceSamplerProbability:
 		return sdktrace.TraceIDRatioBased(ratio), nil
 	default:
 		return nil, ErrInvalidTraceSampler

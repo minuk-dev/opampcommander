@@ -11,6 +11,16 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/pprof"
 )
 
+// registerObservabilityShutdown hooks the observability Service's Shutdown into the
+// FX lifecycle so trace/metric pipelines are flushed and released on stop. The
+// observability package is FX-free, so the wiring lives here in the composition root.
+func registerObservabilityShutdown(lifecycle fx.Lifecycle, service *observability.Service) {
+	lifecycle.Append(fx.Hook{
+		OnStart: nil,
+		OnStop:  service.Shutdown,
+	})
+}
+
 // NewModule creates a new module for management services.
 func NewModule() fx.Option {
 	return fx.Module(
@@ -31,6 +41,8 @@ func NewModule() fx.Option {
 		),
 		// Management HTTP server
 		fx.Invoke(func(*HTTPServer) {}),
+		// Flush observability pipelines on shutdown
+		fx.Invoke(registerObservabilityShutdown),
 		// Logger
 		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
 			return &fxevent.SlogLogger{Logger: logger}

@@ -11,12 +11,11 @@ import (
 	otelpromethues "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/sdk/metric"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management"
 )
 
 func newMeterProvider(
-	settings config.MetricSettings,
+	settings MetricSettings,
 	logger *slog.Logger,
 ) (*metric.MeterProvider, management.RoutesInfo, error) {
 	var (
@@ -26,7 +25,7 @@ func newMeterProvider(
 	)
 
 	switch settings.Type {
-	case config.MetricTypePrometheus:
+	case MetricTypePrometheus:
 		// Initialize Prometheus metrics
 		var managementRoutesInfo management.RoutesInfo
 
@@ -39,7 +38,7 @@ func newMeterProvider(
 		}
 
 		routesInfo = append(routesInfo, managementRoutesInfo...)
-	case config.MetricTypeOTel:
+	case MetricTypeOTel:
 		return nil, nil, fmt.Errorf("%w: %s", ErrNoImplementation, settings.Type)
 	default:
 		return nil, nil, fmt.Errorf("%w: %s", ErrUnsupportedObservabilityType, settings.Type)

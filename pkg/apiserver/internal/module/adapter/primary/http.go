@@ -16,22 +16,22 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/auth/basic"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/auth/github"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/agent"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/agentgroup"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/agentpackage"
-	agentremoteconfigcontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/agentremoteconfig"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/certificate"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/connection"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/namespace"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/opamp"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/ping"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/role"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/rolebinding"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/server"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/user"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/in/http/v1/version"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/basic"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/github"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentpackage"
+	agentremoteconfigcontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentremoteconfig"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/connection"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/namespace"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/ping"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/role"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/server"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/version"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
@@ -168,7 +168,7 @@ func NewEngine(
 	engine.Use(security.NewAuthorizationMiddleware(
 		rbacUsecase,
 		userUsecase,
-		settings.AuthSettings.AdminSettings.Email,
+		settings.Security.AdminSettings.Email,
 		logger,
 	))
 	engine.Use(observabilityService.Middleware())
