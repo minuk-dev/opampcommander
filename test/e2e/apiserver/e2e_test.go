@@ -693,7 +693,12 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	// Insert agents with various status field states to test the aggregation:
 	// - agent1: no connected/healthy fields (defaults to false)
 	// - agent2: connected=false, componentHealth.healthy=false
-	// - agent3: connected=true, componentHealth.healthy=true
+	// - agent3: connected=true, componentHealth.healthy=true, lastCommunicatedAt=now
+	//
+	// "Connected" is staleness-aware (status.connected AND a recent
+	// lastCommunicatedAt), matching the per-agent Connected field, so agent3 must
+	// carry a fresh lastCommunicatedAt to count as connected — a connected=true flag
+	// with no heartbeat is treated as disconnected.
 	// Note: identifyingAttributes must be in KeyValuePairs format (array of {key, value})
 	agentDocs := []interface{}{
 		// Agent with no status fields set (defaults to not connected/healthy)
@@ -743,7 +748,8 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 				},
 			},
 			"status": bson.M{
-				"connected": true,
+				"connected":          true,
+				"lastCommunicatedAt": bson.NewDateTimeFromTime(time.Now()),
 				"componentHealth": bson.M{
 					"healthy": true,
 				},

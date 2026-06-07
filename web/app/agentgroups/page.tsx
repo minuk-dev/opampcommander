@@ -6,8 +6,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
   Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -43,6 +45,10 @@ export default function AgentGroupsPage() {
   const [editing, setEditing] = useState<AgentGroup | null>(null);
   const [deleting, setDeleting] = useState<AgentGroup | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  // The "Agents" count shows connected agents only by default so it agrees with
+  // the agents list (which also hides disconnected by default); the toggle
+  // switches it to the full membership count.
+  const [showDisconnected, setShowDisconnected] = useState(false);
 
   const pagination = useCursorPagination<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`);
   const { items: groups, isLoading: loading, error: fetchError, refresh } = pagination;
@@ -75,6 +81,17 @@ export default function AgentGroupsPage() {
         subtitle={`Namespace: ${namespace}`}
         actions={
           <>
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={showDisconnected}
+                  onChange={(e) => setShowDisconnected(e.target.checked)}
+                />
+              }
+              label="Show disconnected"
+              sx={{ color: 'text.secondary', mr: 1 }}
+            />
             <IconButton color="primary" onClick={fetchGroups}>
               <RefreshIcon />
             </IconButton>
@@ -132,11 +149,18 @@ export default function AgentGroupsPage() {
                   </TableCell>
                   <TableCell>{g.spec.priority}</TableCell>
                   <TableCell>
-                    <Tooltip title="View agents in this group" placement="top">
+                    <Tooltip
+                      title={
+                        showDisconnected
+                          ? 'All agents in this group (connected + disconnected)'
+                          : 'Connected agents in this group'
+                      }
+                      placement="top"
+                    >
                       <Chip
                         component={Link}
                         href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
-                        label={g.status.numAgents}
+                        label={showDisconnected ? g.status.numAgents : g.status.numConnectedAgents}
                         size="small"
                         clickable
                       />

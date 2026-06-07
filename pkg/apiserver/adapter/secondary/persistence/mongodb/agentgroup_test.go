@@ -41,6 +41,58 @@ func setupAgentGroupMongoAdapter(t *testing.T) (*mongo.Client, *mongodb.AgentGro
 	return client, agentGroupAdapter
 }
 
+func TestAgentGroupMongoAdapter_Statistics_ConnectedIsStalenessAware(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.Disconnect(ctx))
+	})
+
+	database := client.Database("testdb_agentgroup_stats")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+	agentGroupAdapter := mongodb.NewAgentGroupRepository(database, base.Logger)
+
+	// Fresh-connected -> counts as connected.
+	fresh := agentmodel.NewAgent(uuid.New())
+	fresh.UpdateLastCommunicationInfo(time.Now(), nil)
+	require.NoError(t, agentRepository.PutAgent(ctx, fresh))
+
+	// Explicitly disconnected -> not connected.
+	require.NoError(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uuid.New())))
+
+	// Stale: flag still true but last report is past the staleness window. The
+	// previous raw-flag aggregation would have miscounted this as connected; the
+	// staleness-aware predicate must agree with the per-agent Connected field and
+	// treat it as not connected.
+	stale := agentmodel.NewAgent(uuid.New())
+	stale.Status.Connected = true
+	stale.Status.LastReportedAt = time.Now().Add(-1 * time.Hour)
+	require.NoError(t, agentRepository.PutAgent(ctx, stale))
+
+	// An empty selector matches every agent in the collection.
+	group := agentmodel.NewAgentGroup("default", "all", agentmodel.OfAttributes(nil), time.Now(), "tester")
+	_, err = agentGroupAdapter.PutAgentGroup(ctx, group.Metadata.Namespace, group.Metadata.Name, group)
+	require.NoError(t, err)
+
+	loaded, err := agentGroupAdapter.GetAgentGroup(ctx, group.Metadata.Namespace, group.Metadata.Name, nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, 3, loaded.Status.NumAgents)
+	assert.Equal(t, 1, loaded.Status.NumConnectedAgents)
+	assert.Equal(t, 2, loaded.Status.NumNotConnectedAgents)
+}
+
 func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()

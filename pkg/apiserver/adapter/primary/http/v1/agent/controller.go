@@ -82,6 +82,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
+// @Param connected query bool false "When true, return only currently-connected agents"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/namespaces/{namespace}/agents [get].
@@ -100,12 +101,19 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	connectedOnly, err := ginutil.ParseBool(ctx, "connected", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "connected", ctx.Query("connected"), err, false)
+
+		return
+	}
+
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &model.ListOptions{
-		Limit:          limit,
-		Continue:       continueToken,
-		IncludeDeleted: false,
+		Limit:         limit,
+		Continue:      continueToken,
+		ConnectedOnly: connectedOnly,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
@@ -129,6 +137,7 @@ func (c *Controller) List(ctx *gin.Context) {
 // @Param q query string true "Search query for instance UID"
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
+// @Param connected query bool false "When true, return only currently-connected agents"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/namespaces/{namespace}/agents/search [get].
@@ -154,12 +163,19 @@ func (c *Controller) Search(ctx *gin.Context) {
 		return
 	}
 
+	connectedOnly, err := ginutil.ParseBool(ctx, "connected", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "connected", ctx.Query("connected"), err, false)
+
+		return
+	}
+
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), namespace, query, &model.ListOptions{
-		Limit:          limit,
-		Continue:       continueToken,
-		IncludeDeleted: false,
+		Limit:         limit,
+		Continue:      continueToken,
+		ConnectedOnly: connectedOnly,
 	})
 	if err != nil {
 		c.logger.Error("failed to search agents", "error", err.Error())

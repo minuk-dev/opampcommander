@@ -176,7 +176,8 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Produce json
 // @Success 200 {object} v1.ListResponse[v1.Agent]
 // @Param namespace path string true "Namespace"
-// @Param name path string true "Agent Group Name".
+// @Param name path string true "Agent Group Name"
+// @Param connected query bool false "When true, return only currently-connected agents".
 func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
@@ -186,6 +187,13 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	}
 
 	continueToken := ctx.Query("continue")
+
+	connectedOnly, err := ginutil.ParseBool(ctx, "connected", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "connected", ctx.Query("connected"), err, false)
+
+		return
+	}
 
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
 	if err != nil {
@@ -202,9 +210,9 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	}
 
 	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), namespace, name, &model.ListOptions{
-		Limit:          limit,
-		Continue:       continueToken,
-		IncludeDeleted: false,
+		Limit:         limit,
+		Continue:      continueToken,
+		ConnectedOnly: connectedOnly,
 	})
 	if err != nil {
 		c.logger.Error("failed to get agents by agent group", "error", err.Error())

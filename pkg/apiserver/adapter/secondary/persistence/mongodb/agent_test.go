@@ -256,6 +256,57 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 	})
 }
 
+func TestAgentMongoAdapter_ListAgents_ConnectedOnly(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(ctx, testMongoDBImage)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, client.Disconnect(ctx))
+	})
+
+	database := client.Database("testdb_connected_only")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	// Fresh-connected: flag set and reported just now -> connected.
+	connectedUID := uuid.New()
+	connectedAgent := agentmodel.NewAgent(connectedUID)
+	connectedAgent.UpdateLastCommunicationInfo(time.Now(), nil)
+	require.NoError(t, agentRepository.PutAgent(ctx, connectedAgent))
+
+	// Explicitly disconnected (e.g. WebSocket close): flag cleared.
+	disconnectedUID := uuid.New()
+	require.NoError(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(disconnectedUID)))
+
+	// Stale: flag still true but last report is well past the staleness window
+	// (an HTTP-polling agent that silently stopped) -> must count as disconnected.
+	staleUID := uuid.New()
+	staleAgent := agentmodel.NewAgent(staleUID)
+	staleAgent.Status.Connected = true
+	staleAgent.Status.LastReportedAt = time.Now().Add(-1 * time.Hour)
+	require.NoError(t, agentRepository.PutAgent(ctx, staleAgent))
+
+	// ConnectedOnly returns only the fresh-connected agent.
+	connectedOnly, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{ConnectedOnly: true})
+	require.NoError(t, err)
+	require.Len(t, connectedOnly.Items, 1)
+	assert.Equal(t, connectedUID, connectedOnly.Items[0].Metadata.InstanceUID)
+
+	// Without the filter, all three agents are returned.
+	all, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{ConnectedOnly: false})
+	require.NoError(t, err)
+	assert.Len(t, all.Items, 3)
+}
+
 func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()
