@@ -91,7 +91,7 @@ func (a *AgentRepository) ListAgents(
 ) (*model.ListResponse[*agentmodel.Agent], error) {
 	extraFilter := bson.M{"metadata.namespace": sanitizeResourceName(namespace)}
 	if options != nil && options.ConnectedOnly {
-		extraFilter["$expr"] = connectedAggExpr()
+		extraFilter = combineFilters(extraFilter, connectedMatchFilter())
 	}
 
 	resp, err := a.common.listWithFilter(ctx, options, extraFilter)
