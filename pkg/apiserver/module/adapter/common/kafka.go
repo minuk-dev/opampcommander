@@ -1,4 +1,4 @@
-package infrastructure
+package common
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/inmemory"
 	inkafka "github.com/minuk-dev/opampcommander/internal/adapter/in/messaging/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/internal/adapter/out/messaging/kafka"
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
@@ -38,55 +37,35 @@ const (
 	DefaultKafkaRetryBackoff = 2 * time.Second
 )
 
-// UnsupportedEventProtocolError is returned when an unsupported event protocol type is specified.
-type UnsupportedEventProtocolError struct {
-	ProtocolType string
-}
-
-// Error implements the error interface.
-func (e *UnsupportedEventProtocolError) Error() string {
-	return "unsupported event protocol type: " + e.ProtocolType
-}
-
-func newEventSenderAndReceiver(
+// newKafkaSenderAndReceiver creates the Kafka-backed sender and receiver adapters.
+func newKafkaSenderAndReceiver(
 	settings *config.EventSettings,
 	serverID config.ServerID,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	serverIdentityProvider agentport.ServerIdentityProvider,
 ) (agentport.ServerEventSenderPort, agentport.ServerEventReceiverPort, error) {
-	switch settings.ProtocolType {
-	case config.EventProtocolTypeKafka:
-		sender, err := createKafkaSender(settings, lifecycle)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create Kafka sender: %w", err)
-		}
-
-		senderAdapter, err := outkafka.NewEventSenderAdapter(sender, logger)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
-		}
-
-		receiver, err := createKafkaReceiver(settings, serverID, logger, lifecycle)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
-		}
-
-		receiverAdapter, err := inkafka.NewEventReceiverAdapter(serverIdentityProvider, receiver, logger)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create Kafka event receiver adapter: %w", err)
-		}
-
-		return senderAdapter, receiverAdapter, nil
-	case config.EventProtocolTypeInMemory:
-		adapter := inmemory.NewEventHubAdapter(logger)
-
-		return adapter, adapter, nil
+	sender, err := createKafkaSender(settings, lifecycle)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 	}
 
-	return nil, nil, &UnsupportedEventProtocolError{
-		ProtocolType: settings.ProtocolType.String(),
+	senderAdapter, err := outkafka.NewEventSenderAdapter(sender, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 	}
+
+	receiver, err := createKafkaReceiver(settings, serverID, logger, lifecycle)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
+	}
+
+	receiverAdapter, err := inkafka.NewEventReceiverAdapter(serverIdentityProvider, receiver, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create Kafka event receiver adapter: %w", err)
+	}
+
+	return senderAdapter, receiverAdapter, nil
 }
 
 func createKafkaSender(

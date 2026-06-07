@@ -1,19 +1,13 @@
+// Package helper provides FX annotation helpers and shared wiring utilities for
+// the API server modules.
 package helper
 
 import (
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/scheduler"
 	"github.com/minuk-dev/opampcommander/internal/management/healthcheck"
 )
-
-// AsController is a helper function to annotate a function as a controller.
-func AsController(f any) any {
-	return fx.Annotate(
-		f,
-		fx.As(new(Controller)),
-		fx.ResultTags(`group:"controllers"`),
-	)
-}
 
 // AsHealthIndicator is a helper function to annotate a function as a health indicator.
 func AsHealthIndicator(f any) any {
@@ -24,11 +18,13 @@ func AsHealthIndicator(f any) any {
 	)
 }
 
-// AsRunner is a helper function to annotate a function as a runner.
+// AsRunner is a helper function to annotate a function as a scheduler runner.
+// The annotated value is collected into the "runners" group and executed by the
+// primary adapter's Executor.
 func AsRunner(f any) any {
 	return fx.Annotate(
 		f,
-		fx.As(new(Runner)),
+		fx.As(new(scheduler.Scheduler)),
 		fx.ResultTags(`group:"runners"`),
 	)
 }

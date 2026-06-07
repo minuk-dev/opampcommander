@@ -1,3 +1,5 @@
+// Package lifecycle provides application lifecycle wiring, such as the graceful
+// shutdown listener hook.
 package lifecycle
 
 import (

@@ -1,4 +1,4 @@
-package infrastructure
+package secondary
 
 import (
 	"context"
@@ -12,8 +12,41 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/internal/adapter/out/persistence/mongodb"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
+	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
+
+// NewMongoDB provides the MongoDB client/database and every persistence adapter
+// (repositories, transaction runner, health indicator) built on top of it.
+func NewMongoDB() fx.Option {
+	return fx.Options(
+		fx.Provide(
+			NewMongoDBClient,
+			NewMongoDatabase,
+			helper.AsHealthIndicator(NewMongoDBHealthIndicator),
+			fx.Annotate(
+				mongodb.NewTransactionRunner,
+				fx.As(new(applicationport.TransactionRunner)),
+			),
+			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(agentport.AgentPersistencePort))),
+			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
+			fx.Annotate(mongodb.NewServerAdapter, fx.As(new(agentport.ServerPersistencePort))),
+			fx.Annotate(mongodb.NewAgentPackageRepository, fx.As(new(agentport.AgentPackagePersistencePort))),
+			fx.Annotate(mongodb.NewNamespaceRepository, fx.As(new(agentport.NamespacePersistencePort))),
+			fx.Annotate(mongodb.NewAgentRemoteConfigRepository, fx.As(new(agentport.AgentRemoteConfigPersistencePort))),
+			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(agentport.CertificatePersistencePort))),
+			// RBAC MongoDB adapters
+			fx.Annotate(mongodb.NewUserRepository, fx.As(new(userport.UserPersistencePort))),
+			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),
+			fx.Annotate(mongodb.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),
+			fx.Annotate(mongodb.NewUserRoleRepository, fx.As(new(userport.UserRolePersistencePort))),
+			fx.Annotate(mongodb.NewRoleBindingRepository, fx.As(new(userport.RoleBindingPersistencePort))),
+		),
+	)
+}
 
 // NewMongoDBClient creates a new MongoDB client with OpenTelemetry instrumentation.
 func NewMongoDBClient(

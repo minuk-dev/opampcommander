@@ -1,4 +1,4 @@
-package infrastructure
+package secondary
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/management/healthcheck"
 )
 
-// EnsureSchema ensures that the necessary collections and indexes exist in the MongoDB database.
+// MongoDBHealthIndicator is a health indicator for MongoDB.
 var _ healthcheck.HealthIndicator = (*MongoDBHealthIndicator)(nil)
 
 // MongoDBHealthIndicator is a health indicator for MongoDB.
