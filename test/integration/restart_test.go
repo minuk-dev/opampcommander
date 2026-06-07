@@ -163,6 +163,12 @@ func (m *mockAgentUsecase) SaveAgent(_ context.Context, agent *agentmodel.Agent)
 	return nil
 }
 
+func (m *mockAgentUsecase) DeleteAgent(_ context.Context, instanceUID uuid.UUID) error {
+	delete(m.agents, instanceUID)
+
+	return nil
+}
+
 func (m *mockAgentUsecase) ListAgents(
 	_ context.Context,
 	_ string,

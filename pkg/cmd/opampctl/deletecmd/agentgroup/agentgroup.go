@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd/internal/deleteutil"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -80,31 +81,9 @@ func (o *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
 
 // Run runs the command.
 func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
-	type deleteResult struct {
-		name string
-		err  error
-	}
-
-	results := lo.Map(names, func(name string, _ int) deleteResult {
-		return deleteResult{
-			name: name,
-			err:  o.client.AgentGroupService.DeleteAgentGroup(cmd.Context(), o.namespace, name),
-		}
+	deleteutil.Run(cmd, "agentgroup", names, func(name string) error {
+		return o.client.AgentGroupService.DeleteAgentGroup(cmd.Context(), o.namespace, name)
 	})
-
-	successfullyDeleted := lo.FilterMap(results, func(r deleteResult, _ int) (string, bool) {
-		return r.name, r.err == nil
-	})
-	failedToDelete := lo.FilterMap(results, func(r deleteResult, _ int) (string, bool) {
-		return r.name, r.err != nil
-	})
-
-	cmd.Printf("Successfully deleted %d agentgroup(s): %s\n",
-		len(successfullyDeleted), strings.Join(successfullyDeleted, ", "))
-
-	if len(failedToDelete) > 0 {
-		cmd.PrintErrf("Failed to delete %d agentgroup(s): %s\n", len(failedToDelete), strings.Join(failedToDelete, ", "))
-	}
 
 	return nil
 }

@@ -299,6 +299,77 @@ func TestAgentMongoAdapter_PutAgent(t *testing.T) {
 	})
 }
 
+func TestAgentMongoAdapter_DeleteAgent(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+
+	t.Run("deletes an existing agent", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		instanceUID := uuid.New()
+		agent := agentmodel.NewAgent(instanceUID)
+		require.NoError(t, agentRepository.PutAgent(ctx, agent))
+
+		// when
+		err = agentRepository.DeleteAgent(ctx, instanceUID)
+
+		// then
+		require.NoError(t, err)
+
+		_, err = agentRepository.GetAgent(ctx, instanceUID)
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
+	})
+
+	t.Run("returns ErrResourceNotExist for a missing agent", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		// when
+		err = agentRepository.DeleteAgent(ctx, uuid.New())
+
+		// then
+		require.ErrorIs(t, err, port.ErrResourceNotExist)
+	})
+}
+
 func TestAgentMongoAdapter_ConfigShouldBeSameAfterSaveAndLoad(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()

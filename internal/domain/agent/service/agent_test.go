@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
 	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/serverevent"
+	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/internal/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 )
@@ -43,6 +45,12 @@ func (m *MockAgentPersistencePort) GetAgent(ctx context.Context, instanceUID uui
 
 func (m *MockAgentPersistencePort) PutAgent(ctx context.Context, agnt *agentmodel.Agent) error {
 	args := m.Called(ctx, agnt)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentPersistencePort) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	args := m.Called(ctx, instanceUID)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
@@ -674,6 +682,82 @@ func TestAgentService_InvalidateCache(t *testing.T) {
 
 	mockPersistence.AssertExpectations(t)
 	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}
+
+func TestAgentService_DeleteAgent_InvalidatesCache(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	instanceUID := uuid.New()
+
+	mockAgent := agentmodel.NewAgent(instanceUID)
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("PutAgent", ctx, mockAgent).Return(nil)
+	mockPersistence.On("DeleteAgent", ctx, instanceUID).Return(nil)
+	// DeleteAgent reads fresh for the connection guard (call #1), and the post-delete
+	// GetAgent misses the (invalidated) cache and hits persistence again (call #2).
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	// Prime the cache.
+	err := svc.SaveAgent(ctx, mockAgent)
+	require.NoError(t, err)
+
+	// Delete should remove from persistence and invalidate the cache.
+	err = svc.DeleteAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	// Subsequent get falls through to persistence.
+	_, err = svc.GetAgent(ctx, instanceUID)
+	require.NoError(t, err)
+
+	mockPersistence.AssertExpectations(t)
+	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}
+
+func TestAgentService_DeleteAgent_RejectsConnected(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	instanceUID := uuid.New()
+
+	connectedAgent := agentmodel.NewAgent(instanceUID)
+	connectedAgent.Status.Connected = true
+	connectedAgent.Status.LastReportedAt = time.Now() // recent heartbeat => connected
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(connectedAgent, nil)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	err := svc.DeleteAgent(ctx, instanceUID)
+
+	require.ErrorIs(t, err, agentport.ErrAgentConnected)
+	// A connected agent must never be removed from persistence.
+	mockPersistence.AssertNotCalled(t, "DeleteAgent", mock.Anything, mock.Anything)
+	mockPersistence.AssertExpectations(t)
+}
+
+func TestAgentService_DeleteAgent_PersistenceError(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	instanceUID := uuid.New()
+
+	mockAgent := agentmodel.NewAgent(instanceUID) // disconnected => passes the guard
+
+	mockPersistence := new(MockAgentPersistencePort)
+	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil)
+	mockPersistence.On("DeleteAgent", ctx, instanceUID).Return(errDatabaseConnection)
+
+	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+
+	err := svc.DeleteAgent(ctx, instanceUID)
+
+	require.Error(t, err)
+	mockPersistence.AssertExpectations(t)
 }
 
 func TestAgentService_Shutdown(t *testing.T) {

@@ -145,6 +145,12 @@ func (m *MockAgentUsecaseForGroup) SaveAgent(ctx context.Context, agnt *agentmod
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
 
+func (m *MockAgentUsecaseForGroup) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	args := m.Called(ctx, instanceUID)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
 func (m *MockAgentUsecaseForGroup) ListAgents(
 	ctx context.Context,
 	namespace string,

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/application/service/agent"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
@@ -70,6 +71,12 @@ func (m *MockAgentUsecase) ListAgentsBySelector(
 
 func (m *MockAgentUsecase) SaveAgent(ctx context.Context, agnt *agentmodel.Agent) error {
 	args := m.Called(ctx, agnt)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentUsecase) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	args := m.Called(ctx, instanceUID)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
@@ -204,6 +211,104 @@ func TestService_SearchAgents(t *testing.T) {
 		assert.Len(t, response.Items, 2)
 		assert.Equal(t, "next-token", response.Metadata.Continue)
 		assert.Equal(t, int64(10), response.Metadata.RemainingItemCount)
+		mockAgentUsecase.AssertExpectations(t)
+	})
+}
+
+func TestService_DeleteAgent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("deletes a disconnected agent", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := t.Context()
+		mockAgentUsecase := new(MockAgentUsecase)
+		mockNotificationUsecase := new(MockAgentNotificationUsecase)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+
+		instanceUID := uuid.New()
+		domainAgent := agentmodel.NewAgent(instanceUID) // Status.Connected defaults to false
+
+		mockAgentUsecase.On("GetAgent", ctx, instanceUID).Return(domainAgent, nil)
+		mockAgentUsecase.On("DeleteAgent", ctx, instanceUID).Return(nil)
+
+		// when
+		err := service.DeleteAgent(ctx, "default", instanceUID)
+
+		// then
+		require.NoError(t, err)
+		mockAgentUsecase.AssertExpectations(t)
+	})
+
+	t.Run("propagates the domain connection guard (ErrAgentConnected)", func(t *testing.T) {
+		t.Parallel()
+
+		// given: the connection guard now lives in the domain DeleteAgent, so the
+		// application service just surfaces ErrAgentConnected to the caller.
+		ctx := t.Context()
+		mockAgentUsecase := new(MockAgentUsecase)
+		mockNotificationUsecase := new(MockAgentNotificationUsecase)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+
+		instanceUID := uuid.New()
+		domainAgent := agentmodel.NewAgent(instanceUID) // namespace "default"
+
+		mockAgentUsecase.On("GetAgent", ctx, instanceUID).Return(domainAgent, nil)
+		mockAgentUsecase.On("DeleteAgent", ctx, instanceUID).Return(applicationport.ErrAgentConnected)
+
+		// when
+		err := service.DeleteAgent(ctx, "default", instanceUID)
+
+		// then
+		require.ErrorIs(t, err, applicationport.ErrAgentConnected)
+		mockAgentUsecase.AssertExpectations(t)
+	})
+
+	t.Run("rejects deletion when namespace mismatches", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := t.Context()
+		mockAgentUsecase := new(MockAgentUsecase)
+		mockNotificationUsecase := new(MockAgentNotificationUsecase)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+
+		instanceUID := uuid.New()
+		domainAgent := agentmodel.NewAgent(instanceUID) // namespace defaults to "default"
+
+		mockAgentUsecase.On("GetAgent", ctx, instanceUID).Return(domainAgent, nil)
+
+		// when
+		err := service.DeleteAgent(ctx, "other", instanceUID)
+
+		// then
+		require.ErrorIs(t, err, agent.ErrAgentNamespaceMismatch)
+		mockAgentUsecase.AssertNotCalled(t, "DeleteAgent", mock.Anything, mock.Anything)
+		mockAgentUsecase.AssertExpectations(t)
+	})
+
+	t.Run("returns error on usecase failure", func(t *testing.T) {
+		t.Parallel()
+
+		// given
+		ctx := t.Context()
+		mockAgentUsecase := new(MockAgentUsecase)
+		mockNotificationUsecase := new(MockAgentNotificationUsecase)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+
+		instanceUID := uuid.New()
+		domainAgent := agentmodel.NewAgent(instanceUID)
+
+		mockAgentUsecase.On("GetAgent", ctx, instanceUID).Return(domainAgent, nil)
+		mockAgentUsecase.On("DeleteAgent", ctx, instanceUID).Return(errMockError)
+
+		// when
+		err := service.DeleteAgent(ctx, "default", instanceUID)
+
+		// then
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to delete agent")
 		mockAgentUsecase.AssertExpectations(t)
 	})
 }

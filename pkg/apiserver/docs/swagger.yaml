@@ -1741,6 +1741,47 @@ paths:
       tags:
       - agent
   /api/v1/namespaces/{namespace}/agents/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: |-
+        Permanently delete a disconnected agent by its instance UID in a namespace.
+        Connected agents cannot be deleted and return 409 Conflict.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Delete Agent
+      tags:
+      - agent
     get:
       consumes:
       - application/json

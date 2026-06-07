@@ -115,6 +115,16 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent)
 	return nil
 }
 
+// DeleteAgent implements agentport.AgentPersistencePort.
+func (a *AgentRepository) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	err := a.common.deleteOne(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to delete agent from persistence: %w", err)
+	}
+
+	return nil
+}
+
 // ListAgentsBySelector implements agentport.AgentPersistencePort.
 //
 //nolint:funlen // Reason: unavoidable.

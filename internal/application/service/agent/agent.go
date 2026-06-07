@@ -23,7 +23,9 @@ var (
 	// ErrRestartCapabilityNotSupported is returned when agent doesn't support restart capability.
 	ErrRestartCapabilityNotSupported = errors.New("agent does not support restart capability")
 	// ErrAgentNamespaceMismatch is returned when the agent does not belong to the specified namespace.
-	ErrAgentNamespaceMismatch = errors.New("agent does not belong to the specified namespace")
+	// It aliases the application port sentinel so the HTTP layer can map it to a 404 while existing
+	// references to this package-level name keep working.
+	ErrAgentNamespaceMismatch = applicationport.ErrAgentNamespaceMismatch
 )
 
 var _ applicationport.AgentManageUsecase = (*Service)(nil)
@@ -37,7 +39,6 @@ type Service struct {
 	// mapper
 	mapper *helper.Mapper
 	logger *slog.Logger
-	clock  clock.Clock
 }
 
 // New creates a new instance of the Service struct.
@@ -54,7 +55,6 @@ func New(
 
 		mapper: helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		logger: logger,
-		clock:  realClock,
 	}
 }
 
@@ -64,13 +64,9 @@ func (s *Service) GetAgent(
 	namespace string,
 	instanceUID uuid.UUID,
 ) (*v1.Agent, error) {
-	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	agent, err := s.getAgentInNamespace(ctx, namespace, instanceUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent: %w", err)
-	}
-
-	if agent.Metadata.Namespace != namespace {
-		return nil, fmt.Errorf("failed to get agent: %w", ErrAgentNamespaceMismatch)
+		return nil, err
 	}
 
 	return s.mapper.MapAgentToAPI(agent), nil
@@ -125,6 +121,30 @@ func (s *Service) SearchAgents(
 	}, nil
 }
 
+// DeleteAgent implements [port.AgentManageUsecase].
+//
+// Only disconnected agents may be deleted. The connection guard is enforced by the
+// domain DeleteAgent (against a fresh read), so a still-connected agent is rejected
+// with [applicationport.ErrAgentConnected]; this method just scopes the delete to the
+// requested namespace.
+func (s *Service) DeleteAgent(
+	ctx context.Context,
+	namespace string,
+	instanceUID uuid.UUID,
+) error {
+	_, err := s.getAgentInNamespace(ctx, namespace, instanceUID)
+	if err != nil {
+		return err
+	}
+
+	err = s.agentUsecase.DeleteAgent(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to delete agent: %w", err)
+	}
+
+	return nil
+}
+
 // UpdateAgent implements [port.AgentManageUsecase].
 func (s *Service) UpdateAgent(
 	ctx context.Context,
@@ -132,13 +152,9 @@ func (s *Service) UpdateAgent(
 	instanceUID uuid.UUID,
 	api *v1.Agent,
 ) (*v1.Agent, error) {
-	existing, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	existing, err := s.getAgentInNamespace(ctx, namespace, instanceUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent: %w", err)
-	}
-
-	if existing.Metadata.Namespace != namespace {
-		return nil, fmt.Errorf("failed to update agent: %w", ErrAgentNamespaceMismatch)
+		return nil, err
 	}
 
 	agent := s.mapper.MapAPIToAgent(api)
@@ -172,4 +188,25 @@ func (s *Service) UpdateAgent(
 	}
 
 	return s.mapper.MapAgentToAPI(existing), nil
+}
+
+// getAgentInNamespace fetches an agent by UID and verifies it belongs to the given
+// namespace. It returns ErrAgentNamespaceMismatch when the agent exists but in a
+// different namespace, so the HTTP layer can map that to a 404. Centralising this
+// keeps the namespace-scoping invariant in one place for Get/Update/Delete.
+func (s *Service) getAgentInNamespace(
+	ctx context.Context,
+	namespace string,
+	instanceUID uuid.UUID,
+) (*agentmodel.Agent, error) {
+	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	if agent.Metadata.Namespace != namespace {
+		return nil, fmt.Errorf("failed to get agent: %w", ErrAgentNamespaceMismatch)
+	}
+
+	return agent, nil
 }

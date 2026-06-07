@@ -30,15 +30,18 @@ import {
   Visibility as ViewIcon,
   Edit as EditIcon,
   RestartAlt as RestartIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import PaginationFooter from '@/components/PaginationFooter';
-import RowActionsMenu from '@/components/RowActionsMenu';
+import RowActionsMenu, { type RowAction } from '@/components/RowActionsMenu';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
+import { agentDeleteConfirmMessage, deleteAgent } from '@/lib/agents';
 import { useCursorPagination } from '@/lib/pagination';
 import { useApi } from '@/lib/swr';
 import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
@@ -72,6 +75,7 @@ function AgentsInner() {
 
   const [mode, setMode] = useState<SearchMode>(modeParam);
   const [query, setQuery] = useState(qParam);
+  const [deleting, setDeleting] = useState<Agent | null>(null);
 
   // The three search modes hit different endpoints; description mode reuses the
   // plain list and filters client-side (see visibleAgents below).
@@ -152,6 +156,17 @@ function AgentsInner() {
   const clearSearch = () => {
     setQuery('');
     updateUrl({ q: '' });
+  };
+
+  // Only disconnected agents can be deleted; a connected one would just be
+  // recreated on its next report (the server enforces this with a 409 too).
+  // reset() (not refresh()) revalidates from page 0 so deleting the last row on a
+  // later page doesn't strand the user on a now-empty cursor page.
+  const onDelete = async () => {
+    if (!deleting) return;
+    await deleteAgent(namespace, deleting.metadata.instanceUid);
+    setDeleting(null);
+    pagination.reset();
   };
 
   const filterActive = Boolean(agentGroupParam || qParam || descParam);
@@ -383,6 +398,19 @@ function AgentsInner() {
                           icon: <RestartIcon fontSize="small" />,
                           href: `/agents/${agent.metadata.instanceUid}?action=restart`,
                         },
+                        // Deleting a connected agent is pointless (it reappears),
+                        // so only surface it for disconnected ones.
+                        ...(!agent.status.connected
+                          ? [
+                              {
+                                label: 'Delete agent',
+                                icon: <DeleteIcon fontSize="small" />,
+                                onClick: () => setDeleting(agent),
+                                destructive: true,
+                                divider: true,
+                              } satisfies RowAction,
+                            ]
+                          : []),
                       ]}
                     />
                   </TableCell>
@@ -394,6 +422,16 @@ function AgentsInner() {
       </TableContainer>
 
       <PaginationFooter pagination={pagination} />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete agent"
+        message={deleting ? agentDeleteConfirmMessage(deleting.metadata.instanceUid) : ''}
+        confirmLabel="Delete"
+        destructive
+        onClose={() => setDeleting(null)}
+        onConfirm={onDelete}
+      />
     </Box>
   );
 }

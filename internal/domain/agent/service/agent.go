@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jellydator/ttlcache/v3"
+	"k8s.io/utils/clock"
 
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/internal/domain/agent/port"
@@ -38,6 +39,8 @@ type AgentService struct {
 	logger               *slog.Logger
 	agentCache           *ttlcache.Cache[uuid.UUID, *agentmodel.Agent]
 	cacheEnabled         bool
+	// clock is consulted only for the delete connection-guard (staleness evaluation).
+	clock clock.PassiveClock
 }
 
 // NewAgentService creates a new instance of AgentService with default cache configuration.
@@ -66,6 +69,7 @@ func NewAgentServiceWithConfig(
 			logger:               logger,
 			agentCache:           nil,
 			cacheEnabled:         false,
+			clock:                clock.RealClock{},
 		}
 	}
 
@@ -94,6 +98,7 @@ func NewAgentServiceWithConfig(
 		logger:               logger,
 		agentCache:           agentCache,
 		cacheEnabled:         true,
+		clock:                clock.RealClock{},
 	}
 }
 
@@ -168,6 +173,35 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 	if s.cacheEnabled {
 		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
+
+	return nil
+}
+
+// DeleteAgent permanently (hard) removes a disconnected agent by its instance UID
+// and invalidates the cache.
+//
+// The "only disconnected agents may be deleted" policy is enforced here so it
+// cannot be bypassed by callers that hold an AgentUsecase directly. The agent is
+// read fresh from persistence (not the cache) so the decision reflects the agent's
+// real current state — important right after a disconnect, where another server's
+// write may not be visible in this process's cache yet. A still-connected agent is
+// rejected with [agentport.ErrAgentConnected].
+func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
+	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to get agent for deletion: %w", err)
+	}
+
+	if agent.IsConnectedAt(s.clock.Now(), agentmodel.DefaultConnectionStaleness) {
+		return fmt.Errorf("failed to delete agent: %w", agentport.ErrAgentConnected)
+	}
+
+	err = s.agentPersistencePort.DeleteAgent(ctx, instanceUID)
+	if err != nil {
+		return fmt.Errorf("failed to delete agent from persistence: %w", err)
+	}
+
+	s.InvalidateCache(instanceUID)
 
 	return nil
 }

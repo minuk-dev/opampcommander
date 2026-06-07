@@ -2,12 +2,14 @@
 package agent
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/ginutil"
 )
@@ -59,6 +61,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/namespaces/:namespace/agents/:id",
 			Handler:     "http.v1.agent.Update",
 			HandlerFunc: c.Update,
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Handler:     "http.v1.agent.Delete",
+			HandlerFunc: c.Delete,
 		},
 	}
 }
@@ -194,8 +202,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 
 	agent, err := c.agentUsecase.GetAgent(ctx.Request.Context(), namespace, instanceUID)
 	if err != nil {
-		c.logger.Error("failed to get agent", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent.")
+		c.handleAgentError(ctx, err, "An error occurred while retrieving the agent.")
 
 		return
 	}
@@ -244,11 +251,68 @@ func (c *Controller) Update(ctx *gin.Context) {
 
 	updatedAgent, err := c.agentUsecase.UpdateAgent(ctx.Request.Context(), namespace, instanceUID, &req)
 	if err != nil {
-		c.logger.Error("failed to update agent", "error", err.Error())
-		ginutil.HandleDomainError(ctx, err, "An error occurred while updating the agent.")
+		c.handleAgentError(ctx, err, "An error occurred while updating the agent.")
 
 		return
 	}
 
 	ctx.JSON(http.StatusOK, updatedAgent)
+}
+
+// Delete permanently removes a disconnected agent.
+//
+// @Summary  Delete Agent
+// @Tags agent
+// @Description Permanently delete a disconnected agent by its instance UID in a namespace.
+// @Description Connected agents cannot be deleted and return 409 Conflict.
+// @Accept  json
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  id path string true "Instance UID of the agent"
+// @Success  204 "No Content"
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  409 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/namespaces/{namespace}/agents/{id} [delete].
+func (c *Controller) Delete(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	err = c.agentUsecase.DeleteAgent(ctx.Request.Context(), namespace, instanceUID)
+	if err != nil {
+		c.handleAgentError(ctx, err, "An error occurred while deleting the agent.")
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// handleAgentError maps agent management errors to HTTP responses, centralising the
+// status mapping shared by Get/Update/Delete:
+//   - ErrAgentNamespaceMismatch -> 404 (the agent exists, but not in this namespace)
+//   - ErrAgentConnected          -> 409 (a connected agent cannot be deleted)
+//   - everything else            -> delegated to ginutil.HandleDomainError (404/500)
+func (c *Controller) handleAgentError(ctx *gin.Context, err error, fallbackMessage string) {
+	switch {
+	case errors.Is(err, applicationport.ErrAgentNamespaceMismatch):
+		ginutil.ResourceNotFoundError(ctx, "agent", ctx.Param("id"))
+	case errors.Is(err, applicationport.ErrAgentConnected):
+		ginutil.ConflictError(ctx, err, "The agent is still connected and cannot be deleted.")
+	default:
+		c.logger.Error(fallbackMessage, "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, fallbackMessage)
+	}
 }
