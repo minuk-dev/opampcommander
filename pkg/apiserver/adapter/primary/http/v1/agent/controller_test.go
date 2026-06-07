@@ -16,6 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent/usecasemock"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -117,6 +118,68 @@ func TestAgentControllerListAgent(t *testing.T) {
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, "application/json; charset=utf-8", recorder.Header().Get("Content-Type"))
 		assert.Equal(t, int64(0), gjson.Get(recorder.Body.String(), "items.#").Int())
+	})
+
+	t.Run("List Agents - connected=true sets ConnectedOnly", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// The mock only matches when ConnectedOnly is true, so an unforwarded
+		// param (the regression we're guarding) fails the call match.
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, "default", mock.MatchedBy(func(o *model.ListOptions) bool {
+				return o != nil && o.ConnectedOnly
+			})).
+			Return(&v1.ListResponse[v1.Agent]{
+				APIVersion: "v1",
+				Kind:       v1.AgentKind,
+				Items:      []v1.Agent{},
+				Metadata:   v1.ListMeta{RemainingItemCount: 0, Continue: ""},
+			}, nil)
+
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/agents?connected=true", nil,
+		)
+		require.NoError(t, err)
+
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+	})
+
+	t.Run("List Agents - default leaves ConnectedOnly false", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, "default", mock.MatchedBy(func(o *model.ListOptions) bool {
+				return o != nil && !o.ConnectedOnly
+			})).
+			Return(&v1.ListResponse[v1.Agent]{
+				APIVersion: "v1",
+				Kind:       v1.AgentKind,
+				Items:      []v1.Agent{},
+				Metadata:   v1.ListMeta{RemainingItemCount: 0, Continue: ""},
+			}, nil)
+
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet, "/api/v1/namespaces/default/agents", nil,
+		)
+		require.NoError(t, err)
+
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
 	})
 
 	t.Run("List Agents - invalid limit returns 400", func(t *testing.T) {
