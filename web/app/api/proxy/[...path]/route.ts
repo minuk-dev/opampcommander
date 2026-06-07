@@ -15,6 +15,10 @@ const HOP_BY_HOP = new Set([
   'host',
 ]);
 
+// "null body status" codes: the Response constructor throws ("Invalid response
+// status code 204") if given any body, even an empty one.
+const NULL_BODY_STATUS = new Set([204, 205, 304]);
+
 async function forward(request: NextRequest, segments: string[]): Promise<NextResponse> {
   const targetPath = `/${segments.map((s) => encodeURIComponent(s)).join('/')}`;
   const search = request.nextUrl.search;
@@ -80,9 +84,6 @@ async function forward(request: NextRequest, segments: string[]): Promise<NextRe
     }
   }
 
-  // 204/205/304 are "null body status" codes: the Response constructor throws
-  // ("Invalid response status code 204") if given any body, even an empty one.
-  const NULL_BODY_STATUS = new Set([204, 205, 304]);
   const body = NULL_BODY_STATUS.has(upstream.status) ? null : await upstream.arrayBuffer();
   return new NextResponse(body, {
     status: upstream.status,
