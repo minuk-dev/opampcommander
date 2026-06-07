@@ -10,5 +10,7 @@ import (
 func New() fx.Option {
 	return fx.Options(
 		NewMongoDB(),
+		// Outbound messaging: server-event sender.
+		fx.Provide(newEventSender),
 	)
 }

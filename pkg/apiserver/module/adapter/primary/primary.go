@@ -13,6 +13,8 @@ func New() fx.Option {
 		NewHTTP(),
 		fx.Provide(
 			fx.Annotate(NewExecutor, fx.ParamTags(``, `group:"runners"`)),
+			// Inbound messaging: server-event receiver.
+			newEventReceiver,
 		),
 		fx.Invoke(func(*Executor) {}),
 	)
