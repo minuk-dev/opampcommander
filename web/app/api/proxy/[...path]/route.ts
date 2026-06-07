@@ -80,7 +80,10 @@ async function forward(request: NextRequest, segments: string[]): Promise<NextRe
     }
   }
 
-  const body = await upstream.arrayBuffer();
+  // 204/205/304 are "null body status" codes: the Response constructor throws
+  // ("Invalid response status code 204") if given any body, even an empty one.
+  const NULL_BODY_STATUS = new Set([204, 205, 304]);
+  const body = NULL_BODY_STATUS.has(upstream.status) ? null : await upstream.arrayBuffer();
   return new NextResponse(body, {
     status: upstream.status,
     statusText: upstream.statusText,
