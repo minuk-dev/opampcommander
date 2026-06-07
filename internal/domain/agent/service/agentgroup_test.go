@@ -11,14 +11,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/scheduler"
 	agentmodel "github.com/minuk-dev/opampcommander/internal/domain/agent/model"
 	"github.com/minuk-dev/opampcommander/internal/domain/agent/model/agent"
 	agentservice "github.com/minuk-dev/opampcommander/internal/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/internal/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
-var _ helper.Runner = (*agentservice.AgentGroupService)(nil)
+var _ scheduler.Scheduler = (*agentservice.AgentGroupService)(nil)
 
 var errAgentGroupNotFound = errors.New("agent group not found")
 

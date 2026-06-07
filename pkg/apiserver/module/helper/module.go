@@ -13,15 +13,12 @@ func NewModule() fx.Option {
 	return fx.Module(
 		"helper",
 		fx.Provide(
-			// Lifecycle management
-			fx.Annotate(lifecycle.NewExecutor, fx.ParamTags(``, `group:"runners"`)),
+			// Shutdown listener
 			internalhelper.NewShutdownListener,
 			// Security
 			security.New,
-			// Management
 		),
 		// Lifecycle hooks
-		fx.Invoke(func(*lifecycle.Executor) {}),
 		fx.Invoke(lifecycle.RegisterShutdownListener),
 	)
 }

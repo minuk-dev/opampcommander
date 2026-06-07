@@ -17,7 +17,6 @@ import (
 	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent/usecasemock"
 	applicationport "github.com/minuk-dev/opampcommander/internal/application/port"
 	"github.com/minuk-dev/opampcommander/internal/domain/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -26,8 +25,8 @@ func TestMain(m *testing.M) {
 }
 
 var (
-	// Ensure Controller implements ginutil.Controller interface.
-	_ helper.Controller = (*agent.Controller)(nil)
+	// Ensure Controller implements the Controller interface.
+	_ testutil.Controller = (*agent.Controller)(nil)
 )
 
 func TestAgentControllerListAgent(t *testing.T) {

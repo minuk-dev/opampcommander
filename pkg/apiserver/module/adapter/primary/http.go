@@ -1,4 +1,4 @@
-package infrastructure
+package primary
 
 import (
 	"context"
@@ -16,12 +16,27 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/basic"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/auth/github"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agent"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentgroup"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentpackage"
+	agentremoteconfigcontroller "github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/agentremoteconfig"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/certificate"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/connection"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/namespace"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/opamp"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/ping"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/role"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/rolebinding"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/server"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/user"
+	"github.com/minuk-dev/opampcommander/internal/adapter/in/http/v1/version"
 	userport "github.com/minuk-dev/opampcommander/internal/domain/user/port"
 	"github.com/minuk-dev/opampcommander/internal/management/observability"
 	"github.com/minuk-dev/opampcommander/internal/security"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
 )
 
 const (
@@ -42,6 +57,49 @@ var (
 	//nolint:gochecknoglobals // Swagger global variable is initialized once to prevent race conditions
 	swaggerOnce sync.Once
 )
+
+// NewHTTP provides the HTTP server, the Gin engine, and every controller registered into it.
+func NewHTTP() fx.Option {
+	return fx.Options(
+		fx.Provide(
+			// HTTP Server & Engine
+			NewHTTPServer,
+			fx.Annotate(NewEngine, fx.ParamTags(`group:"controllers"`)),
+
+			// Controllers — added to the "controllers" group consumed by NewEngine.
+			AsController(ping.NewController),
+			AsController(version.NewController),
+			AsController(connection.NewController),
+			AsController(agent.NewController),
+			AsController(agentgroup.NewController),
+			AsController(agentpackage.NewController),
+			AsController(agentremoteconfigcontroller.NewController),
+			AsController(namespace.NewController),
+			AsController(certificate.NewController),
+			AsController(server.NewController),
+			AsController(user.NewController),
+			AsController(role.NewController),
+			AsController(rolebinding.NewController),
+			AsController(github.NewController),
+			AsController(basic.NewController),
+
+			// The OpAMP controller is also needed as its concrete type for the
+			// connection context, so it is provided plainly and then added to the
+			// group via a pass-through (fx.Self() can't be used here: ResultTags
+			// would also tag the concrete output, hiding it from connContext).
+			opamp.NewController,
+			fx.Annotate(
+				func(c *opamp.Controller) Controller { return c },
+				fx.ResultTags(`group:"controllers"`),
+			),
+
+			// OpAMP specific connection context
+			func(opampController *opamp.Controller) func(context.Context, net.Conn) context.Context {
+				return opampController.ConnContext
+			},
+		),
+	)
+}
 
 // NewHTTPServer creates a new HTTP server instance.
 func NewHTTPServer(
@@ -95,7 +153,7 @@ func NewHTTPServer(
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.
 func NewEngine(
-	controllers []helper.Controller,
+	controllers []Controller,
 	securityService *security.Service,
 	rbacUsecase userport.RBACUsecase,
 	userUsecase userport.UserUsecase,
@@ -133,4 +191,19 @@ func NewEngine(
 	}
 
 	return engine
+}
+
+// Controller is an interface that defines the methods for handling HTTP requests.
+type Controller interface {
+	RoutesInfo() gin.RoutesInfo
+}
+
+// AsController annotates a controller constructor so its result is provided as the
+// Controller interface into the "controllers" group consumed by NewEngine.
+func AsController(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(Controller)),
+		fx.ResultTags(`group:"controllers"`),
+	)
 }

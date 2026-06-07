@@ -10,6 +10,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	adaptermodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/adapter"
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/module/domain"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/module/helper"
@@ -37,10 +38,11 @@ type Server struct {
 func New(settings config.ServerSettings) *Server {
 	app := fx.New(
 		// Hexagonal architecture layers
-		infrastructuremodule.New(), // All infrastructure: HTTP, DB, Messaging, WebSocket
-		applicationmodule.New(),    // Application services
-		domainmodule.New(),         // Domain services
-		NewConfigModule(&settings), // Configuration
+		adaptermodule.NewAdapterModules(), // Adapters: HTTP, DB, messaging, scheduler
+		infrastructuremodule.New(),        // Bootstrap: Casbin RBAC + default seed hooks
+		applicationmodule.New(),           // Application services
+		domainmodule.New(),                // Domain services
+		NewConfigModule(&settings),        // Configuration
 
 		// Base utilities
 		helper.NewModule(),

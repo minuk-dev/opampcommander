@@ -86,12 +86,12 @@ func (s *AgentGroupService) SetClock(c clock.Clock) {
 	s.clock = c
 }
 
-// Name implements lifecycle.Runner.
+// Name implements scheduler.Scheduler.
 func (s *AgentGroupService) Name() string {
 	return agentGroupServiceName
 }
 
-// Run implements lifecycle.Runner.
+// Run implements scheduler.Scheduler.
 //
 // Reconciliation runs on its own goroutine so a long pass (full collection scan +
 // per-group agent updates) never blocks the changedAgentGroupCh consumer below.
