@@ -201,18 +201,20 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 			"$group": bson.M{
 				"_id":       nil,
 				"numAgents": bson.M{"$sum": 1},
+				// "Connected" is staleness-aware (connectedAggExpr) so these counts
+				// agree with the per-agent Connected field shown in the UI; a raw
+				// status.connected flag would over-count HTTP-polling agents that
+				// silently stopped reporting.
 				"numConnectedAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []any{
-							bson.M{"$eq": []any{"$status.connected", true}}, 1, 0,
-						},
+						"$cond": []any{connectedAggExpr(), 1, 0},
 					},
 				},
 				"numHealthyAgents": bson.M{
 					"$sum": bson.M{
 						"$cond": []any{
 							bson.M{"$and": []any{
-								bson.M{"$eq": []any{"$status.connected", true}},
+								connectedAggExpr(),
 								bson.M{"$eq": []any{"$status.componentHealth.healthy", true}},
 							}}, 1, 0,
 						},
@@ -222,7 +224,7 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 					"$sum": bson.M{
 						"$cond": []any{
 							bson.M{"$and": []any{
-								bson.M{"$eq": []any{"$status.connected", true}},
+								connectedAggExpr(),
 								bson.M{"$ne": []any{"$status.componentHealth.healthy", true}},
 							}}, 1, 0,
 						},
@@ -230,9 +232,7 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 				},
 				"numNotConnectedAgents": bson.M{
 					"$sum": bson.M{
-						"$cond": []any{
-							bson.M{"$ne": []any{"$status.connected", true}}, 1, 0,
-						},
+						"$cond": []any{notConnectedAggExpr(), 1, 0},
 					},
 				},
 			},

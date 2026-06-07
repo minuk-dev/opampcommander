@@ -1722,6 +1722,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: When true, return only currently-connected agents
+        in: query
+        name: connected
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1886,6 +1890,10 @@ paths:
         in: query
         name: continue
         type: string
+      - description: When true, return only currently-connected agents
+        in: query
+        name: connected
+        type: boolean
       produces:
       - application/json
       responses:

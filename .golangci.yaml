@@ -34,6 +34,9 @@ linters:
       exclude:
         - '.+/cobra\.Command$'
         - "go.mongodb.org/mongo-driver/v2/bson.Binary"
+        # Optional list/paging filters whose zero values are meaningful defaults;
+        # call sites legitimately set only the fields they care about.
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model.ListOptions"
     ireturn:
       allow:
         - generic

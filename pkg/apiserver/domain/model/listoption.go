@@ -5,6 +5,14 @@ type ListOptions struct {
 	Limit          int64
 	Continue       string
 	IncludeDeleted bool
+
+	// ConnectedOnly, when true, restricts an agent listing to agents that are
+	// currently considered connected. "Connected" here mirrors the per-agent
+	// Connected field exactly (Status.Connected is set AND the agent reported
+	// within the heartbeat-staleness window), so a filtered list and the
+	// connected badge/count never disagree. It is a no-op for resources that
+	// have no connection state.
+	ConnectedOnly bool
 }
 
 // GetOptions is a struct that holds options for getting a single resource.

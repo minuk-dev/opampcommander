@@ -8,12 +8,14 @@ import {
   Chip,
   CircularProgress,
   FormControl,
+  FormControlLabel,
   IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -76,6 +78,10 @@ function AgentsInner() {
   const [mode, setMode] = useState<SearchMode>(modeParam);
   const [query, setQuery] = useState(qParam);
   const [deleting, setDeleting] = useState<Agent | null>(null);
+  // Disconnected agents are hidden by default; the toggle reveals them. When
+  // hidden we pass connected=true so the server filters them out (keeping the
+  // paginated total accurate) rather than filtering the current page client-side.
+  const [showDisconnected, setShowDisconnected] = useState(false);
 
   // The three search modes hit different endpoints; description mode reuses the
   // plain list and filters client-side (see visibleAgents below).
@@ -88,6 +94,9 @@ function AgentsInner() {
     listQuery.q = qParam;
   } else {
     listPath = `/api/v1/namespaces/${namespace}/agents`;
+  }
+  if (!showDisconnected) {
+    listQuery.connected = 'true';
   }
 
   const pagination = useCursorPagination<Agent>(listPath, { query: listQuery });
@@ -259,6 +268,18 @@ function AgentsInner() {
               </Button>
             </Stack>
           </form>
+
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={showDisconnected}
+                onChange={(e) => setShowDisconnected(e.target.checked)}
+              />
+            }
+            label="Show disconnected agents"
+            sx={{ color: 'text.secondary' }}
+          />
 
           {mode === 'description' && (
             <Box sx={{ color: 'text.secondary', fontSize: 12 }}>

@@ -89,7 +89,12 @@ func (a *AgentRepository) ListAgents(
 	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	resp, err := a.common.listWithFilter(ctx, options, bson.M{"metadata.namespace": sanitizeResourceName(namespace)})
+	extraFilter := bson.M{"metadata.namespace": sanitizeResourceName(namespace)}
+	if options != nil && options.ConnectedOnly {
+		extraFilter["$expr"] = connectedAggExpr()
+	}
+
+	resp, err := a.common.listWithFilter(ctx, options, extraFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents from persistence: %w", err)
 	}
@@ -151,6 +156,10 @@ func (a *AgentRepository) ListAgentsBySelector(
 	}
 
 	allConditions := SelectorToMatchConditions(AgentSelectorToEntity(selector))
+
+	if options.ConnectedOnly {
+		allConditions = append(allConditions, connectedMatchFilter())
+	}
 
 	// Add continue token condition if present
 	continueTokenFilter := withContinueToken(continueTokenObjectID)
@@ -338,6 +347,10 @@ func (a *AgentRepository) buildSearchFilter(
 	conditions := []bson.M{
 		{"metadata.namespace": namespace},
 		{"metadata.instanceUidString": bson.M{"$regex": "^" + safeQuery, "$options": "i"}},
+	}
+
+	if options.ConnectedOnly {
+		conditions = append(conditions, connectedMatchFilter())
 	}
 
 	// Add continue token condition if present

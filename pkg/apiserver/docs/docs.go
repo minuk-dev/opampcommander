@@ -882,6 +882,12 @@ const docTemplate = `{
                         "description": "Token to continue listing agents",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, return only currently-connected agents",
+                        "name": "connected",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -944,6 +950,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Token to continue listing agents",
                         "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "When true, return only currently-connected agents",
+                        "name": "connected",
                         "in": "query"
                     }
                 ],
