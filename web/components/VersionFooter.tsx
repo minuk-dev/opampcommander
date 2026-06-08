@@ -3,7 +3,7 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import Link from 'next/link';
 import { fetcher, useSWRImmutable } from '@/lib/swr';
-import { WEB_VERSION } from '@/lib/web-version';
+import { WEB_BUILD, WEB_VERSION } from '@/lib/web-version';
 
 interface VersionInfo {
   gitVersion?: string;
@@ -28,6 +28,8 @@ export default function VersionFooter() {
           <div>
             <strong>web</strong>: {WEB_VERSION}
           </div>
+          {WEB_BUILD.gitCommit && <div>commit: {WEB_BUILD.gitCommit.slice(0, 12)}</div>}
+          {WEB_BUILD.buildDate && <div>built: {WEB_BUILD.buildDate}</div>}
           {info ? (
             <>
               {info.gitVersion && (
