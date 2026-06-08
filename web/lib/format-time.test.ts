@@ -75,7 +75,7 @@ describe('formatRelativeTime', () => {
 
   it('renders future times', () => {
     expect(formatRelativeTime(at(2 * MIN), now)).toBe('in 2 minutes');
-    expect(formatRelativeTime(at(1 * DAY), now)).toBe('tomorrow');
+    expect(formatRelativeTime(at(DAY), now)).toBe('tomorrow');
   });
 
   it('escalates to larger units', () => {

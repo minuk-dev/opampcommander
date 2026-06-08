@@ -3,11 +3,7 @@
 import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { Schedule as RelativeIcon, Event as AbsoluteIcon } from '@mui/icons-material';
 import { usePreferences } from './PreferencesProvider';
-import {
-  ABSOLUTE_TIME_FORMAT,
-  RELATIVE_TIME_FORMAT,
-  type TimeFormat,
-} from '@/lib/preferences';
+import { ABSOLUTE_TIME_FORMAT, RELATIVE_TIME_FORMAT, type TimeFormat } from '@/lib/preferences';
 
 // Toggle between relative ("5 minutes ago") and absolute timestamp display.
 // Writes the selection straight through to the shared preference.
