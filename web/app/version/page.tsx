@@ -2,7 +2,7 @@ import { Alert, Box, Card, CardContent, Stack, Typography } from '@mui/material'
 import PageHeader from '@/components/PageHeader';
 import JsonBlock from '@/components/JsonBlock';
 import { serverGet } from '@/lib/server-api';
-import { WEB_VERSION } from '@/lib/web-version';
+import { getWebVersionInfo } from '@/lib/web-version';
 
 function InfoRows({ entries }: { entries: Array<[string, unknown]> }) {
   return (
@@ -25,7 +25,7 @@ function InfoRows({ entries }: { entries: Array<[string, unknown]> }) {
 // token from the httpOnly session cookie (see lib/server-api). No client-side
 // effect/loading state needed — the page streams in already populated.
 export default async function VersionPage() {
-  const webInfo = { version: WEB_VERSION };
+  const webInfo = getWebVersionInfo();
 
   let apiInfo: Record<string, unknown> | null = null;
   let error: string | null = null;

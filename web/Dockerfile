@@ -22,9 +22,20 @@ WORKDIR /app
 # without a separate runtime lookup. Required — fail the build rather
 # than silently shipping the stale package.json fallback when CI forgets
 # to pass it. For local builds, pass e.g. `--build-arg VERSION=dev`.
+#
+# GIT_COMMIT/GIT_TREE_STATE/BUILD_DATE mirror the apiserver's version payload
+# (api/v1/version). Git isn't available in this build context (only ./web is
+# copied), so CI computes them and passes them in; they're optional and
+# default to empty for local builds.
 ARG VERSION
+ARG GIT_COMMIT=""
+ARG GIT_TREE_STATE=""
+ARG BUILD_DATE=""
 ENV NEXT_TELEMETRY_DISABLED=1 \
-    NEXT_PUBLIC_WEB_VERSION=${VERSION}
+    NEXT_PUBLIC_WEB_VERSION=${VERSION} \
+    NEXT_PUBLIC_WEB_GIT_COMMIT=${GIT_COMMIT} \
+    NEXT_PUBLIC_WEB_GIT_TREE_STATE=${GIT_TREE_STATE} \
+    NEXT_PUBLIC_WEB_BUILD_DATE=${BUILD_DATE}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN test -n "${VERSION}" || (echo "ERROR: VERSION build-arg is required (pass --build-arg VERSION=...)" >&2 && exit 1) \
