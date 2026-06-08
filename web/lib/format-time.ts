@@ -65,3 +65,57 @@ function getFormatter(options: Intl.DateTimeFormatOptions, cacheKey: string): In
 function format(date: Date, options: Intl.DateTimeFormatOptions, cacheKey: string): string {
   return getFormatter(options, cacheKey).format(date).replaceAll(',', '');
 }
+
+// Largest-to-smallest cascade of units and how many of the smaller unit make up
+// one of this one. The walk divides the elapsed seconds by each `amount` until
+// the magnitude fits inside the next unit, then formats with that unit.
+const RELATIVE_DIVISIONS: { amount: number; unit: Intl.RelativeTimeFormatUnit }[] = [
+  { amount: 60, unit: 'second' },
+  { amount: 60, unit: 'minute' },
+  { amount: 24, unit: 'hour' },
+  { amount: 7, unit: 'day' },
+  { amount: 4.34524, unit: 'week' },
+  { amount: 12, unit: 'month' },
+  { amount: Number.POSITIVE_INFINITY, unit: 'year' },
+];
+
+// `numeric: 'auto'` yields friendly phrasings ("now", "yesterday") instead of
+// always-numeric ("0 seconds ago", "1 day ago").
+const relativeFormatter = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+// Future timestamps within this window render as "now". Server/client clock
+// skew routinely puts a just-created resource a few seconds ahead of the
+// browser clock, and "in 3 seconds" reads as a glitch. Genuinely future times
+// (e.g. certificate expiries) sit far beyond this and still render as "in …".
+const FUTURE_SKEW_TOLERANCE_SECONDS = 10;
+
+// Format an ISO-8601 timestamp as a relative phrase ("5 minutes ago", "in 3
+// hours", "now"). `nowMs` is the reference epoch-ms — pass a shared, ticking
+// value so many timestamps advance in lockstep; defaults to Date.now(). Returns
+// null for empty/invalid input so callers can render their own placeholder.
+export function formatRelativeTime(
+  value: string | null | undefined,
+  nowMs?: number,
+): string | null {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return null;
+
+  // Signed seconds: negative is in the past, positive is in the future.
+  let duration = (time - (nowMs ?? Date.now())) / 1000;
+  if (duration > 0 && duration < FUTURE_SKEW_TOLERANCE_SECONDS) duration = 0;
+
+  for (const { amount, unit } of RELATIVE_DIVISIONS) {
+    // Round before the threshold check (not just for output): a value like
+    // 59.6s would otherwise print "60 seconds ago" instead of rolling over to
+    // "1 minute ago". The unrounded `duration` still feeds the next division so
+    // precision is preserved across units.
+    const rounded = Math.round(duration);
+    if (Math.abs(rounded) < amount) {
+      return relativeFormatter.format(rounded, unit);
+    }
+    duration /= amount;
+  }
+  // Unreachable: the last division has an infinite amount.
+  return null;
+}

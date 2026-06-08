@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { LOCAL_TIME_ZONE, isValidTimeZone, listTimeZones } from './preferences';
+import {
+  ABSOLUTE_TIME_FORMAT,
+  LOCAL_TIME_ZONE,
+  RELATIVE_TIME_FORMAT,
+  canonicalTimeFormat,
+  isValidTimeZone,
+  listTimeZones,
+} from './preferences';
 
 describe('isValidTimeZone', () => {
   it('accepts the local sentinel and real IANA zones', () => {
@@ -22,5 +29,18 @@ describe('listTimeZones', () => {
     const zones = listTimeZones();
     expect(zones.length).toBeGreaterThan(0);
     expect(zones).toContain('UTC');
+  });
+});
+
+describe('canonicalTimeFormat', () => {
+  it('keeps the explicit absolute opt-in', () => {
+    expect(canonicalTimeFormat(ABSOLUTE_TIME_FORMAT)).toBe(ABSOLUTE_TIME_FORMAT);
+  });
+
+  it('defaults anything else to relative', () => {
+    expect(canonicalTimeFormat(RELATIVE_TIME_FORMAT)).toBe(RELATIVE_TIME_FORMAT);
+    expect(canonicalTimeFormat(undefined)).toBe(RELATIVE_TIME_FORMAT);
+    expect(canonicalTimeFormat('bogus')).toBe(RELATIVE_TIME_FORMAT);
+    expect(canonicalTimeFormat(42)).toBe(RELATIVE_TIME_FORMAT);
   });
 });

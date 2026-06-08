@@ -4,6 +4,7 @@ import { Alert, Box, Card, CardContent, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import PageHeader from '@/components/PageHeader';
 import TimeDisplay from '@/components/TimeDisplay';
+import TimeFormatSelector from '@/components/TimeFormatSelector';
 import TimezoneSelector from '@/components/TimezoneSelector';
 import { usePreferences } from '@/components/PreferencesProvider';
 
@@ -34,6 +35,20 @@ export default function PreferencesPage() {
         title="Preferences"
         subtitle="Display settings stored in this browser. They apply only to you and are never sent to the server."
       />
+
+      <Card variant="outlined" sx={{ mb: 3, maxWidth: 640 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Time format
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Show timestamps as a relative time (&ldquo;5 minutes ago&rdquo;) with the absolute time
+            on hover, or always as the full absolute timestamp.
+          </Typography>
+
+          <TimeFormatSelector />
+        </CardContent>
+      </Card>
 
       <Card variant="outlined" sx={{ mb: 3, maxWidth: 640 }}>
         <CardContent>
