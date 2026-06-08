@@ -12,6 +12,7 @@ import {
 import {
   DEFAULT_PREFERENCES,
   type Preferences,
+  type TimeFormat,
   readPreferences,
   writePreferences,
 } from '@/lib/preferences';
@@ -20,6 +21,8 @@ interface PreferencesContextValue {
   preferences: Preferences;
   // Set the display timezone: 'local' (browser zone) or an IANA zone name.
   setTimeZone: (timeZone: string) => void;
+  // Set how timestamps render: 'relative' or 'absolute'.
+  setTimeFormat: (timeFormat: TimeFormat) => void;
   // True once the persisted preferences have been read from localStorage on the
   // client. Components that render timezone-dependent output (which differs
   // between the server and the visitor's browser) gate on this to stay
@@ -51,9 +54,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setTimeFormat = useCallback((timeFormat: TimeFormat) => {
+    setPreferences((prev) => {
+      const next = { ...prev, timeFormat };
+      writePreferences(next);
+      return next;
+    });
+  }, []);
+
   const value = useMemo<PreferencesContextValue>(
-    () => ({ preferences, setTimeZone, hydrated }),
-    [preferences, setTimeZone, hydrated],
+    () => ({ preferences, setTimeZone, setTimeFormat, hydrated }),
+    [preferences, setTimeZone, setTimeFormat, hydrated],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

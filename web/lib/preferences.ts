@@ -7,13 +7,22 @@
 // IANA timezone name (e.g. 'UTC', 'Asia/Seoul', 'America/New_York').
 export const LOCAL_TIME_ZONE = 'local';
 
+// How timestamps are rendered: 'relative' shows "5 minutes ago" with the
+// absolute time in a tooltip; 'absolute' always shows the full timestamp.
+export const RELATIVE_TIME_FORMAT = 'relative';
+export const ABSOLUTE_TIME_FORMAT = 'absolute';
+export type TimeFormat = typeof RELATIVE_TIME_FORMAT | typeof ABSOLUTE_TIME_FORMAT;
+
 export interface Preferences {
   // 'local' (browser zone) or an IANA timezone name.
   timeZone: string;
+  // 'relative' (default) or 'absolute'.
+  timeFormat: TimeFormat;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   timeZone: LOCAL_TIME_ZONE,
+  timeFormat: RELATIVE_TIME_FORMAT,
 };
 
 const STORAGE_KEY = 'opamp.preferences';
@@ -102,8 +111,17 @@ const FALLBACK_ZONES = [
   'Australia/Sydney',
 ];
 
+// Coerce an unknown value into a valid TimeFormat, defaulting anything other
+// than the explicit 'absolute' opt-in back to 'relative'.
+export function canonicalTimeFormat(value: unknown): TimeFormat {
+  return value === ABSOLUTE_TIME_FORMAT ? ABSOLUTE_TIME_FORMAT : RELATIVE_TIME_FORMAT;
+}
+
 // Coerce an untrusted parsed object into a valid Preferences, canonicalising
 // the zone spelling and dropping unknown values back to their defaults.
 function normalize(parsed: Partial<Preferences>): Preferences {
-  return { timeZone: canonicalTimeZone(parsed.timeZone) };
+  return {
+    timeZone: canonicalTimeZone(parsed.timeZone),
+    timeFormat: canonicalTimeFormat(parsed.timeFormat),
+  };
 }
