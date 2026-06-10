@@ -145,6 +145,7 @@ func (s *ManageService) CreateAgentGroup(
 
 	// Set the created condition with createdBy information
 	now := s.clock.Now()
+	domainAgentGroup.Metadata.CreatedAt = now
 	domainAgentGroup.Status.Conditions = []model.Condition{
 		{
 			Type:               model.ConditionTypeCreated,
