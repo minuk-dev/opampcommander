@@ -118,7 +118,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *agentmodel.AgentGroup
 			Namespace:  domainAgentGroup.Metadata.Namespace,
 			Name:       domainAgentGroup.Metadata.Name,
 			CreatedAt:  v1.NewTime(domainAgentGroup.Metadata.CreatedAt),
-			DeletedAt:  p(v1.NewTime(domainAgentGroup.Metadata.DeletedAt)),
+			DeletedAt:  mapDeletedAtToAPI(domainAgentGroup.Metadata.DeletedAt),
 			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
 		},
 		Spec: v1.Spec{
@@ -292,7 +292,7 @@ func (mapper *Mapper) MapCertificateToAPI(domain *agentmodel.Certificate) *v1.Ce
 			Namespace:  domain.Metadata.Namespace,
 			Attributes: v1.Attributes(domain.Metadata.Attributes),
 			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
-			DeletedAt:  p(v1.NewTime(domain.Metadata.DeletedAt)),
+			DeletedAt:  mapDeletedAtToAPI(domain.Metadata.DeletedAt),
 		},
 		Spec: v1.CertificateSpec{
 			Cert:       string(domain.Spec.Cert),
@@ -941,4 +941,14 @@ func mapDeletedAtPtrToAPI(t *time.Time) *v1.Time {
 	}
 
 	return p(v1.NewTime(*t))
+}
+
+// mapDeletedAtToAPI maps a value-typed soft-delete timestamp to an optional API
+// time. A zero time means "not deleted" and maps to nil so the field is omitted.
+func mapDeletedAtToAPI(t time.Time) *v1.Time {
+	if t.IsZero() {
+		return nil
+	}
+
+	return p(v1.NewTime(t))
 }
