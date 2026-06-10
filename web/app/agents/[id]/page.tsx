@@ -30,32 +30,10 @@ import JsonBlock from '@/components/JsonBlock';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
-import { agentDeleteConfirmMessage, deleteAgent } from '@/lib/agents';
+import { agentDeleteConfirmMessage, capabilityNames, deleteAgent } from '@/lib/agents';
 import { useApi } from '@/lib/swr';
 import type { Agent } from '@/lib/types';
 import AgentEditDialog from './AgentEditDialog';
-
-function capabilityNames(bitmask: number | undefined): string[] {
-  if (!bitmask) return [];
-  const table: Array<[number, string]> = [
-    [1, 'ReportsStatus'],
-    [2, 'AcceptsRemoteConfig'],
-    [4, 'ReportsEffectiveConfig'],
-    [8, 'AcceptsPackages'],
-    [16, 'ReportsPackageStatuses'],
-    [32, 'ReportsOwnTraces'],
-    [64, 'ReportsOwnMetrics'],
-    [128, 'ReportsOwnLogs'],
-    [256, 'AcceptsOpAMPConnectionSettings'],
-    [512, 'AcceptsOtherConnectionSettings'],
-    [1024, 'AcceptsRestartCommand'],
-    [2048, 'ReportsHealth'],
-    [4096, 'ReportsRemoteConfig'],
-    [8192, 'ReportsHeartbeat'],
-    [16384, 'ReportsAvailableComponents'],
-  ];
-  return table.filter(([b]) => (bitmask & b) !== 0).map(([, name]) => name);
-}
 
 function AgentDetailInner() {
   const params = useParams<{ id: string }>();

@@ -14,6 +14,16 @@ const theme = createTheme({
       main: '#dc004e',
     },
   },
+  components: {
+    // Shrink the root font size so all rem-based typography scales down
+    // uniformly (16px → 14px). Layout spacing is px-based and stays put, so
+    // only the text gets smaller — a global, even reduction.
+    MuiCssBaseline: {
+      styleOverrides: {
+        html: { fontSize: '87.5%' },
+      },
+    },
+  },
 });
 
 export default function ThemeRegistry({ children }: { children: ReactNode }) {
