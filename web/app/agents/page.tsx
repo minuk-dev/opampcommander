@@ -41,9 +41,11 @@ import PageHeader from '@/components/PageHeader';
 import PaginationFooter from '@/components/PaginationFooter';
 import RowActionsMenu, { type RowAction } from '@/components/RowActionsMenu';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ColumnPicker from '@/components/ColumnPicker';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
-import { agentDeleteConfirmMessage, deleteAgent } from '@/lib/agents';
+import { agentDeleteConfirmMessage, capabilityNames, deleteAgent } from '@/lib/agents';
+import { type ColumnConfig, useColumnVisibility } from '@/lib/column-visibility';
 import { useCursorPagination } from '@/lib/pagination';
 import { useApi } from '@/lib/swr';
 import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
@@ -60,6 +62,42 @@ function attrMatchesDescription(agent: Agent, lcNeedle: string): boolean {
   ];
   return collect.some(
     ([k, v]) => k.toLowerCase().includes(lcNeedle) || v.toLowerCase().includes(lcNeedle),
+  );
+}
+
+// Columns for the agents table. `instanceUid` is locked (the row identifier);
+// `sequence` and the verbose capability/attribute columns are off by default so
+// the table stays readable, and users opt into them via the column picker.
+const AGENT_COLUMNS: ColumnConfig[] = [
+  { id: 'instanceUid', label: 'Instance UID', locked: true },
+  { id: 'connected', label: 'Connected' },
+  { id: 'healthy', label: 'Healthy' },
+  { id: 'type', label: 'Type' },
+  { id: 'lastReported', label: 'Last Reported' },
+  { id: 'sequence', label: 'Sequence', defaultVisible: false },
+  { id: 'capabilities', label: 'Capabilities', defaultVisible: false },
+  {
+    id: 'identifyingAttributes',
+    label: 'Description (identifying attributes)',
+    defaultVisible: false,
+  },
+  {
+    id: 'nonIdentifyingAttributes',
+    label: 'Description (non-identifying attributes)',
+    defaultVisible: false,
+  },
+];
+
+// Render an attribute map as compact key=value chips for a table cell.
+function AttrChips({ attrs }: { attrs: Record<string, string> | undefined }) {
+  const entries = Object.entries(attrs ?? {});
+  if (entries.length === 0) return <>-</>;
+  return (
+    <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ maxWidth: 320 }}>
+      {entries.map(([k, v]) => (
+        <Chip key={k} label={`${k}=${v}`} size="small" variant="outlined" />
+      ))}
+    </Stack>
   );
 }
 
@@ -82,6 +120,10 @@ function AgentsInner() {
   // hidden we pass connected=true so the server filters them out (keeping the
   // paginated total accurate) rather than filtering the current page client-side.
   const [showDisconnected, setShowDisconnected] = useState(false);
+
+  const { visible, isVisible, toggle } = useColumnVisibility('agents', AGENT_COLUMNS);
+  // +1 for the always-present Actions column.
+  const colSpan = AGENT_COLUMNS.filter((c) => isVisible(c.id)).length + 1;
 
   // The three search modes hit different endpoints; description mode reuses the
   // plain list and filters client-side (see visibleAgents below).
@@ -338,29 +380,40 @@ function AgentsInner() {
         </Alert>
       )}
 
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <ColumnPicker columns={AGENT_COLUMNS} visible={visible} onToggle={toggle} />
+      </Box>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Instance UID</TableCell>
-              <TableCell>Connected</TableCell>
-              <TableCell>Healthy</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Last Reported</TableCell>
-              <TableCell>Sequence</TableCell>
+              {isVisible('instanceUid') && <TableCell>Instance UID</TableCell>}
+              {isVisible('connected') && <TableCell>Connected</TableCell>}
+              {isVisible('healthy') && <TableCell>Healthy</TableCell>}
+              {isVisible('type') && <TableCell>Type</TableCell>}
+              {isVisible('lastReported') && <TableCell>Last Reported</TableCell>}
+              {isVisible('sequence') && <TableCell>Sequence</TableCell>}
+              {isVisible('capabilities') && <TableCell>Capabilities</TableCell>}
+              {isVisible('identifyingAttributes') && (
+                <TableCell>Description (identifying attributes)</TableCell>
+              )}
+              {isVisible('nonIdentifyingAttributes') && (
+                <TableCell>Description (non-identifying attributes)</TableCell>
+              )}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={colSpan} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : visibleAgents.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={colSpan} align="center">
                   {descParam
                     ? `No agents on this page match description "${descParam}"`
                     : 'No agents found'}
@@ -379,28 +432,64 @@ function AgentsInner() {
                     '&:hover': { bgcolor: 'action.hover' },
                   }}
                 >
-                  <TableCell sx={{ fontFamily: 'monospace' }}>
-                    {agent.metadata.instanceUid}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={agent.status.connected ? 'Connected' : 'Disconnected'}
-                      color={agent.status.connected ? 'success' : 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={agent.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
-                      color={agent.status.componentHealth?.healthy ? 'success' : 'warning'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{agent.status.connectionType || '-'}</TableCell>
-                  <TableCell>
-                    <TimeDisplay value={agent.status.lastReportedAt} />
-                  </TableCell>
-                  <TableCell>{agent.status.sequenceNum ?? '-'}</TableCell>
+                  {isVisible('instanceUid') && (
+                    <TableCell sx={{ fontFamily: 'monospace' }}>
+                      {agent.metadata.instanceUid}
+                    </TableCell>
+                  )}
+                  {isVisible('connected') && (
+                    <TableCell>
+                      <Chip
+                        label={agent.status.connected ? 'Connected' : 'Disconnected'}
+                        color={agent.status.connected ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                  )}
+                  {isVisible('healthy') && (
+                    <TableCell>
+                      <Chip
+                        label={agent.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
+                        color={agent.status.componentHealth?.healthy ? 'success' : 'warning'}
+                        size="small"
+                      />
+                    </TableCell>
+                  )}
+                  {isVisible('type') && <TableCell>{agent.status.connectionType || '-'}</TableCell>}
+                  {isVisible('lastReported') && (
+                    <TableCell>
+                      <TimeDisplay value={agent.status.lastReportedAt} />
+                    </TableCell>
+                  )}
+                  {isVisible('sequence') && (
+                    <TableCell>{agent.status.sequenceNum ?? '-'}</TableCell>
+                  )}
+                  {isVisible('capabilities') && (
+                    <TableCell>
+                      {(() => {
+                        const caps = capabilityNames(agent.metadata.capabilities);
+                        return caps.length === 0 ? (
+                          '-'
+                        ) : (
+                          <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ maxWidth: 320 }}>
+                            {caps.map((c) => (
+                              <Chip key={c} label={c} size="small" variant="outlined" />
+                            ))}
+                          </Stack>
+                        );
+                      })()}
+                    </TableCell>
+                  )}
+                  {isVisible('identifyingAttributes') && (
+                    <TableCell>
+                      <AttrChips attrs={agent.metadata.description?.identifyingAttributes} />
+                    </TableCell>
+                  )}
+                  {isVisible('nonIdentifyingAttributes') && (
+                    <TableCell>
+                      <AttrChips attrs={agent.metadata.description?.nonIdentifyingAttributes} />
+                    </TableCell>
+                  )}
                   <TableCell align="right">
                     <RowActionsMenu
                       actions={[

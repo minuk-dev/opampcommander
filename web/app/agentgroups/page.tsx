@@ -32,12 +32,25 @@ import PageHeader from '@/components/PageHeader';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import PaginationFooter from '@/components/PaginationFooter';
 import RowActionsMenu from '@/components/RowActionsMenu';
+import ColumnPicker from '@/components/ColumnPicker';
 import TimeDisplay from '@/components/TimeDisplay';
 import { useNamespace } from '@/components/NamespaceProvider';
 import { api } from '@/lib/api-client';
+import { type ColumnConfig, useColumnVisibility } from '@/lib/column-visibility';
 import { useCursorPagination } from '@/lib/pagination';
 import type { AgentGroup } from '@/lib/types';
 import AgentGroupEditDialog from './AgentGroupEditDialog';
+
+// Columns for the agent groups table. `name` is locked (the row identifier);
+// the rest are toggleable via the column picker and persisted per user.
+const AGENT_GROUP_COLUMNS: ColumnConfig[] = [
+  { id: 'name', label: 'Name', locked: true },
+  { id: 'priority', label: 'Priority' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'connected', label: 'Connected' },
+  { id: 'healthy', label: 'Healthy' },
+  { id: 'created', label: 'Created' },
+];
 
 export default function AgentGroupsPage() {
   const { namespace } = useNamespace();
@@ -49,6 +62,10 @@ export default function AgentGroupsPage() {
   // the agents list (which also hides disconnected by default); the toggle
   // switches it to the full membership count.
   const [showDisconnected, setShowDisconnected] = useState(false);
+
+  const { visible, isVisible, toggle } = useColumnVisibility('agentgroups', AGENT_GROUP_COLUMNS);
+  // +1 for the always-present Actions column.
+  const colSpan = AGENT_GROUP_COLUMNS.filter((c) => isVisible(c.id)).length + 1;
 
   const pagination = useCursorPagination<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`);
   const { items: groups, isLoading: loading, error: fetchError, refresh } = pagination;
@@ -108,83 +125,99 @@ export default function AgentGroupsPage() {
         </Alert>
       )}
 
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <ColumnPicker columns={AGENT_GROUP_COLUMNS} visible={visible} onToggle={toggle} />
+      </Box>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Priority</TableCell>
-              <TableCell>Agents</TableCell>
-              <TableCell>Connected</TableCell>
-              <TableCell>Healthy</TableCell>
-              <TableCell>Created</TableCell>
+              {isVisible('name') && <TableCell>Name</TableCell>}
+              {isVisible('priority') && <TableCell>Priority</TableCell>}
+              {isVisible('agents') && <TableCell>Agents</TableCell>}
+              {isVisible('connected') && <TableCell>Connected</TableCell>}
+              {isVisible('healthy') && <TableCell>Healthy</TableCell>}
+              {isVisible('created') && <TableCell>Created</TableCell>}
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={colSpan} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             ) : groups.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={colSpan} align="center">
                   No agent groups
                 </TableCell>
               </TableRow>
             ) : (
               groups.map((g) => (
                 <TableRow key={g.metadata.name} hover>
-                  <TableCell>
-                    <Tooltip title="View agents in this group" placement="right">
-                      <Link
-                        href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
-                        style={{ fontWeight: 500 }}
+                  {isVisible('name') && (
+                    <TableCell>
+                      <Tooltip title="View agents in this group" placement="right">
+                        <Link
+                          href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
+                          style={{ fontWeight: 500 }}
+                        >
+                          {g.metadata.name}
+                        </Link>
+                      </Tooltip>
+                    </TableCell>
+                  )}
+                  {isVisible('priority') && <TableCell>{g.spec.priority}</TableCell>}
+                  {isVisible('agents') && (
+                    <TableCell>
+                      <Tooltip
+                        title={
+                          showDisconnected
+                            ? 'All agents in this group (connected + disconnected)'
+                            : 'Connected agents in this group'
+                        }
+                        placement="top"
                       >
-                        {g.metadata.name}
-                      </Link>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>{g.spec.priority}</TableCell>
-                  <TableCell>
-                    <Tooltip
-                      title={
-                        showDisconnected
-                          ? 'All agents in this group (connected + disconnected)'
-                          : 'Connected agents in this group'
-                      }
-                      placement="top"
-                    >
+                        <Chip
+                          component={Link}
+                          href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
+                          label={
+                            showDisconnected ? g.status.numAgents : g.status.numConnectedAgents
+                          }
+                          size="small"
+                          clickable
+                        />
+                      </Tooltip>
+                    </TableCell>
+                  )}
+                  {isVisible('connected') && (
+                    <TableCell>
                       <Chip
-                        component={Link}
-                        href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
-                        label={showDisconnected ? g.status.numAgents : g.status.numConnectedAgents}
+                        label={`${g.status.numConnectedAgents}/${g.status.numAgents}`}
+                        color="success"
                         size="small"
-                        clickable
+                        variant="outlined"
                       />
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={`${g.status.numConnectedAgents}/${g.status.numAgents}`}
-                      color="success"
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={`${g.status.numHealthyAgents}/${g.status.numAgents}`}
-                      color={g.status.numUnhealthyAgents ? 'warning' : 'success'}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <TimeDisplay value={g.metadata.createdAt} />
-                  </TableCell>
+                    </TableCell>
+                  )}
+                  {isVisible('healthy') && (
+                    <TableCell>
+                      <Chip
+                        label={`${g.status.numHealthyAgents}/${g.status.numAgents}`}
+                        color={g.status.numUnhealthyAgents ? 'warning' : 'success'}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                  )}
+                  {isVisible('created') && (
+                    <TableCell>
+                      <TimeDisplay value={g.metadata.createdAt} />
+                    </TableCell>
+                  )}
                   <TableCell align="right">
                     <RowActionsMenu
                       actions={[
