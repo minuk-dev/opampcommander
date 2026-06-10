@@ -42,11 +42,11 @@ type Server struct {
 func New(settings config.ServerSettings) *Server {
 	app := fx.New(
 		// Hexagonal architecture layers
-		adaptermodule.NewAdapterModules(), // Adapters: HTTP, DB, messaging, scheduler
-		infrastructuremodule.New(),        // Bootstrap: Casbin RBAC + default seed hooks
-		applicationmodule.New(),           // Application services
-		domainmodule.New(),                // Domain services
-		NewConfigModule(&settings),        // Configuration
+		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type), // Adapters: HTTP, DB, messaging, scheduler
+		infrastructuremodule.New(settings.DatabaseSettings.Type),        // Bootstrap: Casbin RBAC + default seed hooks
+		applicationmodule.New(),    // Application services
+		domainmodule.New(),         // Domain services
+		NewConfigModule(&settings), // Configuration
 
 		// Base utilities
 		helper.NewModule(),
