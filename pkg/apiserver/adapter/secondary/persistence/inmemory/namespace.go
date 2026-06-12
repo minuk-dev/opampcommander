@@ -20,7 +20,7 @@ type NamespaceRepository struct {
 // NewNamespaceRepository creates a new in-memory NamespaceRepository.
 func NewNamespaceRepository() *NamespaceRepository {
 	return &NamespaceRepository{
-		store: newStore[string](func(ns *agentmodel.Namespace) *time.Time {
+		store: newStore[string](cloneNamespace, func(ns *agentmodel.Namespace) *time.Time {
 			return ns.Metadata.DeletedAt
 		}),
 	}

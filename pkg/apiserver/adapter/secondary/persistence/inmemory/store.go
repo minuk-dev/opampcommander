@@ -33,16 +33,19 @@ type item[V any] struct {
 // list/get/put behaviour of the MongoDB common adapter, including soft-delete
 // filtering and cursor pagination.
 //
-// V is normally a pointer to a domain model. Stored values are NOT cloned: the
-// store keeps and returns the same reference the caller passed to put. Callers
-// in this codebase follow a get -> mutate -> put cycle, so this matches how the
-// application layer already behaves; it does mean a mutation that is never
-// put-back is visible on the next get (unlike MongoDB, which only persists on
-// an explicit write).
+// V is normally a pointer to a domain model. The store deep-copies values on the
+// way in (put) and on the way out (get/list/snapshot) via the clone function, so
+// it never shares a mutable reference with its callers. This reproduces the
+// MongoDB adapter's "fresh copy per call" semantics: a caller mutating a value it
+// read does not affect the stored copy (only an explicit put persists), and two
+// concurrent callers never race on the same object.
 type store[K comparable, V any] struct {
 	mu      sync.RWMutex
 	items   map[K]*item[V]
 	nextSeq uint64
+
+	// clone deep-copies a value so the store shares no mutable state with callers.
+	clone func(V) V
 
 	// deletedAt extracts a value's soft-delete timestamp, or nil when the type
 	// has no soft-delete concept. A non-nil, non-zero timestamp marks the value
@@ -50,13 +53,16 @@ type store[K comparable, V any] struct {
 	deletedAt func(V) *time.Time
 }
 
-// newStore creates an empty store. Pass a deletedAt accessor for soft-deletable
-// types, or nil for types that are hard-deleted (e.g. agents, servers).
-func newStore[K comparable, V any](deletedAt func(V) *time.Time) *store[K, V] {
+// newStore creates an empty store. clone must deep-copy a value (it is applied on
+// every read and write to isolate the store from callers). Pass a deletedAt
+// accessor for soft-deletable types, or nil for types that are hard-deleted
+// (e.g. agents, servers).
+func newStore[K comparable, V any](clone func(V) V, deletedAt func(V) *time.Time) *store[K, V] {
 	return &store[K, V]{
 		mu:        sync.RWMutex{},
 		items:     make(map[K]*item[V]),
 		nextSeq:   1,
+		clone:     clone,
 		deletedAt: deletedAt,
 	}
 }
@@ -89,22 +95,25 @@ func (s *store[K, V]) get(key K, options *model.GetOptions) (V, error) {
 		return zero, errResourceNotExist()
 	}
 
-	return entry.value, nil
+	return s.clone(entry.value), nil
 }
 
-// put inserts or replaces the value for key. An existing key keeps its original
+// put inserts or replaces the value for key, storing a deep copy so later caller
+// mutations do not leak into the store. An existing key keeps its original
 // insertion sequence so its position in list ordering is stable across updates.
 func (s *store[K, V]) put(key K, value V) {
+	stored := s.clone(value)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if existing, ok := s.items[key]; ok {
-		existing.value = value
+		existing.value = stored
 
 		return
 	}
 
-	s.items[key] = &item[V]{seq: s.nextSeq, value: value}
+	s.items[key] = &item[V]{seq: s.nextSeq, value: stored}
 	s.nextSeq++
 }
 
@@ -127,9 +136,12 @@ func (s *store[K, V]) delete(key K) error {
 // sequence. Entries are excluded when soft-deleted (unless includeDeleted), when
 // their sequence is not strictly greater than afterSeq, or when filter rejects
 // them. afterSeq of 0 disables the cursor.
-func (s *store[K, V]) collect(includeDeleted bool, afterSeq uint64, filter func(V) bool) []*item[V] {
+//
+// Returned entries hold deep copies of the stored values, cloned while the read
+// lock is held, so callers never observe (or race on) the live stored objects.
+func (s *store[K, V]) collect(includeDeleted bool, afterSeq uint64, filter func(V) bool) []item[V] {
 	s.mu.RLock()
-	entries := make([]*item[V], 0, len(s.items))
+	entries := make([]item[V], 0, len(s.items))
 
 	for _, entry := range s.items {
 		switch {
@@ -141,12 +153,12 @@ func (s *store[K, V]) collect(includeDeleted bool, afterSeq uint64, filter func(
 			continue
 		}
 
-		entries = append(entries, entry)
+		entries = append(entries, item[V]{seq: entry.seq, value: s.clone(entry.value)})
 	}
 
 	s.mu.RUnlock()
 
-	slices.SortFunc(entries, func(a, b *item[V]) int {
+	slices.SortFunc(entries, func(a, b item[V]) int {
 		return cmp.Compare(a.seq, b.seq)
 	})
 

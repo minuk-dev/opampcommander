@@ -20,7 +20,7 @@ type CertificateRepository struct {
 // NewCertificateRepository creates a new in-memory CertificateRepository.
 func NewCertificateRepository() *CertificateRepository {
 	return &CertificateRepository{
-		store: newStore[namespacedName](func(cert *agentmodel.Certificate) *time.Time {
+		store: newStore[namespacedName](cloneCertificate, func(cert *agentmodel.Certificate) *time.Time {
 			return &cert.Metadata.DeletedAt
 		}),
 	}

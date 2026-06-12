@@ -21,7 +21,7 @@ type UserRepository struct {
 // NewUserRepository creates a new in-memory UserRepository.
 func NewUserRepository() *UserRepository {
 	return &UserRepository{
-		store: newStore[uuid.UUID](func(user *usermodel.User) *time.Time {
+		store: newStore[uuid.UUID](cloneUser, func(user *usermodel.User) *time.Time {
 			return user.Metadata.DeletedAt
 		}),
 	}

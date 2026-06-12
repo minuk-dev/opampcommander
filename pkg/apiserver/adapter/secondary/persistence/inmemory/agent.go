@@ -32,7 +32,7 @@ type AgentRepository struct {
 // NewAgentRepository creates a new in-memory AgentRepository.
 func NewAgentRepository() *AgentRepository {
 	return &AgentRepository{
-		store: newStore[uuid.UUID, *agentmodel.Agent](nil),
+		store: newStore[uuid.UUID]((*agentmodel.Agent).Clone, nil),
 		clock: clock.NewRealClock(),
 	}
 }

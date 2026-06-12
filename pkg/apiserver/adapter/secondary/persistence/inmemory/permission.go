@@ -22,7 +22,7 @@ type PermissionRepository struct {
 // NewPermissionRepository creates a new in-memory PermissionRepository.
 func NewPermissionRepository() *PermissionRepository {
 	return &PermissionRepository{
-		store: newStore[uuid.UUID](func(permission *usermodel.Permission) *time.Time {
+		store: newStore[uuid.UUID](clonePermission, func(permission *usermodel.Permission) *time.Time {
 			return permission.Metadata.DeletedAt
 		}),
 	}

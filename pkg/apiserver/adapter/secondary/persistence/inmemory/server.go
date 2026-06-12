@@ -18,7 +18,7 @@ type ServerRepository struct {
 // NewServerRepository creates a new in-memory ServerRepository.
 func NewServerRepository() *ServerRepository {
 	return &ServerRepository{
-		store: newStore[string, *agentmodel.Server](nil),
+		store: newStore[string]((*agentmodel.Server).Clone, nil),
 	}
 }
 

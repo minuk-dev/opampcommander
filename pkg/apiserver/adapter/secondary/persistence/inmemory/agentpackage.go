@@ -21,7 +21,7 @@ type AgentPackageRepository struct {
 // NewAgentPackageRepository creates a new in-memory AgentPackageRepository.
 func NewAgentPackageRepository() *AgentPackageRepository {
 	return &AgentPackageRepository{
-		store: newStore[namespacedName](func(ap *agentmodel.AgentPackage) *time.Time {
+		store: newStore[namespacedName](cloneAgentPackage, func(ap *agentmodel.AgentPackage) *time.Time {
 			return ap.Metadata.DeletedAt
 		}),
 	}

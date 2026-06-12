@@ -20,7 +20,7 @@ type RoleBindingRepository struct {
 // NewRoleBindingRepository creates a new in-memory RoleBindingRepository.
 func NewRoleBindingRepository() *RoleBindingRepository {
 	return &RoleBindingRepository{
-		store: newStore[namespacedName](func(rb *usermodel.RoleBinding) *time.Time {
+		store: newStore[namespacedName](cloneRoleBinding, func(rb *usermodel.RoleBinding) *time.Time {
 			return rb.Metadata.DeletedAt
 		}),
 	}

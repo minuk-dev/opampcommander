@@ -21,7 +21,7 @@ type AgentRemoteConfigRepository struct {
 // NewAgentRemoteConfigRepository creates a new in-memory AgentRemoteConfigRepository.
 func NewAgentRemoteConfigRepository() *AgentRemoteConfigRepository {
 	return &AgentRemoteConfigRepository{
-		store: newStore[namespacedName](func(arc *agentmodel.AgentRemoteConfig) *time.Time {
+		store: newStore[namespacedName](cloneAgentRemoteConfig, func(arc *agentmodel.AgentRemoteConfig) *time.Time {
 			return arc.Metadata.DeletedAt
 		}),
 	}

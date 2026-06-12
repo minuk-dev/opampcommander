@@ -26,7 +26,7 @@ type AgentGroupRepository struct {
 // the agent store (via agentRepo) to compute group statistics.
 func NewAgentGroupRepository(agentRepo *AgentRepository) *AgentGroupRepository {
 	return &AgentGroupRepository{
-		store: newStore[namespacedName](func(ag *agentmodel.AgentGroup) *time.Time {
+		store: newStore[namespacedName](cloneAgentGroup, func(ag *agentmodel.AgentGroup) *time.Time {
 			return &ag.Metadata.DeletedAt
 		}),
 		agentRepo: agentRepo,

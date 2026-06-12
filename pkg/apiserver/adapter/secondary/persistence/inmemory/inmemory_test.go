@@ -3,6 +3,7 @@ package inmemory_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -175,6 +176,74 @@ func TestAgentGroupRepository_StatisticsFromAgentStore(t *testing.T) {
 	assert.Equal(t, 1, stored.Status.NumHealthyAgents)
 	assert.Equal(t, 0, stored.Status.NumUnhealthyAgents)
 	assert.Equal(t, 1, stored.Status.NumNotConnectedAgents)
+}
+
+func TestAgentRepository_GetReturnsIsolatedCopy(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRepository()
+	uid := uuid.New()
+	require.NoError(t, repo.PutAgent(ctx, agentmodel.NewAgent(uid)))
+
+	// Mutating the value returned by Get must not affect the stored copy, since
+	// the store hands out deep copies (matching MongoDB's fresh-copy semantics).
+	got, err := repo.GetAgent(ctx, uid)
+	require.NoError(t, err)
+
+	got.Status.Connected = true
+	got.Metadata.Namespace = "mutated"
+
+	reread, err := repo.GetAgent(ctx, uid)
+	require.NoError(t, err)
+	assert.False(t, reread.Status.Connected, "mutation of a Get result must not leak into the store")
+	assert.Equal(t, agentmodel.DefaultNamespaceName, reread.Metadata.Namespace)
+}
+
+// TestAgentGroupRepository_ConcurrentAccessNoRace exercises the store under
+// concurrent readers and writers; it is meaningful under `go test -race`, where
+// it would previously have reported a data race on the shared stored pointer.
+func TestAgentGroupRepository_ConcurrentAccessNoRace(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	agentRepo := inmemory.NewAgentRepository()
+	groupRepo := inmemory.NewAgentGroupRepository(agentRepo)
+
+	const groupName = "race-grp"
+
+	group := agentmodel.NewAgentGroup("default", groupName, nil, time.Now(), "tester")
+	_, err := groupRepo.PutAgentGroup(ctx, "default", groupName, group)
+	require.NoError(t, err)
+
+	var waitGroup sync.WaitGroup
+
+	const workers = 8
+
+	for range workers {
+		// Each iteration starts one reader and one writer goroutine.
+		waitGroup.Add(2)
+
+		go func() {
+			defer waitGroup.Done()
+
+			for range 50 {
+				_, _ = groupRepo.GetAgentGroup(ctx, "default", groupName, nil)
+				_, _ = groupRepo.ListAgentGroups(ctx, nil)
+			}
+		}()
+
+		go func() {
+			defer waitGroup.Done()
+
+			for range 50 {
+				updated := agentmodel.NewAgentGroup("default", groupName, nil, time.Now(), "tester")
+				_, _ = groupRepo.PutAgentGroup(ctx, "default", groupName, updated)
+			}
+		}()
+	}
+
+	waitGroup.Wait()
 }
 
 func TestTransactionRunner_RunsCallback(t *testing.T) {

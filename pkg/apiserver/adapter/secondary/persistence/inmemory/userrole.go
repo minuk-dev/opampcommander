@@ -25,7 +25,7 @@ type UserRoleRepository struct {
 // NewUserRoleRepository creates a new in-memory UserRoleRepository.
 func NewUserRoleRepository(roleRepo *RoleRepository, userRepo *UserRepository) *UserRoleRepository {
 	return &UserRoleRepository{
-		store: newStore[uuid.UUID](func(ur *usermodel.UserRole) *time.Time {
+		store: newStore[uuid.UUID](cloneUserRole, func(ur *usermodel.UserRole) *time.Time {
 			return ur.Metadata.DeletedAt
 		}),
 		roleRepo: roleRepo,
