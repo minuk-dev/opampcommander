@@ -184,26 +184,8 @@ func (b *Base) StartAPIServer(
 	managementPort := b.GetFreeTCPPort()
 
 	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
-	server := apiserver.New(settings)
 
-	serverCtx, serverCancel := context.WithCancel(b.t.Context())
-
-	go func() {
-		_ = server.Run(serverCtx)
-	}()
-
-	return &APIServer{
-		Base:               b,
-		Server:             server,
-		ServerID:           serverID,
-		Endpoint:           fmt.Sprintf("http://localhost:%d", serverPort),
-		Port:               serverPort,
-		ManagementEndpoint: fmt.Sprintf("http://localhost:%d", managementPort),
-		ManagementPort:     managementPort,
-		MongoURI:           mongoURI,
-		Settings:           settings,
-		stopServer:         serverCancel,
-	}
+	return b.launchAPIServer(settings, serverID, serverPort, managementPort, mongoURI)
 }
 
 // StartAPIServerWithKafka starts a new API server backed by MongoDB and Kafka for event processing.
@@ -222,6 +204,43 @@ func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName strin
 			Topic:   kafkaEventTopic,
 		},
 	}
+
+	return b.launchAPIServer(settings, serverID, serverPort, managementPort, mongoURI)
+}
+
+// StartStandaloneAPIServer starts a new API server in standalone mode: the
+// in-memory persistence store (no MongoDB) and the in-memory event hub (no
+// Kafka). It needs no external dependencies, so it is suitable for fast
+// integration tests that exercise the full HTTP -> application -> domain ->
+// persistence stack without Docker.
+func (b *Base) StartStandaloneAPIServer() *APIServer {
+	b.t.Helper()
+
+	serverID := b.nextServerID()
+	serverPort := b.GetFreeTCPPort()
+	managementPort := b.GetFreeTCPPort()
+
+	settings := buildServerSettings(serverID, serverPort, managementPort, "", "")
+	settings.DatabaseSettings = config.DatabaseSettings{
+		Type:           config.DatabaseTypeInMemory,
+		Endpoints:      nil,
+		ConnectTimeout: 0,
+		DatabaseName:   "",
+		DDLAuto:        false,
+	}
+
+	return b.launchAPIServer(settings, serverID, serverPort, managementPort, "")
+}
+
+// launchAPIServer constructs and starts an API server from the given settings,
+// returning a handle wired with the test ports and shutdown hook.
+func (b *Base) launchAPIServer(
+	settings config.ServerSettings,
+	serverID string,
+	serverPort, managementPort int,
+	mongoURI string,
+) *APIServer {
+	b.t.Helper()
 
 	server := apiserver.New(settings)
 
