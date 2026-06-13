@@ -20,12 +20,17 @@ import (
 
 // New creates the infrastructure bootstrap module: the Casbin RBAC enforcer and
 // the startup hooks that seed the default namespace, default role, and RBAC policies.
-func New() fx.Option {
+//
+// The database type selects how the Casbin enforcer stores its policies: the
+// explicit "mongodb" persists them in a "casbin_rules" collection, while any
+// other value (including the default/empty, i.e. standalone) keeps them in
+// process memory and does not depend on a *mongo.Client.
+func New(databaseType config.DatabaseType) fx.Option {
 	return fx.Module(
 		"infrastructure",
 
 		// RBAC (Casbin enforcer)
-		provideRBACComponents(),
+		provideRBACComponents(databaseType),
 
 		// Default namespace initialization
 		fx.Invoke(registerDefaultNamespaceHook),
@@ -37,16 +42,34 @@ func New() fx.Option {
 }
 
 // provideRBACComponents provides RBAC enforcer components.
-func provideRBACComponents() fx.Option {
+func provideRBACComponents(databaseType config.DatabaseType) fx.Option {
+	enforcerProvider := any(provideInMemoryCasbinEnforcer)
+	if databaseType == config.DatabaseTypeMongoDB {
+		enforcerProvider = provideCasbinEnforcer
+	}
+
 	return fx.Options(
 		fx.Provide(
-			provideCasbinEnforcer,
+			enforcerProvider,
 			fx.Annotate(
 				Identity[*casbinEnforcer.Enforcer],
 				fx.As(new(userport.RBACEnforcerPort)),
 			),
 		),
 	)
+}
+
+// provideInMemoryCasbinEnforcer builds a Casbin enforcer whose policies live only
+// in process memory. Used in standalone mode where there is no *mongo.Client.
+func provideInMemoryCasbinEnforcer(
+	logger *slog.Logger,
+) (*casbinEnforcer.Enforcer, error) {
+	enforcer, err := casbinEnforcer.NewInMemoryEnforcer(logger, defaultRBACModel())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create in-memory casbin enforcer: %w", err)
+	}
+
+	return enforcer, nil
 }
 
 func provideCasbinEnforcer(

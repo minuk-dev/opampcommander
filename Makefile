@@ -79,10 +79,9 @@ run-dev-server: build-dev start-dev-services
 	@sleep 2
 	go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
 
-run-standalone: build-dev start-mongodb
-	@sleep 2
-	@echo "Starting server in standalone mode (no NATS)..."
-	go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
+run-standalone: build-dev
+	@echo "Starting server in standalone mode (in-memory store, no MongoDB/Kafka)..."
+	go run ./cmd/apiserver/main.go --config ./configs/apiserver/standalone.yaml
 
 debug-server: start-dev-services
 	@echo "Starting debug server with delve..."

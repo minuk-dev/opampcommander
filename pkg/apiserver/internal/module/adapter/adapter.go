@@ -10,17 +10,19 @@ package adapter
 import (
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter/common"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter/primary"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter/secondary"
 )
 
-// NewAdapterModules creates the adapter layer module.
-func NewAdapterModules() fx.Option {
+// NewAdapterModules creates the adapter layer module. The database type selects
+// the secondary persistence backend (MongoDB or in-memory standalone).
+func NewAdapterModules(databaseType config.DatabaseType) fx.Option {
 	return fx.Module(
 		"adapter",
 		primary.New(),
-		secondary.New(),
+		secondary.New(databaseType),
 		common.New(),
 	)
 }

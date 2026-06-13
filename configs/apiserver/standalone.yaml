@@ -1,0 +1,50 @@
+# Standalone mode: single-node, no external dependencies.
+#
+# Persistence is held in process memory (database.type "inmemory") and inter-server
+# coordination is disabled (event.type "inmemory"), so neither MongoDB nor Kafka is
+# required. All data is lost when the process exits — use this for local development,
+# demos, and small single-node deployments, not production.
+address: localhost:8080
+database:
+  type: "inmemory" # in-memory store; no MongoDB needed. Data is not persisted across restarts.
+event:
+  enabled: false # no inter-server communication in standalone mode
+  type: "inmemory" # in-memory event hub; no Kafka needed
+management:
+  address: localhost:9090
+  metric:
+    enabled: true
+    type: prometheus
+    prometheus:
+      path: /metrics
+  log:
+    level: info
+    format: text
+  trace:
+    enabled: false # no OpenTelemetry collector required in standalone mode
+auth:
+  enabled: true
+  admin:
+    username: "admin"
+    password: "admin"
+  jwt:
+    issuer: "opampcommander"
+    expire: 5m
+    refreshExpire: 168h
+    secret: "your_jwt_secret"
+    audience:
+    - "opampcommander"
+  type: "oauth2"
+  oauth2:
+    provider: github
+    clientId: "your_client_id"
+    clientSecret: "your_client_secret"
+    redirectUri: "http://localhost:8080/auth/callback"
+    state: # to prevent CSRF attacks
+      mode: jwt
+      jwt:
+        issuer: "opampcommander"
+        expire: 5m
+        secret: "your_jwt_secret"
+        audience:
+        - "opampcommander"

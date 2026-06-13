@@ -149,7 +149,7 @@ func NewCommand(opt CommandOption) *cobra.Command {
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
 	cmd.Flags().String("address", "localhost:8080", "server address")
 	cmd.Flags().String("serverId", "", "server ID (default is hostname, can be overridden by SERVER_ID env var)")
-	cmd.Flags().String("database.type", "mongodb", "database type (mongodb)")
+	cmd.Flags().String("database.type", "inmemory", "database type (inmemory, mongodb)")
 	cmd.Flags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
 	cmd.Flags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
