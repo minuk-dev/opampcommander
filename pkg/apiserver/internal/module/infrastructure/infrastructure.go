@@ -21,9 +21,10 @@ import (
 // New creates the infrastructure bootstrap module: the Casbin RBAC enforcer and
 // the startup hooks that seed the default namespace, default role, and RBAC policies.
 //
-// The database type selects how the Casbin enforcer stores its policies: MongoDB
-// mode persists them in a "casbin_rules" collection, while in-memory (standalone)
-// mode keeps them in process memory and does not depend on a *mongo.Client.
+// The database type selects how the Casbin enforcer stores its policies: the
+// explicit "mongodb" persists them in a "casbin_rules" collection, while any
+// other value (including the default/empty, i.e. standalone) keeps them in
+// process memory and does not depend on a *mongo.Client.
 func New(databaseType config.DatabaseType) fx.Option {
 	return fx.Module(
 		"infrastructure",
@@ -42,9 +43,9 @@ func New(databaseType config.DatabaseType) fx.Option {
 
 // provideRBACComponents provides RBAC enforcer components.
 func provideRBACComponents(databaseType config.DatabaseType) fx.Option {
-	enforcerProvider := any(provideCasbinEnforcer)
-	if databaseType == config.DatabaseTypeInMemory {
-		enforcerProvider = provideInMemoryCasbinEnforcer
+	enforcerProvider := any(provideInMemoryCasbinEnforcer)
+	if databaseType == config.DatabaseTypeMongoDB {
+		enforcerProvider = provideCasbinEnforcer
 	}
 
 	return fx.Options(

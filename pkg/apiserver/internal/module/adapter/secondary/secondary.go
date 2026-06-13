@@ -9,13 +9,13 @@ import (
 )
 
 // New creates the secondary adapter module, selecting the persistence backend
-// from the configured database type. "inmemory" wires the in-memory store
-// (standalone mode); any other value (including the default "mongodb") wires the
-// MongoDB client, database, and repositories.
+// from the configured database type. Only the explicit "mongodb" wires the
+// MongoDB client, database, and repositories; any other value (including the
+// default/empty) wires the in-memory store (standalone mode).
 func New(databaseType config.DatabaseType) fx.Option {
-	persistence := NewMongoDB()
-	if databaseType == config.DatabaseTypeInMemory {
-		persistence = NewInMemory()
+	persistence := NewInMemory()
+	if databaseType == config.DatabaseTypeMongoDB {
+		persistence = NewMongoDB()
 	}
 
 	return fx.Options(
