@@ -81,13 +81,13 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.MINUK_CLUSTER_DEPLOY_KEY }}
 
-      - name: Deploy alpha and alpha-ha to minuk-cluster
+      - name: Deploy alpha, alpha-ha and alpha-standalone to minuk-cluster
         if: startsWith(github.ref, 'refs/heads/')
         run: |
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
 
-          overlays=(alpha alpha-ha)
+          overlays=(alpha alpha-ha alpha-standalone)
           for overlay in "${overlays[@]}"; do
             kustomization="argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
             yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")).newTag = strenv(VERSION)' \
@@ -99,7 +99,7 @@ jobs:
           for overlay in "${overlays[@]}"; do
             git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
           done
-          git commit -m "chore(deploy): update opampcommander apiserver alpha and alpha-ha to ${VERSION}"
+          git commit -m "chore(deploy): update opampcommander apiserver alpha, alpha-ha and alpha-standalone to ${VERSION}"
 
           # retry on push conflict from concurrent CI runs (web-release runs in parallel)
           for i in 1 2 3; do

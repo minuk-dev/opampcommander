@@ -75,13 +75,13 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.MINUK_CLUSTER_DEPLOY_KEY }}
 
-      - name: Deploy alpha and alpha-ha to minuk-cluster
+      - name: Deploy alpha, alpha-ha and alpha-standalone to minuk-cluster
         if: startsWith(github.ref, 'refs/heads/')
         run: |
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
 
-          overlays=(alpha alpha-ha)
+          overlays=(alpha alpha-ha alpha-standalone)
           # Only touch the web entry if minuk-cluster already declares it,
           # so this workflow stays a no-op while that side is being wired up.
           for overlay in "${overlays[@]}"; do
@@ -101,7 +101,7 @@ jobs:
             echo "No web image tag updates needed."
             exit 0
           fi
-          git commit -m "chore(deploy): update opampcommander-web alpha and alpha-ha to ${VERSION}"
+          git commit -m "chore(deploy): update opampcommander-web alpha, alpha-ha and alpha-standalone to ${VERSION}"
 
           # retry on push conflict from concurrent CI runs (release runs in parallel)
           for i in 1 2 3; do
