@@ -13,6 +13,12 @@ type ListOptions struct {
 	// connected badge/count never disagree. It is a no-op for resources that
 	// have no connection state.
 	ConnectedOnly bool
+
+	// IdentifyingAttributes, when non-empty, restricts an agent listing to agents
+	// whose identifying attributes match every key=value pair exactly (an AND of
+	// equality conditions, mirroring agent-group selector semantics). It is a
+	// no-op for resources that have no identifying attributes.
+	IdentifyingAttributes map[string]string
 }
 
 // GetOptions is a struct that holds options for getting a single resource.

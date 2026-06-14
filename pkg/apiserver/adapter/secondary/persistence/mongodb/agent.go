@@ -89,12 +89,20 @@ func (a *AgentRepository) ListAgents(
 	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	extraFilter := bson.M{"metadata.namespace": sanitizeResourceName(namespace)}
-	if options != nil && options.ConnectedOnly {
-		extraFilter = combineFilters(extraFilter, connectedMatchFilter())
+	conditions := []bson.M{{"metadata.namespace": sanitizeResourceName(namespace)}}
+
+	if options != nil {
+		if options.ConnectedOnly {
+			conditions = append(conditions, connectedMatchFilter())
+		}
+		// Each identifying-attribute condition is a separate $elemMatch on the same
+		// field, so they must be combined with $and (via buildFilter) rather than
+		// flattened into one map, which would drop all but the last.
+		conditions = append(conditions,
+			IdentifyingAttributesSelectorToMatchConditions(options.IdentifyingAttributes)...)
 	}
 
-	resp, err := a.common.listWithFilter(ctx, options, extraFilter)
+	resp, err := a.common.listWithFilter(ctx, options, buildFilter(conditions))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents from persistence: %w", err)
 	}
@@ -177,7 +185,7 @@ func (a *AgentRepository) ListAgentsBySelector(
 	)
 
 	queryWg.Go(func() {
-		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+		cursor, err := a.collection.Find(ctx, filter, withPageOptions(options.Limit))
 		if err != nil {
 			fErr = fmt.Errorf("failed to find agents by selector from mongodb: %w", err)
 
@@ -399,7 +407,7 @@ func (a *AgentRepository) findAgents(
 	filter bson.M,
 	options *model.ListOptions,
 ) ([]*entity.Agent, string, error) {
-	cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+	cursor, err := a.collection.Find(ctx, filter, withPageOptions(options.Limit))
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to search agents from mongodb: %w", err)
 	}

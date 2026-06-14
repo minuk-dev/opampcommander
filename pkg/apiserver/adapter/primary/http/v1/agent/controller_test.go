@@ -16,6 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent/usecasemock"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -81,6 +82,107 @@ func TestAgentControllerListAgent(t *testing.T) {
 		assert.Equal(t, int64(2), gjson.Get(recorder.Body.String(), "items.#").Int())
 		assert.Equal(t, instanceUIDs[0].String(), gjson.Get(recorder.Body.String(), "items.0.metadata.instanceUid").String())
 		assert.Equal(t, instanceUIDs[1].String(), gjson.Get(recorder.Body.String(), "items.1.metadata.instanceUid").String())
+	})
+
+	t.Run("List Agents - selector parsed into identifying attributes", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given: repeated selector params are threaded into
+		// ListOptions.IdentifyingAttributes as exact key=value pairs.
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *model.ListOptions) bool {
+				return opts != nil &&
+					opts.IdentifyingAttributes["service.name"] == "otel-collector" &&
+					opts.IdentifyingAttributes["service.namespace"] == "prod"
+			})).
+			Return(&v1.ListResponse[v1.Agent]{
+				APIVersion: "v1",
+				Kind:       v1.AgentKind,
+				Items:      []v1.Agent{},
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
+
+		// when
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents?selector=service.name=otel-collector&selector=service.namespace=prod", nil,
+		)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+	})
+
+	t.Run("List Agents - selector value may contain commas and equals", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// given: a single selector entry is one key=value pair, split on the first
+		// "=" only and never on commas, so the value is preserved verbatim.
+		agentUsecase.EXPECT().
+			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *model.ListOptions) bool {
+				return opts != nil &&
+					opts.IdentifyingAttributes["service.instance.id"] == "a,b=c"
+			})).
+			Return(&v1.ListResponse[v1.Agent]{
+				APIVersion: "v1",
+				Kind:       v1.AgentKind,
+				Items:      []v1.Agent{},
+				Metadata: v1.ListMeta{
+					RemainingItemCount: 0,
+					Continue:           "",
+				},
+			}, nil)
+
+		// when: the value "a,b=c" is URL-encoded so gin hands it back intact.
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents?selector=service.instance.id%3Da%2Cb%3Dc", nil,
+		)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+	})
+
+	t.Run("List Agents - malformed selector returns 400", func(t *testing.T) {
+		t.Parallel()
+
+		ctrlBase := testutil.NewBase(t).ForController()
+		agentUsecase := usecasemock.NewMockManageUsecase(t)
+		controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		// when: a selector entry without "=" is rejected before reaching the usecase.
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents?selector=noequalsign", nil,
+		)
+		require.NoError(t, err)
+
+		// then
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
 	t.Run("List Agents - empty returns 200, empty", func(t *testing.T) {

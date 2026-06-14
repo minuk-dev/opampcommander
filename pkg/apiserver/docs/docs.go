@@ -888,6 +888,16 @@ const docTemplate = `{
                         "description": "When true, return only currently-connected agents",
                         "name": "connected",
                         "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Identifying attribute filter (key=value, repeatable)",
+                        "name": "selector",
+                        "in": "query"
                     }
                 ],
                 "responses": {

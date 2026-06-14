@@ -62,8 +62,17 @@ func (r *AgentRepository) ListAgents(
 ) (*model.ListResponse[*agentmodel.Agent], error) {
 	connectedOnly := options != nil && options.ConnectedOnly
 
+	var identifyingAttributes map[string]string
+	if options != nil {
+		identifyingAttributes = options.IdentifyingAttributes
+	}
+
 	return r.store.list(options, func(agent *agentmodel.Agent) bool {
 		if agent.Metadata.Namespace != namespace {
+			return false
+		}
+
+		if !matchesIdentifyingAttributes(agent, identifyingAttributes) {
 			return false
 		}
 

@@ -233,7 +233,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithContinueTokenAndLimit(
 ) ([]*Entity, error) {
 	filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
 
-	cursor, err := a.collection.Find(ctx, filter, withLimit(limit))
+	cursor, err := a.collection.Find(ctx, filter, withPageOptions(limit))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resources from mongodb: %w", err)
 	}
@@ -305,12 +305,18 @@ func withContinueToken(continueToken bson.ObjectID) bson.M {
 	return bson.M{"_id": bson.M{"$gt": continueToken}}
 }
 
-func withLimit(limit int64) *options.FindOptionsBuilder {
-	if limit <= 0 {
-		return nil
+// withPageOptions builds Find options for cursor pagination. Results are always
+// sorted by _id ascending so the {_id: {$gt: token}} continue-token scheme is
+// stable: every page resumes exactly after the previous one, with no skipped or
+// duplicated documents. Without an explicit sort the query planner may return a
+// different order (e.g. when another index is selected), and a sharded cluster's
+// mongos only merge-sorts results when a sort is given — so this sort is required
+// for correctness, not just determinism. A non-positive limit means "no limit".
+func withPageOptions(limit int64) *options.FindOptionsBuilder {
+	opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
+	if limit > 0 {
+		opts.SetLimit(limit)
 	}
 
-	options.Find().SetLimit(limit)
-
-	return options.Find().SetLimit(limit)
+	return opts
 }

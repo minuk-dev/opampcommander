@@ -254,6 +254,66 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 			assert.NotEqual(t, uuid.Nil, item.Metadata.InstanceUID)
 		}
 	})
+
+	t.Run("List filtered by identifying-attribute selector", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mongoDBContainer, err := mongoTestContainer.Run(
+			ctx,
+			testMongoDBImage,
+		)
+		require.NoError(t, err)
+
+		mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+		require.NoError(t, err)
+
+		client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			err := client.Disconnect(ctx)
+			require.NoError(t, err)
+		})
+
+		database := client.Database("testdb_selector")
+		agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+		match := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "otel-collector",
+				"service.namespace": "prod",
+			},
+			NonIdentifyingAttributes: map[string]string{},
+		}))
+		require.NoError(t, agentRepository.PutAgent(ctx, match))
+
+		otherValue := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes:    map[string]string{"service.name": "nginx"},
+			NonIdentifyingAttributes: map[string]string{},
+		}))
+		require.NoError(t, agentRepository.PutAgent(ctx, otherValue))
+
+		// when: exact match on a single identifying attribute.
+		//exhaustruct:ignore
+		listResponse, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+			IdentifyingAttributes: map[string]string{"service.name": "otel-collector"},
+		})
+
+		// then
+		require.NoError(t, err)
+		require.Len(t, listResponse.Items, 1)
+		assert.Equal(t, match.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+
+		// when: every pair must match (AND semantics) -> no result.
+		//exhaustruct:ignore
+		none, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+			IdentifyingAttributes: map[string]string{
+				"service.name":      "otel-collector",
+				"service.namespace": "staging",
+			},
+		})
+		require.NoError(t, err)
+		assert.Empty(t, none.Items)
+	})
 }
 
 func TestAgentMongoAdapter_ListAgents_ConnectedOnly(t *testing.T) {

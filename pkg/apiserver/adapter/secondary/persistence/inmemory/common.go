@@ -37,3 +37,17 @@ func matchesSelector(agent *agentmodel.Agent, selector agentmodel.AgentSelector)
 
 	return true
 }
+
+// matchesIdentifyingAttributes reports whether the agent's identifying attributes
+// contain every key=value pair (an AND of equality conditions). An empty map
+// matches all agents, mirroring the MongoDB identifying-attribute filter used by
+// the namespaced agent listing.
+func matchesIdentifyingAttributes(agent *agentmodel.Agent, attributes map[string]string) bool {
+	for key, value := range attributes {
+		if agent.Metadata.Description.IdentifyingAttributes[key] != value {
+			return false
+		}
+	}
+
+	return true
+}
