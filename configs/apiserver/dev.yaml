@@ -1,4 +1,8 @@
 address: localhost:8080
+bootstrap:
+  dir: "" # empty = use the manifests embedded in the binary
+  defaultNamespace: default
+  defaultRole: default
 database:
   type: "mongodb"
   endpoints:

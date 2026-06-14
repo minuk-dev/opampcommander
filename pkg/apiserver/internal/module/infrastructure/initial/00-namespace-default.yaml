@@ -1,0 +1,10 @@
+# Built-in default namespace.
+#
+# Reconciled into persistence on every apiserver startup (declarative / full
+# overwrite). The name here must match `bootstrap.defaultNamespace` in the
+# apiserver config, which is the namespace agents without a service.namespace
+# are placed in and the namespace the built-in default role is granted in.
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: default

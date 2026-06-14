@@ -5,6 +5,13 @@
 # required. All data is lost when the process exits — use this for local development,
 # demos, and small single-node deployments, not production.
 address: localhost:8080
+bootstrap:
+  # Initial manifests are reconciled into persistence on startup (declarative / full
+  # overwrite). By default they come from the manifests embedded in the binary; set
+  # `dir` to override them from a directory without rebuilding.
+  dir: "" # empty = use embedded defaults
+  defaultNamespace: default # agents without a service.namespace land here
+  defaultRole: default # built-in role auto-granted to every user
 database:
   type: "inmemory" # in-memory store; no MongoDB needed. Data is not persisted across restarts.
 event:

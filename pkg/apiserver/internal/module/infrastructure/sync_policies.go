@@ -14,7 +14,7 @@ import (
 // so existing users persisted across restarts are re-granted the built-in default role
 // (and any matching RoleBindings) without waiting for a fresh login.
 //
-// Runs after registerDefaultRoleHook so the default role is present when sync executes.
+// Runs after registerBootstrapHook so the default role is present when sync executes.
 func registerSyncPoliciesHook(
 	lifecycle fx.Lifecycle,
 	rbacUsecase userport.RBACUsecase,

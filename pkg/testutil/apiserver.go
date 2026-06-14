@@ -11,6 +11,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/client"
@@ -168,6 +169,13 @@ func buildServerSettings(
 			},
 		},
 		CacheSettings: config.DefaultCacheSettings(),
+		// Dir is empty so the server seeds from the manifests embedded in the binary,
+		// exactly as a stock production build does.
+		BootstrapSettings: config.BootstrapSettings{
+			Dir:              "",
+			DefaultNamespace: agentmodel.DefaultNamespaceName,
+			DefaultRole:      usermodel.RoleDefault,
+		},
 		RBACModelPath: "",
 	}
 }

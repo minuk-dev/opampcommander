@@ -1,0 +1,30 @@
+# Built-in default role — auto-granted to every user in the default namespace.
+#
+# Reconciled into persistence on every apiserver startup (declarative / full
+# overwrite): spec.permissions below is the source of truth, so permissions added
+# to this role via the API are reset to this list on the next start. The referenced
+# permission objects are auto-created from their "resource:action" names.
+#
+# The name here must match `bootstrap.defaultRole` in the apiserver config.
+#
+# Permissions are intentionally limited to read access (GET + LIST) on
+# namespace-scoped resources so a regular user can use the dashboard / CLI in the
+# default namespace. Global resources and write access remain admin-only.
+kind: Role
+apiVersion: v1
+spec:
+  displayName: default
+  description: Default role assigned to all new users on first login.
+  isBuiltIn: true
+  permissions:
+    - agent:GET
+    - agent:LIST
+    - agentgroup:GET
+    - agentgroup:LIST
+    - agentpackage:GET
+    - agentpackage:LIST
+    - agentremoteconfig:GET
+    - agentremoteconfig:LIST
+    - connection:GET
+    - connection:LIST
+    - rolebinding:GET
