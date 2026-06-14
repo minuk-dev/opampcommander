@@ -56,7 +56,11 @@ func New() fx.Option {
 		fx.Annotate(userservice.NewPermissionService, fx.As(new(userport.PermissionUsecase))),
 		fx.Annotate(userservice.NewUserRoleService, fx.As(new(userport.UserRoleUsecase))),
 		fx.Annotate(userservice.NewRoleBindingService, fx.As(new(userport.RoleBindingUsecase))),
-		fx.Annotate(userservice.NewRBACService, fx.As(new(userport.RBACUsecase))),
+		provideRBACService,
+		fx.Annotate(
+			Identity[*userservice.RBACService],
+			fx.As(new(userport.RBACUsecase)),
+		),
 		helper.AsRunner(Identity[*agentservice.AgentGroupService]),
 		helper.AsRunner(Identity[*agentservice.ServerService]),
 		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),
@@ -92,6 +96,30 @@ func provideAgentService(
 			TTL:         agentCacheSettings.TTL,
 			MaxCapacity: agentCacheSettings.MaxCapacity,
 		},
+		settings.BootstrapSettings.DefaultNamespace,
+	)
+}
+
+// provideRBACService builds the RBAC domain service, sourcing the built-in
+// default role/namespace identifiers from configuration.
+func provideRBACService(
+	rbacEnforcerPort userport.RBACEnforcerPort,
+	roleBindingPersistencePort userport.RoleBindingPersistencePort,
+	rolePersistencePort userport.RolePersistencePort,
+	permissionPersistencePort userport.PermissionPersistencePort,
+	userPersistencePort userport.UserPersistencePort,
+	logger *slog.Logger,
+	settings *config.ServerSettings,
+) *userservice.RBACService {
+	return userservice.NewRBACService(
+		rbacEnforcerPort,
+		roleBindingPersistencePort,
+		rolePersistencePort,
+		permissionPersistencePort,
+		userPersistencePort,
+		logger,
+		settings.BootstrapSettings.DefaultRole,
+		settings.BootstrapSettings.DefaultNamespace,
 	)
 }
 

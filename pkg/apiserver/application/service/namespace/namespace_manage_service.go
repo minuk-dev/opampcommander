@@ -41,11 +41,15 @@ type Service struct {
 	mapper                   *helper.Mapper
 	clock                    clock.Clock
 	logger                   *slog.Logger
+	// defaultNamespace is the undeletable built-in namespace name, sourced from
+	// configuration; falls back to agentmodel.DefaultNamespaceName when empty.
+	defaultNamespace string
 }
 
 // NewNamespaceService creates a new namespace manage service. txRunner must be
 // non-nil; FX wires the MongoDB implementation in production. Tests should
 // pass an explicit fake (see [testutil] or per-package recordingTxRunner).
+// An empty defaultNamespace falls back to agentmodel.DefaultNamespaceName.
 func NewNamespaceService(
 	namespaceUsecase agentport.NamespaceUsecase,
 	agentGroupUsecase agentport.AgentGroupUsecase,
@@ -54,8 +58,13 @@ func NewNamespaceService(
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	txRunner port.TransactionRunner,
 	logger *slog.Logger,
+	defaultNamespace string,
 ) *Service {
 	realClock := clock.NewRealClock()
+
+	if defaultNamespace == "" {
+		defaultNamespace = agentmodel.DefaultNamespaceName
+	}
 
 	return &Service{
 		namespaceUsecase:         namespaceUsecase,
@@ -67,6 +76,7 @@ func NewNamespaceService(
 		mapper:                   helper.NewMapper(realClock, 0),
 		clock:                    realClock,
 		logger:                   logger,
+		defaultNamespace:         defaultNamespace,
 	}
 }
 
@@ -180,7 +190,7 @@ func (s *Service) DeleteNamespace(
 	ctx context.Context,
 	name string,
 ) error {
-	if name == agentmodel.DefaultNamespaceName {
+	if name == s.defaultNamespace {
 		return ErrDefaultNamespaceUndeletable
 	}
 

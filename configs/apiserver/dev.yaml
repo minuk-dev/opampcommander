@@ -1,4 +1,8 @@
 address: localhost:8080
+bootstrap:
+  dir: ./configs/apiserver/initial # initial manifests reconciled into persistence on startup
+  defaultNamespace: default
+  defaultRole: default
 database:
   type: "mongodb"
   endpoints:

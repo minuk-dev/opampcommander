@@ -219,6 +219,7 @@ func TestDeleteNamespace_RunsCascadeInsideTransaction(t *testing.T) {
 		&fakeAgentRemoteConfigUsecase{},
 		runner,
 		base.Logger,
+		agentmodel.DefaultNamespaceName,
 	)
 
 	err := svc.DeleteNamespace(t.Context(), "team-a")
@@ -257,6 +258,7 @@ func TestDeleteNamespace_MidCascadeFailureAbortsNamespaceDelete(t *testing.T) {
 		&fakeAgentRemoteConfigUsecase{},
 		runner,
 		base.Logger,
+		agentmodel.DefaultNamespaceName,
 	)
 
 	err := svc.DeleteNamespace(t.Context(), "team-a")
@@ -281,6 +283,7 @@ func TestDeleteNamespace_RejectsDefaultNamespace(t *testing.T) {
 		&fakeAgentRemoteConfigUsecase{},
 		runner,
 		base.Logger,
+		agentmodel.DefaultNamespaceName,
 	)
 
 	err := svc.DeleteNamespace(t.Context(), agentmodel.DefaultNamespaceName)

@@ -21,9 +21,15 @@ type RBACService struct {
 	permissionPersistencePort  userport.PermissionPersistencePort
 	userPersistencePort        userport.UserPersistencePort
 	logger                     *slog.Logger
+	// defaultRole is the built-in role auto-granted to every user; defaultNamespace
+	// is the namespace that grant is scoped to. Both are sourced from configuration
+	// and fall back to usermodel.RoleDefault / usermodel.DefaultNamespace.
+	defaultRole      string
+	defaultNamespace string
 }
 
-// NewRBACService creates a new instance of RBACService.
+// NewRBACService creates a new instance of RBACService. An empty defaultRole or
+// defaultNamespace falls back to usermodel.RoleDefault / usermodel.DefaultNamespace.
 func NewRBACService(
 	rbacEnforcerPort userport.RBACEnforcerPort,
 	roleBindingPersistencePort userport.RoleBindingPersistencePort,
@@ -31,7 +37,17 @@ func NewRBACService(
 	permissionPersistencePort userport.PermissionPersistencePort,
 	userPersistencePort userport.UserPersistencePort,
 	logger *slog.Logger,
+	defaultRole string,
+	defaultNamespace string,
 ) *RBACService {
+	if defaultRole == "" {
+		defaultRole = usermodel.RoleDefault
+	}
+
+	if defaultNamespace == "" {
+		defaultNamespace = usermodel.DefaultNamespace
+	}
+
 	return &RBACService{
 		rbacEnforcerPort:           rbacEnforcerPort,
 		roleBindingPersistencePort: roleBindingPersistencePort,
@@ -39,6 +55,8 @@ func NewRBACService(
 		permissionPersistencePort:  permissionPersistencePort,
 		userPersistencePort:        userPersistencePort,
 		logger:                     logger,
+		defaultRole:                defaultRole,
+		defaultNamespace:           defaultNamespace,
 	}
 }
 
@@ -77,7 +95,7 @@ func (s *RBACService) GetUserPermissions(
 
 	// Default role applies to every user even without a RoleBinding. Best-effort: log
 	// and continue if the default role isn't seeded yet.
-	defaultRole, defaultErr := s.rolePersistencePort.GetRoleByName(ctx, usermodel.RoleDefault)
+	defaultRole, defaultErr := s.rolePersistencePort.GetRoleByName(ctx, s.defaultRole)
 	if defaultErr != nil {
 		s.logger.WarnContext(ctx, "default role not found while resolving permissions",
 			slog.Any("error", defaultErr),
@@ -261,16 +279,16 @@ func (s *RBACService) collectGroupingPolicies(
 }
 
 // defaultRoleGroupings auto-assigns the built-in default role to every user in the
-// "default" namespace. The default role's built-in floor therefore must only contain
-// permissions on namespace-scoped resources (see defaultRoleBuiltInPermissions);
-// global resources are intentionally admin-only because the Casbin matcher gates
-// global requests (r.dom == "*") through g(sub, role, "*") which this grouping does
-// not produce.
+// configured default namespace. The default role's permissions (declared in the
+// initial manifests) must therefore only cover namespace-scoped resources; global
+// resources are intentionally admin-only because the Casbin matcher gates global
+// requests (r.dom == "*") through g(sub, role, "*") which this grouping does not
+// produce.
 func (s *RBACService) defaultRoleGroupings(
 	roleByName map[string]*usermodel.Role,
 	users []*usermodel.User,
 ) []groupingPolicy {
-	defaultRole, ok := roleByName[usermodel.RoleDefault]
+	defaultRole, ok := roleByName[s.defaultRole]
 	if !ok {
 		return nil
 	}
@@ -282,7 +300,7 @@ func (s *RBACService) defaultRoleGroupings(
 		groupings = append(groupings, groupingPolicy{
 			userID:    user.Metadata.UID.String(),
 			roleID:    defaultRoleUID,
-			namespace: usermodel.DefaultNamespace,
+			namespace: s.defaultNamespace,
 		})
 	}
 

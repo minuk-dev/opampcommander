@@ -32,11 +32,10 @@ func New(databaseType config.DatabaseType) fx.Option {
 		// RBAC (Casbin enforcer)
 		provideRBACComponents(databaseType),
 
-		// Default namespace initialization
-		fx.Invoke(registerDefaultNamespaceHook),
-		// Default role initialization
-		fx.Invoke(registerDefaultRoleHook),
-		// RBAC policy sync — must run after the default role is seeded.
+		// Initial manifest reconciliation — seeds the default namespace, built-in
+		// roles, and their permissions declaratively from BootstrapSettings.Dir.
+		fx.Invoke(registerBootstrapHook),
+		// RBAC policy sync — must run after the bootstrap manifests are applied.
 		fx.Invoke(registerSyncPoliciesHook),
 	)
 }

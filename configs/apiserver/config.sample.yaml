@@ -1,4 +1,12 @@
 address: localhost:8080
+bootstrap:
+  # Directory of initial manifest YAML files reconciled into persistence on startup
+  # (declarative / full overwrite). Edit these files or point `dir` elsewhere to
+  # change the built-in defaults. The container image ships them at
+  # /etc/opampcommander/initial (also exposed via the BOOTSTRAP_DIR env var).
+  dir: /etc/opampcommander/initial
+  defaultNamespace: default # agents without a service.namespace land here
+  defaultRole: default # built-in role auto-granted to every user
 database:
   type: "mongodb"
   endpoints:
