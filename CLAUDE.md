@@ -108,3 +108,15 @@ All HTTP errors use RFC 9457 Problem Details format via `ginutil.HandleDomainErr
 
 ### Swagger Docs
 Generated from godoc annotations in controllers via `swag init` (`make prebuilt-doc`). Never edit `pkg/apiserver/docs/docs.go` manually.
+
+## Web (Frontend)
+
+The `web/` directory is a Next.js 16 (App Router) + MUI client, organized with
+**Feature-Sliced Design**. FSD layers live under `web/src/`
+(`shared → entities → features → widgets → views → app`, importing downward
+only); `web/app/` holds Next.js routing only (route handlers + thin `page.tsx`
+wrappers re-exporting a view). Path aliases: `@shared/* @entities/* @features/*
+@widgets/* @views/* @app/*`. Import from a slice's `index.ts` barrel, not its
+internal files. See `web/ARCHITECTURE.md` for layer rules, where types/contexts
+live, and how to add an entity/feature/route. Checks: `cd web && npx tsc
+--noEmit && npm run lint && npm test && npm run build`.

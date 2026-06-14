@@ -9,10 +9,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-
-export const TOKEN_COOKIE = 'opamp_token';
-export const REFRESH_COOKIE = 'opamp_refresh_token';
-export const EXPIRES_COOKIE = 'opamp_expires_at';
+import { EXPIRES_COOKIE, REFRESH_COOKIE, TOKEN_COOKIE } from '@shared/api/cookies';
 
 interface SessionBody {
   token?: string;

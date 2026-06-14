@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
-import './globals.css';
-import ThemeRegistry from '@/components/ThemeRegistry';
-import AppShell from '@/components/AppShell';
-import { PreferencesProvider } from '@/components/PreferencesProvider';
+import '@app/styles/globals.css';
+import ThemeRegistry from '@app/providers/ThemeRegistry';
+import AppShell from '@app/app-shell';
+import { PreferencesProvider } from '@shared/preferences';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
