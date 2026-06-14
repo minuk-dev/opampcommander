@@ -316,6 +316,64 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 	})
 }
 
+func TestAgentMongoAdapter_ListAgentsByNonIdentifyingSelector(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(
+		ctx,
+		testMongoDBImage,
+	)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Disconnect(ctx)
+		require.NoError(t, err)
+	})
+
+	database := client.Database("testdb_selector_nonident")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	match := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},
+		NonIdentifyingAttributes: map[string]string{"os.type": "linux", "host.arch": "amd64"},
+	}))
+	require.NoError(t, agentRepository.PutAgent(ctx, match))
+
+	otherValue := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},
+		NonIdentifyingAttributes: map[string]string{"os.type": "windows"},
+	}))
+	require.NoError(t, agentRepository.PutAgent(ctx, otherValue))
+
+	// when: filter by a non-identifying attribute.
+	//exhaustruct:ignore
+	listResponse, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+		NonIdentifyingAttributes: map[string]string{"os.type": "linux"},
+	})
+
+	// then
+	require.NoError(t, err)
+	require.Len(t, listResponse.Items, 1)
+	assert.Equal(t, match.Metadata.InstanceUID, listResponse.Items[0].Metadata.InstanceUID)
+
+	// when: identifying and non-identifying selectors are AND-combined; a
+	// non-identifying mismatch excludes the agent even when identifying matches.
+	//exhaustruct:ignore
+	none, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},
+		NonIdentifyingAttributes: map[string]string{"os.type": "darwin"},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, none.Items)
+}
+
 func TestAgentMongoAdapter_ListAgents_ConnectedOnly(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()

@@ -95,11 +95,13 @@ func (a *AgentRepository) ListAgents(
 		if options.ConnectedOnly {
 			conditions = append(conditions, connectedMatchFilter())
 		}
-		// Each identifying-attribute condition is a separate $elemMatch on the same
-		// field, so they must be combined with $and (via buildFilter) rather than
-		// flattened into one map, which would drop all but the last.
+		// Each attribute condition is a separate $elemMatch on the same field, so
+		// they must be combined with $and (via buildFilter) rather than flattened
+		// into one map, which would drop all but the last.
 		conditions = append(conditions,
 			IdentifyingAttributesSelectorToMatchConditions(options.IdentifyingAttributes)...)
+		conditions = append(conditions,
+			NonIdentifyingAttributesSelectorToMatchConditions(options.NonIdentifyingAttributes)...)
 	}
 
 	resp, err := a.common.listWithFilter(ctx, options, buildFilter(conditions))

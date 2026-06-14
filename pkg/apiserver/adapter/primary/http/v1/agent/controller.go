@@ -93,6 +93,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param continue query string false "Token to continue listing agents"
 // @Param connected query bool false "When true, return only currently-connected agents"
 // @Param selector query []string false "Identifying attribute filter (key=value, repeatable)" collectionFormat(multi)
+// @Param nonIdentifyingSelector query []string false "Non-identifying attribute (key=value)" collectionFormat(multi)
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/namespaces/{namespace}/agents [get].
@@ -125,13 +126,22 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	nonIdentifyingAttributes, err := parseSelector(ctx.QueryArray("nonIdentifyingSelector"))
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "nonIdentifyingSelector",
+			strings.Join(ctx.QueryArray("nonIdentifyingSelector"), ","), err, false)
+
+		return
+	}
+
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &model.ListOptions{
-		Limit:                 limit,
-		Continue:              continueToken,
-		ConnectedOnly:         connectedOnly,
-		IdentifyingAttributes: identifyingAttributes,
+		Limit:                    limit,
+		Continue:                 continueToken,
+		ConnectedOnly:            connectedOnly,
+		IdentifyingAttributes:    identifyingAttributes,
+		NonIdentifyingAttributes: nonIdentifyingAttributes,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())

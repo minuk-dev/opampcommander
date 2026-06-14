@@ -147,6 +147,54 @@ func TestAgentRepository_ListByIdentifyingAttributesSelector(t *testing.T) {
 	assert.Empty(t, resp.Items)
 }
 
+func TestAgentRepository_ListByNonIdentifyingAttributesSelector(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRepository()
+
+	const selectorNamespace = "sel-ns"
+
+	match := agentmodel.NewAgent(uuid.New())
+	match.Metadata.Namespace = selectorNamespace
+	match.Metadata.Description.IdentifyingAttributes = map[string]string{"service.name": "otel-collector"}
+	match.Metadata.Description.NonIdentifyingAttributes = map[string]string{"os.type": "linux", "host.arch": "amd64"}
+	require.NoError(t, repo.PutAgent(ctx, match))
+
+	// Same non-identifying key, different value -> excluded by exact match.
+	otherValue := agentmodel.NewAgent(uuid.New())
+	otherValue.Metadata.Namespace = selectorNamespace
+	otherValue.Metadata.Description.NonIdentifyingAttributes = map[string]string{"os.type": "windows"}
+	require.NoError(t, repo.PutAgent(ctx, otherValue))
+
+	//exhaustruct:ignore
+	resp, err := repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		NonIdentifyingAttributes: map[string]string{"os.type": "linux"},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, match.Metadata.InstanceUID, resp.Items[0].Metadata.InstanceUID)
+
+	// Identifying and non-identifying selectors are AND-combined.
+	//exhaustruct:ignore
+	resp, err = repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},
+		NonIdentifyingAttributes: map[string]string{"os.type": "linux"},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, match.Metadata.InstanceUID, resp.Items[0].Metadata.InstanceUID)
+
+	// A non-identifying mismatch excludes the agent even when identifying matches.
+	//exhaustruct:ignore
+	resp, err = repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},
+		NonIdentifyingAttributes: map[string]string{"os.type": "darwin"},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
+}
+
 func TestNamespaceRepository_SoftDeleteHiddenUnlessIncluded(t *testing.T) {
 	t.Parallel()
 

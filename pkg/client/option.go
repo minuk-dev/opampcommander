@@ -81,6 +81,9 @@ type ListSettings struct {
 	// selector filters agents by identifying attributes (exact key=value match);
 	// nil or empty means no attribute filter.
 	selector map[string]string
+	// nonIdentifyingSelector filters agents by non-identifying attributes (exact
+	// key=value match); nil or empty means no attribute filter.
+	nonIdentifyingSelector map[string]string
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -124,6 +127,15 @@ func WithSelector(selector map[string]string) ListOption {
 	})
 }
 
+// WithNonIdentifyingSelector filters an agent listing by non-identifying
+// attributes, matching every key=value pair exactly. An empty map applies no
+// filter.
+func WithNonIdentifyingSelector(selector map[string]string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.nonIdentifyingSelector = selector
+	})
+}
+
 // GetOption is an interface for options that can be applied to get operations.
 type GetOption interface {
 	Apply(settings *GetSettings)
@@ -164,22 +176,33 @@ func (s ListSettings) applyTo(req *resty.Request) {
 		req.SetQueryParam("includeDeleted", "true")
 	}
 
-	if len(s.selector) > 0 {
-		pairs := make([]string, 0, len(s.selector))
-		for key, value := range s.selector {
-			pairs = append(pairs, key+"="+value)
-		}
-		// Sort for a deterministic, cache-friendly query string. Each pair is sent
-		// as a separate `selector` parameter (rather than comma-joined) so attribute
-		// values may safely contain commas.
-		sort.Strings(pairs)
+	values := url.Values{}
+	addSelectorParams(values, "selector", s.selector)
+	addSelectorParams(values, "nonIdentifyingSelector", s.nonIdentifyingSelector)
 
-		values := url.Values{}
-		for _, pair := range pairs {
-			values.Add("selector", pair)
-		}
-
+	if len(values) > 0 {
 		req.SetQueryParamsFromValues(values)
+	}
+}
+
+// addSelectorParams adds one query parameter named paramName per key=value pair in
+// selector. Pairs are sorted for a deterministic, cache-friendly query string and
+// sent separately (rather than comma-joined) so attribute values may safely
+// contain commas. An empty selector adds nothing.
+func addSelectorParams(values url.Values, paramName string, selector map[string]string) {
+	if len(selector) == 0 {
+		return
+	}
+
+	pairs := make([]string, 0, len(selector))
+	for key, value := range selector {
+		pairs = append(pairs, key+"="+value)
+	}
+
+	sort.Strings(pairs)
+
+	for _, pair := range pairs {
+		values.Add(paramName, pair)
 	}
 }
 

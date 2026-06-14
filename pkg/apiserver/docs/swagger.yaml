@@ -1733,6 +1733,13 @@ paths:
           type: string
         name: selector
         type: array
+      - collectionFormat: multi
+        description: Non-identifying attribute (key=value)
+        in: query
+        items:
+          type: string
+        name: nonIdentifyingSelector
+        type: array
       produces:
       - application/json
       responses:

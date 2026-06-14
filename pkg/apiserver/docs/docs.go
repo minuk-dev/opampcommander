@@ -898,6 +898,16 @@ const docTemplate = `{
                         "description": "Identifying attribute filter (key=value, repeatable)",
                         "name": "selector",
                         "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "Non-identifying attribute (key=value)",
+                        "name": "nonIdentifyingSelector",
+                        "in": "query"
                     }
                 ],
                 "responses": {

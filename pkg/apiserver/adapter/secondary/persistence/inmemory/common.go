@@ -38,13 +38,14 @@ func matchesSelector(agent *agentmodel.Agent, selector agentmodel.AgentSelector)
 	return true
 }
 
-// matchesIdentifyingAttributes reports whether the agent's identifying attributes
-// contain every key=value pair (an AND of equality conditions). An empty map
-// matches all agents, mirroring the MongoDB identifying-attribute filter used by
-// the namespaced agent listing.
-func matchesIdentifyingAttributes(agent *agentmodel.Agent, attributes map[string]string) bool {
-	for key, value := range attributes {
-		if agent.Metadata.Description.IdentifyingAttributes[key] != value {
+// matchesAttributes reports whether the stored attribute map contains every
+// key=value pair in the selector (an AND of equality conditions). An empty
+// selector matches everything, mirroring the MongoDB attribute filter used by the
+// namespaced agent listing. It is used for both identifying and non-identifying
+// attributes.
+func matchesAttributes(stored, selector map[string]string) bool {
+	for key, value := range selector {
+		if stored[key] != value {
 			return false
 		}
 	}
