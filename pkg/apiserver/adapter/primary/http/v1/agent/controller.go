@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -166,9 +167,23 @@ func (c *Controller) Search(ctx *gin.Context) {
 		return
 	}
 
-	query := ctx.Query("q")
+	namespacePattern := regexp.MustCompile(`^[a-z0-9]([-.a-z0-9]*[a-z0-9])?$`)
+	if !namespacePattern.MatchString(namespace) {
+		ginutil.HandleValidationError(ctx, "namespace", namespace, ginutil.ErrInvalidFormat, true)
+
+		return
+	}
+
+	query := strings.TrimSpace(ctx.Query("q"))
 	if query == "" {
 		ginutil.HandleValidationError(ctx, "q", "", ginutil.ErrRequiredParam, false)
+
+		return
+	}
+
+	queryPattern := regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+	if !queryPattern.MatchString(query) {
+		ginutil.HandleValidationError(ctx, "q", query, ginutil.ErrInvalidFormat, false)
 
 		return
 	}
