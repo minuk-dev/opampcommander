@@ -136,13 +136,7 @@ function AgentsInner() {
   const selectorParam = search.get('selector') || '';
   const modeParam =
     (search.get('mode') as SearchMode | null) ||
-    (agentGroupParam
-      ? 'group'
-      : descParam
-        ? 'description'
-        : selectorParam
-          ? 'attribute'
-          : 'uid');
+    (agentGroupParam ? 'group' : descParam ? 'description' : selectorParam ? 'attribute' : 'uid');
 
   const [mode, setMode] = useState<SearchMode>(modeParam);
   const [query, setQuery] = useState(qParam);
