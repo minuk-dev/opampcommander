@@ -19,6 +19,12 @@ type ListOptions struct {
 	// equality conditions, mirroring agent-group selector semantics). It is a
 	// no-op for resources that have no identifying attributes.
 	IdentifyingAttributes map[string]string
+
+	// NonIdentifyingAttributes, when non-empty, restricts an agent listing to
+	// agents whose non-identifying attributes match every key=value pair exactly
+	// (an AND of equality conditions). It is combined with IdentifyingAttributes
+	// via AND, and is a no-op for resources that have no non-identifying attributes.
+	NonIdentifyingAttributes map[string]string
 }
 
 // GetOptions is a struct that holds options for getting a single resource.

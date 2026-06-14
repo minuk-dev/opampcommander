@@ -57,7 +57,7 @@ import { type ColumnConfig, useColumnVisibility, useCursorPagination } from '@sh
 import { useApi, type ListResponse } from '@shared/api';
 import type { AgentGroup } from '@entities/agent-group';
 
-type SearchMode = 'uid' | 'group' | 'description' | 'attribute';
+type SearchMode = 'uid' | 'group' | 'description' | 'attribute' | 'nattribute';
 
 // `lcNeedle` is expected to be pre-lowercased by the caller so we don't redo
 // it for every agent in a filter pass.
@@ -141,9 +141,18 @@ function AgentsInner() {
   const qParam = search.get('q') || '';
   const descParam = search.get('desc') || '';
   const selectorParam = search.get('selector') || '';
+  const nonIdentifyingSelectorParam = search.get('nonIdentifyingSelector') || '';
   const modeParam =
     (search.get('mode') as SearchMode | null) ||
-    (agentGroupParam ? 'group' : descParam ? 'description' : selectorParam ? 'attribute' : 'uid');
+    (agentGroupParam
+      ? 'group'
+      : descParam
+        ? 'description'
+        : selectorParam
+          ? 'attribute'
+          : nonIdentifyingSelectorParam
+            ? 'nattribute'
+            : 'uid');
 
   const [mode, setMode] = useState<SearchMode>(modeParam);
   const [query, setQuery] = useState(qParam);
@@ -173,6 +182,9 @@ function AgentsInner() {
     if (selectorParam) {
       listQuery.selector = selectorParam;
     }
+    if (nonIdentifyingSelectorParam) {
+      listQuery.nonIdentifyingSelector = nonIdentifyingSelectorParam;
+    }
   }
   if (!showDisconnected) {
     listQuery.connected = 'true';
@@ -197,7 +209,8 @@ function AgentsInner() {
     else if (mode === 'description') setQuery(descParam);
     else if (mode === 'group') setQuery(agentGroupParam);
     else if (mode === 'attribute') setQuery(selectorParam);
-  }, [mode, qParam, descParam, agentGroupParam, selectorParam]);
+    else if (mode === 'nattribute') setQuery(nonIdentifyingSelectorParam);
+  }, [mode, qParam, descParam, agentGroupParam, selectorParam, nonIdentifyingSelectorParam]);
 
   // Sync mode state if URL changes externally
   useEffect(() => {
@@ -209,6 +222,7 @@ function AgentsInner() {
     agentGroup?: string;
     desc?: string;
     selector?: string;
+    nonIdentifyingSelector?: string;
     mode?: SearchMode;
   }) => {
     const params = new URLSearchParams();
@@ -217,10 +231,13 @@ function AgentsInner() {
     const g = next.agentGroup ?? (m === 'group' ? agentGroupParam : '');
     const d = next.desc ?? (m === 'description' ? descParam : '');
     const s = next.selector ?? (m === 'attribute' ? selectorParam : '');
+    const ns =
+      next.nonIdentifyingSelector ?? (m === 'nattribute' ? nonIdentifyingSelectorParam : '');
     if (q) params.set('q', q);
     if (g) params.set('agentGroup', g);
     if (d) params.set('desc', d);
     if (s) params.set('selector', s);
+    if (ns) params.set('nonIdentifyingSelector', ns);
     if (m !== 'uid' || !q) params.set('mode', m);
     const qs = params.toString();
     router.replace(qs ? `/agents?${qs}` : '/agents');
@@ -230,20 +247,64 @@ function AgentsInner() {
     e.preventDefault();
     const value = query.trim();
     if (mode === 'uid') {
-      updateUrl({ q: value, agentGroup: '', desc: '', selector: '', mode: 'uid' });
+      updateUrl({
+        q: value,
+        agentGroup: '',
+        desc: '',
+        selector: '',
+        nonIdentifyingSelector: '',
+        mode: 'uid',
+      });
     } else if (mode === 'group') {
-      updateUrl({ agentGroup: value, q: '', desc: '', selector: '', mode: 'group' });
+      updateUrl({
+        agentGroup: value,
+        q: '',
+        desc: '',
+        selector: '',
+        nonIdentifyingSelector: '',
+        mode: 'group',
+      });
     } else if (mode === 'attribute') {
-      updateUrl({ selector: value, q: '', agentGroup: '', desc: '', mode: 'attribute' });
+      updateUrl({
+        selector: value,
+        q: '',
+        agentGroup: '',
+        desc: '',
+        nonIdentifyingSelector: '',
+        mode: 'attribute',
+      });
+    } else if (mode === 'nattribute') {
+      updateUrl({
+        nonIdentifyingSelector: value,
+        q: '',
+        agentGroup: '',
+        desc: '',
+        selector: '',
+        mode: 'nattribute',
+      });
     } else {
-      updateUrl({ desc: value, q: '', agentGroup: '', selector: '', mode: 'description' });
+      updateUrl({
+        desc: value,
+        q: '',
+        agentGroup: '',
+        selector: '',
+        nonIdentifyingSelector: '',
+        mode: 'description',
+      });
     }
   };
 
   const setSearchMode = (next: SearchMode) => {
     setMode(next);
     setQuery('');
-    updateUrl({ q: '', agentGroup: '', desc: '', selector: '', mode: next });
+    updateUrl({
+      q: '',
+      agentGroup: '',
+      desc: '',
+      selector: '',
+      nonIdentifyingSelector: '',
+      mode: next,
+    });
   };
 
   // Triggered by clicking an identifying-attribute chip: jump to an exact,
@@ -252,7 +313,30 @@ function AgentsInner() {
     const selector = `${key}=${value}`;
     setMode('attribute');
     setQuery(selector);
-    updateUrl({ selector, q: '', agentGroup: '', desc: '', mode: 'attribute' });
+    updateUrl({
+      selector,
+      q: '',
+      agentGroup: '',
+      desc: '',
+      nonIdentifyingSelector: '',
+      mode: 'attribute',
+    });
+  };
+
+  // Triggered by clicking a non-identifying-attribute chip: jump to an exact,
+  // server-side search for that attribute.
+  const searchByNonIdentifyingAttribute = (key: string, value: string) => {
+    const selector = `${key}=${value}`;
+    setMode('nattribute');
+    setQuery(selector);
+    updateUrl({
+      nonIdentifyingSelector: selector,
+      q: '',
+      agentGroup: '',
+      desc: '',
+      selector: '',
+      mode: 'nattribute',
+    });
   };
 
   const clearGroup = () => updateUrl({ agentGroup: '' });
@@ -272,7 +356,9 @@ function AgentsInner() {
     pagination.reset();
   };
 
-  const filterActive = Boolean(agentGroupParam || qParam || descParam || selectorParam);
+  const filterActive = Boolean(
+    agentGroupParam || qParam || descParam || selectorParam || nonIdentifyingSelectorParam,
+  );
   const lcDesc = descParam.toLowerCase();
   const visibleAgents = descParam
     ? agents.filter((a) => attrMatchesDescription(a, lcDesc))
@@ -305,6 +391,7 @@ function AgentsInner() {
                   <MenuItem value="group">Agent Group</MenuItem>
                   <MenuItem value="uid">Instance UID</MenuItem>
                   <MenuItem value="attribute">Identifying Attribute</MenuItem>
+                  <MenuItem value="nattribute">Non-identifying Attribute</MenuItem>
                   <MenuItem value="description">Description</MenuItem>
                 </Select>
               </FormControl>
@@ -350,7 +437,9 @@ function AgentsInner() {
                       ? 'Instance UID contains… (server-side)'
                       : mode === 'attribute'
                         ? 'key=value identifying attribute (exact, server-side)'
-                        : 'Attribute key/value contains… (client-side, current page)'
+                        : mode === 'nattribute'
+                          ? 'key=value non-identifying attribute (exact, server-side)'
+                          : 'Attribute key/value contains… (client-side, current page)'
                   }
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -431,6 +520,19 @@ function AgentsInner() {
                   onDelete={() => {
                     setQuery('');
                     updateUrl({ selector: '' });
+                  }}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+              {nonIdentifyingSelectorParam && (
+                <Chip
+                  icon={<SearchIcon />}
+                  label={`Non-identifying: ${nonIdentifyingSelectorParam}`}
+                  onDelete={() => {
+                    setQuery('');
+                    updateUrl({ nonIdentifyingSelector: '' });
                   }}
                   color="primary"
                   variant="outlined"
@@ -558,7 +660,10 @@ function AgentsInner() {
                   )}
                   {isVisible('nonIdentifyingAttributes') && (
                     <TableCell>
-                      <AttrChips attrs={agent.metadata.description?.nonIdentifyingAttributes} />
+                      <AttrChips
+                        attrs={agent.metadata.description?.nonIdentifyingAttributes}
+                        onSelect={searchByNonIdentifyingAttribute}
+                      />
                     </TableCell>
                   )}
                   <TableCell align="right">
