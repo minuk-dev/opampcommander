@@ -2,6 +2,8 @@ package client
 
 import (
 	"log/slog"
+	"net/url"
+	"sort"
 	"strconv"
 
 	"github.com/go-resty/resty/v2"
@@ -76,6 +78,9 @@ type ListSettings struct {
 	continueToken *string
 	// includeDeleted asks the server to include soft-deleted resources.
 	includeDeleted *bool
+	// selector filters agents by identifying attributes (exact key=value match);
+	// nil or empty means no attribute filter.
+	selector map[string]string
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -108,6 +113,14 @@ func WithContinueToken(token string) ListOption {
 func WithIncludeDeleted(includeDeleted bool) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.includeDeleted = &includeDeleted
+	})
+}
+
+// WithSelector filters an agent listing by identifying attributes, matching every
+// key=value pair exactly. An empty map applies no filter.
+func WithSelector(selector map[string]string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.selector = selector
 	})
 }
 
@@ -149,6 +162,24 @@ func (s ListSettings) applyTo(req *resty.Request) {
 
 	if mo.PointerToOption(s.includeDeleted).OrElse(false) {
 		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	if len(s.selector) > 0 {
+		pairs := make([]string, 0, len(s.selector))
+		for key, value := range s.selector {
+			pairs = append(pairs, key+"="+value)
+		}
+		// Sort for a deterministic, cache-friendly query string. Each pair is sent
+		// as a separate `selector` parameter (rather than comma-joined) so attribute
+		// values may safely contain commas.
+		sort.Strings(pairs)
+
+		values := url.Values{}
+		for _, pair := range pairs {
+			values.Add("selector", pair)
+		}
+
+		req.SetQueryParamsFromValues(values)
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -89,12 +89,20 @@ func (a *AgentRepository) ListAgents(
 	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	extraFilter := bson.M{"metadata.namespace": sanitizeResourceName(namespace)}
-	if options != nil && options.ConnectedOnly {
-		extraFilter = combineFilters(extraFilter, connectedMatchFilter())
+	conditions := []bson.M{{"metadata.namespace": sanitizeResourceName(namespace)}}
+
+	if options != nil {
+		if options.ConnectedOnly {
+			conditions = append(conditions, connectedMatchFilter())
+		}
+		// Each identifying-attribute condition is a separate $elemMatch on the same
+		// field, so they must be combined with $and (via buildFilter) rather than
+		// flattened into one map, which would drop all but the last.
+		conditions = append(conditions,
+			IdentifyingAttributesSelectorToMatchConditions(options.IdentifyingAttributes)...)
 	}
 
-	resp, err := a.common.listWithFilter(ctx, options, extraFilter)
+	resp, err := a.common.listWithFilter(ctx, options, buildFilter(conditions))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents from persistence: %w", err)
 	}
@@ -177,7 +185,7 @@ func (a *AgentRepository) ListAgentsBySelector(
 	)
 
 	queryWg.Go(func() {
-		cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+		cursor, err := a.collection.Find(ctx, filter, withPageOptions(options.Limit))
 		if err != nil {
 			fErr = fmt.Errorf("failed to find agents by selector from mongodb: %w", err)
 
@@ -341,12 +349,22 @@ func (a *AgentRepository) buildSearchFilter(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	// Escape regex metacharacters to prevent regex injection
-	safeQuery := escapeRegexLiteral(query)
+	// Prefix-match instanceUidString with a parameterized range scan instead of a
+	// user-built $regex: instanceUidString is always a lower-cased UUID, so we
+	// lower-case the query (preserving the previous case-insensitive behaviour) and
+	// match [prefix, prefixUpperBound). This avoids feeding user input into a regex
+	// (no ReDoS / regex injection) and lets the index serve the query with a range
+	// scan rather than a regex scan.
+	lowerQuery := strings.ToLower(query)
+
+	prefixRange := bson.M{"$gte": lowerQuery}
+	if upper, ok := prefixUpperBound(lowerQuery); ok {
+		prefixRange["$lt"] = upper
+	}
 
 	conditions := []bson.M{
 		{"metadata.namespace": namespace},
-		{"metadata.instanceUidString": bson.M{"$regex": "^" + safeQuery, "$options": "i"}},
+		{"metadata.instanceUidString": prefixRange},
 	}
 
 	if options.ConnectedOnly {
@@ -399,7 +417,7 @@ func (a *AgentRepository) findAgents(
 	filter bson.M,
 	options *model.ListOptions,
 ) ([]*entity.Agent, string, error) {
-	cursor, err := a.collection.Find(ctx, filter, withLimit(options.Limit))
+	cursor, err := a.collection.Find(ctx, filter, withPageOptions(options.Limit))
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to search agents from mongodb: %w", err)
 	}
@@ -450,8 +468,23 @@ func (a *AgentRepository) ensureIndexes(ctx context.Context) {
 	}
 }
 
-// escapeRegexLiteral escapes all regular expression metacharacters in the input
-// so that it is treated as a literal string within a regex pattern.
-func escapeRegexLiteral(query string) string {
-	return regexp.QuoteMeta(query)
+// prefixUpperBound returns the exclusive upper bound for a prefix range scan: the
+// smallest string strictly greater than every string starting with prefix, using
+// MongoDB's default binary (byte-wise) string ordering. It increments the last
+// byte that can be incremented and drops the rest. ok is false when no finite
+// bound exists (prefix is empty or all 0xFF bytes), in which case the caller
+// should omit the upper bound and rely on $gte alone.
+func prefixUpperBound(prefix string) (string, bool) {
+	const maxByte = 0xFF
+
+	bytes := []byte(prefix)
+	for i := len(bytes) - 1; i >= 0; i-- {
+		if bytes[i] < maxByte {
+			bytes[i]++
+
+			return string(bytes[:i+1]), true
+		}
+	}
+
+	return "", false
 }

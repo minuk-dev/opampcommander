@@ -3,8 +3,11 @@ package agent
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -13,6 +16,12 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
+
+// ErrInvalidSelector is returned when a selector query parameter is malformed
+// (an entry without a "key=value" shape, or with an empty key). It wraps
+// ginutil.ErrInvalidFormat so the HTTP layer maps it to a 400 Bad Request.
+var ErrInvalidSelector = fmt.Errorf(
+	"invalid selector: expected comma-separated key=value pairs: %w", ginutil.ErrInvalidFormat)
 
 // Controller is a struct that implements the agent controller.
 type Controller struct {
@@ -83,6 +92,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
 // @Param connected query bool false "When true, return only currently-connected agents"
+// @Param selector query []string false "Identifying attribute filter (key=value, repeatable)" collectionFormat(multi)
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/namespaces/{namespace}/agents [get].
@@ -108,12 +118,20 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	identifyingAttributes, err := parseSelector(ctx.QueryArray("selector"))
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "selector", strings.Join(ctx.QueryArray("selector"), ","), err, false)
+
+		return
+	}
+
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &model.ListOptions{
-		Limit:         limit,
-		Continue:      continueToken,
-		ConnectedOnly: connectedOnly,
+		Limit:                 limit,
+		Continue:              continueToken,
+		ConnectedOnly:         connectedOnly,
+		IdentifyingAttributes: identifyingAttributes,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
@@ -149,9 +167,23 @@ func (c *Controller) Search(ctx *gin.Context) {
 		return
 	}
 
-	query := ctx.Query("q")
+	namespacePattern := regexp.MustCompile(`^[a-z0-9]([-.a-z0-9]*[a-z0-9])?$`)
+	if !namespacePattern.MatchString(namespace) {
+		ginutil.HandleValidationError(ctx, "namespace", namespace, ginutil.ErrInvalidFormat, true)
+
+		return
+	}
+
+	query := strings.TrimSpace(ctx.Query("q"))
 	if query == "" {
 		ginutil.HandleValidationError(ctx, "q", "", ginutil.ErrRequiredParam, false)
+
+		return
+	}
+
+	queryPattern := regexp.MustCompile(`^[a-zA-Z0-9-]+$`)
+	if !queryPattern.MatchString(query) {
+		ginutil.HandleValidationError(ctx, "q", query, ginutil.ErrInvalidFormat, false)
 
 		return
 	}
@@ -314,6 +346,38 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// parseSelector parses identifying-attribute selector values into an exact-match
+// map. Each query-param value is exactly one "key=value" pair; repeat the
+// parameter (?selector=a=b&selector=c=d) to match multiple attributes. Commas are
+// NOT treated as delimiters, so attribute values may safely contain commas. The
+// value is split on the first "=" only, so it may also contain "=". Whitespace
+// around the whole entry and the key is trimmed; the attribute value is kept
+// verbatim. It returns an empty map (no filter) when no pairs are present, and
+// ErrInvalidSelector for a malformed entry.
+func parseSelector(values []string) (map[string]string, error) {
+	result := make(map[string]string)
+
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+
+		key, val, found := strings.Cut(value, "=")
+
+		key = strings.TrimSpace(key)
+		if !found || key == "" {
+			return nil, ErrInvalidSelector
+		}
+
+		result[key] = val
+	}
+
+	// A non-nil but empty map is treated as "no filter" by the persistence layer,
+	// so there is no need for a nil return here.
+	return result, nil
 }
 
 // handleAgentError maps agent management errors to HTTP responses, centralising the

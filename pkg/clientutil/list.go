@@ -15,7 +15,13 @@ const (
 
 // ListAgentFully lists all agents in a namespace and applies the provided function to each agent.
 // It continues to fetch agents until there are no more agents to fetch.
-func ListAgentFully(ctx context.Context, cli *client.Client, namespace string) ([]v1.Agent, error) {
+// Extra list options (e.g. client.WithSelector) are applied to every page request.
+func ListAgentFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+	extraOpts ...client.ListOption,
+) ([]v1.Agent, error) {
 	var agents []v1.Agent
 	// Initialize the continue token to an empty string
 	continueToken := ""
@@ -24,6 +30,8 @@ func ListAgentFully(ctx context.Context, cli *client.Client, namespace string) (
 		opts := []client.ListOption{
 			client.WithLimit(ChunkSize),
 		}
+		opts = append(opts, extraOpts...)
+
 		if continueToken != "" {
 			opts = append(opts, client.WithContinueToken(continueToken))
 		}

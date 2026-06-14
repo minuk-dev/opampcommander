@@ -50,7 +50,7 @@ import { useCursorPagination } from '@/lib/pagination';
 import { useApi } from '@/lib/swr';
 import type { Agent, AgentGroup, ListResponse } from '@/lib/types';
 
-type SearchMode = 'uid' | 'group' | 'description';
+type SearchMode = 'uid' | 'group' | 'description' | 'attribute';
 
 // `lcNeedle` is expected to be pre-lowercased by the caller so we don't redo
 // it for every agent in a filter pass.
@@ -88,14 +88,38 @@ const AGENT_COLUMNS: ColumnConfig[] = [
   },
 ];
 
-// Render an attribute map as compact key=value chips for a table cell.
-function AttrChips({ attrs }: { attrs: Record<string, string> | undefined }) {
+// Render an attribute map as compact key=value chips for a table cell. When
+// `onSelect` is provided the chips become clickable and trigger a search by that
+// exact identifying attribute; clicks are kept from bubbling up to the row link.
+function AttrChips({
+  attrs,
+  onSelect,
+}: {
+  attrs: Record<string, string> | undefined;
+  onSelect?: (key: string, value: string) => void;
+}) {
   const entries = Object.entries(attrs ?? {});
   if (entries.length === 0) return <>-</>;
   return (
     <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ maxWidth: 320 }}>
       {entries.map(([k, v]) => (
-        <Chip key={k} label={`${k}=${v}`} size="small" variant="outlined" />
+        <Chip
+          key={k}
+          label={`${k}=${v}`}
+          size="small"
+          variant="outlined"
+          clickable={Boolean(onSelect)}
+          onClick={
+            onSelect
+              ? (e) => {
+                  // Prevent the enclosing row's Link from navigating to the agent.
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect(k, v);
+                }
+              : undefined
+          }
+        />
       ))}
     </Stack>
   );
@@ -109,9 +133,10 @@ function AgentsInner() {
   const agentGroupParam = search.get('agentGroup') || '';
   const qParam = search.get('q') || '';
   const descParam = search.get('desc') || '';
+  const selectorParam = search.get('selector') || '';
   const modeParam =
     (search.get('mode') as SearchMode | null) ||
-    (agentGroupParam ? 'group' : descParam ? 'description' : 'uid');
+    (agentGroupParam ? 'group' : descParam ? 'description' : selectorParam ? 'attribute' : 'uid');
 
   const [mode, setMode] = useState<SearchMode>(modeParam);
   const [query, setQuery] = useState(qParam);
@@ -125,8 +150,10 @@ function AgentsInner() {
   // +1 for the always-present Actions column.
   const colSpan = AGENT_COLUMNS.filter((c) => isVisible(c.id)).length + 1;
 
-  // The three search modes hit different endpoints; description mode reuses the
-  // plain list and filters client-side (see visibleAgents below).
+  // The search modes hit different endpoints: group lists a group's agents, UID
+  // hits the search endpoint, attribute filters the plain list server-side via a
+  // `selector`, and description reuses the plain list but filters client-side
+  // (see visibleAgents below).
   let listPath: string;
   const listQuery: Record<string, string> = {};
   if (agentGroupParam) {
@@ -136,6 +163,9 @@ function AgentsInner() {
     listQuery.q = qParam;
   } else {
     listPath = `/api/v1/namespaces/${namespace}/agents`;
+    if (selectorParam) {
+      listQuery.selector = selectorParam;
+    }
   }
   if (!showDisconnected) {
     listQuery.connected = 'true';
@@ -159,7 +189,8 @@ function AgentsInner() {
     if (mode === 'uid') setQuery(qParam);
     else if (mode === 'description') setQuery(descParam);
     else if (mode === 'group') setQuery(agentGroupParam);
-  }, [mode, qParam, descParam, agentGroupParam]);
+    else if (mode === 'attribute') setQuery(selectorParam);
+  }, [mode, qParam, descParam, agentGroupParam, selectorParam]);
 
   // Sync mode state if URL changes externally
   useEffect(() => {
@@ -170,6 +201,7 @@ function AgentsInner() {
     q?: string;
     agentGroup?: string;
     desc?: string;
+    selector?: string;
     mode?: SearchMode;
   }) => {
     const params = new URLSearchParams();
@@ -177,9 +209,11 @@ function AgentsInner() {
     const q = next.q ?? (m === 'uid' ? qParam : '');
     const g = next.agentGroup ?? (m === 'group' ? agentGroupParam : '');
     const d = next.desc ?? (m === 'description' ? descParam : '');
+    const s = next.selector ?? (m === 'attribute' ? selectorParam : '');
     if (q) params.set('q', q);
     if (g) params.set('agentGroup', g);
     if (d) params.set('desc', d);
+    if (s) params.set('selector', s);
     if (m !== 'uid' || !q) params.set('mode', m);
     const qs = params.toString();
     router.replace(qs ? `/agents?${qs}` : '/agents');
@@ -189,18 +223,29 @@ function AgentsInner() {
     e.preventDefault();
     const value = query.trim();
     if (mode === 'uid') {
-      updateUrl({ q: value, agentGroup: '', desc: '', mode: 'uid' });
+      updateUrl({ q: value, agentGroup: '', desc: '', selector: '', mode: 'uid' });
     } else if (mode === 'group') {
-      updateUrl({ agentGroup: value, q: '', desc: '', mode: 'group' });
+      updateUrl({ agentGroup: value, q: '', desc: '', selector: '', mode: 'group' });
+    } else if (mode === 'attribute') {
+      updateUrl({ selector: value, q: '', agentGroup: '', desc: '', mode: 'attribute' });
     } else {
-      updateUrl({ desc: value, q: '', agentGroup: '', mode: 'description' });
+      updateUrl({ desc: value, q: '', agentGroup: '', selector: '', mode: 'description' });
     }
   };
 
   const setSearchMode = (next: SearchMode) => {
     setMode(next);
     setQuery('');
-    updateUrl({ q: '', agentGroup: '', desc: '', mode: next });
+    updateUrl({ q: '', agentGroup: '', desc: '', selector: '', mode: next });
+  };
+
+  // Triggered by clicking an identifying-attribute chip: jump to an exact,
+  // server-side search for that attribute.
+  const searchByAttribute = (key: string, value: string) => {
+    const selector = `${key}=${value}`;
+    setMode('attribute');
+    setQuery(selector);
+    updateUrl({ selector, q: '', agentGroup: '', desc: '', mode: 'attribute' });
   };
 
   const clearGroup = () => updateUrl({ agentGroup: '' });
@@ -220,7 +265,7 @@ function AgentsInner() {
     pagination.reset();
   };
 
-  const filterActive = Boolean(agentGroupParam || qParam || descParam);
+  const filterActive = Boolean(agentGroupParam || qParam || descParam || selectorParam);
   const lcDesc = descParam.toLowerCase();
   const visibleAgents = descParam
     ? agents.filter((a) => attrMatchesDescription(a, lcDesc))
@@ -252,6 +297,7 @@ function AgentsInner() {
                 >
                   <MenuItem value="group">Agent Group</MenuItem>
                   <MenuItem value="uid">Instance UID</MenuItem>
+                  <MenuItem value="attribute">Identifying Attribute</MenuItem>
                   <MenuItem value="description">Description</MenuItem>
                 </Select>
               </FormControl>
@@ -295,7 +341,9 @@ function AgentsInner() {
                   placeholder={
                     mode === 'uid'
                       ? 'Instance UID contains… (server-side)'
-                      : 'Attribute key/value contains… (client-side, current page)'
+                      : mode === 'attribute'
+                        ? 'key=value identifying attribute (exact, server-side)'
+                        : 'Attribute key/value contains… (client-side, current page)'
                   }
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -363,6 +411,19 @@ function AgentsInner() {
                   onDelete={() => {
                     setQuery('');
                     updateUrl({ desc: '' });
+                  }}
+                  color="primary"
+                  variant="outlined"
+                  size="small"
+                />
+              )}
+              {selectorParam && (
+                <Chip
+                  icon={<SearchIcon />}
+                  label={`Attribute: ${selectorParam}`}
+                  onDelete={() => {
+                    setQuery('');
+                    updateUrl({ selector: '' });
                   }}
                   color="primary"
                   variant="outlined"
@@ -482,7 +543,10 @@ function AgentsInner() {
                   )}
                   {isVisible('identifyingAttributes') && (
                     <TableCell>
-                      <AttrChips attrs={agent.metadata.description?.identifyingAttributes} />
+                      <AttrChips
+                        attrs={agent.metadata.description?.identifyingAttributes}
+                        onSelect={searchByAttribute}
+                      />
                     </TableCell>
                   )}
                   {isVisible('nonIdentifyingAttributes') && (

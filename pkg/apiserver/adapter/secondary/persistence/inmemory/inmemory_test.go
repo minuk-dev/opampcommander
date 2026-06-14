@@ -102,6 +102,51 @@ func TestAgentRepository_SearchByInstanceUIDPrefix(t *testing.T) {
 	assert.Empty(t, resp.Items)
 }
 
+func TestAgentRepository_ListByIdentifyingAttributesSelector(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRepository()
+
+	const selectorNamespace = "sel-ns"
+
+	match := agentmodel.NewAgent(uuid.New())
+	match.Metadata.Namespace = selectorNamespace
+	match.Metadata.Description.IdentifyingAttributes = map[string]string{
+		"service.name":      "otel-collector",
+		"service.namespace": "prod",
+	}
+	require.NoError(t, repo.PutAgent(ctx, match))
+
+	// Same key, different value -> excluded by an exact-match selector.
+	otherValue := agentmodel.NewAgent(uuid.New())
+	otherValue.Metadata.Namespace = selectorNamespace
+	otherValue.Metadata.Description.IdentifyingAttributes = map[string]string{"service.name": "nginx"}
+	require.NoError(t, repo.PutAgent(ctx, otherValue))
+
+	// Matching attribute but a different namespace -> excluded by the namespace scope.
+	otherNamespace := agentmodel.NewAgent(uuid.New())
+	otherNamespace.Metadata.Namespace = "other-ns"
+	otherNamespace.Metadata.Description.IdentifyingAttributes = map[string]string{"service.name": "otel-collector"}
+	require.NoError(t, repo.PutAgent(ctx, otherNamespace))
+
+	//exhaustruct:ignore
+	resp, err := repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		IdentifyingAttributes: map[string]string{"service.name": "otel-collector"},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, match.Metadata.InstanceUID, resp.Items[0].Metadata.InstanceUID)
+
+	// Every pair must match (AND semantics).
+	//exhaustruct:ignore
+	resp, err = repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		IdentifyingAttributes: map[string]string{"service.name": "otel-collector", "service.namespace": "staging"},
+	})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
+}
+
 func TestNamespaceRepository_SoftDeleteHiddenUnlessIncluded(t *testing.T) {
 	t.Parallel()
 
