@@ -1,6 +1,11 @@
-import { readNamespace, serverGet } from '@/lib/server-api';
-import type { Agent, AgentGroup, Connection, ListResponse, Server, VersionInfo } from '@/lib/types';
-import DashboardView, { type DashboardData } from './DashboardView';
+import { readNamespace, serverGet } from '@shared/api/server';
+import type { Agent } from '@entities/agent';
+import type { AgentGroup } from '@entities/agent-group';
+import type { Connection } from '@entities/connection';
+import type { Server } from '@entities/server';
+import type { VersionInfo } from '@entities/version';
+import type { ListResponse } from '@shared/api';
+import { DashboardView, type DashboardData } from '@widgets/dashboard';
 
 async function safeServerList<T>(path: string): Promise<{ items: T[]; total: number | null }> {
   try {
