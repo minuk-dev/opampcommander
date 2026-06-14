@@ -62,9 +62,10 @@ func (r *AgentRepository) ListAgents(
 ) (*model.ListResponse[*agentmodel.Agent], error) {
 	connectedOnly := options != nil && options.ConnectedOnly
 
-	var identifyingAttributes map[string]string
+	var identifyingAttributes, nonIdentifyingAttributes map[string]string
 	if options != nil {
 		identifyingAttributes = options.IdentifyingAttributes
+		nonIdentifyingAttributes = options.NonIdentifyingAttributes
 	}
 
 	return r.store.list(options, func(agent *agentmodel.Agent) bool {
@@ -72,7 +73,11 @@ func (r *AgentRepository) ListAgents(
 			return false
 		}
 
-		if !matchesIdentifyingAttributes(agent, identifyingAttributes) {
+		if !matchesAttributes(agent.Metadata.Description.IdentifyingAttributes, identifyingAttributes) {
+			return false
+		}
+
+		if !matchesAttributes(agent.Metadata.Description.NonIdentifyingAttributes, nonIdentifyingAttributes) {
 			return false
 		}
 

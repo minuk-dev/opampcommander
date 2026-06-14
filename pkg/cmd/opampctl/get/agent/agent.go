@@ -35,12 +35,13 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// flags
-	formatType         string
-	byAgentGroup       string
-	namespace          string
-	allNamespaces      bool
-	decodeCapabilities bool
-	selector           map[string]string
+	formatType             string
+	byAgentGroup           string
+	namespace              string
+	allNamespaces          bool
+	decodeCapabilities     bool
+	selector               map[string]string
+	nonIdentifyingSelector map[string]string
 
 	// internal
 	client *client.Client
@@ -78,6 +79,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringToStringVarP(
 		&options.selector, "selector", "l", nil,
 		"Filter agents by identifying attributes (exact match), e.g. -l service.name=otel-collector,service.namespace=prod",
+	)
+	cmd.Flags().StringToStringVar(
+		&options.nonIdentifyingSelector, "non-identifying-selector", nil,
+		"Filter agents by non-identifying attributes (exact match), e.g. --non-identifying-selector os.type=linux",
 	)
 
 	return cmd
@@ -147,30 +152,40 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return err
 	}
 
-	// The agent-group endpoint does not understand the selector, so apply the
-	// identifying-attribute filter client-side here. For the plain list paths the
-	// server has already filtered, making this a harmless no-op.
-	agents = filterAgentsBySelector(agents, opt.selector)
+	// The agent-group endpoint does not understand the selectors, so apply the
+	// attribute filters client-side here. For the plain list paths the server has
+	// already filtered, making this a harmless no-op.
+	agents = filterAgentsBySelectors(agents, opt.selector, opt.nonIdentifyingSelector)
 
 	return opt.formatAgents(cmd, agents)
 }
 
-// filterAgentsBySelector keeps only agents whose identifying attributes match every
-// key=value pair in the selector. An empty selector returns the input unchanged.
-func filterAgentsBySelector(agents []v1.Agent, selector map[string]string) []v1.Agent {
-	if len(selector) == 0 {
+// filterAgentsBySelectors keeps only agents whose identifying and non-identifying
+// attributes each match every key=value pair in the respective selector. Empty
+// selectors return the input unchanged.
+func filterAgentsBySelectors(
+	agents []v1.Agent,
+	identifying, nonIdentifying map[string]string,
+) []v1.Agent {
+	if len(identifying) == 0 && len(nonIdentifying) == 0 {
 		return agents
 	}
 
 	return lo.Filter(agents, func(agent v1.Agent, _ int) bool {
-		for key, value := range selector {
-			if agent.Metadata.Description.IdentifyingAttributes[key] != value {
-				return false
-			}
-		}
-
-		return true
+		return attributesMatch(agent.Metadata.Description.IdentifyingAttributes, identifying) &&
+			attributesMatch(agent.Metadata.Description.NonIdentifyingAttributes, nonIdentifying)
 	})
+}
+
+// attributesMatch reports whether stored contains every key=value pair in selector.
+func attributesMatch(stored, selector map[string]string) bool {
+	for key, value := range selector {
+		if stored[key] != value {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Get retrieves the agent information for the given agent UIDs.
@@ -254,7 +269,9 @@ func (opt *CommandOptions) ValidArgsFunction(
 func (opt *CommandOptions) listSingleNamespace(cmd *cobra.Command) ([]v1.Agent, error) {
 	if opt.byAgentGroup == "" {
 		agents, err := clientutil.ListAgentFully(
-			cmd.Context(), opt.client, opt.namespace, client.WithSelector(opt.selector),
+			cmd.Context(), opt.client, opt.namespace,
+			client.WithSelector(opt.selector),
+			client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agents: %w", err)
@@ -278,7 +295,9 @@ func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Agent, er
 		cmd.Context(), opt.client,
 		func(ctx context.Context, namespace string) ([]v1.Agent, error) {
 			if opt.byAgentGroup == "" {
-				return clientutil.ListAgentFully(ctx, opt.client, namespace, client.WithSelector(opt.selector))
+				return clientutil.ListAgentFully(ctx, opt.client, namespace,
+					client.WithSelector(opt.selector),
+					client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector))
 			}
 
 			return clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, namespace, opt.byAgentGroup)

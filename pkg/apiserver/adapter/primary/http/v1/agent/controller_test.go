@@ -279,6 +279,46 @@ func TestAgentControllerListAgent(t *testing.T) {
 	})
 }
 
+func TestAgentControllerListAgentSelectorThreading(t *testing.T) {
+	t.Parallel()
+
+	ctrlBase := testutil.NewBase(t).ForController()
+	agentUsecase := usecasemock.NewMockManageUsecase(t)
+	controller := agent.NewController(agentUsecase, ctrlBase.Logger)
+	ctrlBase.SetupRouter(controller)
+	router := ctrlBase.Router
+
+	// given: selector and nonIdentifyingSelector map to their own attribute sets.
+	agentUsecase.EXPECT().
+		ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *model.ListOptions) bool {
+			return opts != nil &&
+				opts.IdentifyingAttributes["service.name"] == "otel-collector" &&
+				opts.NonIdentifyingAttributes["os.type"] == "linux"
+		})).
+		Return(&v1.ListResponse[v1.Agent]{
+			APIVersion: "v1",
+			Kind:       v1.AgentKind,
+			Items:      []v1.Agent{},
+			Metadata: v1.ListMeta{
+				RemainingItemCount: 0,
+				Continue:           "",
+			},
+		}, nil)
+
+	// when
+	recorder := httptest.NewRecorder()
+	req, err := http.NewRequestWithContext(
+		t.Context(), http.MethodGet,
+		"/api/v1/namespaces/default/agents?selector=service.name=otel-collector&nonIdentifyingSelector=os.type=linux",
+		nil,
+	)
+	require.NoError(t, err)
+
+	// then
+	router.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+}
+
 func TestAgentControllerGetAgent(t *testing.T) {
 	t.Parallel()
 	t.Run("Get Agent - happycase", func(t *testing.T) {
