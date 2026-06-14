@@ -75,17 +75,20 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.MINUK_CLUSTER_DEPLOY_KEY }}
 
-      - name: Deploy alpha and alpha-ha to minuk-cluster
+      - name: Deploy alpha, alpha-ha and alpha-standalone to minuk-cluster
         if: startsWith(github.ref, 'refs/heads/')
         run: |
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
 
-          overlays=(alpha alpha-ha)
-          # Only touch the web entry if minuk-cluster already declares it,
-          # so this workflow stays a no-op while that side is being wired up.
-          for overlay in "${overlays[@]}"; do
-            kustomization="argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+          kustomizations=(
+            "argocd/apps/opampcommander/overlays/alpha/kustomization.yaml"
+            "argocd/apps/opampcommander/overlays/alpha-ha/kustomization.yaml"
+            "argocd/apps/opampcommander-alpha-standalone/kustomization.yaml"
+          )
+          # Only touch the web entry if that kustomization already declares it,
+          # so a target without a web image is skipped instead of failing the run.
+          for kustomization in "${kustomizations[@]}"; do
             if yq -e '.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")' "${kustomization}" >/dev/null 2>&1; then
               yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")).newTag = strenv(VERSION)' \
                 -i "${kustomization}"
@@ -94,14 +97,14 @@ jobs:
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          for overlay in "${overlays[@]}"; do
-            git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+          for kustomization in "${kustomizations[@]}"; do
+            git add "${kustomization}"
           done
           if git diff --cached --quiet; then
             echo "No web image tag updates needed."
             exit 0
           fi
-          git commit -m "chore(deploy): update opampcommander-web alpha and alpha-ha to ${VERSION}"
+          git commit -m "chore(deploy): update opampcommander-web alpha, alpha-ha and alpha-standalone to ${VERSION}"
 
           # retry on push conflict from concurrent CI runs (release runs in parallel)
           for i in 1 2 3; do
