@@ -62,6 +62,8 @@ dockers:
       - "--pull"
       - "--platform=linux/amd64"
     dockerfile: build/docker/apiserver/Dockerfile
+    extra_files:
+      - configs/apiserver/initial
   - image_templates:
       - "ghcr.io/minuk-dev/opampcommander:{{ .Version }}-arm64"
     use: buildx
@@ -70,6 +72,8 @@ dockers:
       - "--platform=linux/arm64"
     goarch: arm64
     dockerfile: build/docker/apiserver/Dockerfile
+    extra_files:
+      - configs/apiserver/initial
 docker_manifests:
   - name_template: "ghcr.io/minuk-dev/opampcommander:{{ .Version }}"
     image_templates:

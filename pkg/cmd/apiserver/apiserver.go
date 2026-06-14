@@ -16,6 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	appconfig "github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -103,6 +104,11 @@ type CommandOption struct {
 			} `mapstructure:"state"`
 		} `mapstructure:"oauth2"`
 	} `mapstructure:"auth"`
+	Bootstrap struct {
+		Dir              string `mapstructure:"dir"`
+		DefaultNamespace string `mapstructure:"defaultNamespace"`
+		DefaultRole      string `mapstructure:"defaultRole"`
+	} `mapstructure:"bootstrap"`
 
 	// viper
 	viper *viper.Viper
@@ -209,6 +215,14 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	)
 	cmd.Flags().String("auth.oauth2.state.mode", "jwt", "OAuth2 state mode (jwt)")
 	cmd.Flags().String("auth.oauth2.state.jwt.secret", "", "OAuth2 state JWT secret")
+
+	cmd.Flags().String("bootstrap.dir", "",
+		"directory of initial manifest YAML files to seed on startup "+
+			"(empty disables; the container image sets BOOTSTRAP_DIR=/etc/opampcommander/initial)")
+	cmd.Flags().String("bootstrap.defaultNamespace", "default",
+		"namespace agents without a service.namespace are placed in, and where the default role is granted")
+	cmd.Flags().String("bootstrap.defaultRole", "default",
+		"name of the built-in role auto-granted to every user")
 
 	return cmd
 }
@@ -351,10 +365,24 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			},
 		},
 		CacheSettings: appconfig.DefaultCacheSettings(),
+		BootstrapSettings: appconfig.BootstrapSettings{
+			Dir:              opt.Bootstrap.Dir,
+			DefaultNamespace: defaultString(opt.Bootstrap.DefaultNamespace, agentmodel.DefaultNamespaceName),
+			DefaultRole:      defaultString(opt.Bootstrap.DefaultRole, usermodel.RoleDefault),
+		},
 		RBACModelPath: "",
 	})
 
 	return nil
+}
+
+// defaultString returns value when non-empty, otherwise fallback.
+func defaultString(value, fallback string) string {
+	if value == "" {
+		return fallback
+	}
+
+	return value
 }
 
 // Run runs the command.

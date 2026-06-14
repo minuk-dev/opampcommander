@@ -39,11 +39,15 @@ type AgentService struct {
 	logger               *slog.Logger
 	agentCache           *ttlcache.Cache[uuid.UUID, *agentmodel.Agent]
 	cacheEnabled         bool
+	// defaultNamespace is the namespace assigned to a newly-seen agent that has
+	// not reported a service.namespace. Sourced from configuration.
+	defaultNamespace string
 	// clock is consulted only for the delete connection-guard (staleness evaluation).
 	clock clock.PassiveClock
 }
 
 // NewAgentService creates a new instance of AgentService with default cache configuration.
+// The agent default namespace falls back to agentmodel.DefaultNamespaceName.
 func NewAgentService(
 	agentPersistencePort agentport.AgentPersistencePort,
 	logger *slog.Logger,
@@ -52,15 +56,22 @@ func NewAgentService(
 		Enabled:     true,
 		TTL:         DefaultAgentCacheTTL,
 		MaxCapacity: DefaultAgentCacheCapacity,
-	})
+	}, agentmodel.DefaultNamespaceName)
 }
 
 // NewAgentServiceWithConfig creates a new instance of AgentService with custom cache configuration.
+// defaultNamespace is the namespace assigned to newly-seen agents without a service.namespace;
+// an empty value falls back to agentmodel.DefaultNamespaceName.
 func NewAgentServiceWithConfig(
 	agentPersistencePort agentport.AgentPersistencePort,
 	logger *slog.Logger,
 	cacheConfig AgentCacheConfig,
+	defaultNamespace string,
 ) *AgentService {
+	if defaultNamespace == "" {
+		defaultNamespace = agentmodel.DefaultNamespaceName
+	}
+
 	if !cacheConfig.Enabled {
 		logger.Info("agent cache disabled")
 
@@ -69,6 +80,7 @@ func NewAgentServiceWithConfig(
 			logger:               logger,
 			agentCache:           nil,
 			cacheEnabled:         false,
+			defaultNamespace:     defaultNamespace,
 			clock:                clock.RealClock{},
 		}
 	}
@@ -98,6 +110,7 @@ func NewAgentServiceWithConfig(
 		logger:               logger,
 		agentCache:           agentCache,
 		cacheEnabled:         true,
+		defaultNamespace:     defaultNamespace,
 		clock:                clock.RealClock{},
 	}
 }
@@ -153,7 +166,7 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 	agent, err := s.GetAgent(ctx, instanceUID)
 	if err != nil {
 		if errors.Is(err, port.ErrResourceNotExist) {
-			agent = agentmodel.NewAgent(instanceUID)
+			agent = agentmodel.NewAgent(instanceUID, agentmodel.WithNamespace(s.defaultNamespace))
 		} else {
 			return nil, fmt.Errorf("failed to get agent: %w", err)
 		}

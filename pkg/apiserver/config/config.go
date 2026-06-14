@@ -22,7 +22,28 @@ type ServerSettings struct {
 	ManagementSettings ManagementSettings
 	EventSettings      EventSettings
 	CacheSettings      CacheSettings
+	BootstrapSettings  BootstrapSettings
 	RBACModelPath      string
+}
+
+// BootstrapSettings configures how the server seeds built-in resources on startup.
+//
+// On every start the server reconciles the YAML manifests found under Dir into the
+// persistence layer declaratively (full overwrite): the manifests are the source of
+// truth, so changes made to built-in resources via the API are reset to match them.
+// The default namespace/role names below are the runtime identifiers the server uses
+// for agent namespace defaulting and the built-in default-role grant; they should
+// match the names declared in the manifests.
+type BootstrapSettings struct {
+	// Dir is the directory of initial manifest YAML files applied on startup.
+	// When empty, manifest reconciliation is skipped (e.g. tests).
+	Dir string
+	// DefaultNamespace is the namespace an agent is placed in when it does not
+	// report a service.namespace identifying attribute. It is also the namespace
+	// in which the built-in default role is auto-granted to every user.
+	DefaultNamespace string
+	// DefaultRole is the name of the built-in role auto-granted to every user.
+	DefaultRole string
 }
 
 // String returns a JSON representation of the ServerSettings struct.

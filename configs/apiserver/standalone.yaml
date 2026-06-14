@@ -5,6 +5,13 @@
 # required. All data is lost when the process exits — use this for local development,
 # demos, and small single-node deployments, not production.
 address: localhost:8080
+bootstrap:
+  # Directory of initial manifest YAML files reconciled into persistence on startup
+  # (declarative / full overwrite). Point it at your own directory to change the
+  # built-in defaults; the container image ships these at /etc/opampcommander/initial.
+  dir: ./configs/apiserver/initial
+  defaultNamespace: default # agents without a service.namespace land here
+  defaultRole: default # built-in role auto-granted to every user
 database:
   type: "inmemory" # in-memory store; no MongoDB needed. Data is not persisted across restarts.
 event:

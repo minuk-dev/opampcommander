@@ -3,6 +3,8 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,6 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/client"
@@ -168,8 +171,24 @@ func buildServerSettings(
 			},
 		},
 		CacheSettings: config.DefaultCacheSettings(),
+		// Seed from the repository's default manifest directory so tests exercise the
+		// same built-in resources a stock deployment ships.
+		BootstrapSettings: config.BootstrapSettings{
+			Dir:              repoInitialDir(),
+			DefaultNamespace: agentmodel.DefaultNamespaceName,
+			DefaultRole:      usermodel.RoleDefault,
+		},
 		RBACModelPath: "",
 	}
+}
+
+// repoInitialDir resolves the repository's default manifest directory relative to
+// this source file, so tests seed the built-in resources regardless of the test
+// working directory.
+func repoInitialDir() string {
+	_, thisFile, _, _ := runtime.Caller(0) //nolint:dogsled
+	// pkg/testutil/apiserver.go -> repo root is two levels up.
+	return filepath.Join(filepath.Dir(thisFile), "..", "..", "configs", "apiserver", "initial")
 }
 
 // StartAPIServer starts a new API server backed by the given MongoDB instance.

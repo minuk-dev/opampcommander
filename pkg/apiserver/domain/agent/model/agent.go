@@ -232,6 +232,16 @@ func WithDescription(description *agent.Description) AgentOption {
 	}
 }
 
+// WithNamespace sets the agent namespace. An empty value is ignored so the
+// caller's pre-set default (e.g. DefaultNamespaceName) is preserved.
+func WithNamespace(namespace string) AgentOption {
+	return func(a *Agent) {
+		if namespace != "" {
+			a.Metadata.Namespace = namespace
+		}
+	}
+}
+
 // WithCapabilities sets the agent capabilities.
 func WithCapabilities(capabilities *agent.Capabilities) AgentOption {
 	return func(a *Agent) {
@@ -948,11 +958,11 @@ func (a *Agent) ReportDescription(desc *agent.Description) error {
 
 	a.Metadata.Description = *desc
 
-	// Derive namespace from service.namespace identifying attribute
+	// Derive namespace from the service.namespace identifying attribute when present.
+	// When absent, the agent keeps the namespace it was constructed with (the
+	// configured default applied at creation time), so no hardcoded fallback is used.
 	if ns := desc.Service().Namespace; ns != "" {
 		a.Metadata.Namespace = ns
-	} else if a.Metadata.Namespace == "" {
-		a.Metadata.Namespace = DefaultNamespaceName
 	}
 
 	return nil
