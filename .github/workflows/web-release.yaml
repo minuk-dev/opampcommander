@@ -81,14 +81,11 @@ jobs:
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
 
-          kustomizations=(
-            "argocd/apps/opampcommander/overlays/alpha/kustomization.yaml"
-            "argocd/apps/opampcommander/overlays/alpha-ha/kustomization.yaml"
-            "argocd/apps/opampcommander-alpha-standalone/kustomization.yaml"
-          )
-          # Only touch the web entry if that kustomization already declares it,
-          # so a target without a web image is skipped instead of failing the run.
-          for kustomization in "${kustomizations[@]}"; do
+          overlays=(alpha alpha-ha alpha-standalone)
+          # Only touch the web entry if minuk-cluster already declares it,
+          # so this workflow stays a no-op while that side is being wired up.
+          for overlay in "${overlays[@]}"; do
+            kustomization="argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
             if yq -e '.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")' "${kustomization}" >/dev/null 2>&1; then
               yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander-web")).newTag = strenv(VERSION)' \
                 -i "${kustomization}"
@@ -97,8 +94,8 @@ jobs:
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          for kustomization in "${kustomizations[@]}"; do
-            git add "${kustomization}"
+          for overlay in "${overlays[@]}"; do
+            git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
           done
           if git diff --cached --quiet; then
             echo "No web image tag updates needed."

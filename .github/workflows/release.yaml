@@ -87,29 +87,18 @@ jobs:
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
 
-          kustomizations=(
-            "argocd/apps/opampcommander/overlays/alpha/kustomization.yaml"
-            "argocd/apps/opampcommander/overlays/alpha-ha/kustomization.yaml"
-            "argocd/apps/opampcommander-alpha-standalone/kustomization.yaml"
-          )
-          # Only touch the apiserver entry if that kustomization declares it, so a
-          # missing/renamed target is skipped instead of failing the whole run.
-          for kustomization in "${kustomizations[@]}"; do
-            if yq -e '.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")' "${kustomization}" >/dev/null 2>&1; then
-              yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")).newTag = strenv(VERSION)' \
-                -i "${kustomization}"
-            fi
+          overlays=(alpha alpha-ha alpha-standalone)
+          for overlay in "${overlays[@]}"; do
+            kustomization="argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
+            yq '(.images[] | select(.name == "ghcr.io/minuk-dev/opampcommander")).newTag = strenv(VERSION)' \
+              -i "${kustomization}"
           done
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          for kustomization in "${kustomizations[@]}"; do
-            git add "${kustomization}"
+          for overlay in "${overlays[@]}"; do
+            git add "argocd/apps/opampcommander/overlays/${overlay}/kustomization.yaml"
           done
-          if git diff --cached --quiet; then
-            echo "No apiserver image tag updates needed."
-            exit 0
-          fi
           git commit -m "chore(deploy): update opampcommander apiserver alpha, alpha-ha and alpha-standalone to ${VERSION}"
 
           # retry on push conflict from concurrent CI runs (web-release runs in parallel)
