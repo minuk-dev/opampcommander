@@ -144,6 +144,32 @@ type AgentGroupRelatedUsecase interface {
 	) (*model.ListResponse[*agentmodel.Agent], error)
 }
 
+// HostUsecase is an interface that defines the methods for host use cases.
+type HostUsecase interface {
+	// GetHost retrieves a host by its ID.
+	GetHost(ctx context.Context, id string) (*agentmodel.Host, error)
+	// ListHosts lists all discovered hosts.
+	ListHosts(ctx context.Context,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Host], error)
+	// ObserveAgent upserts the host derived from an agent's reported description
+	// and associates the agent with it. It is a no-op when the agent reports no
+	// host attributes.
+	ObserveAgent(ctx context.Context, agent *agentmodel.Agent) error
+}
+
+// ContainerUsecase is an interface that defines the methods for container use cases.
+type ContainerUsecase interface {
+	// GetContainer retrieves a container by its ID.
+	GetContainer(ctx context.Context, id string) (*agentmodel.Container, error)
+	// ListContainers lists all discovered containers.
+	ListContainers(ctx context.Context,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Container], error)
+	// ObserveAgent upserts the container derived from an agent's reported
+	// description and associates the agent with it. It is a no-op when the agent
+	// reports no container attributes.
+	ObserveAgent(ctx context.Context, agent *agentmodel.Agent) error
+}
+
 // CertificateUsecase defines the interface for certificate use cases.
 type CertificateUsecase interface {
 	GetCertificate(ctx context.Context, namespace string,

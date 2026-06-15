@@ -95,6 +95,22 @@ type AgentGroupManageUsecase interface {
 	DeleteAgentGroup(ctx context.Context, namespace string, name string) error
 }
 
+// HostManageUsecase is a use case that handles host management operations.
+type HostManageUsecase interface {
+	GetHost(ctx context.Context, id string) (*v1.Host, error)
+	ListHosts(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Host], error)
+	ListAgentsByHost(ctx context.Context, id string,
+		options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+}
+
+// ContainerManageUsecase is a use case that handles container management operations.
+type ContainerManageUsecase interface {
+	GetContainer(ctx context.Context, id string) (*v1.Container, error)
+	ListContainers(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Container], error)
+	ListAgentsByContainer(ctx context.Context, id string,
+		options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)
+}
+
 // CertificateManageUsecase is a use case that handles certificate management operations.
 type CertificateManageUsecase interface {
 	GetCertificate(ctx context.Context, namespace string, name string,

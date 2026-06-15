@@ -13,6 +13,8 @@ import (
 	agentpackageApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage"
 	agentremoteconfigApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentremoteconfig"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
+	containerApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/container"
+	hostApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/host"
 	namespaceApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
 	roleApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/role"
@@ -50,6 +52,12 @@ func New() fx.Option {
 
 			certificateApplicationService.NewCertificateService,
 			fx.Annotate(Identity[*certificateApplicationService.Service], fx.As(new(port.CertificateManageUsecase))),
+
+			hostApplicationService.New,
+			fx.Annotate(Identity[*hostApplicationService.Service], fx.As(new(port.HostManageUsecase))),
+
+			containerApplicationService.New,
+			fx.Annotate(Identity[*containerApplicationService.Service], fx.As(new(port.ContainerManageUsecase))),
 
 			agentremoteconfigApplicationService.NewAgentRemoteConfigService,
 			fx.Annotate(

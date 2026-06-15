@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -237,6 +238,111 @@ func (b *Base) StartOTelCollectorHTTP(opampPort int) *OTelCollector {
 	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-http-%s.yaml", instanceUID.String()))
 
 	err := os.WriteFile(configPath, []byte(collectorConfigContentHTTP(opampPort, instanceUID)), collectorConfigFileMode)
+	require.NoError(b.t, err)
+
+	//exhaustruct:ignore
+	container, err := testcontainers.GenericContainer(
+		b.t.Context(), testcontainers.GenericContainerRequest{
+			ContainerRequest: buildCollectorContainerRequest(configPath),
+			Started:          true,
+		})
+	require.NoError(b.t, err)
+
+	return &OTelCollector{
+		Base:       b,
+		Container:  container,
+		UID:        instanceUID,
+		configPath: configPath,
+	}
+}
+
+// nonIdentifyingAttrBlock renders the `non_identifying_attributes` block of the
+// OpAMP extension's `agent_description`. Each attribute is emitted as a quoted
+// key/value pair (sorted for a deterministic config); quoting is required
+// because the keys contain dots. The OpAMP extension only supports overriding
+// non-identifying attributes here (identifying attributes are derived from the
+// collector's service settings), so that is all this configures.
+func nonIdentifyingAttrBlock(attrs map[string]string) string {
+	keys := make([]string, 0, len(attrs))
+	for k := range attrs {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+
+	var builder strings.Builder
+
+	for _, k := range keys {
+		fmt.Fprintf(&builder, "        %q: %q\n", k, attrs[k])
+	}
+
+	return builder.String()
+}
+
+// collectorConfigContentWithDescription builds a collector config that reports
+// the given non-identifying attributes through the OpAMP extension's
+// `agent_description.non_identifying_attributes`. Unlike resource-processor
+// attributes, these are reported verbatim in the AgentDescription, which is what
+// the apiserver reads — making it the reliable way to drive attribute-dependent
+// behaviour (e.g. host/container discovery) from an e2e test.
+func collectorConfigContentWithDescription(
+	opampPort int,
+	instanceUID uuid.UUID,
+	nonIdentifying map[string]string,
+) string {
+	return fmt.Sprintf(`receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+
+exporters:
+  debug:
+    verbosity: basic
+
+extensions:
+  opamp:
+    server:
+      ws:
+        endpoint: ws://host.docker.internal:%d/api/v1/opamp
+        tls:
+          insecure: true
+    instance_uid: %s
+    agent_description:
+      non_identifying_attributes:
+%s
+service:
+  extensions: [opamp]
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+`, opampPort, instanceUID.String(), nonIdentifyingAttrBlock(nonIdentifying))
+}
+
+// StartOTelCollectorWithDescription starts an OTel Collector that reports the
+// given non-identifying attributes via the OpAMP extension's agent_description
+// (reported verbatim in the AgentDescription).
+func (b *Base) StartOTelCollectorWithDescription(
+	opampPort int,
+	nonIdentifying map[string]string,
+) *OTelCollector {
+	b.t.Helper()
+
+	instanceUID := uuid.New()
+	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-desc-%s.yaml", instanceUID.String()))
+
+	content := collectorConfigContentWithDescription(opampPort, instanceUID, nonIdentifying)
+	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
 	//exhaustruct:ignore

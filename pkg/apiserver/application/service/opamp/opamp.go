@@ -49,6 +49,8 @@ type Service struct {
 	agentGroupUsecase        agentport.AgentGroupUsecase
 	agentPackageUsecase      agentport.AgentPackageUsecase
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
+	hostUsecase              agentport.HostUsecase
+	containerUsecase         agentport.ContainerUsecase
 	serverIdentityProvider   agentport.ServerIdentityProvider
 
 	agentNotificationUsecase agentport.AgentNotificationUsecase
@@ -73,6 +75,8 @@ func New(
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
 	agentPackageUsecase agentport.AgentPackageUsecase,
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
+	hostUsecase agentport.HostUsecase,
+	containerUsecase agentport.ContainerUsecase,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -85,6 +89,8 @@ func New(
 		agentNotificationUsecase: agentNotificationUsecase,
 		agentPackageUsecase:      agentPackageUsecase,
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
+		hostUsecase:              hostUsecase,
+		containerUsecase:         containerUsecase,
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
@@ -644,6 +650,29 @@ func (s *Service) maybePersistAgent(
 	}
 
 	s.lastSaveAt.Store(instanceUID.String(), receivedAt)
+
+	s.observeEnvironment(ctx, logger, agent)
+}
+
+// observeEnvironment discovers and upserts the host/container the agent runs in
+// from its reported description. It rides the same throttle as agent persistence
+// so the discovery inventory advances at the agent-save cadence rather than on
+// every heartbeat. Discovery failures are non-fatal: they are logged and do not
+// affect the agent's own processing.
+func (s *Service) observeEnvironment(
+	ctx context.Context,
+	logger *slog.Logger,
+	agent *agentmodel.Agent,
+) {
+	hostErr := s.hostUsecase.ObserveAgent(ctx, agent)
+	if hostErr != nil {
+		logger.Error("failed to observe host for agent", slog.String("error", hostErr.Error()))
+	}
+
+	containerErr := s.containerUsecase.ObserveAgent(ctx, agent)
+	if containerErr != nil {
+		logger.Error("failed to observe container for agent", slog.String("error", containerErr.Error()))
+	}
 }
 
 // maybeApplyMatchingAgentGroups re-evaluates which agent groups apply to the agent when

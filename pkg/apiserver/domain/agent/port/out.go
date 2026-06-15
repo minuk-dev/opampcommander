@@ -113,6 +113,30 @@ type AgentRemoteConfigPersistencePort interface {
 	) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error)
 }
 
+// HostPersistencePort is an interface that defines the methods for host persistence.
+type HostPersistencePort interface {
+	// GetHost retrieves a host by its ID. It returns port.ErrResourceNotExist
+	// when no host with the given ID exists.
+	GetHost(ctx context.Context, id string) (*agentmodel.Host, error)
+	// PutHost saves or updates a host.
+	PutHost(ctx context.Context, host *agentmodel.Host) (*agentmodel.Host, error)
+	// ListHosts retrieves a list of hosts with pagination options.
+	ListHosts(ctx context.Context,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Host], error)
+}
+
+// ContainerPersistencePort is an interface that defines the methods for container persistence.
+type ContainerPersistencePort interface {
+	// GetContainer retrieves a container by its ID. It returns
+	// port.ErrResourceNotExist when no container with the given ID exists.
+	GetContainer(ctx context.Context, id string) (*agentmodel.Container, error)
+	// PutContainer saves or updates a container.
+	PutContainer(ctx context.Context, container *agentmodel.Container) (*agentmodel.Container, error)
+	// ListContainers retrieves a list of containers with pagination options.
+	ListContainers(ctx context.Context,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.Container], error)
+}
+
 // CertificatePersistencePort is an interface that defines the methods for certificate config persistence.
 type CertificatePersistencePort interface {
 	GetCertificate(ctx context.Context, namespace string,
