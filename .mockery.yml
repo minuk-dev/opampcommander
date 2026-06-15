@@ -24,6 +24,12 @@ packages:
   github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate:
     config:
       all: true
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/host:
+    config:
+      all: true
+  github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/container:
+    config:
+      all: true
   github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding:
     config:
       all: true

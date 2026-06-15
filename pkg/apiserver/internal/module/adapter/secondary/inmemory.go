@@ -47,6 +47,8 @@ func NewInMemory() fx.Option {
 			fx.Annotate(inmemory.NewNamespaceRepository, fx.As(new(agentport.NamespacePersistencePort))),
 			fx.Annotate(inmemory.NewAgentRemoteConfigRepository, fx.As(new(agentport.AgentRemoteConfigPersistencePort))),
 			fx.Annotate(inmemory.NewCertificateRepository, fx.As(new(agentport.CertificatePersistencePort))),
+			fx.Annotate(inmemory.NewHostRepository, fx.As(new(agentport.HostPersistencePort))),
+			fx.Annotate(inmemory.NewContainerRepository, fx.As(new(agentport.ContainerPersistencePort))),
 
 			// RBAC repositories.
 			fx.Annotate(inmemory.NewPermissionRepository, fx.As(new(userport.PermissionPersistencePort))),

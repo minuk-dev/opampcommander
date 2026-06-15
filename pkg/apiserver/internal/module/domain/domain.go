@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"go.uber.org/fx"
+	"k8s.io/utils/clock"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -32,6 +33,8 @@ func New() fx.Option {
 		),
 		fx.Annotate(agentservice.NewAgentPackageService, fx.As(new(agentport.AgentPackageUsecase))),
 		fx.Annotate(agentservice.NewNamespaceService, fx.As(new(agentport.NamespaceUsecase))),
+		fx.Annotate(provideHostService, fx.As(new(agentport.HostUsecase))),
+		fx.Annotate(provideContainerService, fx.As(new(agentport.ContainerUsecase))),
 		fx.Annotate(agentservice.NewAgentRemoteConfigService, fx.As(new(agentport.AgentRemoteConfigUsecase))),
 		fx.Annotate(agentservice.NewCertificateService, fx.As(new(agentport.CertificateUsecase))),
 		agentservice.NewServerService,
@@ -98,6 +101,21 @@ func provideAgentService(
 		},
 		settings.BootstrapSettings.DefaultNamespace,
 	)
+}
+
+// provideHostService builds the host domain service with the real clock so
+// discovery timestamps (FirstSeenAt/LastSeenAt) use wall-clock time.
+func provideHostService(
+	hostPersistencePort agentport.HostPersistencePort,
+) *agentservice.HostService {
+	return agentservice.NewHostService(hostPersistencePort, clock.RealClock{})
+}
+
+// provideContainerService builds the container domain service with the real clock.
+func provideContainerService(
+	containerPersistencePort agentport.ContainerPersistencePort,
+) *agentservice.ContainerService {
+	return agentservice.NewContainerService(containerPersistencePort, clock.RealClock{})
 }
 
 // provideRBACService builds the RBAC domain service, sourcing the built-in

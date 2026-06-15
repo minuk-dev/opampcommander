@@ -28,6 +28,34 @@ func cloneTimePtr(t *time.Time) *time.Time {
 	return &cloned
 }
 
+func cloneHost(host *agentmodel.Host) *agentmodel.Host {
+	if host == nil {
+		return nil
+	}
+
+	cloned := *host
+	cloned.Metadata.Labels = maps.Clone(host.Metadata.Labels)
+	cloned.Metadata.Annotations = maps.Clone(host.Metadata.Annotations)
+	cloned.Status.AgentInstanceUIDs = slices.Clone(host.Status.AgentInstanceUIDs)
+	cloned.Status.Conditions = slices.Clone(host.Status.Conditions)
+
+	return &cloned
+}
+
+func cloneContainer(container *agentmodel.Container) *agentmodel.Container {
+	if container == nil {
+		return nil
+	}
+
+	cloned := *container
+	cloned.Metadata.Labels = maps.Clone(container.Metadata.Labels)
+	cloned.Metadata.Annotations = maps.Clone(container.Metadata.Annotations)
+	cloned.Status.AgentInstanceUIDs = slices.Clone(container.Status.AgentInstanceUIDs)
+	cloned.Status.Conditions = slices.Clone(container.Status.Conditions)
+
+	return &cloned
+}
+
 func cloneStringPtr(str *string) *string {
 	if str == nil {
 		return nil

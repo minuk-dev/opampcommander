@@ -488,6 +488,76 @@ definitions:
         - $ref: '#/definitions/TelemetryConnectionSettings'
         description: OwnTraces contains own traces connection settings.
     type: object
+  Container:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ContainerMetadata'
+      spec:
+        $ref: '#/definitions/ContainerSpec'
+      status:
+        $ref: '#/definitions/ContainerStatus'
+    type: object
+  ContainerMetadata:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      firstSeenAt:
+        type: string
+      id:
+        description: |-
+          ID is the stable identity of the container (OpenTelemetry "k8s.pod.uid",
+          falling back to "container.id").
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      lastSeenAt:
+        type: string
+      name:
+        type: string
+    type: object
+  ContainerSpec:
+    properties:
+      hostId:
+        description: HostID links this container to the host (node) it runs on, when
+          known.
+        type: string
+      imageName:
+        type: string
+      k8sNamespaceName:
+        type: string
+      k8sNodeName:
+        type: string
+      k8sPodName:
+        description: Kubernetes context, populated for kubernetes platforms.
+        type: string
+      platform:
+        description: Platform classifies the deployment environment (docker, kubernetes,
+          ...).
+        type: string
+      runtime:
+        type: string
+    type: object
+  ContainerStatus:
+    properties:
+      agentInstanceUids:
+        description: AgentInstanceUIDs are the agents currently associated with this
+          container.
+        items:
+          type: string
+        type: array
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
   DeviceAuthnTokenResponse:
     properties:
       deviceCode:
@@ -552,6 +622,75 @@ definitions:
           Type is a URI reference that identifies the problem type.
           example: "https://example.com/probs/out-of-credit"
         type: string
+    type: object
+  Host:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/HostMetadata'
+      spec:
+        $ref: '#/definitions/HostSpec'
+      status:
+        $ref: '#/definitions/HostStatus'
+    type: object
+  HostMetadata:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      firstSeenAt:
+        type: string
+      id:
+        description: |-
+          ID is the stable identity of the host (OpenTelemetry "host.id", falling
+          back to "host.name").
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      lastSeenAt:
+        type: string
+      name:
+        type: string
+    type: object
+  HostSpec:
+    properties:
+      arch:
+        type: string
+      cloudPlatform:
+        type: string
+      cloudProvider:
+        type: string
+      cloudRegion:
+        type: string
+      osType:
+        type: string
+      osVersion:
+        type: string
+      platform:
+        description: Platform classifies the deployment environment (baremetal, vm,
+          ...).
+        type: string
+      type:
+        type: string
+    type: object
+  HostStatus:
+    properties:
+      agentInstanceUids:
+        description: AgentInstanceUIDs are the agents currently associated with this
+          host.
+        items:
+          type: string
+        type: array
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
     type: object
   InfoResponse:
     properties:
@@ -626,6 +765,32 @@ definitions:
       items:
         items:
           $ref: '#/definitions/Connection'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Container:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Container'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Host:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Host'
         type: array
       kind:
         type: string
@@ -1320,6 +1485,218 @@ paths:
       summary: Refresh access token
       tags:
       - auth
+  /api/v1/containers:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of discovered containers.
+      parameters:
+      - description: Maximum number of containers to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing containers
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Container'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Containers
+      tags:
+      - container
+  /api/v1/containers/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a discovered container by its ID.
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Container'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get Container
+      tags:
+      - container
+  /api/v1/containers/{id}/agents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the agents running in a discovered container.
+      parameters:
+      - description: Container ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Maximum number of agents to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agents
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Agent'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Container Agents
+      tags:
+      - container
+  /api/v1/hosts:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of discovered hosts.
+      parameters:
+      - description: Maximum number of hosts to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing hosts
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Host'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Hosts
+      tags:
+      - host
+  /api/v1/hosts/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a discovered host by its ID.
+      parameters:
+      - description: Host ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Host'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get Host
+      tags:
+      - host
+  /api/v1/hosts/{id}/agents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the agents running on a discovered host.
+      parameters:
+      - description: Host ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Maximum number of agents to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agents
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Agent'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Host Agents
+      tags:
+      - host
   /api/v1/namespaces/{namespace}/agentgroups:
     get:
       description: Retrieves a list of agent groups with pagination options.
