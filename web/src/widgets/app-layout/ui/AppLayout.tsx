@@ -26,6 +26,7 @@ import {
   Group as GroupIcon,
   Computer as ComputerIcon,
   Cable as CableIcon,
+  Layers as LayersIcon,
   Dns as DnsIcon,
   Inventory2 as PackageIcon,
   Tune as TuneIcon,
@@ -94,6 +95,13 @@ const sections: NavSection[] = [
         icon: <CableIcon />,
         href: '/connections',
         requires: { resource: 'connection', action: 'LIST' },
+      },
+      {
+        // Platform (hosts/containers) is discovered, not RBAC-scoped per
+        // resource, so it has no `requires` and is shown to any authenticated user.
+        text: 'Platform',
+        icon: <LayersIcon />,
+        href: '/platform',
       },
       {
         text: 'Agent Packages',
