@@ -4,12 +4,18 @@ import { Box } from '@mui/material';
 import { PlaylistAddCheck as ApplyIcon } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNamespace } from '@entities/namespace';
+import dynamic from 'next/dynamic';
 import { ResourceListPage } from '@widgets/resource-list-page';
-import { JsonEditorDialog } from '@shared/ui';
 import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
-import { ApplyToGroupDialog } from '@features/apply-remote-config';
+
+// Lazy-loaded: heavy dialogs (JSON editor pulls in js-yaml, ApplyToGroup pulls
+// in group pickers) — load only when opened, not in the initial route bundle.
+const JsonEditorDialog = dynamic(() => import('@shared/ui/JsonEditorDialog'));
+const ApplyToGroupDialog = dynamic(
+  () => import('@features/apply-remote-config/ui/ApplyToGroupDialog'),
+);
 
 function emptyConfig(namespace: string): AgentRemoteConfig {
   return {
@@ -94,13 +100,15 @@ export default function AgentRemoteConfigsPage() {
           />
         )}
       />
-      <ApplyToGroupDialog
-        open={applyTarget !== null}
-        namespace={namespace}
-        config={applyTarget}
-        onClose={() => setApplyTarget(null)}
-        onApplied={() => setApplyTarget(null)}
-      />
+      {applyTarget !== null && (
+        <ApplyToGroupDialog
+          open
+          namespace={namespace}
+          config={applyTarget}
+          onClose={() => setApplyTarget(null)}
+          onApplied={() => setApplyTarget(null)}
+        />
+      )}
     </Box>
   );
 }

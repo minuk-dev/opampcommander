@@ -2,10 +2,14 @@
 
 import { Box, Chip } from '@mui/material';
 import { ResourceListPage } from '@widgets/resource-list-page';
-import { JsonEditorDialog } from '@shared/ui';
+import dynamic from 'next/dynamic';
 import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
 import type { User } from '@entities/user';
+
+// Lazy-loaded: the JSON editor pulls in js-yaml, only needed once a
+// create/edit dialog opens — keep it out of the initial route bundle.
+const JsonEditorDialog = dynamic(() => import('@shared/ui/JsonEditorDialog'));
 
 function emptyUser(): User {
   return {

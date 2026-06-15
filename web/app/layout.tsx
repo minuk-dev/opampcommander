@@ -1,20 +1,9 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import '@app/styles/globals.css';
 import ThemeRegistry from '@app/providers/ThemeRegistry';
 import AppShell from '@app/app-shell';
 import { PreferencesProvider } from '@shared/preferences';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'OpAMP Commander',
@@ -28,7 +17,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <head>
+        {/* Fonts served from the Google Fonts CDN. preconnect warms up the
+            TCP+TLS connection to the font hosts before the stylesheet request. */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* App Router: a <link> in the root layout's <head> loads on every
+            page, so the no-page-custom-font rule (aimed at the pages/ router)
+            does not apply here. */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
+        />
+      </head>
+      <body className="antialiased">
         {/* Emotion cache + useServerInsertedHTML so MUI styles render correctly
             during SSR/RSC and don't cause hydration mismatches. */}
         <AppRouterCacheProvider>

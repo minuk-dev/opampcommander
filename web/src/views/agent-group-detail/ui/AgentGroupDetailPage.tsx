@@ -31,7 +31,13 @@ import { TimeDisplay } from '@shared/preferences';
 import { useNamespace } from '@entities/namespace';
 import { api, useApi } from '@shared/api';
 import type { AgentGroup } from '@entities/agent-group';
-import { AgentGroupEditDialog } from '@features/agent-group-edit';
+import dynamic from 'next/dynamic';
+
+// Lazy-loaded: the edit dialog embeds the JSON/YAML editor (js-yaml), only
+// needed once the user opens it — keep it out of the initial route bundle.
+const AgentGroupEditDialog = dynamic(
+  () => import('@features/agent-group-edit/ui/AgentGroupEditDialog'),
+);
 
 function AgentGroupDetailInner() {
   const params = useParams<{ name: string }>();
@@ -260,16 +266,18 @@ function AgentGroupDetailInner() {
         </CardContent>
       </Card>
 
-      <AgentGroupEditDialog
-        open={editing}
-        mode="edit"
-        initial={group}
-        onClose={() => setEditing(false)}
-        onSaved={() => {
-          setEditing(false);
-          void fetchGroup();
-        }}
-      />
+      {editing && (
+        <AgentGroupEditDialog
+          open
+          mode="edit"
+          initial={group}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            void fetchGroup();
+          }}
+        />
+      )}
       <ConfirmDialog
         open={deleting}
         title="Delete agent group"

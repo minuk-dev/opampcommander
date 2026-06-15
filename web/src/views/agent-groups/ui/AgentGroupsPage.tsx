@@ -39,8 +39,14 @@ import { TimeDisplay } from '@shared/preferences';
 import { useNamespace } from '@entities/namespace';
 import { api } from '@shared/api';
 import { type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
+import dynamic from 'next/dynamic';
 import type { AgentGroup } from '@entities/agent-group';
-import { AgentGroupEditDialog } from '@features/agent-group-edit';
+
+// Lazy-loaded: the edit dialog embeds the JSON/YAML editor (js-yaml), only
+// needed once the user opens it — keep it out of the initial route bundle.
+const AgentGroupEditDialog = dynamic(
+  () => import('@features/agent-group-edit/ui/AgentGroupEditDialog'),
+);
 
 // Columns for the agent groups table. `name` is locked (the row identifier);
 // the rest are toggleable via the column picker and persisted per user.
@@ -256,25 +262,29 @@ export default function AgentGroupsPage() {
 
       <PaginationFooter pagination={pagination} />
 
-      <AgentGroupEditDialog
-        open={createOpen}
-        mode="create"
-        onClose={() => setCreateOpen(false)}
-        onSaved={() => {
-          setCreateOpen(false);
-          void fetchGroups();
-        }}
-      />
-      <AgentGroupEditDialog
-        open={editing !== null}
-        mode="edit"
-        initial={editing ?? undefined}
-        onClose={() => setEditing(null)}
-        onSaved={() => {
-          setEditing(null);
-          void fetchGroups();
-        }}
-      />
+      {createOpen && (
+        <AgentGroupEditDialog
+          open
+          mode="create"
+          onClose={() => setCreateOpen(false)}
+          onSaved={() => {
+            setCreateOpen(false);
+            void fetchGroups();
+          }}
+        />
+      )}
+      {editing !== null && (
+        <AgentGroupEditDialog
+          open
+          mode="edit"
+          initial={editing ?? undefined}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            void fetchGroups();
+          }}
+        />
+      )}
       <ConfirmDialog
         open={deleting !== null}
         title="Delete agent group"
