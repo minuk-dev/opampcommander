@@ -34,7 +34,11 @@ jobs:
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          hugo-version: 'latest'
+          # Pinned: Hugo 0.158+ regressed the Node-based PostCSS pipeline used
+          # by the Docsy theme, failing with "node: bad option: --permission".
+          # 0.151.0 builds these docs cleanly. Bump deliberately once the
+          # upstream regression is resolved.
+          hugo-version: '0.151.0'
           extended: true
 
       - name: Setup Node
