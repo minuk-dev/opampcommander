@@ -238,11 +238,18 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 		return nil, fmt.Errorf("failed to list agent groups: %w", err)
 	}
 
-	// Filter groups that match the agent
+	// Filter groups that match the agent. An agent group only governs agents in its own
+	// namespace, so groups from other namespaces are skipped even when their selector would
+	// otherwise match — without this scoping a group in namespace "foo" would (incorrectly)
+	// apply its remote config to an agent in "default".
 	var matchingGroups []*agentmodel.AgentGroup
 
 	for _, group := range allGroups.Items {
 		if group.IsDeleted() {
+			continue
+		}
+
+		if group.Metadata.Namespace != agent.Metadata.Namespace {
 			continue
 		}
 

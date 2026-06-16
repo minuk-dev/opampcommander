@@ -2263,6 +2263,48 @@ paths:
       summary: Update Agent
       tags:
       - agent
+  /api/v1/namespaces/{namespace}/agents/{id}/agentgroups:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the agent groups in the namespace whose selector matches
+        the given agent.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-AgentGroup'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Agent Groups by Agent
+      tags:
+      - agentgroup
   /api/v1/namespaces/{namespace}/agents/search:
     get:
       consumes:

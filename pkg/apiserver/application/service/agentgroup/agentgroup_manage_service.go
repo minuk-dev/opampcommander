@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
@@ -117,6 +118,41 @@ func (s *ManageService) ListAgentsByAgentGroup(
 		},
 		Items: lo.Map(domainResp.Items, func(agent *agentmodel.Agent, _ int) v1.Agent {
 			return *s.mapper.MapAgentToAPI(agent)
+		}),
+	}, nil
+}
+
+// ListAgentGroupsByAgent lists the agent groups in the given namespace whose selector matches
+// the agent identified by instanceUID. It returns port.ErrAgentNamespaceMismatch when the agent
+// exists but in a different namespace, so the HTTP layer can map that to a 404.
+func (s *ManageService) ListAgentGroupsByAgent(
+	ctx context.Context,
+	namespace string,
+	instanceUID uuid.UUID,
+) (*v1.ListResponse[v1.AgentGroup], error) {
+	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("get agent: %w", err)
+	}
+
+	if agent.Metadata.Namespace != namespace {
+		return nil, fmt.Errorf("list agent groups by agent: %w", port.ErrAgentNamespaceMismatch)
+	}
+
+	groups, err := s.agentgroupUsecase.GetAgentGroupsForAgent(ctx, agent)
+	if err != nil {
+		return nil, fmt.Errorf("get agent groups for agent: %w", err)
+	}
+
+	return &v1.ListResponse[v1.AgentGroup]{
+		Kind:       v1.AgentGroupKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.ListMeta{
+			Continue:           "",
+			RemainingItemCount: 0,
+		},
+		Items: lo.Map(groups, func(agentGroup *agentmodel.AgentGroup, _ int) v1.AgentGroup {
+			return *s.mapper.MapAgentGroupToAPI(agentGroup)
 		}),
 	}, nil
 }

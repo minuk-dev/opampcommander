@@ -477,7 +477,8 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 
 		matchingGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
-				Name: "matching-group",
+				Namespace: "default",
+				Name:      "matching-group",
 			},
 			Spec: agentmodel.AgentGroupSpec{
 				Selector: agentmodel.AgentSelector{
@@ -490,7 +491,8 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 
 		nonMatchingGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
-				Name: "non-matching-group",
+				Namespace: "default",
+				Name:      "non-matching-group",
 			},
 			Spec: agentmodel.AgentGroupSpec{
 				Selector: agentmodel.AgentSelector{
@@ -501,8 +503,24 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 			},
 		}
 
+		// Selector matches the agent, but the group lives in a different namespace,
+		// so it must NOT be returned: an agent group only governs agents in its own namespace.
+		otherNamespaceGroup := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{
+				Namespace: "other",
+				Name:      "other-namespace-group",
+			},
+			Spec: agentmodel.AgentGroupSpec{
+				Selector: agentmodel.AgentSelector{
+					IdentifyingAttributes: map[string]string{
+						"service.name": "my-service",
+					},
+				},
+			},
+		}
+
 		allGroups := &model.ListResponse[*agentmodel.AgentGroup]{
-			Items:              []*agentmodel.AgentGroup{matchingGroup, nonMatchingGroup},
+			Items:              []*agentmodel.AgentGroup{matchingGroup, nonMatchingGroup, otherNamespaceGroup},
 			Continue:           "",
 			RemainingItemCount: 0,
 		}

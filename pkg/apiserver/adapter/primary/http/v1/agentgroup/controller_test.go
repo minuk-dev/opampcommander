@@ -18,6 +18,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup/usecasemock"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -224,6 +225,82 @@ func TestAgentGroupController_Get_InternalError(t *testing.T) {
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestAgentGroupController_ListAgentGroupsByAgent(t *testing.T) {
+	t.Parallel()
+
+	agentID := uuid.New()
+
+	t.Run("happycase", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		usecase := usecasemock.NewMockUsecase(t)
+		controller := agentgroup.NewController(usecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		usecase.EXPECT().
+			ListAgentGroupsByAgent(mock.Anything, "default", agentID).
+			Return(&v1.ListResponse[v1.AgentGroup]{
+				Kind:       "AgentGroup",
+				APIVersion: "v1",
+				Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
+				Items: []v1.AgentGroup{
+					{Metadata: v1.Metadata{Namespace: "default", Name: "g1"}},
+				},
+			}, nil)
+
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/"+agentID.String()+"/agentgroups", nil,
+		)
+		require.NoError(t, err)
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusOK, recorder.Code)
+		assert.Equal(t, int64(1), gjson.Get(recorder.Body.String(), "items.#").Int())
+	})
+
+	t.Run("invalid id", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		usecase := usecasemock.NewMockUsecase(t)
+		controller := agentgroup.NewController(usecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/not-a-uuid/agentgroups", nil,
+		)
+		require.NoError(t, err)
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	})
+
+	t.Run("agent in another namespace returns 404", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		usecase := usecasemock.NewMockUsecase(t)
+		controller := agentgroup.NewController(usecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		usecase.EXPECT().
+			ListAgentGroupsByAgent(mock.Anything, "default", agentID).
+			Return(nil, applicationport.ErrAgentNamespaceMismatch)
+
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/default/agents/"+agentID.String()+"/agentgroups", nil,
+		)
+		require.NoError(t, err)
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusNotFound, recorder.Code)
+	})
 }
 
 func TestAgentGroupController_Create(t *testing.T) {
