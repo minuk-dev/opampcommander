@@ -12,7 +12,10 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import { Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon } from '@mui/icons-material';
+import {
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+} from '@mui/icons-material';
 import { useState } from 'react';
 import { api } from '@shared/api';
 import type { User } from '@entities/user';
