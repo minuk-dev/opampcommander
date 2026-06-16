@@ -40,6 +40,7 @@ import {
   Menu as MenuIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
@@ -230,9 +231,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexShrink: 0 }}>
-            OpAMP Commander
-          </Typography>
+          <Box
+            component={Link}
+            href="/"
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              color: 'inherit',
+              textDecoration: 'none',
+              flexShrink: 0,
+            }}
+          >
+            <Image src="/logo.png" alt="OpAMP Commander" width={32} height={32} priority />
+            <Typography variant="h6" noWrap component="div">
+              OpAMP Commander
+            </Typography>
+          </Box>
           <Box
             sx={{
               borderLeft: '1px solid rgba(255,255,255,0.3)',

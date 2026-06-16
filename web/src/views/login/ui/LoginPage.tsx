@@ -12,6 +12,7 @@ import {
   Typography,
 } from '@mui/material';
 import { GitHub as GitHubIcon, Login as LoginIcon } from '@mui/icons-material';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth, type OAuth2AuthCodeURLResponse } from '@entities/session';
@@ -89,6 +90,14 @@ function LoginInner() {
         <CardContent>
           <Stack spacing={2}>
             <Box textAlign="center">
+              <Image
+                src="/logo.png"
+                alt="OpAMP Commander"
+                width={72}
+                height={72}
+                priority
+                style={{ marginBottom: 8 }}
+              />
               <Typography variant="h5" component="h1" gutterBottom>
                 OpAMP Commander
               </Typography>
