@@ -960,7 +960,8 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		agentGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
-				Name: "production",
+				Namespace: "default",
+				Name:      "production",
 			},
 			Spec: agentmodel.AgentGroupSpec{
 				Selector: agentmodel.AgentSelector{
@@ -984,7 +985,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		// (ApplyMatchingAgentGroupsToAgent), which calls GetAgentGroupsForAgent → ListAgentGroups.
 		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
-		mockRemoteConfigPort.On("GetAgentRemoteConfig", mock.Anything, "", refName, (*model.GetOptions)(nil)).
+		mockRemoteConfigPort.On("GetAgentRemoteConfig", mock.Anything, "default", refName, (*model.GetOptions)(nil)).
 			Return(referencedConfig, nil)
 		// updateAgentsByAgentGroup records the RemoteConfigApplied condition on the group;
 		// recordRemoteConfigCondition re-reads it first, then persists.
@@ -1024,7 +1025,8 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		inlineName := "inline-config"
 		agentGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
-				Name: "staging",
+				Namespace: "default",
+				Name:      "staging",
 			},
 			Spec: agentmodel.AgentGroupSpec{
 				Selector: agentmodel.AgentSelector{

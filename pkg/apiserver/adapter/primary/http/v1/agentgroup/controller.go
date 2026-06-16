@@ -2,12 +2,14 @@
 package agentgroup
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
@@ -45,6 +47,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Path:        "/api/v1/namespaces/:namespace/agentgroups/:name/agents",
 			Handler:     "http.v1.agentgroup.GetAgentByAgentGroup",
 			HandlerFunc: c.ListAgentsByAgentGroup,
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id/agentgroups",
+			Handler:     "http.v1.agentgroup.ListAgentGroupsByAgent",
+			HandlerFunc: c.ListAgentGroupsByAgent,
 		},
 		{
 			Method:      http.MethodGet,
@@ -222,6 +230,52 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, agents)
+}
+
+// ListAgentGroupsByAgent retrieves the agent groups that contain a specific agent.
+//
+// @Summary List Agent Groups by Agent
+// @Tags agentgroup
+// @Description Retrieve the agent groups in the namespace whose selector matches the given agent.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.ListResponse[v1.AgentGroup]
+// @Param namespace path string true "Namespace"
+// @Param id path string true "Instance UID of the agent"
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/agents/{id}/agentgroups [get].
+func (c *Controller) ListAgentGroupsByAgent(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	agentGroups, err := c.agentGroupUsecase.ListAgentGroupsByAgent(ctx.Request.Context(), namespace, instanceUID)
+	if err != nil {
+		if errors.Is(err, applicationport.ErrAgentNamespaceMismatch) {
+			ginutil.ResourceNotFoundError(ctx, "agent", ctx.Param("id"))
+
+			return
+		}
+
+		c.logger.Error("failed to list agent groups by agent", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent groups for the agent.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, agentGroups)
 }
 
 // Create creates a new agent group.
