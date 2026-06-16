@@ -3,10 +3,14 @@
 import { Box } from '@mui/material';
 import { useNamespace } from '@entities/namespace';
 import { ResourceListPage } from '@widgets/resource-list-page';
-import { JsonEditorDialog } from '@shared/ui';
+import dynamic from 'next/dynamic';
 import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
 import type { AgentPackage } from '@entities/agent-package';
+
+// Lazy-loaded: the JSON editor pulls in js-yaml, only needed once a
+// create/edit dialog opens — keep it out of the initial route bundle.
+const JsonEditorDialog = dynamic(() => import('@shared/ui/JsonEditorDialog'));
 
 function emptyPackage(namespace: string, name: string): AgentPackage {
   return {

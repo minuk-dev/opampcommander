@@ -34,7 +34,11 @@ import {
   deleteAgent,
   type Agent,
 } from '@entities/agent';
-import { AgentEditDialog } from '@features/agent-edit';
+import dynamic from 'next/dynamic';
+
+// Lazy-loaded: the edit dialog embeds the JSON/YAML editor (js-yaml), only
+// needed once the user opens it — keep it out of the initial route bundle.
+const AgentEditDialog = dynamic(() => import('@features/agent-edit/ui/AgentEditDialog'));
 
 function AgentDetailInner() {
   const params = useParams<{ id: string }>();
@@ -282,15 +286,17 @@ function AgentDetailInner() {
         </CardContent>
       </Card>
 
-      <AgentEditDialog
-        open={editOpen}
-        agent={agent}
-        onClose={() => setEditOpen(false)}
-        onSaved={(saved) => {
-          void mutate(saved, { revalidate: false });
-          setEditOpen(false);
-        }}
-      />
+      {editOpen && (
+        <AgentEditDialog
+          open
+          agent={agent}
+          onClose={() => setEditOpen(false)}
+          onSaved={(saved) => {
+            void mutate(saved, { revalidate: false });
+            setEditOpen(false);
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteOpen}

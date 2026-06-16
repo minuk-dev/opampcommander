@@ -214,14 +214,15 @@ export default function ResourceListPage<T>({
 
       <PaginationFooter pagination={pagination} />
 
-      {renderCreate?.({
-        open: createOpen,
-        onClose: () => setCreateOpen(false),
-        onSaved: () => {
-          setCreateOpen(false);
-          refresh();
-        },
-      })}
+      {createOpen &&
+        renderCreate?.({
+          open: createOpen,
+          onClose: () => setCreateOpen(false),
+          onSaved: () => {
+            setCreateOpen(false);
+            refresh();
+          },
+        })}
       {editing &&
         renderEdit?.({
           open: editing !== null,
