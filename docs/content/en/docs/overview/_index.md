@@ -9,123 +9,112 @@ description: >
 
 ## What is OpAMP Commander?
 
-OpAMP Commander is a comprehensive management platform for OpenTelemetry agents that implements the Open Agent Management Protocol (OpAMP). It provides a centralized solution for managing, monitoring, and configuring distributed telemetry collection agents.
+OpAMP Commander is a management platform for OpenTelemetry agents that implements the
+[Open Agent Management Protocol (OpAMP)](https://opentelemetry.io/docs/specs/opamp/).
+It provides a centralized way to manage, monitor, and remotely configure distributed
+telemetry collection agents.
 
-## Key Features
+![OpAMP Commander dashboard](/images/screenshots/dashboard.png)
 
-### Centralized Management
-Manage all your OpenTelemetry agents from a single web-based interface. Monitor agent health, status, and performance metrics in real-time.
+## Components
 
-### Dynamic Configuration
-Update agent configurations dynamically without restarting agents. Push configuration changes to individual agents or groups of agents instantly.
+| Component | Description |
+|---|---|
+| **apiserver** | Hosts the OpAMP WebSocket endpoint agents connect to, and a REST API for management. |
+| **opampctl** | A `kubectl`-style command-line client. |
+| **web** | A Next.js + MUI dashboard. |
 
-### Agent Discovery
-Automatically discover and register new agents as they come online. Track agent inventory and deployment status across your infrastructure.
+## Key features
 
-### Version Control
-Manage agent versions and coordinate upgrades across your fleet. Roll out updates gradually with canary deployments.
-
-### Security
-Built-in authentication and authorization ensure secure communication between the server and agents. Support for TLS/SSL encryption and JWT-based authentication.
+- **Centralized management** — manage your whole agent fleet from one place.
+- **Dynamic configuration** — push remote configuration to individual agents or groups
+  without restarting them.
+- **Agent discovery** — agents register automatically as they connect; track inventory
+  by host, container, and namespace.
+- **Agent groups** — apply shared configuration to many agents at once.
+- **RBAC** — namespaces, roles, and role bindings, enforced with Casbin.
+- **Authentication** — JWT tokens, GitHub OAuth2, and basic auth with hashed passwords.
+- **Observability** — Prometheus metrics, structured logging, and OpenTelemetry tracing.
 
 ## Architecture
 
-OpAMP Commander follows a modern, layered architecture designed for scalability and maintainability.
-
-### System Overview
+### System overview
 
 ```mermaid
 graph TB
     subgraph Clients
         CLI[opampctl CLI]
-        Agent[OpAMP Agents<br/>OpenTelemetry Collectors]
-        WebUI[Web UI<br/>Planned]
+        WebUI[Web Dashboard]
     end
-
-    subgraph "OpAMP Commander Server"
-        Server[OpAMP Commander<br/>API Server]
+    subgraph Agents
+        Agent[OpenTelemetry Collectors<br/>OpAMP agents]
     end
-
-    subgraph Storage
-        DB[(MongoDB<br/>Database)]
+    subgraph Server["OpAMP Commander"]
+        API[apiserver]
     end
+    DB[(MongoDB)]
+    MQ[[Kafka<br/>multi-node only]]
 
-    CLI -->|HTTP/REST<br/>Management API| Server
-    Agent -->|WebSocket/gRPC<br/>OpAMP Protocol| Server
-    WebUI -.->|HTTP/REST| Server
-    Server -->|Persist Data| DB
+    CLI -->|HTTP/REST| API
+    WebUI -->|HTTP/REST| API
+    Agent <-->|OpAMP over WebSocket| API
+    API -->|persist| DB
+    API <-.->|server-to-server events| MQ
 
-    style Server fill:#4a90e2,stroke:#333,stroke-width:2px,color:#fff
+    style API fill:#4a90e2,stroke:#333,stroke-width:2px,color:#fff
     style DB fill:#6c757d,stroke:#333,stroke-width:2px,color:#fff
     style CLI fill:#28a745,stroke:#333,stroke-width:2px,color:#fff
     style Agent fill:#ffc107,stroke:#333,stroke-width:2px,color:#000
     style WebUI fill:#17a2b8,stroke:#333,stroke-width:2px,color:#fff
 ```
 
-### Component Interactions
+### Agent registration & management
 
-**Agent Registration & Management:**
 ```mermaid
 sequenceDiagram
     participant Agent as OpAMP Agent
-    participant Server as OpAMP Commander
+    participant Server as apiserver
     participant DB as MongoDB
 
     Agent->>Server: Connect via WebSocket
-    Server->>DB: Store Agent Info
-    Server->>Agent: Send Configuration
-    Agent->>Server: Report Status
-    Server->>DB: Update Agent State
+    Server->>DB: Store agent info
+    Server->>Agent: Send remote configuration
+    Agent->>Server: Report status / effective config
+    Server->>DB: Update agent state
 ```
 
-**Configuration Management via CLI:**
+### Multi-server coordination
+
+When an agent is connected to server B but server A receives a management request,
+server A publishes an event to Kafka and server B's consumer delivers it over the
+agent's WebSocket. In single-node (standalone) mode an in-memory event bus replaces
+Kafka.
+
 ```mermaid
 sequenceDiagram
-    participant Admin as Administrator
     participant CLI as opampctl
-    participant Server as OpAMP Commander
-    participant Agent as OpAMP Agent
+    participant A as apiserver A
+    participant MQ as Kafka
+    participant B as apiserver B
+    participant Agent as Agent (connected to B)
 
-    Admin->>CLI: opampctl create agentgroup
-    CLI->>Server: POST /api/v1/agentgroups
-    Server->>CLI: Group Created
-    
-    Admin->>CLI: opampctl update config
-    CLI->>Server: PUT /api/v1/agents/{id}/update-agent-config
-    Server->>Agent: Push New Configuration
-    Agent->>Server: Acknowledge
-    Server->>CLI: Update Successful
+    CLI->>A: Management request
+    A->>MQ: Publish event
+    MQ->>B: Deliver event
+    B->>Agent: Push over WebSocket
 ```
 
-### Key Features
+## Technology stack
 
-- **REST API**: Full-featured HTTP API for programmatic management
-- **OpAMP Protocol**: Native support for OpenTelemetry Agent Management Protocol
-- **Agent Groups**: Manage multiple agents with shared configurations
-- **Authentication**: JWT tokens, OAuth2 (GitHub), Basic Auth
-- **Scalability**: Stateless design enabling horizontal scaling
+- **Backend**: Go 1.25, Gin web framework, Uber FX dependency injection
+- **Architecture**: Hexagonal (domain / application / adapter layers)
+- **Database**: MongoDB (in-memory option for development)
+- **Messaging**: Kafka for multi-node coordination (in-memory for standalone)
+- **Protocol**: OpAMP over WebSocket
+- **Frontend**: Next.js 16 (App Router), React 19, MUI 7, Feature-Sliced Design
+- **Observability**: Prometheus, OpenTelemetry tracing, structured logging
 
-### Technology Stack
+## Getting started
 
-- **Backend**: Go 1.21+, Gin web framework
-- **Database**: MongoDB 4.4+ for persistence
-- **Protocol**: OpAMP over WebSocket/gRPC
-- **Observability**: Prometheus metrics, structured logging
-
-## Use Cases
-
-### Infrastructure Monitoring
-Deploy and manage OpenTelemetry collectors across your infrastructure for comprehensive observability.
-
-### Microservices Observability
-Configure distributed tracing and metrics collection for containerized applications.
-
-### Compliance and Governance
-Enforce standardized telemetry collection policies across your organization.
-
-### Cost Optimization
-Control sampling rates and filter telemetry data to optimize storage and processing costs.
-
-## Getting Started
-
-Ready to start using OpAMP Commander? Check out our [Getting Started Guide](/en/docs/getting-started/) for installation and setup instructions.
+Ready to start? See the [Getting Started Guide](/en/docs/getting-started/) for
+installation and setup.
