@@ -13,6 +13,7 @@ func NewModule() fx.Option {
 		fx.Provide(
 			// Security
 			security.New,
+			security.NewPasswordHasher,
 		),
 	)
 }

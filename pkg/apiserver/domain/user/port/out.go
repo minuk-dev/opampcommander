@@ -18,6 +18,9 @@ type UserPersistencePort interface {
 	// GetUserByEmailIncludingDeleted retrieves a user by their email, including soft-deleted records.
 	// Used by the login flow to avoid recreating a user that was deliberately deleted.
 	GetUserByEmailIncludingDeleted(ctx context.Context, email string) (*usermodel.User, error)
+	// GetUserByUsername retrieves a user by their username, excluding soft-deleted records.
+	// Used by the basic-auth login flow to resolve credentials.
+	GetUserByUsername(ctx context.Context, username string) (*usermodel.User, error)
 	// PutUser saves or updates a user.
 	PutUser(ctx context.Context, user *usermodel.User) (*usermodel.User, error)
 	// ListUsers retrieves a list of users with pagination options.

@@ -15,7 +15,13 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
-func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
+func TestMain(m *testing.M) {
+	// memguard starts a single process-lifetime daemon (the Coffer rekeying goroutine) the
+	// first time an enclave is created; it never exits by design, so it is not a leak.
+	goleak.VerifyTestMain(m,
+		goleak.IgnoreTopFunction("github.com/awnumar/memguard/core.NewCoffer.func1"),
+	)
+}
 
 const adminEmail = "admin@example.com"
 

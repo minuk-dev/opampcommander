@@ -34,6 +34,11 @@ auth:
   admin:
     username: "admin"
     password: "admin_password"
+  basic:
+    # Server-side secret mixed into every basic-auth user password hash.
+    # Set a long, random value and keep it stable for the lifetime of stored credentials.
+    # Empty disables DB-backed basic-auth user creation and login.
+    pepper: ""
   jwt:
     issuer: "opampcommander"
     expire: 5m

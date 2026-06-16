@@ -10,8 +10,18 @@ type Config struct {
 	JWTSettings JWTSettings
 	// AdminSettings holds the configuration settings for admin authentication.
 	AdminSettings AdminSettings
+	// BasicAuthSettings holds the configuration settings for DB-backed basic-auth users.
+	BasicAuthSettings BasicAuthSettings
 	// OAuthSettings holds the configuration settings for OAuth2 authentication.
 	OAuthSettings *OAuthSettings
+}
+
+// BasicAuthSettings holds the configuration settings for DB-backed basic-auth users.
+type BasicAuthSettings struct {
+	// Pepper is a server-side secret mixed into every basic-auth password hash.
+	// It must be a long, random value set once and kept stable for the lifetime of the
+	// stored credentials. When empty, basic-auth user creation and password login are disabled.
+	Pepper string
 }
 
 // AdminSettings holds the configuration settings for admin authentication.

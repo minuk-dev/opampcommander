@@ -94,6 +94,44 @@ func (a *UserMongoAdapter) GetUserByEmailIncludingDeleted(
 	return a.findUserByEmail(ctx, email, true)
 }
 
+// GetUserByUsername implements userport.UserPersistencePort.
+// Soft-deleted records are excluded. The username is matched exactly (case-sensitive).
+func (a *UserMongoAdapter) GetUserByUsername(
+	ctx context.Context, username string,
+) (*usermodel.User, error) {
+	// Validate against a strict allowlist before the value reaches the query. A username that
+	// fails validation cannot have been created (creation enforces the same rule), so it is
+	// treated as not-found. This also guards the query: only allowlisted strings reach the
+	// filter, and the mongo driver binds the value as a BSON string literal (never a query
+	// operator), so a caller-supplied username cannot inject an operator.
+	err := usermodel.ValidateUsername(username)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", port.ErrResourceNotExist, err)
+	}
+
+	filter := bson.M{"spec.username": username, "metadata.deletedAt": nil}
+
+	result := a.common.collection.FindOne(ctx, filter)
+
+	err = result.Err()
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, port.ErrResourceNotExist
+		}
+
+		return nil, fmt.Errorf("get user by username: %w", err)
+	}
+
+	var userEntity entity.User
+
+	err = result.Decode(&userEntity)
+	if err != nil {
+		return nil, fmt.Errorf("decode user by username: %w", err)
+	}
+
+	return userEntity.ToDomain(), nil
+}
+
 // PutUser implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) PutUser(
 	ctx context.Context, user *usermodel.User,

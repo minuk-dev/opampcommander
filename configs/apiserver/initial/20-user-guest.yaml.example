@@ -1,0 +1,25 @@
+# Example: a basic-auth (username/password) guest account with only the default
+# role's permissions (read-only access in the default namespace).
+#
+# OPT-IN: the bootstrap reconciler only loads *.yaml / *.yml files, so this *.example
+# file is ignored by default. To enable the guest account, copy it without the suffix:
+#
+#     cp 20-user-guest.yaml.example 20-user-guest.yaml
+#
+# Once enabled it is reconciled on every apiserver startup (declarative): spec.password
+# below is the source of truth, so the guest password is reset to match it on each start.
+# The guest user receives no role beyond the built-in "default" role, which the RBAC
+# policy sync grants to every user automatically — so guest can browse the dashboard/CLI
+# but cannot mutate anything or see global resources.
+#
+# Requires auth.basic.pepper to be configured; when the pepper is empty, basic auth is
+# disabled and this manifest is skipped (logged as a warning) instead of failing startup.
+#
+# Change spec.password before exposing the server — guest/guest is a default, not a secret.
+kind: User
+apiVersion: v1
+spec:
+  username: guest
+  email: guest@guest
+  isActive: true
+  password: guest

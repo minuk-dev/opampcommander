@@ -87,7 +87,7 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
-	result, err := c.service.BasicAuth(username, password)
+	result, err := c.service.BasicAuth(ctx.Request.Context(), username, password)
 	if err != nil {
 		if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
 			ctx.JSON(http.StatusUnauthorized, gin.H{

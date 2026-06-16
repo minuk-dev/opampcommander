@@ -88,6 +88,25 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 		return
 	}
 
+	if errors.Is(err, port.ErrInvalidArgument) {
+		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
+			Type:     baseURL,
+			Title:    "Bad Request",
+			Status:   http.StatusBadRequest,
+			Detail:   err.Error(),
+			Instance: ctx.Request.URL.String(),
+			Errors: []*api.ErrorDetail{
+				{
+					Message:  err.Error(),
+					Location: "server",
+					Value:    nil,
+				},
+			},
+		})
+
+		return
+	}
+
 	// Default to internal server error
 	InternalServerError(ctx, err, fallbackMessage)
 }

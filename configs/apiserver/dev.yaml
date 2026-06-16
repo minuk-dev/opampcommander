@@ -33,6 +33,10 @@ auth:
   admin:
     username: "admin"
     password: "admin"
+  basic:
+    # Server-side secret mixed into every basic-auth user password hash.
+    # Set a long, random value and keep it stable. Empty disables DB-backed basic-auth users.
+    pepper: "dev_basic_auth_pepper_change_me"
   jwt:
     issuer: "opampcommander"
     expire: 5m

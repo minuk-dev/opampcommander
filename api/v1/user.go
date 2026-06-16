@@ -42,6 +42,10 @@ type UserSpec struct {
 	Username string `json:"username"`
 	// IsActive indicates whether the user is active.
 	IsActive bool `json:"isActive"`
+	// Password is the plaintext password for basic (username/password) authentication.
+	// It is WRITE-ONLY: it is read when creating a user and is never returned in any
+	// response. The server stores only a one-way hash of it; the hash is never exposed.
+	Password string `json:"password,omitempty"`
 } // @name UserSpec
 
 // UserStatus represents the status of a user.

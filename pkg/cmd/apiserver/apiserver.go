@@ -79,6 +79,9 @@ type CommandOption struct {
 			Password string `mapstructure:"password"`
 			Email    string `mapstructure:"email"`
 		} `mapstructure:"admin"`
+		Basic struct {
+			Pepper string `mapstructure:"pepper"`
+		} `mapstructure:"basic"`
 		JWT struct {
 			Issuer        string        `mapstructure:"issuer"`
 			Expire        time.Duration `mapstructure:"expire"`
@@ -194,6 +197,9 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("auth.admin.username", "admin", "admin username")
 	cmd.Flags().String("auth.admin.password", "admin", "admin password")
 	cmd.Flags().String("auth.admin.email", "admin@admin", "admin email")
+	cmd.Flags().String("auth.basic.pepper", "",
+		"server-side secret mixed into basic-auth password hashes; "+
+			"set a long random value to enable DB-backed basic-auth users (empty disables them)")
 	cmd.Flags().String("auth.jwt.issuer", "opampcommander", "JWT issuer")
 	//nolint:mnd
 	cmd.Flags().Duration("auth.jwt.expire", 30*time.Minute, "JWT access token expiration duration")
@@ -303,6 +309,9 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				Username: opt.Auth.Admin.Username,
 				Password: opt.Auth.Admin.Password,
 				Email:    opt.Auth.Admin.Email,
+			},
+			BasicAuthSettings: security.BasicAuthSettings{
+				Pepper: opt.Auth.Basic.Pepper,
 			},
 			JWTSettings: security.JWTSettings{
 				Issuer:            opt.Auth.JWT.Issuer,

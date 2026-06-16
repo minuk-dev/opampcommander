@@ -267,6 +267,11 @@ func cloneUser(user *usermodel.User) *usermodel.User {
 	cloned.Status.Conditions = slices.Clone(user.Status.Conditions)
 	cloned.Status.Roles = slices.Clone(user.Status.Roles)
 
+	if user.Spec.BasicAuth != nil {
+		basicAuth := *user.Spec.BasicAuth
+		cloned.Spec.BasicAuth = &basicAuth
+	}
+
 	return &cloned
 }
 

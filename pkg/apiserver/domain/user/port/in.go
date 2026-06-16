@@ -18,6 +18,8 @@ type UserUsecase interface {
 	// GetUserByEmailIncludingDeleted retrieves a user by their email, including soft-deleted records.
 	// Used by the login flow to avoid recreating a user that was deliberately deleted.
 	GetUserByEmailIncludingDeleted(ctx context.Context, email string) (*usermodel.User, error)
+	// GetUserByUsername retrieves a user by their username, excluding soft-deleted records.
+	GetUserByUsername(ctx context.Context, username string) (*usermodel.User, error)
 	// ListUsers lists all users.
 	ListUsers(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.User], error)
 	// SaveUser saves the user.
