@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="OpAMP Commander logo" width="200" />
+</p>
+
 # OpAMP Commander
 
 ## Components
@@ -79,3 +83,7 @@ make test-e2e-basic
 ## Release
 
 ## Deployment
+
+## Credits
+
+- Logo artwork: Generated with OpenAI image generation. Used by the project owner.
