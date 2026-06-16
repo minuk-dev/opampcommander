@@ -4,54 +4,106 @@ linkTitle: "Getting Started"
 weight: 1
 type: docs
 description: >
-  Learn how to get started with OpAMP Commander.
+  Install OpAMP Commander, run the apiserver, and connect your first agent.
 ---
 
-## What is OpAMP Commander?
+## What you'll set up
 
-OpAMP Commander is an agent management system that implements the OpenTelemetry Agent Management Protocol (OpAMP). It provides the following features:
+OpAMP Commander has three components:
 
-- Remote agent monitoring and management
-- Centralized configuration management
-- Real-time agent status monitoring
-- Agent updates and deployment
+- **apiserver** — the server agents connect to and that exposes the management REST API.
+- **opampctl** — the command-line client.
+- **web** — an optional dashboard.
+
+This guide gets the apiserver running and `opampctl` talking to it.
 
 ## Prerequisites
 
-Before using OpAMP Commander, you'll need:
+- Go 1.25 or later
+- Docker (to run MongoDB, and Kafka for multi-node mode)
+- Node.js 20.9+ (only if you want the web dashboard)
 
-- Go 1.21 or later
-- Docker (optional, for container deployment)
-- MongoDB (for data storage)
-
-## Installation
-
-### Building from Source
+## Get the source
 
 ```bash
 git clone https://github.com/minuk-dev/opampcommander.git
 cd opampcommander
-make build
 ```
 
-### Running with Docker
+## Run the apiserver
+
+The Makefile wraps the common workflows.
+
+### Standalone mode (single node)
+
+Runs against MongoDB only, with an in-memory event bus — no Kafka required:
 
 ```bash
-docker-compose up -d
+make run-standalone
 ```
 
-## First Run
+### Development mode (with Kafka)
 
-To run OpAMP Commander:
+Starts MongoDB **and** Kafka in Docker, then runs the server:
 
 ```bash
-./opampcommander server
+make run-dev-server
 ```
 
-By default, the server runs at `http://localhost:8080`.
+### Run directly
 
-## Next Steps
+You can also run the binary against a config file:
 
-- Learn how to configure OpAMP Commander in the [Configuration Guide](/en/docs/configuration/)
-- Check out API usage in the [API Reference](/en/docs/api/)
-- Explore CLI commands in the [CLI Reference](/en/docs/cli/)
+```bash
+go run ./cmd/apiserver/main.go --config ./configs/apiserver/dev.yaml
+```
+
+By default the server listens on:
+
+- `localhost:8080` — REST API and the OpAMP WebSocket endpoint (`/api/v1/opamp`)
+- `localhost:9090` — management endpoints (`/healthz`, `/readyz`, metrics, pprof)
+
+See the [Configuration guide](/en/docs/configuration/) for every available option.
+
+## Install opampctl
+
+```bash
+go install github.com/minuk-dev/opampcommander/cmd/opampctl@latest
+```
+
+Or build from the repository:
+
+```bash
+go build -o opampctl ./cmd/opampctl
+```
+
+Create a configuration file and verify the connection:
+
+```bash
+opampctl config init     # writes ~/.config/opampcommander/opampctl/config.yaml
+opampctl whoami
+opampctl get agent
+```
+
+See the [CLI reference](/en/docs/cli/) for the full command set.
+
+## Connect an agent
+
+Point any OpAMP-capable OpenTelemetry Collector at the server's WebSocket endpoint:
+
+```yaml
+extensions:
+  opamp:
+    server:
+      ws:
+        endpoint: ws://localhost:8080/api/v1/opamp
+```
+
+The agent's `service.namespace` resource attribute determines its namespace
+(defaulting to `default`).
+
+## Next steps
+
+- Configure the server in the [Configuration guide](/en/docs/configuration/)
+- Explore the [REST API](/en/docs/api/)
+- Learn the [CLI commands](/en/docs/cli/)

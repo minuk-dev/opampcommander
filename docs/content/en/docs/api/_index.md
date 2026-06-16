@@ -4,364 +4,192 @@ linkTitle: "API"
 weight: 3
 type: docs
 description: >
-  Learn how to use the OpAMP Commander REST API.
+  The OpAMP Commander REST API.
 ---
 
-OpAMP Commander provides a RESTful API for managing agents, agent groups, and configurations.
+The apiserver exposes a REST API under `/api/v1`. Most resources are
+**namespace-scoped** and live under `/api/v1/namespaces/{namespace}/...`; a few
+(hosts, containers, roles, users, server info) are cluster-scoped.
+
+Interactive API documentation (Swagger UI) is generated from the source and served by
+the running server. The OpAMP agent protocol itself is handled over a WebSocket at
+`/api/v1/opamp`.
 
 ## Authentication
 
-Most API endpoints require authentication. OpAMP Commander supports multiple authentication methods:
-
-### Basic Authentication
-
-```http
-GET /api/v1/auth/basic
-Authorization: Basic <base64-encoded-credentials>
-```
-
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresAt": "2024-01-01T00:00:00Z"
-}
-```
-
-### GitHub OAuth2
-
-```http
-GET /api/v1/auth/github
-```
-
-Returns the GitHub OAuth2 authorization URL for web-based authentication.
-
-### GitHub Device Flow
-
-For CLI tools, use the device authorization flow:
-
-```http
-GET /api/v1/auth/github/device
-```
-
-**Response:**
-```json
-{
-  "device_code": "...",
-  "user_code": "ABCD-1234",
-  "verification_uri": "https://github.com/login/device",
-  "expires_in": 900,
-  "interval": 5
-}
-```
-
-Exchange the device code for a token:
-
-```http
-GET /api/v1/auth/github/device/exchange?device_code=<device-code>
-```
-
-### Using Authentication Token
-
-Include the token in the Authorization header for subsequent requests:
+Obtain a JWT and send it as a bearer token:
 
 ```http
 Authorization: Bearer <your-jwt-token>
 ```
 
-## Agent Management
-
-### List Agents
-
-Retrieve a list of all connected agents.
+### Basic auth
 
 ```http
-GET /api/v1/agents?limit=10&continue=<token>
+GET /api/v1/auth/basic
+Authorization: Basic <base64(username:password)>
 ```
 
-**Query Parameters:**
-- `limit` (optional): Maximum number of agents to return
-- `continue` (optional): Continuation token for pagination
-
-**Response:**
-```json
-[
-  {
-    "instanceUid": "agent-001",
-    "description": {
-      "identifyingAttributes": {
-        "service.name": "my-service",
-        "service.instance.id": "instance-1"
-      },
-      "nonIdentifyingAttributes": {
-        "host.name": "server-1"
-      }
-    },
-    "capabilities": 15,
-    "isManaged": true,
-    "effectiveConfig": {
-      "configMap": {
-        "config.yaml": {
-          "body": "...",
-          "contentType": "text/yaml"
-        }
-      }
-    },
-    "remoteConfig": {...},
-    "componentHealth": {...},
-    "packageStatuses": {...}
-  }
-]
-```
-
-### Get Agent
-
-Retrieve details for a specific agent by instance UID.
+### GitHub OAuth2 (browser)
 
 ```http
-GET /api/v1/agents/{instanceUid}
+GET  /api/v1/auth/github                 # begin browser-based login
+POST /api/v1/auth/github/authcode        # exchange an authorization code
 ```
 
-**Response:** Returns a single Agent object.
-
-### Update Agent Configuration
-
-Send a configuration update command to an agent.
+### GitHub device flow (CLI)
 
 ```http
-POST /api/v1/agents/{instanceUid}/update-agent-config
-Content-Type: application/json
-
-{
-  "remoteConfig": {
-    "config": {
-      "configMap": {
-        "collector.yaml": {
-          "body": "receivers:\n  otlp:\n    protocols:\n      grpc:\n",
-          "contentType": "text/yaml"
-        }
-      }
-    },
-    "configHash": "..."
-  }
-}
+GET /api/v1/auth/github/device           # request a device + user code
+GET /api/v1/auth/github/device/exchange  # poll to exchange for a token
 ```
 
-**Response:**
-```json
-{
-  "id": "cmd-123",
-  "kind": "update-config",
-  "targetInstanceUid": "agent-001",
-  "data": {...}
-}
-```
-
-## Agent Groups
-
-Agent groups allow you to manage configurations for multiple agents collectively.
-
-### List Agent Groups
+### Session helpers
 
 ```http
-GET /api/v1/agentgroups?limit=10&continue=<token>
+GET /api/v1/auth/info       # info about the current credential
+GET /api/v1/auth/refresh    # refresh an access token
 ```
 
-**Query Parameters:**
-- `limit` (optional): Maximum number of groups to return
-- `continue` (optional): Continuation token for pagination
-
-**Response:**
-```json
-[
-  {
-    "name": "production",
-    "description": "Production environment agents",
-    "labels": {
-      "env": "production"
-    },
-    "remoteConfig": {...},
-    "createdAt": "2024-01-01T00:00:00Z",
-    "updatedAt": "2024-01-01T00:00:00Z"
-  }
-]
-```
-
-### Get Agent Group
+## Namespaces
 
 ```http
-GET /api/v1/agentgroups/{name}
+GET    /api/v1/namespaces
+POST   /api/v1/namespaces
+GET    /api/v1/namespaces/{namespace}
+DELETE /api/v1/namespaces/{namespace}
 ```
 
-**Response:** Returns a single AgentGroup object.
+A namespace is derived from each agent's `service.namespace` identifying attribute,
+defaulting to `default`.
 
-### Create Agent Group
+## Agents
 
 ```http
-POST /api/v1/agentgroups
-Content-Type: application/json
-
-{
-  "name": "staging",
-  "description": "Staging environment agents",
-  "labels": {
-    "env": "staging"
-  },
-  "remoteConfig": {
-    "config": {
-      "configMap": {
-        "collector.yaml": {
-          "body": "...",
-          "contentType": "text/yaml"
-        }
-      }
-    }
-  }
-}
+GET  /api/v1/namespaces/{namespace}/agents
+GET  /api/v1/namespaces/{namespace}/agents/{id}
+POST /api/v1/namespaces/{namespace}/agents/search
 ```
 
-**Response:** Returns the created AgentGroup with status code 201.
+List endpoints accept `limit` and `continue` query parameters for pagination.
 
-### Update Agent Group
+## Agent groups
 
 ```http
-PUT /api/v1/agentgroups/{name}
-Content-Type: application/json
-
-{
-  "name": "staging",
-  "description": "Updated description",
-  "labels": {
-    "env": "staging",
-    "version": "v2"
-  },
-  "remoteConfig": {...}
-}
+GET    /api/v1/namespaces/{namespace}/agentgroups
+POST   /api/v1/namespaces/{namespace}/agentgroups
+GET    /api/v1/namespaces/{namespace}/agentgroups/{name}
+PUT    /api/v1/namespaces/{namespace}/agentgroups/{name}
+DELETE /api/v1/namespaces/{namespace}/agentgroups/{name}
+GET    /api/v1/namespaces/{namespace}/agentgroups/{name}/agents
 ```
 
-**Response:** Returns the updated AgentGroup.
-
-### Delete Agent Group
+## Agent packages
 
 ```http
-DELETE /api/v1/agentgroups/{name}
+GET    /api/v1/namespaces/{namespace}/agentpackages
+POST   /api/v1/namespaces/{namespace}/agentpackages
+GET    /api/v1/namespaces/{namespace}/agentpackages/{name}
+DELETE /api/v1/namespaces/{namespace}/agentpackages/{name}
 ```
 
-**Response:** 204 No Content on success.
-
-## Commands
-
-### List Commands
-
-View all commands sent to agents.
+## Agent remote configs
 
 ```http
-GET /api/v1/commands?limit=10&continue=<token>
+GET    /api/v1/namespaces/{namespace}/agentremoteconfigs
+POST   /api/v1/namespaces/{namespace}/agentremoteconfigs
+GET    /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}
+DELETE /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}
 ```
 
-**Response:**
-```json
-[
-  {
-    "id": "cmd-123",
-    "kind": "update-config",
-    "targetInstanceUid": "agent-001",
-    "data": {...},
-    "createdAt": "2024-01-01T00:00:00Z",
-    "status": "pending"
-  }
-]
-```
-
-### Get Command
+## Certificates
 
 ```http
-GET /api/v1/commands/{id}
+GET    /api/v1/namespaces/{namespace}/certificates
+POST   /api/v1/namespaces/{namespace}/certificates
+GET    /api/v1/namespaces/{namespace}/certificates/{name}
+DELETE /api/v1/namespaces/{namespace}/certificates/{name}
 ```
-
-**Response:** Returns a single AgentCommand object.
 
 ## Connections
 
-### List Active Connections
+```http
+GET /api/v1/namespaces/{namespace}/connections
+```
 
-View all active agent connections.
+Returns the active agent connections for a namespace.
+
+## Hosts and containers (cluster-scoped)
 
 ```http
-GET /api/v1/connections
+GET /api/v1/hosts
+GET /api/v1/hosts/{id}
+GET /api/v1/hosts/{id}/agents
+
+GET /api/v1/containers
+GET /api/v1/containers/{id}
+GET /api/v1/containers/{id}/agents
 ```
 
-**Response:**
-```json
-[
-  {
-    "instanceUid": "agent-001",
-    "remoteAddr": "192.168.1.100:54321",
-    "connectedAt": "2024-01-01T00:00:00Z",
-    "lastHeartbeat": "2024-01-01T00:05:00Z"
-  }
-]
-```
-
-## Server Information
-
-### Get Server Info
+## RBAC
 
 ```http
-GET /api/v1/servers
+GET    /api/v1/roles
+POST   /api/v1/roles
+GET    /api/v1/roles/{id}
+
+GET    /api/v1/namespaces/{namespace}/rolebindings
+POST   /api/v1/namespaces/{namespace}/rolebindings
+GET    /api/v1/namespaces/{namespace}/rolebindings/{name}
+DELETE /api/v1/namespaces/{namespace}/rolebindings/{name}
 ```
 
-Returns information about the OpAMP Commander server.
-
-### Version
+## Users
 
 ```http
-GET /api/v1/version
+GET  /api/v1/users
+POST /api/v1/users
+GET  /api/v1/users/me
+GET  /api/v1/users/{id}
 ```
 
-**Response:**
-```json
-{
-  "version": "v1.0.0",
-  "commit": "abc123",
-  "buildDate": "2024-01-01T00:00:00Z"
-}
+## Server information
+
+```http
+GET /api/v1/servers     # cluster server info
+GET /api/v1/version      # build version
+GET /api/v1/ping         # connectivity check
 ```
 
-### Health Checks
+## Health checks
+
+Served by the management server (default `localhost:9090`):
 
 ```http
 GET /healthz
 GET /readyz
 ```
 
-Returns 200 OK if the server is healthy/ready.
+## Error responses
 
-### Ping
-
-```http
-GET /api/v1/ping
-```
-
-Returns 200 OK for connectivity testing.
-
-## Error Responses
-
-All endpoints return standard HTTP status codes. Error responses follow this format:
+Errors follow the [RFC 9457 Problem Details](https://www.rfc-editor.org/rfc/rfc9457)
+format:
 
 ```json
 {
-  "error": "Error message description",
-  "code": "ERROR_CODE",
-  "details": {...}
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "resource does not exist"
 }
 ```
 
-**Common Status Codes:**
-- `200 OK`: Request succeeded
-- `201 Created`: Resource created successfully
-- `204 No Content`: Request succeeded with no response body
-- `400 Bad Request`: Invalid request parameters
-- `401 Unauthorized`: Authentication required or invalid
-- `404 Not Found`: Resource not found
-- `500 Internal Server Error`: Server error occurred
+**Common status codes:**
+
+- `200 OK` — request succeeded
+- `201 Created` — resource created
+- `204 No Content` — succeeded with no body
+- `400 Bad Request` — invalid parameters
+- `401 Unauthorized` — missing or invalid authentication
+- `404 Not Found` — resource not found
+- `500 Internal Server Error` — server error
