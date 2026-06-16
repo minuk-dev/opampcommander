@@ -159,33 +159,34 @@ func TestEventReceiverAdapter_FiltersByTargetServer(t *testing.T) {
 	// When: Send messages to both servers
 	sender := createTestSender(t, broker, topic)
 
-	// Message for current server
-	sendTestMessage(ctx, t, sender, currentServerID, uuid.New())
+	// Two messages for the current server and one for another server (which must be filtered).
+	currentAgentUID1 := uuid.New()
+	currentAgentUID2 := uuid.New()
+	otherAgentUID := uuid.New()
 
-	// Message for other server (should be filtered out)
-	sendTestMessage(ctx, t, sender, otherServerID, uuid.New())
+	sendTestMessage(ctx, t, sender, currentServerID, currentAgentUID1)
+	sendTestMessage(ctx, t, sender, otherServerID, otherAgentUID)
+	sendTestMessage(ctx, t, sender, currentServerID, currentAgentUID2)
 
-	// Message for current server again
-	expectedAgentUID := uuid.New()
-	sendTestMessage(ctx, t, sender, currentServerID, expectedAgentUID)
-
-	// Then: Only messages for current server should be received
-	receivedCount := 0
+	// Then: both current-server messages should be received. Kafka only guarantees ordering
+	// within a partition, so assert on the set of received agent UIDs rather than their order.
+	receivedUIDs := make(map[uuid.UUID]struct{}, 2)
 	timeout := time.After(15 * time.Second)
 
-	for receivedCount < 2 {
+	for len(receivedUIDs) < 2 {
 		select {
 		case received := <-receivedMessages:
 			assert.Equal(t, currentServerID, received.Target, "Should only receive messages for current server")
-
-			receivedCount++
-			if receivedCount == 2 {
-				assert.Equal(t, expectedAgentUID, received.Payload.TargetAgentInstanceUIDs[0])
-			}
+			require.Len(t, received.Payload.TargetAgentInstanceUIDs, 1)
+			receivedUIDs[received.Payload.TargetAgentInstanceUIDs[0]] = struct{}{}
 		case <-timeout:
-			t.Fatalf("Timeout: received %d/2 messages", receivedCount)
+			t.Fatalf("Timeout: received %d/2 messages", len(receivedUIDs))
 		}
 	}
+
+	assert.Contains(t, receivedUIDs, currentAgentUID1, "first current-server message should be received")
+	assert.Contains(t, receivedUIDs, currentAgentUID2, "second current-server message should be received")
+	assert.NotContains(t, receivedUIDs, otherAgentUID, "other-server message must be filtered out")
 
 	// Ensure no more messages are received (the one for other server should be filtered)
 	select {
