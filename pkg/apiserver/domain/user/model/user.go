@@ -31,6 +31,18 @@ type UserSpec struct {
 	Username   string
 	IsActive   bool
 	Identities []UserIdentity
+	// BasicAuth holds the basic-auth credential for this user, when one is set.
+	// It is nil for users that authenticate only through external identity providers.
+	// The credential is sensitive server-side material and is never exposed through the API.
+	BasicAuth *BasicAuthCredential
+}
+
+// BasicAuthCredential holds a user's password credential for username/password (basic) login.
+// PasswordHash is a one-way hash (the per-user salt is embedded in the hash string); the
+// plaintext password is never stored. This value must never be serialized into an API response.
+type BasicAuthCredential struct {
+	// PasswordHash is the encoded one-way password hash (e.g. a bcrypt string).
+	PasswordHash string
 }
 
 // UserIdentity represents a linked external identity provider account.
@@ -65,6 +77,7 @@ func NewUser(email, username string) *User {
 			Username:   username,
 			IsActive:   true,
 			Identities: []UserIdentity{},
+			BasicAuth:  nil,
 		},
 		Status: UserStatus{
 			Conditions: []model.Condition{},
@@ -133,6 +146,31 @@ func (u *User) GetIdentity(provider string) *UserIdentity {
 	}
 
 	return nil
+}
+
+// SetPasswordHash sets the user's basic-auth password hash, enabling username/password login.
+// The caller is responsible for hashing the plaintext password beforehand.
+func (u *User) SetPasswordHash(hash string) {
+	u.Spec.BasicAuth = &BasicAuthCredential{PasswordHash: hash}
+}
+
+// HasBasicAuth reports whether the user has a basic-auth password credential set.
+func (u *User) HasBasicAuth() bool {
+	return u.Spec.BasicAuth != nil && u.Spec.BasicAuth.PasswordHash != ""
+}
+
+// PasswordHash returns the user's basic-auth password hash, or "" if none is set.
+func (u *User) PasswordHash() string {
+	if u.Spec.BasicAuth == nil {
+		return ""
+	}
+
+	return u.Spec.BasicAuth.PasswordHash
+}
+
+// ClearPasswordHash removes the user's basic-auth credential, disabling username/password login.
+func (u *User) ClearPasswordHash() {
+	u.Spec.BasicAuth = nil
 }
 
 // SetLabel sets a label on the user's metadata.

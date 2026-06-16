@@ -44,6 +44,19 @@ func (r *UserRepository) GetUserByEmailIncludingDeleted(_ context.Context, email
 	return r.findByEmail(email, true)
 }
 
+// GetUserByUsername implements userport.UserPersistencePort.
+// Soft-deleted records are excluded. The username is matched exactly (case-sensitive).
+func (r *UserRepository) GetUserByUsername(_ context.Context, username string) (*usermodel.User, error) {
+	users := r.store.snapshot(false, func(user *usermodel.User) bool {
+		return user.Spec.Username == username
+	})
+	if len(users) == 0 {
+		return nil, errResourceNotExist()
+	}
+
+	return users[0], nil
+}
+
 // PutUser implements userport.UserPersistencePort.
 func (r *UserRepository) PutUser(_ context.Context, user *usermodel.User) (*usermodel.User, error) {
 	r.store.put(user.Metadata.UID, user)

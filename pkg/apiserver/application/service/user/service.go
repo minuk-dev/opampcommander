@@ -4,6 +4,7 @@ package user
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -16,8 +17,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
 var _ applicationport.UserManageUsecase = (*Service)(nil)
@@ -29,6 +32,7 @@ type Service struct {
 	roleBindingPersistencePort userport.RoleBindingPersistencePort
 	rbacEnforcerPort           userport.RBACEnforcerPort
 	rbacUsecase                userport.RBACUsecase
+	passwordHasher             *security.PasswordHasher
 	mapper                     *helper.Mapper
 	logger                     *slog.Logger
 }
@@ -40,6 +44,7 @@ func New(
 	roleBindingPersistencePort userport.RoleBindingPersistencePort,
 	rbacEnforcerPort userport.RBACEnforcerPort,
 	rbacUsecase userport.RBACUsecase,
+	passwordHasher *security.PasswordHasher,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -48,6 +53,7 @@ func New(
 		roleBindingPersistencePort: roleBindingPersistencePort,
 		rbacEnforcerPort:           rbacEnforcerPort,
 		rbacUsecase:                rbacUsecase,
+		passwordHasher:             passwordHasher,
 		mapper:                     helper.NewMapper(clock.RealClock{}, 0),
 		logger:                     logger,
 	}
@@ -97,11 +103,21 @@ func (s *Service) ListUsers(
 }
 
 // CreateUser implements [applicationport.UserManageUsecase].
+// When a password is supplied, the user is provisioned for basic (username/password) login:
+// the plaintext is hashed (peppered + salted) and only the hash is persisted, and a "basic"
+// identity + login-type label is attached so RBAC default-role enrollment works.
 func (s *Service) CreateUser(ctx context.Context, apiUser *v1.User) (*v1.User, error) {
 	domainUser := usermodel.NewUser(apiUser.Spec.Email, apiUser.Spec.Username)
 
 	for key, value := range apiUser.Metadata.Labels {
 		domainUser.SetLabel(key, value)
+	}
+
+	if apiUser.Spec.Password != "" {
+		err := s.applyBasicAuth(ctx, domainUser, apiUser.Spec.Username, apiUser.Spec.Email, apiUser.Spec.Password)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err := s.userUsecase.SaveUser(ctx, domainUser)
@@ -196,6 +212,63 @@ func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) ([
 	slices.SortFunc(entries, compareEntries)
 
 	return entries, nil
+}
+
+// applyBasicAuth validates the request, hashes the plaintext password, and attaches the basic
+// credential, a "basic" identity, and the login-type label to the domain user.
+// Basic-auth login is keyed on username and identified by email, so both must be present and the
+// username must be unique among active users. Bad input (empty email/username, duplicate username,
+// or basic auth disabled because no pepper is configured) is wrapped in [port.ErrInvalidArgument]
+// so the controller surfaces it as a 400.
+func (s *Service) applyBasicAuth(ctx context.Context, user *usermodel.User, username, email, password string) error {
+	if username == "" {
+		return fmt.Errorf("%w: username is required for a basic-auth user", port.ErrInvalidArgument)
+	}
+
+	if email == "" {
+		return fmt.Errorf("%w: email is required for a basic-auth user", port.ErrInvalidArgument)
+	}
+
+	err := s.ensureUsernameAvailable(ctx, username)
+	if err != nil {
+		return err
+	}
+
+	hash, err := s.passwordHasher.Hash(password)
+	if err != nil {
+		if errors.Is(err, security.ErrBasicAuthDisabled) {
+			return fmt.Errorf("%w: %w", port.ErrInvalidArgument, err)
+		}
+
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	user.SetPasswordHash(hash)
+	user.AddIdentity(usermodel.UserIdentity{
+		Provider:       usermodel.IdentityProviderBasic,
+		ProviderUserID: username,
+		Email:          email,
+		DisplayName:    username,
+	})
+	user.SetLabel(usermodel.LabelLoginType, usermodel.IdentityProviderBasic)
+
+	return nil
+}
+
+// ensureUsernameAvailable returns [port.ErrInvalidArgument] when an active user already has the
+// given username. Basic-auth login resolves a user by username, so duplicates would make login
+// ambiguous (and could shadow a legitimate user). A not-found lookup means the username is free.
+func (s *Service) ensureUsernameAvailable(ctx context.Context, username string) error {
+	_, err := s.userUsecase.GetUserByUsername(ctx, username)
+	if err == nil {
+		return fmt.Errorf("%w: username %q is already in use", port.ErrInvalidArgument, username)
+	}
+
+	if !errors.Is(err, port.ErrResourceNotExist) {
+		return fmt.Errorf("failed to check username availability: %w", err)
+	}
+
+	return nil
 }
 
 func (s *Service) resolveRole(ctx context.Context, raw string) (*usermodel.Role, error) {

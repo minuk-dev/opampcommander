@@ -4552,6 +4552,10 @@
                     "description": "IsActive indicates whether the user is active.",
                     "type": "boolean"
                 },
+                "password": {
+                    "description": "Password is the plaintext password for basic (username/password) authentication.\nIt is WRITE-ONLY: it is read when creating a user and is never returned in any\nresponse. The server stores only a one-way hash of it; the hash is never exposed.",
+                    "type": "string"
+                },
                 "username": {
                     "description": "Username is the username of the user.",
                     "type": "string"

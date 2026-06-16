@@ -407,10 +407,13 @@ func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 			DeletedAt: mapDeletedAtPtrToAPI(domain.Metadata.DeletedAt),
 			Labels:    labels,
 		},
+		// Password/basic-auth credential material is intentionally never mapped out: the
+		// write-only Password field stays empty and the stored password hash is never exposed.
 		Spec: v1.UserSpec{
 			Email:    domain.Spec.Email,
 			Username: domain.Spec.Username,
 			IsActive: domain.Spec.IsActive,
+			Password: "", // never expose password material in responses
 		},
 		Status: v1.UserStatus{
 			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),

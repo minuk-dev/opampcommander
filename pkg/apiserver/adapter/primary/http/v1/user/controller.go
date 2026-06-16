@@ -183,7 +183,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 	created, err := c.userUsecase.CreateUser(ctx.Request.Context(), &req)
 	if err != nil {
 		c.logger.Error("failed to create user", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while creating the user.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while creating the user.")
 
 		return
 	}

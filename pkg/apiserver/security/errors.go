@@ -17,6 +17,9 @@ var (
 	ErrTokenExpired = errors.New("token has expired")
 	// ErrInvalidUsernameOrPassword is returned when the provided username or password is invalid.
 	ErrInvalidUsernameOrPassword = errors.New("invalid username or password")
+	// ErrBasicAuthDisabled is returned when basic-auth password operations are attempted but no
+	// pepper is configured, which disables DB-backed basic-auth user creation and login.
+	ErrBasicAuthDisabled = errors.New("basic auth is disabled: no password pepper configured")
 	// ErrNoPrimaryEmailFound is returned when no primary email is found in the user's emails.
 	ErrNoPrimaryEmailFound = errors.New("no primary verified email found")
 	// ErrOAuth2ClientCreationFailed is returned when the OAuth2 client creation fails.

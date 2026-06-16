@@ -3,6 +3,7 @@ module github.com/minuk-dev/opampcommander
 go 1.25.1
 
 require (
+	github.com/awnumar/memguard v0.23.0
 	github.com/casbin/casbin/v2 v2.135.0
 	github.com/casbin/mongodb-adapter/v4 v4.3.0
 	github.com/cloudevents/sdk-go/observability/opentelemetry/v2 v2.16.2
@@ -54,6 +55,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/awnumar/memcall v0.4.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
@@ -184,7 +186,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.27.0 // indirect
-	golang.org/x/crypto v0.53.0 // indirect
+	golang.org/x/crypto v0.53.0
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect

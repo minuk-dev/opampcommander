@@ -58,6 +58,19 @@ func (s *UserService) GetUserByEmail(
 	return user, nil
 }
 
+// GetUserByUsername implements [userport.UserUsecase].
+func (s *UserService) GetUserByUsername(
+	ctx context.Context,
+	username string,
+) (*usermodel.User, error) {
+	user, err := s.userPersistencePort.GetUserByUsername(ctx, username)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user by username from persistence: %w", err)
+	}
+
+	return user, nil
+}
+
 // GetUserByEmailIncludingDeleted implements [userport.UserUsecase].
 func (s *UserService) GetUserByEmailIncludingDeleted(
 	ctx context.Context,

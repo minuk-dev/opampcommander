@@ -94,6 +94,40 @@ func (a *UserMongoAdapter) GetUserByEmailIncludingDeleted(
 	return a.findUserByEmail(ctx, email, true)
 }
 
+// GetUserByUsername implements userport.UserPersistencePort.
+// Soft-deleted records are excluded. The username is matched exactly (case-sensitive).
+func (a *UserMongoAdapter) GetUserByUsername(
+	ctx context.Context, username string,
+) (*usermodel.User, error) {
+	if username == "" {
+		return nil, fmt.Errorf("empty username: %w", port.ErrResourceNotExist)
+	}
+
+	// username is used only as an exact-match value (not a query operator), so the BSON driver
+	// encodes it as a plain string and a caller-supplied string cannot inject an operator.
+	filter := bson.M{"spec.username": username, "metadata.deletedAt": nil}
+
+	result := a.common.collection.FindOne(ctx, filter)
+
+	err := result.Err()
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, port.ErrResourceNotExist
+		}
+
+		return nil, fmt.Errorf("get user by username: %w", err)
+	}
+
+	var userEntity entity.User
+
+	err = result.Decode(&userEntity)
+	if err != nil {
+		return nil, fmt.Errorf("decode user by username: %w", err)
+	}
+
+	return userEntity.ToDomain(), nil
+}
+
 // PutUser implements userport.UserPersistencePort.
 func (a *UserMongoAdapter) PutUser(
 	ctx context.Context, user *usermodel.User,

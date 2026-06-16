@@ -203,6 +203,11 @@ var (
 					// authenticated request's user resolution — otherwise they full-scan users.
 					Options: options.Index().SetCollation(emailCollation),
 				},
+				{
+					// Backs GetUserByUsername (exact, case-sensitive), used by basic-auth login.
+					Keys:    bson.D{{Key: "spec.username", Value: 1}},
+					Options: nil,
+				},
 			},
 		},
 	}

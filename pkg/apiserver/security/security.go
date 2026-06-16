@@ -4,6 +4,7 @@ package security
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	oauth2github "golang.org/x/oauth2/github"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
 // Token type values stored in the OPAMPClaims.TokenType claim.
@@ -48,7 +52,7 @@ type Usecase interface {
 // AdminUsecase defines the use case for admin authentication.
 type AdminUsecase interface {
 	// BasicAuth authenticates the user using basic authentication with username and password.
-	BasicAuth(username, password string) (LoginResult, error)
+	BasicAuth(ctx context.Context, username, password string) (LoginResult, error)
 }
 
 // OAuth2Usecase defines the use case for OAuth2 authentication.
@@ -75,6 +79,8 @@ type Service struct {
 	tokenSettings        JWTSettings
 	httpClient           *http.Client
 	allowedRedirectHosts []string
+	passwordHasher       *PasswordHasher
+	userPort             userport.UserPersistencePort
 }
 
 // AllowedRedirectHosts returns the configured extra hosts that the
@@ -99,6 +105,8 @@ func New(
 	logger *slog.Logger,
 	settings *Config,
 	httpClient *http.Client,
+	passwordHasher *PasswordHasher,
+	userPort userport.UserPersistencePort,
 ) *Service {
 	var oauth2Cfg *oauth2.Config
 
@@ -123,6 +131,8 @@ func New(
 		tokenSettings:        settings.JWTSettings,
 		httpClient:           httpClient,
 		allowedRedirectHosts: allowedRedirectHosts,
+		passwordHasher:       passwordHasher,
+		userPort:             userPort,
 	}
 }
 
@@ -192,14 +202,56 @@ func (s *Service) CLIRedirectFromState(state string) (string, error) {
 }
 
 // BasicAuth authenticates the user using basic authentication with username and password.
-func (s *Service) BasicAuth(username, password string) (LoginResult, error) {
-	if username != s.adminSettings.Username || password != s.adminSettings.Password {
-		return LoginResult{}, ErrInvalidUsernameOrPassword
+// It first checks the config-provided admin credentials, then falls back to DB-backed
+// basic-auth users (verified against their stored password hash with the configured pepper).
+func (s *Service) BasicAuth(ctx context.Context, username, password string) (LoginResult, error) {
+	if username == s.adminSettings.Username && password == s.adminSettings.Password {
+		return s.issueBasicAuthLogin(username, s.adminSettings.Email)
 	}
 
+	email, err := s.verifyDBUserPassword(ctx, username, password)
+	if err != nil {
+		return LoginResult{}, err
+	}
+
+	return s.issueBasicAuthLogin(username, email)
+}
+
+// verifyDBUserPassword resolves a DB-backed basic-auth user by username and verifies the password.
+// It returns the user's email on success. Everything that is not a successful match — basic auth
+// disabled (no pepper), a wrong username, an inactive user, a user without a basic credential, and
+// a wrong password — collapses to [ErrInvalidUsernameOrPassword] so a failed login is always a 401
+// and callers cannot distinguish the cases.
+func (s *Service) verifyDBUserPassword(ctx context.Context, username, password string) (string, error) {
+	if s.userPort == nil || s.passwordHasher == nil || !s.passwordHasher.Enabled() {
+		return "", ErrInvalidUsernameOrPassword
+	}
+
+	user, err := s.userPort.GetUserByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, port.ErrResourceNotExist) {
+			return "", ErrInvalidUsernameOrPassword
+		}
+
+		return "", fmt.Errorf("failed to look up basic-auth user: %w", err)
+	}
+
+	if !user.Spec.IsActive || !user.HasBasicAuth() {
+		return "", ErrInvalidUsernameOrPassword
+	}
+
+	verifyErr := s.passwordHasher.Verify(password, user.PasswordHash())
+	if verifyErr != nil {
+		return "", ErrInvalidUsernameOrPassword
+	}
+
+	return user.Spec.Email, nil
+}
+
+func (s *Service) issueBasicAuthLogin(username, email string) (LoginResult, error) {
 	s.logger.Debug("Authenticated user with basic auth", slog.String("username", username))
 
-	result, err := s.issueLoginResult(s.adminSettings.Email)
+	result, err := s.issueLoginResult(email)
 	if err != nil {
 		return LoginResult{}, err
 	}

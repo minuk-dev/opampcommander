@@ -36,10 +36,17 @@ type UserMetadata struct {
 
 // UserSpec represents the specification of a user.
 type UserSpec struct {
-	Email      string         `bson:"email"`
-	Username   string         `bson:"username"`
-	IsActive   bool           `bson:"isActive"`
-	Identities []UserIdentity `bson:"identities,omitempty"`
+	Email      string               `bson:"email"`
+	Username   string               `bson:"username"`
+	IsActive   bool                 `bson:"isActive"`
+	Identities []UserIdentity       `bson:"identities,omitempty"`
+	BasicAuth  *BasicAuthCredential `bson:"basicAuth,omitempty"`
+}
+
+// BasicAuthCredential represents a user's basic-auth password credential in MongoDB.
+// The hash is sensitive server-side material and is never projected into API responses.
+type BasicAuthCredential struct {
+	PasswordHash string `bson:"passwordHash"`
 }
 
 // UserIdentity represents a linked external identity provider account in MongoDB.
@@ -88,11 +95,17 @@ func (s *UserSpec) toDomain() usermodel.UserSpec {
 		}
 	})
 
+	var basicAuth *usermodel.BasicAuthCredential
+	if s.BasicAuth != nil {
+		basicAuth = &usermodel.BasicAuthCredential{PasswordHash: s.BasicAuth.PasswordHash}
+	}
+
 	return usermodel.UserSpec{
 		Email:      s.Email,
 		Username:   s.Username,
 		IsActive:   s.IsActive,
 		Identities: identities,
+		BasicAuth:  basicAuth,
 	}
 }
 
@@ -141,11 +154,17 @@ func userSpecFromDomain(spec usermodel.UserSpec) UserSpec {
 		}
 	})
 
+	var basicAuth *BasicAuthCredential
+	if spec.BasicAuth != nil {
+		basicAuth = &BasicAuthCredential{PasswordHash: spec.BasicAuth.PasswordHash}
+	}
+
 	return UserSpec{
 		Email:      spec.Email,
 		Username:   spec.Username,
 		IsActive:   spec.IsActive,
 		Identities: identities,
+		BasicAuth:  basicAuth,
 	}
 }
 
