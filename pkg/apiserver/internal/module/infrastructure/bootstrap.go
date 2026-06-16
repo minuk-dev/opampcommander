@@ -26,6 +26,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -41,11 +42,13 @@ var errUnsupportedKind = errors.New("unsupported manifest kind")
 // bootstrap reconciler does not understand.
 var errUnsupportedAPIVersion = errors.New("unsupported manifest apiVersion")
 
-// errEmptyNamespaceName / errEmptyRoleName are returned when a manifest omits the
-// identifying name field.
+// errEmptyNamespaceName / errEmptyRoleName / errEmptyUser* are returned when a manifest
+// omits a required identifying field.
 var (
 	errEmptyNamespaceName = errors.New("namespace manifest has empty metadata.name")
 	errEmptyRoleName      = errors.New("role manifest has empty spec.displayName")
+	errEmptyUserName      = errors.New("user manifest has empty spec.username")
+	errEmptyUserEmail     = errors.New("user manifest has empty spec.email")
 )
 
 // bootstrapUIDNamespace is a fixed UUID namespace used to derive deterministic UIDs
@@ -66,6 +69,10 @@ func builtinPermissionUID(name string) uuid.UUID {
 	return uuid.NewSHA1(uuid.MustParse(bootstrapUIDNamespace), []byte("permission/"+name))
 }
 
+func builtinUserUID(username string) uuid.UUID {
+	return uuid.NewSHA1(uuid.MustParse(bootstrapUIDNamespace), []byte("user/"+username))
+}
+
 // bootstrapDeps bundles the filesystem and persistence ports the manifest appliers
 // reconcile into. fs is abstracted via afero so tests run against an in-memory
 // filesystem instead of the real OS, and production uses afero.NewOsFs().
@@ -74,6 +81,8 @@ type bootstrapDeps struct {
 	namespaceUsecase          agentport.NamespaceUsecase
 	rolePersistencePort       userport.RolePersistencePort
 	permissionPersistencePort userport.PermissionPersistencePort
+	userPersistencePort       userport.UserPersistencePort
+	passwordHasher            *security.PasswordHasher
 	clk                       clock.PassiveClock
 	logger                    *slog.Logger
 }
@@ -199,6 +208,8 @@ func applyManifests(ctx context.Context, docs []manifestDoc, deps bootstrapDeps)
 			err = applyNamespace(ctx, doc, deps)
 		case v1.RoleKind:
 			err = applyRole(ctx, doc, deps)
+		case v1.UserKind:
+			err = applyUser(ctx, doc, deps)
 		default:
 			return fmt.Errorf("%w: kind %q in %q", errUnsupportedKind, doc.kind, doc.source)
 		}
@@ -328,6 +339,154 @@ func applyRole(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
 	return nil
 }
 
+// applyUser upserts a basic-auth user (username + password). The user is granted only the
+// built-in default role — that happens automatically because SyncPolicies (run after bootstrap)
+// grants the default role to every persisted user in the default namespace, so no role binding
+// is needed here.
+//
+// The manifest's spec.password is the source of truth: on a fresh DB the user is created with a
+// peppered+salted hash; on later startups the stored hash is re-checked and only rewritten when
+// it no longer matches (so identical passwords don't churn the record with a new salt each boot).
+// When no pepper is configured, basic auth is disabled — the user cannot be hashed or logged in,
+// so seeding is skipped with a warning rather than failing startup.
+func applyUser(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
+	var apiUser v1.User
+
+	err := json.Unmarshal(doc.json, &apiUser)
+	if err != nil {
+		return fmt.Errorf("decode User from %q: %w", doc.source, err)
+	}
+
+	username := apiUser.Spec.Username
+	if username == "" {
+		return fmt.Errorf("%w: %q", errEmptyUserName, doc.source)
+	}
+
+	email := apiUser.Spec.Email
+	if email == "" {
+		return fmt.Errorf("%w: %q", errEmptyUserEmail, doc.source)
+	}
+
+	if apiUser.Spec.Password == "" {
+		return fmt.Errorf("user manifest %q for %q has empty spec.password: %w",
+			doc.source, username, port.ErrResourceNotExist)
+	}
+
+	if deps.passwordHasher == nil || !deps.passwordHasher.Enabled() {
+		deps.logger.Warn("bootstrap: skipping user seed because basic auth is disabled (no pepper configured)",
+			slog.String("username", username),
+			slog.String("source", doc.source),
+		)
+
+		return nil
+	}
+
+	existing, err := deps.userPersistencePort.GetUserByUsername(ctx, username)
+	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+		return fmt.Errorf("check user %q: %w", username, err)
+	}
+
+	if errors.Is(err, port.ErrResourceNotExist) {
+		return createBootstrapUser(ctx, username, email, apiUser.Spec.Password, deps)
+	}
+
+	return reconcileBootstrapUser(ctx, existing, username, email, apiUser.Spec.Password, deps)
+}
+
+// createBootstrapUser creates a new basic-auth user with a deterministic UID (so concurrent
+// fresh-DB startups converge on one record), a hashed password, and the basic identity + label.
+func createBootstrapUser(ctx context.Context, username, email, password string, deps bootstrapDeps) error {
+	hash, err := deps.passwordHasher.Hash(password)
+	if err != nil {
+		return fmt.Errorf("hash password for user %q: %w", username, err)
+	}
+
+	deps.logger.Info("bootstrap: creating user", slog.String("username", username))
+
+	user := usermodel.NewUser(email, username)
+	user.Metadata.UID = builtinUserUID(username)
+	setBootstrapBasicAuth(user, hash, username, email)
+
+	_, err = deps.userPersistencePort.PutUser(ctx, user)
+	if err != nil {
+		return fmt.Errorf("save user %q: %w", username, err)
+	}
+
+	return nil
+}
+
+// reconcileBootstrapUser brings an existing seeded user back in line with the manifest: it
+// re-activates it, ensures the basic identity + login-type label, and rewrites the password hash
+// only when the current one no longer verifies against the manifest password. It skips the write
+// entirely when nothing changed, to avoid churning the record on every startup.
+func reconcileBootstrapUser(
+	ctx context.Context,
+	user *usermodel.User,
+	username, email, password string,
+	deps bootstrapDeps,
+) error {
+	changed := false
+
+	if !user.Spec.IsActive {
+		user.Spec.IsActive = true
+		changed = true
+	}
+
+	if user.GetIdentity(usermodel.IdentityProviderBasic) == nil {
+		user.AddIdentity(usermodel.UserIdentity{
+			Provider:       usermodel.IdentityProviderBasic,
+			ProviderUserID: username,
+			Email:          email,
+			DisplayName:    username,
+		})
+
+		changed = true
+	}
+
+	if v, ok := user.GetLabel(usermodel.LabelLoginType); !ok || v != usermodel.IdentityProviderBasic {
+		user.SetLabel(usermodel.LabelLoginType, usermodel.IdentityProviderBasic)
+
+		changed = true
+	}
+
+	if deps.passwordHasher.Verify(password, user.PasswordHash()) != nil {
+		hash, err := deps.passwordHasher.Hash(password)
+		if err != nil {
+			return fmt.Errorf("hash password for user %q: %w", username, err)
+		}
+
+		user.SetPasswordHash(hash)
+
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+
+	user.Metadata.UpdatedAt = deps.clk.Now()
+
+	_, err := deps.userPersistencePort.PutUser(ctx, user)
+	if err != nil {
+		return fmt.Errorf("save user %q: %w", username, err)
+	}
+
+	return nil
+}
+
+// setBootstrapBasicAuth attaches the password hash, the basic identity, and the login-type label
+// to a user so it can authenticate via username/password and be picked up by RBAC default-role sync.
+func setBootstrapBasicAuth(user *usermodel.User, hash, username, email string) {
+	user.SetPasswordHash(hash)
+	user.AddIdentity(usermodel.UserIdentity{
+		Provider:       usermodel.IdentityProviderBasic,
+		ProviderUserID: username,
+		Email:          email,
+		DisplayName:    username,
+	})
+	user.SetLabel(usermodel.LabelLoginType, usermodel.IdentityProviderBasic)
+}
+
 // ensurePermission creates the built-in permission object for name ("resource:action")
 // if it does not already exist. Permissions are immutable once created.
 func ensurePermission(ctx context.Context, name string, deps bootstrapDeps) error {
@@ -367,6 +526,8 @@ func registerBootstrapHook(
 	namespaceUsecase agentport.NamespaceUsecase,
 	rolePersistencePort userport.RolePersistencePort,
 	permissionPersistencePort userport.PermissionPersistencePort,
+	userPersistencePort userport.UserPersistencePort,
+	passwordHasher *security.PasswordHasher,
 	settings *config.ServerSettings,
 	logger *slog.Logger,
 ) {
@@ -375,6 +536,8 @@ func registerBootstrapHook(
 		namespaceUsecase:          namespaceUsecase,
 		rolePersistencePort:       rolePersistencePort,
 		permissionPersistencePort: permissionPersistencePort,
+		userPersistencePort:       userPersistencePort,
+		passwordHasher:            passwordHasher,
 		clk:                       clock.NewRealClock(),
 		logger:                    logger,
 	}

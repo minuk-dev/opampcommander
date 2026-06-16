@@ -12,6 +12,8 @@ import (
 
 	inmemory "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -52,16 +54,27 @@ type fixedClock struct{ now time.Time }
 func (c fixedClock) Now() time.Time                  { return c.now }
 func (c fixedClock) Since(t time.Time) time.Duration { return c.now.Sub(t) }
 
+// testPepper is a fixed pepper so the test hasher is enabled (basic auth on).
+const testPepper = "test-pepper"
+
 func newTestDeps() (bootstrapDeps, *inmemory.RoleRepository, *inmemory.PermissionRepository) {
 	roleRepo := inmemory.NewRoleRepository()
 	permRepo := inmemory.NewPermissionRepository()
+	userRepo := inmemory.NewUserRepository()
 	nsService := agentservice.NewNamespaceService(inmemory.NewNamespaceRepository())
+
+	//exhaustruct:ignore
+	hasher := security.NewPasswordHasher(&security.Config{
+		BasicAuthSettings: security.BasicAuthSettings{Pepper: testPepper},
+	})
 
 	return bootstrapDeps{
 		fs:                        afero.NewMemMapFs(),
 		namespaceUsecase:          nsService,
 		rolePersistencePort:       roleRepo,
 		permissionPersistencePort: permRepo,
+		userPersistencePort:       userRepo,
+		passwordHasher:            hasher,
 		clk:                       clock.NewRealClock(),
 		logger:                    slog.Default(),
 	}, roleRepo, permRepo
@@ -168,6 +181,131 @@ func TestApplyManifests_AssignsDeterministicUIDsToBuiltins(t *testing.T) {
 	assert.Equal(t, role1, role2, "default role UID must be deterministic across startups")
 	assert.Equal(t, builtinPermissionUID("agent:GET"), perm1)
 	assert.Equal(t, perm1, perm2, "permission UID must be deterministic across startups")
+}
+
+const guestUserManifest = `kind: User
+apiVersion: v1
+spec:
+  username: guest
+  email: guest@guest
+  isActive: true
+  password: guest
+`
+
+func TestApplyManifests_SeedsBasicAuthUser(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	dir := writeManifests(t, deps.fs, map[string]string{"20-user.yaml": guestUserManifest})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	user, err := deps.userPersistencePort.GetUserByUsername(t.Context(), "guest")
+	require.NoError(t, err)
+	assert.Equal(t, "guest@guest", user.Spec.Email)
+	assert.True(t, user.Spec.IsActive)
+	assert.Equal(t, builtinUserUID("guest"), user.Metadata.UID, "user UID must be deterministic")
+	assert.True(t, user.HasBasicAuth())
+	require.NotNil(t, user.GetIdentity(usermodel.IdentityProviderBasic))
+
+	loginType, ok := user.GetLabel(usermodel.LabelLoginType)
+	assert.True(t, ok)
+	assert.Equal(t, usermodel.IdentityProviderBasic, loginType)
+
+	// The seeded hash must verify against the manifest password (and not store the plaintext).
+	require.NoError(t, deps.passwordHasher.Verify("guest", user.PasswordHash()))
+	assert.NotContains(t, user.PasswordHash(), "guest", "hash must not embed the plaintext")
+}
+
+func TestApplyManifests_UserIdempotentNoWriteWhenUnchanged(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	dir := writeManifests(t, deps.fs, map[string]string{"20-user.yaml": guestUserManifest})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	user, err := deps.userPersistencePort.GetUserByUsername(t.Context(), "guest")
+	require.NoError(t, err)
+
+	originalUpdatedAt := user.Metadata.UpdatedAt
+
+	// Re-apply with a clock pinned in the future: a spurious re-hash/write would move UpdatedAt.
+	deps.clk = fixedClock{now: time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)}
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	user, err = deps.userPersistencePort.GetUserByUsername(t.Context(), "guest")
+	require.NoError(t, err)
+	assert.Equal(t, originalUpdatedAt, user.Metadata.UpdatedAt,
+		"an unchanged user (password already matches) must not be re-written")
+}
+
+func TestApplyManifests_UserPasswordResetToManifest(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	dir := writeManifests(t, deps.fs, map[string]string{"20-user.yaml": guestUserManifest})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	// Simulate the password being changed out-of-band to something other than the manifest's.
+	user, err := deps.userPersistencePort.GetUserByUsername(t.Context(), "guest")
+	require.NoError(t, err)
+
+	otherHash, err := deps.passwordHasher.Hash("changed")
+	require.NoError(t, err)
+	user.SetPasswordHash(otherHash)
+	_, err = deps.userPersistencePort.PutUser(t.Context(), user)
+	require.NoError(t, err)
+
+	// Re-applying the manifest must reset the password back to the declared one.
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	user, err = deps.userPersistencePort.GetUserByUsername(t.Context(), "guest")
+	require.NoError(t, err)
+	require.NoError(t, deps.passwordHasher.Verify("guest", user.PasswordHash()),
+		"manifest password must be the source of truth")
+}
+
+func TestApplyManifests_UserSkippedWhenBasicAuthDisabled(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	//exhaustruct:ignore
+	deps.passwordHasher = security.NewPasswordHasher(&security.Config{}) // empty pepper => disabled
+
+	dir := writeManifests(t, deps.fs, map[string]string{"20-user.yaml": guestUserManifest})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+
+	// Disabled basic auth must skip the user seed, not fail startup.
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	_, err = deps.userPersistencePort.GetUserByUsername(t.Context(), "guest")
+	require.Error(t, err, "user must not be seeded when basic auth is disabled")
+}
+
+func TestApplyManifests_UserRequiresPassword(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	dir := writeManifests(t, deps.fs, map[string]string{
+		"20-user.yaml": "kind: User\napiVersion: v1\nspec:\n  username: nopass\n  email: nopass@x\n",
+	})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+
+	err = applyManifests(t.Context(), docs, deps)
+	require.Error(t, err, "a user manifest without a password must be rejected")
 }
 
 func TestApplyManifests_UnknownKindFails(t *testing.T) {
