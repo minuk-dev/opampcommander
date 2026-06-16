@@ -36,13 +36,13 @@ Open <http://localhost:3000>.
 
 ## Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `OPAMP_API_URL` | `http://localhost:8080` | apiserver base URL the proxy forwards to (server-side only). |
-| `NEXT_PUBLIC_WEB_VERSION` | `package.json` version | Version shown in the UI footer. |
-| `NEXT_PUBLIC_WEB_GIT_COMMIT` | — | Build commit shown in the footer. |
-| `NEXT_PUBLIC_WEB_GIT_TREE_STATE` | — | `clean` / `dirty` build state. |
-| `NEXT_PUBLIC_WEB_BUILD_DATE` | — | Build timestamp. |
+| Variable                         | Default                 | Description                                                  |
+| -------------------------------- | ----------------------- | ------------------------------------------------------------ |
+| `OPAMP_API_URL`                  | `http://localhost:8080` | apiserver base URL the proxy forwards to (server-side only). |
+| `NEXT_PUBLIC_WEB_VERSION`        | `package.json` version  | Version shown in the UI footer.                              |
+| `NEXT_PUBLIC_WEB_GIT_COMMIT`     | —                       | Build commit shown in the footer.                            |
+| `NEXT_PUBLIC_WEB_GIT_TREE_STATE` | —                       | `clean` / `dirty` build state.                               |
+| `NEXT_PUBLIC_WEB_BUILD_DATE`     | —                       | Build timestamp.                                             |
 
 ## Scripts
 
