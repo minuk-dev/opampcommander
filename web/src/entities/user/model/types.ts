@@ -14,6 +14,9 @@ export interface UserSpec {
   email: string;
   username: string;
   isActive: boolean;
+  // Write-only: plaintext password for basic (username/password) auth. Sent only when creating a
+  // user; the server stores only a one-way hash and never returns it, so responses omit this field.
+  password?: string;
 }
 
 export interface User {

@@ -15,3 +15,17 @@
     spec:
       email: alice@example.com
       username: alice
+
+- label: New basic-auth user
+  description: Email + username + password (write-only; stored only as a one-way hash, never returned)
+  value:
+    kind: User
+    apiVersion: v1
+    metadata:
+      uid: ""
+      createdAt: "{{now}}"
+      updatedAt: "{{now}}"
+    spec:
+      email: bob@example.com
+      username: bob
+      password: change-me
