@@ -63,7 +63,7 @@ By default the server listens on:
 - `localhost:8080` — REST API and the OpAMP WebSocket endpoint (`/api/v1/opamp`)
 - `localhost:9090` — management endpoints (`/healthz`, `/readyz`, metrics, pprof)
 
-See the [Configuration guide](/en/docs/configuration/) for every available option.
+See the [Configuration guide](/docs/configuration/) for every available option.
 
 ## Install opampctl
 
@@ -85,7 +85,7 @@ opampctl whoami
 opampctl get agent
 ```
 
-See the [CLI reference](/en/docs/cli/) for the full command set.
+See the [CLI reference](/docs/cli/) for the full command set.
 
 ## Connect an agent
 
@@ -104,6 +104,6 @@ The agent's `service.namespace` resource attribute determines its namespace
 
 ## Next steps
 
-- Configure the server in the [Configuration guide](/en/docs/configuration/)
-- Explore the [REST API](/en/docs/api/)
-- Learn the [CLI commands](/en/docs/cli/)
+- Configure the server in the [Configuration guide](/docs/configuration/)
+- Explore the [REST API](/docs/api/)
+- Learn the [CLI commands](/docs/cli/)

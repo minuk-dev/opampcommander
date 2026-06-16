@@ -61,7 +61,7 @@ Remote configs hold reusable agent configuration payloads that groups can refere
 The Agents page lists the collectors connected to the server with their connection
 type and reported health. Agents appear here once an OpAMP-capable collector connects
 to the server's `/api/v1/opamp` endpoint — see
-[Getting Started](/en/docs/getting-started/#connect-an-agent).
+[Getting Started](/docs/getting-started/#connect-an-agent).
 
 ![Agents](/images/screenshots/agents.png)
 

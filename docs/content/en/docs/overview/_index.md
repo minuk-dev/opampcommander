@@ -116,5 +116,5 @@ sequenceDiagram
 
 ## Getting started
 
-Ready to start? See the [Getting Started Guide](/en/docs/getting-started/) for
+Ready to start? See the [Getting Started Guide](/docs/getting-started/) for
 installation and setup.

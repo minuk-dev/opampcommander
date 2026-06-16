@@ -6,6 +6,10 @@ languageCode = "en-us"
 defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = false
 
+# Canonicalize root-relative URLs (images, links, menus) against baseURL so the
+# site works when served under a path prefix (e.g. /opampcommander/ on GitHub Pages).
+canonifyURLs = true
+
 # Highlight settings
 pygmentsCodeFences = true
 pygmentsUseClasses = true
@@ -91,7 +95,7 @@ disableKinds = ["taxonomy"]
   [[menu.main]]
     name = "Documentation"
     weight = 10
-    url = "/en/docs/"
+    url = "/docs/"
     
   [[menu.main]]
     name = "GitHub"
@@ -104,3 +108,6 @@ disableKinds = ["taxonomy"]
     title = "OpAMP Commander"
     languageName = "English"
     weight = 1
+    # Serve the content under content/en at the site root (no /en/ URL segment),
+    # since defaultContentLanguageInSubdir is false.
+    contentDir = "content/en"
