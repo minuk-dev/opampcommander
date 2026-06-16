@@ -221,8 +221,9 @@ func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) ([
 // or basic auth disabled because no pepper is configured) is wrapped in [port.ErrInvalidArgument]
 // so the controller surfaces it as a 400.
 func (s *Service) applyBasicAuth(ctx context.Context, user *usermodel.User, username, email, password string) error {
-	if username == "" {
-		return fmt.Errorf("%w: username is required for a basic-auth user", port.ErrInvalidArgument)
+	usernameErr := usermodel.ValidateUsername(username)
+	if usernameErr != nil {
+		return fmt.Errorf("%w: %w", port.ErrInvalidArgument, usernameErr)
 	}
 
 	if email == "" {

@@ -362,6 +362,11 @@ func applyUser(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
 		return fmt.Errorf("%w: %q", errEmptyUserName, doc.source)
 	}
 
+	usernameErr := usermodel.ValidateUsername(username)
+	if usernameErr != nil {
+		return fmt.Errorf("user manifest %q: %w", doc.source, usernameErr)
+	}
+
 	email := apiUser.Spec.Email
 	if email == "" {
 		return fmt.Errorf("%w: %q", errEmptyUserEmail, doc.source)

@@ -47,6 +47,13 @@ func (r *UserRepository) GetUserByEmailIncludingDeleted(_ context.Context, email
 // GetUserByUsername implements userport.UserPersistencePort.
 // Soft-deleted records are excluded. The username is matched exactly (case-sensitive).
 func (r *UserRepository) GetUserByUsername(_ context.Context, username string) (*usermodel.User, error) {
+	// Mirror the MongoDB adapter: a username that fails the strict allowlist cannot have been
+	// created, so it is treated as not-found.
+	err := usermodel.ValidateUsername(username)
+	if err != nil {
+		return nil, errResourceNotExist()
+	}
+
 	users := r.store.snapshot(false, func(user *usermodel.User) bool {
 		return user.Spec.Username == username
 	})
