@@ -12,6 +12,8 @@ const (
 	ListAgentGroupURL = "/api/v1/namespaces/{namespace}/agentgroups"
 	// ListAgentsByAgentGroupURL is the path to list all agents in an agent group.
 	ListAgentsByAgentGroupURL = "/api/v1/namespaces/{namespace}/agentgroups/{name}/agents"
+	// ListAgentGroupsByAgentURL is the path to list all agent groups that contain an agent.
+	ListAgentGroupsByAgentURL = "/api/v1/namespaces/{namespace}/agents/{id}/agentgroups"
 	// GetAgentGroupURL is the path to get an agent group by namespace and name.
 	GetAgentGroupURL = "/api/v1/namespaces/{namespace}/agentgroups/{id}"
 	// CreateAgentGroupURL is the path to create a new agent group.
@@ -133,6 +135,35 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 
 	if res.Result() == nil {
 		return nil, fmt.Errorf("failed to list resources: %w", ErrEmptyResponse)
+	}
+
+	return &listResponse, nil
+}
+
+// ListAgentGroupsByAgent lists the agent groups in the namespace whose selector matches
+// the agent identified by agentID.
+func (s *AgentGroupService) ListAgentGroupsByAgent(
+	ctx context.Context,
+	namespace string,
+	agentID string,
+) (*AgentGroupListResponse, error) {
+	var listResponse AgentGroupListResponse
+
+	res, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetResult(&listResponse).
+		SetPathParam("namespace", namespace).
+		SetPathParam("id", agentID).
+		Get(ListAgentGroupsByAgentURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agent groups by agent(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return nil, fmt.Errorf("failed to list agent groups by agent(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
 	}
 
 	return &listResponse, nil
