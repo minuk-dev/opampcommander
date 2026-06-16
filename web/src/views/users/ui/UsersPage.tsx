@@ -20,7 +20,7 @@ function emptyUser(): User {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
-    spec: { email: '', username: '', isActive: true },
+    spec: { email: '', username: '', isActive: true, password: '' },
   };
 }
 
@@ -58,7 +58,7 @@ export default function UsersPage() {
           <JsonEditorDialog
             open={open}
             title="Create user"
-            description="Set spec.email, spec.username, spec.isActive."
+            description="Set spec.email, spec.username, spec.isActive. Set spec.password to enable basic (username/password) login — it is stored only as a one-way hash and is never returned."
             initialValue={emptyUser()}
             samplesUrl="/samples/users.yaml"
             onClose={onClose}
