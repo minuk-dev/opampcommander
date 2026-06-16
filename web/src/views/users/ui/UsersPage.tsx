@@ -4,25 +4,13 @@ import { Box, Chip } from '@mui/material';
 import { ResourceListPage } from '@widgets/resource-list-page';
 import dynamic from 'next/dynamic';
 import { TimeDisplay } from '@shared/preferences';
-import { api } from '@shared/api';
 import type { User } from '@entities/user';
 
-// Lazy-loaded: the JSON editor pulls in js-yaml, only needed once a
-// create/edit dialog opens — keep it out of the initial route bundle.
-const JsonEditorDialog = dynamic(() => import('@shared/ui/JsonEditorDialog'));
-
-function emptyUser(): User {
-  return {
-    kind: 'User',
-    apiVersion: 'v1',
-    metadata: {
-      uid: '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    spec: { email: '', username: '', isActive: true, password: '' },
-  };
-}
+// Lazy-loaded: the dialog and its form fields are only needed once the user
+// opens the create flow — keep them out of the initial route bundle.
+const UserCreateDialog = dynamic(() =>
+  import('@features/user-create').then((m) => m.UserCreateDialog),
+);
 
 export default function UsersPage() {
   return (
@@ -55,18 +43,7 @@ export default function UsersPage() {
           { header: 'Created', render: (u) => <TimeDisplay value={u.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
-          <JsonEditorDialog
-            open={open}
-            title="Create user"
-            description="Set spec.email, spec.username, spec.isActive. Set spec.password to enable basic (username/password) login — it is stored only as a one-way hash and is never returned."
-            initialValue={emptyUser()}
-            samplesUrl="/samples/users.yaml"
-            onClose={onClose}
-            onSave={async (parsed) => {
-              await api.post('/api/v1/users', parsed as User);
-              onSaved();
-            }}
-          />
+          <UserCreateDialog open={open} onClose={onClose} onSaved={onSaved} />
         )}
       />
     </Box>
