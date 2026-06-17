@@ -21,6 +21,9 @@ import (
 var (
 	// ErrCommandExecutionFailed is returned when the command execution fails.
 	ErrCommandExecutionFailed = errors.New("command execution failed")
+	// ErrAgentWithAllNamespaces is returned when --agent is combined with --all-namespaces.
+	// An agent is looked up within a single namespace, so the two flags are mutually exclusive.
+	ErrAgentWithAllNamespaces = errors.New("--agent cannot be combined with --all-namespaces")
 )
 
 // CommandOptions contains the options for the agent command.
@@ -32,6 +35,7 @@ type CommandOptions struct {
 	includeDeleted bool
 	namespace      string
 	allNamespaces  bool
+	agent          string
 
 	// internal
 	client *client.Client
@@ -61,6 +65,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted agent groups")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent group")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
+	cmd.Flags().StringVar(&options.agent, "agent", "",
+		"List only the agent groups that contain the agent with this instance UID")
 
 	return cmd
 }
@@ -81,6 +87,19 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // Run runs the command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
+	if opt.agent != "" {
+		if opt.allNamespaces {
+			return ErrAgentWithAllNamespaces
+		}
+
+		err := opt.ListByAgent(cmd)
+		if err != nil {
+			return fmt.Errorf("list by agent failed: %w", err)
+		}
+
+		return nil
+	}
+
 	if len(args) == 0 {
 		err := opt.List(cmd)
 		if err != nil {
@@ -125,6 +144,29 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 	}
 
 	err = formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
+	if err != nil {
+		return fmt.Errorf("failed to format agentgroup: %w", err)
+	}
+
+	return nil
+}
+
+// ListByAgent retrieves the agent groups that contain the agent given by the --agent flag.
+func (opt *CommandOptions) ListByAgent(cmd *cobra.Command) error {
+	resp, err := opt.client.AgentGroupService.ListAgentGroupsByAgent(cmd.Context(), opt.namespace, opt.agent)
+	if err != nil {
+		// The lookup is scoped to --namespace; surface it so a 404 caused by the agent
+		// living in another namespace is actionable (the fix is usually `-n <namespace>`).
+		return fmt.Errorf("failed to list agent groups for agent %q in namespace %q: %w",
+			opt.agent, opt.namespace, err)
+	}
+
+	displayedAgentGroups := make([]formattedAgentGroup, len(resp.Items))
+	for idx, agentgroup := range resp.Items {
+		displayedAgentGroups[idx] = opt.toFormattedAgentGroup(agentgroup)
+	}
+
+	err = formatter.Format(cmd.OutOrStdout(), displayedAgentGroups, formatter.FormatType(opt.formatType))
 	if err != nil {
 		return fmt.Errorf("failed to format agentgroup: %w", err)
 	}
