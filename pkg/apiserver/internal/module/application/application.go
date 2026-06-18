@@ -14,6 +14,7 @@ import (
 	agentremoteconfigApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentremoteconfig"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	containerApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/container"
+	endpointApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint"
 	hostApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/host"
 	namespaceApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
@@ -63,6 +64,12 @@ func New() fx.Option {
 			fx.Annotate(
 				Identity[*agentremoteconfigApplicationService.Service],
 				fx.As(new(port.AgentRemoteConfigManageUsecase)),
+			),
+
+			endpointApplicationService.NewEndpointService,
+			fx.Annotate(
+				Identity[*endpointApplicationService.Service],
+				fx.As(new(port.EndpointManageUsecase)),
 			),
 
 			// user & RBAC application services

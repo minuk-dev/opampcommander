@@ -1,4 +1,4 @@
-// Package filter provides filters for agentremoteconfig domain model.
+// Package filter provides filters for endpoint domain model.
 package filter
 
 import (
@@ -6,7 +6,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-// Sanity provides methods to sanitize AgentRemoteConfig during update operations.
+// Sanity provides methods to sanitize Endpoint during update operations.
 type Sanity struct{}
 
 // NewSanity creates a new instance of Sanity filter.
@@ -14,11 +14,11 @@ func NewSanity() *Sanity {
 	return &Sanity{}
 }
 
-// Sanitize preserves immutable fields from the existing AgentRemoteConfig to the updated one.
+// Sanitize preserves immutable fields from the existing Endpoint to the updated one.
 func (f *Sanity) Sanitize(
-	existing *agentmodel.AgentRemoteConfig,
-	updated *agentmodel.AgentRemoteConfig,
-) *agentmodel.AgentRemoteConfig {
+	existing *agentmodel.Endpoint,
+	updated *agentmodel.Endpoint,
+) *agentmodel.Endpoint {
 	if existing == nil || updated == nil {
 		return updated
 	}

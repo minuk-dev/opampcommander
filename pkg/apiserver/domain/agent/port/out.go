@@ -113,6 +113,24 @@ type AgentRemoteConfigPersistencePort interface {
 	) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error)
 }
 
+// EndpointPersistencePort is an interface that defines the methods for endpoint persistence.
+type EndpointPersistencePort interface {
+	// GetEndpoint retrieves an endpoint by its namespace and name.
+	GetEndpoint(ctx context.Context, namespace string,
+		name string, options *model.GetOptions) (*agentmodel.Endpoint, error)
+	// PutEndpoint saves or updates an endpoint.
+	PutEndpoint(
+		ctx context.Context,
+		endpoint *agentmodel.Endpoint,
+	) (*agentmodel.Endpoint, error)
+	// ListEndpoints retrieves a list of endpoints filtered by namespace with pagination options.
+	ListEndpoints(
+		ctx context.Context,
+		namespace string,
+		options *model.ListOptions,
+	) (*model.ListResponse[*agentmodel.Endpoint], error)
+}
+
 // HostPersistencePort is an interface that defines the methods for host persistence.
 type HostPersistencePort interface {
 	// GetHost retrieves a host by its ID. It returns port.ErrResourceNotExist

@@ -271,6 +271,65 @@ func TestAgentGroupRepository_StatisticsFromAgentStore(t *testing.T) {
 	assert.Equal(t, 1, stored.Status.NumNotConnectedAgents)
 }
 
+func TestEndpointRepository_PutGetSoftDeleteAndIsolation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewEndpointRepository()
+
+	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
+	endpoint := agentmodel.NewEndpoint("default", "tempo", nil, now, "tester")
+	endpoint.Spec.URL = "https://tempo.example.com"
+	endpoint.Spec.Signals = agentmodel.EndpointSignals{Metrics: false, Logs: false, Traces: true}
+	endpoint.Spec.Tenants = []agentmodel.EndpointTenant{
+		{Name: "team-a", Headers: map[string]string{"X-Scope-OrgID": "team-a"}, Tags: nil, Signals: nil},
+	}
+
+	_, err := repo.PutEndpoint(ctx, endpoint)
+	require.NoError(t, err)
+
+	// A same-named endpoint in another namespace must not bleed into the
+	// default-namespace listing.
+	other := agentmodel.NewEndpoint("other", "tempo", nil, now, "tester")
+	_, err = repo.PutEndpoint(ctx, other)
+	require.NoError(t, err)
+
+	listDefault, err := repo.ListEndpoints(ctx, "default", nil)
+	require.NoError(t, err)
+	require.Len(t, listDefault.Items, 1)
+	assert.Equal(t, "default", listDefault.Items[0].Metadata.Namespace)
+
+	got, err := repo.GetEndpoint(ctx, "default", "tempo", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "https://tempo.example.com", got.Spec.URL)
+	require.Len(t, got.Spec.Tenants, 1)
+	assert.Equal(t, "team-a", got.Spec.Tenants[0].Headers["X-Scope-OrgID"])
+
+	// Mutating a Get result must not leak into the store (deep-copy semantics).
+	got.Spec.Tenants[0].Headers["X-Scope-OrgID"] = "mutated"
+
+	reread, err := repo.GetEndpoint(ctx, "default", "tempo", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "team-a", reread.Spec.Tenants[0].Headers["X-Scope-OrgID"])
+
+	// Soft delete hides it unless IncludeDeleted is set.
+	endpoint.MarkDeleted(now.Add(time.Hour), "tester")
+	_, err = repo.PutEndpoint(ctx, endpoint)
+	require.NoError(t, err)
+
+	_, err = repo.GetEndpoint(ctx, "default", "tempo", nil)
+	require.ErrorIs(t, err, port.ErrResourceNotExist)
+
+	//exhaustruct:ignore
+	revived, err := repo.GetEndpoint(ctx, "default", "tempo", &model.GetOptions{IncludeDeleted: true})
+	require.NoError(t, err)
+	assert.Equal(t, "tempo", revived.Metadata.Name)
+
+	list, err := repo.ListEndpoints(ctx, "default", nil)
+	require.NoError(t, err)
+	assert.Empty(t, list.Items)
+}
+
 func TestAgentRepository_GetReturnsIsolatedCopy(t *testing.T) {
 	t.Parallel()
 

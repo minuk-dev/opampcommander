@@ -388,6 +388,115 @@ func (mapper *Mapper) MapAPIToAgentRemoteConfig(
 	}
 }
 
+// MapEndpointToAPI maps a domain model Endpoint to an API model.
+func (mapper *Mapper) MapEndpointToAPI(
+	domain *agentmodel.Endpoint,
+) *v1.Endpoint {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.Endpoint{
+		Kind:       v1.EndpointKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.EndpointMetadata{
+			Name:       domain.Metadata.Name,
+			Namespace:  domain.Metadata.Namespace,
+			Attributes: v1.Attributes(domain.Metadata.Attributes),
+			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
+		},
+		Spec: v1.EndpointSpec{
+			URL:      domain.Spec.URL,
+			Protocol: domain.Spec.Protocol,
+			Signals:  mapEndpointSignalsToAPI(domain.Spec.Signals),
+			Tenants: lo.Map(domain.Spec.Tenants, func(t agentmodel.EndpointTenant, _ int) v1.EndpointTenant {
+				return mapEndpointTenantToAPI(t)
+			}),
+		},
+		Status: v1.EndpointStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+func mapEndpointSignalsToAPI(s agentmodel.EndpointSignals) v1.EndpointSignals {
+	return v1.EndpointSignals{
+		Metrics: s.Metrics,
+		Logs:    s.Logs,
+		Traces:  s.Traces,
+	}
+}
+
+func mapEndpointTenantToAPI(tenant agentmodel.EndpointTenant) v1.EndpointTenant {
+	var signals *v1.EndpointSignals
+
+	if tenant.Signals != nil {
+		s := mapEndpointSignalsToAPI(*tenant.Signals)
+		signals = &s
+	}
+
+	return v1.EndpointTenant{
+		Name:    tenant.Name,
+		Headers: tenant.Headers,
+		Tags:    tenant.Tags,
+		Signals: signals,
+	}
+}
+
+// MapAPIToEndpoint maps an API model Endpoint to a domain model.
+func (mapper *Mapper) MapAPIToEndpoint(
+	api *v1.Endpoint,
+) *agentmodel.Endpoint {
+	if api == nil {
+		return nil
+	}
+
+	return &agentmodel.Endpoint{
+		Metadata: agentmodel.EndpointMetadata{
+			Name:       api.Metadata.Name,
+			Namespace:  api.Metadata.Namespace,
+			Attributes: agentmodel.OfAttributes(api.Metadata.Attributes),
+			CreatedAt:  api.Metadata.CreatedAt.Time,
+			DeletedAt:  nil,
+		},
+		Spec: agentmodel.EndpointSpec{
+			URL:      api.Spec.URL,
+			Protocol: api.Spec.Protocol,
+			Signals:  mapAPIToEndpointSignals(api.Spec.Signals),
+			Tenants: lo.Map(api.Spec.Tenants, func(t v1.EndpointTenant, _ int) agentmodel.EndpointTenant {
+				return mapAPIToEndpointTenant(t)
+			}),
+		},
+		Status: agentmodel.EndpointStatus{
+			Conditions: nil,
+		},
+	}
+}
+
+func mapAPIToEndpointSignals(s v1.EndpointSignals) agentmodel.EndpointSignals {
+	return agentmodel.EndpointSignals{
+		Metrics: s.Metrics,
+		Logs:    s.Logs,
+		Traces:  s.Traces,
+	}
+}
+
+func mapAPIToEndpointTenant(tenant v1.EndpointTenant) agentmodel.EndpointTenant {
+	var signals *agentmodel.EndpointSignals
+
+	if tenant.Signals != nil {
+		s := mapAPIToEndpointSignals(*tenant.Signals)
+		signals = &s
+	}
+
+	return agentmodel.EndpointTenant{
+		Name:    tenant.Name,
+		Headers: tenant.Headers,
+		Tags:    tenant.Tags,
+		Signals: signals,
+	}
+}
+
 // MapUserToAPI maps a domain model User to an API model User.
 func (mapper *Mapper) MapUserToAPI(domain *usermodel.User) *v1.User {
 	if domain == nil {

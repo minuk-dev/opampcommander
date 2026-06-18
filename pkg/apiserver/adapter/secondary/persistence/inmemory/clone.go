@@ -240,6 +240,41 @@ func cloneAgentRemoteConfig(remoteConfig *agentmodel.AgentRemoteConfig) *agentmo
 	return &cloned
 }
 
+func cloneEndpoint(endpoint *agentmodel.Endpoint) *agentmodel.Endpoint {
+	if endpoint == nil {
+		return nil
+	}
+
+	cloned := *endpoint
+	cloned.Metadata.Attributes = maps.Clone(endpoint.Metadata.Attributes)
+	cloned.Metadata.DeletedAt = cloneTimePtr(endpoint.Metadata.DeletedAt)
+	cloned.Status.Conditions = slices.Clone(endpoint.Status.Conditions)
+
+	if endpoint.Spec.Tenants != nil {
+		tenants := make([]agentmodel.EndpointTenant, len(endpoint.Spec.Tenants))
+		for i := range endpoint.Spec.Tenants {
+			tenants[i] = cloneEndpointTenant(endpoint.Spec.Tenants[i])
+		}
+
+		cloned.Spec.Tenants = tenants
+	}
+
+	return &cloned
+}
+
+func cloneEndpointTenant(tenant agentmodel.EndpointTenant) agentmodel.EndpointTenant {
+	cloned := tenant
+	cloned.Headers = maps.Clone(tenant.Headers)
+	cloned.Tags = maps.Clone(tenant.Tags)
+
+	if tenant.Signals != nil {
+		signals := *tenant.Signals
+		cloned.Signals = &signals
+	}
+
+	return cloned
+}
+
 func cloneCertificate(certificate *agentmodel.Certificate) *agentmodel.Certificate {
 	if certificate == nil {
 		return nil
