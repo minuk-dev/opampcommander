@@ -57,3 +57,27 @@ export interface AgentRemoteConfigSpec {
   value: string;
   contentType: string;
 }
+
+// Telemetry signals an Endpoint (or one of its tenants) supports.
+export interface EndpointSignals {
+  metrics: boolean;
+  logs: boolean;
+  traces: boolean;
+}
+
+// A tenant of an Endpoint: lets the same destination be managed differently per
+// tenant via per-tenant headers (e.g. X-Scope-OrgID) and tags.
+export interface EndpointTenant {
+  name: string;
+  headers?: Record<string, string>;
+  tags?: Record<string, string>;
+  signals?: EndpointSignals;
+}
+
+// Spec for the Endpoint entity (a telemetry backend/destination).
+export interface EndpointSpec {
+  url: string;
+  protocol: string;
+  signals: EndpointSignals;
+  tenants?: EndpointTenant[];
+}
