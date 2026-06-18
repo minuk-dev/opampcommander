@@ -106,6 +106,24 @@ type AgentRemoteConfigUsecase interface {
 		deletedAt time.Time, deletedBy string) error
 }
 
+// EndpointUsecase is an interface that defines the methods for endpoint use cases.
+type EndpointUsecase interface {
+	// GetEndpoint retrieves an endpoint by its namespace and name.
+	GetEndpoint(ctx context.Context, namespace string,
+		name string, options *model.GetOptions) (*agentmodel.Endpoint, error)
+	// ListEndpoints lists all endpoints.
+	ListEndpoints(
+		ctx context.Context, options *model.ListOptions,
+	) (*model.ListResponse[*agentmodel.Endpoint], error)
+	// SaveEndpoint saves the endpoint.
+	SaveEndpoint(
+		ctx context.Context, endpoint *agentmodel.Endpoint,
+	) (*agentmodel.Endpoint, error)
+	// DeleteEndpoint deletes the endpoint by its namespace and name.
+	DeleteEndpoint(ctx context.Context, namespace string, name string,
+		deletedAt time.Time, deletedBy string) error
+}
+
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its namespace and name.

@@ -25,6 +25,8 @@ spec:
     - agentpackage:LIST
     - agentremoteconfig:GET
     - agentremoteconfig:LIST
+    - endpoint:GET
+    - endpoint:LIST
     - connection:GET
     - connection:LIST
     - rolebinding:GET

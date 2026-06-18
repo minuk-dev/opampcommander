@@ -246,6 +246,8 @@ func namespacedResourceSingular(plural string) (string, bool) {
 		return "agentpackage", true
 	case "agentremoteconfigs":
 		return "agentremoteconfig", true
+	case "endpoints":
+		return "endpoint", true
 	case "certificates":
 		return "certificate", true
 	case "connections":

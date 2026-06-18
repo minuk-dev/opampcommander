@@ -135,6 +135,19 @@ type AgentRemoteConfigManageUsecase interface {
 	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string) error
 }
 
+// EndpointManageUsecase is a use case that handles endpoint management operations.
+type EndpointManageUsecase interface {
+	GetEndpoint(ctx context.Context, namespace string,
+		name string, options *model.GetOptions) (*v1.Endpoint, error)
+	ListEndpoints(ctx context.Context,
+		options *model.ListOptions) (*v1.ListResponse[v1.Endpoint], error)
+	CreateEndpoint(ctx context.Context,
+		endpoint *v1.Endpoint) (*v1.Endpoint, error)
+	UpdateEndpoint(ctx context.Context, namespace string, name string,
+		endpoint *v1.Endpoint) (*v1.Endpoint, error)
+	DeleteEndpoint(ctx context.Context, namespace string, name string) error
+}
+
 // UserManageUsecase is a use case that handles user management operations.
 type UserManageUsecase interface {
 	GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.User, error)
