@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -68,6 +69,11 @@ func (a *RoleMongoAdapter) GetRole(
 func (a *RoleMongoAdapter) GetRoleByName(
 	ctx context.Context, displayName string,
 ) (*usermodel.Role, error) {
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" || strings.HasPrefix(displayName, "$") {
+		return nil, fmt.Errorf("get role by name: invalid display name")
+	}
+
 	filter := bson.M{
 		"spec.displayName":   displayName,
 		"metadata.deletedAt": nil,
