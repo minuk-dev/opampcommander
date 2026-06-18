@@ -1,0 +1,62 @@
+# Endpoint samples. An Endpoint is a telemetry backend/destination a collector
+# exports to. spec.signals declares which signals it supports; spec.tenants lets
+# the same destination be managed differently per tenant via headers/tags.
+
+- label: OTLP backend (all signals)
+  description: A single OTLP/gRPC destination accepting metrics, logs and traces
+  value:
+    metadata:
+      name: central-otlp
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      url: https://otlp.example.com:4317
+      protocol: otlp
+      signals:
+        metrics: true
+        logs: true
+        traces: true
+
+- label: Mimir (multi-tenant metrics)
+  description: Prometheus remote-write to Mimir with per-tenant X-Scope-OrgID headers
+  value:
+    metadata:
+      name: mimir
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      url: https://mimir.example.com/api/v1/push
+      protocol: prometheusremotewrite
+      signals:
+        metrics: true
+        logs: false
+        traces: false
+      tenants:
+        - name: team-a
+          headers:
+            X-Scope-OrgID: team-a
+          tags:
+            tier: gold
+        - name: team-b
+          headers:
+            X-Scope-OrgID: team-b
+          tags:
+            tier: silver
+
+- label: Tempo (traces only)
+  description: A Tempo destination supporting only the traces signal
+  value:
+    metadata:
+      name: tempo
+      namespace: "{{namespace}}"
+      attributes: {}
+      createdAt: "{{now}}"
+    spec:
+      url: https://tempo.example.com:4317
+      protocol: otlp
+      signals:
+        metrics: false
+        logs: false
+        traces: true

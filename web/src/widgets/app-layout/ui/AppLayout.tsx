@@ -30,6 +30,7 @@ import {
   Dns as DnsIcon,
   Inventory2 as PackageIcon,
   Tune as TuneIcon,
+  Hub as HubIcon,
   VerifiedUser as CertIcon,
   PeopleAlt as PeopleIcon,
   AdminPanelSettings as RoleIcon,
@@ -115,6 +116,12 @@ const sections: NavSection[] = [
         icon: <TuneIcon />,
         href: '/agentremoteconfigs',
         requires: { resource: 'agentremoteconfig', action: 'LIST' },
+      },
+      {
+        text: 'Endpoints',
+        icon: <HubIcon />,
+        href: '/endpoints',
+        requires: { resource: 'endpoint', action: 'LIST' },
       },
       {
         text: 'Certificates',

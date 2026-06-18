@@ -9,3 +9,6 @@ docs/public
 coverage.txt
 coverage.out
 .claude
+
+# macOS
+.DS_Store
