@@ -139,7 +139,7 @@ type AgentRemoteConfigManageUsecase interface {
 type EndpointManageUsecase interface {
 	GetEndpoint(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*v1.Endpoint, error)
-	ListEndpoints(ctx context.Context,
+	ListEndpoints(ctx context.Context, namespace string,
 		options *model.ListOptions) (*v1.ListResponse[v1.Endpoint], error)
 	CreateEndpoint(ctx context.Context,
 		endpoint *v1.Endpoint) (*v1.Endpoint, error)

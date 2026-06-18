@@ -1840,6 +1840,300 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/endpoints": {
+            "get": {
+                "description": "Retrieve a list of endpoints in a namespace.",
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "List Endpoints",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of endpoints to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing endpoints",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted endpoints",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Endpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new endpoint.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "Create Endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Endpoint to create",
+                        "name": "endpoint",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Endpoint"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/Endpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/namespaces/{namespace}/endpoints/{name}": {
+            "get": {
+                "description": "Retrieve an endpoint by its name.",
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "Get Endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the endpoint",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted endpoint",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Endpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing endpoint.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "Update Endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the endpoint",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated Endpoint",
+                        "name": "endpoint",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Endpoint"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Endpoint"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete an endpoint by its name.",
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "Delete Endpoint",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the endpoint",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/rolebindings": {
             "get": {
                 "description": "Retrieves a list of role bindings with pagination options.",
@@ -3681,6 +3975,127 @@ const docTemplate = `{
                 }
             }
         },
+        "Endpoint": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/EndpointMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/EndpointSpec"
+                },
+                "status": {
+                    "$ref": "#/definitions/EndpointStatus"
+                }
+            }
+        },
+        "EndpointMetadata": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "EndpointSignals": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "type": "boolean"
+                },
+                "metrics": {
+                    "type": "boolean"
+                },
+                "traces": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "EndpointSpec": {
+            "type": "object",
+            "properties": {
+                "protocol": {
+                    "description": "Protocol is the export protocol (e.g. \"otlp\", \"otlphttp\", \"prometheusremotewrite\").",
+                    "type": "string"
+                },
+                "signals": {
+                    "description": "Signals declares which telemetry signals this endpoint supports by default.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/EndpointSignals"
+                        }
+                    ]
+                },
+                "tenants": {
+                    "description": "Tenants is the multi-tenant breakdown of the endpoint.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/EndpointTenant"
+                    }
+                },
+                "url": {
+                    "description": "URL is the destination of the telemetry backend.",
+                    "type": "string"
+                }
+            }
+        },
+        "EndpointStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
+                }
+            }
+        },
+        "EndpointTenant": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Headers are per-tenant headers (e.g. \"X-Scope-OrgID\" for Mimir/Loki/Tempo).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "description": "Name is the tenant identifier, unique within the endpoint.",
+                    "type": "string"
+                },
+                "signals": {
+                    "description": "Signals optionally overrides the endpoint-level signal support for this tenant.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/EndpointSignals"
+                        }
+                    ]
+                },
+                "tags": {
+                    "description": "Tags are arbitrary key/value labels for internal differentiation/selection.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "ErrorDetail": {
             "type": "object",
             "properties": {
@@ -3955,6 +4370,26 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/Container"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-Endpoint": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Endpoint"
                     }
                 },
                 "kind": {

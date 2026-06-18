@@ -1,4 +1,3 @@
-//nolint:dupl // namespaced CRUD domain services intentionally share this shape.
 package agentservice
 
 import (

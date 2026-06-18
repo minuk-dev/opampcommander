@@ -3,6 +3,7 @@ package endpoint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -15,6 +16,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -64,9 +66,10 @@ func (s *Service) GetEndpoint(
 // ListEndpoints implements [port.EndpointManageUsecase].
 func (s *Service) ListEndpoints(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*v1.ListResponse[v1.Endpoint], error) {
-	endpoints, err := s.endpointUsecase.ListEndpoints(ctx, options)
+	endpoints, err := s.endpointUsecase.ListEndpoints(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("list endpoints: %w", err)
 	}
@@ -93,6 +96,20 @@ func (s *Service) CreateEndpoint(
 	apiModel *v1.Endpoint,
 ) (*v1.Endpoint, error) {
 	domainModel := s.mapper.MapAPIToEndpoint(apiModel)
+
+	if domainModel.Metadata.Name == "" {
+		return nil, fmt.Errorf("%w: endpoint name must not be empty", domainport.ErrInvalidArgument)
+	}
+
+	// Reject creating over an existing endpoint instead of silently upserting it.
+	_, err := s.endpointUsecase.GetEndpoint(ctx, domainModel.Metadata.Namespace, domainModel.Metadata.Name, nil)
+	switch {
+	case err == nil:
+		return nil, fmt.Errorf("%w: endpoint %q in namespace %q",
+			domainport.ErrResourceAlreadyExist, domainModel.Metadata.Name, domainModel.Metadata.Namespace)
+	case !errors.Is(err, domainport.ErrResourceNotExist):
+		return nil, fmt.Errorf("check existing endpoint: %w", err)
+	}
 
 	now := s.clock.Now()
 

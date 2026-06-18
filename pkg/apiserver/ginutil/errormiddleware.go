@@ -88,6 +88,12 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 		return
 	}
 
+	if errors.Is(err, port.ErrResourceAlreadyExist) {
+		ConflictError(ctx, err, "The resource already exists.")
+
+		return
+	}
+
 	if errors.Is(err, port.ErrInvalidArgument) {
 		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
 			Type:     baseURL,

@@ -23,8 +23,14 @@ func (f *Sanity) Sanitize(
 		return updated
 	}
 
-	// Preserve immutable metadata fields
+	// Preserve immutable identity and metadata fields. Name and Namespace are the
+	// resource's identity and must come from the existing record, not the request
+	// body (a PUT body may omit them), so an update never forks into a phantom
+	// record under a different key.
+	updated.Metadata.Name = existing.Metadata.Name
+	updated.Metadata.Namespace = existing.Metadata.Namespace
 	updated.Metadata.CreatedAt = existing.Metadata.CreatedAt
+	updated.Metadata.DeletedAt = existing.Metadata.DeletedAt
 
 	// Preserve existing status but avoid sharing mutable slices.
 	updated.Status = existing.Status

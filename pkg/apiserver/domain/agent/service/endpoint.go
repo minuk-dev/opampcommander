@@ -1,4 +1,3 @@
-//nolint:dupl // namespaced CRUD domain services intentionally share this shape.
 package agentservice
 
 import (
@@ -43,9 +42,10 @@ func (s *EndpointService) GetEndpoint(
 // ListEndpoints implements [agentport.EndpointUsecase].
 func (s *EndpointService) ListEndpoints(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Endpoint], error) {
-	resourceResp, err := s.persistence.ListEndpoints(ctx, options)
+	resourceResp, err := s.persistence.ListEndpoints(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list endpoints: %w", err)
 	}

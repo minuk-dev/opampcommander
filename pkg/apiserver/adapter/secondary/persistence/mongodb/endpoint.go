@@ -1,4 +1,3 @@
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
@@ -94,9 +93,11 @@ func (a *EndpointMongoAdapter) GetEndpoint(
 
 // ListEndpoints implements agentport.EndpointPersistencePort.
 func (a *EndpointMongoAdapter) ListEndpoints(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Endpoint], error) {
-	resp, err := a.common.list(ctx, options)
+	resp, err := a.common.listWithFilter(ctx, options, bson.M{
+		endpointNamespaceFieldName: sanitizeResourceName(namespace),
+	})
 	if err != nil {
 		return nil, err
 	}

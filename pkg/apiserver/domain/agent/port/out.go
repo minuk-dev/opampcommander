@@ -123,9 +123,10 @@ type EndpointPersistencePort interface {
 		ctx context.Context,
 		endpoint *agentmodel.Endpoint,
 	) (*agentmodel.Endpoint, error)
-	// ListEndpoints retrieves a list of endpoints with pagination options.
+	// ListEndpoints retrieves a list of endpoints filtered by namespace with pagination options.
 	ListEndpoints(
 		ctx context.Context,
+		namespace string,
 		options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.Endpoint], error)
 }

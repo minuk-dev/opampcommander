@@ -70,7 +70,28 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 }
 
 // List retrieves a list of endpoints.
+//
+// @Summary  List Endpoints
+// @Tags endpoint
+// @Description Retrieve a list of endpoints in a namespace.
+// @Success 200 {object} v1.ListResponse[v1.Endpoint]
+// @Param namespace path string true "Namespace"
+// @Param limit query int false "Maximum number of endpoints to return"
+// @Param continue query string false "Token to continue listing endpoints"
+// @Param includeDeleted query bool false "Include soft-deleted endpoints"
+// @Failure 400 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/endpoints [get].
 func (c *Controller) List(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "namespace", ctx.Param("namespace"), err, true,
+		)
+
+		return
+	}
+
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(
@@ -92,7 +113,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	}
 
 	response, err := c.endpointUsecase.ListEndpoints(
-		ctx.Request.Context(), &model.ListOptions{
+		ctx.Request.Context(), namespace, &model.ListOptions{
 			Limit:          limit,
 			Continue:       continueToken,
 			IncludeDeleted: includeDeleted,
@@ -114,6 +135,18 @@ func (c *Controller) List(ctx *gin.Context) {
 }
 
 // Get retrieves an endpoint by its name.
+//
+// @Summary  Get Endpoint
+// @Tags endpoint
+// @Description Retrieve an endpoint by its name.
+// @Success 200 {object} v1.Endpoint
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Name of the endpoint"
+// @Param includeDeleted query bool false "Include soft-deleted endpoint"
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/endpoints/{name} [get].
 func (c *Controller) Get(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
 	if err != nil {
@@ -164,6 +197,19 @@ func (c *Controller) Get(ctx *gin.Context) {
 }
 
 // Create creates a new endpoint.
+//
+// @Summary  Create Endpoint
+// @Tags endpoint
+// @Description Create a new endpoint.
+// @Accept json
+// @Produce json
+// @Success 201 {object} v1.Endpoint
+// @Param namespace path string true "Namespace"
+// @Param endpoint body v1.Endpoint true "Endpoint to create"
+// @Failure 400 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/endpoints [post].
 func (c *Controller) Create(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
 	if err != nil {
@@ -192,7 +238,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		c.logger.Error(
 			"failed to create endpoint", "error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while creating the endpoint.",
 		)
@@ -209,6 +255,20 @@ func (c *Controller) Create(ctx *gin.Context) {
 }
 
 // Update updates an existing endpoint.
+//
+// @Summary  Update Endpoint
+// @Tags endpoint
+// @Description Update an existing endpoint.
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.Endpoint
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Name of the endpoint"
+// @Param endpoint body v1.Endpoint true "Updated Endpoint"
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/endpoints/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
 	if err != nil {
@@ -257,6 +317,17 @@ func (c *Controller) Update(ctx *gin.Context) {
 }
 
 // Delete deletes an endpoint by its name.
+//
+// @Summary  Delete Endpoint
+// @Tags endpoint
+// @Description Delete an endpoint by its name.
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Name of the endpoint"
+// @Success 204
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/endpoints/{name} [delete].
 func (c *Controller) Delete(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
 	if err != nil {

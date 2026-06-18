@@ -288,6 +288,17 @@ func TestEndpointRepository_PutGetSoftDeleteAndIsolation(t *testing.T) {
 	_, err := repo.PutEndpoint(ctx, endpoint)
 	require.NoError(t, err)
 
+	// A same-named endpoint in another namespace must not bleed into the
+	// default-namespace listing.
+	other := agentmodel.NewEndpoint("other", "tempo", nil, now, "tester")
+	_, err = repo.PutEndpoint(ctx, other)
+	require.NoError(t, err)
+
+	listDefault, err := repo.ListEndpoints(ctx, "default", nil)
+	require.NoError(t, err)
+	require.Len(t, listDefault.Items, 1)
+	assert.Equal(t, "default", listDefault.Items[0].Metadata.Namespace)
+
 	got, err := repo.GetEndpoint(ctx, "default", "tempo", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "https://tempo.example.com", got.Spec.URL)
@@ -314,7 +325,7 @@ func TestEndpointRepository_PutGetSoftDeleteAndIsolation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "tempo", revived.Metadata.Name)
 
-	list, err := repo.ListEndpoints(ctx, nil)
+	list, err := repo.ListEndpoints(ctx, "default", nil)
 	require.NoError(t, err)
 	assert.Empty(t, list.Items)
 }

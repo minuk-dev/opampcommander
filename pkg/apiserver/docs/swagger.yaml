@@ -583,6 +583,86 @@ definitions:
           This is typically shown to the user in non-textual form, such as a QR code.
         type: string
     type: object
+  Endpoint:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/EndpointMetadata'
+      spec:
+        $ref: '#/definitions/EndpointSpec'
+      status:
+        $ref: '#/definitions/EndpointStatus'
+    type: object
+  EndpointMetadata:
+    properties:
+      attributes:
+        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+      createdAt:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+    type: object
+  EndpointSignals:
+    properties:
+      logs:
+        type: boolean
+      metrics:
+        type: boolean
+      traces:
+        type: boolean
+    type: object
+  EndpointSpec:
+    properties:
+      protocol:
+        description: Protocol is the export protocol (e.g. "otlp", "otlphttp", "prometheusremotewrite").
+        type: string
+      signals:
+        allOf:
+        - $ref: '#/definitions/EndpointSignals'
+        description: Signals declares which telemetry signals this endpoint supports
+          by default.
+      tenants:
+        description: Tenants is the multi-tenant breakdown of the endpoint.
+        items:
+          $ref: '#/definitions/EndpointTenant'
+        type: array
+      url:
+        description: URL is the destination of the telemetry backend.
+        type: string
+    type: object
+  EndpointStatus:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
+  EndpointTenant:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Headers are per-tenant headers (e.g. "X-Scope-OrgID" for Mimir/Loki/Tempo).
+        type: object
+      name:
+        description: Name is the tenant identifier, unique within the endpoint.
+        type: string
+      signals:
+        allOf:
+        - $ref: '#/definitions/EndpointSignals'
+        description: Signals optionally overrides the endpoint-level signal support
+          for this tenant.
+      tags:
+        additionalProperties:
+          type: string
+        description: Tags are arbitrary key/value labels for internal differentiation/selection.
+        type: object
+    type: object
   ErrorDetail:
     properties:
       location:
@@ -778,6 +858,19 @@ definitions:
       items:
         items:
           $ref: '#/definitions/Container'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Endpoint:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Endpoint'
         type: array
       kind:
         type: string
@@ -2539,6 +2632,207 @@ paths:
       summary: List Connections
       tags:
       - connection
+  /api/v1/namespaces/{namespace}/endpoints:
+    get:
+      description: Retrieve a list of endpoints in a namespace.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Maximum number of endpoints to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing endpoints
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted endpoints
+        in: query
+        name: includeDeleted
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Endpoint'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Endpoints
+      tags:
+      - endpoint
+    post:
+      consumes:
+      - application/json
+      description: Create a new endpoint.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Endpoint to create
+        in: body
+        name: endpoint
+        required: true
+        schema:
+          $ref: '#/definitions/Endpoint'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Endpoint'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create Endpoint
+      tags:
+      - endpoint
+  /api/v1/namespaces/{namespace}/endpoints/{name}:
+    delete:
+      description: Delete an endpoint by its name.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the endpoint
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete Endpoint
+      tags:
+      - endpoint
+    get:
+      description: Retrieve an endpoint by its name.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the endpoint
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Include soft-deleted endpoint
+        in: query
+        name: includeDeleted
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Endpoint'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Endpoint
+      tags:
+      - endpoint
+    put:
+      consumes:
+      - application/json
+      description: Update an existing endpoint.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the endpoint
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Updated Endpoint
+        in: body
+        name: endpoint
+        required: true
+        schema:
+          $ref: '#/definitions/Endpoint'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Endpoint'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update Endpoint
+      tags:
+      - endpoint
   /api/v1/namespaces/{namespace}/rolebindings:
     get:
       description: Retrieves a list of role bindings with pagination options.

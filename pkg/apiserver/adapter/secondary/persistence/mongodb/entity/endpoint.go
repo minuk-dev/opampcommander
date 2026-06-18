@@ -10,14 +10,8 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-const (
-	// EndpointKeyFieldName is the key field name for endpoint.
-	EndpointKeyFieldName = "metadata.name"
-	// EndpointNamespaceFieldName is the field name for namespace in MongoDB.
-	EndpointNamespaceFieldName = "metadata.namespace"
-	// EndpointNameFieldName is the field name for name in MongoDB.
-	EndpointNameFieldName = "metadata.name"
-)
+// EndpointNameFieldName is the field name for name in MongoDB.
+const EndpointNameFieldName = "metadata.name"
 
 // EndpointResourceEntity is the MongoDB entity for endpoint resource.
 type EndpointResourceEntity struct {

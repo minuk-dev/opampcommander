@@ -111,9 +111,9 @@ type EndpointUsecase interface {
 	// GetEndpoint retrieves an endpoint by its namespace and name.
 	GetEndpoint(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*agentmodel.Endpoint, error)
-	// ListEndpoints lists all endpoints.
+	// ListEndpoints lists endpoints filtered by namespace.
 	ListEndpoints(
-		ctx context.Context, options *model.ListOptions,
+		ctx context.Context, namespace string, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.Endpoint], error)
 	// SaveEndpoint saves the endpoint.
 	SaveEndpoint(

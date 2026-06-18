@@ -1,4 +1,3 @@
-//nolint:dupl // namespaced CRUD repositories intentionally share this shape.
 package inmemory
 
 import (
@@ -48,7 +47,9 @@ func (r *EndpointRepository) PutEndpoint(
 
 // ListEndpoints implements agentport.EndpointPersistencePort.
 func (r *EndpointRepository) ListEndpoints(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Endpoint], error) {
-	return r.store.list(options, nil)
+	return r.store.list(options, func(endpoint *agentmodel.Endpoint) bool {
+		return endpoint.Metadata.Namespace == namespace
+	})
 }
