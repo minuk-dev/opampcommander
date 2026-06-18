@@ -8,6 +8,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentpackage"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/agentremoteconfig"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/certificate"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/endpoint"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/namespace"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/role"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create/rolebinding"
@@ -39,6 +40,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(certificate.NewCommand(certificate.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(endpoint.NewCommand(endpoint.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(namespace.NewCommand(namespace.CommandOptions{

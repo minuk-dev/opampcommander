@@ -229,6 +229,42 @@ func ListAgentRemoteConfigFully(
 	}
 }
 
+// ListEndpointFully lists all endpoints in a namespace.
+// It continues to fetch endpoints until there are no more to fetch.
+func ListEndpointFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+	opts ...client.ListOption,
+) ([]v1.Endpoint, error) {
+	var endpoints []v1.Endpoint
+	// Initialize the continue token to an empty string
+	continueToken := ""
+
+	for {
+		// Build options for each request
+		requestOpts := append([]client.ListOption{
+			client.WithContinueToken(continueToken),
+			client.WithLimit(ChunkSize),
+		}, opts...)
+
+		// List endpoints with the current continue token
+		resp, err := cli.EndpointService.ListEndpoints(ctx, namespace, requestOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list endpoints: %w", err)
+		}
+
+		// Iterate over each endpoint in the response
+		if len(resp.Items) == 0 {
+			return endpoints, nil // No endpoints found, exit the loop
+		}
+
+		endpoints = append(endpoints, resp.Items...)
+
+		continueToken = resp.Metadata.Continue // Update the continue token for the next iteration
+	}
+}
+
 // ListCertificateFully lists all certificates in a namespace.
 // It continues to fetch certificates until there are no more to fetch.
 func ListCertificateFully(
