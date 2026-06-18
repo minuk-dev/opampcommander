@@ -8,6 +8,10 @@ OpAMP Commander is a management platform for OpenTelemetry collectors/agents tha
 implements the [OpAMP protocol](https://opentelemetry.io/docs/specs/opamp/). It lets
 you manage, monitor, and remotely configure a fleet of agents from a central place.
 
+<p align="center">
+  <img src="docs/static/images/screenshots/dashboard.png" alt="Dashboard" width="700" />
+</p>
+
 It is made of three components:
 
 | Component | Path | Description |
