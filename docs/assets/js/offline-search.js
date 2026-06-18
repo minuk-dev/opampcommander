@@ -148,7 +148,11 @@
           $('<div>')
             .addClass('text-center py-4')
             .append(
-              $('<p>').addClass('mb-2').html(`<strong>No results found for "${searchQuery}"</strong>`)
+              $('<p>')
+                .addClass('mb-2')
+                .append(
+                  $('<strong>').text(`No results found for "${searchQuery}"`)
+                )
             )
             .append(
               $('<small>').addClass('text-muted').text('Try using different keywords or check spelling')
