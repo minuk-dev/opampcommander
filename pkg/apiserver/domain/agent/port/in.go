@@ -124,6 +124,16 @@ type EndpointUsecase interface {
 		deletedAt time.Time, deletedBy string) error
 }
 
+// EndpointDetectionUsecase detects telemetry backends from an AgentRemoteConfig's
+// collector configuration and matches them to Endpoint resources.
+type EndpointDetectionUsecase interface {
+	// ReconcileEndpointsFromRemoteConfig matches every exporter destination in the
+	// remote config to an endpoint (linking an existing same-URL endpoint or
+	// auto-creating one). It never modifies a matched endpoint's spec and never
+	// deletes endpoints.
+	ReconcileEndpointsFromRemoteConfig(ctx context.Context, remoteConfig *agentmodel.AgentRemoteConfig) error
+}
+
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
 type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its namespace and name.
