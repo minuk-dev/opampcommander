@@ -60,7 +60,7 @@ export default function NamespaceSelector() {
 
   return (
     <>
-      <FormControl size="small" sx={{ minWidth: 200 }}>
+      <FormControl size="small" sx={{ minWidth: { xs: 120, sm: 200 } }}>
         <InputLabel
           id="namespace-label"
           sx={{ color: 'inherit', '&.Mui-focused': { color: 'inherit' } }}

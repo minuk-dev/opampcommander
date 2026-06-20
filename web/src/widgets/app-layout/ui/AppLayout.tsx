@@ -20,6 +20,8 @@ import {
   MenuItem,
   Divider,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -172,7 +174,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const { email, logout } = useAuth();
   const { hasPermission, showAll, setShowAll } = usePermissions();
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const theme = useTheme();
+  // Below `md` we treat the viewport as a phone/tablet. Which drawer renders is
+  // decided purely by CSS (`display` breakpoints on the two Drawers below), so
+  // it's SSR-safe — there's no flash of the desktop sidebar before hydration.
+  // `isMobile` is only read inside event handlers (post-mount), where the JS
+  // match is reliable; the two modes track open state separately so switching
+  // orientation/breakpoint doesn't leak one into the other.
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Filter nav items by RBAC. Items without `requires` (Dashboard) always show;
   // others need the resource:LIST permission unless the user has toggled
@@ -205,14 +216,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       const stored = window.localStorage.getItem(SIDEBAR_OPEN_KEY);
       if (stored === null) return;
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDrawerOpen(stored === '1');
+      setDesktopOpen(stored === '1');
     } catch {
       // Keep the default open state.
     }
   }, []);
 
   const toggleDrawer = () => {
-    setDrawerOpen((prev) => {
+    if (isMobile) {
+      // The overlay drawer is transient — no need to persist its state.
+      setMobileOpen((prev) => !prev);
+      return;
+    }
+    setDesktopOpen((prev) => {
       const next = !prev;
       if (typeof window !== 'undefined') {
         try {
@@ -224,6 +240,102 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       return next;
     });
   };
+
+  // On mobile the drawer overlays content, so selecting a destination should
+  // dismiss it; on desktop the persistent drawer stays put.
+  const closeMobileDrawer = () => {
+    if (isMobile) setMobileOpen(false);
+  };
+
+  // Shared sidebar body, rendered into both the mobile (temporary) and desktop
+  // (persistent) drawers below. Leading <Toolbar /> spacer clears the AppBar.
+  const drawerContent = (
+    <>
+      <Toolbar />
+      <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
+        {visibleSections.map((section) => (
+          <List
+            key={section.heading}
+            dense
+            subheader={
+              <ListSubheader component="div" sx={{ bgcolor: 'transparent' }}>
+                {section.heading}
+              </ListSubheader>
+            }
+          >
+            {section.items.map((item) => {
+              // Boundary-aware match: a subroute like /agents/123 still
+              // highlights /agents, but /agentgroups never highlights
+              // /agents even though they share a prefix.
+              const isActive =
+                item.href === '/'
+                  ? pathname === '/'
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <ListItem key={item.text} disablePadding>
+                  <ListItemButton
+                    component={Link}
+                    href={item.href}
+                    selected={isActive}
+                    onClick={closeMobileDrawer}
+                  >
+                    <ListItemIcon>{item.icon}</ListItemIcon>
+                    <ListItemText primary={item.text} />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        ))}
+      </Box>
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Tooltip
+          title={
+            hiddenCount > 0
+              ? `Reveal ${hiddenCount} menu item${hiddenCount === 1 ? '' : 's'} hidden because you lack LIST permission. Pages may still return 403 when opened.`
+              : 'Reveal menu items hidden by RBAC. You currently have access to all items.'
+          }
+          placement="right"
+        >
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+            }
+            label={
+              <Stack direction="row" spacing={0.5} alignItems="baseline">
+                <Typography variant="caption">Show restricted menus</Typography>
+                {hiddenCount > 0 && !showAll && (
+                  <Typography variant="caption" color="text.disabled">
+                    ({hiddenCount})
+                  </Typography>
+                )}
+              </Stack>
+            }
+            sx={{ m: 0, '& .MuiFormControlLabel-label': { ml: 1 } }}
+          />
+        </Tooltip>
+      </Box>
+      <VersionFooter />
+    </>
+  );
+
+  const drawerPaperSx = {
+    width: drawerWidth,
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+  } as const;
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -251,7 +363,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             }}
           >
             <Image src="/logo.png" alt="OpAMP Commander" width={32} height={32} priority />
-            <Typography variant="h6" noWrap component="div">
+            <Typography
+              variant="h6"
+              noWrap
+              component="div"
+              sx={{ display: { xs: 'none', sm: 'block' } }}
+            >
               OpAMP Commander
             </Typography>
           </Box>
@@ -260,6 +377,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               borderLeft: '1px solid rgba(255,255,255,0.3)',
               height: 32,
               alignSelf: 'center',
+              display: { xs: 'none', sm: 'block' },
             }}
           />
           <NamespaceSelector />
@@ -309,91 +427,33 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </Menu>
         </Toolbar>
       </AppBar>
+      {/* Mobile: temporary overlay drawer. Hidden above `md` via CSS so it
+          never reserves layout width. keepMounted preserves the nav list. */}
       <Drawer
-        variant="persistent"
-        open={drawerOpen}
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
         sx={{
-          width: drawerOpen ? drawerWidth : 0,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-          },
+          display: { xs: 'block', md: 'none' },
+          [`& .MuiDrawer-paper`]: drawerPaperSx,
         }}
       >
-        <Toolbar />
-        <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
-          {visibleSections.map((section) => (
-            <List
-              key={section.heading}
-              dense
-              subheader={
-                <ListSubheader component="div" sx={{ bgcolor: 'transparent' }}>
-                  {section.heading}
-                </ListSubheader>
-              }
-            >
-              {section.items.map((item) => {
-                // Boundary-aware match: a subroute like /agents/123 still
-                // highlights /agents, but /agentgroups never highlights
-                // /agents even though they share a prefix.
-                const isActive =
-                  item.href === '/'
-                    ? pathname === '/'
-                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <ListItem key={item.text} disablePadding>
-                    <ListItemButton component={Link} href={item.href} selected={isActive}>
-                      <ListItemIcon>{item.icon}</ListItemIcon>
-                      <ListItemText primary={item.text} />
-                    </ListItemButton>
-                  </ListItem>
-                );
-              })}
-            </List>
-          ))}
-        </Box>
-        <Box
-          sx={{
-            px: 2,
-            py: 1,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Tooltip
-            title={
-              hiddenCount > 0
-                ? `Reveal ${hiddenCount} menu item${hiddenCount === 1 ? '' : 's'} hidden because you lack LIST permission. Pages may still return 403 when opened.`
-                : 'Reveal menu items hidden by RBAC. You currently have access to all items.'
-            }
-            placement="right"
-          >
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={showAll}
-                  onChange={(e) => setShowAll(e.target.checked)}
-                />
-              }
-              label={
-                <Stack direction="row" spacing={0.5} alignItems="baseline">
-                  <Typography variant="caption">Show restricted menus</Typography>
-                  {hiddenCount > 0 && !showAll && (
-                    <Typography variant="caption" color="text.disabled">
-                      ({hiddenCount})
-                    </Typography>
-                  )}
-                </Stack>
-              }
-              sx={{ m: 0, '& .MuiFormControlLabel-label': { ml: 1 } }}
-            />
-          </Tooltip>
-        </Box>
-        <VersionFooter />
+        {drawerContent}
+      </Drawer>
+      {/* Desktop: persistent drawer that reserves width only when open. Hidden
+          below `md` via CSS. */}
+      <Drawer
+        variant="persistent"
+        open={desktopOpen}
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          width: desktopOpen ? drawerWidth : 0,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: drawerPaperSx,
+        }}
+      >
+        {drawerContent}
       </Drawer>
       <Box
         component="main"
