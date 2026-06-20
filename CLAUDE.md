@@ -120,3 +120,23 @@ wrappers re-exporting a view). Path aliases: `@shared/* @entities/* @features/*
 internal files. See `web/ARCHITECTURE.md` for layer rules, where types/contexts
 live, and how to add an entity/feature/route. Checks: `cd web && npx tsc
 --noEmit && npm run lint && npm test && npm run build`.
+
+### Mobile / Responsive
+The UI must stay usable on phone-width viewports (≈375px). When building or
+changing any web feature, verify it at a narrow width — don't assume desktop.
+Conventions to follow:
+- **Breakpoint:** treat `< md` (`theme.breakpoints.down('md')`) as mobile. The
+  app shell (`widgets/app-layout`) already switches the sidebar to a `temporary`
+  overlay drawer below `md` and a `persistent` drawer above it; don't reintroduce
+  a fixed-width sidebar that pushes content.
+- **No fixed widths that overflow:** prefer responsive `sx` objects
+  (`minWidth: { xs: 120, sm: 200 }`, `flexDirection: { xs: 'column', sm: 'row' }`,
+  `display: { xs: 'none', sm: 'block' }`) over hardcoded `px` widths. Hide or
+  shrink secondary chrome (titles, dividers, labels) on `xs`.
+- **Wide content scrolls, not overflows:** wrap tables in MUI `TableContainer`
+  (as `widgets/resource-list-page` does) so they scroll horizontally instead of
+  breaking the layout.
+- **Dialogs:** use `fullWidth` with a `maxWidth`; consider `fullScreen` on `xs`
+  for large forms.
+- Reuse `shared/ui` and the `widgets/*` shells rather than hand-rolling layout —
+  they already carry the responsive behavior.
