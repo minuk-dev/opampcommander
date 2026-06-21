@@ -2,6 +2,7 @@ package agentservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -103,20 +105,57 @@ func (s *EndpointDetectionService) ReconcileEndpointsFromRemoteConfig(
 
 	now := s.clock.Now()
 
-	for _, exporter := range exporters {
+	// Collapse exporters to one per destination URL (deterministic, signals merged)
+	// so a config with several exporters pointing at the same URL yields a single,
+	// stable endpoint rather than depending on map iteration order.
+	for _, exporter := range collapseByURL(exporters) {
 		if existing, ok := byURL[exporter.url]; ok {
 			s.linkExisting(ctx, existing, ref)
 
 			continue
 		}
 
-		created := s.createEndpoint(ctx, remoteConfig.Metadata.Name, namespace, ref, exporter, now)
-		if created != nil {
-			byURL[exporter.url] = created
-		}
+		s.createEndpoint(ctx, remoteConfig.Metadata.Name, namespace, ref, exporter, now)
 	}
 
 	return nil
+}
+
+// collapseByURL reduces the detected exporters to one entry per destination URL,
+// merging their supported signals. Exporters are processed in sorted key order so
+// the surviving protocol/headers/exporter-key for a shared URL is deterministic.
+func collapseByURL(exporters map[string]*detectedExporter) []*detectedExporter {
+	keys := make([]string, 0, len(exporters))
+	for key := range exporters {
+		keys = append(keys, key)
+	}
+
+	slices.Sort(keys)
+
+	byURL := make(map[string]*detectedExporter, len(exporters))
+	order := make([]string, 0, len(exporters))
+
+	for _, key := range keys {
+		exporter := exporters[key]
+		if existing, ok := byURL[exporter.url]; ok {
+			existing.signals.Metrics = existing.signals.Metrics || exporter.signals.Metrics
+			existing.signals.Logs = existing.signals.Logs || exporter.signals.Logs
+			existing.signals.Traces = existing.signals.Traces || exporter.signals.Traces
+
+			continue
+		}
+
+		clone := *exporter
+		byURL[exporter.url] = &clone
+		order = append(order, exporter.url)
+	}
+
+	out := make([]*detectedExporter, 0, len(order))
+	for _, url := range order {
+		out = append(out, byURL[url])
+	}
+
+	return out
 }
 
 // endpointsByURL indexes the namespace's live endpoints by their URL.
@@ -140,6 +179,11 @@ func (s *EndpointDetectionService) endpointsByURL(
 
 // linkExisting records that ref references the endpoint, preserving its spec. It is
 // a no-op (no write) when the link is already present.
+//
+// The matched-by set is best-effort metadata: it is a read-modify-write without
+// optimistic locking, so two reconciles linking the same endpoint concurrently can
+// drop one ref. It carries no behavioral weight (nothing keys off it), and the next
+// reconcile of the dropped remote config re-adds its ref.
 func (s *EndpointDetectionService) linkExisting(
 	ctx context.Context, endpoint *agentmodel.Endpoint, ref string,
 ) {
@@ -158,18 +202,36 @@ func (s *EndpointDetectionService) linkExisting(
 }
 
 // createEndpoint auto-creates an endpoint for an exporter destination that has no
-// matching URL. It will not overwrite or revive an endpoint that already exists by
-// name (manual or previously deleted), to avoid clobbering user-managed state.
+// matching URL. It never overwrites or revives an endpoint that already owns the
+// generated name: a soft-deleted one is left deleted (a user deleted it on purpose),
+// and a live one with a different URL is left untouched (name collision). Both cases
+// are logged rather than silently skipped.
 func (s *EndpointDetectionService) createEndpoint(
 	ctx context.Context, remoteConfigName, namespace, ref string,
 	exporter *detectedExporter, now time.Time,
-) *agentmodel.Endpoint {
+) {
 	name := endpointName(remoteConfigName, exporter.key)
 
-	_, err := s.endpointUsecase.GetEndpoint(ctx, namespace, name, &model.GetOptions{IncludeDeleted: true})
-	if err == nil {
-		// A different endpoint already owns this name; do not clobber it.
-		return nil
+	existing, err := s.endpointUsecase.GetEndpoint(ctx, namespace, name, &model.GetOptions{IncludeDeleted: true})
+
+	switch {
+	case err == nil && existing.IsDeleted():
+		// Respect a manual deletion: do not resurrect an endpoint the user removed.
+		s.logger.Debug("not recreating a user-deleted endpoint",
+			slog.String("namespace", namespace), slog.String("name", name))
+
+		return
+	case err == nil:
+		// A different live endpoint owns this name; do not clobber it.
+		s.logger.Warn("skipping detected endpoint: name already in use by another endpoint",
+			slog.String("namespace", namespace), slog.String("name", name), slog.String("url", exporter.url))
+
+		return
+	case !errors.Is(err, port.ErrResourceNotExist):
+		s.logger.Warn("failed to check endpoint name before create",
+			slog.String("namespace", namespace), slog.String("name", name), slog.String("error", err.Error()))
+
+		return
 	}
 
 	endpoint := buildEndpoint(namespace, name, ref, exporter, now)
@@ -181,11 +243,7 @@ func (s *EndpointDetectionService) createEndpoint(
 			slog.String("name", name),
 			slog.String("error", err.Error()),
 		)
-
-		return nil
 	}
-
-	return endpoint
 }
 
 // detectedExporter is a telemetry destination parsed from a collector config.
@@ -405,8 +463,15 @@ func stringMapField(cfg map[string]any, key string) map[string]string {
 	}
 
 	result := make(map[string]string, len(raw))
-	for k, v := range raw {
-		result[k] = fmt.Sprintf("%v", v)
+
+	for headerKey, headerValue := range raw {
+		switch headerValue.(type) {
+		case map[string]any, []any:
+			// Skip non-scalar header values; a header is always a scalar string.
+			continue
+		default:
+			result[headerKey] = fmt.Sprintf("%v", headerValue)
+		}
 	}
 
 	return result

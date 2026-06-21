@@ -199,6 +199,74 @@ service:
 	assert.Len(t, list.Items, 2, "removing an exporter must not delete its endpoint")
 }
 
+func TestReconcileCollapsesExportersSharingURL(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	fake := newFakeEndpointUsecase()
+	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
+
+	// Two exporters point at the same URL but carry different signals; they must
+	// collapse to a single endpoint whose signals are the union.
+	const sharedURL = `
+exporters:
+  otlp/traces:
+    endpoint: https://collector.example.com:4317
+  otlphttp/metrics:
+    endpoint: https://collector.example.com:4317
+service:
+  pipelines:
+    traces:
+      exporters: [otlp/traces]
+    metrics:
+      exporters: [otlphttp/metrics]
+`
+	require.NoError(t, svc.ReconcileEndpointsFromRemoteConfig(ctx, newRemoteConfig(sharedURL)))
+
+	list, err := fake.ListEndpoints(ctx, "default", nil)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1, "exporters sharing a URL collapse to one endpoint")
+
+	endpoint := list.Items[0]
+	assert.Equal(t, "https://collector.example.com:4317", endpoint.Spec.URL)
+	// Deterministic winner is the lowest sorted key ("otlp/traces"); signals merged.
+	assert.Equal(t, "obs-otlp-traces", endpoint.Metadata.Name)
+	assert.True(t, endpoint.Spec.Signals.Traces)
+	assert.True(t, endpoint.Spec.Signals.Metrics)
+}
+
+func TestReconcileSkipsNonScalarHeaderValues(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	fake := newFakeEndpointUsecase()
+	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
+
+	// A header whose value is a mapping must be skipped, not stringified to garbage.
+	const badHeader = `
+exporters:
+  otlp:
+    endpoint: https://otlp.example.com:4317
+    headers:
+      X-Scope-OrgID: team-a
+      bad:
+        nested: value
+service:
+  pipelines:
+    metrics:
+      exporters: [otlp]
+`
+	require.NoError(t, svc.ReconcileEndpointsFromRemoteConfig(ctx, newRemoteConfig(badHeader)))
+
+	endpoint, err := fake.GetEndpoint(ctx, "default", "obs-otlp", nil)
+	require.NoError(t, err)
+	require.Len(t, endpoint.Spec.Tenants, 1)
+	headers := endpoint.Spec.Tenants[0].Headers
+	assert.Equal(t, "team-a", headers["X-Scope-OrgID"])
+	_, hasBad := headers["bad"]
+	assert.False(t, hasBad, "non-scalar header value must be skipped")
+}
+
 func TestReconcileParseErrorKeepsExisting(t *testing.T) {
 	t.Parallel()
 
