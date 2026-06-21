@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -108,7 +108,7 @@ func (_c *MockManageUsecase_GetHost_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // ListAgentsByHost provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) ListAgentsByHost(ctx context.Context, id string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error) {
+func (_mock *MockManageUsecase) ListAgentsByHost(ctx context.Context, id string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error) {
 	ret := _mock.Called(ctx, id, options)
 
 	if len(ret) == 0 {
@@ -117,17 +117,17 @@ func (_mock *MockManageUsecase) ListAgentsByHost(ctx context.Context, id string,
 
 	var r0 *v1.ListResponse[v1.Agent]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *port.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
 		return returnFunc(ctx, id, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) *v1.ListResponse[v1.Agent]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *port.ListOptions) *v1.ListResponse[v1.Agent]); ok {
 		r0 = returnFunc(ctx, id, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ListResponse[v1.Agent])
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *model.ListOptions) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *port.ListOptions) error); ok {
 		r1 = returnFunc(ctx, id, options)
 	} else {
 		r1 = ret.Error(1)
@@ -143,12 +143,12 @@ type MockManageUsecase_ListAgentsByHost_Call struct {
 // ListAgentsByHost is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id string
-//   - options *model.ListOptions
+//   - options *port.ListOptions
 func (_e *MockManageUsecase_Expecter) ListAgentsByHost(ctx interface{}, id interface{}, options interface{}) *MockManageUsecase_ListAgentsByHost_Call {
 	return &MockManageUsecase_ListAgentsByHost_Call{Call: _e.mock.On("ListAgentsByHost", ctx, id, options)}
 }
 
-func (_c *MockManageUsecase_ListAgentsByHost_Call) Run(run func(ctx context.Context, id string, options *model.ListOptions)) *MockManageUsecase_ListAgentsByHost_Call {
+func (_c *MockManageUsecase_ListAgentsByHost_Call) Run(run func(ctx context.Context, id string, options *port.ListOptions)) *MockManageUsecase_ListAgentsByHost_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -158,9 +158,9 @@ func (_c *MockManageUsecase_ListAgentsByHost_Call) Run(run func(ctx context.Cont
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 *model.ListOptions
+		var arg2 *port.ListOptions
 		if args[2] != nil {
-			arg2 = args[2].(*model.ListOptions)
+			arg2 = args[2].(*port.ListOptions)
 		}
 		run(
 			arg0,
@@ -176,13 +176,13 @@ func (_c *MockManageUsecase_ListAgentsByHost_Call) Return(listResponse *v1.ListR
 	return _c
 }
 
-func (_c *MockManageUsecase_ListAgentsByHost_Call) RunAndReturn(run func(ctx context.Context, id string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_ListAgentsByHost_Call {
+func (_c *MockManageUsecase_ListAgentsByHost_Call) RunAndReturn(run func(ctx context.Context, id string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_ListAgentsByHost_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListHosts provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) ListHosts(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Host], error) {
+func (_mock *MockManageUsecase) ListHosts(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.Host], error) {
 	ret := _mock.Called(ctx, options)
 
 	if len(ret) == 0 {
@@ -191,17 +191,17 @@ func (_mock *MockManageUsecase) ListHosts(ctx context.Context, options *model.Li
 
 	var r0 *v1.ListResponse[v1.Host]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*v1.ListResponse[v1.Host], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *port.ListOptions) (*v1.ListResponse[v1.Host], error)); ok {
 		return returnFunc(ctx, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *v1.ListResponse[v1.Host]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *port.ListOptions) *v1.ListResponse[v1.Host]); ok {
 		r0 = returnFunc(ctx, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ListResponse[v1.Host])
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.ListOptions) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *port.ListOptions) error); ok {
 		r1 = returnFunc(ctx, options)
 	} else {
 		r1 = ret.Error(1)
@@ -216,20 +216,20 @@ type MockManageUsecase_ListHosts_Call struct {
 
 // ListHosts is a helper method to define mock.On call
 //   - ctx context.Context
-//   - options *model.ListOptions
+//   - options *port.ListOptions
 func (_e *MockManageUsecase_Expecter) ListHosts(ctx interface{}, options interface{}) *MockManageUsecase_ListHosts_Call {
 	return &MockManageUsecase_ListHosts_Call{Call: _e.mock.On("ListHosts", ctx, options)}
 }
 
-func (_c *MockManageUsecase_ListHosts_Call) Run(run func(ctx context.Context, options *model.ListOptions)) *MockManageUsecase_ListHosts_Call {
+func (_c *MockManageUsecase_ListHosts_Call) Run(run func(ctx context.Context, options *port.ListOptions)) *MockManageUsecase_ListHosts_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *model.ListOptions
+		var arg1 *port.ListOptions
 		if args[1] != nil {
-			arg1 = args[1].(*model.ListOptions)
+			arg1 = args[1].(*port.ListOptions)
 		}
 		run(
 			arg0,
@@ -244,7 +244,7 @@ func (_c *MockManageUsecase_ListHosts_Call) Return(listResponse *v1.ListResponse
 	return _c
 }
 
-func (_c *MockManageUsecase_ListHosts_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.Host], error)) *MockManageUsecase_ListHosts_Call {
+func (_c *MockManageUsecase_ListHosts_Call) RunAndReturn(run func(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.Host], error)) *MockManageUsecase_ListHosts_Call {
 	_c.Call.Return(run)
 	return _c
 }

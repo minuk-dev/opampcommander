@@ -53,9 +53,9 @@ func (s *Service) GetEndpoint(
 	ctx context.Context,
 	namespace string,
 	name string,
-	options *model.GetOptions,
+	options *port.GetOptions,
 ) (*v1.Endpoint, error) {
-	endpoint, err := s.endpointUsecase.GetEndpoint(ctx, namespace, name, options)
+	endpoint, err := s.endpointUsecase.GetEndpoint(ctx, namespace, name, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("get endpoint: %w", err)
 	}
@@ -67,9 +67,9 @@ func (s *Service) GetEndpoint(
 func (s *Service) ListEndpoints(
 	ctx context.Context,
 	namespace string,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.Endpoint], error) {
-	endpoints, err := s.endpointUsecase.ListEndpoints(ctx, namespace, options)
+	endpoints, err := s.endpointUsecase.ListEndpoints(ctx, namespace, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list endpoints: %w", err)
 	}

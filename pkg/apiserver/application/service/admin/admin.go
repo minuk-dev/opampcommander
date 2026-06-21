@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/samber/lo"
+	"k8s.io/utils/clock"
+
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 var _ applicationport.AdminUsecase = (*Service)(nil)
@@ -17,6 +20,7 @@ var _ applicationport.AdminUsecase = (*Service)(nil)
 // Service is a struct that implements the AdminUsecase interface.
 type Service struct {
 	logger                   *slog.Logger
+	clock                    clock.Clock
 	agentUsecase             agentport.AgentUsecase
 	connectionUsecase        agentport.ConnectionUsecase
 	agentNotificationUsecase agentport.AgentNotificationUsecase
@@ -31,6 +35,7 @@ func New(
 ) *Service {
 	return &Service{
 		logger:                   logger,
+		clock:                    clock.RealClock{},
 		agentUsecase:             agentUsecase,
 		connectionUsecase:        connectionUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
@@ -41,12 +46,29 @@ func New(
 func (s *Service) ListConnections(
 	ctx context.Context,
 	namespace string,
-	options *model.ListOptions,
-) (*model.ListResponse[*agentmodel.Connection], error) {
-	response, err := s.connectionUsecase.ListConnections(ctx, namespace, options)
+	options *applicationport.ListOptions,
+) (*v1.ListResponse[v1.Connection], error) {
+	response, err := s.connectionUsecase.ListConnections(ctx, namespace, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list connections: %w", err)
 	}
 
-	return response, nil
+	now := s.clock.Now()
+
+	return v1.NewConnectionListResponse(
+		lo.Map(response.Items, func(connection *agentmodel.Connection, _ int) v1.Connection {
+			return v1.Connection{
+				ID:                 connection.UID,
+				InstanceUID:        connection.InstanceUID,
+				Namespace:          connection.Namespace,
+				Type:               connection.Type.String(),
+				Alive:              connection.IsAlive(now),
+				LastCommunicatedAt: v1.NewTime(connection.LastCommunicatedAt),
+			}
+		}),
+		v1.ListMeta{
+			RemainingItemCount: response.RemainingItemCount,
+			Continue:           response.Continue,
+		},
+	), nil
 }

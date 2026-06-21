@@ -10,7 +10,6 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -110,7 +109,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.agentGroupUsecase.ListAgentGroups(ctx.Request.Context(), &model.ListOptions{
+	response, err := c.agentGroupUsecase.ListAgentGroups(ctx.Request.Context(), &applicationport.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
@@ -162,9 +161,10 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(ctx.Request.Context(), namespace, name, &model.GetOptions{
-		IncludeDeleted: includeDeleted,
-	})
+	agentGroup, err := c.agentGroupUsecase.GetAgentGroup(
+		ctx.Request.Context(), namespace, name, &applicationport.GetOptions{
+			IncludeDeleted: includeDeleted,
+		})
 	if err != nil {
 		c.logger.Error("failed to get agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agent group.")
@@ -217,11 +217,12 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 		return
 	}
 
-	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(ctx.Request.Context(), namespace, name, &model.ListOptions{
-		Limit:         limit,
-		Continue:      continueToken,
-		ConnectedOnly: connectedOnly,
-	})
+	agents, err := c.agentGroupUsecase.ListAgentsByAgentGroup(
+		ctx.Request.Context(), namespace, name, &applicationport.ListOptions{
+			Limit:         limit,
+			Continue:      continueToken,
+			ConnectedOnly: connectedOnly,
+		})
 	if err != nil {
 		c.logger.Error("failed to get agents by agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the agents for the agent group.")

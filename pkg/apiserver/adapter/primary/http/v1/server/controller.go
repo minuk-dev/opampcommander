@@ -6,12 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -20,13 +17,13 @@ type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	serverUsecase agentport.ServerUsecase
+	serverUsecase applicationport.ServerManageUsecase
 }
 
 // NewController creates a new instance of the Controller struct.
 func NewController(
 	logger *slog.Logger,
-	serverUsecase agentport.ServerUsecase,
+	serverUsecase applicationport.ServerManageUsecase,
 ) *Controller {
 	return &Controller{
 		logger:        logger,
@@ -57,7 +54,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/servers [get].
 func (c *Controller) List(ctx *gin.Context) {
-	servers, err := c.serverUsecase.ListServers(ctx.Request.Context())
+	var serverResponse *v1.ListResponse[v1.Server]
+
+	serverResponse, err := c.serverUsecase.ListServers(ctx.Request.Context())
 	if err != nil {
 		c.logger.Error("failed to list servers", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while listing servers.")
@@ -65,39 +64,5 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	serverResponse := v1.NewServerListResponse(
-		lo.Map(servers, func(server *agentmodel.Server, _ int) v1.Server {
-			return v1.Server{
-				ID:              server.ID,
-				LastHeartbeatAt: v1.NewTime(server.LastHeartbeatAt),
-				Conditions:      mapConditionsToAPI(server.Conditions),
-			}
-		}),
-		v1.ListMeta{
-			RemainingItemCount: 0,
-			Continue:           "",
-		},
-	)
-
 	ctx.JSON(http.StatusOK, serverResponse)
-}
-
-// mapConditionsToAPI converts domain server conditions to API conditions.
-func mapConditionsToAPI(conditions []model.Condition) []v1.ServerCondition {
-	if len(conditions) == 0 {
-		return nil
-	}
-
-	apiConditions := make([]v1.ServerCondition, len(conditions))
-	for i, condition := range conditions {
-		apiConditions[i] = v1.ServerCondition{
-			Type:               v1.ServerConditionType(condition.Type),
-			LastTransitionTime: v1.NewTime(condition.LastTransitionTime),
-			Status:             v1.ServerConditionStatus(condition.Status),
-			Reason:             condition.Reason,
-			Message:            condition.Message,
-		}
-	}
-
-	return apiConditions
 }

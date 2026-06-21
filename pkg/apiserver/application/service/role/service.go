@@ -14,7 +14,6 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
@@ -38,8 +37,8 @@ func New(roleUsecase userport.RoleUsecase, logger *slog.Logger) *Service {
 }
 
 // GetRole implements [applicationport.RoleManageUsecase].
-func (s *Service) GetRole(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.Role, error) {
-	role, err := s.roleUsecase.GetRole(ctx, uid, options)
+func (s *Service) GetRole(ctx context.Context, uid uuid.UUID, options *applicationport.GetOptions) (*v1.Role, error) {
+	role, err := s.roleUsecase.GetRole(ctx, uid, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role: %w", err)
 	}
@@ -50,9 +49,9 @@ func (s *Service) GetRole(ctx context.Context, uid uuid.UUID, options *model.Get
 // ListRoles implements [applicationport.RoleManageUsecase].
 func (s *Service) ListRoles(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Role], error) {
-	response, err := s.roleUsecase.ListRoles(ctx, options)
+	response, err := s.roleUsecase.ListRoles(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list roles: %w", err)
 	}

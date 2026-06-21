@@ -37,6 +37,7 @@ linters:
         # Optional list/paging filters whose zero values are meaningful defaults;
         # call sites legitimately set only the fields they care about.
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model.ListOptions"
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port.ListOptions"
     ireturn:
       allow:
         - generic
@@ -131,6 +132,18 @@ linters:
           deny:
             - pkg: go.uber.org/fx
               desc: Only pkg/apiserver/internal (the composition root) may import fx.
+        adapter-primary-no-domain:
+          # Primary (driving) adapters must reach the core only through the
+          # application layer (application/port + api/v1), never the domain
+          # directly. The messaging adapters are exempt: they implement domain
+          # driven (out) ports, so depending on the domain is expected there.
+          files:
+            - "**/pkg/apiserver/adapter/primary/**"
+            - "!**/pkg/apiserver/adapter/primary/messaging/**"
+            - "!**/*_test.go"
+          deny:
+            - pkg: github.com/minuk-dev/opampcommander/pkg/apiserver/domain
+              desc: Primary adapters must go through the application layer (application/port), not import the domain directly.
         test:
           files:
             - "**/*_test.go"

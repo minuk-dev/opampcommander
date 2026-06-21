@@ -9,8 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -101,7 +100,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.userUsecase.ListUsers(ctx.Request.Context(), &model.ListOptions{
+	response, err := c.userUsecase.ListUsers(ctx.Request.Context(), &applicationport.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
@@ -145,7 +144,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.userUsecase.GetUser(ctx.Request.Context(), uid, &model.GetOptions{
+	user, err := c.userUsecase.GetUser(ctx.Request.Context(), uid, &applicationport.GetOptions{
 		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {
@@ -244,7 +243,7 @@ func (c *Controller) Me(ctx *gin.Context) {
 
 	profile, err := c.userUsecase.GetMyProfile(ctx.Request.Context(), *secUser.Email)
 	if err != nil {
-		if errors.Is(err, port.ErrResourceNotExist) {
+		if errors.Is(err, applicationport.ErrResourceNotExist) {
 			// User is authenticated (JWT is valid) but has no DB record yet.
 			// This is expected for the admin account before its first login creates a record.
 			// Roles are omitted because label-based binding matching requires a DB record.

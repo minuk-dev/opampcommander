@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -234,7 +234,7 @@ func (_c *MockUsecase_GetMyProfile_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // GetUser provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.User, error) {
+func (_mock *MockUsecase) GetUser(ctx context.Context, uid uuid.UUID, options *port.GetOptions) (*v1.User, error) {
 	ret := _mock.Called(ctx, uid, options)
 
 	if len(ret) == 0 {
@@ -243,17 +243,17 @@ func (_mock *MockUsecase) GetUser(ctx context.Context, uid uuid.UUID, options *m
 
 	var r0 *v1.User
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *model.GetOptions) (*v1.User, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *port.GetOptions) (*v1.User, error)); ok {
 		return returnFunc(ctx, uid, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *model.GetOptions) *v1.User); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, *port.GetOptions) *v1.User); ok {
 		r0 = returnFunc(ctx, uid, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.User)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, *model.GetOptions) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID, *port.GetOptions) error); ok {
 		r1 = returnFunc(ctx, uid, options)
 	} else {
 		r1 = ret.Error(1)
@@ -269,12 +269,12 @@ type MockUsecase_GetUser_Call struct {
 // GetUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - uid uuid.UUID
-//   - options *model.GetOptions
+//   - options *port.GetOptions
 func (_e *MockUsecase_Expecter) GetUser(ctx interface{}, uid interface{}, options interface{}) *MockUsecase_GetUser_Call {
 	return &MockUsecase_GetUser_Call{Call: _e.mock.On("GetUser", ctx, uid, options)}
 }
 
-func (_c *MockUsecase_GetUser_Call) Run(run func(ctx context.Context, uid uuid.UUID, options *model.GetOptions)) *MockUsecase_GetUser_Call {
+func (_c *MockUsecase_GetUser_Call) Run(run func(ctx context.Context, uid uuid.UUID, options *port.GetOptions)) *MockUsecase_GetUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -284,9 +284,9 @@ func (_c *MockUsecase_GetUser_Call) Run(run func(ctx context.Context, uid uuid.U
 		if args[1] != nil {
 			arg1 = args[1].(uuid.UUID)
 		}
-		var arg2 *model.GetOptions
+		var arg2 *port.GetOptions
 		if args[2] != nil {
-			arg2 = args[2].(*model.GetOptions)
+			arg2 = args[2].(*port.GetOptions)
 		}
 		run(
 			arg0,
@@ -302,7 +302,7 @@ func (_c *MockUsecase_GetUser_Call) Return(user *v1.User, err error) *MockUsecas
 	return _c
 }
 
-func (_c *MockUsecase_GetUser_Call) RunAndReturn(run func(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.User, error)) *MockUsecase_GetUser_Call {
+func (_c *MockUsecase_GetUser_Call) RunAndReturn(run func(ctx context.Context, uid uuid.UUID, options *port.GetOptions) (*v1.User, error)) *MockUsecase_GetUser_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -376,7 +376,7 @@ func (_c *MockUsecase_GetUserByEmail_Call) RunAndReturn(run func(ctx context.Con
 }
 
 // ListUsers provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) ListUsers(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.User], error) {
+func (_mock *MockUsecase) ListUsers(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.User], error) {
 	ret := _mock.Called(ctx, options)
 
 	if len(ret) == 0 {
@@ -385,17 +385,17 @@ func (_mock *MockUsecase) ListUsers(ctx context.Context, options *model.ListOpti
 
 	var r0 *v1.ListResponse[v1.User]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) (*v1.ListResponse[v1.User], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *port.ListOptions) (*v1.ListResponse[v1.User], error)); ok {
 		return returnFunc(ctx, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *model.ListOptions) *v1.ListResponse[v1.User]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *port.ListOptions) *v1.ListResponse[v1.User]); ok {
 		r0 = returnFunc(ctx, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ListResponse[v1.User])
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *model.ListOptions) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *port.ListOptions) error); ok {
 		r1 = returnFunc(ctx, options)
 	} else {
 		r1 = ret.Error(1)
@@ -410,20 +410,20 @@ type MockUsecase_ListUsers_Call struct {
 
 // ListUsers is a helper method to define mock.On call
 //   - ctx context.Context
-//   - options *model.ListOptions
+//   - options *port.ListOptions
 func (_e *MockUsecase_Expecter) ListUsers(ctx interface{}, options interface{}) *MockUsecase_ListUsers_Call {
 	return &MockUsecase_ListUsers_Call{Call: _e.mock.On("ListUsers", ctx, options)}
 }
 
-func (_c *MockUsecase_ListUsers_Call) Run(run func(ctx context.Context, options *model.ListOptions)) *MockUsecase_ListUsers_Call {
+func (_c *MockUsecase_ListUsers_Call) Run(run func(ctx context.Context, options *port.ListOptions)) *MockUsecase_ListUsers_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *model.ListOptions
+		var arg1 *port.ListOptions
 		if args[1] != nil {
-			arg1 = args[1].(*model.ListOptions)
+			arg1 = args[1].(*port.ListOptions)
 		}
 		run(
 			arg0,
@@ -438,7 +438,7 @@ func (_c *MockUsecase_ListUsers_Call) Return(listResponse *v1.ListResponse[v1.Us
 	return _c
 }
 
-func (_c *MockUsecase_ListUsers_Call) RunAndReturn(run func(ctx context.Context, options *model.ListOptions) (*v1.ListResponse[v1.User], error)) *MockUsecase_ListUsers_Call {
+func (_c *MockUsecase_ListUsers_Call) RunAndReturn(run func(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.User], error)) *MockUsecase_ListUsers_Call {
 	_c.Call.Return(run)
 	return _c
 }

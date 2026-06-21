@@ -84,9 +84,9 @@ func NewNamespaceService(
 func (s *Service) GetNamespace(
 	ctx context.Context,
 	name string,
-	options *model.GetOptions,
+	options *port.GetOptions,
 ) (*v1.Namespace, error) {
-	ns, err := s.namespaceUsecase.GetNamespace(ctx, name, options)
+	ns, err := s.namespaceUsecase.GetNamespace(ctx, name, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("get namespace: %w", err)
 	}
@@ -97,9 +97,9 @@ func (s *Service) GetNamespace(
 // ListNamespaces implements [port.NamespaceManageUsecase].
 func (s *Service) ListNamespaces(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.Namespace], error) {
-	namespaces, err := s.namespaceUsecase.ListNamespaces(ctx, options)
+	namespaces, err := s.namespaceUsecase.ListNamespaces(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list namespaces: %w", err)
 	}

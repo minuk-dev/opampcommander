@@ -16,7 +16,6 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
@@ -57,9 +56,9 @@ func (s *Service) GetContainer(ctx context.Context, id string) (*v1.Container, e
 // ListContainers implements applicationport.ContainerManageUsecase.
 func (s *Service) ListContainers(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Container], error) {
-	response, err := s.containerUsecase.ListContainers(ctx, options)
+	response, err := s.containerUsecase.ListContainers(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
@@ -81,14 +80,14 @@ func (s *Service) ListContainers(
 func (s *Service) ListAgentsByContainer(
 	ctx context.Context,
 	id string,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
 	container, err := s.containerUsecase.GetContainer(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get container: %w", err)
 	}
 
-	page, err := helper.PaginateUUIDs(container.Status.AgentInstanceUIDs, options)
+	page, err := helper.PaginateUUIDs(container.Status.AgentInstanceUIDs, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to paginate container agents: %w", err)
 	}

@@ -2,43 +2,36 @@
 package basic
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
-	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
 // Controller is a struct that implements the basic authentication controller for the opampcommander API client.
 type Controller struct {
-	logger      *slog.Logger
-	service     *security.Service
-	userUsecase userport.UserUsecase
-	rbacUsecase userport.RBACUsecase
+	logger              *slog.Logger
+	service             *security.Service
+	provisioningUsecase applicationport.AuthProvisioningUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
 	logger *slog.Logger,
 	service *security.Service,
-	userUsecase userport.UserUsecase,
-	rbacUsecase userport.RBACUsecase,
+	provisioningUsecase applicationport.AuthProvisioningUsecase,
 ) *Controller {
 	return &Controller{
-		logger:      logger,
-		service:     service,
-		userUsecase: userUsecase,
-		rbacUsecase: rbacUsecase,
+		logger:              logger,
+		service:             service,
+		provisioningUsecase: provisioningUsecase,
 	}
 }
 
@@ -105,7 +98,12 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 		return
 	}
 
-	c.ensureUser(ctx.Request.Context(), username, result.Email, usermodel.IdentityProviderBasic)
+	c.provisioningUsecase.EnsureUserOnLogin(ctx.Request.Context(), applicationport.LoginProvisioning{
+		Provider: applicationport.IdentityProviderBasic,
+		Username: username,
+		Email:    result.Email,
+		Groups:   nil,
+	})
 
 	ctx.JSON(http.StatusOK, v1auth.AuthnTokenResponse{
 		Token:        result.Token,
@@ -183,99 +181,4 @@ func (c *Controller) Info(ctx *gin.Context) {
 		Authenticated: user.Authenticated,
 		Email:         user.Email,
 	})
-}
-
-// ensureUser creates or updates a user record on login.
-// Always syncs provider labels (login-type) and re-applies RBAC policies so the
-// freshly-saved user picks up the built-in default role (and any matching bindings).
-// Failures are logged but do not block the login flow.
-func (c *Controller) ensureUser(ctx context.Context, username, email, provider string) {
-	existing, err := c.userUsecase.GetUserByEmail(ctx, email)
-
-	switch {
-	case err == nil && existing != nil:
-		existing.SetLabel(usermodel.LabelLoginType, provider)
-		existing.Metadata.UpdatedAt = time.Now()
-
-		saveErr := c.userUsecase.SaveUser(ctx, existing)
-		if saveErr != nil {
-			c.logger.Warn("failed to update user on login",
-				slog.String("email", email),
-				slog.Any("error", saveErr),
-			)
-
-			return
-		}
-
-		c.syncRBACPolicies(ctx, email)
-
-		return
-	case err != nil && !errors.Is(err, port.ErrResourceNotExist):
-		c.logger.Warn("failed to check user existence on login",
-			slog.String("email", email),
-			slog.Any("error", err),
-		)
-
-		return
-	}
-
-	// No active user with this email. If a soft-deleted record exists, the user was
-	// deliberately deleted: do not resurrect or duplicate it. They can still authenticate
-	// but stay without a record (RBAC denies) until an admin restores them.
-	if c.isDeletedUser(ctx, email) {
-		return
-	}
-
-	newUser := usermodel.NewUserWithIdentity(provider, username, email, username)
-	newUser.SetLabel(usermodel.LabelLoginType, provider)
-
-	saveErr := c.userUsecase.SaveUser(ctx, newUser)
-	if saveErr != nil {
-		c.logger.Warn("failed to create user on login",
-			slog.String("email", email),
-			slog.Any("error", saveErr),
-		)
-
-		return
-	}
-
-	c.syncRBACPolicies(ctx, email)
-}
-
-// isDeletedUser reports whether a soft-deleted user record exists for the email.
-// On lookup failure it returns true (fail-closed): recreating on a transient error is the
-// behaviour that produced duplicate accounts, so we'd rather skip creation and let the user retry.
-func (c *Controller) isDeletedUser(ctx context.Context, email string) bool {
-	deleted, err := c.userUsecase.GetUserByEmailIncludingDeleted(ctx, email)
-	if err != nil {
-		if errors.Is(err, port.ErrResourceNotExist) {
-			return false
-		}
-
-		c.logger.Warn("failed to check for soft-deleted user on login; skipping user creation",
-			slog.String("email", email),
-			slog.Any("error", err),
-		)
-
-		return true
-	}
-
-	c.logger.Warn("not recreating soft-deleted user on login",
-		slog.String("email", email),
-		slog.String("uid", deleted.Metadata.UID.String()),
-	)
-
-	return true
-}
-
-// syncRBACPolicies re-runs the Casbin policy sync so newly persisted users/bindings take effect.
-// Best-effort: failures are logged but do not block the login flow.
-func (c *Controller) syncRBACPolicies(ctx context.Context, email string) {
-	err := c.rbacUsecase.SyncPolicies(ctx)
-	if err != nil {
-		c.logger.Warn("failed to sync RBAC policies after login",
-			slog.String("email", email),
-			slog.Any("error", err),
-		)
-	}
 }

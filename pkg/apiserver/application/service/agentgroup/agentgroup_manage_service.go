@@ -59,9 +59,9 @@ func (s *ManageService) GetAgentGroup(
 	ctx context.Context,
 	namespace string,
 	name string,
-	options *model.GetOptions,
+	options *port.GetOptions,
 ) (*v1.AgentGroup, error) {
-	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, options)
+	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
@@ -72,9 +72,9 @@ func (s *ManageService) GetAgentGroup(
 // ListAgentGroups returns a paginated list of agent groups.
 func (s *ManageService) ListAgentGroups(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentGroup], error) {
-	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, options)
+	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list agent groups: %w", err)
 	}
@@ -97,14 +97,14 @@ func (s *ManageService) ListAgentsByAgentGroup(
 	ctx context.Context,
 	namespace string,
 	agentGroupName string,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
 	agentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, agentGroupName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Spec.Selector, options)
+	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Spec.Selector, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list agents by agent group: %w", err)
 	}

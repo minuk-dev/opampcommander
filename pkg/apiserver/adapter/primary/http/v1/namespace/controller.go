@@ -9,7 +9,6 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -90,7 +89,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	response, err := c.namespaceUsecase.ListNamespaces(
 		ctx.Request.Context(),
-		&model.ListOptions{
+		&port.ListOptions{
 			Limit:          limit,
 			Continue:       continueToken,
 			IncludeDeleted: includeDeleted,
@@ -133,7 +132,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 	}
 
 	namespace, err := c.namespaceUsecase.GetNamespace(
-		ctx.Request.Context(), name, &model.GetOptions{
+		ctx.Request.Context(), name, &port.GetOptions{
 			IncludeDeleted: includeDeleted,
 		},
 	)

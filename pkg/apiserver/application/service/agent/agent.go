@@ -16,7 +16,6 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 var (
@@ -107,9 +106,9 @@ func (s *Service) GetAgent(
 func (s *Service) ListAgents(
 	ctx context.Context,
 	namespace string,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
-	response, err := s.agentUsecase.ListAgents(ctx, namespace, options)
+	response, err := s.agentUsecase.ListAgents(ctx, namespace, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -132,9 +131,9 @@ func (s *Service) SearchAgents(
 	ctx context.Context,
 	namespace string,
 	query string,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
-	response, err := s.agentUsecase.SearchAgents(ctx, namespace, query, options)
+	response, err := s.agentUsecase.SearchAgents(ctx, namespace, query, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to search agents: %w", err)
 	}

@@ -9,7 +9,6 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -99,7 +98,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.certificateUsecase.ListCertificates(ctx.Request.Context(), &model.ListOptions{
+	response, err := c.certificateUsecase.ListCertificates(ctx.Request.Context(), &port.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
@@ -149,7 +148,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	certificate, err := c.certificateUsecase.GetCertificate(ctx.Request.Context(), namespace, name, &model.GetOptions{
+	certificate, err := c.certificateUsecase.GetCertificate(ctx.Request.Context(), namespace, name, &port.GetOptions{
 		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {

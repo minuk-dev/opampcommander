@@ -12,6 +12,7 @@ import (
 	agentgroupApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentgroup"
 	agentpackageApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage"
 	agentremoteconfigApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentremoteconfig"
+	authApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/auth"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	containerApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/container"
 	endpointApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint"
@@ -20,6 +21,7 @@ import (
 	opampApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
 	roleApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/role"
 	rolebindingApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
+	serverApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/server"
 	userApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -38,6 +40,8 @@ func New() fx.Option {
 
 			adminApplicationService.New,
 			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(port.AdminUsecase))),
+			serverApplicationService.New,
+			fx.Annotate(Identity[*serverApplicationService.Service], fx.As(new(port.ServerManageUsecase))),
 
 			agentApplicationService.New,
 			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
@@ -73,6 +77,8 @@ func New() fx.Option {
 			),
 
 			// user & RBAC application services
+			authApplicationService.New,
+			fx.Annotate(Identity[*authApplicationService.Service], fx.As(new(port.AuthProvisioningUsecase))),
 			userApplicationService.New,
 			fx.Annotate(Identity[*userApplicationService.Service], fx.As(new(port.UserManageUsecase))),
 

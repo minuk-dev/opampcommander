@@ -57,10 +57,10 @@ func (s *Service) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
-	options *model.GetOptions,
+	options *port.GetOptions,
 ) (*v1.AgentRemoteConfig, error) {
 	config, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(
-		ctx, namespace, name, options,
+		ctx, namespace, name, options.ToDomain(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get agent remote config: %w", err)
@@ -72,10 +72,10 @@ func (s *Service) GetAgentRemoteConfig(
 // ListAgentRemoteConfigs implements [port.AgentRemoteConfigManageUsecase].
 func (s *Service) ListAgentRemoteConfigs(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentRemoteConfig], error) {
 	configs, err := s.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
-		ctx, options,
+		ctx, options.ToDomain(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list agent remote configs: %w", err)
