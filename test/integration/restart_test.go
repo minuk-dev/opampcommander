@@ -38,6 +38,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 		agentService := agent.New(
 			agentUsecase,
 			agentNotificationUsecase,
+			mockEndpointDetectionUsecase{},
 			slog.Default(),
 		)
 
@@ -95,6 +96,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 		agentService := agent.New(
 			agentUsecase,
 			agentNotificationUsecase,
+			mockEndpointDetectionUsecase{},
 			slog.Default(),
 		)
 
@@ -194,4 +196,19 @@ func (m *mockAgentNotificationUsecase) NotifyAgentUpdated(_ context.Context, _ *
 	m.notificationCalled = true
 
 	return nil
+}
+
+// mockEndpointDetectionUsecase is a no-op; these tests do not exercise detection.
+type mockEndpointDetectionUsecase struct{}
+
+func (mockEndpointDetectionUsecase) ReconcileEndpointsFromRemoteConfig(
+	_ context.Context, _ *agentmodel.AgentRemoteConfig,
+) error {
+	return nil
+}
+
+func (mockEndpointDetectionUsecase) ExtractEndpointsFromAgent(
+	_ *agentmodel.Agent,
+) ([]*agentmodel.Endpoint, error) {
+	return nil, nil
 }

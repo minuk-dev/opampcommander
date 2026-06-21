@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -31,6 +32,9 @@ const (
 	// EndpointExporterAttribute records the collector exporter key the endpoint was
 	// derived from (e.g. "otlp/mimir").
 	EndpointExporterAttribute = "opampcommander.io/exporter"
+	// EndpointExtractedFromAttribute records the agent an extracted (non-persisted)
+	// endpoint was read from, as "agent/<instanceUID>".
+	EndpointExtractedFromAttribute = "opampcommander.io/extracted-from"
 
 	// endpointManagedByValue is the value stored in EndpointManagedByAttribute and
 	// used as the actor for the created condition on auto-generated endpoints.
@@ -156,6 +160,61 @@ func collapseByURL(exporters map[string]*detectedExporter) []*detectedExporter {
 	}
 
 	return out
+}
+
+// ExtractEndpointsFromAgent parses the agent's reported effective configuration and
+// returns the endpoints it exports to. The returned endpoints are ephemeral (not
+// persisted) — they are a read-only view of where the agent currently sends
+// telemetry, collapsed to one entry per destination URL with merged signals.
+func (s *EndpointDetectionService) ExtractEndpointsFromAgent(
+	agent *agentmodel.Agent,
+) ([]*agentmodel.Endpoint, error) {
+	if agent == nil {
+		return nil, nil
+	}
+
+	namespace := agent.Metadata.Namespace
+	source := "agent/" + agent.Metadata.InstanceUID.String()
+
+	merged := map[string]*detectedExporter{}
+
+	for filename, file := range agent.Status.EffectiveConfig.ConfigMap.ConfigMap {
+		exporters, err := parseCollectorExporters(file.Body)
+		if err != nil {
+			return nil, fmt.Errorf("parse effective config %q: %w", filename, err)
+		}
+
+		maps.Copy(merged, exporters)
+	}
+
+	endpoints := make([]*agentmodel.Endpoint, 0, len(merged))
+	for _, exporter := range collapseByURL(merged) {
+		endpoints = append(endpoints, extractedEndpoint(namespace, source, exporter))
+	}
+
+	return endpoints, nil
+}
+
+// extractedEndpoint builds an ephemeral (non-persisted) endpoint view for a detected
+// exporter, named after the exporter key and tagged with the source agent.
+func extractedEndpoint(namespace, source string, exporter *detectedExporter) *agentmodel.Endpoint {
+	//exhaustruct:ignore
+	return &agentmodel.Endpoint{
+		Metadata: agentmodel.EndpointMetadata{
+			Name:      sanitizeName(exporter.key),
+			Namespace: namespace,
+			Attributes: agentmodel.Attributes{
+				EndpointExtractedFromAttribute: source,
+				EndpointExporterAttribute:      exporter.key,
+			},
+		},
+		Spec: agentmodel.EndpointSpec{
+			URL:      exporter.url,
+			Protocol: exporter.protocol,
+			Signals:  exporter.signals,
+			Tenants:  tenantsForExporter(exporter),
+		},
+	}
 }
 
 // endpointsByURL indexes the namespace's live endpoints by their URL.
@@ -355,19 +414,27 @@ func buildEndpoint(
 	endpoint.Spec.URL = exporter.url
 	endpoint.Spec.Protocol = exporter.protocol
 	endpoint.Spec.Signals = exporter.signals
-
-	if orgID, ok := headerValue(exporter.headers, scopeOrgIDHeader); ok {
-		endpoint.Spec.Tenants = []agentmodel.EndpointTenant{
-			{
-				Name:    orgID,
-				Headers: exporter.headers,
-				Tags:    nil,
-				Signals: nil,
-			},
-		}
-	}
+	endpoint.Spec.Tenants = tenantsForExporter(exporter)
 
 	return endpoint
+}
+
+// tenantsForExporter derives the endpoint tenants from an exporter: when it sets the
+// X-Scope-OrgID header, a single tenant keyed by that value (carrying all headers).
+func tenantsForExporter(exporter *detectedExporter) []agentmodel.EndpointTenant {
+	orgID, ok := headerValue(exporter.headers, scopeOrgIDHeader)
+	if !ok {
+		return nil
+	}
+
+	return []agentmodel.EndpointTenant{
+		{
+			Name:    orgID,
+			Headers: exporter.headers,
+			Tags:    nil,
+			Signals: nil,
+		},
+	}
 }
 
 // addMatchedBy adds ref to the endpoint's matched-by attribute set, keeping it
