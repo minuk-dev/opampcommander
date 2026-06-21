@@ -12,7 +12,6 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
@@ -48,9 +47,9 @@ func New(
 func (s *Service) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
-	options *model.GetOptions,
+	options *applicationport.GetOptions,
 ) (*v1.RoleBinding, error) {
-	rb, err := s.roleBindingUsecase.GetRoleBinding(ctx, namespace, name, options)
+	rb, err := s.roleBindingUsecase.GetRoleBinding(ctx, namespace, name, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("get role binding: %w", err)
 	}
@@ -61,9 +60,9 @@ func (s *Service) GetRoleBinding(
 // ListRoleBindings implements [applicationport.RoleBindingManageUsecase].
 func (s *Service) ListRoleBindings(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.RoleBinding], error) {
-	domainResp, err := s.roleBindingUsecase.ListRoleBindings(ctx, options)
+	domainResp, err := s.roleBindingUsecase.ListRoleBindings(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list role bindings: %w", err)
 	}

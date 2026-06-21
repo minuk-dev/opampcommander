@@ -161,7 +161,7 @@ func TestService_SearchAgents(t *testing.T) {
 		mockAgentUsecase.On("SearchAgents", ctx, "default", "1234", mock.Anything).Return(domainResponse, nil)
 
 		// when
-		response, err := service.SearchAgents(ctx, "default", "1234", &model.ListOptions{})
+		response, err := service.SearchAgents(ctx, "default", "1234", &applicationport.ListOptions{})
 
 		// then
 		require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestService_SearchAgents(t *testing.T) {
 		mockAgentUsecase.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errMockError)
 
 		// when
-		response, err := service.SearchAgents(ctx, "default", "test", &model.ListOptions{})
+		response, err := service.SearchAgents(ctx, "default", "test", &applicationport.ListOptions{})
 
 		// then
 		require.Error(t, err)
@@ -211,12 +211,12 @@ func TestService_SearchAgents(t *testing.T) {
 			RemainingItemCount: 10,
 		}
 
-		options := &model.ListOptions{
+		options := &applicationport.ListOptions{
 			Limit:    2,
 			Continue: "",
 		}
 
-		mockAgentUsecase.On("SearchAgents", ctx, "default", "abcd", options).Return(domainResponse, nil)
+		mockAgentUsecase.On("SearchAgents", ctx, "default", "abcd", options.ToDomain()).Return(domainResponse, nil)
 
 		// when
 		response, err := service.SearchAgents(ctx, "default", "abcd", options)

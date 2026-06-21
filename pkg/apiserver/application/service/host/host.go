@@ -16,7 +16,6 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
@@ -57,9 +56,9 @@ func (s *Service) GetHost(ctx context.Context, id string) (*v1.Host, error) {
 // ListHosts implements applicationport.HostManageUsecase.
 func (s *Service) ListHosts(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Host], error) {
-	response, err := s.hostUsecase.ListHosts(ctx, options)
+	response, err := s.hostUsecase.ListHosts(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list hosts: %w", err)
 	}
@@ -81,14 +80,14 @@ func (s *Service) ListHosts(
 func (s *Service) ListAgentsByHost(
 	ctx context.Context,
 	id string,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Agent], error) {
 	host, err := s.hostUsecase.GetHost(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host: %w", err)
 	}
 
-	page, err := helper.PaginateUUIDs(host.Status.AgentInstanceUIDs, options)
+	page, err := helper.PaginateUUIDs(host.Status.AgentInstanceUIDs, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to paginate host agents: %w", err)
 	}

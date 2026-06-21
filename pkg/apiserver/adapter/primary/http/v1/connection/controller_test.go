@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -15,10 +14,9 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/goleak"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/connection"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -43,30 +41,28 @@ func TestConnectionController_List(t *testing.T) {
 		conn2UID := uuid.New()
 		agent1UID := uuid.New()
 		agent2UID := uuid.New()
-		now := time.Now()
 
-		connections := []*agentmodel.Connection{
+		connections := []v1.Connection{
 			{
-				UID:                conn1UID,
-				InstanceUID:        agent1UID,
-				Namespace:          "default",
-				Type:               agentmodel.ConnectionTypeWebSocket,
-				LastCommunicatedAt: now,
+				ID:          conn1UID,
+				InstanceUID: agent1UID,
+				Namespace:   "default",
+				Type:        "WebSocket",
+				Alive:       true,
 			},
 			{
-				UID:                conn2UID,
-				InstanceUID:        agent2UID,
-				Namespace:          "default",
-				Type:               agentmodel.ConnectionTypeHTTP,
-				LastCommunicatedAt: now,
+				ID:          conn2UID,
+				InstanceUID: agent2UID,
+				Namespace:   "default",
+				Type:        "HTTP",
+				Alive:       true,
 			},
 		}
 		adminUsecase.On("ListConnections", mock.Anything, "default", mock.Anything).
-			Return(&model.ListResponse[*agentmodel.Connection]{
+			Return(v1.NewConnectionListResponse(connections, v1.ListMeta{
 				RemainingItemCount: 0,
 				Continue:           "",
-				Items:              connections,
-			}, nil)
+			}), nil)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -102,7 +98,7 @@ func TestConnectionController_List(t *testing.T) {
 
 		// given
 		adminUsecase.On("ListConnections", mock.Anything, "default", mock.Anything).
-			Return((*model.ListResponse[*agentmodel.Connection])(nil), assert.AnError)
+			Return((*v1.ListResponse[v1.Connection])(nil), assert.AnError)
 
 		// when
 		recorder := httptest.NewRecorder()
@@ -158,16 +154,9 @@ func newMockAdminUsecase(t *testing.T) *mockAdminUsecase {
 func (m *mockAdminUsecase) ListConnections(
 	ctx context.Context,
 	namespace string,
-	options *model.ListOptions,
-) (*model.ListResponse[*agentmodel.Connection], error) {
+	options *applicationport.ListOptions,
+) (*v1.ListResponse[v1.Connection], error) {
 	args := m.Called(ctx, namespace, options)
 
-	return args.Get(0).(*model.ListResponse[*agentmodel.Connection]), args.Error(1)
-}
-
-//nolint:wrapcheck
-func (m *mockAdminUsecase) ApplyRawConfig(ctx context.Context, targetInstanceUID uuid.UUID, config any) error {
-	args := m.Called(ctx, targetInstanceUID, config)
-
-	return args.Error(0)
+	return args.Get(0).(*v1.ListResponse[v1.Connection]), args.Error(1)
 }

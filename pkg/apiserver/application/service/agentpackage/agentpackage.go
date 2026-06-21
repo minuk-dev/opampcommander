@@ -14,7 +14,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage/filter"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -51,9 +50,9 @@ func (a *Service) GetAgentPackage(
 	ctx context.Context,
 	namespace string,
 	name string,
-	options *model.GetOptions,
+	options *port.GetOptions,
 ) (*v1.AgentPackage, error) {
-	agentPackage, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name, options)
+	agentPackage, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("get agent package: %w", err)
 	}
@@ -64,9 +63,9 @@ func (a *Service) GetAgentPackage(
 // ListAgentPackages implements [port.AgentPackageManageUsecase].
 func (a *Service) ListAgentPackages(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentPackage], error) {
-	agentPackages, err := a.agentpackageUsecase.ListAgentPackages(ctx, options)
+	agentPackages, err := a.agentpackageUsecase.ListAgentPackages(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list agent packages: %w", err)
 	}

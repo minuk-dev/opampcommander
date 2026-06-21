@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -94,7 +94,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.usecase.ListRoleBindings(ctx.Request.Context(), &model.ListOptions{
+	response, err := c.usecase.ListRoleBindings(ctx.Request.Context(), &applicationport.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
@@ -146,7 +146,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 		return
 	}
 
-	roleBinding, err := c.usecase.GetRoleBinding(ctx.Request.Context(), namespace, name, &model.GetOptions{
+	roleBinding, err := c.usecase.GetRoleBinding(ctx.Request.Context(), namespace, name, &applicationport.GetOptions{
 		IncludeDeleted: includeDeleted,
 	})
 	if err != nil {

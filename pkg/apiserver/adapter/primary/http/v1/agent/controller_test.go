@@ -16,7 +16,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent/usecasemock"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -96,7 +95,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// given: repeated selector params are threaded into
 		// ListOptions.IdentifyingAttributes as exact key=value pairs.
 		agentUsecase.EXPECT().
-			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *model.ListOptions) bool {
+			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *applicationport.ListOptions) bool {
 				return opts != nil &&
 					opts.IdentifyingAttributes["service.name"] == "otel-collector" &&
 					opts.IdentifyingAttributes["service.namespace"] == "prod"
@@ -136,7 +135,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// given: a single selector entry is one key=value pair, split on the first
 		// "=" only and never on commas, so the value is preserved verbatim.
 		agentUsecase.EXPECT().
-			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *model.ListOptions) bool {
+			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *applicationport.ListOptions) bool {
 				return opts != nil &&
 					opts.IdentifyingAttributes["service.instance.id"] == "a,b=c"
 			})).
@@ -290,7 +289,7 @@ func TestAgentControllerListAgentSelectorThreading(t *testing.T) {
 
 	// given: selector and nonIdentifyingSelector map to their own attribute sets.
 	agentUsecase.EXPECT().
-		ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *model.ListOptions) bool {
+		ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *applicationport.ListOptions) bool {
 			return opts != nil &&
 				opts.IdentifyingAttributes["service.name"] == "otel-collector" &&
 				opts.NonIdentifyingAttributes["os.type"] == "linux"

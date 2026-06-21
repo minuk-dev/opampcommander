@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -252,7 +252,7 @@ func (_c *MockManageUsecase_ListAgentEndpoints_Call) RunAndReturn(run func(ctx c
 }
 
 // ListAgents provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) ListAgents(ctx context.Context, namespace string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error) {
+func (_mock *MockManageUsecase) ListAgents(ctx context.Context, namespace string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error) {
 	ret := _mock.Called(ctx, namespace, options)
 
 	if len(ret) == 0 {
@@ -261,17 +261,17 @@ func (_mock *MockManageUsecase) ListAgents(ctx context.Context, namespace string
 
 	var r0 *v1.ListResponse[v1.Agent]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *port.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
 		return returnFunc(ctx, namespace, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *model.ListOptions) *v1.ListResponse[v1.Agent]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *port.ListOptions) *v1.ListResponse[v1.Agent]); ok {
 		r0 = returnFunc(ctx, namespace, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ListResponse[v1.Agent])
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *model.ListOptions) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *port.ListOptions) error); ok {
 		r1 = returnFunc(ctx, namespace, options)
 	} else {
 		r1 = ret.Error(1)
@@ -287,12 +287,12 @@ type MockManageUsecase_ListAgents_Call struct {
 // ListAgents is a helper method to define mock.On call
 //   - ctx context.Context
 //   - namespace string
-//   - options *model.ListOptions
+//   - options *port.ListOptions
 func (_e *MockManageUsecase_Expecter) ListAgents(ctx interface{}, namespace interface{}, options interface{}) *MockManageUsecase_ListAgents_Call {
 	return &MockManageUsecase_ListAgents_Call{Call: _e.mock.On("ListAgents", ctx, namespace, options)}
 }
 
-func (_c *MockManageUsecase_ListAgents_Call) Run(run func(ctx context.Context, namespace string, options *model.ListOptions)) *MockManageUsecase_ListAgents_Call {
+func (_c *MockManageUsecase_ListAgents_Call) Run(run func(ctx context.Context, namespace string, options *port.ListOptions)) *MockManageUsecase_ListAgents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -302,9 +302,9 @@ func (_c *MockManageUsecase_ListAgents_Call) Run(run func(ctx context.Context, n
 		if args[1] != nil {
 			arg1 = args[1].(string)
 		}
-		var arg2 *model.ListOptions
+		var arg2 *port.ListOptions
 		if args[2] != nil {
-			arg2 = args[2].(*model.ListOptions)
+			arg2 = args[2].(*port.ListOptions)
 		}
 		run(
 			arg0,
@@ -320,13 +320,13 @@ func (_c *MockManageUsecase_ListAgents_Call) Return(listResponse *v1.ListRespons
 	return _c
 }
 
-func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.Context, namespace string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_ListAgents_Call {
+func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.Context, namespace string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_ListAgents_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SearchAgents provides a mock function for the type MockManageUsecase
-func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, namespace string, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error) {
+func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, namespace string, query string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error) {
 	ret := _mock.Called(ctx, namespace, query, options)
 
 	if len(ret) == 0 {
@@ -335,17 +335,17 @@ func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, namespace stri
 
 	var r0 *v1.ListResponse[v1.Agent]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *port.ListOptions) (*v1.ListResponse[v1.Agent], error)); ok {
 		return returnFunc(ctx, namespace, query, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *model.ListOptions) *v1.ListResponse[v1.Agent]); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, *port.ListOptions) *v1.ListResponse[v1.Agent]); ok {
 		r0 = returnFunc(ctx, namespace, query, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ListResponse[v1.Agent])
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *model.ListOptions) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, *port.ListOptions) error); ok {
 		r1 = returnFunc(ctx, namespace, query, options)
 	} else {
 		r1 = ret.Error(1)
@@ -362,12 +362,12 @@ type MockManageUsecase_SearchAgents_Call struct {
 //   - ctx context.Context
 //   - namespace string
 //   - query string
-//   - options *model.ListOptions
+//   - options *port.ListOptions
 func (_e *MockManageUsecase_Expecter) SearchAgents(ctx interface{}, namespace interface{}, query interface{}, options interface{}) *MockManageUsecase_SearchAgents_Call {
 	return &MockManageUsecase_SearchAgents_Call{Call: _e.mock.On("SearchAgents", ctx, namespace, query, options)}
 }
 
-func (_c *MockManageUsecase_SearchAgents_Call) Run(run func(ctx context.Context, namespace string, query string, options *model.ListOptions)) *MockManageUsecase_SearchAgents_Call {
+func (_c *MockManageUsecase_SearchAgents_Call) Run(run func(ctx context.Context, namespace string, query string, options *port.ListOptions)) *MockManageUsecase_SearchAgents_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -381,9 +381,9 @@ func (_c *MockManageUsecase_SearchAgents_Call) Run(run func(ctx context.Context,
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
-		var arg3 *model.ListOptions
+		var arg3 *port.ListOptions
 		if args[3] != nil {
-			arg3 = args[3].(*model.ListOptions)
+			arg3 = args[3].(*port.ListOptions)
 		}
 		run(
 			arg0,
@@ -400,7 +400,7 @@ func (_c *MockManageUsecase_SearchAgents_Call) Return(listResponse *v1.ListRespo
 	return _c
 }
 
-func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context.Context, namespace string, query string, options *model.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_SearchAgents_Call {
+func (_c *MockManageUsecase_SearchAgents_Call) RunAndReturn(run func(ctx context.Context, namespace string, query string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockManageUsecase_SearchAgents_Call {
 	_c.Call.Return(run)
 	return _c
 }

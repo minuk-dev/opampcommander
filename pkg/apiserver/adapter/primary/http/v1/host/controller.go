@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -78,7 +78,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	response, err = c.hostUsecase.ListHosts(
 		ctx.Request.Context(),
-		&model.ListOptions{
+		&applicationport.ListOptions{
 			Limit:                    limit,
 			Continue:                 ctx.Query("continue"),
 			IncludeDeleted:           false,
@@ -166,7 +166,7 @@ func (c *Controller) ListAgents(ctx *gin.Context) {
 	response, err = c.hostUsecase.ListAgentsByHost(
 		ctx.Request.Context(),
 		id,
-		&model.ListOptions{
+		&applicationport.ListOptions{
 			Limit:                    limit,
 			Continue:                 ctx.Query("continue"),
 			IncludeDeleted:           false,

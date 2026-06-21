@@ -16,7 +16,6 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
@@ -60,8 +59,8 @@ func New(
 }
 
 // GetUser implements [applicationport.UserManageUsecase].
-func (s *Service) GetUser(ctx context.Context, uid uuid.UUID, options *model.GetOptions) (*v1.User, error) {
-	user, err := s.userUsecase.GetUser(ctx, uid, options)
+func (s *Service) GetUser(ctx context.Context, uid uuid.UUID, options *applicationport.GetOptions) (*v1.User, error) {
+	user, err := s.userUsecase.GetUser(ctx, uid, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -82,9 +81,9 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*v1.User, e
 // ListUsers implements [applicationport.UserManageUsecase].
 func (s *Service) ListUsers(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.User], error) {
-	response, err := s.userUsecase.ListUsers(ctx, options)
+	response, err := s.userUsecase.ListUsers(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}

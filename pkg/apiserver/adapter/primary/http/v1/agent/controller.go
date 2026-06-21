@@ -13,7 +13,6 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -142,7 +141,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &model.ListOptions{
+	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &applicationport.ListOptions{
 		Limit:                    limit,
 		Continue:                 continueToken,
 		ConnectedOnly:            connectedOnly,
@@ -220,7 +219,7 @@ func (c *Controller) Search(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), namespace, query, &model.ListOptions{
+	response, err := c.agentUsecase.SearchAgents(ctx.Request.Context(), namespace, query, &applicationport.ListOptions{
 		Limit:         limit,
 		Continue:      continueToken,
 		ConnectedOnly: connectedOnly,

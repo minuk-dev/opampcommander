@@ -85,6 +85,19 @@ Derived from the OpAMP agent's `service.namespace` identifying attribute; defaul
 ### Controller Registration
 Every controller implements `RoutesInfo() gin.RoutesInfo` and is auto-registered into Gin by the FX infrastructure module — no manual route wiring needed.
 
+### Adapters Depend Only on the Application Layer
+Primary (driving) adapters — HTTP controllers, auth flows — must reach the core
+only through the application layer (`application/port` + `api/v1`), never by
+importing the domain directly. This is enforced by the `adapter-primary-no-domain`
+depguard rule (the `adapter/primary/messaging` adapters are exempt because they
+implement domain driven/out ports).
+
+Each HTTP controller depends on **at most one** application use case (a single
+`...Usecase` field; trivial controllers such as `ping`/`version` may need none).
+If a handler needs a different use case, it belongs in a different controller, or
+the use cases should be composed behind one application service — not injected
+side-by-side into the controller.
+
 ### Compile-Time Interface Checks
 All service implementations include:
 ```go

@@ -51,9 +51,9 @@ func (s *Service) GetCertificate(
 	ctx context.Context,
 	namespace string,
 	name string,
-	options *model.GetOptions,
+	options *port.GetOptions,
 ) (*v1.Certificate, error) {
-	certificate, err := s.certificateUsecase.GetCertificate(ctx, namespace, name, options)
+	certificate, err := s.certificateUsecase.GetCertificate(ctx, namespace, name, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("get certificate: %w", err)
 	}
@@ -64,9 +64,9 @@ func (s *Service) GetCertificate(
 // ListCertificates implements [port.CertificateManageUsecase].
 func (s *Service) ListCertificates(
 	ctx context.Context,
-	options *model.ListOptions,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.Certificate], error) {
-	certificates, err := s.certificateUsecase.ListCertificate(ctx, options)
+	certificates, err := s.certificateUsecase.ListCertificate(ctx, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list certificates: %w", err)
 	}

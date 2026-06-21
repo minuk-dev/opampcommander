@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	rolebindingsvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
@@ -271,8 +272,8 @@ func TestService_ListRoleBindings(t *testing.T) {
 		rb := newRB()
 		domainResp := &model.ListResponse[*usermodel.RoleBinding]{Items: []*usermodel.RoleBinding{rb}}
 
-		opts := &model.ListOptions{Limit: 10}
-		mockRBUsecase.On("ListRoleBindings", ctx, opts).Return(domainResp, nil)
+		opts := &applicationport.ListOptions{Limit: 10}
+		mockRBUsecase.On("ListRoleBindings", ctx, opts.ToDomain()).Return(domainResp, nil)
 
 		result, err := svc.ListRoleBindings(ctx, opts)
 
@@ -290,8 +291,8 @@ func TestService_ListRoleBindings(t *testing.T) {
 		mockRole := new(mockRoleUsecase)
 		svc := newSvc(t, mockRBUsecase, mockRole)
 
-		opts := &model.ListOptions{Limit: 10}
-		mockRBUsecase.On("ListRoleBindings", ctx, opts).Return(nil, errMock)
+		opts := &applicationport.ListOptions{Limit: 10}
+		mockRBUsecase.On("ListRoleBindings", ctx, opts.ToDomain()).Return(nil, errMock)
 
 		result, err := svc.ListRoleBindings(ctx, opts)
 

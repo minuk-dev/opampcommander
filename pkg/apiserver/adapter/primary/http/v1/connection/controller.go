@@ -6,12 +6,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -65,7 +62,6 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/connections [get].
 func (c *Controller) List(ctx *gin.Context) {
-	now := c.clock.Now()
 	namespace := ctx.Param("namespace")
 
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
@@ -77,34 +73,20 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	continueToken := ctx.Query("continue")
 
-	response, err := c.adminUsecase.ListConnections(ctx.Request.Context(), namespace, &model.ListOptions{
-		Limit:          limit,
-		Continue:       continueToken,
-		IncludeDeleted: false,
-	})
+	var connectionResponse *v1.ListResponse[v1.Connection]
+
+	connectionResponse, err = c.adminUsecase.ListConnections(
+		ctx.Request.Context(), namespace, &applicationport.ListOptions{
+			Limit:          limit,
+			Continue:       continueToken,
+			IncludeDeleted: false,
+		})
 	if err != nil {
 		c.logger.Error("failed to list connections", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while listing connections.")
 
 		return
 	}
-
-	connectionResponse := v1.NewConnectionListResponse(
-		lo.Map(response.Items, func(connection *agentmodel.Connection, _ int) v1.Connection {
-			return v1.Connection{
-				ID:                 connection.UID,
-				InstanceUID:        connection.InstanceUID,
-				Namespace:          connection.Namespace,
-				Type:               connection.Type.String(),
-				Alive:              connection.IsAlive(now),
-				LastCommunicatedAt: v1.NewTime(connection.LastCommunicatedAt),
-			}
-		}),
-		v1.ListMeta{
-			RemainingItemCount: response.RemainingItemCount,
-			Continue:           response.Continue,
-		},
-	)
 
 	ctx.JSON(http.StatusOK, connectionResponse)
 }
