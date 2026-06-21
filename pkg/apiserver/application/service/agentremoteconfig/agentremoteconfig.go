@@ -25,6 +25,7 @@ var _ port.AgentRemoteConfigManageUsecase = (*Service)(nil)
 type Service struct {
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
+	endpointDetectionUsecase agentport.EndpointDetectionUsecase
 	mapper                   *helper.Mapper
 	sanityFilter             *filter.Sanity
 	clock                    clock.Clock
@@ -35,6 +36,7 @@ type Service struct {
 func NewAgentRemoteConfigService(
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	agentGroupUsecase agentport.AgentGroupUsecase,
+	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
 	logger *slog.Logger,
 ) *Service {
 	realClock := clock.NewRealClock()
@@ -42,6 +44,7 @@ func NewAgentRemoteConfigService(
 	return &Service{
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
+		endpointDetectionUsecase: endpointDetectionUsecase,
 		mapper:                   helper.NewMapper(realClock, 0),
 		sanityFilter:             filter.NewSanity(),
 		clock:                    realClock,
@@ -135,6 +138,7 @@ func (s *Service) CreateAgentRemoteConfig(
 	}
 
 	s.triggerGroupPropagation(ctx, saved.Metadata.Namespace, saved.Metadata.Name)
+	s.triggerEndpointDetection(ctx, saved)
 
 	return s.mapper.MapAgentRemoteConfigToAPI(saved), nil
 }
@@ -164,6 +168,7 @@ func (s *Service) UpdateAgentRemoteConfig(
 	}
 
 	s.triggerGroupPropagation(ctx, updated.Metadata.Namespace, updated.Metadata.Name)
+	s.triggerEndpointDetection(ctx, updated)
 
 	return s.mapper.MapAgentRemoteConfigToAPI(updated), nil
 }
@@ -213,6 +218,25 @@ func (s *Service) triggerGroupPropagation(ctx context.Context, namespace, name s
 				"failed to propagate agent remote config change to groups",
 				slog.String("namespace", namespace),
 				slog.String("name", name),
+				slog.String("error", err.Error()),
+			)
+		}
+	}()
+}
+
+// triggerEndpointDetection reconciles the endpoints derived from this remote
+// config's collector configuration. Runs detached from the request ctx, in its own
+// goroutine, so it cannot block (or be cancelled with) the HTTP handler.
+func (s *Service) triggerEndpointDetection(ctx context.Context, remoteConfig *agentmodel.AgentRemoteConfig) {
+	bgCtx := context.WithoutCancel(ctx)
+
+	go func() {
+		err := s.endpointDetectionUsecase.ReconcileEndpointsFromRemoteConfig(bgCtx, remoteConfig)
+		if err != nil {
+			s.logger.Warn(
+				"failed to reconcile endpoints from remote config",
+				slog.String("namespace", remoteConfig.Metadata.Namespace),
+				slog.String("name", remoteConfig.Metadata.Name),
 				slog.String("error", err.Error()),
 			)
 		}
