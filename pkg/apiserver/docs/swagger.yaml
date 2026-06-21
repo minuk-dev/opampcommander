@@ -2398,6 +2398,42 @@ paths:
       summary: List Agent Groups by Agent
       tags:
       - agentgroup
+  /api/v1/namespaces/{namespace}/agents/{id}/endpoints:
+    get:
+      description: Extract the telemetry endpoints from an agent's effective configuration.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Instance UID of the agent
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Endpoint'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Agent Endpoints
+      tags:
+      - agent
   /api/v1/namespaces/{namespace}/agents/search:
     get:
       consumes:

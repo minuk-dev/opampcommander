@@ -35,6 +35,7 @@ type Service struct {
 	// domain usecases
 	agentUsecase             agentport.AgentUsecase
 	agentNotificationUsecase agentport.AgentNotificationUsecase
+	endpointDetectionUsecase agentport.EndpointDetectionUsecase
 
 	// mapper
 	mapper *helper.Mapper
@@ -45,6 +46,7 @@ type Service struct {
 func New(
 	agentUsecase agentport.AgentUsecase,
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
+	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
 	logger *slog.Logger,
 ) *Service {
 	realClock := clock.RealClock{}
@@ -52,10 +54,39 @@ func New(
 	return &Service{
 		agentUsecase:             agentUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
+		endpointDetectionUsecase: endpointDetectionUsecase,
 
 		mapper: helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		logger: logger,
 	}
+}
+
+// ListAgentEndpoints implements port.AgentManageUsecase. It returns a read-only view
+// of the endpoints the agent currently exports to, extracted from its reported
+// effective configuration (not persisted Endpoint resources).
+func (s *Service) ListAgentEndpoints(
+	ctx context.Context,
+	namespace string,
+	instanceUID uuid.UUID,
+) (*v1.ListResponse[v1.Endpoint], error) {
+	agent, err := s.getAgentInNamespace(ctx, namespace, instanceUID)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoints, err := s.endpointDetectionUsecase.ExtractEndpointsFromAgent(agent)
+	if err != nil {
+		return nil, fmt.Errorf("extract endpoints from agent effective config: %w", err)
+	}
+
+	return &v1.ListResponse[v1.Endpoint]{
+		Kind:       v1.EndpointKind,
+		APIVersion: v1.APIVersion,
+		Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
+		Items: lo.Map(endpoints, func(item *agentmodel.Endpoint, _ int) v1.Endpoint {
+			return *s.mapper.MapEndpointToAPI(item)
+		}),
+	}, nil
 }
 
 // GetAgent implements port.AgentManageUsecase.

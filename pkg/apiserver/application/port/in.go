@@ -76,6 +76,10 @@ type AgentManageUsecase interface {
 	UpdateAgent(ctx context.Context, namespace string, instanceUID uuid.UUID,
 		agent *v1.Agent) (*v1.Agent, error)
 	DeleteAgent(ctx context.Context, namespace string, instanceUID uuid.UUID) error
+	// ListAgentEndpoints returns a read-only view of the endpoints the agent exports
+	// to, extracted from its reported effective configuration (not persisted).
+	ListAgentEndpoints(ctx context.Context, namespace string,
+		instanceUID uuid.UUID) (*v1.ListResponse[v1.Endpoint], error)
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.

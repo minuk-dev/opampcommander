@@ -120,6 +120,22 @@ func (m *MockAgentNotificationUsecase) NotifyAgentUpdated(ctx context.Context, a
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
 
+// stubEndpointDetectionUsecase is a no-op agentport.EndpointDetectionUsecase for the
+// agent-service tests, which do not exercise endpoint detection.
+type stubEndpointDetectionUsecase struct{}
+
+func (stubEndpointDetectionUsecase) ReconcileEndpointsFromRemoteConfig(
+	context.Context, *agentmodel.AgentRemoteConfig,
+) error {
+	return nil
+}
+
+func (stubEndpointDetectionUsecase) ExtractEndpointsFromAgent(
+	*agentmodel.Agent,
+) ([]*agentmodel.Endpoint, error) {
+	return nil, nil
+}
+
 func TestService_SearchAgents(t *testing.T) {
 	t.Parallel()
 
@@ -130,7 +146,7 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgents := []*agentmodel.Agent{
@@ -162,7 +178,7 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		mockAgentUsecase.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errMockError)
 
@@ -183,7 +199,7 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		domainAgents := []*agentmodel.Agent{
 			agentmodel.NewAgent(uuid.New()),
@@ -225,7 +241,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // Status.Connected defaults to false
@@ -249,7 +265,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // namespace "default"
@@ -272,7 +288,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // namespace defaults to "default"
@@ -295,7 +311,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, slog.Default())
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID)

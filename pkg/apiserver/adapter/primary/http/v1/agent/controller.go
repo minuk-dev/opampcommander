@@ -66,6 +66,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Get,
 		},
 		{
+			Method:      http.MethodGet,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id/endpoints",
+			Handler:     "http.v1.agent.ListEndpoints",
+			HandlerFunc: c.ListEndpoints,
+		},
+		{
 			Method:      http.MethodPut,
 			Path:        "/api/v1/namespaces/:namespace/agents/:id",
 			Handler:     "http.v1.agent.Update",
@@ -266,6 +272,46 @@ func (c *Controller) Get(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, agent)
+}
+
+// ListEndpoints retrieves the endpoints an agent currently exports to, extracted
+// from its reported effective configuration. This is a read-only view; the returned
+// endpoints are not persisted Endpoint resources.
+//
+// @Summary  List Agent Endpoints
+// @Tags agent
+// @Description Extract the telemetry endpoints from an agent's effective configuration.
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  id path string true "Instance UID of the agent"
+// @Success  200 {object} v1.ListResponse[v1.Endpoint]
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/namespaces/{namespace}/agents/{id}/endpoints [get].
+func (c *Controller) ListEndpoints(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	endpoints, err := c.agentUsecase.ListAgentEndpoints(ctx.Request.Context(), namespace, instanceUID)
+	if err != nil {
+		c.handleAgentError(ctx, err, "An error occurred while extracting the agent's endpoints.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, endpoints)
 }
 
 // Update updates an agent's metadata & spec.

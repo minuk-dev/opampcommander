@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -265,6 +266,49 @@ service:
 	assert.Equal(t, "team-a", headers["X-Scope-OrgID"])
 	_, hasBad := headers["bad"]
 	assert.False(t, hasBad, "non-scalar header value must be skipped")
+}
+
+func TestExtractEndpointsFromAgent(t *testing.T) {
+	t.Parallel()
+
+	fake := newFakeEndpointUsecase()
+	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
+
+	agent := agentmodel.NewAgent(uuid.New())
+	agent.Status.EffectiveConfig = agentmodel.AgentEffectiveConfig{
+		ConfigMap: agentmodel.AgentConfigMap{
+			ConfigMap: map[string]agentmodel.AgentConfigFile{
+				"collector.yaml": {Body: []byte(otlpAndMimirConfig), ContentType: "text/yaml"},
+			},
+		},
+	}
+
+	endpoints, err := svc.ExtractEndpointsFromAgent(agent)
+	require.NoError(t, err)
+	require.Len(t, endpoints, 2)
+
+	byName := map[string]*agentmodel.Endpoint{}
+	for _, e := range endpoints {
+		byName[e.Metadata.Name] = e
+	}
+
+	otlp := byName["otlp"]
+	require.NotNil(t, otlp)
+	assert.Equal(t, "https://otlp.example.com:4317", otlp.Spec.URL)
+	assert.True(t, otlp.Spec.Signals.Traces)
+	assert.True(t, otlp.Spec.Signals.Metrics)
+	assert.Equal(t, "agent/"+agent.Metadata.InstanceUID.String(),
+		otlp.Metadata.Attributes[agentservice.EndpointExtractedFromAttribute])
+
+	mimir := byName["prometheusremotewrite-mimir"]
+	require.NotNil(t, mimir)
+	require.Len(t, mimir.Spec.Tenants, 1)
+	assert.Equal(t, "team-a", mimir.Spec.Tenants[0].Name)
+
+	// Extraction is read-only: nothing was persisted.
+	list, err := fake.ListEndpoints(context.Background(), "default", nil)
+	require.NoError(t, err)
+	assert.Empty(t, list.Items)
 }
 
 func TestReconcileParseErrorKeepsExisting(t *testing.T) {

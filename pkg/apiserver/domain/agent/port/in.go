@@ -132,6 +132,10 @@ type EndpointDetectionUsecase interface {
 	// auto-creating one). It never modifies a matched endpoint's spec and never
 	// deletes endpoints.
 	ReconcileEndpointsFromRemoteConfig(ctx context.Context, remoteConfig *agentmodel.AgentRemoteConfig) error
+	// ExtractEndpointsFromAgent returns the endpoints an agent currently exports to,
+	// parsed from its reported effective configuration. The returned endpoints are
+	// ephemeral (not persisted) — a read-only view.
+	ExtractEndpointsFromAgent(agent *agentmodel.Agent) ([]*agentmodel.Endpoint, error)
 }
 
 // AgentGroupUsecase is an interface that defines the methods for agent group use cases.
