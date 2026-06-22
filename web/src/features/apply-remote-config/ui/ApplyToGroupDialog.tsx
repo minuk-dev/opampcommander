@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
-import type { AgentGroup } from '@entities/agent-group';
+import { describeRemoteConfigSource, type AgentGroup } from '@entities/agent-group';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
 interface Props {
@@ -26,16 +26,6 @@ interface Props {
   config: AgentRemoteConfig | null;
   onClose: () => void;
   onApplied: () => void;
-}
-
-// Describe how a group currently sources its remote config, so the user can
-// see what an apply would overwrite.
-function currentRemoteConfig(g: AgentGroup): string {
-  const rc = g.spec.agentConfig?.agentRemoteConfig;
-  if (!rc) return 'none';
-  if (rc.agentRemoteConfigRef) return `ref → ${rc.agentRemoteConfigRef}`;
-  if (rc.agentRemoteConfigName) return `inline (${rc.agentRemoteConfigName})`;
-  return 'none';
 }
 
 export default function ApplyToGroupDialog({ open, namespace, config, onClose, onApplied }: Props) {
@@ -132,7 +122,7 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
           </FormControl>
           {selectedGroup && (
             <Typography variant="body2" color="text.secondary">
-              Current remote config: <code>{currentRemoteConfig(selectedGroup)}</code> ·{' '}
+              Current remote config: <code>{describeRemoteConfigSource(selectedGroup)}</code> ·{' '}
               {selectedGroup.status.numAgents} agent(s) matched
             </Typography>
           )}

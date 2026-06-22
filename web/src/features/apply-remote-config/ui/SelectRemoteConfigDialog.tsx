@@ -15,9 +15,13 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
-import type { AgentGroup } from '@entities/agent-group';
+import {
+  currentRemoteConfigRef,
+  describeRemoteConfigSource,
+  type AgentGroup,
+} from '@entities/agent-group';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
 interface Props {
@@ -26,16 +30,6 @@ interface Props {
   group: AgentGroup | null;
   onClose: () => void;
   onApplied: () => void;
-}
-
-// Describe how a group currently sources its remote config, so the user can
-// see what an apply would overwrite.
-function currentRemoteConfig(g: AgentGroup): string {
-  const rc = g.spec.agentConfig?.agentRemoteConfig;
-  if (!rc) return 'none';
-  if (rc.agentRemoteConfigRef) return `ref → ${rc.agentRemoteConfigRef}`;
-  if (rc.agentRemoteConfigName) return `inline (${rc.agentRemoteConfigName})`;
-  return 'none';
 }
 
 export default function SelectRemoteConfigDialog({
@@ -66,15 +60,21 @@ export default function SelectRemoteConfigDialog({
         ? 'Failed to fetch remote configs'
         : null);
 
-  // Preselect the group's current ref (if any) when the dialog opens.
+  // Read the latest group through a ref so the preselect effect can key on
+  // `open` alone: re-running it on every `group` change would clobber an
+  // in-progress selection whenever SWR revalidates the group in the background.
+  const groupRef = useRef(group);
+  groupRef.current = group;
+
+  // Preselect the group's current ref (if any) only when the dialog opens.
   useEffect(() => {
     if (!open) {
       setSelected('');
       setApplyError(null);
       return;
     }
-    setSelected(group?.spec.agentConfig?.agentRemoteConfig?.agentRemoteConfigRef ?? '');
-  }, [open, group]);
+    setSelected(currentRemoteConfigRef(groupRef.current));
+  }, [open]);
 
   const apply = async () => {
     if (!group || !selected) return;
@@ -112,13 +112,13 @@ export default function SelectRemoteConfigDialog({
       <DialogContent>
         <Stack spacing={2} mt={1}>
           <DialogContentText>
-            Point agent group <code>{group?.metadata.name}</code> at a remote config. The group&apos;s
-            matching agents will receive this config. Any existing remote config on the group will be
-            replaced.
+            Point agent group <code>{group?.metadata.name}</code> at a remote config. The
+            group&apos;s matching agents will receive this config. Any existing remote config on the
+            group will be replaced.
           </DialogContentText>
           {group && (
             <Typography variant="body2" color="text.secondary">
-              Current remote config: <code>{currentRemoteConfig(group)}</code> ·{' '}
+              Current remote config: <code>{describeRemoteConfigSource(group)}</code> ·{' '}
               {group.status.numAgents} agent(s) matched
             </Typography>
           )}
