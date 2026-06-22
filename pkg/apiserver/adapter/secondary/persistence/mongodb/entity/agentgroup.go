@@ -34,8 +34,13 @@ type AgentGroupMetadata struct {
 
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
-	Priority              int                          `bson:"priority"`
-	Selector              AgentSelector                `bson:"selector"`
+	Priority int           `bson:"priority"`
+	Selector AgentSelector `bson:"selector"`
+	// AgentRemoteConfigs is the list of remote configurations applied to agents in the group.
+	AgentRemoteConfigs []AgentGroupAgentRemoteConfig `bson:"agentRemoteConfigs,omitempty"`
+	// AgentRemoteConfig is the legacy single remote configuration. It is read-only: kept so
+	// documents written before the multi-config migration still load, and folded into
+	// AgentRemoteConfigs by toDomain. New writes never set it (see agentGroupSpecFromDomain).
 	AgentRemoteConfig     *AgentGroupAgentRemoteConfig `bson:"agentConfig,omitempty"`
 	AgentConnectionConfig *AgentConnectionConfig       `bson:"agentConnectionConfig,omitempty"`
 }
@@ -62,6 +67,41 @@ type AgentGroupAgentRemoteConfig struct {
 type AgentRemoteConfigSpec struct {
 	Value       []byte `bson:"value"       json:"value"`
 	ContentType string `bson:"contentType" json:"contentType"`
+}
+
+// toDomain converts a single remote-config entity element to its domain representation.
+func (c *AgentGroupAgentRemoteConfig) toDomain() agentmodel.AgentGroupAgentRemoteConfig {
+	domain := agentmodel.AgentGroupAgentRemoteConfig{
+		AgentRemoteConfigName: c.AgentRemoteConfigName,
+		AgentRemoteConfigRef:  c.AgentRemoteConfigRef,
+		AgentRemoteConfigSpec: nil,
+	}
+	if c.AgentRemoteConfigSpec != nil {
+		domain.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
+			Value:       c.AgentRemoteConfigSpec.Value,
+			ContentType: c.AgentRemoteConfigSpec.ContentType,
+		}
+	}
+
+	return domain
+}
+
+// agentGroupRemoteConfigFromDomain converts a single domain remote-config element to its
+// entity representation.
+func agentGroupRemoteConfigFromDomain(domain *agentmodel.AgentGroupAgentRemoteConfig) AgentGroupAgentRemoteConfig {
+	entity := AgentGroupAgentRemoteConfig{
+		AgentRemoteConfigName: domain.AgentRemoteConfigName,
+		AgentRemoteConfigRef:  domain.AgentRemoteConfigRef,
+		AgentRemoteConfigSpec: nil,
+	}
+	if domain.AgentRemoteConfigSpec != nil {
+		entity.AgentRemoteConfigSpec = &AgentRemoteConfigSpec{
+			Value:       domain.AgentRemoteConfigSpec.Value,
+			ContentType: domain.AgentRemoteConfigSpec.ContentType,
+		}
+	}
+
+	return entity
 }
 
 // AgentConnectionConfig represents connection settings for agents in the group.
@@ -132,20 +172,14 @@ func (s *AgentGroupSpec) toDomain() agentmodel.AgentGroupSpec {
 		},
 	}
 
+	// Fold a legacy single config (written before the multi-config migration) in as the
+	// first element so old documents keep working; new entries follow from the slice.
 	if s.AgentRemoteConfig != nil {
-		//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-		spec.AgentRemoteConfig = &agentmodel.AgentGroupAgentRemoteConfig{
-			AgentRemoteConfigName: s.AgentRemoteConfig.AgentRemoteConfigName,
-			AgentRemoteConfigRef:  s.AgentRemoteConfig.AgentRemoteConfigRef,
-			AgentRemoteConfigSpec: nil,
-		}
-		if s.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
-			//nolint:staticcheck // backward compat
-			spec.AgentRemoteConfig.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
-				Value:       s.AgentRemoteConfig.AgentRemoteConfigSpec.Value,
-				ContentType: s.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
-			}
-		}
+		spec.AgentRemoteConfigs = append(spec.AgentRemoteConfigs, s.AgentRemoteConfig.toDomain())
+	}
+
+	for i := range s.AgentRemoteConfigs {
+		spec.AgentRemoteConfigs = append(spec.AgentRemoteConfigs, s.AgentRemoteConfigs[i].toDomain())
 	}
 
 	if s.AgentConnectionConfig != nil {
@@ -231,18 +265,13 @@ func agentGroupSpecFromDomain(spec agentmodel.AgentGroupSpec) AgentGroupSpec {
 		},
 	}
 
-	if spec.AgentRemoteConfig != nil { //nolint:staticcheck // backward compatibility
-		result.AgentRemoteConfig = &AgentGroupAgentRemoteConfig{
-			AgentRemoteConfigName: spec.AgentRemoteConfig.AgentRemoteConfigName, //nolint:staticcheck // backward compat
-			AgentRemoteConfigRef:  spec.AgentRemoteConfig.AgentRemoteConfigRef,  //nolint:staticcheck // backward compat
-			AgentRemoteConfigSpec: nil,
-		}
-
-		if spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil { //nolint:staticcheck // backward compat
-			result.AgentRemoteConfig.AgentRemoteConfigSpec = &AgentRemoteConfigSpec{
-				Value:       spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value,       //nolint:staticcheck // backward compat
-				ContentType: spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType, //nolint:staticcheck // backward compat
-			}
+	// Only the slice is written; the legacy AgentRemoteConfig field is left nil so the old
+	// bson "agentConfig" key is dropped (omitempty) as documents are rewritten.
+	if len(spec.AgentRemoteConfigs) > 0 {
+		result.AgentRemoteConfigs = make([]AgentGroupAgentRemoteConfig, 0, len(spec.AgentRemoteConfigs))
+		for i := range spec.AgentRemoteConfigs {
+			result.AgentRemoteConfigs = append(
+				result.AgentRemoteConfigs, agentGroupRemoteConfigFromDomain(&spec.AgentRemoteConfigs[i]))
 		}
 	}
 

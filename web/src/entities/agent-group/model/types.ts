@@ -12,7 +12,7 @@ export interface AgentGroupRemoteConfig {
 }
 
 export interface AgentGroupAgentConfig {
-  agentRemoteConfig?: AgentGroupRemoteConfig;
+  agentRemoteConfigs?: AgentGroupRemoteConfig[];
   connectionSettings?: ConnectionSettings;
 }
 

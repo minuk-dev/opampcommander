@@ -1316,8 +1316,12 @@ definitions:
     type: object
   github_com_minuk-dev_opampcommander_api_v1.AgentConfig:
     properties:
-      agentRemoteConfig:
-        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentGroupRemoteConfig'
+      agentRemoteConfigs:
+        description: AgentRemoteConfigs is the list of remote configurations applied
+          to agents in the group.
+        items:
+          $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentGroupRemoteConfig'
+        type: array
       connectionSettings:
         $ref: '#/definitions/ConnectionSettings'
     type: object

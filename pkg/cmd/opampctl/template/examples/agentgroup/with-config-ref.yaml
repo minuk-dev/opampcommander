@@ -14,6 +14,7 @@ spec:
       service.name: my-service
     nonIdentifyingAttributes: {}
   agentConfig:
-    agentRemoteConfig:
-      # Name of an AgentRemoteConfig resource in the same namespace.
-      agentRemoteConfigName: shared-otel-config
+    # One or more remote configs are applied to every agent in the group.
+    agentRemoteConfigs:
+      # Reference a standalone AgentRemoteConfig resource in the same namespace.
+      - agentRemoteConfigRef: shared-otel-config

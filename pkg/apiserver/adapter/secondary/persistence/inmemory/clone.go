@@ -115,11 +115,6 @@ func cloneAgentGroup(agentGroup *agentmodel.AgentGroup) *agentmodel.AgentGroup {
 	cloned.Spec.AgentConnectionConfig = cloneAgentGroupConnectionConfig(agentGroup.Spec.AgentConnectionConfig)
 	cloned.Status.Conditions = slices.Clone(agentGroup.Status.Conditions)
 
-	// The deprecated single-config field is still copied so a stored value that
-	// uses it round-trips identically.
-	//nolint:staticcheck // must deep-copy the deprecated field to preserve it.
-	cloned.Spec.AgentRemoteConfig = cloneAgentGroupRemoteConfig(agentGroup.Spec.AgentRemoteConfig)
-
 	if agentGroup.Spec.AgentRemoteConfigs != nil {
 		configs := make([]agentmodel.AgentGroupAgentRemoteConfig, len(agentGroup.Spec.AgentRemoteConfigs))
 		for i := range agentGroup.Spec.AgentRemoteConfigs {

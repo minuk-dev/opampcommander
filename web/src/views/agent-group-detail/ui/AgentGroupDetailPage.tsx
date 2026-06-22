@@ -149,7 +149,7 @@ function AgentGroupDetailInner() {
               variant="outlined"
               onClick={() => setApplyingConfig(true)}
             >
-              Apply remote config
+              Apply remote configs
             </Button>
             <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditing(true)}>
               Edit

@@ -40,7 +40,6 @@ func NewAgentGroup(
 				IdentifyingAttributes:    nil,
 				NonIdentifyingAttributes: nil,
 			},
-			AgentRemoteConfig:     nil,
 			AgentRemoteConfigs:    nil,
 			AgentConnectionConfig: nil,
 		},
@@ -93,11 +92,6 @@ type AgentGroupSpec struct {
 
 	// Selector is a set of criteria used to select agents for the group.
 	Selector AgentSelector
-
-	// AgentRemoteConfig is a single remote configuration (for API compatibility).
-	//
-	// Deprecated: Use AgentRemoteConfigs for multiple configs.
-	AgentRemoteConfig *AgentGroupAgentRemoteConfig
 
 	// AgentRemoteConfigs is a list of remote configurations for the agent group.
 	AgentRemoteConfigs []AgentGroupAgentRemoteConfig

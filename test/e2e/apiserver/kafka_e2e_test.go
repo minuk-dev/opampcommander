@@ -282,11 +282,13 @@ func updateAgentGroup(t *testing.T, c *client.Client, name string, configMap map
 	configName := "inline-config"
 	configValue := string(configBytes)
 	agentGroup.Spec.AgentConfig = &v1.AgentConfig{
-		AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
-			AgentRemoteConfigName: &configName,
-			AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
-				Value:       configValue,
-				ContentType: "application/yaml",
+		AgentRemoteConfigs: []v1.AgentGroupRemoteConfig{
+			{
+				AgentRemoteConfigName: &configName,
+				AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+					Value:       configValue,
+					ContentType: "application/yaml",
+				},
 			},
 		},
 	}

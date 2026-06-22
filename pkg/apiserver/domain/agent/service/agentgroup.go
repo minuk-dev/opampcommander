@@ -39,6 +39,10 @@ const (
 // ErrInvalidRemoteConfig is returned when inline remote config is missing required fields.
 var ErrInvalidRemoteConfig = errors.New("invalid remote config: both spec and name are required for inline config")
 
+// ErrDuplicateRemoteConfigName is returned when two of a group's remote configs resolve to
+// the same name, which would otherwise silently drop one of them.
+var ErrDuplicateRemoteConfigName = errors.New("duplicate remote config name within agent group")
+
 var _ agentport.AgentGroupUsecase = (*AgentGroupService)(nil)
 var _ agentport.AgentGroupRelatedUsecase = (*AgentGroupService)(nil)
 
@@ -384,20 +388,17 @@ func (s *AgentGroupService) collectGroupRemoteConfigs(
 	agentGroupName := group.Metadata.Name
 	namespace := group.Metadata.Namespace
 
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	if cfg := group.Spec.AgentRemoteConfig; cfg != nil {
-		file, name, err := s.resolveRemoteConfig(ctx, namespace, agentGroupName, *cfg)
-		if err != nil {
-			return nil, err
-		}
-
-		out[name] = file
-	}
-
 	for _, cfg := range group.Spec.AgentRemoteConfigs {
 		file, name, err := s.resolveRemoteConfig(ctx, namespace, agentGroupName, cfg)
 		if err != nil {
 			return nil, err
+		}
+
+		// Two entries resolving to the same name would silently overwrite one another,
+		// dropping a config without any signal. Surface it instead so it shows up on the
+		// group's RemoteConfigApplied condition.
+		if _, dup := out[name]; dup {
+			return nil, fmt.Errorf("%w: %q", ErrDuplicateRemoteConfigName, name)
 		}
 
 		out[name] = file
@@ -534,12 +535,6 @@ var fingerprintErrSeq atomic.Int64
 // agentGroupReferencesRemoteConfig reports whether any of the group's remote configs
 // references the named AgentRemoteConfig resource (i.e. via AgentRemoteConfigRef).
 func agentGroupReferencesRemoteConfig(group *agentmodel.AgentGroup, name string) bool {
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	if cfg := group.Spec.AgentRemoteConfig; cfg != nil && cfg.AgentRemoteConfigRef != nil &&
-		*cfg.AgentRemoteConfigRef == name {
-		return true
-	}
-
 	for _, cfg := range group.Spec.AgentRemoteConfigs {
 		if cfg.AgentRemoteConfigRef != nil && *cfg.AgentRemoteConfigRef == name {
 			return true
@@ -557,8 +552,7 @@ const remoteConfigConditionReason = agentGroupServiceName
 // Groups that declare none never get a RemoteConfigApplied condition — there is nothing
 // to apply, so recording one would be noise.
 func groupDeclaresRemoteConfig(group *agentmodel.AgentGroup) bool {
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	return group.Spec.AgentRemoteConfig != nil || len(group.Spec.AgentRemoteConfigs) > 0
+	return len(group.Spec.AgentRemoteConfigs) > 0
 }
 
 // recordRemoteConfigCondition resolves the group's declared remote configs and records the
@@ -747,9 +741,11 @@ func (s *AgentGroupService) resolveRemoteConfig(
 		}, arc.Metadata.Name, nil
 	}
 
-	// Case 2: Inline/direct config definition
+	// Case 2: Inline/direct config definition. Name the offending group so an operator can
+	// tell which entry broke — collectGroupRemoteConfigs applies a group's configs
+	// atomically, so one invalid entry blocks the whole group.
 	if remoteConfig.AgentRemoteConfigSpec == nil || remoteConfig.AgentRemoteConfigName == nil {
-		return agentmodel.AgentConfigFile{}, "", ErrInvalidRemoteConfig
+		return agentmodel.AgentConfigFile{}, "", fmt.Errorf("%w (agent group %q)", ErrInvalidRemoteConfig, agentGroupName)
 	}
 
 	// Prefix with AgentGroupName to avoid name collisions
