@@ -15,20 +15,30 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
-import { describeRemoteConfigSource, type AgentGroup } from '@entities/agent-group';
+import {
+  currentRemoteConfigRef,
+  describeRemoteConfigSource,
+  type AgentGroup,
+} from '@entities/agent-group';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
 interface Props {
   open: boolean;
   namespace: string;
-  config: AgentRemoteConfig | null;
+  group: AgentGroup | null;
   onClose: () => void;
   onApplied: () => void;
 }
 
-export default function ApplyToGroupDialog({ open, namespace, config, onClose, onApplied }: Props) {
+export default function SelectRemoteConfigDialog({
+  open,
+  namespace,
+  group,
+  onClose,
+  onApplied,
+}: Props) {
   const [selected, setSelected] = useState('');
   const [busy, setBusy] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
@@ -38,47 +48,56 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
     data,
     error: fetchError,
     isLoading: loading,
-  } = useApi<ListResponse<AgentGroup>>(
-    open ? [`/api/v1/namespaces/${namespace}/agentgroups`, { limit: 200 }] : null,
+  } = useApi<ListResponse<AgentRemoteConfig>>(
+    open ? [`/api/v1/namespaces/${namespace}/agentremoteconfigs`, { limit: 200 }] : null,
   );
-  const groups = data?.items ?? [];
+  const configs = data?.items ?? [];
   const error =
     applyError ??
     (fetchError instanceof Error
       ? fetchError.message
       : fetchError
-        ? 'Failed to fetch agent groups'
+        ? 'Failed to fetch remote configs'
         : null);
 
+  // Read the latest group through a ref so the preselect effect can key on
+  // `open` alone: re-running it on every `group` change would clobber an
+  // in-progress selection whenever SWR revalidates the group in the background.
+  const groupRef = useRef(group);
+  groupRef.current = group;
+
+  // Preselect the group's current ref (if any) only when the dialog opens.
   useEffect(() => {
     if (!open) {
       setSelected('');
       setApplyError(null);
+      return;
     }
+    setSelected(currentRemoteConfigRef(groupRef.current));
   }, [open]);
 
   const apply = async () => {
-    if (!config || !selected) return;
+    if (!group || !selected) return;
     setBusy(true);
     setApplyError(null);
     try {
       // Re-fetch the group to apply on top of its latest state, then point its
-      // remote config at this resource via agentRemoteConfigRef (clearing any
-      // inline config so the reference takes effect unambiguously).
-      const group = await api.get<AgentGroup>(
-        `/api/v1/namespaces/${namespace}/agentgroups/${selected}`,
+      // remote config at the selected resource via agentRemoteConfigRef
+      // (clearing any inline config so the reference takes effect unambiguously).
+      const latest = await api.get<AgentGroup>(
+        `/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`,
       );
       const body: AgentGroup = {
-        ...group,
+        ...latest,
         spec: {
-          ...group.spec,
+          ...latest.spec,
           agentConfig: {
-            ...group.spec.agentConfig,
-            agentRemoteConfig: { agentRemoteConfigRef: config.metadata.name },
+            ...latest.spec.agentConfig,
+            agentRemoteConfig: { agentRemoteConfigRef: selected },
           },
         },
       };
-      await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${selected}`, body);
+      await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`, body);
       onApplied();
     } catch (err) {
       setApplyError(err instanceof Error ? err.message : 'Failed to apply');
@@ -87,45 +106,43 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
     }
   };
 
-  const selectedGroup = groups.find((g) => g.metadata.name === selected);
-
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Apply remote config to agent group</DialogTitle>
+      <DialogTitle>Apply remote config</DialogTitle>
       <DialogContent>
         <Stack spacing={2} mt={1}>
           <DialogContentText>
-            Point an agent group&apos;s remote config at <code>{config?.metadata.name}</code>. The
+            Point agent group <code>{group?.metadata.name}</code> at a remote config. The
             group&apos;s matching agents will receive this config. Any existing remote config on the
             group will be replaced.
           </DialogContentText>
+          {group && (
+            <Typography variant="body2" color="text.secondary">
+              Current remote config: <code>{describeRemoteConfigSource(group)}</code> ·{' '}
+              {group.status.numAgents} agent(s) matched
+            </Typography>
+          )}
           {error && <Alert severity="error">{error}</Alert>}
           <FormControl fullWidth disabled={loading || busy}>
-            <InputLabel id="apply-group-label">Agent group</InputLabel>
+            <InputLabel id="select-remote-config-label">Remote config</InputLabel>
             <Select
-              labelId="apply-group-label"
-              label="Agent group"
+              labelId="select-remote-config-label"
+              label="Remote config"
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
             >
-              {groups.length === 0 && (
+              {configs.length === 0 && (
                 <MenuItem value="" disabled>
-                  {loading ? 'Loading…' : 'No agent groups in this namespace'}
+                  {loading ? 'Loading…' : 'No remote configs in this namespace'}
                 </MenuItem>
               )}
-              {groups.map((g) => (
-                <MenuItem key={g.metadata.name} value={g.metadata.name}>
-                  {g.metadata.name}
+              {configs.map((c) => (
+                <MenuItem key={c.metadata.name} value={c.metadata.name}>
+                  {c.metadata.name}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
-          {selectedGroup && (
-            <Typography variant="body2" color="text.secondary">
-              Current remote config: <code>{describeRemoteConfigSource(selectedGroup)}</code> ·{' '}
-              {selectedGroup.status.numAgents} agent(s) matched
-            </Typography>
-          )}
         </Stack>
       </DialogContent>
       <DialogActions>

@@ -23,6 +23,7 @@ import {
   Delete as DeleteIcon,
   Edit as EditIcon,
   PeopleAlt as PeopleAltIcon,
+  PlaylistAddCheck as ApplyIcon,
   Visibility as ViewIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
@@ -242,6 +243,11 @@ export default function AgentGroupsPage() {
                           label: 'Edit',
                           icon: <EditIcon fontSize="small" />,
                           href: `/agentgroups/${g.metadata.name}?action=edit`,
+                        },
+                        {
+                          label: 'Apply remote config',
+                          icon: <ApplyIcon fontSize="small" />,
+                          href: `/agentgroups/${g.metadata.name}?action=apply`,
                         },
                         {
                           label: 'Delete',

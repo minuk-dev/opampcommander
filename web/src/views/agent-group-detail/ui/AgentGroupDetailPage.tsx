@@ -22,6 +22,7 @@ import {
   Edit as EditIcon,
   PeopleAlt as PeopleAltIcon,
   CalendarToday as CalendarIcon,
+  PlaylistAddCheck as ApplyIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -38,6 +39,11 @@ import dynamic from 'next/dynamic';
 const AgentGroupEditDialog = dynamic(
   () => import('@features/agent-group-edit/ui/AgentGroupEditDialog'),
 );
+// Lazy-loaded: the remote-config picker fetches the namespace's configs, only
+// needed once the user opens it — keep it out of the initial route bundle.
+const SelectRemoteConfigDialog = dynamic(
+  () => import('@features/apply-remote-config/ui/SelectRemoteConfigDialog'),
+);
 
 function AgentGroupDetailInner() {
   const params = useParams<{ name: string }>();
@@ -46,6 +52,7 @@ function AgentGroupDetailInner() {
   const { namespace } = useNamespace();
   const [tab, setTab] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [applyingConfig, setApplyingConfig] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionHandled, setActionHandled] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -74,6 +81,8 @@ function AgentGroupDetailInner() {
     setActionHandled(true);
     if (action === 'edit') {
       setEditing(true);
+    } else if (action === 'apply') {
+      setApplyingConfig(true);
     } else if (action === 'delete') {
       setDeleting(true);
     }
@@ -134,6 +143,13 @@ function AgentGroupDetailInner() {
               variant="outlined"
             >
               View agents
+            </Button>
+            <Button
+              startIcon={<ApplyIcon />}
+              variant="outlined"
+              onClick={() => setApplyingConfig(true)}
+            >
+              Apply remote config
             </Button>
             <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditing(true)}>
               Edit
@@ -274,6 +290,18 @@ function AgentGroupDetailInner() {
           onClose={() => setEditing(false)}
           onSaved={() => {
             setEditing(false);
+            void fetchGroup();
+          }}
+        />
+      )}
+      {applyingConfig && (
+        <SelectRemoteConfigDialog
+          open
+          namespace={namespace}
+          group={group}
+          onClose={() => setApplyingConfig(false)}
+          onApplied={() => {
+            setApplyingConfig(false);
             void fetchGroup();
           }}
         />
