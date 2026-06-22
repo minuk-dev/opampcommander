@@ -78,6 +78,9 @@ type ListSettings struct {
 	continueToken *string
 	// includeDeleted asks the server to include soft-deleted resources.
 	includeDeleted *bool
+	// connectedOnly asks the server to return only currently-connected agents;
+	// nil means no connection filter.
+	connectedOnly *bool
 	// selector filters agents by identifying attributes (exact key=value match);
 	// nil or empty means no attribute filter.
 	selector map[string]string
@@ -116,6 +119,15 @@ func WithContinueToken(token string) ListOption {
 func WithIncludeDeleted(includeDeleted bool) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.includeDeleted = &includeDeleted
+	})
+}
+
+// WithConnectedOnly restricts an agent listing to currently-connected agents
+// when set to true. False (the default) returns both connected and disconnected
+// agents.
+func WithConnectedOnly(connectedOnly bool) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.connectedOnly = &connectedOnly
 	})
 }
 
@@ -174,6 +186,10 @@ func (s ListSettings) applyTo(req *resty.Request) {
 
 	if mo.PointerToOption(s.includeDeleted).OrElse(false) {
 		req.SetQueryParam("includeDeleted", "true")
+	}
+
+	if mo.PointerToOption(s.connectedOnly).OrElse(false) {
+		req.SetQueryParam("connected", "true")
 	}
 
 	values := url.Values{}

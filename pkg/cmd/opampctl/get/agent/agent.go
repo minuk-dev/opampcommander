@@ -40,6 +40,7 @@ type CommandOptions struct {
 	namespace              string
 	allNamespaces          bool
 	decodeCapabilities     bool
+	includeDisconnected    bool
 	selector               map[string]string
 	nonIdentifyingSelector map[string]string
 
@@ -75,6 +76,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(
 		&options.decodeCapabilities, "decode-capabilities", false,
 		"Decode the capabilities bitmask into human-readable flag names",
+	)
+	cmd.Flags().BoolVar(
+		&options.includeDisconnected, "include-disconnected", false,
+		"Include disconnected agents in the listing (by default only connected agents are shown)",
 	)
 	cmd.Flags().StringToStringVarP(
 		&options.selector, "selector", "l", nil,
@@ -266,13 +271,25 @@ func (opt *CommandOptions) ValidArgsFunction(
 	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
 }
 
+// listOptions builds the per-page list options shared by every list path. By
+// default it asks the server for connected agents only; --include-disconnected
+// drops that filter so disconnected agents are returned as well.
+func (opt *CommandOptions) listOptions() []client.ListOption {
+	if opt.includeDisconnected {
+		return nil
+	}
+
+	return []client.ListOption{client.WithConnectedOnly(true)}
+}
+
 func (opt *CommandOptions) listSingleNamespace(cmd *cobra.Command) ([]v1.Agent, error) {
 	if opt.byAgentGroup == "" {
-		agents, err := clientutil.ListAgentFully(
-			cmd.Context(), opt.client, opt.namespace,
+		opts := append([]client.ListOption{
 			client.WithSelector(opt.selector),
 			client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector),
-		)
+		}, opt.listOptions()...)
+
+		agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client, opt.namespace, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to list agents: %w", err)
 		}
@@ -281,7 +298,7 @@ func (opt *CommandOptions) listSingleNamespace(cmd *cobra.Command) ([]v1.Agent, 
 	}
 
 	agents, err := clientutil.ListAgentFullyByAgentGroup(
-		cmd.Context(), opt.client, opt.namespace, opt.byAgentGroup,
+		cmd.Context(), opt.client, opt.namespace, opt.byAgentGroup, opt.listOptions()...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
@@ -295,12 +312,16 @@ func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Agent, er
 		cmd.Context(), opt.client,
 		func(ctx context.Context, namespace string) ([]v1.Agent, error) {
 			if opt.byAgentGroup == "" {
-				return clientutil.ListAgentFully(ctx, opt.client, namespace,
+				opts := append([]client.ListOption{
 					client.WithSelector(opt.selector),
-					client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector))
+					client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector),
+				}, opt.listOptions()...)
+
+				return clientutil.ListAgentFully(ctx, opt.client, namespace, opts...)
 			}
 
-			return clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, namespace, opt.byAgentGroup)
+			return clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, namespace, opt.byAgentGroup,
+				opt.listOptions()...)
 		},
 	)
 	if err != nil {
