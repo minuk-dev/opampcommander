@@ -1,0 +1,158 @@
+'use client';
+
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { useEffect, useState } from 'react';
+import { api, useApi, type ListResponse } from '@shared/api';
+import type { AgentGroup } from '@entities/agent-group';
+import type { AgentRemoteConfig } from '@entities/agent-remote-config';
+
+interface Props {
+  open: boolean;
+  namespace: string;
+  group: AgentGroup | null;
+  onClose: () => void;
+  onApplied: () => void;
+}
+
+// Describe how a group currently sources its remote config, so the user can
+// see what an apply would overwrite.
+function currentRemoteConfig(g: AgentGroup): string {
+  const rc = g.spec.agentConfig?.agentRemoteConfig;
+  if (!rc) return 'none';
+  if (rc.agentRemoteConfigRef) return `ref → ${rc.agentRemoteConfigRef}`;
+  if (rc.agentRemoteConfigName) return `inline (${rc.agentRemoteConfigName})`;
+  return 'none';
+}
+
+export default function SelectRemoteConfigDialog({
+  open,
+  namespace,
+  group,
+  onClose,
+  onApplied,
+}: Props) {
+  const [selected, setSelected] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+
+  // Only fetch while the dialog is open (null key disables the request).
+  const {
+    data,
+    error: fetchError,
+    isLoading: loading,
+  } = useApi<ListResponse<AgentRemoteConfig>>(
+    open ? [`/api/v1/namespaces/${namespace}/agentremoteconfigs`, { limit: 200 }] : null,
+  );
+  const configs = data?.items ?? [];
+  const error =
+    applyError ??
+    (fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch remote configs'
+        : null);
+
+  // Preselect the group's current ref (if any) when the dialog opens.
+  useEffect(() => {
+    if (!open) {
+      setSelected('');
+      setApplyError(null);
+      return;
+    }
+    setSelected(group?.spec.agentConfig?.agentRemoteConfig?.agentRemoteConfigRef ?? '');
+  }, [open, group]);
+
+  const apply = async () => {
+    if (!group || !selected) return;
+    setBusy(true);
+    setApplyError(null);
+    try {
+      // Re-fetch the group to apply on top of its latest state, then point its
+      // remote config at the selected resource via agentRemoteConfigRef
+      // (clearing any inline config so the reference takes effect unambiguously).
+      const latest = await api.get<AgentGroup>(
+        `/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`,
+      );
+      const body: AgentGroup = {
+        ...latest,
+        spec: {
+          ...latest.spec,
+          agentConfig: {
+            ...latest.spec.agentConfig,
+            agentRemoteConfig: { agentRemoteConfigRef: selected },
+          },
+        },
+      };
+      await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`, body);
+      onApplied();
+    } catch (err) {
+      setApplyError(err instanceof Error ? err.message : 'Failed to apply');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Apply remote config</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} mt={1}>
+          <DialogContentText>
+            Point agent group <code>{group?.metadata.name}</code> at a remote config. The group&apos;s
+            matching agents will receive this config. Any existing remote config on the group will be
+            replaced.
+          </DialogContentText>
+          {group && (
+            <Typography variant="body2" color="text.secondary">
+              Current remote config: <code>{currentRemoteConfig(group)}</code> ·{' '}
+              {group.status.numAgents} agent(s) matched
+            </Typography>
+          )}
+          {error && <Alert severity="error">{error}</Alert>}
+          <FormControl fullWidth disabled={loading || busy}>
+            <InputLabel id="select-remote-config-label">Remote config</InputLabel>
+            <Select
+              labelId="select-remote-config-label"
+              label="Remote config"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {configs.length === 0 && (
+                <MenuItem value="" disabled>
+                  {loading ? 'Loading…' : 'No remote configs in this namespace'}
+                </MenuItem>
+              )}
+              {configs.map((c) => (
+                <MenuItem key={c.metadata.name} value={c.metadata.name}>
+                  {c.metadata.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={busy}>
+          Cancel
+        </Button>
+        <Button variant="contained" onClick={apply} disabled={busy || !selected}>
+          Apply
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
