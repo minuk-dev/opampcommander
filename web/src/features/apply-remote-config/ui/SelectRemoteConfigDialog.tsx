@@ -63,21 +63,31 @@ export default function SelectRemoteConfigDialog({
         ? 'Failed to fetch remote configs'
         : null);
 
-  // Read the latest group through a ref so the preselect effect can key on
-  // `open` alone: re-running it on every `group` change would clobber an
+  // Read the latest group through a ref so the preselect effect doesn't have to
+  // depend on `group`: re-running it on every `group` change would clobber an
   // in-progress selection whenever SWR revalidates the group in the background.
   const groupRef = useRef(group);
   groupRef.current = group;
 
-  // Preselect the group's current ref (if any) only when the dialog opens.
+  // Preselect the group's current ref once per open. We wait for the config
+  // list and only preselect when the ref is actually in it, so the Select never
+  // holds an out-of-range value (e.g. the referenced config was deleted, or
+  // sits beyond the fetch limit). `didPreselect` keeps a later SWR revalidation
+  // from clobbering the user's pick.
+  const didPreselect = useRef(false);
   useEffect(() => {
     if (!open) {
       setSelected('');
       setApplyError(null);
+      didPreselect.current = false;
       return;
     }
-    setSelected(currentRemoteConfigRef(groupRef.current));
-  }, [open]);
+    if (loading || didPreselect.current) return;
+    didPreselect.current = true;
+    const ref = currentRemoteConfigRef(groupRef.current);
+    const items = data?.items ?? [];
+    setSelected(items.some((c) => c.metadata.name === ref) ? ref : '');
+  }, [open, loading, data]);
 
   // Write the group's remote config: a ref points it at the named resource,
   // null clears any existing remote config off the group.
