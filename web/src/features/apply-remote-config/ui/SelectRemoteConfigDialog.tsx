@@ -20,6 +20,7 @@ import { api, useApi, type ListResponse } from '@shared/api';
 import {
   currentRemoteConfigRef,
   describeRemoteConfigSource,
+  hasRemoteConfig,
   type AgentGroup,
 } from '@entities/agent-group';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
@@ -76,14 +77,16 @@ export default function SelectRemoteConfigDialog({
     setSelected(currentRemoteConfigRef(groupRef.current));
   }, [open]);
 
-  const apply = async () => {
-    if (!group || !selected) return;
+  // Write the group's remote config: a ref points it at the named resource,
+  // null clears any existing remote config off the group.
+  const save = async (ref: string | null) => {
+    if (!group) return;
     setBusy(true);
     setApplyError(null);
     try {
-      // Re-fetch the group to apply on top of its latest state, then point its
-      // remote config at the selected resource via agentRemoteConfigRef
-      // (clearing any inline config so the reference takes effect unambiguously).
+      // Re-fetch the group to apply on top of its latest state. Setting a ref
+      // clears any inline config so the reference takes effect unambiguously;
+      // clearing drops the agentRemoteConfig entirely.
       const latest = await api.get<AgentGroup>(
         `/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`,
       );
@@ -93,7 +96,7 @@ export default function SelectRemoteConfigDialog({
           ...latest.spec,
           agentConfig: {
             ...latest.spec.agentConfig,
-            agentRemoteConfig: { agentRemoteConfigRef: selected },
+            agentRemoteConfig: ref ? { agentRemoteConfigRef: ref } : undefined,
           },
         },
       };
@@ -114,7 +117,7 @@ export default function SelectRemoteConfigDialog({
           <DialogContentText>
             Point agent group <code>{group?.metadata.name}</code> at a remote config. The
             group&apos;s matching agents will receive this config. Any existing remote config on the
-            group will be replaced.
+            group will be replaced, or use Remove to clear it.
           </DialogContentText>
           {group && (
             <Typography variant="body2" color="text.secondary">
@@ -146,10 +149,15 @@ export default function SelectRemoteConfigDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
+        {hasRemoteConfig(group) && (
+          <Button color="error" onClick={() => save(null)} disabled={busy} sx={{ mr: 'auto' }}>
+            Remove
+          </Button>
+        )}
         <Button onClick={onClose} disabled={busy}>
           Cancel
         </Button>
-        <Button variant="contained" onClick={apply} disabled={busy || !selected}>
+        <Button variant="contained" onClick={() => save(selected)} disabled={busy || !selected}>
           Apply
         </Button>
       </DialogActions>

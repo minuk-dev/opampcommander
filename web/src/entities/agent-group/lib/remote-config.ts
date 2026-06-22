@@ -17,3 +17,9 @@ export function describeRemoteConfigSource(g: AgentGroup): string {
 export function currentRemoteConfigRef(g: AgentGroup | null | undefined): string {
   return g?.spec.agentConfig?.agentRemoteConfig?.agentRemoteConfigRef ?? '';
 }
+
+/** Whether the group currently has any remote config (a ref or inline) set. */
+export function hasRemoteConfig(g: AgentGroup | null | undefined): boolean {
+  const rc = g?.spec.agentConfig?.agentRemoteConfig;
+  return !!(rc?.agentRemoteConfigRef || rc?.agentRemoteConfigName || rc?.agentRemoteConfigSpec);
+}
