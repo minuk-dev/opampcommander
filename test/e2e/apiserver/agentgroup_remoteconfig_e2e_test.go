@@ -57,7 +57,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 		return len(agents.Items) > 0
 	}, 2*time.Minute, 1*time.Second, "Collector should register")
 
-	// Step 1: Create AgentGroup with inline/direct config
+	// Step 1: Create AgentGroup with two inline/direct configs
 	agentGroupName := "staging-group"
 	inlineConfigName := "collector-config"
 	inlineConfigValue := `exporters:
@@ -65,6 +65,9 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
     verbosity: detailed
   otlp:
     endpoint: localhost:4317`
+	secondConfigName := "extra-config"
+	secondConfigValue := `processors:
+  batch: {}`
 
 	//exhaustruct:ignore
 	agentGroup, err := opampClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
@@ -79,24 +82,34 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 				},
 			},
 			AgentConfig: &v1.AgentConfig{
-				AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
-					AgentRemoteConfigName: &inlineConfigName,
-					AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
-						Value:       inlineConfigValue,
-						ContentType: "application/yaml",
+				AgentRemoteConfigs: []v1.AgentGroupRemoteConfig{
+					{
+						AgentRemoteConfigName: &inlineConfigName,
+						AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+							Value:       inlineConfigValue,
+							ContentType: "application/yaml",
+						},
+					},
+					{
+						AgentRemoteConfigName: &secondConfigName,
+						AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+							Value:       secondConfigValue,
+							ContentType: "application/yaml",
+						},
 					},
 				},
 			},
 		},
 	})
-	require.NoError(t, err, "Failed to create AgentGroup with inline config")
+	require.NoError(t, err, "Failed to create AgentGroup with inline configs")
 	require.Equal(t, agentGroupName, agentGroup.Metadata.Name)
 
-	t.Logf("Created AgentGroup: %s with inline config: %s", agentGroupName, inlineConfigName)
+	t.Logf("Created AgentGroup: %s with inline configs: %s, %s", agentGroupName, inlineConfigName, secondConfigName)
 
-	// Step 2: Verify agents in the group receive the config with prefixed name
+	// Step 2: Verify agents in the group receive BOTH configs with prefixed names.
 	// The config name should be: {AgentGroupName}/{AgentRemoteConfigName}
 	expectedConfigName := fmt.Sprintf("%s/%s", agentGroupName, inlineConfigName)
+	expectedSecondConfigName := fmt.Sprintf("%s/%s", agentGroupName, secondConfigName)
 
 	assert.Eventually(t, func() bool {
 		agents, err := opampClient.AgentGroupService.ListAgentsByAgentGroup(ctx, "default", agentGroupName)
@@ -111,9 +124,10 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 		}
 
 		for _, agent := range agents.Items {
-			// The config should be applied with prefixed name for inline configs
-			if hasRemoteConfig(agent, expectedConfigName) {
-				t.Logf("Agent %s has remote config %s applied (prefixed)", agent.Metadata.InstanceUID, expectedConfigName)
+			// Both inline configs should be applied with prefixed names.
+			if hasRemoteConfig(agent, expectedConfigName) && hasRemoteConfig(agent, expectedSecondConfigName) {
+				t.Logf("Agent %s has both remote configs %s and %s applied (prefixed)",
+					agent.Metadata.InstanceUID, expectedConfigName, expectedSecondConfigName)
 				return true
 			}
 			// Log current state for debugging
@@ -122,7 +136,7 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 		}
 
 		return false
-	}, 2*time.Minute, 2*time.Second, "Agent should receive remote config with prefixed name")
+	}, 2*time.Minute, 2*time.Second, "Agent should receive both remote configs with prefixed names")
 
 	// Cleanup
 	err = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", agentGroupName)
@@ -192,11 +206,13 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 				},
 			},
 			AgentConfig: &v1.AgentConfig{
-				AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
-					AgentRemoteConfigName: &commonConfigName,
-					AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
-						Value:       "content: alpha-specific",
-						ContentType: "text/plain",
+				AgentRemoteConfigs: []v1.AgentGroupRemoteConfig{
+					{
+						AgentRemoteConfigName: &commonConfigName,
+						AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+							Value:       "content: alpha-specific",
+							ContentType: "text/plain",
+						},
 					},
 				},
 			},
@@ -219,11 +235,13 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 				},
 			},
 			AgentConfig: &v1.AgentConfig{
-				AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
-					AgentRemoteConfigName: &commonConfigName,
-					AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
-						Value:       "content: beta-specific",
-						ContentType: "text/plain",
+				AgentRemoteConfigs: []v1.AgentGroupRemoteConfig{
+					{
+						AgentRemoteConfigName: &commonConfigName,
+						AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+							Value:       "content: beta-specific",
+							ContentType: "text/plain",
+						},
 					},
 				},
 			},

@@ -52,21 +52,14 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *agentmod
 		return nil
 	}
 
-	var agentRemoteConfig *agentmodel.AgentGroupAgentRemoteConfig
+	var agentRemoteConfigs []agentmodel.AgentGroupAgentRemoteConfig
 
-	if apiAgentGroup.Spec.AgentConfig != nil && apiAgentGroup.Spec.AgentConfig.AgentRemoteConfig != nil {
-		apiRemoteConfig := apiAgentGroup.Spec.AgentConfig.AgentRemoteConfig
-
-		agentRemoteConfig = &agentmodel.AgentGroupAgentRemoteConfig{
-			AgentRemoteConfigName: apiRemoteConfig.AgentRemoteConfigName,
-			AgentRemoteConfigRef:  apiRemoteConfig.AgentRemoteConfigRef,
-			AgentRemoteConfigSpec: nil,
-		}
-		if apiRemoteConfig.AgentRemoteConfigSpec != nil {
-			agentRemoteConfig.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
-				Value:       []byte(apiRemoteConfig.AgentRemoteConfigSpec.Value),
-				ContentType: apiRemoteConfig.AgentRemoteConfigSpec.ContentType,
-			}
+	if apiAgentGroup.Spec.AgentConfig != nil && len(apiAgentGroup.Spec.AgentConfig.AgentRemoteConfigs) > 0 {
+		agentRemoteConfigs = make(
+			[]agentmodel.AgentGroupAgentRemoteConfig, 0, len(apiAgentGroup.Spec.AgentConfig.AgentRemoteConfigs))
+		for i := range apiAgentGroup.Spec.AgentConfig.AgentRemoteConfigs {
+			agentRemoteConfigs = append(
+				agentRemoteConfigs, mapGroupRemoteConfigFromAPI(&apiAgentGroup.Spec.AgentConfig.AgentRemoteConfigs[i]))
 		}
 	}
 
@@ -96,7 +89,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *agentmod
 				IdentifyingAttributes:    apiAgentGroup.Spec.Selector.IdentifyingAttributes,
 				NonIdentifyingAttributes: apiAgentGroup.Spec.Selector.NonIdentifyingAttributes,
 			},
-			AgentRemoteConfig:     agentRemoteConfig,
+			AgentRemoteConfigs:    agentRemoteConfigs,
 			AgentConnectionConfig: agentConnectionConfig,
 		},
 		// Note: Status is not mapped here as it is usually managed by the system.
@@ -1000,33 +993,56 @@ func (mapper *Mapper) mapAgentGroupConditionsToAPI(conditions []model.Condition)
 	return apiConditions
 }
 
+// mapGroupRemoteConfigFromAPI maps a single API AgentGroupRemoteConfig element to its
+// domain representation.
+func mapGroupRemoteConfigFromAPI(api *v1.AgentGroupRemoteConfig) agentmodel.AgentGroupAgentRemoteConfig {
+	domain := agentmodel.AgentGroupAgentRemoteConfig{
+		AgentRemoteConfigName: api.AgentRemoteConfigName,
+		AgentRemoteConfigRef:  api.AgentRemoteConfigRef,
+		AgentRemoteConfigSpec: nil,
+	}
+	if api.AgentRemoteConfigSpec != nil {
+		domain.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
+			Value:       []byte(api.AgentRemoteConfigSpec.Value),
+			ContentType: api.AgentRemoteConfigSpec.ContentType,
+		}
+	}
+
+	return domain
+}
+
+// mapGroupRemoteConfigToAPI maps a single domain AgentGroupAgentRemoteConfig element to its
+// API representation.
+func mapGroupRemoteConfigToAPI(domain *agentmodel.AgentGroupAgentRemoteConfig) v1.AgentGroupRemoteConfig {
+	api := v1.AgentGroupRemoteConfig{
+		AgentRemoteConfigName: domain.AgentRemoteConfigName,
+		AgentRemoteConfigRef:  domain.AgentRemoteConfigRef,
+		AgentRemoteConfigSpec: nil,
+	}
+	if domain.AgentRemoteConfigSpec != nil {
+		api.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
+			Value:       string(domain.AgentRemoteConfigSpec.Value),
+			ContentType: domain.AgentRemoteConfigSpec.ContentType,
+		}
+	}
+
+	return api
+}
+
 func (mapper *Mapper) mapAgentGroupAgentConfigToAPI(domainAgentGroup *agentmodel.AgentGroup) *v1.AgentConfig {
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	if domainAgentGroup.Spec.AgentRemoteConfig == nil && domainAgentGroup.Spec.AgentConnectionConfig == nil {
+	if len(domainAgentGroup.Spec.AgentRemoteConfigs) == 0 && domainAgentGroup.Spec.AgentConnectionConfig == nil {
 		return nil
 	}
 
 	//exhaustruct:ignore
 	agentConfig := &v1.AgentConfig{}
 
-	//nolint:staticcheck // backward compatibility - AgentRemoteConfig is deprecated
-	if domainAgentGroup.Spec.AgentRemoteConfig != nil {
-		agentConfig.AgentRemoteConfig = &v1.AgentGroupRemoteConfig{
-			//nolint:staticcheck // backward compat
-			AgentRemoteConfigName: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigName,
-			//nolint:staticcheck // backward compat
-			AgentRemoteConfigRef:  domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigRef,
-			AgentRemoteConfigSpec: nil,
-		}
-
-		//nolint:staticcheck // backward compatibility
-		if domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec != nil {
-			agentConfig.AgentRemoteConfig.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
-				//nolint:staticcheck // backward compat
-				Value: string(domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.Value),
-				//nolint:staticcheck // backward compat
-				ContentType: domainAgentGroup.Spec.AgentRemoteConfig.AgentRemoteConfigSpec.ContentType,
-			}
+	if len(domainAgentGroup.Spec.AgentRemoteConfigs) > 0 {
+		agentConfig.AgentRemoteConfigs = make(
+			[]v1.AgentGroupRemoteConfig, 0, len(domainAgentGroup.Spec.AgentRemoteConfigs))
+		for i := range domainAgentGroup.Spec.AgentRemoteConfigs {
+			agentConfig.AgentRemoteConfigs = append(
+				agentConfig.AgentRemoteConfigs, mapGroupRemoteConfigToAPI(&domainAgentGroup.Spec.AgentRemoteConfigs[i]))
 		}
 	}
 

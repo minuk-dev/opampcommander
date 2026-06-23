@@ -14,28 +14,30 @@ spec:
       service.name: my-service
     nonIdentifyingAttributes: {}
   agentConfig:
-    agentRemoteConfig:
+    # One or more remote configs are applied to every agent in the group.
+    agentRemoteConfigs:
       # Inline collector config. Use `agentRemoteConfigRef` instead to point
       # at a standalone AgentRemoteConfig resource and share the config
       # across multiple groups.
-      agentRemoteConfigSpec:
-        contentType: text/yaml
-        value: |
-          receivers:
-            otlp:
-              protocols:
-                grpc:
-                  endpoint: 0.0.0.0:4317
-                http:
-                  endpoint: 0.0.0.0:4318
-          processors:
-            batch:
-          exporters:
-            debug:
-              verbosity: detailed
-          service:
-            pipelines:
-              traces:
-                receivers: [otlp]
-                processors: [batch]
-                exporters: [debug]
+      - agentRemoteConfigName: my-inline-config
+        agentRemoteConfigSpec:
+          contentType: text/yaml
+          value: |
+            receivers:
+              otlp:
+                protocols:
+                  grpc:
+                    endpoint: 0.0.0.0:4317
+                  http:
+                    endpoint: 0.0.0.0:4318
+            processors:
+              batch:
+            exporters:
+              debug:
+                verbosity: detailed
+            service:
+              pipelines:
+                traces:
+                  receivers: [otlp]
+                  processors: [batch]
+                  exporters: [debug]

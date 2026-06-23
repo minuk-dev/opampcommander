@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -168,12 +169,24 @@ func (opt *CommandOptions) buildInlineAgentConfig() (*v1.AgentConfig, error) {
 		return nil, fmt.Errorf("failed to read agent config file: %w", err)
 	}
 
+	// An inline config requires a name (the server rejects spec-without-name), so derive a
+	// stable one from the file name and fall back to "config" for an extension-only path.
+	base := filepath.Base(opt.agentConfigFile)
+	configName := strings.TrimSuffix(base, filepath.Ext(base))
+
+	if configName == "" {
+		configName = "config"
+	}
+
 	//exhaustruct:ignore
 	return &v1.AgentConfig{
-		AgentRemoteConfig: &v1.AgentGroupRemoteConfig{
-			AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
-				Value:       string(data),
-				ContentType: "text/yaml",
+		AgentRemoteConfigs: []v1.AgentGroupRemoteConfig{
+			{
+				AgentRemoteConfigName: &configName,
+				AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
+					Value:       string(data),
+					ContentType: "text/yaml",
+				},
 			},
 		},
 	}, nil

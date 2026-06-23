@@ -5173,8 +5173,12 @@ const docTemplate = `{
         "github_com_minuk-dev_opampcommander_api_v1.AgentConfig": {
             "type": "object",
             "properties": {
-                "agentRemoteConfig": {
-                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentGroupRemoteConfig"
+                "agentRemoteConfigs": {
+                    "description": "AgentRemoteConfigs is the list of remote configurations applied to agents in the group.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentGroupRemoteConfig"
+                    }
                 },
                 "connectionSettings": {
                     "$ref": "#/definitions/ConnectionSettings"

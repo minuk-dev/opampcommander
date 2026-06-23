@@ -2,7 +2,10 @@
 
 import {
   Alert,
+  Box,
   Button,
+  Checkbox,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -10,6 +13,7 @@ import {
   DialogTitle,
   FormControl,
   InputLabel,
+  ListItemText,
   MenuItem,
   Select,
   Stack,
@@ -17,11 +21,10 @@ import {
 } from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
-import { ConfirmDialog } from '@shared/ui';
 import {
-  currentRemoteConfigRef,
-  describeRemoteConfigSource,
-  hasRemoteConfig,
+  describeRemoteConfigSources,
+  remoteConfigRefs,
+  withRemoteConfigRefs,
   type AgentGroup,
 } from '@entities/agent-group';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
@@ -41,9 +44,9 @@ export default function SelectRemoteConfigDialog({
   onClose,
   onApplied,
 }: Props) {
-  const [selected, setSelected] = useState('');
+  // The working set of refs the user is editing; applied to the group on Apply.
+  const [refs, setRefs] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
   // Only fetch while the dialog is open (null key disables the request).
@@ -63,52 +66,51 @@ export default function SelectRemoteConfigDialog({
         ? 'Failed to fetch remote configs'
         : null);
 
-  // Read the latest group through a ref so the preselect effect doesn't have to
+  // Read the latest group through a ref so the seed effect doesn't have to
   // depend on `group`: re-running it on every `group` change would clobber an
-  // in-progress selection whenever SWR revalidates the group in the background.
+  // in-progress edit whenever SWR revalidates the group in the background.
   const groupRef = useRef(group);
   groupRef.current = group;
 
-  // Preselect the group's current ref once per open. We wait for the config
-  // list and only preselect when the ref is actually in it, so the Select never
-  // holds an out-of-range value (e.g. the referenced config was deleted, or
-  // sits beyond the fetch limit). `didPreselect` keeps a later SWR revalidation
-  // from clobbering the user's pick.
-  const didPreselect = useRef(false);
+  // Seed the working set from the group's current refs once per open.
+  // `didSeed` keeps a later SWR revalidation from clobbering the user's edits.
+  const didSeed = useRef(false);
   useEffect(() => {
     if (!open) {
-      setSelected('');
+      setRefs([]);
       setApplyError(null);
-      didPreselect.current = false;
+      didSeed.current = false;
       return;
     }
-    if (loading || didPreselect.current) return;
-    didPreselect.current = true;
-    const ref = currentRemoteConfigRef(groupRef.current);
-    const items = data?.items ?? [];
-    setSelected(items.some((c) => c.metadata.name === ref) ? ref : '');
-  }, [open, loading, data]);
+    if (didSeed.current) return;
+    didSeed.current = true;
+    setRefs(remoteConfigRefs(groupRef.current));
+  }, [open]);
 
-  // Write the group's remote config: a ref points it at the named resource,
-  // null clears any existing remote config off the group.
-  const save = async (ref: string | null) => {
+  // Toggle options: every fetched config plus any ref the group already points at that is
+  // not in the fetched list (e.g. deleted, or beyond the fetch limit), so it stays
+  // deselectable rather than silently stuck on.
+  const options = Array.from(new Set([...configs.map((c) => c.metadata.name), ...refs]));
+
+  // Persist the working set onto the group, preserving any inline (non-ref)
+  // entries that were defined outside this dialog.
+  const save = async () => {
     if (!group) return;
     setBusy(true);
     setApplyError(null);
     try {
-      // Re-fetch the group to apply on top of its latest state. Setting a ref
-      // clears any inline config so the reference takes effect unambiguously;
-      // clearing drops the agentRemoteConfig entirely.
+      // Re-fetch the group to apply on top of its latest state.
       const latest = await api.get<AgentGroup>(
         `/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`,
       );
+      const nextConfigs = withRemoteConfigRefs(latest, refs);
       const body: AgentGroup = {
         ...latest,
         spec: {
           ...latest.spec,
           agentConfig: {
             ...latest.spec.agentConfig,
-            agentRemoteConfig: ref ? { agentRemoteConfigRef: ref } : undefined,
+            agentRemoteConfigs: nextConfigs.length > 0 ? nextConfigs : undefined,
           },
         },
       };
@@ -122,76 +124,76 @@ export default function SelectRemoteConfigDialog({
   };
 
   return (
-    <>
-      <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <DialogTitle>Apply remote config</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} mt={1}>
-            <DialogContentText>
-              Point agent group <code>{group?.metadata.name}</code> at a remote config. The
-              group&apos;s matching agents will receive this config. Any existing remote config on
-              the group will be replaced, or use Remove to clear it.
-            </DialogContentText>
-            {group && (
-              <Typography variant="body2" color="text.secondary">
-                Current remote config: <code>{describeRemoteConfigSource(group)}</code> ·{' '}
-                {group.status.numAgents} agent(s) matched
-              </Typography>
-            )}
-            {error && <Alert severity="error">{error}</Alert>}
-            <FormControl fullWidth disabled={loading || busy}>
-              <InputLabel id="select-remote-config-label">Remote config</InputLabel>
-              <Select
-                labelId="select-remote-config-label"
-                label="Remote config"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {configs.length === 0 && (
-                  <MenuItem value="" disabled>
-                    {loading ? 'Loading…' : 'No remote configs in this namespace'}
-                  </MenuItem>
-                )}
-                {configs.map((c) => (
-                  <MenuItem key={c.metadata.name} value={c.metadata.name}>
-                    {c.metadata.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          {hasRemoteConfig(group) && (
-            <Button
-              color="error"
-              onClick={() => setConfirmingRemove(true)}
-              disabled={busy}
-              sx={{ mr: 'auto' }}
-            >
-              Remove
-            </Button>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Apply remote configs</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} mt={1}>
+          <DialogContentText>
+            Choose the remote configs applied to agent group <code>{group?.metadata.name}</code>.
+            The group&apos;s matching agents receive every selected config. Toggle configs on or
+            off, then Apply.
+          </DialogContentText>
+          {group && (
+            <Typography variant="body2" color="text.secondary">
+              Current: <code>{describeRemoteConfigSources(group)}</code> · {group.status.numAgents}{' '}
+              agent(s) matched
+            </Typography>
           )}
-          <Button onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button variant="contained" onClick={() => save(selected)} disabled={busy || !selected}>
-            Apply
-          </Button>
-        </DialogActions>
-      </Dialog>
-      <ConfirmDialog
-        open={confirmingRemove}
-        title="Remove remote config"
-        message={`Clear the remote config from "${group?.metadata.name}"? Matching agents will stop receiving it.`}
-        confirmLabel="Remove"
-        destructive
-        onClose={() => setConfirmingRemove(false)}
-        onConfirm={async () => {
-          setConfirmingRemove(false);
-          await save(null);
-        }}
-      />
-    </>
+          {error && <Alert severity="error">{error}</Alert>}
+          <FormControl fullWidth disabled={loading || busy}>
+            <InputLabel id="select-remote-config-label">Remote configs</InputLabel>
+            <Select
+              labelId="select-remote-config-label"
+              label="Remote configs"
+              multiple
+              value={refs}
+              onChange={(e) =>
+                setRefs(
+                  typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value,
+                )
+              }
+              renderValue={(selected) =>
+                selected.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    None selected
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((name) => (
+                      <Chip key={name} label={name} size="small" />
+                    ))}
+                  </Box>
+                )
+              }
+            >
+              {options.length === 0 && (
+                <MenuItem value="" disabled>
+                  {loading ? 'Loading…' : 'No remote configs in this namespace'}
+                </MenuItem>
+              )}
+              {options.map((name) => (
+                <MenuItem key={name} value={name}>
+                  <Checkbox checked={refs.includes(name)} />
+                  <ListItemText primary={name} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {refs.length === 0 && options.length > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              No remote configs selected. Matching agents will receive none.
+            </Typography>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={busy}>
+          Cancel
+        </Button>
+        <Button variant="contained" onClick={save} disabled={busy}>
+          Apply
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }

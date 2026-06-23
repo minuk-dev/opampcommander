@@ -17,7 +17,12 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
-import { describeRemoteConfigSource, type AgentGroup } from '@entities/agent-group';
+import {
+  describeRemoteConfigSources,
+  remoteConfigRefs,
+  withRemoteConfigRefs,
+  type AgentGroup,
+} from '@entities/agent-group';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
 interface Props {
@@ -62,19 +67,20 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
     setBusy(true);
     setApplyError(null);
     try {
-      // Re-fetch the group to apply on top of its latest state, then point its
-      // remote config at this resource via agentRemoteConfigRef (clearing any
-      // inline config so the reference takes effect unambiguously).
+      // Re-fetch the group to apply on top of its latest state, then add this
+      // resource to the group's remote configs via agentRemoteConfigRef
+      // (preserving any configs already applied; duplicates are collapsed).
       const group = await api.get<AgentGroup>(
         `/api/v1/namespaces/${namespace}/agentgroups/${selected}`,
       );
+      const nextRefs = [...remoteConfigRefs(group), config.metadata.name];
       const body: AgentGroup = {
         ...group,
         spec: {
           ...group.spec,
           agentConfig: {
             ...group.spec.agentConfig,
-            agentRemoteConfig: { agentRemoteConfigRef: config.metadata.name },
+            agentRemoteConfigs: withRemoteConfigRefs(group, nextRefs),
           },
         },
       };
@@ -95,9 +101,8 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
       <DialogContent>
         <Stack spacing={2} mt={1}>
           <DialogContentText>
-            Point an agent group&apos;s remote config at <code>{config?.metadata.name}</code>. The
-            group&apos;s matching agents will receive this config. Any existing remote config on the
-            group will be replaced.
+            Add <code>{config?.metadata.name}</code> to an agent group&apos;s remote configs. The
+            group&apos;s matching agents will receive this config alongside any already applied.
           </DialogContentText>
           {error && <Alert severity="error">{error}</Alert>}
           <FormControl fullWidth disabled={loading || busy}>
@@ -122,7 +127,7 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
           </FormControl>
           {selectedGroup && (
             <Typography variant="body2" color="text.secondary">
-              Current remote config: <code>{describeRemoteConfigSource(selectedGroup)}</code> ·{' '}
+              Current remote config: <code>{describeRemoteConfigSources(selectedGroup)}</code> ·{' '}
               {selectedGroup.status.numAgents} agent(s) matched
             </Typography>
           )}
