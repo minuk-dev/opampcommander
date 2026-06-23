@@ -18,6 +18,26 @@ import { Suspense, useEffect, useState } from 'react';
 import { useAuth, type OAuth2AuthCodeURLResponse } from '@entities/session';
 import { api } from '@shared/api';
 
+// Ask the browser's password manager to save these credentials. Uses the
+// Credential Management API, which only exists in Chromium-based browsers; it's
+// silently skipped elsewhere. Failures (e.g. the user declining) are ignored so
+// they never block the post-login redirect.
+async function storePasswordCredential(username: string, password: string): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const PasswordCredentialCtor = (
+    window as unknown as {
+      PasswordCredential?: new (data: { id: string; password: string }) => Credential;
+    }
+  ).PasswordCredential;
+  if (!PasswordCredentialCtor || !navigator.credentials?.store) return;
+  try {
+    const credential = new PasswordCredentialCtor({ id: username, password });
+    await navigator.credentials.store(credential);
+  } catch {
+    // Ignore — saving credentials is best-effort.
+  }
+}
+
 function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
@@ -48,6 +68,12 @@ function LoginInner() {
     setSubmitting(true);
     try {
       await loginBasic(username, password);
+      // This is an AJAX login with a client-side (SPA) redirect, so the browser's
+      // heuristic for offering to save credentials — which keys off a real form
+      // navigation — never fires. Explicitly hand the credentials to the browser's
+      // password manager via the Credential Management API (Chromium-only; a no-op
+      // elsewhere) so it can prompt to save them.
+      await storePasswordCredential(username, password);
       router.replace(from);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
