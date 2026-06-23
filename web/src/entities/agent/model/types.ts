@@ -12,6 +12,12 @@ export interface AgentCustomCapabilities {
 export interface AgentMetadata {
   instanceUid: string;
   namespace: string;
+  /**
+   * Agent kind / OpenTelemetry Collector distribution derived from the reported
+   * `service.name` (e.g. `otelcol`, `otelcol-contrib`). `unknown` when the agent
+   * does not follow the Collector naming convention. Absent on older servers.
+   */
+  type?: string;
   description?: AgentDescription;
   capabilities?: number;
   customCapabilities?: AgentCustomCapabilities;

@@ -49,8 +49,10 @@ import { TimeDisplay } from '@shared/preferences';
 import { useNamespace } from '@entities/namespace';
 import {
   agentDeleteConfirmMessage,
+  agentTypeLabel,
   capabilityNames,
   deleteAgent,
+  isOtelCollector,
   type Agent,
 } from '@entities/agent';
 import { type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
@@ -79,7 +81,10 @@ const AGENT_COLUMNS: ColumnConfig[] = [
   { id: 'instanceUid', label: 'Instance UID', locked: true },
   { id: 'connected', label: 'Connected' },
   { id: 'healthy', label: 'Healthy' },
-  { id: 'type', label: 'Type' },
+  { id: 'agentType', label: 'Type' },
+  // `type` predates the agent Type column and shows the connection transport
+  // (HTTP/WebSocket); keep the id for persisted visibility, clarify the label.
+  { id: 'type', label: 'Connection' },
   { id: 'lastReported', label: 'Last Reported' },
   { id: 'sequence', label: 'Sequence', defaultVisible: false },
   { id: 'capabilities', label: 'Capabilities', defaultVisible: false },
@@ -561,7 +566,8 @@ function AgentsInner() {
               {isVisible('instanceUid') && <TableCell>Instance UID</TableCell>}
               {isVisible('connected') && <TableCell>Connected</TableCell>}
               {isVisible('healthy') && <TableCell>Healthy</TableCell>}
-              {isVisible('type') && <TableCell>Type</TableCell>}
+              {isVisible('agentType') && <TableCell>Type</TableCell>}
+              {isVisible('type') && <TableCell>Connection</TableCell>}
               {isVisible('lastReported') && <TableCell>Last Reported</TableCell>}
               {isVisible('sequence') && <TableCell>Sequence</TableCell>}
               {isVisible('capabilities') && <TableCell>Capabilities</TableCell>}
@@ -622,6 +628,16 @@ function AgentsInner() {
                         label={agent.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
                         color={agent.status.componentHealth?.healthy ? 'success' : 'warning'}
                         size="small"
+                      />
+                    </TableCell>
+                  )}
+                  {isVisible('agentType') && (
+                    <TableCell>
+                      <Chip
+                        label={agentTypeLabel(agent.metadata.type)}
+                        color={isOtelCollector(agent.metadata.type) ? 'info' : 'default'}
+                        size="small"
+                        variant={isOtelCollector(agent.metadata.type) ? 'filled' : 'outlined'}
                       />
                     </TableCell>
                   )}
