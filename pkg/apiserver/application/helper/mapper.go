@@ -171,6 +171,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 		Metadata: v1.AgentMetadata{
 			InstanceUID: agent.Metadata.InstanceUID,
 			Namespace:   agent.Metadata.Namespace,
+			Type:        string(agent.Metadata.Description.AgentType()),
 			Description: v1.AgentDescription{
 				IdentifyingAttributes:    agent.Metadata.Description.IdentifyingAttributes,
 				NonIdentifyingAttributes: agent.Metadata.Description.NonIdentifyingAttributes,
