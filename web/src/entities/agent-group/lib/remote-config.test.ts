@@ -37,7 +37,10 @@ describe('remote-config helpers', () => {
   it('lists refs in declared order and ignores inline entries', () => {
     const g = group([
       { agentRemoteConfigRef: 'a' },
-      { agentRemoteConfigName: 'inline-1', agentRemoteConfigSpec: { value: 'x', contentType: 'text/yaml' } },
+      {
+        agentRemoteConfigName: 'inline-1',
+        agentRemoteConfigSpec: { value: 'x', contentType: 'text/yaml' },
+      },
       { agentRemoteConfigRef: 'b' },
     ]);
     expect(remoteConfigRefs(g)).toEqual(['a', 'b']);

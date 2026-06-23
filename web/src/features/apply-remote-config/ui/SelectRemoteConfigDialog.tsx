@@ -130,8 +130,8 @@ export default function SelectRemoteConfigDialog({
         <Stack spacing={2} mt={1}>
           <DialogContentText>
             Choose the remote configs applied to agent group <code>{group?.metadata.name}</code>.
-            The group&apos;s matching agents receive every selected config. Toggle configs on or off,
-            then Apply.
+            The group&apos;s matching agents receive every selected config. Toggle configs on or
+            off, then Apply.
           </DialogContentText>
           {group && (
             <Typography variant="body2" color="text.secondary">
@@ -148,7 +148,9 @@ export default function SelectRemoteConfigDialog({
               multiple
               value={refs}
               onChange={(e) =>
-                setRefs(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)
+                setRefs(
+                  typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value,
+                )
               }
               renderValue={(selected) =>
                 selected.length === 0 ? (
