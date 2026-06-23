@@ -22,5 +22,7 @@ func New(databaseType config.DatabaseType) fx.Option {
 		persistence,
 		// Outbound messaging: server-event sender.
 		fx.Provide(newEventSender),
+		// Outbound metrics: endpoint-throughput query port (Prometheus or no-op).
+		fx.Provide(newEndpointMetricsQueryAdapter),
 	)
 }

@@ -132,6 +132,11 @@ func buildServerSettings(
 	return config.ServerSettings{
 		Address:  fmt.Sprintf("0.0.0.0:%d", serverPort),
 		ServerID: agentmodel.ServerID(serverID),
+		MetricsBackend: config.MetricsBackendSettings{
+			Type:          config.MetricsBackendTypeNone,
+			Address:       "",
+			DefaultWindow: 0,
+		},
 		//exhaustruct:ignore
 		EventSettings: config.EventSettings{
 			ProtocolType: config.EventProtocolTypeInMemory,

@@ -54,6 +54,7 @@ linters:
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port.ServerEventReceiverPort" # cannot handle without interface
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.ServerEventSenderPort" # cannot handle without interface
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.ServerEventReceiverPort" # cannot handle without interface
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.EndpointMetricsQueryPort" # conditional impl (prometheus | noop)
         - "k8s.io/utils/clock.Timer"
         - "github.com/minuk-dev/opampcommander/pkg/utils/clock.Timer"
         # test
@@ -116,6 +117,10 @@ linters:
             - go.opentelemetry.io/otel
             - go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin
             - github.com/prometheus/client_golang/prometheus
+            # metrics backend query client (endpoint throughput)
+            - github.com/prometheus/client_golang/api
+            - github.com/prometheus/client_golang/api/prometheus/v1
+            - github.com/prometheus/common/model
             - go.opentelemetry.io/contrib/instrumentation/runtime
             - go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
             - github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client

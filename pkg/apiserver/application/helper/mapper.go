@@ -412,10 +412,23 @@ func (mapper *Mapper) MapEndpointToAPI(
 			Tenants: lo.Map(domain.Spec.Tenants, func(t agentmodel.EndpointTenant, _ int) v1.EndpointTenant {
 				return mapEndpointTenantToAPI(t)
 			}),
+			MetricsQuery: mapEndpointMetricsQueryToAPI(domain.Spec.MetricsQuery),
 		},
 		Status: v1.EndpointStatus{
 			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
 		},
+	}
+}
+
+func mapEndpointMetricsQueryToAPI(query *agentmodel.EndpointMetricsQuery) *v1.EndpointMetricsQuery {
+	if query == nil {
+		return nil
+	}
+
+	return &v1.EndpointMetricsQuery{
+		Metrics: query.Metrics,
+		Logs:    query.Logs,
+		Traces:  query.Traces,
 	}
 }
 
@@ -466,10 +479,23 @@ func (mapper *Mapper) MapAPIToEndpoint(
 			Tenants: lo.Map(api.Spec.Tenants, func(t v1.EndpointTenant, _ int) agentmodel.EndpointTenant {
 				return mapAPIToEndpointTenant(t)
 			}),
+			MetricsQuery: mapAPIToEndpointMetricsQuery(api.Spec.MetricsQuery),
 		},
 		Status: agentmodel.EndpointStatus{
 			Conditions: nil,
 		},
+	}
+}
+
+func mapAPIToEndpointMetricsQuery(query *v1.EndpointMetricsQuery) *agentmodel.EndpointMetricsQuery {
+	if query == nil {
+		return nil
+	}
+
+	return &agentmodel.EndpointMetricsQuery{
+		Metrics: query.Metrics,
+		Logs:    query.Logs,
+		Traces:  query.Traces,
 	}
 }
 

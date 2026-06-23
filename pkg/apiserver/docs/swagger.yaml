@@ -607,6 +607,19 @@ definitions:
       namespace:
         type: string
     type: object
+  EndpointMetricsQuery:
+    properties:
+      logs:
+        description: Logs is the PromQL template measuring log records per second.
+        type: string
+      metrics:
+        description: Metrics is the PromQL template measuring metric data points per
+          second.
+        type: string
+      traces:
+        description: Traces is the PromQL template measuring spans per second.
+        type: string
+    type: object
   EndpointSignals:
     properties:
       logs:
@@ -618,6 +631,13 @@ definitions:
     type: object
   EndpointSpec:
     properties:
+      metricsQuery:
+        allOf:
+        - $ref: '#/definitions/EndpointMetricsQuery'
+        description: |-
+          MetricsQuery configures how to measure, from a metrics backend, how much
+          telemetry collectors are sending to this endpoint. Omitted when throughput
+          is not tracked.
       protocol:
         description: Protocol is the export protocol (e.g. "otlp", "otlphttp", "prometheusremotewrite").
         type: string

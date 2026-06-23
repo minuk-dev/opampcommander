@@ -50,6 +50,34 @@ type EndpointSpec struct {
 	// Tenants is the multi-tenant breakdown. The same endpoint can be managed
 	// differently per tenant via per-tenant Headers and Tags.
 	Tenants []EndpointTenant
+	// MetricsQuery configures how to measure, from a metrics backend, how much
+	// telemetry collectors are sending to this endpoint. Nil means throughput is
+	// not tracked for this endpoint.
+	MetricsQuery *EndpointMetricsQuery
+}
+
+// EndpointMetricsQuery holds a PromQL query template per telemetry signal used
+// to measure how much data collectors are sending to this endpoint.
+//
+// Each template is rendered (text/template) with a small context — notably the
+// rate window and the endpoint's own identity — before being executed against
+// the metrics backend. An empty template means that signal is not measured. A
+// rendered query is expected to evaluate to an instant vector of per-second
+// rates (e.g. sum by (...) (rate(otelcol_exporter_sent_metric_points_total[...])));
+// the adapter sums the result series to get the endpoint's total throughput for
+// that signal.
+type EndpointMetricsQuery struct {
+	// Metrics is the PromQL template measuring metric data points per second.
+	Metrics string
+	// Logs is the PromQL template measuring log records per second.
+	Logs string
+	// Traces is the PromQL template measuring spans per second.
+	Traces string
+}
+
+// IsZero reports whether no per-signal template is configured.
+func (q *EndpointMetricsQuery) IsZero() bool {
+	return q == nil || (q.Metrics == "" && q.Logs == "" && q.Traces == "")
 }
 
 // EndpointSignals declares which telemetry signals are supported.
@@ -100,10 +128,11 @@ func NewEndpoint(
 			DeletedAt:  nil,
 		},
 		Spec: EndpointSpec{
-			URL:      "",
-			Protocol: "",
-			Signals:  EndpointSignals{Metrics: false, Logs: false, Traces: false},
-			Tenants:  nil,
+			URL:          "",
+			Protocol:     "",
+			Signals:      EndpointSignals{Metrics: false, Logs: false, Traces: false},
+			Tenants:      nil,
+			MetricsQuery: nil,
 		},
 		Status: EndpointStatus{
 			Conditions: []model.Condition{

@@ -32,7 +32,24 @@ type EndpointSpec struct {
 	Signals EndpointSignals `json:"signals"`
 	// Tenants is the multi-tenant breakdown of the endpoint.
 	Tenants []EndpointTenant `json:"tenants,omitempty"`
+	// MetricsQuery configures how to measure, from a metrics backend, how much
+	// telemetry collectors are sending to this endpoint. Omitted when throughput
+	// is not tracked.
+	MetricsQuery *EndpointMetricsQuery `json:"metricsQuery,omitempty"`
 } // @name EndpointSpec
+
+// EndpointMetricsQuery holds a PromQL query template per telemetry signal used to
+// measure how much data collectors are sending to this endpoint. Each template is
+// rendered with the rate window and endpoint identity before execution; an empty
+// template means that signal is not measured.
+type EndpointMetricsQuery struct {
+	// Metrics is the PromQL template measuring metric data points per second.
+	Metrics string `json:"metrics,omitempty"`
+	// Logs is the PromQL template measuring log records per second.
+	Logs string `json:"logs,omitempty"`
+	// Traces is the PromQL template measuring spans per second.
+	Traces string `json:"traces,omitempty"`
+} // @name EndpointMetricsQuery
 
 // EndpointSignals declares which telemetry signals are supported.
 type EndpointSignals struct {
