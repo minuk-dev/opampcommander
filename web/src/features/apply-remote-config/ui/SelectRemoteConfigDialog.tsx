@@ -4,6 +4,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -12,6 +13,7 @@ import {
   DialogTitle,
   FormControl,
   InputLabel,
+  ListItemText,
   MenuItem,
   Select,
   Stack,
@@ -44,7 +46,6 @@ export default function SelectRemoteConfigDialog({
 }: Props) {
   // The working set of refs the user is editing; applied to the group on Apply.
   const [refs, setRefs] = useState<string[]>([]);
-  const [toAdd, setToAdd] = useState('');
   const [busy, setBusy] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
@@ -77,7 +78,6 @@ export default function SelectRemoteConfigDialog({
   useEffect(() => {
     if (!open) {
       setRefs([]);
-      setToAdd('');
       setApplyError(null);
       didSeed.current = false;
       return;
@@ -87,18 +87,10 @@ export default function SelectRemoteConfigDialog({
     setRefs(remoteConfigRefs(groupRef.current));
   }, [open]);
 
-  // Configs available to add: those not already in the working set.
-  const available = configs.filter((c) => !refs.includes(c.metadata.name));
-
-  const addRef = () => {
-    if (!toAdd || refs.includes(toAdd)) return;
-    setRefs((prev) => [...prev, toAdd]);
-    setToAdd('');
-  };
-
-  const removeRef = (ref: string) => {
-    setRefs((prev) => prev.filter((r) => r !== ref));
-  };
+  // Toggle options: every fetched config plus any ref the group already points at that is
+  // not in the fetched list (e.g. deleted, or beyond the fetch limit), so it stays
+  // deselectable rather than silently stuck on.
+  const options = Array.from(new Set([...configs.map((c) => c.metadata.name), ...refs]));
 
   // Persist the working set onto the group, preserving any inline (non-ref)
   // entries that were defined outside this dialog.
@@ -138,7 +130,7 @@ export default function SelectRemoteConfigDialog({
         <Stack spacing={2} mt={1}>
           <DialogContentText>
             Choose the remote configs applied to agent group <code>{group?.metadata.name}</code>.
-            The group&apos;s matching agents receive every config in the list. Add or remove configs,
+            The group&apos;s matching agents receive every selected config. Toggle configs on or off,
             then Apply.
           </DialogContentText>
           {group && (
@@ -148,46 +140,48 @@ export default function SelectRemoteConfigDialog({
             </Typography>
           )}
           {error && <Alert severity="error">{error}</Alert>}
-          {refs.length > 0 ? (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              {refs.map((ref) => (
-                <Chip key={ref} label={ref} onDelete={() => removeRef(ref)} disabled={busy} />
+          <FormControl fullWidth disabled={loading || busy}>
+            <InputLabel id="select-remote-config-label">Remote configs</InputLabel>
+            <Select
+              labelId="select-remote-config-label"
+              label="Remote configs"
+              multiple
+              value={refs}
+              onChange={(e) =>
+                setRefs(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)
+              }
+              renderValue={(selected) =>
+                selected.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    None selected
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((name) => (
+                      <Chip key={name} label={name} size="small" />
+                    ))}
+                  </Box>
+                )
+              }
+            >
+              {options.length === 0 && (
+                <MenuItem value="" disabled>
+                  {loading ? 'Loading…' : 'No remote configs in this namespace'}
+                </MenuItem>
+              )}
+              {options.map((name) => (
+                <MenuItem key={name} value={name}>
+                  <Checkbox checked={refs.includes(name)} />
+                  <ListItemText primary={name} />
+                </MenuItem>
               ))}
-            </Box>
-          ) : (
+            </Select>
+          </FormControl>
+          {refs.length === 0 && options.length > 0 && (
             <Typography variant="body2" color="text.secondary">
               No remote configs selected. Matching agents will receive none.
             </Typography>
           )}
-          <Stack direction="row" spacing={1} alignItems="flex-start">
-            <FormControl fullWidth disabled={loading || busy}>
-              <InputLabel id="select-remote-config-label">Add remote config</InputLabel>
-              <Select
-                labelId="select-remote-config-label"
-                label="Add remote config"
-                value={toAdd}
-                onChange={(e) => setToAdd(e.target.value)}
-              >
-                {available.length === 0 && (
-                  <MenuItem value="" disabled>
-                    {loading
-                      ? 'Loading…'
-                      : configs.length === 0
-                        ? 'No remote configs in this namespace'
-                        : 'All configs already added'}
-                  </MenuItem>
-                )}
-                {available.map((c) => (
-                  <MenuItem key={c.metadata.name} value={c.metadata.name}>
-                    {c.metadata.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button onClick={addRef} disabled={busy || !toAdd} sx={{ mt: 1 }}>
-              Add
-            </Button>
-          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions>
