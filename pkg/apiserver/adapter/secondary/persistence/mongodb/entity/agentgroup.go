@@ -37,12 +37,8 @@ type AgentGroupSpec struct {
 	Priority int           `bson:"priority"`
 	Selector AgentSelector `bson:"selector"`
 	// AgentRemoteConfigs is the list of remote configurations applied to agents in the group.
-	AgentRemoteConfigs []AgentGroupAgentRemoteConfig `bson:"agentRemoteConfigs,omitempty"`
-	// AgentRemoteConfig is the legacy single remote configuration. It is read-only: kept so
-	// documents written before the multi-config migration still load, and folded into
-	// AgentRemoteConfigs by toDomain. New writes never set it (see agentGroupSpecFromDomain).
-	AgentRemoteConfig     *AgentGroupAgentRemoteConfig `bson:"agentConfig,omitempty"`
-	AgentConnectionConfig *AgentConnectionConfig       `bson:"agentConnectionConfig,omitempty"`
+	AgentRemoteConfigs    []AgentGroupAgentRemoteConfig `bson:"agentRemoteConfigs,omitempty"`
+	AgentConnectionConfig *AgentConnectionConfig        `bson:"agentConnectionConfig,omitempty"`
 }
 
 // AgentGroupStatus represents the status of an agent group in MongoDB.
@@ -172,12 +168,6 @@ func (s *AgentGroupSpec) toDomain() agentmodel.AgentGroupSpec {
 		},
 	}
 
-	// Fold a legacy single config (written before the multi-config migration) in as the
-	// first element so old documents keep working; new entries follow from the slice.
-	if s.AgentRemoteConfig != nil {
-		spec.AgentRemoteConfigs = append(spec.AgentRemoteConfigs, s.AgentRemoteConfig.toDomain())
-	}
-
 	for i := range s.AgentRemoteConfigs {
 		spec.AgentRemoteConfigs = append(spec.AgentRemoteConfigs, s.AgentRemoteConfigs[i].toDomain())
 	}
@@ -265,8 +255,6 @@ func agentGroupSpecFromDomain(spec agentmodel.AgentGroupSpec) AgentGroupSpec {
 		},
 	}
 
-	// Only the slice is written; the legacy AgentRemoteConfig field is left nil so the old
-	// bson "agentConfig" key is dropped (omitempty) as documents are rewritten.
 	if len(spec.AgentRemoteConfigs) > 0 {
 		result.AgentRemoteConfigs = make([]AgentGroupAgentRemoteConfig, 0, len(spec.AgentRemoteConfigs))
 		for i := range spec.AgentRemoteConfigs {

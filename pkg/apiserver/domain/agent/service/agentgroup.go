@@ -1,6 +1,7 @@
 package agentservice
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -394,17 +395,28 @@ func (s *AgentGroupService) collectGroupRemoteConfigs(
 			return nil, err
 		}
 
-		// Two entries resolving to the same name would silently overwrite one another,
-		// dropping a config without any signal. Surface it instead so it shows up on the
-		// group's RemoteConfigApplied condition.
-		if _, dup := out[name]; dup {
-			return nil, fmt.Errorf("%w: %q", ErrDuplicateRemoteConfigName, name)
+		// Two entries resolving to the same name with different content would silently
+		// overwrite one another, dropping a config without any signal — surface that on
+		// the group's RemoteConfigApplied condition. Identical duplicates are idempotent,
+		// so collapse them instead of failing the whole group.
+		if existing, dup := out[name]; dup {
+			if !sameConfigFile(existing, file) {
+				return nil, fmt.Errorf("%w: %q", ErrDuplicateRemoteConfigName, name)
+			}
+
+			continue
 		}
 
 		out[name] = file
 	}
 
 	return out, nil
+}
+
+// sameConfigFile reports whether two resolved config files are byte-for-byte equivalent,
+// so idempotent duplicate entries can be collapsed rather than treated as a conflict.
+func sameConfigFile(a, b agentmodel.AgentConfigFile) bool {
+	return a.ContentType == b.ContentType && bytes.Equal(a.Body, b.Body)
 }
 
 // setAgentRemoteConfigs replaces the agent's spec.RemoteConfig with exactly the given
