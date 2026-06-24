@@ -37,6 +37,7 @@ func New() fx.Option {
 		fx.Annotate(provideContainerService, fx.As(new(agentport.ContainerUsecase))),
 		fx.Annotate(agentservice.NewAgentRemoteConfigService, fx.As(new(agentport.AgentRemoteConfigUsecase))),
 		fx.Annotate(agentservice.NewEndpointService, fx.As(new(agentport.EndpointUsecase))),
+		fx.Annotate(agentservice.NewEndpointMetricsService, fx.As(new(agentport.EndpointMetricsUsecase))),
 		fx.Annotate(agentservice.NewEndpointDetectionService, fx.As(new(agentport.EndpointDetectionUsecase))),
 		fx.Annotate(agentservice.NewCertificateService, fx.As(new(agentport.CertificateUsecase))),
 		agentservice.NewServerService,

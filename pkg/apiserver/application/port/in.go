@@ -4,6 +4,7 @@ package port
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
@@ -165,6 +166,19 @@ type EndpointManageUsecase interface {
 	UpdateEndpoint(ctx context.Context, namespace string, name string,
 		endpoint *v1.Endpoint) (*v1.Endpoint, error)
 	DeleteEndpoint(ctx context.Context, namespace string, name string) error
+}
+
+// EndpointMetricsUsecase is a use case that reports how much telemetry collectors
+// are sending to endpoints. The window is the rate window; a non-positive value
+// asks the service to apply its configured default.
+type EndpointMetricsUsecase interface {
+	// GetEndpointThroughput reports the send throughput for a single endpoint.
+	GetEndpointThroughput(ctx context.Context, namespace string, name string,
+		window time.Duration) (*v1.EndpointThroughput, error)
+	// ListEndpointThroughput reports the send throughput for every endpoint in a
+	// namespace.
+	ListEndpointThroughput(ctx context.Context, namespace string,
+		window time.Duration) (*v1.ListResponse[v1.EndpointThroughput], error)
 }
 
 // UserManageUsecase is a use case that handles user management operations.

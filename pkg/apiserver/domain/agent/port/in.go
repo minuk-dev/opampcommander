@@ -124,6 +124,20 @@ type EndpointUsecase interface {
 		deletedAt time.Time, deletedBy string) error
 }
 
+// EndpointMetricsUsecase aggregates how much telemetry collectors are sending to
+// endpoints by querying the metrics backend with each endpoint's configured query
+// templates.
+type EndpointMetricsUsecase interface {
+	// GetEndpointThroughput aggregates the send throughput for a single endpoint,
+	// evaluated over window at instant evaluatedAt.
+	GetEndpointThroughput(ctx context.Context, namespace string, name string,
+		window time.Duration, evaluatedAt time.Time) (*agentmodel.EndpointThroughput, error)
+	// ListEndpointThroughput aggregates the send throughput for every endpoint in a
+	// namespace, evaluated over window at instant evaluatedAt.
+	ListEndpointThroughput(ctx context.Context, namespace string,
+		window time.Duration, evaluatedAt time.Time) ([]*agentmodel.EndpointThroughput, error)
+}
+
 // EndpointDetectionUsecase detects telemetry backends from an AgentRemoteConfig's
 // collector configuration and matches them to Endpoint resources.
 type EndpointDetectionUsecase interface {

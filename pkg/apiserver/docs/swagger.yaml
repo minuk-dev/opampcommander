@@ -683,6 +683,35 @@ definitions:
         description: Tags are arbitrary key/value labels for internal differentiation/selection.
         type: object
     type: object
+  EndpointThroughput:
+    properties:
+      evaluatedAt:
+        description: EvaluatedAt is the instant the rates were evaluated at.
+        type: string
+      logs:
+        allOf:
+        - $ref: '#/definitions/SignalThroughput'
+        description: Logs is the log-record send rate (records/sec).
+      metrics:
+        allOf:
+        - $ref: '#/definitions/SignalThroughput'
+        description: Metrics is the metric-data-point send rate (points/sec).
+      name:
+        type: string
+      namespace:
+        description: Namespace and Name identify the endpoint the throughput was measured
+          for.
+        type: string
+      traces:
+        allOf:
+        - $ref: '#/definitions/SignalThroughput'
+        description: Traces is the span send rate (spans/sec).
+      window:
+        description: |-
+          Window is the rate window the per-second values were computed over,
+          formatted as a Go duration (e.g. "5m0s").
+        type: string
+    type: object
   ErrorDetail:
     properties:
       location:
@@ -891,6 +920,19 @@ definitions:
       items:
         items:
           $ref: '#/definitions/Endpoint'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-EndpointThroughput:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/EndpointThroughput'
         type: array
       kind:
         type: string
@@ -1199,6 +1241,23 @@ definitions:
     x-enum-varnames:
     - ServerConditionTypeRegistered
     - ServerConditionTypeAlive
+  SignalThroughput:
+    properties:
+      measured:
+        description: |-
+          Measured reports whether a query was configured and executed for the signal.
+          When false, PerSecond and SeriesCount are zero and meaningless: the signal is
+          simply not tracked for the endpoint.
+        type: boolean
+      perSecond:
+        description: PerSecond is the aggregated per-second rate summed across contributing
+          series.
+        type: number
+      seriesCount:
+        description: SeriesCount is the number of contributing time series the rate
+          was summed over.
+        type: integer
+    type: object
   TelemetryConnectionSettings:
     properties:
       certificateName:
@@ -2730,6 +2789,39 @@ paths:
       summary: List Connections
       tags:
       - connection
+  /api/v1/namespaces/{namespace}/endpoint-throughputs:
+    get:
+      description: Report how much telemetry collectors are sending to each endpoint
+        in a namespace.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Rate window as a Go duration (e.g. 5m); defaults to the server's
+          configured window
+        in: query
+        name: window
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-EndpointThroughput'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Endpoint Throughput
+      tags:
+      - endpoint
   /api/v1/namespaces/{namespace}/endpoints:
     get:
       description: Retrieve a list of endpoints in a namespace.
@@ -2929,6 +3021,48 @@ paths:
             additionalProperties: true
             type: object
       summary: Update Endpoint
+      tags:
+      - endpoint
+  /api/v1/namespaces/{namespace}/endpoints/{name}/throughput:
+    get:
+      description: Report how much telemetry collectors are sending to a single endpoint.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the endpoint
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Rate window as a Go duration (e.g. 5m); defaults to the server's
+          configured window
+        in: query
+        name: window
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/EndpointThroughput'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Endpoint Throughput
       tags:
       - endpoint
   /api/v1/namespaces/{namespace}/rolebindings:
