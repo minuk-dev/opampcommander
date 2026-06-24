@@ -3479,6 +3479,10 @@
                 "namespace": {
                     "description": "Namespace is the namespace the agent belongs to.",
                     "type": "string"
+                },
+                "type": {
+                    "description": "Type classifies the agent and, for OpenTelemetry Collectors, its\ndistribution (e.g. \"otelcol\", \"otelcol-contrib\"). It is derived from the\nreported \"service.name\" identifying attribute and is \"unknown\" when the\nagent does not follow the OpenTelemetry Collector naming convention.",
+                    "type": "string"
                 }
             }
         },

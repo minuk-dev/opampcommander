@@ -28,6 +28,12 @@ type AgentMetadata struct {
 	// Namespace is the namespace the agent belongs to.
 	Namespace string `json:"namespace"`
 
+	// Type classifies the agent and, for OpenTelemetry Collectors, its
+	// distribution (e.g. "otelcol", "otelcol-contrib"). It is derived from the
+	// reported "service.name" identifying attribute and is "unknown" when the
+	// agent does not follow the OpenTelemetry Collector naming convention.
+	Type string `json:"type,omitempty"`
+
 	// Description is a human-readable description of the agent.
 	Description AgentDescription `json:"description,omitzero"`
 

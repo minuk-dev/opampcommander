@@ -1,6 +1,10 @@
 package agent
 
-import "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
+import (
+	"strings"
+
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
+)
 
 // Description represents the description of an agent.
 // It contains identifying and non-identifying attributes.
@@ -112,6 +116,25 @@ func (ad *Description) Platform() Platform {
 	}
 
 	return PlatformUnknown
+}
+
+// AgentType classifies the agent and, for OpenTelemetry Collectors, its
+// distribution from the "service.name" identifying attribute. Every official
+// Collector distribution reports a service.name of "otelcol" or
+// "otelcol-<distro>" (e.g. "otelcol-contrib"); any such value is treated as a
+// Collector and preserved as the distribution. Everything else is
+// AgentTypeUnknown.
+//
+// Only service.name is consulted, so custom-branded distributions that rename
+// the binary (e.g. "splunk-otel-collector") are intentionally reported as
+// AgentTypeUnknown rather than guessed at.
+func (ad *Description) AgentType() Type {
+	name := ad.Service().Name
+	if name == otelCollectorPrefix || strings.HasPrefix(name, otelCollectorPrefix+"-") {
+		return Type(name)
+	}
+
+	return TypeUnknown
 }
 
 // attr returns the value for key, preferring non-identifying attributes and
