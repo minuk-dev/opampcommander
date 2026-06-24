@@ -325,6 +325,69 @@ func (_c *MockManageUsecase_ListAgents_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// ReconcileAgent provides a mock function for the type MockManageUsecase
+func (_mock *MockManageUsecase) ReconcileAgent(ctx context.Context, namespace string, instanceUID uuid.UUID) error {
+	ret := _mock.Called(ctx, namespace, instanceUID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReconcileAgent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, uuid.UUID) error); ok {
+		r0 = returnFunc(ctx, namespace, instanceUID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockManageUsecase_ReconcileAgent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReconcileAgent'
+type MockManageUsecase_ReconcileAgent_Call struct {
+	*mock.Call
+}
+
+// ReconcileAgent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - instanceUID uuid.UUID
+func (_e *MockManageUsecase_Expecter) ReconcileAgent(ctx interface{}, namespace interface{}, instanceUID interface{}) *MockManageUsecase_ReconcileAgent_Call {
+	return &MockManageUsecase_ReconcileAgent_Call{Call: _e.mock.On("ReconcileAgent", ctx, namespace, instanceUID)}
+}
+
+func (_c *MockManageUsecase_ReconcileAgent_Call) Run(run func(ctx context.Context, namespace string, instanceUID uuid.UUID)) *MockManageUsecase_ReconcileAgent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 uuid.UUID
+		if args[2] != nil {
+			arg2 = args[2].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockManageUsecase_ReconcileAgent_Call) Return(err error) *MockManageUsecase_ReconcileAgent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockManageUsecase_ReconcileAgent_Call) RunAndReturn(run func(ctx context.Context, namespace string, instanceUID uuid.UUID) error) *MockManageUsecase_ReconcileAgent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SearchAgents provides a mock function for the type MockManageUsecase
 func (_mock *MockManageUsecase) SearchAgents(ctx context.Context, namespace string, query string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error) {
 	ret := _mock.Called(ctx, namespace, query, options)

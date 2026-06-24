@@ -137,6 +137,23 @@ func (s *AgentGroupService) GetAgentGroup(
 	return agentGroup, nil
 }
 
+// ReconcileAgentGroup re-applies the named agent group to its matching agents on demand.
+// It loads the (possibly deleted) group and runs the same update the background loop does,
+// so callers can force a refresh without mutating the group or waiting for the next tick.
+func (s *AgentGroupService) ReconcileAgentGroup(ctx context.Context, namespace, name string) error {
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, namespace, name, &model.GetOptions{IncludeDeleted: true})
+	if err != nil {
+		return fmt.Errorf("get agent group: %w", err)
+	}
+
+	err = s.updateAgentsByAgentGroup(ctx, agentGroup)
+	if err != nil {
+		return fmt.Errorf("reconcile agent group %s/%s: %w", namespace, name, err)
+	}
+
+	return nil
+}
+
 // SaveAgentGroup saves the agent group.
 func (s *AgentGroupService) SaveAgentGroup(
 	ctx context.Context,
@@ -371,6 +388,24 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 		if err != nil {
 			return fmt.Errorf("apply connection settings from group %s: %w", group.Metadata.Name, err)
 		}
+	}
+
+	return nil
+}
+
+// ReconcileAgent re-applies the matching agent groups to the agent and persists the result.
+// It mirrors the per-agent step of the background reconcile loop (apply then save), so an
+// on-demand reconcile of a single agent actually takes effect — ApplyMatchingAgentGroupsToAgent
+// alone only mutates the in-memory agent and leaves persistence to the caller.
+func (s *AgentGroupService) ReconcileAgent(ctx context.Context, agent *agentmodel.Agent) error {
+	err := s.ApplyMatchingAgentGroupsToAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("apply matching agent groups to agent %s: %w", agent.Metadata.InstanceUID, err)
+	}
+
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("save reconciled agent %s: %w", agent.Metadata.InstanceUID, err)
 	}
 
 	return nil

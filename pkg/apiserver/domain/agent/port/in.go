@@ -104,6 +104,11 @@ type AgentRemoteConfigUsecase interface {
 	// DeleteAgentRemoteConfig deletes the agent remote config by its namespace and name.
 	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string,
 		deletedAt time.Time, deletedBy string) error
+	// ReconcileAgentRemoteConfig re-runs the side effects normally triggered when the named
+	// AgentRemoteConfig is created/updated: it detects telemetry endpoints from the config's
+	// collector exporters and re-propagates the config to every agent group that references it.
+	// Use this to repair drift for configs that predate those triggers (or were missed).
+	ReconcileAgentRemoteConfig(ctx context.Context, namespace string, name string) error
 }
 
 // EndpointUsecase is an interface that defines the methods for endpoint use cases.
@@ -177,7 +182,16 @@ type AgentGroupUsecase interface {
 	// ApplyMatchingAgentGroupsToAgent finds all agent groups that match the given agent and
 	// applies their remote configs and connection settings. Use this when an agent reports a
 	// new description so it picks up its assigned configs without waiting for a group update.
+	// It mutates the agent in place; the caller is responsible for persisting.
 	ApplyMatchingAgentGroupsToAgent(ctx context.Context, agent *agentmodel.Agent) error
+	// ReconcileAgent re-applies the matching agent groups to the given agent and persists the
+	// result. Unlike ApplyMatchingAgentGroupsToAgent it owns the save, so an on-demand
+	// reconcile of a single agent actually takes effect.
+	ReconcileAgent(ctx context.Context, agent *agentmodel.Agent) error
+	// ReconcileAgentGroup re-applies the named agent group to its matching agents on demand,
+	// the same work the background reconcile loop performs. Use this to force a refresh
+	// without waiting for the next tick or mutating the group.
+	ReconcileAgentGroup(ctx context.Context, namespace, name string) error
 }
 
 // AgentGroupRelatedUsecase is an interface that defines methods related to agent groups.

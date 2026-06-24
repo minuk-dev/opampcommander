@@ -597,3 +597,35 @@ func TestAgentGroupService_Name(t *testing.T) {
 
 	assert.Equal(t, "AgentGroupService", svc.Name())
 }
+
+func TestAgentGroupService_ReconcileAgent(t *testing.T) {
+	t.Parallel()
+
+	t.Run("persists the agent after applying matching groups", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		mockPersistence := new(MockAgentGroupPersistencePort)
+		mockAgentUsecase := new(MockAgentUsecaseForGroup)
+		mockRemoteConfigPort := new(MockAgentRemoteConfigPersistencePort)
+		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
+
+		svc := agentservice.NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, slog.Default())
+
+		agent := agentmodel.NewAgent(uuid.New())
+
+		// No groups match, but reconcile must still persist the (re-applied) agent — this is
+		// the regression guard against ReconcileAgent forgetting to save.
+		emptyGroups := &model.ListResponse[*agentmodel.AgentGroup]{Items: nil, Continue: "", RemainingItemCount: 0}
+		mockPersistence.On("ListAgentGroups", ctx, (*model.ListOptions)(nil)).Return(emptyGroups, nil)
+		mockAgentUsecase.On("SaveAgent", ctx, agent).Return(nil)
+
+		err := svc.ReconcileAgent(ctx, agent)
+
+		require.NoError(t, err)
+		mockAgentUsecase.AssertCalled(t, "SaveAgent", ctx, agent)
+		mockPersistence.AssertExpectations(t)
+		mockAgentUsecase.AssertExpectations(t)
+	})
+}

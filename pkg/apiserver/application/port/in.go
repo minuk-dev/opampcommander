@@ -89,6 +89,10 @@ type AgentManageUsecase interface {
 	// to, extracted from its reported effective configuration (not persisted).
 	ListAgentEndpoints(ctx context.Context, namespace string,
 		instanceUID uuid.UUID) (*v1.ListResponse[v1.Endpoint], error)
+	// ReconcileAgent re-applies the agent groups that match the agent on demand, so it
+	// picks up its assigned remote configs and connection settings without waiting for a
+	// group update or the background reconcile loop.
+	ReconcileAgent(ctx context.Context, namespace string, instanceUID uuid.UUID) error
 }
 
 // AgentGroupManageUsecase is a use case that handles agent group management operations.
@@ -113,6 +117,9 @@ type AgentGroupManageUsecase interface {
 	UpdateAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
 	DeleteAgentGroup(ctx context.Context, namespace string, name string) error
+	// ReconcileAgentGroup re-applies the named agent group to its matching agents on demand,
+	// the same work the background reconcile loop performs.
+	ReconcileAgentGroup(ctx context.Context, namespace string, name string) error
 }
 
 // HostManageUsecase is a use case that handles host management operations.
@@ -153,6 +160,9 @@ type AgentRemoteConfigManageUsecase interface {
 	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,
 		agentRemoteConfig *v1.AgentRemoteConfig) (*v1.AgentRemoteConfig, error)
 	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string) error
+	// ReconcileAgentRemoteConfig re-detects telemetry endpoints from the config's collector
+	// exporters and re-propagates the config to the agent groups that reference it.
+	ReconcileAgentRemoteConfig(ctx context.Context, namespace string, name string) error
 }
 
 // EndpointManageUsecase is a use case that handles endpoint management operations.

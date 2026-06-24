@@ -124,6 +124,18 @@ func (f *fakeAgentGroupUsecase) ApplyMatchingAgentGroupsToAgent(
 	return nil
 }
 
+func (f *fakeAgentGroupUsecase) ReconcileAgent(
+	context.Context, *agentmodel.Agent,
+) error {
+	return nil
+}
+
+func (f *fakeAgentGroupUsecase) ReconcileAgentGroup(
+	context.Context, string, string,
+) error {
+	return nil
+}
+
 type fakeCertificateUsecase struct{}
 
 func (f *fakeCertificateUsecase) GetCertificate(
@@ -198,6 +210,12 @@ func (f *fakeAgentRemoteConfigUsecase) SaveAgentRemoteConfig(
 
 func (f *fakeAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
 	context.Context, string, string, time.Time, string,
+) error {
+	return nil
+}
+
+func (f *fakeAgentRemoteConfigUsecase) ReconcileAgentRemoteConfig(
+	context.Context, string, string,
 ) error {
 	return nil
 }
