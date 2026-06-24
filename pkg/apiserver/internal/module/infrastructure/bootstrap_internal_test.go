@@ -71,6 +71,7 @@ func newTestDeps() (bootstrapDeps, *inmemory.RoleRepository, *inmemory.Permissio
 	return bootstrapDeps{
 		fs:                        afero.NewMemMapFs(),
 		namespaceUsecase:          nsService,
+		endpointUsecase:           agentservice.NewEndpointService(inmemory.NewEndpointRepository()),
 		rolePersistencePort:       roleRepo,
 		permissionPersistencePort: permRepo,
 		userPersistencePort:       userRepo,
@@ -321,6 +322,59 @@ func TestApplyManifests_UnknownKindFails(t *testing.T) {
 
 	err = applyManifests(t.Context(), docs, deps)
 	require.ErrorIs(t, err, errUnsupportedKind)
+}
+
+func TestApplyManifests_SeedsEndpointWithMetricsQuery(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	endpointRepo := inmemory.NewEndpointRepository()
+	deps.endpointUsecase = agentservice.NewEndpointService(endpointRepo)
+
+	dir := writeManifests(t, deps.fs, map[string]string{
+		"30-endpoint.yaml": `kind: Endpoint
+apiVersion: v1
+metadata:
+  name: vm
+  namespace: default
+spec:
+  url: http://vm/insert
+  protocol: prometheusremotewrite
+  signals:
+    metrics: true
+  metricsQuery:
+    metrics: sum(rate(otelcol_exporter_sent_metric_points_total[{{.Window}}]))
+`,
+	})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+
+	got, err := endpointRepo.GetEndpoint(t.Context(), "default", "vm", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "http://vm/insert", got.Spec.URL)
+	assert.True(t, got.Spec.Signals.Metrics)
+	require.NotNil(t, got.Spec.MetricsQuery)
+	assert.Contains(t, got.Spec.MetricsQuery.Metrics, "otelcol_exporter_sent_metric_points_total")
+
+	// Reconciliation is idempotent: a second apply must not error.
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+}
+
+func TestApplyManifests_EndpointRequiresNamespace(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	dir := writeManifests(t, deps.fs, map[string]string{
+		"30-endpoint.yaml": "kind: Endpoint\napiVersion: v1\nmetadata:\n  name: vm\n",
+	})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+
+	err = applyManifests(t.Context(), docs, deps)
+	require.ErrorIs(t, err, errEmptyEndpointNamespace)
 }
 
 func TestEnsurePermission_RejectsMalformedName(t *testing.T) {
