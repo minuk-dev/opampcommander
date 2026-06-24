@@ -104,9 +104,9 @@ func (s *Service) ReconcileAgent(
 		return err
 	}
 
-	err = s.agentGroupUsecase.ApplyMatchingAgentGroupsToAgent(ctx, agent)
+	err = s.agentGroupUsecase.ReconcileAgent(ctx, agent)
 	if err != nil {
-		return fmt.Errorf("apply matching agent groups to agent: %w", err)
+		return fmt.Errorf("reconcile agent: %w", err)
 	}
 
 	return nil

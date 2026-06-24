@@ -182,7 +182,12 @@ type AgentGroupUsecase interface {
 	// ApplyMatchingAgentGroupsToAgent finds all agent groups that match the given agent and
 	// applies their remote configs and connection settings. Use this when an agent reports a
 	// new description so it picks up its assigned configs without waiting for a group update.
+	// It mutates the agent in place; the caller is responsible for persisting.
 	ApplyMatchingAgentGroupsToAgent(ctx context.Context, agent *agentmodel.Agent) error
+	// ReconcileAgent re-applies the matching agent groups to the given agent and persists the
+	// result. Unlike ApplyMatchingAgentGroupsToAgent it owns the save, so an on-demand
+	// reconcile of a single agent actually takes effect.
+	ReconcileAgent(ctx context.Context, agent *agentmodel.Agent) error
 	// ReconcileAgentGroup re-applies the named agent group to its matching agents on demand,
 	// the same work the background reconcile loop performs. Use this to force a refresh
 	// without waiting for the next tick or mutating the group.

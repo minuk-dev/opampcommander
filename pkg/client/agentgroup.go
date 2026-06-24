@@ -250,7 +250,10 @@ func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, namespace stri
 
 // ReconcileAgentGroup re-applies the named agent group to its matching agents on demand.
 func (s *AgentGroupService) ReconcileAgentGroup(ctx context.Context, namespace string, name string) error {
-	res, err := s.service.Resty.R().
+	// Reconcile runs synchronously on the server (re-applying the group to all its agents),
+	// which can outlast the shared client's 15s timeout in a large namespace. Clone the client
+	// and clear the timeout; the context deadline is the only limit.
+	res, err := s.service.Resty.Clone().SetTimeout(0).R().
 		SetContext(ctx).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name).

@@ -124,6 +124,12 @@ func (f *fakeAgentGroupUsecase) ApplyMatchingAgentGroupsToAgent(
 	return nil
 }
 
+func (f *fakeAgentGroupUsecase) ReconcileAgent(
+	context.Context, *agentmodel.Agent,
+) error {
+	return nil
+}
+
 func (f *fakeAgentGroupUsecase) ReconcileAgentGroup(
 	context.Context, string, string,
 ) error {

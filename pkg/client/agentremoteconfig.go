@@ -214,7 +214,10 @@ func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
 	namespace string,
 	name string,
 ) error {
-	res, err := s.service.Resty.R().
+	// Reconcile runs synchronously on the server (endpoint detection plus re-propagation to
+	// referencing groups), which can outlast the shared client's 15s timeout in a large
+	// namespace. Clone the client and clear the timeout; the context deadline is the only limit.
+	res, err := s.service.Resty.Clone().SetTimeout(0).R().
 		SetContext(ctx).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name).

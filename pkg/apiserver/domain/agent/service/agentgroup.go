@@ -393,6 +393,24 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 	return nil
 }
 
+// ReconcileAgent re-applies the matching agent groups to the agent and persists the result.
+// It mirrors the per-agent step of the background reconcile loop (apply then save), so an
+// on-demand reconcile of a single agent actually takes effect — ApplyMatchingAgentGroupsToAgent
+// alone only mutates the in-memory agent and leaves persistence to the caller.
+func (s *AgentGroupService) ReconcileAgent(ctx context.Context, agent *agentmodel.Agent) error {
+	err := s.ApplyMatchingAgentGroupsToAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("apply matching agent groups to agent %s: %w", agent.Metadata.InstanceUID, err)
+	}
+
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("save reconciled agent %s: %w", agent.Metadata.InstanceUID, err)
+	}
+
+	return nil
+}
+
 // collectGroupRemoteConfigs resolves every remote config declared on the group into a
 // flat name → file map without mutating any agent. ApplyMatchingAgentGroupsToAgent
 // composes the result across all matching groups so an agent's spec reflects the
