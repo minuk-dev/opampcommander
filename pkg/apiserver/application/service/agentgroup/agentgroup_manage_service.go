@@ -280,3 +280,14 @@ func (s *ManageService) DeleteAgentGroup(
 
 	return nil
 }
+
+// ReconcileAgentGroup implements [port.AgentGroupManageUsecase]. It delegates to the domain
+// use case to re-apply the named group to its matching agents on demand.
+func (s *ManageService) ReconcileAgentGroup(ctx context.Context, namespace string, name string) error {
+	err := s.agentgroupUsecase.ReconcileAgentGroup(ctx, namespace, name)
+	if err != nil {
+		return fmt.Errorf("reconcile agent group: %w", err)
+	}
+
+	return nil
+}

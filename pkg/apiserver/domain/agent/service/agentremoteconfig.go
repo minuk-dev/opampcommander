@@ -15,12 +15,22 @@ var _ agentport.AgentRemoteConfigUsecase = (*AgentRemoteConfigService)(nil)
 // AgentRemoteConfigService provides operations for managing agent remote configs.
 type AgentRemoteConfigService struct {
 	persistence agentport.AgentRemoteConfigPersistencePort
+
+	// other domain usecases, used to re-run a config's side effects on reconcile.
+	endpointDetectionUsecase agentport.EndpointDetectionUsecase
+	agentGroupUsecase        agentport.AgentGroupUsecase
 }
 
 // NewAgentRemoteConfigService creates a new AgentRemoteConfigService.
-func NewAgentRemoteConfigService(persistence agentport.AgentRemoteConfigPersistencePort) *AgentRemoteConfigService {
+func NewAgentRemoteConfigService(
+	persistence agentport.AgentRemoteConfigPersistencePort,
+	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
+	agentGroupUsecase agentport.AgentGroupUsecase,
+) *AgentRemoteConfigService {
 	return &AgentRemoteConfigService{
-		persistence: persistence,
+		persistence:              persistence,
+		endpointDetectionUsecase: endpointDetectionUsecase,
+		agentGroupUsecase:        agentGroupUsecase,
 	}
 }
 
@@ -89,6 +99,34 @@ func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	_, err = s.persistence.PutAgentRemoteConfig(ctx, resource)
 	if err != nil {
 		return fmt.Errorf("failed to mark agent remote config as deleted: %w", err)
+	}
+
+	return nil
+}
+
+// ReconcileAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase]. It loads the
+// named config and re-runs the side effects that normally fire on create/update: telemetry
+// endpoint detection from the config's collector exporters, then re-propagation of the config
+// to every agent group that references it. Both run synchronously so the caller learns of
+// failures (unlike the fire-and-forget triggers on the write path).
+func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
+	ctx context.Context,
+	namespace string,
+	name string,
+) error {
+	remoteConfig, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, nil)
+	if err != nil {
+		return fmt.Errorf("get agent remote config %s/%s: %w", namespace, name, err)
+	}
+
+	err = s.endpointDetectionUsecase.ReconcileEndpointsFromRemoteConfig(ctx, remoteConfig)
+	if err != nil {
+		return fmt.Errorf("reconcile endpoints from remote config %s/%s: %w", namespace, name, err)
+	}
+
+	err = s.agentGroupUsecase.PropagateAgentRemoteConfigChange(ctx, namespace, name)
+	if err != nil {
+		return fmt.Errorf("propagate remote config change %s/%s: %w", namespace, name, err)
 	}
 
 	return nil

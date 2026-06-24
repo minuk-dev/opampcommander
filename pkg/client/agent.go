@@ -26,6 +26,8 @@ const (
 	UpdateAgentURL = agentByIDURL
 	// DeleteAgentURL is the path to delete an agent by ID in a namespace.
 	DeleteAgentURL = agentByIDURL
+	// ReconcileAgentURL is the path to reconcile an agent by ID in a namespace.
+	ReconcileAgentURL = agentByIDURL + "/reconcile"
 )
 
 // AgentService provides methods to interact with agents.
@@ -153,6 +155,32 @@ func (s *AgentService) DeleteAgent(
 
 	if res.IsError() {
 		return fmt.Errorf("failed to delete agent: %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return nil
+}
+
+// ReconcileAgent re-applies the matching agent groups to an agent so it picks up its
+// assigned remote configs and connection settings on demand.
+func (s *AgentService) ReconcileAgent(
+	ctx context.Context,
+	namespace string,
+	id uuid.UUID,
+) error {
+	res, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("namespace", namespace).
+		SetPathParam("id", id.String()).
+		Post(ReconcileAgentURL)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile agent: %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("failed to reconcile agent: %w", &ResponseError{
 			StatusCode:   res.StatusCode(),
 			ErrorMessage: res.String(),
 		})

@@ -137,6 +137,23 @@ func (s *AgentGroupService) GetAgentGroup(
 	return agentGroup, nil
 }
 
+// ReconcileAgentGroup re-applies the named agent group to its matching agents on demand.
+// It loads the (possibly deleted) group and runs the same update the background loop does,
+// so callers can force a refresh without mutating the group or waiting for the next tick.
+func (s *AgentGroupService) ReconcileAgentGroup(ctx context.Context, namespace, name string) error {
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, namespace, name, &model.GetOptions{IncludeDeleted: true})
+	if err != nil {
+		return fmt.Errorf("get agent group: %w", err)
+	}
+
+	err = s.updateAgentsByAgentGroup(ctx, agentGroup)
+	if err != nil {
+		return fmt.Errorf("reconcile agent group %s/%s: %w", namespace, name, err)
+	}
+
+	return nil
+}
+
 // SaveAgentGroup saves the agent group.
 func (s *AgentGroupService) SaveAgentGroup(
 	ctx context.Context,

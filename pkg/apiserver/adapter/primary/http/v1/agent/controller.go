@@ -82,6 +82,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.v1.agent.Delete",
 			HandlerFunc: c.Delete,
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/api/v1/namespaces/:namespace/agents/:id/reconcile",
+			Handler:     "http.v1.agent.Reconcile",
+			HandlerFunc: c.Reconcile,
+		},
 	}
 }
 
@@ -311,6 +317,45 @@ func (c *Controller) ListEndpoints(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, endpoints)
+}
+
+// Reconcile re-applies the agent groups that match the agent on demand, so it picks up its
+// assigned remote configs and connection settings without waiting for a group update.
+//
+// @Summary  Reconcile Agent
+// @Tags agent
+// @Description Re-apply the matching agent groups' remote configs and connection settings to the agent.
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  id path string true "Instance UID of the agent"
+// @Success  204 "No Content"
+// @Failure  400 {object} ErrorModel
+// @Failure  404 {object} ErrorModel
+// @Failure  500 {object} ErrorModel
+// @Router  /api/v1/namespaces/{namespace}/agents/{id}/reconcile [post].
+func (c *Controller) Reconcile(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	instanceUID, err := ginutil.ParseUUID(ctx, "id")
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "id", ctx.Param("id"), err, true)
+
+		return
+	}
+
+	err = c.agentUsecase.ReconcileAgent(ctx.Request.Context(), namespace, instanceUID)
+	if err != nil {
+		c.handleAgentError(ctx, err, "An error occurred while reconciling the agent.")
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
 
 // Update updates an agent's metadata & spec.

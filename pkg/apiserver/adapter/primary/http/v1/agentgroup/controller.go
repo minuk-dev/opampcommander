@@ -77,6 +77,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.v1.agentgroup.Delete",
 			HandlerFunc: c.Delete,
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/api/v1/namespaces/:namespace/agentgroups/:name/reconcile",
+			Handler:     "http.v1.agentgroup.Reconcile",
+			HandlerFunc: c.Reconcile,
+		},
 	}
 }
 
@@ -404,6 +410,43 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	if err != nil {
 		c.logger.Error("failed to delete agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent group.")
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// Reconcile re-applies the agent group to its matching agents on demand.
+//
+// @Summary Reconcile Agent Group
+// @Tags agentgroup
+// @Description Re-apply the agent group's remote configs and connection settings to its matching agents.
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Agent Group Name"
+// @Success 204 "No Content"
+// @Failure 404 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/agentgroups/{name}/reconcile [post].
+func (c *Controller) Reconcile(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	name, err := ginutil.ParseString(ctx, "name", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "name", ctx.Param("name"), err, true)
+
+		return
+	}
+
+	err = c.agentGroupUsecase.ReconcileAgentGroup(ctx.Request.Context(), namespace, name)
+	if err != nil {
+		c.logger.Error("failed to reconcile agent group", "error", err.Error())
+		ginutil.HandleDomainError(ctx, err, "An error occurred while reconciling the agent group.")
 
 		return
 	}

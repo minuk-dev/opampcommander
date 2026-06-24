@@ -65,6 +65,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			Handler:     "http.v1.agentremoteconfig.Delete",
 			HandlerFunc: c.Delete,
 		},
+		{
+			Method:      http.MethodPost,
+			Path:        "/api/v1/namespaces/:namespace/agentremoteconfigs/:name/reconcile",
+			Handler:     "http.v1.agentremoteconfig.Reconcile",
+			HandlerFunc: c.Reconcile,
+		},
 	}
 }
 
@@ -286,6 +292,58 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while deleting the agent remote config.",
+		)
+
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// Reconcile re-runs the side effects of an agent remote config on demand: telemetry endpoint
+// detection from its collector exporters and re-propagation to the agent groups that reference
+// it. Use it to repair drift for configs that predate those triggers.
+//
+// @Summary  Reconcile Agent Remote Config
+// @Description Re-detect endpoints from the config's exporters and re-propagate it to referencing agent groups.
+// @Tags  agentremoteconfig
+// @Produce  json
+// @Param  namespace path string true "Namespace"
+// @Param  name path string true "Agent Remote Config Name"
+// @Success  204 "No Content"
+// @Failure  404 {object} map[string]any
+// @Failure  500 {object} map[string]any
+// @Router  /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}/reconcile [post].
+func (c *Controller) Reconcile(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "namespace", ctx.Param("namespace"), err, true,
+		)
+
+		return
+	}
+
+	name, err := ginutil.ParseString(ctx, "name", true)
+	if err != nil {
+		ginutil.HandleValidationError(
+			ctx, "name", ctx.Param("name"), err, true,
+		)
+
+		return
+	}
+
+	err = c.agentRemoteConfigUsecase.ReconcileAgentRemoteConfig(
+		ctx.Request.Context(), namespace, name,
+	)
+	if err != nil {
+		c.logger.Error(
+			"failed to reconcile agent remote config",
+			"name", name, "error", err.Error(),
+		)
+		ginutil.HandleDomainError(
+			ctx, err,
+			"An error occurred while reconciling the agent remote config.",
 		)
 
 		return

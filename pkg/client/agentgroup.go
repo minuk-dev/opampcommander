@@ -22,6 +22,8 @@ const (
 	UpdateAgentGroupURL = "/api/v1/namespaces/{namespace}/agentgroups/{id}"
 	// DeleteAgentGroupURL is the path to delete an agent group.
 	DeleteAgentGroupURL = "/api/v1/namespaces/{namespace}/agentgroups/{id}"
+	// ReconcileAgentGroupURL is the path to reconcile an agent group by name in a namespace.
+	ReconcileAgentGroupURL = "/api/v1/namespaces/{namespace}/agentgroups/{id}/reconcile"
 )
 
 // AgentGroupService provides methods to interact with agent groups.
@@ -238,6 +240,27 @@ func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, namespace stri
 
 	if res.IsError() {
 		return fmt.Errorf("failed to delete agent group(responseError): %w", &ResponseError{
+			StatusCode:   res.StatusCode(),
+			ErrorMessage: res.String(),
+		})
+	}
+
+	return nil
+}
+
+// ReconcileAgentGroup re-applies the named agent group to its matching agents on demand.
+func (s *AgentGroupService) ReconcileAgentGroup(ctx context.Context, namespace string, name string) error {
+	res, err := s.service.Resty.R().
+		SetContext(ctx).
+		SetPathParam("namespace", namespace).
+		SetPathParam("id", name).
+		Post(ReconcileAgentGroupURL)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile agent group(restyError): %w", err)
+	}
+
+	if res.IsError() {
+		return fmt.Errorf("failed to reconcile agent group(responseError): %w", &ResponseError{
 			StatusCode:   res.StatusCode(),
 			ErrorMessage: res.String(),
 		})

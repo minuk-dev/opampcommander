@@ -15,6 +15,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/create"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/deletecmd"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/reconcile"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/restart"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/template"
@@ -51,6 +52,7 @@ func NewCommand(options CommandOption) *cobra.Command {
 	cmd.AddCommand(create.NewCommand(create.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(template.NewCommand(template.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(restart.NewCommand(restart.CommandOptions{GlobalConfig: options.globalConfig}))
+	cmd.AddCommand(reconcile.NewCommand(reconcile.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(configCmd.NewCommand(configCmd.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(context.NewCommand(context.CommandOptions{GlobalConfig: options.globalConfig}))
 	cmd.AddCommand(whoami.NewCommand(whoami.CommandOptions{GlobalConfig: options.globalConfig}))

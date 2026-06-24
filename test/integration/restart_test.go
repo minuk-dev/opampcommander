@@ -15,6 +15,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
@@ -39,6 +40,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 			agentUsecase,
 			agentNotificationUsecase,
 			mockEndpointDetectionUsecase{},
+			stubAgentGroupUsecase{},
 			slog.Default(),
 		)
 
@@ -97,6 +99,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 			agentUsecase,
 			agentNotificationUsecase,
 			mockEndpointDetectionUsecase{},
+			stubAgentGroupUsecase{},
 			slog.Default(),
 		)
 
@@ -212,3 +215,7 @@ func (mockEndpointDetectionUsecase) ExtractEndpointsFromAgent(
 ) ([]*agentmodel.Endpoint, error) {
 	return nil, nil
 }
+
+// stubAgentGroupUsecase is a no-op; these restart tests do not exercise agent-group
+// reconciliation. The embedded interface satisfies the contract.
+type stubAgentGroupUsecase struct{ agentport.AgentGroupUsecase }
