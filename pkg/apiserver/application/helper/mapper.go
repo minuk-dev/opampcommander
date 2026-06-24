@@ -450,6 +450,33 @@ func mapEndpointTenantToAPI(tenant agentmodel.EndpointTenant) v1.EndpointTenant 
 	}
 }
 
+// MapEndpointThroughputToAPI maps a domain EndpointThroughput to an API model.
+func (mapper *Mapper) MapEndpointThroughputToAPI(
+	domain *agentmodel.EndpointThroughput,
+) *v1.EndpointThroughput {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.EndpointThroughput{
+		Namespace:   domain.Namespace,
+		Name:        domain.Name,
+		EvaluatedAt: v1.NewTime(domain.EvaluatedAt),
+		Window:      domain.Window.String(),
+		Metrics:     mapSignalThroughputToAPI(domain.Metrics),
+		Logs:        mapSignalThroughputToAPI(domain.Logs),
+		Traces:      mapSignalThroughputToAPI(domain.Traces),
+	}
+}
+
+func mapSignalThroughputToAPI(s agentmodel.SignalThroughput) v1.SignalThroughput {
+	return v1.SignalThroughput{
+		Measured:    s.Measured,
+		PerSecond:   s.PerSecond,
+		SeriesCount: s.SeriesCount,
+	}
+}
+
 // MapAPIToEndpoint maps an API model Endpoint to a domain model.
 func (mapper *Mapper) MapAPIToEndpoint(
 	api *v1.Endpoint,

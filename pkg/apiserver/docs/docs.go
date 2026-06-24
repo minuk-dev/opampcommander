@@ -1954,6 +1954,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/endpoint-throughputs": {
+            "get": {
+                "description": "Report how much telemetry collectors are sending to each endpoint in a namespace.",
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "List Endpoint Throughput",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Rate window as a Go duration (e.g. 5m); defaults to the server's configured window",
+                        "name": "window",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-EndpointThroughput"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/endpoints": {
             "get": {
                 "description": "Retrieve a list of endpoints in a namespace.",
@@ -2223,6 +2269,66 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/namespaces/{namespace}/endpoints/{name}/throughput": {
+            "get": {
+                "description": "Report how much telemetry collectors are sending to a single endpoint.",
+                "tags": [
+                    "endpoint"
+                ],
+                "summary": "Get Endpoint Throughput",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the endpoint",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Rate window as a Go duration (e.g. 5m); defaults to the server's configured window",
+                        "name": "window",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/EndpointThroughput"
+                        }
                     },
                     "400": {
                         "description": "Bad Request",
@@ -4239,6 +4345,50 @@ const docTemplate = `{
                 }
             }
         },
+        "EndpointThroughput": {
+            "type": "object",
+            "properties": {
+                "evaluatedAt": {
+                    "description": "EvaluatedAt is the instant the rates were evaluated at.",
+                    "type": "string"
+                },
+                "logs": {
+                    "description": "Logs is the log-record send rate (records/sec).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/SignalThroughput"
+                        }
+                    ]
+                },
+                "metrics": {
+                    "description": "Metrics is the metric-data-point send rate (points/sec).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/SignalThroughput"
+                        }
+                    ]
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "description": "Namespace and Name identify the endpoint the throughput was measured for.",
+                    "type": "string"
+                },
+                "traces": {
+                    "description": "Traces is the span send rate (spans/sec).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/SignalThroughput"
+                        }
+                    ]
+                },
+                "window": {
+                    "description": "Window is the rate window the per-second values were computed over,\nformatted as a Go duration (e.g. \"5m0s\").",
+                    "type": "string"
+                }
+            }
+        },
         "ErrorDetail": {
             "type": "object",
             "properties": {
@@ -4533,6 +4683,26 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/Endpoint"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "ListResponse-EndpointThroughput": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/EndpointThroughput"
                     }
                 },
                 "kind": {
@@ -4997,6 +5167,23 @@ const docTemplate = `{
                 "ServerConditionTypeRegistered",
                 "ServerConditionTypeAlive"
             ]
+        },
+        "SignalThroughput": {
+            "type": "object",
+            "properties": {
+                "measured": {
+                    "description": "Measured reports whether a query was configured and executed for the signal.\nWhen false, PerSecond and SeriesCount are zero and meaningless: the signal is\nsimply not tracked for the endpoint.",
+                    "type": "boolean"
+                },
+                "perSecond": {
+                    "description": "PerSecond is the aggregated per-second rate summed across contributing series.",
+                    "type": "number"
+                },
+                "seriesCount": {
+                    "description": "SeriesCount is the number of contributing time series the rate was summed over.",
+                    "type": "integer"
+                }
+            }
         },
         "TelemetryConnectionSettings": {
             "type": "object",
