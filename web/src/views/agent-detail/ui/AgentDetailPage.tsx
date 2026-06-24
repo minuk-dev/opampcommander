@@ -30,8 +30,10 @@ import { useNamespace } from '@entities/namespace';
 import { api, useApi } from '@shared/api';
 import {
   agentDeleteConfirmMessage,
+  agentTypeLabel,
   capabilityNames,
   deleteAgent,
+  isOtelCollector,
   type Agent,
 } from '@entities/agent';
 import dynamic from 'next/dynamic';
@@ -162,6 +164,18 @@ function AgentDetailInner() {
           </>
         }
       />
+
+      <Stack direction="row" gap={1} alignItems="center" sx={{ mb: 2 }} flexWrap="wrap">
+        <Typography variant="overline" color="text.secondary">
+          Type
+        </Typography>
+        <Chip
+          label={agentTypeLabel(agent.metadata.type)}
+          color={isOtelCollector(agent.metadata.type) ? 'info' : 'default'}
+          size="small"
+          variant={isOtelCollector(agent.metadata.type) ? 'filled' : 'outlined'}
+        />
+      </Stack>
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 12, md: 4 }}>
