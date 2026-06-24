@@ -4130,6 +4130,23 @@ const docTemplate = `{
                 }
             }
         },
+        "EndpointMetricsQuery": {
+            "type": "object",
+            "properties": {
+                "logs": {
+                    "description": "Logs is the PromQL template measuring log records per second.",
+                    "type": "string"
+                },
+                "metrics": {
+                    "description": "Metrics is the PromQL template measuring metric data points per second.",
+                    "type": "string"
+                },
+                "traces": {
+                    "description": "Traces is the PromQL template measuring spans per second.",
+                    "type": "string"
+                }
+            }
+        },
         "EndpointSignals": {
             "type": "object",
             "properties": {
@@ -4147,6 +4164,14 @@ const docTemplate = `{
         "EndpointSpec": {
             "type": "object",
             "properties": {
+                "metricsQuery": {
+                    "description": "MetricsQuery configures how to measure, from a metrics backend, how much\ntelemetry collectors are sending to this endpoint. Omitted when throughput\nis not tracked.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/EndpointMetricsQuery"
+                        }
+                    ]
+                },
                 "protocol": {
                     "description": "Protocol is the export protocol (e.g. \"otlp\", \"otlphttp\", \"prometheusremotewrite\").",
                     "type": "string"

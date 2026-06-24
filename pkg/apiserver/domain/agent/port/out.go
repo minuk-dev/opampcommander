@@ -2,6 +2,7 @@ package agentport
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -129,6 +130,25 @@ type EndpointPersistencePort interface {
 		namespace string,
 		options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.Endpoint], error)
+}
+
+// EndpointMetricsQueryPort queries a metrics backend (a Prometheus-compatible
+// store) for how much telemetry collectors are sending to an endpoint. It is an
+// outbound port implemented by a metrics-backend adapter; the endpoint's
+// EndpointMetricsQuery templates select and aggregate the relevant series.
+type EndpointMetricsQueryPort interface {
+	// QueryEndpointThroughput evaluates the endpoint's per-signal PromQL
+	// templates over the given rate window at instant `at`, returning the
+	// aggregated per-second send throughput. Signals without a configured
+	// template come back with Measured=false. An endpoint whose MetricsQuery is
+	// nil/empty yields a result with every signal unmeasured (and no backend
+	// call).
+	QueryEndpointThroughput(
+		ctx context.Context,
+		endpoint *agentmodel.Endpoint,
+		window time.Duration,
+		at time.Time,
+	) (*agentmodel.EndpointThroughput, error)
 }
 
 // HostPersistencePort is an interface that defines the methods for host persistence.

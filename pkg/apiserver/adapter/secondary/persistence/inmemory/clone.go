@@ -245,6 +245,11 @@ func cloneEndpoint(endpoint *agentmodel.Endpoint) *agentmodel.Endpoint {
 	cloned.Metadata.DeletedAt = cloneTimePtr(endpoint.Metadata.DeletedAt)
 	cloned.Status.Conditions = slices.Clone(endpoint.Status.Conditions)
 
+	if endpoint.Spec.MetricsQuery != nil {
+		metricsQuery := *endpoint.Spec.MetricsQuery
+		cloned.Spec.MetricsQuery = &metricsQuery
+	}
+
 	if endpoint.Spec.Tenants != nil {
 		tenants := make([]agentmodel.EndpointTenant, len(endpoint.Spec.Tenants))
 		for i := range endpoint.Spec.Tenants {

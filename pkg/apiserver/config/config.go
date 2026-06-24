@@ -23,6 +23,7 @@ type ServerSettings struct {
 	EventSettings      EventSettings
 	CacheSettings      CacheSettings
 	BootstrapSettings  BootstrapSettings
+	MetricsBackend     MetricsBackendSettings
 	RBACModelPath      string
 }
 

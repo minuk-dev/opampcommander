@@ -113,6 +113,12 @@ type CommandOption struct {
 		DefaultRole      string `mapstructure:"defaultRole"`
 	} `mapstructure:"bootstrap"`
 
+	MetricsBackend struct {
+		Type          string        `mapstructure:"type"`
+		Address       string        `mapstructure:"address"`
+		DefaultWindow time.Duration `mapstructure:"defaultWindow"`
+	} `mapstructure:"metricsBackend"`
+
 	// viper
 	viper *viper.Viper
 
@@ -229,6 +235,12 @@ func NewCommand(opt CommandOption) *cobra.Command {
 		"namespace agents without a service.namespace are placed in, and where the default role is granted")
 	cmd.Flags().String("bootstrap.defaultRole", "default",
 		"name of the built-in role auto-granted to every user")
+	cmd.Flags().String("metricsBackend.type", "none",
+		"metrics backend for endpoint-throughput queries (none, prometheus)")
+	cmd.Flags().String("metricsBackend.address", "",
+		"base URL of the Prometheus-compatible HTTP API (required when metricsBackend.type=prometheus)")
+	cmd.Flags().Duration("metricsBackend.defaultWindow", 5*time.Minute,
+		"default rate window for endpoint-throughput queries")
 
 	return cmd
 }
@@ -378,6 +390,11 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			Dir:              opt.Bootstrap.Dir,
 			DefaultNamespace: defaultString(opt.Bootstrap.DefaultNamespace, agentmodel.DefaultNamespaceName),
 			DefaultRole:      defaultString(opt.Bootstrap.DefaultRole, usermodel.RoleDefault),
+		},
+		MetricsBackend: appconfig.MetricsBackendSettings{
+			Type:          appconfig.MetricsBackendType(opt.MetricsBackend.Type),
+			Address:       opt.MetricsBackend.Address,
+			DefaultWindow: opt.MetricsBackend.DefaultWindow,
 		},
 		RBACModelPath: "",
 	})

@@ -32,10 +32,19 @@ type EndpointResourceMetadata struct {
 
 // EndpointResourceSpec represents the specification of an endpoint resource.
 type EndpointResourceSpec struct {
-	URL      string                   `bson:"url"`
-	Protocol string                   `bson:"protocol"`
-	Signals  EndpointResourceSignals  `bson:"signals"`
-	Tenants  []EndpointResourceTenant `bson:"tenants,omitempty"`
+	URL          string                        `bson:"url"`
+	Protocol     string                        `bson:"protocol"`
+	Signals      EndpointResourceSignals       `bson:"signals"`
+	Tenants      []EndpointResourceTenant      `bson:"tenants,omitempty"`
+	MetricsQuery *EndpointResourceMetricsQuery `bson:"metricsQuery,omitempty"`
+}
+
+// EndpointResourceMetricsQuery represents the per-signal PromQL templates used to
+// measure endpoint throughput.
+type EndpointResourceMetricsQuery struct {
+	Metrics string `bson:"metrics,omitempty"`
+	Logs    string `bson:"logs,omitempty"`
+	Traces  string `bson:"traces,omitempty"`
 }
 
 // EndpointResourceSignals represents the supported signals of an endpoint resource.
@@ -75,12 +84,25 @@ func (e *EndpointResourceEntity) ToDomain() *agentmodel.Endpoint {
 			Tenants: lo.Map(e.Spec.Tenants, func(t EndpointResourceTenant, _ int) agentmodel.EndpointTenant {
 				return t.toDomain()
 			}),
+			MetricsQuery: e.Spec.MetricsQuery.toDomain(),
 		},
 		Status: agentmodel.EndpointStatus{
 			Conditions: lo.Map(e.Status.Conditions, func(c Condition, _ int) model.Condition {
 				return c.ToDomain()
 			}),
 		},
+	}
+}
+
+func (q *EndpointResourceMetricsQuery) toDomain() *agentmodel.EndpointMetricsQuery {
+	if q == nil {
+		return nil
+	}
+
+	return &agentmodel.EndpointMetricsQuery{
+		Metrics: q.Metrics,
+		Logs:    q.Logs,
+		Traces:  q.Traces,
 	}
 }
 
@@ -128,12 +150,27 @@ func EndpointResourceEntityFromDomain(
 			Tenants: lo.Map(endpoint.Spec.Tenants, func(t agentmodel.EndpointTenant, _ int) EndpointResourceTenant {
 				return endpointResourceTenantFromDomain(t)
 			}),
+			MetricsQuery: endpointResourceMetricsQueryFromDomain(endpoint.Spec.MetricsQuery),
 		},
 		Status: EndpointResourceEntityStatus{
 			Conditions: lo.Map(endpoint.Status.Conditions, func(c model.Condition, _ int) Condition {
 				return NewConditionFromDomain(c)
 			}),
 		},
+	}
+}
+
+func endpointResourceMetricsQueryFromDomain(
+	query *agentmodel.EndpointMetricsQuery,
+) *EndpointResourceMetricsQuery {
+	if query == nil {
+		return nil
+	}
+
+	return &EndpointResourceMetricsQuery{
+		Metrics: query.Metrics,
+		Logs:    query.Logs,
+		Traces:  query.Traces,
 	}
 }
 
