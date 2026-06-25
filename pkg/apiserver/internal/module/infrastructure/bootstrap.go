@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -45,10 +47,12 @@ var errUnsupportedAPIVersion = errors.New("unsupported manifest apiVersion")
 // errEmptyNamespaceName / errEmptyRoleName / errEmptyUser* are returned when a manifest
 // omits a required identifying field.
 var (
-	errEmptyNamespaceName = errors.New("namespace manifest has empty metadata.name")
-	errEmptyRoleName      = errors.New("role manifest has empty spec.displayName")
-	errEmptyUserName      = errors.New("user manifest has empty spec.username")
-	errEmptyUserEmail     = errors.New("user manifest has empty spec.email")
+	errEmptyNamespaceName     = errors.New("namespace manifest has empty metadata.name")
+	errEmptyRoleName          = errors.New("role manifest has empty spec.displayName")
+	errEmptyUserName          = errors.New("user manifest has empty spec.username")
+	errEmptyUserEmail         = errors.New("user manifest has empty spec.email")
+	errEmptyEndpointName      = errors.New("endpoint manifest has empty metadata.name")
+	errEmptyEndpointNamespace = errors.New("endpoint manifest has empty metadata.namespace")
 )
 
 // bootstrapUIDNamespace is a fixed UUID namespace used to derive deterministic UIDs
@@ -79,6 +83,7 @@ func builtinUserUID(username string) uuid.UUID {
 type bootstrapDeps struct {
 	fs                        afero.Fs
 	namespaceUsecase          agentport.NamespaceUsecase
+	endpointUsecase           agentport.EndpointUsecase
 	rolePersistencePort       userport.RolePersistencePort
 	permissionPersistencePort userport.PermissionPersistencePort
 	userPersistencePort       userport.UserPersistencePort
@@ -210,6 +215,8 @@ func applyManifests(ctx context.Context, docs []manifestDoc, deps bootstrapDeps)
 			err = applyRole(ctx, doc, deps)
 		case v1.UserKind:
 			err = applyUser(ctx, doc, deps)
+		case v1.EndpointKind:
+			err = applyEndpoint(ctx, doc, deps)
 		default:
 			return fmt.Errorf("%w: kind %q in %q", errUnsupportedKind, doc.kind, doc.source)
 		}
@@ -271,6 +278,70 @@ func applyNamespace(ctx context.Context, doc manifestDoc, deps bootstrapDeps) er
 	_, err = deps.namespaceUsecase.SaveNamespace(ctx, existing)
 	if err != nil {
 		return fmt.Errorf("save namespace %q: %w", name, err)
+	}
+
+	return nil
+}
+
+// applyEndpoint upserts an endpoint from a manifest. Like the other bootstrap
+// resources it is declarative: a missing endpoint is created with a Created
+// condition, and an existing one has its spec (URL/protocol/signals/tenants/
+// metricsQuery) and attributes overwritten from the manifest while its CreatedAt
+// and conditions are preserved. Redundant writes on unchanged manifests are
+// skipped so startup does not churn the store.
+func applyEndpoint(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
+	var apiEndpoint v1.Endpoint
+
+	err := json.Unmarshal(doc.json, &apiEndpoint)
+	if err != nil {
+		return fmt.Errorf("decode Endpoint from %q: %w", doc.source, err)
+	}
+
+	name := apiEndpoint.Metadata.Name
+	if name == "" {
+		return fmt.Errorf("%w: %q", errEmptyEndpointName, doc.source)
+	}
+
+	namespace := apiEndpoint.Metadata.Namespace
+	if namespace == "" {
+		return fmt.Errorf("%w: %q", errEmptyEndpointNamespace, doc.source)
+	}
+
+	desired := helper.NewMapper(deps.clk, 0).MapAPIToEndpoint(&apiEndpoint)
+
+	existing, err := deps.endpointUsecase.GetEndpoint(ctx, namespace, name, nil)
+	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+		return fmt.Errorf("check endpoint %q/%q: %w", namespace, name, err)
+	}
+
+	if errors.Is(err, port.ErrResourceNotExist) {
+		deps.logger.Info("bootstrap: creating endpoint",
+			slog.String("namespace", namespace), slog.String("name", name))
+
+		endpoint := agentmodel.NewEndpoint(namespace, name, desired.Metadata.Attributes, deps.clk.Now(), "system")
+		endpoint.Spec = desired.Spec
+
+		_, err = deps.endpointUsecase.SaveEndpoint(ctx, endpoint)
+		if err != nil {
+			return fmt.Errorf("save endpoint %q/%q: %w", namespace, name, err)
+		}
+
+		return nil
+	}
+
+	// Already exists: only re-save when the manifest actually changes the spec or
+	// attributes, to avoid a redundant write on every startup.
+	if reflect.DeepEqual(existing.Spec, desired.Spec) &&
+		maps.Equal(existing.Metadata.Attributes, desired.Metadata.Attributes) {
+		return nil
+	}
+
+	existing.Spec = desired.Spec
+	existing.Metadata.Attributes = desired.Metadata.Attributes
+
+	_, err = deps.endpointUsecase.SaveEndpoint(ctx, existing)
+	if err != nil {
+		return fmt.Errorf("save endpoint %q/%q: %w", namespace, name, err)
 	}
 
 	return nil
@@ -529,6 +600,7 @@ func ensurePermission(ctx context.Context, name string, deps bootstrapDeps) erro
 func registerBootstrapHook(
 	lifecycle fx.Lifecycle,
 	namespaceUsecase agentport.NamespaceUsecase,
+	endpointUsecase agentport.EndpointUsecase,
 	rolePersistencePort userport.RolePersistencePort,
 	permissionPersistencePort userport.PermissionPersistencePort,
 	userPersistencePort userport.UserPersistencePort,
@@ -539,6 +611,7 @@ func registerBootstrapHook(
 	deps := bootstrapDeps{
 		fs:                        afero.NewOsFs(),
 		namespaceUsecase:          namespaceUsecase,
+		endpointUsecase:           endpointUsecase,
 		rolePersistencePort:       rolePersistencePort,
 		permissionPersistencePort: permissionPersistencePort,
 		userPersistencePort:       userPersistencePort,
