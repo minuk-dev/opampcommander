@@ -20,6 +20,7 @@ import (
 	hostApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/host"
 	namespaceApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
+	reconcileApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/reconcile"
 	roleApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/role"
 	rolebindingApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
 	serverApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/server"
@@ -48,6 +49,9 @@ func New() fx.Option {
 
 			agentApplicationService.New,
 			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
+
+			reconcileApplicationService.New,
+			fx.Annotate(Identity[*reconcileApplicationService.Service], fx.As(new(port.ReconcileManageUsecase))),
 
 			agentgroupApplicationService.NewManageService,
 			fx.Annotate(Identity[*agentgroupApplicationService.ManageService], fx.As(new(port.AgentGroupManageUsecase))),

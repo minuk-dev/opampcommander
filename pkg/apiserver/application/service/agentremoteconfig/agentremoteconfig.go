@@ -201,19 +201,6 @@ func (s *Service) DeleteAgentRemoteConfig(
 	return nil
 }
 
-// ReconcileAgentRemoteConfig implements [port.AgentRemoteConfigManageUsecase]. It delegates
-// to the domain use case, which re-detects endpoints from the config's collector exporters
-// and re-propagates the config to the agent groups that reference it. Unlike the create/update
-// path (which fires these as detached goroutines), this runs synchronously and surfaces errors.
-func (s *Service) ReconcileAgentRemoteConfig(ctx context.Context, namespace string, name string) error {
-	err := s.agentRemoteConfigUsecase.ReconcileAgentRemoteConfig(ctx, namespace, name)
-	if err != nil {
-		return fmt.Errorf("reconcile agent remote config: %w", err)
-	}
-
-	return nil
-}
-
 // triggerGroupPropagation asks the agent group service to re-apply any groups in the
 // namespace that reference this config. Runs in its own goroutine so a slow
 // changedAgentGroupCh consumer cannot block the HTTP handler; the periodic

@@ -40,20 +40,7 @@ type Server struct {
 
 // New creates a new instance of the Server struct.
 func New(settings config.ServerSettings) *Server {
-	app := fx.New(
-		// Hexagonal architecture layers
-		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type), // Adapters: HTTP, DB, messaging, scheduler
-		infrastructuremodule.New(settings.DatabaseSettings.Type),        // Bootstrap: Casbin RBAC + default seed hooks
-		applicationmodule.New(),    // Application services
-		domainmodule.New(),         // Domain services
-		NewConfigModule(&settings), // Configuration
-
-		// Base utilities
-		helper.NewModule(),
-		management.NewModule(),
-		// Initialize HTTP server
-		fx.Invoke(func(*http.Server) {}),
-	)
+	app := fx.New(appOptions(&settings)...)
 
 	server := &Server{
 		App:      app,
@@ -61,6 +48,34 @@ func New(settings config.ServerSettings) *Server {
 	}
 
 	return server
+}
+
+// appOptions returns the full FX option set for the apiserver. It is the single source of
+// truth for the composition root so New and ValidateWiring stay in sync.
+func appOptions(settings *config.ServerSettings) []fx.Option {
+	return []fx.Option{
+		// Hexagonal architecture layers
+		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type), // Adapters: HTTP, DB, messaging, scheduler
+		infrastructuremodule.New(settings.DatabaseSettings.Type),        // Bootstrap: Casbin RBAC + default seed hooks
+		applicationmodule.New(),   // Application services
+		domainmodule.New(),        // Domain services
+		NewConfigModule(settings), // Configuration
+
+		// Base utilities
+		helper.NewModule(),
+		management.NewModule(),
+		// Initialize HTTP server
+		fx.Invoke(func(*http.Server) {}),
+	}
+}
+
+// ValidateWiring checks that the apiserver's FX dependency graph resolves (no missing
+// dependencies or cycles) without constructing the application or running any lifecycle
+// hooks. It is exposed so a fast wiring test can guard against regressions without
+// importing FX directly.
+func ValidateWiring(settings config.ServerSettings) error {
+	//nolint:wrapcheck // thin pass-through to fx.ValidateApp for tests
+	return fx.ValidateApp(appOptions(&settings)...)
 }
 
 // Run starts the server and blocks until the context is done.

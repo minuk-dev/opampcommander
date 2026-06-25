@@ -1,3 +1,4 @@
+//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (
@@ -18,8 +19,6 @@ const (
 	UpdateAgentRemoteConfigURL = "/api/v1/namespaces/{namespace}/agentremoteconfigs/{id}"
 	// DeleteAgentRemoteConfigURL is the path to delete an agent remote config.
 	DeleteAgentRemoteConfigURL = "/api/v1/namespaces/{namespace}/agentremoteconfigs/{id}"
-	// ReconcileAgentRemoteConfigURL is the path to reconcile an agent remote config by name.
-	ReconcileAgentRemoteConfigURL = "/api/v1/namespaces/{namespace}/agentremoteconfigs/{id}/reconcile"
 )
 
 // AgentRemoteConfigService provides methods to interact with agent remote configs.
@@ -197,40 +196,6 @@ func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	if res.IsError() {
 		return fmt.Errorf(
 			"failed to delete agent remote config(responseError): %w",
-			&ResponseError{
-				StatusCode:   res.StatusCode(),
-				ErrorMessage: res.String(),
-			},
-		)
-	}
-
-	return nil
-}
-
-// ReconcileAgentRemoteConfig re-detects telemetry endpoints from the config's collector
-// exporters and re-propagates it to the agent groups that reference it.
-func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
-	ctx context.Context,
-	namespace string,
-	name string,
-) error {
-	// Reconcile runs synchronously on the server (endpoint detection plus re-propagation to
-	// referencing groups), which can outlast the shared client's 15s timeout in a large
-	// namespace. Clone the client and clear the timeout; the context deadline is the only limit.
-	res, err := s.service.Resty.Clone().SetTimeout(0).R().
-		SetContext(ctx).
-		SetPathParam("namespace", namespace).
-		SetPathParam("id", name).
-		Post(ReconcileAgentRemoteConfigURL)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to reconcile agent remote config(restyError): %w", err,
-		)
-	}
-
-	if res.IsError() {
-		return fmt.Errorf(
-			"failed to reconcile agent remote config(responseError): %w",
 			&ResponseError{
 				StatusCode:   res.StatusCode(),
 				ErrorMessage: res.String(),

@@ -11,12 +11,15 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/reconcile"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	userservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
 
 // New creates a new module for domain services.
+//
+//nolint:funlen // DI wiring: a flat list of service providers/annotations.
 func New() fx.Option {
 	components := []any{
 		fx.Annotate(agentservice.NewConnectionService, fx.As(new(agentport.ConnectionUsecase))),
@@ -71,6 +74,17 @@ func New() fx.Option {
 		helper.AsRunner(Identity[*agentservice.ServerService]),
 		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),
 		helper.AsRunner(Identity[*agentservice.AgentNotificationService]),
+
+		// Generic reconcile registry: each Reconciler is collected into the "reconcilers"
+		// group and indexed by reconcile.NewService. A new reconcilable kind plugs in by
+		// adding one AsReconciler line here.
+		helper.AsReconciler(agentservice.NewAgentRemoteConfigReconciler),
+		helper.AsReconciler(agentservice.NewAgentGroupReconciler),
+		helper.AsReconciler(agentservice.NewAgentReconciler),
+		fx.Annotate(
+			reconcile.NewService,
+			fx.ParamTags(`group:"reconcilers"`),
+		),
 	}
 
 	return fx.Module(

@@ -6,6 +6,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/reconcile"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 )
 
@@ -26,6 +27,17 @@ func AsRunner(f any) any {
 		f,
 		fx.As(new(scheduler.Scheduler)),
 		fx.ResultTags(`group:"runners"`),
+	)
+}
+
+// AsReconciler annotates a constructor as a reconcile.Reconciler. The annotated value is
+// collected into the "reconcilers" group and indexed by the reconcile registry, so a new
+// reconcilable kind plugs in with just this one wiring line.
+func AsReconciler(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(reconcile.Reconciler)),
+		fx.ResultTags(`group:"reconcilers"`),
 	)
 }
 

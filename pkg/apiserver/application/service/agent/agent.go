@@ -35,7 +35,6 @@ type Service struct {
 	agentUsecase             agentport.AgentUsecase
 	agentNotificationUsecase agentport.AgentNotificationUsecase
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase
-	agentGroupUsecase        agentport.AgentGroupUsecase
 
 	// mapper
 	mapper *helper.Mapper
@@ -47,7 +46,6 @@ func New(
 	agentUsecase agentport.AgentUsecase,
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
-	agentGroupUsecase agentport.AgentGroupUsecase,
 	logger *slog.Logger,
 ) *Service {
 	realClock := clock.RealClock{}
@@ -56,7 +54,6 @@ func New(
 		agentUsecase:             agentUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
 		endpointDetectionUsecase: endpointDetectionUsecase,
-		agentGroupUsecase:        agentGroupUsecase,
 
 		mapper: helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		logger: logger,
@@ -89,27 +86,6 @@ func (s *Service) ListAgentEndpoints(
 			return *s.mapper.MapEndpointToAPI(item)
 		}),
 	}, nil
-}
-
-// ReconcileAgent implements port.AgentManageUsecase. It loads the agent (enforcing the
-// namespace) and re-applies every agent group whose selector matches it, so the agent picks
-// up its assigned remote configs and connection settings on demand.
-func (s *Service) ReconcileAgent(
-	ctx context.Context,
-	namespace string,
-	instanceUID uuid.UUID,
-) error {
-	agent, err := s.getAgentInNamespace(ctx, namespace, instanceUID)
-	if err != nil {
-		return err
-	}
-
-	err = s.agentGroupUsecase.ReconcileAgent(ctx, agent)
-	if err != nil {
-		return fmt.Errorf("reconcile agent: %w", err)
-	}
-
-	return nil
 }
 
 // GetAgent implements port.AgentManageUsecase.

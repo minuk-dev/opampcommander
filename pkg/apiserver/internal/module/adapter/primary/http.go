@@ -31,6 +31,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/namespace"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/ping"
+	reconcilecontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/reconcile"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/role"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/server"
@@ -78,6 +79,7 @@ func NewHTTP() fx.Option {
 			AsController(agentgroup.NewController),
 			AsController(agentpackage.NewController),
 			AsController(agentremoteconfigcontroller.NewController),
+			AsController(reconcilecontroller.NewController),
 			AsController(endpoint.NewController),
 			AsController(endpointmetrics.NewController),
 			AsController(namespace.NewController),
