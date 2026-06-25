@@ -5,9 +5,13 @@ import (
 	"fmt"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
 
-var _ port.TransactionRunner = (*TransactionRunner)(nil)
+var (
+	_ port.TransactionRunner    = (*TransactionRunner)(nil)
+	_ agentport.TransactionPort = (*TransactionRunner)(nil)
+)
 
 // TransactionRunner is the in-memory implementation of [port.TransactionRunner].
 //

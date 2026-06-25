@@ -22,6 +22,12 @@ var (
 	// The connection guard is enforced here in the domain so it cannot be bypassed by
 	// callers that hold an AgentUsecase directly.
 	ErrAgentConnected = errors.New("agent is still connected; only disconnected agents can be deleted")
+	// ErrNamespaceAlreadyExists indicates a namespace create was attempted for a name
+	// that already exists.
+	ErrNamespaceAlreadyExists = errors.New("namespace already exists")
+	// ErrDefaultNamespaceUndeletable indicates a delete was attempted on the built-in
+	// default namespace, which is protected.
+	ErrDefaultNamespaceUndeletable = errors.New("default namespace cannot be deleted")
 )
 
 // AgentUsecase is an interface that defines the methods for agent use cases.
@@ -64,12 +70,26 @@ type NamespaceUsecase interface {
 	// ListNamespaces lists all namespaces.
 	ListNamespaces(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Namespace], error)
-	// SaveNamespace saves the namespace.
+	// SaveNamespace persists the namespace as-is without applying lifecycle rules.
+	// It is the low-level write used by declarative bootstrap; application flows
+	// should prefer CreateNamespace/UpdateNamespace.
 	SaveNamespace(ctx context.Context,
 		namespace *agentmodel.Namespace) (*agentmodel.Namespace, error)
-	// DeleteNamespace deletes the namespace by its name.
-	DeleteNamespace(ctx context.Context, name string,
-		deletedAt time.Time, deletedBy string) error
+	// CreateNamespace enforces name uniqueness, stamps the creation metadata
+	// (timestamp + actor), and persists the namespace. It returns
+	// ErrNamespaceAlreadyExists when a namespace with the same name exists.
+	CreateNamespace(ctx context.Context, namespace *agentmodel.Namespace,
+		actor string) (*agentmodel.Namespace, error)
+	// UpdateNamespace loads the stored namespace, applies the mutable fields from
+	// the supplied namespace while preserving immutable identity/lifecycle state,
+	// and persists the result.
+	UpdateNamespace(ctx context.Context, name string,
+		namespace *agentmodel.Namespace) (*agentmodel.Namespace, error)
+	// DeleteNamespace cascade-deletes the namespace's children (agent groups,
+	// certificates, agent packages, agent remote configs) and the namespace itself
+	// inside a single transaction. The built-in default namespace is protected and
+	// returns ErrDefaultNamespaceUndeletable.
+	DeleteNamespace(ctx context.Context, name string, actor string) error
 }
 
 // AgentPackageUsecase is an interface that defines the methods for agent package use cases.

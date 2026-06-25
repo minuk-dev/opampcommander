@@ -51,6 +51,16 @@ func (n *Namespace) MarkAsCreated(createdAt time.Time, createdBy string) {
 	})
 }
 
+// ApplyUpdate copies the mutable fields from incoming into the receiver while
+// preserving immutable identity and lifecycle state (Name, CreatedAt, DeletedAt,
+// and Status conditions). Callers should load the stored namespace, ApplyUpdate
+// the client-supplied one onto it, and persist the receiver — this keeps the
+// identity intact and avoids forking a phantom record on update.
+func (n *Namespace) ApplyUpdate(incoming *Namespace) {
+	n.Metadata.Labels = incoming.Metadata.Labels
+	n.Metadata.Annotations = incoming.Metadata.Annotations
+}
+
 // MarkAsDeleted marks the namespace as deleted by setting the DeletedAt timestamp.
 func (n *Namespace) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 	n.Metadata.DeletedAt = &deletedAt

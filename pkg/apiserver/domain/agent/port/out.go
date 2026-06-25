@@ -14,6 +14,20 @@ import (
 // ReceiveServerEventHandler is a function type for handling received server events.
 type ReceiveServerEventHandler func(ctx context.Context, message *serverevent.Message) error
 
+// TransactionPort runs a unit of work inside a storage transaction so that a
+// multi-step domain operation (e.g. a namespace cascade delete) commits
+// atomically or rolls back as a whole. Implementations live in the secondary
+// persistence adapters; the in-memory adapter is non-transactional and simply
+// runs the callback inline.
+type TransactionPort interface {
+	// WithinTransaction starts a transaction, invokes fn with a derived
+	// context, and commits if fn returns nil. If fn returns an error, the
+	// transaction is rolled back and the error is propagated to the caller.
+	// fn may be invoked more than once if the driver retries on transient
+	// errors, so it must be idempotent.
+	WithinTransaction(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
 // AgentPersistencePort is an interface that defines the methods for agent persistence.
 type AgentPersistencePort interface {
 	// GetAgent retrieves an agent by its instance UID.

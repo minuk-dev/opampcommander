@@ -38,7 +38,11 @@ func NewInMemory() fx.Option {
 
 			// Health + transaction.
 			helper.AsHealthIndicator(NewInMemoryHealthIndicator),
-			fx.Annotate(inmemory.NewTransactionRunner, fx.As(new(applicationport.TransactionRunner))),
+			fx.Annotate(
+				inmemory.NewTransactionRunner,
+				fx.As(new(applicationport.TransactionRunner)),
+				fx.As(new(agentport.TransactionPort)),
+			),
 
 			// Agent-domain repositories.
 			fx.Annotate(inmemory.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),

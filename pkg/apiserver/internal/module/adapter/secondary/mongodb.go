@@ -30,6 +30,7 @@ func NewMongoDB() fx.Option {
 			fx.Annotate(
 				mongodb.NewTransactionRunner,
 				fx.As(new(applicationport.TransactionRunner)),
+				fx.As(new(agentport.TransactionPort)),
 			),
 			fx.Annotate(mongodb.NewAgentRepository, fx.As(new(agentport.AgentPersistencePort))),
 			fx.Annotate(mongodb.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),

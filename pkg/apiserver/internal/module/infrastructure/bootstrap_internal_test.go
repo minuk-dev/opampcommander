@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	inmemory "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
@@ -61,7 +62,14 @@ func newTestDeps() (bootstrapDeps, *inmemory.RoleRepository, *inmemory.Permissio
 	roleRepo := inmemory.NewRoleRepository()
 	permRepo := inmemory.NewPermissionRepository()
 	userRepo := inmemory.NewUserRepository()
-	nsService := agentservice.NewNamespaceService(inmemory.NewNamespaceRepository())
+	// Bootstrap only exercises Get/Save on the namespace usecase, so the cascade
+	// collaborators (sibling usecases + transaction port) are left nil here.
+	nsService := agentservice.NewNamespaceService(
+		inmemory.NewNamespaceRepository(),
+		nil, nil, nil, nil,
+		nil,
+		agentmodel.DefaultNamespaceName,
+	)
 
 	//exhaustruct:ignore
 	hasher := security.NewPasswordHasher(&security.Config{
