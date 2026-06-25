@@ -183,6 +183,18 @@ func (f *nsFakeAgentPackageUsecase) SaveAgentPackage(
 	return nil, errNotImplemented
 }
 
+func (f *nsFakeAgentPackageUsecase) CreateAgentPackage(
+	context.Context, *agentmodel.AgentPackage, string,
+) (*agentmodel.AgentPackage, error) {
+	return nil, errNotImplemented
+}
+
+func (f *nsFakeAgentPackageUsecase) UpdateAgentPackage(
+	context.Context, string, string, *agentmodel.AgentPackage,
+) (*agentmodel.AgentPackage, error) {
+	return nil, errNotImplemented
+}
+
 func (f *nsFakeAgentPackageUsecase) DeleteAgentPackage(
 	context.Context, string, string, time.Time, string,
 ) error {
