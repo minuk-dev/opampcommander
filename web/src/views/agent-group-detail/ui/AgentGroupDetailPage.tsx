@@ -29,6 +29,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { PageHeader, JsonBlock, ConfirmDialog } from '@shared/ui';
 import { TimeDisplay } from '@shared/preferences';
+import { ReconcileButton } from '@features/reconcile';
 import { useNamespace } from '@entities/namespace';
 import { api, useApi } from '@shared/api';
 import type { AgentGroup } from '@entities/agent-group';
@@ -151,6 +152,12 @@ function AgentGroupDetailInner() {
             >
               Apply remote configs
             </Button>
+            <ReconcileButton
+              kind="agentgroup"
+              namespace={namespace}
+              name={group.metadata.name}
+              onReconciled={fetchGroup}
+            />
             <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditing(true)}>
               Edit
             </Button>
