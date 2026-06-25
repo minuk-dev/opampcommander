@@ -94,7 +94,7 @@ func provideAgentService(
 
 	agentCacheSettings := cacheSettings.Agent
 
-	return agentservice.NewAgentServiceWithConfig(
+	return agentservice.NewAgentService(
 		agentPersistencePort,
 		logger,
 		agentservice.AgentCacheConfig{

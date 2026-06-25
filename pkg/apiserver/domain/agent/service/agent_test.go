@@ -20,6 +20,15 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
+// newTestAgentService builds an AgentService with the default cache config and
+// the built-in default namespace, the configuration these tests assume.
+func newTestAgentService(
+	persistence agentport.AgentPersistencePort,
+	logger *slog.Logger,
+) *agentservice.AgentService {
+	return agentservice.NewAgentService(persistence, logger, agentservice.DefaultAgentCacheConfig(), "")
+}
+
 var (
 	errDatabaseConnection = errors.New("database connection error")
 	errUnexpectedType     = errors.New("unexpected type")
@@ -171,7 +180,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
 
-		agentService := agentservice.NewAgentService(
+		agentService := newTestAgentService(
 			mockAgentPersistence,
 			logger,
 		)
@@ -237,7 +246,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
 
-		agentService := agentservice.NewAgentService(
+		agentService := newTestAgentService(
 			mockAgentPersistence,
 			logger,
 		)
@@ -280,7 +289,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
 
-		agentService := agentservice.NewAgentService(
+		agentService := newTestAgentService(
 			mockAgentPersistence,
 			logger,
 		)
@@ -317,7 +326,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
 
-		agentService := agentservice.NewAgentService(
+		agentService := newTestAgentService(
 			mockAgentPersistence,
 			logger,
 		)
@@ -376,7 +385,7 @@ func TestAgentService_ListAgentsBySelector(t *testing.T) {
 		mockAgentPersistence := new(MockAgentPersistencePort)
 		logger := slog.Default()
 
-		agentService := agentservice.NewAgentService(
+		agentService := newTestAgentService(
 			mockAgentPersistence,
 			logger,
 		)
@@ -500,7 +509,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		// given
 		ctx := t.Context()
 		mockPort := new(MockAgentPersistencePort)
-		agentService := agentservice.NewAgentService(mockPort, slog.Default())
+		agentService := newTestAgentService(mockPort, slog.Default())
 
 		instanceUID := uuid.New()
 		expectedAgents := []*agentmodel.Agent{
@@ -531,7 +540,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		// given
 		ctx := t.Context()
 		mockPort := new(MockAgentPersistencePort)
-		agentService := agentservice.NewAgentService(mockPort, slog.Default())
+		agentService := newTestAgentService(mockPort, slog.Default())
 
 		mockPort.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errDatabaseConnection)
 
@@ -551,7 +560,7 @@ func TestAgentService_SearchAgents(t *testing.T) {
 		// given
 		ctx := t.Context()
 		mockPort := new(MockAgentPersistencePort)
-		agentService := agentservice.NewAgentService(mockPort, slog.Default())
+		agentService := newTestAgentService(mockPort, slog.Default())
 
 		expectedAgents := []*agentmodel.Agent{
 			agentmodel.NewAgent(uuid.New()),
@@ -594,7 +603,7 @@ func TestAgentService_GetAgent_CacheHit(t *testing.T) {
 	mockPersistence := new(MockAgentPersistencePort)
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Once()
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	// First call - should hit persistence
 	agent1, err := svc.GetAgent(ctx, instanceUID)
@@ -620,7 +629,7 @@ func TestAgentService_GetAgent_DatabaseError(t *testing.T) {
 	mockPersistence := new(MockAgentPersistencePort)
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(nil, errDatabaseConnection)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	_, err := svc.GetAgent(ctx, instanceUID)
 	require.Error(t, err)
@@ -640,7 +649,7 @@ func TestAgentService_SaveAgent_UpdatesCache(t *testing.T) {
 	mockPersistence := new(MockAgentPersistencePort)
 	mockPersistence.On("PutAgent", ctx, mockAgent).Return(nil)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	// Save the agent
 	err := svc.SaveAgent(ctx, mockAgent)
@@ -667,7 +676,7 @@ func TestAgentService_InvalidateCache(t *testing.T) {
 	mockPersistence := new(MockAgentPersistencePort)
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	// First call - caches the agent
 	_, err := svc.GetAgent(ctx, instanceUID)
@@ -699,7 +708,7 @@ func TestAgentService_DeleteAgent_InvalidatesCache(t *testing.T) {
 	// GetAgent misses the (invalidated) cache and hits persistence again (call #2).
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	// Prime the cache.
 	err := svc.SaveAgent(ctx, mockAgent)
@@ -730,7 +739,7 @@ func TestAgentService_DeleteAgent_RejectsConnected(t *testing.T) {
 	mockPersistence := new(MockAgentPersistencePort)
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(connectedAgent, nil)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	err := svc.DeleteAgent(ctx, instanceUID)
 
@@ -752,7 +761,7 @@ func TestAgentService_DeleteAgent_PersistenceError(t *testing.T) {
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil)
 	mockPersistence.On("DeleteAgent", ctx, instanceUID).Return(errDatabaseConnection)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	err := svc.DeleteAgent(ctx, instanceUID)
 
@@ -771,7 +780,7 @@ func TestAgentService_Shutdown(t *testing.T) {
 	mockPersistence := new(MockAgentPersistencePort)
 	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
 
-	svc := agentservice.NewAgentService(mockPersistence, slog.Default())
+	svc := newTestAgentService(mockPersistence, slog.Default())
 
 	// First call - caches the agent
 	_, err := svc.GetAgent(ctx, instanceUID)
