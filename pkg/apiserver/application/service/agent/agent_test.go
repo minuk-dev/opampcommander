@@ -14,7 +14,6 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
@@ -137,11 +136,6 @@ func (stubEndpointDetectionUsecase) ExtractEndpointsFromAgent(
 	return nil, nil
 }
 
-// stubAgentGroupUsecase is a no-op agentport.AgentGroupUsecase for the agent-service tests,
-// which do not exercise agent-group reconciliation. The embedded interface satisfies the
-// contract; any unexpected call would panic, surfacing untested coverage.
-type stubAgentGroupUsecase struct{ agentport.AgentGroupUsecase }
-
 func TestService_SearchAgents(t *testing.T) {
 	t.Parallel()
 
@@ -152,10 +146,7 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgents := []*agentmodel.Agent{
@@ -187,10 +178,7 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		mockAgentUsecase.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errMockError)
 
@@ -211,10 +199,7 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		domainAgents := []*agentmodel.Agent{
 			agentmodel.NewAgent(uuid.New()),
@@ -256,10 +241,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // Status.Connected defaults to false
@@ -283,10 +265,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // namespace "default"
@@ -309,10 +288,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // namespace defaults to "default"
@@ -335,10 +311,7 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(
-			mockAgentUsecase, mockNotificationUsecase,
-			stubEndpointDetectionUsecase{}, stubAgentGroupUsecase{}, slog.Default(),
-		)
+		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID)

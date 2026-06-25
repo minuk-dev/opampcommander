@@ -2073,37 +2073,6 @@ paths:
       summary: Update Agent Group
       tags:
       - agentgroup
-  /api/v1/namespaces/{namespace}/agentgroups/{name}/reconcile:
-    post:
-      description: Re-apply the agent group's remote configs and connection settings
-        to its matching agents.
-      parameters:
-      - description: Namespace
-        in: path
-        name: namespace
-        required: true
-        type: string
-      - description: Agent Group Name
-        in: path
-        name: name
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Reconcile Agent Group
-      tags:
-      - agentgroup
   /api/v1/namespaces/{namespace}/agentpackages:
     get:
       description: Retrieve a list of agent packages.
@@ -2300,39 +2269,6 @@ paths:
       summary: Update Agent Package
       tags:
       - agentpackage
-  /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}/reconcile:
-    post:
-      description: Re-detect endpoints from the config's exporters and re-propagate
-        it to referencing agent groups.
-      parameters:
-      - description: Namespace
-        in: path
-        name: namespace
-        required: true
-        type: string
-      - description: Agent Remote Config Name
-        in: path
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Reconcile Agent Remote Config
-      tags:
-      - agentremoteconfig
   /api/v1/namespaces/{namespace}/agents:
     get:
       consumes:
@@ -2586,41 +2522,6 @@ paths:
           schema:
             $ref: '#/definitions/ErrorModel'
       summary: List Agent Endpoints
-      tags:
-      - agent
-  /api/v1/namespaces/{namespace}/agents/{id}/reconcile:
-    post:
-      description: Re-apply the matching agent groups' remote configs and connection
-        settings to the agent.
-      parameters:
-      - description: Namespace
-        in: path
-        name: namespace
-        required: true
-        type: string
-      - description: Instance UID of the agent
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-      summary: Reconcile Agent
       tags:
       - agent
   /api/v1/namespaces/{namespace}/agents/search:
@@ -3175,6 +3076,49 @@ paths:
       summary: Get Endpoint Throughput
       tags:
       - endpoint
+  /api/v1/namespaces/{namespace}/reconcile/{kind}/{name}:
+    post:
+      description: Re-run the side effects that normally fire on create/update for
+        the resource.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource kind (e.g. agentremoteconfig, agentgroup, agent)
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Resource name, or instance UID for kind=agent
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Reconcile a resource
+      tags:
+      - reconcile
   /api/v1/namespaces/{namespace}/rolebindings:
     get:
       description: Retrieves a list of role bindings with pagination options.
@@ -3390,6 +3334,21 @@ paths:
       summary: Ping
       tags:
       - ping
+  /api/v1/reconcile/kinds:
+    get:
+      description: List the resource kinds that support reconcile.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+      summary: List reconcilable kinds
+      tags:
+      - reconcile
   /api/v1/roles:
     get:
       consumes:

@@ -877,50 +877,6 @@
                 }
             }
         },
-        "/api/v1/namespaces/{namespace}/agentgroups/{name}/reconcile": {
-            "post": {
-                "description": "Re-apply the agent group's remote configs and connection settings to its matching agents.",
-                "tags": [
-                    "agentgroup"
-                ],
-                "summary": "Reconcile Agent Group",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Namespace",
-                        "name": "namespace",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Agent Group Name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/namespaces/{namespace}/agentpackages": {
             "get": {
                 "description": "Retrieve a list of agent packages.",
@@ -1190,53 +1146,6 @@
                             "type": "object",
                             "additionalProperties": true
                         }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/namespaces/{namespace}/agentremoteconfigs/{name}/reconcile": {
-            "post": {
-                "description": "Re-detect endpoints from the config's exporters and re-propagate it to referencing agent groups.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agentremoteconfig"
-                ],
-                "summary": "Reconcile Agent Remote Config",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Namespace",
-                        "name": "namespace",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Agent Remote Config Name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
                     },
                     "404": {
                         "description": "Not Found",
@@ -1677,57 +1586,6 @@
                         "schema": {
                             "$ref": "#/definitions/ListResponse-Endpoint"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/namespaces/{namespace}/agents/{id}/reconcile": {
-            "post": {
-                "description": "Re-apply the matching agent groups' remote configs and connection settings to the agent.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent"
-                ],
-                "summary": "Reconcile Agent",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Namespace",
-                        "name": "namespace",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Instance UID of the agent",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -2488,6 +2346,67 @@
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/reconcile/{kind}/{name}": {
+            "post": {
+                "description": "Re-run the side effects that normally fire on create/update for the resource.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reconcile"
+                ],
+                "summary": "Reconcile a resource",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource kind (e.g. agentremoteconfig, agentgroup, agent)",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource name, or instance UID for kind=agent",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/rolebindings": {
             "get": {
                 "description": "Retrieves a list of role bindings with pagination options.",
@@ -2799,6 +2718,29 @@
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/reconcile/kinds": {
+            "get": {
+                "description": "List the resource kinds that support reconcile.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reconcile"
+                ],
+                "summary": "List reconcilable kinds",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
