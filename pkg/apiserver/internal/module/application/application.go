@@ -55,7 +55,7 @@ func New() fx.Option {
 			agentpackageApplicationService.NewAgentPackageService,
 			fx.Annotate(Identity[*agentpackageApplicationService.Service], fx.As(new(port.AgentPackageManageUsecase))),
 
-			provideNamespaceService,
+			namespaceApplicationService.NewNamespaceService,
 			fx.Annotate(Identity[*namespaceApplicationService.Service], fx.As(new(port.NamespaceManageUsecase))),
 
 			certificateApplicationService.NewCertificateService,
@@ -100,30 +100,6 @@ func New() fx.Option {
 				fx.As(new(port.RoleBindingManageUsecase)),
 			),
 		),
-	)
-}
-
-// provideNamespaceService builds the namespace manage service, sourcing the
-// undeletable default namespace name from configuration.
-func provideNamespaceService(
-	namespaceUsecase agentport.NamespaceUsecase,
-	agentGroupUsecase agentport.AgentGroupUsecase,
-	certificateUsecase agentport.CertificateUsecase,
-	agentPackageUsecase agentport.AgentPackageUsecase,
-	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
-	txRunner port.TransactionRunner,
-	logger *slog.Logger,
-	settings *config.ServerSettings,
-) *namespaceApplicationService.Service {
-	return namespaceApplicationService.NewNamespaceService(
-		namespaceUsecase,
-		agentGroupUsecase,
-		certificateUsecase,
-		agentPackageUsecase,
-		agentRemoteConfigUsecase,
-		txRunner,
-		logger,
-		settings.BootstrapSettings.DefaultNamespace,
 	)
 }
 

@@ -3,10 +3,8 @@ package namespace
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/samber/lo"
 
@@ -15,68 +13,41 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-// ErrDefaultNamespaceUndeletable is returned when trying to delete the default namespace.
-var ErrDefaultNamespaceUndeletable = errors.New(
-	"default namespace cannot be deleted",
+// Error aliases for the namespace lifecycle rules. The canonical errors live in
+// the domain (agentport); these aliases keep existing references working and let
+// the HTTP layer match on them.
+var (
+	// ErrDefaultNamespaceUndeletable is returned when trying to delete the default namespace.
+	ErrDefaultNamespaceUndeletable = agentport.ErrDefaultNamespaceUndeletable
+	// ErrNamespaceAlreadyExists is returned when a namespace with the same name already exists.
+	ErrNamespaceAlreadyExists = agentport.ErrNamespaceAlreadyExists
 )
-
-// ErrNamespaceAlreadyExists is returned when a namespace with the same name already exists.
-var ErrNamespaceAlreadyExists = errors.New("namespace already exists")
 
 var _ port.NamespaceManageUsecase = (*Service)(nil)
 
-// Service is a service for managing namespaces.
+// Service is a service for managing namespaces. It maps between the HTTP DTOs and
+// the domain, extracts the acting user from the request context, and delegates
+// all namespace business rules (uniqueness, default-namespace protection, cascade
+// delete) to the domain NamespaceUsecase.
 type Service struct {
-	namespaceUsecase         agentport.NamespaceUsecase
-	agentGroupUsecase        agentport.AgentGroupUsecase
-	certificateUsecase       agentport.CertificateUsecase
-	agentPackageUsecase      agentport.AgentPackageUsecase
-	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
-	txRunner                 port.TransactionRunner
-	mapper                   *helper.Mapper
-	clock                    clock.Clock
-	logger                   *slog.Logger
-	// defaultNamespace is the undeletable built-in namespace name, sourced from
-	// configuration; falls back to agentmodel.DefaultNamespaceName when empty.
-	defaultNamespace string
+	namespaceUsecase agentport.NamespaceUsecase
+	mapper           *helper.Mapper
+	logger           *slog.Logger
 }
 
-// NewNamespaceService creates a new namespace manage service. txRunner must be
-// non-nil; FX wires the MongoDB implementation in production. Tests should
-// pass an explicit fake (see [testutil] or per-package recordingTxRunner).
-// An empty defaultNamespace falls back to agentmodel.DefaultNamespaceName.
+// NewNamespaceService creates a new namespace manage service.
 func NewNamespaceService(
 	namespaceUsecase agentport.NamespaceUsecase,
-	agentGroupUsecase agentport.AgentGroupUsecase,
-	certificateUsecase agentport.CertificateUsecase,
-	agentPackageUsecase agentport.AgentPackageUsecase,
-	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
-	txRunner port.TransactionRunner,
 	logger *slog.Logger,
-	defaultNamespace string,
 ) *Service {
-	realClock := clock.NewRealClock()
-
-	if defaultNamespace == "" {
-		defaultNamespace = agentmodel.DefaultNamespaceName
-	}
-
 	return &Service{
-		namespaceUsecase:         namespaceUsecase,
-		agentGroupUsecase:        agentGroupUsecase,
-		certificateUsecase:       certificateUsecase,
-		agentPackageUsecase:      agentPackageUsecase,
-		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
-		txRunner:                 txRunner,
-		mapper:                   helper.NewMapper(realClock, 0),
-		clock:                    realClock,
-		logger:                   logger,
-		defaultNamespace:         defaultNamespace,
+		namespaceUsecase: namespaceUsecase,
+		mapper:           helper.NewMapper(clock.NewRealClock(), 0),
+		logger:           logger,
 	}
 }
 
@@ -125,32 +96,14 @@ func (s *Service) CreateNamespace(
 	ctx context.Context,
 	apiModel *v1.Namespace,
 ) (*v1.Namespace, error) {
-	name := apiModel.Metadata.Name
-
-	existing, getErr := s.namespaceUsecase.GetNamespace(ctx, name, nil)
-	if getErr == nil && existing != nil {
-		return nil, fmt.Errorf("%w: %s", ErrNamespaceAlreadyExists, name)
-	}
-
-	createdBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		createdBy = security.NewAnonymousUser()
-	}
-
 	domainModel := s.mapper.MapAPIToNamespace(apiModel)
-	domainModel.MarkAsCreated(s.clock.Now(), createdBy.String())
 
-	saved, err := s.namespaceUsecase.SaveNamespace(ctx, domainModel)
+	created, err := s.namespaceUsecase.CreateNamespace(ctx, domainModel, s.actor(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create namespace: %w", err)
 	}
 
-	return s.mapper.MapNamespaceToAPI(saved), nil
+	return s.mapper.MapNamespaceToAPI(created), nil
 }
 
 // UpdateNamespace implements [port.NamespaceManageUsecase].
@@ -159,57 +112,23 @@ func (s *Service) UpdateNamespace(
 	name string,
 	apiModel *v1.Namespace,
 ) (*v1.Namespace, error) {
-	existing, err := s.namespaceUsecase.GetNamespace(ctx, name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get namespace for update: %w", err)
-	}
-
 	domainModel := s.mapper.MapAPIToNamespace(apiModel)
 
-	// Preserve immutable fields
-	domainModel.Metadata.Name = existing.Metadata.Name
-	domainModel.Metadata.CreatedAt = existing.Metadata.CreatedAt
-	domainModel.Metadata.DeletedAt = existing.Metadata.DeletedAt
-	domainModel.Status = existing.Status
-
-	saved, err := s.namespaceUsecase.SaveNamespace(ctx, domainModel)
+	updated, err := s.namespaceUsecase.UpdateNamespace(ctx, name, domainModel)
 	if err != nil {
 		return nil, fmt.Errorf("update namespace: %w", err)
 	}
 
-	return s.mapper.MapNamespaceToAPI(saved), nil
+	return s.mapper.MapNamespaceToAPI(updated), nil
 }
 
-// DeleteNamespace implements [port.NamespaceManageUsecase].
-// Cascade deletes all agent groups, certificates, agent packages, and agent
-// remote configs in the namespace, then the namespace itself. The whole
-// cascade runs inside a single transaction so a mid-cascade failure rolls
-// every soft-delete back, preventing a zombie namespace with partially
-// deleted children.
+// DeleteNamespace implements [port.NamespaceManageUsecase]. The cascade delete and
+// the default-namespace guard live in the domain NamespaceUsecase.
 func (s *Service) DeleteNamespace(
 	ctx context.Context,
 	name string,
 ) error {
-	if name == s.defaultNamespace {
-		return ErrDefaultNamespaceUndeletable
-	}
-
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
-	now := s.clock.Now()
-	deletedByStr := deletedBy.String()
-
-	err = s.txRunner.WithinTransaction(ctx, func(txCtx context.Context) error {
-		return s.cascadeDeleteNamespace(txCtx, name, now, deletedByStr)
-	})
+	err := s.namespaceUsecase.DeleteNamespace(ctx, name, s.actor(ctx))
 	if err != nil {
 		return fmt.Errorf("delete namespace %q: %w", name, err)
 	}
@@ -217,200 +136,15 @@ func (s *Service) DeleteNamespace(
 	return nil
 }
 
-// cascadeDeleteNamespace performs the actual cascade. The mongo-driver
-// transaction runner may retry the callback on transient errors, so each
-// step must be re-runnable (soft-delete sets the same fields and is fine to
-// re-apply).
-func (s *Service) cascadeDeleteNamespace(
-	ctx context.Context,
-	name string,
-	now time.Time,
-	deletedBy string,
-) error {
-	err := s.deleteAgentGroupsInNamespace(ctx, name, now, deletedBy)
+// actor resolves the acting user from the request context, falling back to an
+// anonymous identity (and logging) when none is present.
+func (s *Service) actor(ctx context.Context) string {
+	user, err := security.GetUser(ctx)
 	if err != nil {
-		return err
+		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
+		user = security.NewAnonymousUser()
 	}
 
-	err = s.deleteCertificatesInNamespace(ctx, name, now, deletedBy)
-	if err != nil {
-		return err
-	}
-
-	err = s.deleteAgentPackagesInNamespace(ctx, name, now, deletedBy)
-	if err != nil {
-		return err
-	}
-
-	err = s.deleteAgentRemoteConfigsInNamespace(ctx, name, now, deletedBy)
-	if err != nil {
-		return err
-	}
-
-	err = s.namespaceUsecase.DeleteNamespace(ctx, name, now, deletedBy)
-	if err != nil {
-		return fmt.Errorf("delete namespace row: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Service) deleteAgentGroupsInNamespace(
-	ctx context.Context,
-	name string,
-	now time.Time,
-	deletedBy string,
-) error {
-	agentGroups, err := s.agentGroupUsecase.ListAgentGroups(
-		ctx, &model.ListOptions{
-			Limit:          0,
-			Continue:       "",
-			IncludeDeleted: false,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("list agent groups for cascade: %w", err)
-	}
-
-	for _, agentGroup := range agentGroups.Items {
-		if agentGroup.Metadata.Namespace != name {
-			continue
-		}
-
-		err = s.agentGroupUsecase.DeleteAgentGroup(
-			ctx,
-			name,
-			agentGroup.Metadata.Name,
-			now,
-			deletedBy,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"cascade delete agent group %s/%s: %w",
-				name, agentGroup.Metadata.Name, err,
-			)
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) deleteCertificatesInNamespace(
-	ctx context.Context,
-	name string,
-	now time.Time,
-	deletedBy string,
-) error {
-	certificates, err := s.certificateUsecase.ListCertificate(
-		ctx, &model.ListOptions{
-			Limit:          0,
-			Continue:       "",
-			IncludeDeleted: false,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("list certificates for cascade: %w", err)
-	}
-
-	for _, certificate := range certificates.Items {
-		if certificate.Metadata.Namespace != name {
-			continue
-		}
-
-		_, err = s.certificateUsecase.DeleteCertificate(
-			ctx,
-			name,
-			certificate.Metadata.Name,
-			now,
-			deletedBy,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"cascade delete certificate %s/%s: %w",
-				name, certificate.Metadata.Name, err,
-			)
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) deleteAgentPackagesInNamespace(
-	ctx context.Context,
-	name string,
-	now time.Time,
-	deletedBy string,
-) error {
-	agentPackages, err := s.agentPackageUsecase.ListAgentPackages(
-		ctx, &model.ListOptions{
-			Limit:          0,
-			Continue:       "",
-			IncludeDeleted: false,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("list agent packages for cascade: %w", err)
-	}
-
-	for _, agentPackage := range agentPackages.Items {
-		if agentPackage.Metadata.Namespace != name {
-			continue
-		}
-
-		err = s.agentPackageUsecase.DeleteAgentPackage(
-			ctx,
-			name,
-			agentPackage.Metadata.Name,
-			now,
-			deletedBy,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"cascade delete agent package %s/%s: %w",
-				name, agentPackage.Metadata.Name, err,
-			)
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) deleteAgentRemoteConfigsInNamespace(
-	ctx context.Context,
-	name string,
-	now time.Time,
-	deletedBy string,
-) error {
-	agentRemoteConfigs, err := s.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
-		ctx, &model.ListOptions{
-			Limit:          0,
-			Continue:       "",
-			IncludeDeleted: false,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("list agent remote configs for cascade: %w", err)
-	}
-
-	for _, arc := range agentRemoteConfigs.Items {
-		if arc.Metadata.Namespace != name {
-			continue
-		}
-
-		err = s.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
-			ctx,
-			name,
-			arc.Metadata.Name,
-			now,
-			deletedBy,
-		)
-		if err != nil {
-			return fmt.Errorf(
-				"cascade delete agent remote config %s/%s: %w",
-				name, arc.Metadata.Name, err,
-			)
-		}
-	}
-
-	return nil
+	return user.String()
 }

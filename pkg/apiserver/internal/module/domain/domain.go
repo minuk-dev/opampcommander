@@ -32,7 +32,7 @@ func New() fx.Option {
 			fx.As(new(agentport.AgentGroupRelatedUsecase)),
 		),
 		fx.Annotate(agentservice.NewAgentPackageService, fx.As(new(agentport.AgentPackageUsecase))),
-		fx.Annotate(agentservice.NewNamespaceService, fx.As(new(agentport.NamespaceUsecase))),
+		fx.Annotate(provideNamespaceService, fx.As(new(agentport.NamespaceUsecase))),
 		fx.Annotate(provideHostService, fx.As(new(agentport.HostUsecase))),
 		fx.Annotate(provideContainerService, fx.As(new(agentport.ContainerUsecase))),
 		fx.Annotate(agentservice.NewAgentRemoteConfigService, fx.As(new(agentport.AgentRemoteConfigUsecase))),
@@ -102,6 +102,29 @@ func provideAgentService(
 			TTL:         agentCacheSettings.TTL,
 			MaxCapacity: agentCacheSettings.MaxCapacity,
 		},
+		settings.BootstrapSettings.DefaultNamespace,
+	)
+}
+
+// provideNamespaceService builds the namespace domain service, sourcing the
+// undeletable default namespace name from configuration. The service owns the
+// namespace lifecycle rules and the cascade delete of a namespace's children.
+func provideNamespaceService(
+	namespacePersistencePort agentport.NamespacePersistencePort,
+	agentGroupUsecase agentport.AgentGroupUsecase,
+	certificateUsecase agentport.CertificateUsecase,
+	agentPackageUsecase agentport.AgentPackageUsecase,
+	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
+	txPort agentport.TransactionPort,
+	settings *config.ServerSettings,
+) *agentservice.NamespaceService {
+	return agentservice.NewNamespaceService(
+		namespacePersistencePort,
+		agentGroupUsecase,
+		certificateUsecase,
+		agentPackageUsecase,
+		agentRemoteConfigUsecase,
+		txPort,
 		settings.BootstrapSettings.DefaultNamespace,
 	)
 }
