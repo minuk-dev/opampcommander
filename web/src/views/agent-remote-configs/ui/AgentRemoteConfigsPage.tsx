@@ -1,13 +1,14 @@
 'use client';
 
-import { Box } from '@mui/material';
-import { PlaylistAddCheck as ApplyIcon } from '@mui/icons-material';
+import { Alert, Box, Snackbar } from '@mui/material';
+import { PlaylistAddCheck as ApplyIcon, Sync as SyncIcon } from '@mui/icons-material';
 import { useState } from 'react';
 import { useNamespace } from '@entities/namespace';
 import dynamic from 'next/dynamic';
 import { ResourceListPage } from '@widgets/resource-list-page';
 import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
+import { reconcileResource } from '@features/reconcile';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
 // Lazy-loaded: heavy dialogs (JSON editor pulls in js-yaml, ApplyToGroup pulls
@@ -29,9 +30,28 @@ function emptyConfig(namespace: string): AgentRemoteConfig {
   };
 }
 
+type ReconcileFeedback = { severity: 'success' | 'error'; message: string };
+
 export default function AgentRemoteConfigsPage() {
   const { namespace } = useNamespace();
   const [applyTarget, setApplyTarget] = useState<AgentRemoteConfig | null>(null);
+  const [reconcileFeedback, setReconcileFeedback] = useState<ReconcileFeedback | null>(null);
+
+  const reconcileConfig = async (c: AgentRemoteConfig) => {
+    try {
+      await reconcileResource('agentremoteconfig', namespace, c.metadata.name);
+      setReconcileFeedback({
+        severity: 'success',
+        message: `Reconciled "${c.metadata.name}": detected endpoints and re-propagated to groups.`,
+      });
+    } catch (err) {
+      setReconcileFeedback({
+        severity: 'error',
+        message: err instanceof Error ? err.message : `Failed to reconcile "${c.metadata.name}".`,
+      });
+    }
+  };
+
   return (
     <Box>
       <ResourceListPage<AgentRemoteConfig>
@@ -48,6 +68,11 @@ export default function AgentRemoteConfigsPage() {
             label: 'Apply to agent group',
             icon: <ApplyIcon fontSize="small" />,
             onClick: () => setApplyTarget(c),
+          },
+          {
+            label: 'Reconcile',
+            icon: <SyncIcon fontSize="small" />,
+            onClick: () => void reconcileConfig(c),
           },
         ]}
         columns={[
@@ -109,6 +134,22 @@ export default function AgentRemoteConfigsPage() {
           onApplied={() => setApplyTarget(null)}
         />
       )}
+      <Snackbar
+        open={reconcileFeedback !== null}
+        autoHideDuration={4000}
+        onClose={() => setReconcileFeedback(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        {reconcileFeedback === null ? undefined : (
+          <Alert
+            severity={reconcileFeedback.severity}
+            onClose={() => setReconcileFeedback(null)}
+            variant="filled"
+          >
+            {reconcileFeedback.message}
+          </Alert>
+        )}
+      </Snackbar>
     </Box>
   );
 }
