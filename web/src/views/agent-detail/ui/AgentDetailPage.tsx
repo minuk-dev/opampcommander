@@ -26,6 +26,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { PageHeader, ConfirmDialog, JsonBlock } from '@shared/ui';
 import { TimeDisplay } from '@shared/preferences';
+import { ReconcileButton } from '@features/reconcile';
 import { useNamespace } from '@entities/namespace';
 import { api, useApi } from '@shared/api';
 import {
@@ -153,6 +154,12 @@ function AgentDetailInner() {
             <Button startIcon={<RestartIcon />} onClick={requestRestart} disabled={restartBusy}>
               Request restart
             </Button>
+            <ReconcileButton
+              kind="agent"
+              namespace={namespace}
+              name={agent.metadata.instanceUid}
+              onReconciled={fetchAgent}
+            />
             {!agent.status.connected && (
               <Button startIcon={<DeleteIcon />} color="error" onClick={() => setDeleteOpen(true)}>
                 Delete
