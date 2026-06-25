@@ -151,6 +151,18 @@ func (f *nsFakeCertificateUsecase) SaveCertificate(
 	return nil, errNotImplemented
 }
 
+func (f *nsFakeCertificateUsecase) CreateCertificate(
+	context.Context, *agentmodel.Certificate, string,
+) (*agentmodel.Certificate, error) {
+	return nil, errNotImplemented
+}
+
+func (f *nsFakeCertificateUsecase) UpdateCertificate(
+	context.Context, string, string, *agentmodel.Certificate, string,
+) (*agentmodel.Certificate, error) {
+	return nil, errNotImplemented
+}
+
 func (f *nsFakeCertificateUsecase) ListCertificate(
 	context.Context, *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {

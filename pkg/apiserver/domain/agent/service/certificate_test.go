@@ -443,5 +443,84 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 	})
 }
 
+func TestCertificateService_CreateCertificate(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mockPort := new(MockCertificatePersistencePort)
+	logger := slog.Default()
+
+	certService := agentservice.NewCertificateService(mockPort, logger)
+
+	input := &agentmodel.Certificate{
+		Metadata: agentmodel.CertificateMetadata{Name: "new-cert", Namespace: "default"},
+		Spec:     agentmodel.CertificateSpec{Cert: []byte("data")},
+		Status:   agentmodel.CertificateStatus{},
+	}
+
+	// The service stamps input in place and persists that same pointer.
+	mockPort.On("PutCertificate", ctx, input).Return(input, nil)
+
+	created, err := certService.CreateCertificate(ctx, input, "tester")
+
+	require.NoError(t, err)
+	require.NotEmpty(t, created.Status.Conditions, "creation must record a condition")
+	cond := created.Status.Conditions[0]
+	assert.Equal(t, model.ConditionTypeCreated, cond.Type)
+	assert.Equal(t, "tester", cond.Reason, "the acting user must be stamped as the condition reason")
+	mockPort.AssertExpectations(t)
+}
+
+func TestCertificateService_UpdateCertificate_PreservesImmutableFields(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mockPort := new(MockCertificatePersistencePort)
+	logger := slog.Default()
+
+	certService := agentservice.NewCertificateService(mockPort, logger)
+
+	createdAt := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	existing := &agentmodel.Certificate{
+		Metadata: agentmodel.CertificateMetadata{
+			Name:      "cert",
+			Namespace: "default",
+			CreatedAt: createdAt,
+		},
+		Spec:   agentmodel.CertificateSpec{Cert: []byte("old")},
+		Status: agentmodel.CertificateStatus{Conditions: []model.Condition{{Type: model.ConditionTypeCreated}}},
+	}
+
+	incoming := &agentmodel.Certificate{
+		Metadata: agentmodel.CertificateMetadata{
+			Name:      "cert",
+			Namespace: "default",
+			CreatedAt: time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+		},
+		Spec: agentmodel.CertificateSpec{Cert: []byte("new")},
+	}
+
+	// The service applies the update onto the stored cert and persists it.
+	mockPort.On("GetCertificate", ctx, "default", "cert", (*model.GetOptions)(nil)).Return(existing, nil)
+	mockPort.On("PutCertificate", ctx, existing).Return(existing, nil)
+
+	updated, err := certService.UpdateCertificate(ctx, "default", "cert", incoming, "tester")
+
+	require.NoError(t, err)
+	assert.Equal(t, createdAt, updated.Metadata.CreatedAt, "CreatedAt must be preserved from the stored certificate")
+	assert.Equal(t, []byte("new"), updated.Spec.Cert, "mutable spec must be applied")
+
+	var hasUpdated bool
+
+	for _, cond := range updated.Status.Conditions {
+		if cond.Type == model.ConditionTypeUpdated && cond.Reason == "tester" {
+			hasUpdated = true
+		}
+	}
+
+	assert.True(t, hasUpdated, "update must record an Updated condition stamped with the actor")
+	mockPort.AssertExpectations(t)
+}
+
 // Verify CertificateService implements CertificateUsecase interface.
 var _ agentport.CertificateUsecase = (*agentservice.CertificateService)(nil)
