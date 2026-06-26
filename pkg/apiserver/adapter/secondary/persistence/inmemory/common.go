@@ -19,6 +19,12 @@ func errResourceNotExist() error {
 	return port.ErrResourceNotExist
 }
 
+// errConflict returns the shared optimistic-concurrency error so the in-memory
+// store rejects stale writes exactly like the MongoDB adapter's version check.
+func errConflict() error {
+	return port.ErrConflict
+}
+
 // matchesSelector reports whether the agent satisfies every identifying and
 // non-identifying attribute in the selector. An empty selector matches all
 // agents, mirroring the MongoDB selector-to-filter behaviour.

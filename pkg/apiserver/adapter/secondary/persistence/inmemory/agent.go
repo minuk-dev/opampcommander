@@ -43,8 +43,26 @@ func (r *AgentRepository) GetAgent(_ context.Context, instanceUID uuid.UUID) (*a
 }
 
 // PutAgent implements agentport.AgentPersistencePort.
+//
+// Like the MongoDB adapter, this is an optimistic-concurrency write: it succeeds
+// only if the stored agent's ResourceVersion still equals the version the passed
+// agent was loaded with, otherwise it returns [port.ErrConflict]. On success the
+// version is incremented and written back onto the passed agent.
 func (r *AgentRepository) PutAgent(_ context.Context, agent *agentmodel.Agent) error {
-	r.store.put(agent.Metadata.InstanceUID, agent)
+	expected := agent.Metadata.ResourceVersion
+	next := expected + 1
+
+	toStore := agent.Clone()
+	toStore.Metadata.ResourceVersion = next
+
+	err := r.store.casPut(agent.Metadata.InstanceUID, toStore, expected, func(a *agentmodel.Agent) int64 {
+		return a.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return err
+	}
+
+	agent.Metadata.ResourceVersion = next
 
 	return nil
 }

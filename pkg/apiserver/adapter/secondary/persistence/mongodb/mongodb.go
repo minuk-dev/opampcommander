@@ -55,11 +55,16 @@ var (
 		{
 			collectionName: agentCollectionName,
 			indexes: []mongo.IndexModel{
+				// Unique on the logical key. Besides preventing duplicate agent
+				// documents, this is what makes PutAgent's optimistic-concurrency
+				// create path correct: a racing insert for an existing instanceUid is
+				// rejected as a duplicate key (mapped to port.ErrConflict) instead of
+				// producing a second document.
 				{
 					Keys: bson.D{
 						{Key: "metadata.instanceUid", Value: 1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 				{
 					Keys: bson.D{

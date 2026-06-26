@@ -417,3 +417,72 @@ func TestTransactionRunner_RunsCallback(t *testing.T) {
 	})
 	require.ErrorIs(t, err, errSentinel)
 }
+
+func TestAgentRepository_PutAgentBumpsResourceVersion(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRepository()
+	uid := uuid.New()
+	agent := agentmodel.NewAgent(uid)
+
+	// A freshly created agent starts at version 0; the first write inserts it as v1.
+	assert.Equal(t, int64(0), agent.Metadata.ResourceVersion)
+	require.NoError(t, repo.PutAgent(ctx, agent))
+	assert.Equal(t, int64(1), agent.Metadata.ResourceVersion, "PutAgent must bump the caller's version")
+
+	got, err := repo.GetAgent(ctx, uid)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), got.Metadata.ResourceVersion)
+
+	// A read-modify-write cycle advances the version again.
+	got.Metadata.Namespace = "ns-x"
+	require.NoError(t, repo.PutAgent(ctx, got))
+	assert.Equal(t, int64(2), got.Metadata.ResourceVersion)
+}
+
+func TestAgentRepository_PutAgentConflictOnStaleVersion(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRepository()
+	uid := uuid.New()
+
+	first := agentmodel.NewAgent(uid)
+	require.NoError(t, repo.PutAgent(ctx, first)) // stored at v1
+
+	// Two writers load the same v1 snapshot.
+	loadA, err := repo.GetAgent(ctx, uid)
+	require.NoError(t, err)
+	loadB, err := repo.GetAgent(ctx, uid)
+	require.NoError(t, err)
+
+	// Writer A wins, advancing the stored version to v2.
+	loadA.Metadata.Namespace = "from-a"
+	require.NoError(t, repo.PutAgent(ctx, loadA))
+
+	// Writer B still holds v1, so its write is rejected instead of clobbering A.
+	loadB.Metadata.Namespace = "from-b"
+	require.ErrorIs(t, repo.PutAgent(ctx, loadB), port.ErrConflict)
+
+	stored, err := repo.GetAgent(ctx, uid)
+	require.NoError(t, err)
+	assert.Equal(t, "from-a", stored.Metadata.Namespace, "the losing writer must not overwrite the winner")
+	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+}
+
+func TestAgentRepository_PutAgentConflictOnConcurrentCreate(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRepository()
+	uid := uuid.New()
+
+	// Two nodes independently GetOrCreate the same not-yet-persisted agent (both v0).
+	createA := agentmodel.NewAgent(uid)
+	createB := agentmodel.NewAgent(uid)
+
+	require.NoError(t, repo.PutAgent(ctx, createA))
+	// The second create-as-v0 must conflict rather than insert a duplicate.
+	require.ErrorIs(t, repo.PutAgent(ctx, createB), port.ErrConflict)
+}
