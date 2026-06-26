@@ -619,3 +619,102 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 	mockConnection.AssertNotCalled(t, "SendServerToAgent",
 		mock.Anything, mock.Anything, mock.Anything)
 }
+
+func newLeaderTestService(
+	mockPersistence *MockServerPersistencePort,
+	mockIdentity *MockServerIdentityProvider,
+	now time.Time,
+) *agentservice.ServerService {
+	svc := agentservice.NewServerService(
+		slog.Default(),
+		mockPersistence,
+		new(MockServerEventSenderPort),
+		new(MockServerEventReceiverPort),
+		mockIdentity,
+		new(MockConnectionUsecase),
+		new(MockAgentUsecase),
+	)
+	svc.SetClock(newTestFakeClock(now))
+
+	return svc
+}
+
+func TestServerService_IsLeader(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+
+	t.Run("leader when current server has the smallest alive ID", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(MockServerPersistencePort)
+		mockIdentity := new(MockServerIdentityProvider)
+		mockIdentity.On("CurrentServerID").Return("server-1")
+		mockPersistence.On("ListServers", ctx).Return([]*agentmodel.Server{
+			{ID: "server-1", LastHeartbeatAt: now},
+			{ID: "server-2", LastHeartbeatAt: now},
+		}, nil)
+
+		isLeader, err := newLeaderTestService(mockPersistence, mockIdentity, now).IsLeader(ctx)
+		require.NoError(t, err)
+		assert.True(t, isLeader)
+	})
+
+	t.Run("not leader when a smaller alive ID exists", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(MockServerPersistencePort)
+		mockIdentity := new(MockServerIdentityProvider)
+		mockIdentity.On("CurrentServerID").Return("server-1")
+		mockPersistence.On("ListServers", ctx).Return([]*agentmodel.Server{
+			{ID: "server-0", LastHeartbeatAt: now},
+			{ID: "server-1", LastHeartbeatAt: now},
+		}, nil)
+
+		isLeader, err := newLeaderTestService(mockPersistence, mockIdentity, now).IsLeader(ctx)
+		require.NoError(t, err)
+		assert.False(t, isLeader)
+	})
+
+	t.Run("a dead smaller server does not block leadership", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(MockServerPersistencePort)
+		mockIdentity := new(MockServerIdentityProvider)
+		mockIdentity.On("CurrentServerID").Return("server-1")
+		// server-0 has a stale heartbeat (well past the timeout) so ListServers filters it out.
+		mockPersistence.On("ListServers", ctx).Return([]*agentmodel.Server{
+			{ID: "server-0", LastHeartbeatAt: now.Add(-10 * time.Minute)},
+			{ID: "server-1", LastHeartbeatAt: now},
+		}, nil)
+
+		isLeader, err := newLeaderTestService(mockPersistence, mockIdentity, now).IsLeader(ctx)
+		require.NoError(t, err)
+		assert.True(t, isLeader)
+	})
+
+	t.Run("leads on cold start when no server is registered", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(MockServerPersistencePort)
+		mockIdentity := new(MockServerIdentityProvider)
+		mockIdentity.On("CurrentServerID").Return("server-1")
+		mockPersistence.On("ListServers", ctx).Return([]*agentmodel.Server{}, nil)
+
+		isLeader, err := newLeaderTestService(mockPersistence, mockIdentity, now).IsLeader(ctx)
+		require.NoError(t, err)
+		assert.True(t, isLeader)
+	})
+
+	t.Run("errors when the current server has no identity", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(MockServerPersistencePort)
+		mockIdentity := new(MockServerIdentityProvider)
+		mockIdentity.On("CurrentServerID").Return("")
+
+		isLeader, err := newLeaderTestService(mockPersistence, mockIdentity, now).IsLeader(ctx)
+		require.ErrorIs(t, err, agentservice.ErrNoCurrentServerID)
+		assert.False(t, isLeader)
+	})
+}

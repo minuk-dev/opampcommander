@@ -20,6 +20,11 @@ import (
 
 var (
 	_ agentport.ServerUsecase = (*ServerService)(nil)
+	_ agentport.LeaderElector = (*ServerService)(nil)
+
+	// ErrNoCurrentServerID is returned by IsLeader when the current server has no
+	// identity, so leadership cannot be determined.
+	ErrNoCurrentServerID = errors.New("current server has no identity")
 )
 
 const (
@@ -147,6 +152,39 @@ func (s *ServerService) ListServers(ctx context.Context) ([]*agentmodel.Server, 
 	}
 
 	return aliveServers, nil
+}
+
+// IsLeader implements agentport.LeaderElector.
+//
+// Leadership is deterministic and requires no extra writes or lease document: the
+// leader is the alive server with the smallest ID. Each node already publishes a
+// heartbeat (ServerIdentityService), so ListServers' alive set is the single source
+// of truth. When no server is registered yet (cold start) the current node leads so
+// singleton work is not stranded. A brief dual-leader window during a heartbeat-timeout
+// transition is acceptable: the only leader-gated job (agent-group reconcile) is
+// idempotent.
+func (s *ServerService) IsLeader(ctx context.Context) (bool, error) {
+	currentID := s.serverIdentityProvider.CurrentServerID()
+	if currentID == "" {
+		return false, ErrNoCurrentServerID
+	}
+
+	servers, err := s.ListServers(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to list servers for leader election: %w", err)
+	}
+
+	if len(servers) == 0 {
+		return true, nil
+	}
+
+	for _, server := range servers {
+		if server.ID < currentID {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // SendMessageToServerByServerID implements agentport.ServerUsecase.

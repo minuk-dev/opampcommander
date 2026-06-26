@@ -310,7 +310,9 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		refName := "shared-otel-config"
 		referencedConfig := &agentmodel.AgentRemoteConfig{
@@ -349,7 +351,9 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		refName := "non-existent-config"
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
@@ -380,7 +384,9 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		configName := "collector-config"
 		configValue := []byte("exporters:\n  debug:\n    verbosity: detailed")
@@ -413,7 +419,9 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		configName := "missing-spec-config"
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
@@ -437,7 +445,9 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: nil, // Missing name
@@ -467,7 +477,9 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -516,7 +528,9 @@ func TestApplyRemoteConfigs(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -565,7 +579,9 @@ func TestNameCollisionPrevention(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		// Create agent
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
@@ -640,6 +656,7 @@ func TestRecordRemoteConfigCondition(t *testing.T) {
 			new(mockRemoteConfigPersistence),
 			new(mockCertPersistence),
 			new(mockAgentUsecase),
+			alwaysLeaderElector{},
 			slog.Default(),
 		)
 
@@ -782,6 +799,7 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 		new(mockRemoteConfigPersistence),
 		new(mockCertPersistence),
 		new(mockAgentUsecase),
+		alwaysLeaderElector{},
 		slog.Default(),
 	)
 
@@ -860,6 +878,7 @@ func TestDeleteAgentGroup_PropagatesDeletion(t *testing.T) {
 		new(mockRemoteConfigPersistence),
 		new(mockCertPersistence),
 		new(mockAgentUsecase),
+		alwaysLeaderElector{},
 		slog.Default(),
 	)
 
@@ -902,6 +921,7 @@ func TestShouldReconcileDeletedGroup(t *testing.T) {
 		new(mockRemoteConfigPersistence),
 		new(mockCertPersistence),
 		new(mockAgentUsecase),
+		alwaysLeaderElector{},
 		slog.Default(),
 	)
 
@@ -943,7 +963,9 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},
@@ -1016,7 +1038,9 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		logger := slog.Default()
 
 		mockCertPort := new(mockCertPersistence)
-		svc := NewAgentGroupService(mockPersistence, mockRemoteConfigPort, mockCertPort, mockAgentUC, logger)
+		svc := NewAgentGroupService(
+			mockPersistence, mockRemoteConfigPort, mockCertPort,
+			mockAgentUC, alwaysLeaderElector{}, logger)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},
@@ -1072,5 +1096,70 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		require.NoError(t, err)
 		mockAgentUC.AssertExpectations(t)
+	})
+}
+
+// alwaysLeaderElector is a test double that always reports leadership, so the
+// reconcile loop behaves as it did before leader election was introduced.
+type alwaysLeaderElector struct{}
+
+func (alwaysLeaderElector) IsLeader(context.Context) (bool, error) { return true, nil }
+
+// fakeLeaderElector returns a configurable leadership result for reconcile-loop tests.
+type fakeLeaderElector struct {
+	leader bool
+	err    error
+}
+
+func (f fakeLeaderElector) IsLeader(context.Context) (bool, error) { return f.leader, f.err }
+
+var errBoomLeader = errors.New("leader election boom")
+
+func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
+	t.Parallel()
+
+	listOpts := (*model.ListOptions)(nil)
+
+	t.Run("skips the reconcile scan when not leader", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(mockAgentGroupPersistence)
+		svc := NewAgentGroupService(
+			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+			new(mockAgentUsecase), fakeLeaderElector{leader: false, err: nil}, slog.Default())
+
+		svc.reconcileAllIfLeader(ctx)
+
+		mockPersistence.AssertNotCalled(t, "ListAgentGroups", mock.Anything, mock.Anything)
+	})
+
+	t.Run("runs the reconcile scan when leader", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(mockAgentGroupPersistence)
+		mockPersistence.On("ListAgentGroups", mock.Anything, listOpts).
+			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
+		svc := NewAgentGroupService(
+			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+			new(mockAgentUsecase), fakeLeaderElector{leader: true, err: nil}, slog.Default())
+
+		svc.reconcileAllIfLeader(ctx)
+
+		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, listOpts)
+	})
+
+	t.Run("fails open and reconciles when leader election errors", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		mockPersistence := new(mockAgentGroupPersistence)
+		mockPersistence.On("ListAgentGroups", mock.Anything, listOpts).
+			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
+		svc := NewAgentGroupService(
+			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+			new(mockAgentUsecase), fakeLeaderElector{leader: false, err: errBoomLeader}, slog.Default())
+
+		svc.reconcileAllIfLeader(ctx)
+
+		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, listOpts)
 	})
 }

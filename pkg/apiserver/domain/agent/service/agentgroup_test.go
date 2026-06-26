@@ -318,7 +318,7 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 		expectedGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
@@ -346,7 +346,7 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 		mockPersistence.On(
 			"GetAgentGroup", ctx, "default", "non-existent", (*model.GetOptions)(nil),
@@ -375,7 +375,7 @@ func TestAgentGroupService_ListAgentGroups(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 		expectedResponse := &model.ListResponse[*agentmodel.AgentGroup]{
 			Items: []*agentmodel.AgentGroup{
@@ -411,7 +411,7 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 		agentGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
@@ -464,7 +464,7 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -546,7 +546,7 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -593,7 +593,7 @@ func TestAgentGroupService_Name(t *testing.T) {
 
 	mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 	svc := agentservice.NewAgentGroupService(
-		mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, logger)
+		mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
 
 	assert.Equal(t, "AgentGroupService", svc.Name())
 }
@@ -611,7 +611,7 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, slog.Default())
+			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, slog.Default())
 
 		agent := agentmodel.NewAgent(uuid.New())
 
@@ -629,3 +629,8 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 		mockAgentUsecase.AssertExpectations(t)
 	})
 }
+
+// alwaysLeaderElector is a test double that always reports leadership.
+type alwaysLeaderElector struct{}
+
+func (alwaysLeaderElector) IsLeader(context.Context) (bool, error) { return true, nil }
