@@ -38,6 +38,7 @@ type AgentMetadata struct {
 	InstanceUID        bson.Binary              `bson:"instanceUid"`
 	InstanceUIDString  string                   `bson:"instanceUidString"` // String representation for searching
 	Namespace          string                   `bson:"namespace"`
+	ResourceVersion    int64                    `bson:"resourceVersion"` // Optimistic-concurrency token
 	Capabilities       *AgentCapabilities       `bson:"capabilities,omitempty"`
 	Description        *AgentDescription        `bson:"description,omitempty"`
 	CustomCapabilities *AgentCustomCapabilities `bson:"customCapabilities,omitempty"`
@@ -238,8 +239,9 @@ func (a *Agent) ToDomain() *agentmodel.Agent {
 // ToDmain converts the AgentMetadata to domain model.
 func (metadata *AgentMetadata) ToDmain() agentmodel.AgentMetadata {
 	return agentmodel.AgentMetadata{
-		InstanceUID: uuid.UUID(metadata.InstanceUID.Data),
-		Namespace:   metadata.Namespace,
+		InstanceUID:     uuid.UUID(metadata.InstanceUID.Data),
+		Namespace:       metadata.Namespace,
+		ResourceVersion: metadata.ResourceVersion,
 		//exhaustruct:ignore
 		Description:  mo.PointerToOption(metadata.Description.ToDomain()).OrElse(agent.Description{}),
 		Capabilities: mo.PointerToOption(metadata.Capabilities.ToDomain()).OrElse(agent.Capabilities(0)),
@@ -532,6 +534,7 @@ func AgentFromDomain(agent *agentmodel.Agent) *Agent {
 			},
 			InstanceUIDString:  agent.Metadata.InstanceUID.String(),
 			Namespace:          agent.Metadata.Namespace,
+			ResourceVersion:    agent.Metadata.ResourceVersion,
 			Capabilities:       AgentCapabilitiesFromDomain(&agent.Metadata.Capabilities),
 			Description:        AgentDescriptionFromDomain(&agent.Metadata.Description),
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),

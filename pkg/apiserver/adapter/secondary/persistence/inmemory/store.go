@@ -117,6 +117,38 @@ func (s *store[K, V]) put(key K, value V) {
 	s.nextSeq++
 }
 
+// casPut is an optimistic-concurrency variant of put: it stores value only if the
+// currently stored value's version (as reported by versionOf) equals expected. An
+// expected of 0 means the key must not already exist (a create). On a version
+// mismatch — or an existing key when expected is 0 — it returns
+// [port.ErrConflict] without mutating the store, mirroring the MongoDB adapter's
+// versioned ReplaceOne. value is deep-copied on store, like put.
+func (s *store[K, V]) casPut(key K, value V, expected int64, versionOf func(V) int64) error {
+	stored := s.clone(value)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if existing, ok := s.items[key]; ok {
+		if versionOf(existing.value) != expected {
+			return errConflict()
+		}
+
+		existing.value = stored
+
+		return nil
+	}
+
+	if expected != 0 {
+		return errConflict()
+	}
+
+	s.items[key] = &item[V]{seq: s.nextSeq, value: stored}
+	s.nextSeq++
+
+	return nil
+}
+
 // delete permanently removes key (hard delete). It returns
 // [port.ErrResourceNotExist] when the key is absent.
 func (s *store[K, V]) delete(key K) error {

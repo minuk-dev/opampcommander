@@ -94,6 +94,12 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 		return
 	}
 
+	if errors.Is(err, port.ErrConflict) {
+		ConflictError(ctx, err, "The resource was modified concurrently; reload and retry.")
+
+		return
+	}
+
 	if errors.Is(err, port.ErrInvalidArgument) {
 		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
 			Type:     baseURL,

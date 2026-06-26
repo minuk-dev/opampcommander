@@ -175,14 +175,29 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 	return agent, nil
 }
 
-// SaveAgent saves the agent to the persistence layer.
+// SaveAgent saves the agent to the persistence layer with optimistic concurrency:
+// the write is rejected with [port.ErrConflict] when another writer (another HA
+// node, the reconcile loop, a racing API call) modified the agent since it was
+// loaded, rather than silently clobbering that change.
+//
+// On conflict the cached copy is invalidated so the next read goes to persistence
+// and observes the winning writer's version. Without this the owning server would
+// keep re-reading its own stale cached version and conflict on every retry until
+// the cache entry expired. The caller is expected to re-read and retry (or, for the
+// heartbeat path, simply let the next message re-report the state).
 func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) error {
 	err := s.agentPersistencePort.PutAgent(ctx, agent)
 	if err != nil {
+		if errors.Is(err, port.ErrConflict) {
+			s.InvalidateCache(agent.Metadata.InstanceUID)
+		}
+
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
 	}
 
-	// Cache a clone to prevent external mutations from affecting cache
+	// Cache a clone to prevent external mutations from affecting cache. PutAgent has
+	// bumped agent.Metadata.ResourceVersion on success, so the cached clone carries
+	// the new version and the next SaveAgent from this process uses the right token.
 	if s.cacheEnabled {
 		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}

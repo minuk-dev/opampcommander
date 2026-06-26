@@ -1455,3 +1455,75 @@ func TestAgentMongoAdapter_SearchAgents(t *testing.T) {
 		assert.Empty(t, listResponse.Items) // No agent has literal "1234.*" in UUID
 	})
 }
+
+func TestAgentMongoAdapter_OptimisticConcurrency(t *testing.T) {
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+	t.Parallel()
+	base := testutil.NewBase(t)
+	ctx := t.Context()
+	mongoDBContainer, err := mongoTestContainer.Run(
+		ctx,
+		testMongoDBImage,
+	)
+	require.NoError(t, err)
+
+	mongoDBURI, err := mongoDBContainer.ConnectionString(ctx)
+	require.NoError(t, err)
+
+	client, err := mongo.Connect(options.Client().ApplyURI(mongoDBURI))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := client.Disconnect(ctx)
+		require.NoError(t, err)
+	})
+
+	database := client.Database("testdb")
+	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
+
+	t.Run("first put inserts at version 1 and bumps the caller", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		newAgent := agentmodel.NewAgent(uuid.New())
+		require.Equal(t, int64(0), newAgent.Metadata.ResourceVersion)
+
+		require.NoError(t, agentRepository.PutAgent(ctx, newAgent))
+		assert.Equal(t, int64(1), newAgent.Metadata.ResourceVersion)
+
+		got, err := agentRepository.GetAgent(ctx, newAgent.Metadata.InstanceUID)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), got.Metadata.ResourceVersion)
+	})
+
+	t.Run("stale write loses to the concurrent winner", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		uid := uuid.New()
+		require.NoError(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uid)))
+
+		loadA, err := agentRepository.GetAgent(ctx, uid)
+		require.NoError(t, err)
+		loadB, err := agentRepository.GetAgent(ctx, uid)
+		require.NoError(t, err)
+
+		loadA.Metadata.Namespace = "from-a"
+		require.NoError(t, agentRepository.PutAgent(ctx, loadA))
+
+		loadB.Metadata.Namespace = "from-b"
+		require.ErrorIs(t, agentRepository.PutAgent(ctx, loadB), port.ErrConflict)
+
+		stored, err := agentRepository.GetAgent(ctx, uid)
+		require.NoError(t, err)
+		assert.Equal(t, "from-a", stored.Metadata.Namespace)
+		assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+	})
+
+	t.Run("concurrent create conflicts via the unique key", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		uid := uuid.New()
+
+		require.NoError(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uid)))
+		// A second create-as-v0 for the same instanceUid must conflict, not duplicate.
+		require.ErrorIs(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uid)), port.ErrConflict)
+	})
+}

@@ -12,11 +12,17 @@ import (
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+)
+
+const (
+	resourceVersionFieldName = "metadata.resourceVersion"
 )
 
 var (
@@ -119,13 +125,48 @@ func (a *AgentRepository) ListAgents(
 }
 
 // PutAgent implements agentport.AgentPersistencePort.
+//
+// PutAgent is an optimistic-concurrency write: it only succeeds when the stored
+// document's resourceVersion still equals the version the in-memory agent was
+// loaded with (agent.Metadata.ResourceVersion). On success the stored version is
+// incremented and the increment is written back onto the passed agent, so the
+// caller — and any cache that clones it afterwards — holds the new version. A
+// concurrent writer that already advanced the version (another HA node, the
+// reconcile loop, a racing API call) makes this return [port.ErrConflict] instead
+// of silently clobbering that writer's change.
+//
+// The create case (expected version 0) relies on the unique index on
+// metadata.instanceUid: if the agent already exists, the version filter misses and
+// the upsert attempts an insert that the unique index rejects as a duplicate key,
+// which is surfaced as a conflict rather than a duplicate document.
 func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent) error {
-	entity := entity.AgentFromDomain(agent)
+	expected := agent.Metadata.ResourceVersion
+	next := expected + 1
 
-	err := a.common.put(ctx, entity)
+	doc := entity.AgentFromDomain(agent)
+	doc.Metadata.ResourceVersion = next
+
+	filter := bson.M{
+		entity.AgentKeyFieldName: a.common.KeyQueryFunc(agent.Metadata.InstanceUID),
+		resourceVersionFieldName: expected,
+	}
+
+	result, err := a.collection.ReplaceOne(ctx, filter, doc, options.Replace().SetUpsert(expected == 0))
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return fmt.Errorf("%w: agent %s was created concurrently", port.ErrConflict, agent.Metadata.InstanceUID)
+		}
+
 		return fmt.Errorf("failed to put agent to persistence: %w", err)
 	}
+
+	// No matched (and not freshly upserted) document means the version filter did not
+	// find the expected version — another writer advanced it (or deleted the agent).
+	if result.MatchedCount == 0 && result.UpsertedCount == 0 {
+		return fmt.Errorf("%w: agent %s was modified concurrently", port.ErrConflict, agent.Metadata.InstanceUID)
+	}
+
+	agent.Metadata.ResourceVersion = next
 
 	return nil
 }
@@ -458,15 +499,32 @@ func (a *AgentRepository) countAgents(ctx context.Context, filter bson.M) (int64
 // ensureIndexes creates necessary indexes for the agent collection.
 func (a *AgentRepository) ensureIndexes(ctx context.Context) {
 	//exhaustruct:ignore
-	indexModel := mongo.IndexModel{
+	searchIndex := mongo.IndexModel{
 		Keys: bson.D{
 			{Key: "metadata.instanceUidString", Value: 1},
 		},
 	}
 
-	_, err := a.collection.Indexes().CreateOne(ctx, indexModel)
+	_, err := a.collection.Indexes().CreateOne(ctx, searchIndex)
 	if err != nil {
 		a.logger.Warn("failed to create index for instanceUidString", slog.String("error", err.Error()))
+	}
+
+	// Unique index on the logical key. Besides preventing duplicate agent documents,
+	// it is what makes PutAgent's optimistic-concurrency create path correct: a racing
+	// insert for an already-existing instanceUid is rejected as a duplicate key (mapped
+	// to port.ErrConflict) instead of silently producing a second document.
+	//exhaustruct:ignore
+	uniqueKeyIndex := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: entity.AgentKeyFieldName, Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err = a.collection.Indexes().CreateOne(ctx, uniqueKeyIndex)
+	if err != nil {
+		a.logger.Warn("failed to create unique index for instanceUid", slog.String("error", err.Error()))
 	}
 }
 

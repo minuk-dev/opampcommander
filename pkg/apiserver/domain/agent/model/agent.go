@@ -307,6 +307,15 @@ type AgentMetadata struct {
 	// Defaults to "default" if not specified.
 	Namespace string
 
+	// ResourceVersion is an optimistic-concurrency token. It is 0 for an agent that
+	// has never been persisted and is incremented by the persistence layer on every
+	// successful write. A write only succeeds if the stored version still equals the
+	// version this in-memory copy was loaded with; otherwise the persistence layer
+	// returns port.ErrConflict so a concurrent writer (another HA node, the reconcile
+	// loop, an API call) cannot be silently clobbered. Callers must not set this by
+	// hand — load via GetAgent, mutate, then SaveAgent.
+	ResourceVersion int64
+
 	// Description is a agent description defined in the opamp protocol.
 	// It is set by the agent and should not change between restarts of the agent.
 	// It can be changed by the agent at any time.
@@ -1273,10 +1282,11 @@ func (a *Agent) Clone() *Agent {
 
 func (a *Agent) cloneMetadata() AgentMetadata {
 	metadata := AgentMetadata{
-		InstanceUID:  a.Metadata.InstanceUID,
-		Namespace:    a.Metadata.Namespace,
-		Description:  a.cloneDescription(),
-		Capabilities: a.Metadata.Capabilities,
+		InstanceUID:     a.Metadata.InstanceUID,
+		Namespace:       a.Metadata.Namespace,
+		ResourceVersion: a.Metadata.ResourceVersion,
+		Description:     a.cloneDescription(),
+		Capabilities:    a.Metadata.Capabilities,
 		CustomCapabilities: AgentCustomCapabilities{
 			Capabilities: cloneStringSlice(a.Metadata.CustomCapabilities.Capabilities),
 		},
