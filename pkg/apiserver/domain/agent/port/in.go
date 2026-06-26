@@ -140,10 +140,22 @@ type EndpointUsecase interface {
 	ListEndpoints(
 		ctx context.Context, namespace string, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.Endpoint], error)
-	// SaveEndpoint saves the endpoint.
+	// SaveEndpoint persists the endpoint as-is without applying lifecycle rules.
+	// Application flows should prefer CreateEndpoint/UpdateEndpoint.
 	SaveEndpoint(
 		ctx context.Context, endpoint *agentmodel.Endpoint,
 	) (*agentmodel.Endpoint, error)
+	// CreateEndpoint validates the endpoint identity, rejects creating over an
+	// existing endpoint, stamps the creation metadata (timestamp + actor), and
+	// persists it. It returns ErrInvalidArgument for an empty name and
+	// ErrResourceAlreadyExist when an endpoint with the same identity exists.
+	CreateEndpoint(ctx context.Context, endpoint *agentmodel.Endpoint,
+		actor string) (*agentmodel.Endpoint, error)
+	// UpdateEndpoint loads the stored endpoint, applies the mutable fields from the
+	// supplied endpoint while preserving immutable identity/lifecycle state, and
+	// persists the result.
+	UpdateEndpoint(ctx context.Context, namespace string, name string,
+		endpoint *agentmodel.Endpoint) (*agentmodel.Endpoint, error)
 	// DeleteEndpoint deletes the endpoint by its namespace and name.
 	DeleteEndpoint(ctx context.Context, namespace string, name string,
 		deletedAt time.Time, deletedBy string) error
