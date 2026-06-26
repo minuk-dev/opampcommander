@@ -22,6 +22,39 @@ func (c *Certificate) ToAgentCertificate() *AgentCertificate {
 	}
 }
 
+// MarkAsCreated stamps the creation timestamp and records a Created condition.
+func (c *Certificate) MarkAsCreated(createdAt time.Time, createdBy string) {
+	c.Metadata.CreatedAt = createdAt
+
+	c.Status.Conditions = append(c.Status.Conditions, model.Condition{
+		Type:               model.ConditionTypeCreated,
+		Status:             model.ConditionStatusTrue,
+		LastTransitionTime: createdAt,
+		Reason:             createdBy,
+		Message:            "Certificate created",
+	})
+}
+
+// MarkAsUpdated records an Updated condition for the certificate.
+func (c *Certificate) MarkAsUpdated(updatedAt time.Time, updatedBy string) {
+	c.Status.Conditions = append(c.Status.Conditions, model.Condition{
+		Type:               model.ConditionTypeUpdated,
+		Status:             model.ConditionStatusTrue,
+		LastTransitionTime: updatedAt,
+		Reason:             updatedBy,
+		Message:            "Certificate updated",
+	})
+}
+
+// ApplyUpdate copies the mutable fields from incoming into the receiver while
+// preserving immutable identity and lifecycle state (Name, Namespace, CreatedAt,
+// DeletedAt, and Status conditions). Callers should load the stored certificate,
+// ApplyUpdate the client-supplied one onto it, and persist the receiver.
+func (c *Certificate) ApplyUpdate(incoming *Certificate) {
+	c.Spec = incoming.Spec
+	c.Metadata.Attributes = incoming.Metadata.Attributes
+}
+
 // MarkAsDeleted marks the certificate as deleted.
 func (c *Certificate) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 	// Set the DeletedAt timestamp in metadata for soft delete filtering

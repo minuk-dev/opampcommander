@@ -11,21 +11,20 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate/filter"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ port.CertificateManageUsecase = (*Service)(nil)
 
-// Service is a service for managing certificates.
+// Service is a service for managing certificates. It maps between the HTTP DTOs
+// and the domain, resolves the acting user, and delegates all lifecycle rules
+// (stamping, immutable-field preservation) to the domain CertificateUsecase.
 type Service struct {
 	certificateUsecase agentport.CertificateUsecase
 	mapper             *helper.Mapper
-	sanityFilter       *filter.Sanity
 	clock              clock.Clock
 	logger             *slog.Logger
 }
@@ -40,7 +39,6 @@ func NewCertificateService(
 	return &Service{
 		certificateUsecase: certificateUsecase,
 		mapper:             helper.NewMapper(realClock, 0),
-		sanityFilter:       filter.NewSanity(),
 		clock:              realClock,
 		logger:             logger,
 	}
@@ -91,27 +89,7 @@ func (s *Service) CreateCertificate(
 ) (*v1.Certificate, error) {
 	domainModel := s.mapper.MapAPIToCertificate(apiModel)
 
-	now := s.clock.Now()
-
-	createdBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		createdBy = security.NewAnonymousUser()
-	}
-
-	// Set the CreatedAt timestamp in metadata
-	domainModel.Metadata.CreatedAt = now
-
-	domainModel.Status.Conditions = append(domainModel.Status.Conditions, model.Condition{
-		Type:               model.ConditionTypeCreated,
-		Status:             model.ConditionStatusTrue,
-		LastTransitionTime: now,
-		Reason:             createdBy.String(),
-		Message:            "Certificate created",
-	})
-
-	created, err := s.certificateUsecase.SaveCertificate(ctx, domainModel)
+	created, err := s.certificateUsecase.CreateCertificate(ctx, domainModel, s.actor(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create certificate: %w", err)
 	}
@@ -126,34 +104,9 @@ func (s *Service) UpdateCertificate(
 	name string,
 	certificate *v1.Certificate,
 ) (*v1.Certificate, error) {
-	existingDomainModel, err := s.certificateUsecase.GetCertificate(ctx, namespace, name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get existing certificate: %w", err)
-	}
-
 	domainModel := s.mapper.MapAPIToCertificate(certificate)
 
-	// Sanitize: preserve immutable fields from existing certificate
-	domainModel = s.sanityFilter.Sanitize(existingDomainModel, domainModel)
-
-	now := s.clock.Now()
-
-	updatedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		updatedBy = security.NewAnonymousUser()
-	}
-
-	domainModel.Status.Conditions = append(domainModel.Status.Conditions, model.Condition{
-		Type:               model.ConditionTypeUpdated,
-		Status:             model.ConditionStatusTrue,
-		LastTransitionTime: now,
-		Reason:             updatedBy.String(),
-		Message:            "Certificate updated",
-	})
-
-	updated, err := s.certificateUsecase.SaveCertificate(ctx, domainModel)
+	updated, err := s.certificateUsecase.UpdateCertificate(ctx, namespace, name, domainModel, s.actor(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("update certificate: %w", err)
 	}
@@ -167,19 +120,25 @@ func (s *Service) DeleteCertificate(
 	namespace string,
 	name string,
 ) error {
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
-	_, err = s.certificateUsecase.DeleteCertificate(
-		ctx, namespace, name, s.clock.Now(), deletedBy.String(),
+	_, err := s.certificateUsecase.DeleteCertificate(
+		ctx, namespace, name, s.clock.Now(), s.actor(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("delete certificate: %w", err)
 	}
 
 	return nil
+}
+
+// actor resolves the acting user from the request context, falling back to an
+// anonymous identity (and logging) when none is present.
+func (s *Service) actor(ctx context.Context) string {
+	user, err := security.GetUser(ctx)
+	if err != nil {
+		s.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
+		user = security.NewAnonymousUser()
+	}
+
+	return user.String()
 }

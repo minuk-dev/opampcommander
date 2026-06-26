@@ -254,8 +254,19 @@ type ContainerUsecase interface {
 type CertificateUsecase interface {
 	GetCertificate(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*agentmodel.Certificate, error)
+	// SaveCertificate persists the certificate as-is without applying lifecycle
+	// rules. Application flows should prefer CreateCertificate/UpdateCertificate.
 	SaveCertificate(ctx context.Context,
 		certificate *agentmodel.Certificate) (*agentmodel.Certificate, error)
+	// CreateCertificate stamps the creation metadata (timestamp + actor) and
+	// persists the certificate.
+	CreateCertificate(ctx context.Context, certificate *agentmodel.Certificate,
+		actor string) (*agentmodel.Certificate, error)
+	// UpdateCertificate loads the stored certificate, applies the mutable fields
+	// from the supplied certificate while preserving immutable identity/lifecycle
+	// state, stamps the update, and persists the result.
+	UpdateCertificate(ctx context.Context, namespace string, name string,
+		certificate *agentmodel.Certificate, actor string) (*agentmodel.Certificate, error)
 	ListCertificate(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Certificate], error)
 	DeleteCertificate(ctx context.Context, namespace string, name string,
