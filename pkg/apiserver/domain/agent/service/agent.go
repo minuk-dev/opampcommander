@@ -46,23 +46,20 @@ type AgentService struct {
 	clock clock.PassiveClock
 }
 
-// NewAgentService creates a new instance of AgentService with default cache configuration.
-// The agent default namespace falls back to agentmodel.DefaultNamespaceName.
-func NewAgentService(
-	agentPersistencePort agentport.AgentPersistencePort,
-	logger *slog.Logger,
-) *AgentService {
-	return NewAgentServiceWithConfig(agentPersistencePort, logger, AgentCacheConfig{
+// DefaultAgentCacheConfig returns the cache configuration used when no explicit
+// configuration is supplied (caching enabled with the default TTL/capacity).
+func DefaultAgentCacheConfig() AgentCacheConfig {
+	return AgentCacheConfig{
 		Enabled:     true,
 		TTL:         DefaultAgentCacheTTL,
 		MaxCapacity: DefaultAgentCacheCapacity,
-	}, agentmodel.DefaultNamespaceName)
+	}
 }
 
-// NewAgentServiceWithConfig creates a new instance of AgentService with custom cache configuration.
+// NewAgentService creates a new instance of AgentService.
 // defaultNamespace is the namespace assigned to newly-seen agents without a service.namespace;
 // an empty value falls back to agentmodel.DefaultNamespaceName.
-func NewAgentServiceWithConfig(
+func NewAgentService(
 	agentPersistencePort agentport.AgentPersistencePort,
 	logger *slog.Logger,
 	cacheConfig AgentCacheConfig,
