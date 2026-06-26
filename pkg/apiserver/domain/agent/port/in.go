@@ -280,6 +280,16 @@ type ServerIdentityProvider interface {
 	CurrentServerID() string
 }
 
+// LeaderElector decides whether this server instance is the elected leader for
+// cluster-singleton background work (currently the periodic agent-group reconcile),
+// so that an N-node deployment runs such work once per interval instead of N times.
+type LeaderElector interface {
+	// IsLeader reports whether the current server is the leader. Callers should fail
+	// open (run the work) when this returns an error, so a transient inability to
+	// determine leadership never strands singleton work.
+	IsLeader(ctx context.Context) (bool, error)
+}
+
 // ServerMessageUsecase is an interface that defines the methods for server message use cases.
 type ServerMessageUsecase interface {
 	// SendMessageToServerByServerID sends a message to the specified server.

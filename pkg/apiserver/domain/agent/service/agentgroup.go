@@ -59,6 +59,9 @@ type AgentGroupService struct {
 	// other domain usecases
 	agentUsecase agentport.AgentUsecase
 
+	// leaderElector gates the periodic reconcile loop so only one node runs it.
+	leaderElector agentport.LeaderElector
+
 	// internalStatus
 	changedAgentGroupCh chan *agentmodel.AgentGroup
 
@@ -73,6 +76,7 @@ func NewAgentGroupService(
 	agentRemoteConfigPersistencePort agentport.AgentRemoteConfigPersistencePort,
 	certificatePersistencePort agentport.CertificatePersistencePort,
 	agentUsecase agentport.AgentUsecase,
+	leaderElector agentport.LeaderElector,
 	logger *slog.Logger,
 ) *AgentGroupService {
 	return &AgentGroupService{
@@ -80,6 +84,7 @@ func NewAgentGroupService(
 		remoteConfigPersistencePort: agentRemoteConfigPersistencePort,
 		certificatePersistencePort:  certificatePersistencePort,
 		agentUsecase:                agentUsecase,
+		leaderElector:               leaderElector,
 		clock:                       clock.NewRealClock(),
 		logger:                      logger,
 		changedAgentGroupCh:         make(chan *agentmodel.AgentGroup, ChangedAgentGroupBufferSize),
@@ -472,7 +477,7 @@ func setAgentRemoteConfigs(agent *agentmodel.Agent, configs map[string]agentmode
 }
 
 func (s *AgentGroupService) runReconcileLoop(ctx context.Context) {
-	s.reconcileAll(ctx)
+	s.reconcileAllIfLeader(ctx)
 
 	ticker := time.NewTicker(DefaultReconcileInterval)
 	defer ticker.Stop()
@@ -482,9 +487,35 @@ func (s *AgentGroupService) runReconcileLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			s.reconcileAll(ctx)
+			s.reconcileAllIfLeader(ctx)
 		}
 	}
+}
+
+// reconcileAllIfLeader runs the full reconcile pass only when this node is the elected
+// leader, so an N-node deployment performs one reconcile per interval instead of N
+// concurrent full scans (and the write contention they cause). The event-driven path
+// (changedAgentGroupCh) is deliberately not gated: it must run on whichever node served
+// the change so propagation stays immediate.
+//
+// Leader determination fails open: if the elector errors, this node reconciles anyway
+// so a transient server-registry read error cannot strand reconciliation cluster-wide.
+func (s *AgentGroupService) reconcileAllIfLeader(ctx context.Context) {
+	isLeader, err := s.leaderElector.IsLeader(ctx)
+	if err != nil {
+		s.logger.Warn("reconcile loop: leader election failed, reconciling anyway",
+			slog.String("error", err.Error()))
+
+		isLeader = true
+	}
+
+	if !isLeader {
+		s.logger.Debug("reconcile loop: not the leader, skipping periodic reconcile")
+
+		return
+	}
+
+	s.reconcileAll(ctx)
 }
 
 func (s *AgentGroupService) propagateAgentGroupChangesToAgents(

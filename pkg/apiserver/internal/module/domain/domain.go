@@ -48,6 +48,7 @@ func New() fx.Option {
 			Identity[*agentservice.ServerService],
 			fx.As(new(agentport.ServerUsecase)),
 			fx.As(new(agentport.ServerMessageUsecase)),
+			fx.As(new(agentport.LeaderElector)),
 		),
 		agentservice.NewServerIdentityService,
 		fx.Annotate(
