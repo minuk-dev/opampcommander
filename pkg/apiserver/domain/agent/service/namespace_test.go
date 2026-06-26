@@ -233,6 +233,18 @@ func (f *nsFakeAgentRemoteConfigUsecase) SaveAgentRemoteConfig(
 	return nil, errNotImplemented
 }
 
+func (f *nsFakeAgentRemoteConfigUsecase) CreateAgentRemoteConfig(
+	context.Context, *agentmodel.AgentRemoteConfig, string,
+) (*agentmodel.AgentRemoteConfig, error) {
+	return nil, errNotImplemented
+}
+
+func (f *nsFakeAgentRemoteConfigUsecase) UpdateAgentRemoteConfig(
+	context.Context, string, string, *agentmodel.AgentRemoteConfig,
+) (*agentmodel.AgentRemoteConfig, error) {
+	return nil, errNotImplemented
+}
+
 func (f *nsFakeAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
 	context.Context, string, string, time.Time, string,
 ) error {

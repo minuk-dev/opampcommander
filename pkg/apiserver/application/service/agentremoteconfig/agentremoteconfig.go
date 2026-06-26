@@ -11,23 +11,24 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentremoteconfig/filter"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ port.AgentRemoteConfigManageUsecase = (*Service)(nil)
 
-// Service is a service for managing agent remote configs.
+// Service is a service for managing agent remote configs. It maps between the HTTP
+// DTOs and the domain, resolves the acting user, delegates lifecycle rules
+// (stamping, immutable-field preservation) to the domain AgentRemoteConfigUsecase,
+// and fans the post-write side effects (group propagation, endpoint detection) out
+// to the relevant domain usecases without blocking the request.
 type Service struct {
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase
 	mapper                   *helper.Mapper
-	sanityFilter             *filter.Sanity
 	clock                    clock.Clock
 	logger                   *slog.Logger
 }
@@ -46,7 +47,6 @@ func NewAgentRemoteConfigService(
 		agentGroupUsecase:        agentGroupUsecase,
 		endpointDetectionUsecase: endpointDetectionUsecase,
 		mapper:                   helper.NewMapper(realClock, 0),
-		sanityFilter:             filter.NewSanity(),
 		clock:                    realClock,
 		logger:                   logger,
 	}
@@ -106,33 +106,7 @@ func (s *Service) CreateAgentRemoteConfig(
 ) (*v1.AgentRemoteConfig, error) {
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
 
-	now := s.clock.Now()
-
-	createdBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		createdBy = security.NewAnonymousUser()
-	}
-
-	domainModel.Metadata.CreatedAt = now
-	domainModel.Status.Conditions = append(
-		domainModel.Status.Conditions,
-		model.Condition{
-			Type:               model.ConditionTypeCreated,
-			Status:             model.ConditionStatusTrue,
-			LastTransitionTime: now,
-			Reason:             createdBy.String(),
-			Message:            "Agent remote config created",
-		},
-	)
-
-	saved, err := s.agentRemoteConfigUsecase.SaveAgentRemoteConfig(
-		ctx, domainModel,
-	)
+	saved, err := s.agentRemoteConfigUsecase.CreateAgentRemoteConfig(ctx, domainModel, s.actor(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create agent remote config: %w", err)
 	}
@@ -150,18 +124,10 @@ func (s *Service) UpdateAgentRemoteConfig(
 	name string,
 	apiModel *v1.AgentRemoteConfig,
 ) (*v1.AgentRemoteConfig, error) {
-	existing, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(
-		ctx, namespace, name, nil,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("get existing agent remote config: %w", err)
-	}
-
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
-	domainModel = s.sanityFilter.Sanitize(existing, domainModel)
 
-	updated, err := s.agentRemoteConfigUsecase.SaveAgentRemoteConfig(
-		ctx, domainModel,
+	updated, err := s.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
+		ctx, namespace, name, domainModel,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update agent remote config: %w", err)
@@ -179,18 +145,8 @@ func (s *Service) DeleteAgentRemoteConfig(
 	namespace string,
 	name string,
 ) error {
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
-	err = s.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
-		ctx, namespace, name, s.clock.Now(), deletedBy.String(),
+	err := s.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
+		ctx, namespace, name, s.clock.Now(), s.actor(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("delete agent remote config: %w", err)
@@ -199,6 +155,22 @@ func (s *Service) DeleteAgentRemoteConfig(
 	s.triggerGroupPropagation(ctx, namespace, name)
 
 	return nil
+}
+
+// actor resolves the acting user from the request context, falling back to an
+// anonymous identity (and logging) when none is present.
+func (s *Service) actor(ctx context.Context) string {
+	user, err := security.GetUser(ctx)
+	if err != nil {
+		s.logger.Warn(
+			"failed to get user from context",
+			slog.String("error", err.Error()),
+		)
+
+		user = security.NewAnonymousUser()
+	}
+
+	return user.String()
 }
 
 // triggerGroupPropagation asks the agent group service to re-apply any groups in the

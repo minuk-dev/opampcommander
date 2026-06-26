@@ -127,10 +127,21 @@ type AgentRemoteConfigUsecase interface {
 	ListAgentRemoteConfigs(
 		ctx context.Context, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error)
-	// SaveAgentRemoteConfig saves the agent remote config.
+	// SaveAgentRemoteConfig persists the agent remote config as-is without applying
+	// lifecycle rules. Application flows should prefer
+	// CreateAgentRemoteConfig/UpdateAgentRemoteConfig.
 	SaveAgentRemoteConfig(
 		ctx context.Context, agentRemoteConfig *agentmodel.AgentRemoteConfig,
 	) (*agentmodel.AgentRemoteConfig, error)
+	// CreateAgentRemoteConfig stamps the creation metadata (timestamp + actor) and
+	// persists the agent remote config.
+	CreateAgentRemoteConfig(ctx context.Context, agentRemoteConfig *agentmodel.AgentRemoteConfig,
+		actor string) (*agentmodel.AgentRemoteConfig, error)
+	// UpdateAgentRemoteConfig loads the stored agent remote config, applies the
+	// mutable fields from the supplied config while preserving immutable
+	// identity/lifecycle state, and persists the result.
+	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,
+		agentRemoteConfig *agentmodel.AgentRemoteConfig) (*agentmodel.AgentRemoteConfig, error)
 	// DeleteAgentRemoteConfig deletes the agent remote config by its namespace and name.
 	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string,
 		deletedAt time.Time, deletedBy string) error
