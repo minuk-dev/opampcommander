@@ -510,22 +510,9 @@ func (a *AgentRepository) ensureIndexes(ctx context.Context) {
 		a.logger.Warn("failed to create index for instanceUidString", slog.String("error", err.Error()))
 	}
 
-	// Unique index on the logical key. Besides preventing duplicate agent documents,
-	// it is what makes PutAgent's optimistic-concurrency create path correct: a racing
-	// insert for an already-existing instanceUid is rejected as a duplicate key (mapped
-	// to port.ErrConflict) instead of silently producing a second document.
-	//exhaustruct:ignore
-	uniqueKeyIndex := mongo.IndexModel{
-		Keys: bson.D{
-			{Key: entity.AgentKeyFieldName, Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
-	}
-
-	_, err = a.collection.Indexes().CreateOne(ctx, uniqueKeyIndex)
-	if err != nil {
-		a.logger.Warn("failed to create unique index for instanceUid", slog.String("error", err.Error()))
-	}
+	// The unique index on metadata.instanceUid — which PutAgent's optimistic-concurrency
+	// create path relies on — is owned by the centralized EnsureSchema (mongodb.go) so it
+	// is not declared twice with conflicting options.
 }
 
 // prefixUpperBound returns the exclusive upper bound for a prefix range scan: the
