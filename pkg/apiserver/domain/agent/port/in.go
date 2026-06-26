@@ -100,8 +100,18 @@ type AgentPackageUsecase interface {
 	// ListAgentPackages lists all agent packages.
 	ListAgentPackages(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentPackage], error)
-	// SaveAgentPackage saves the agent package.
+	// SaveAgentPackage persists the agent package as-is without applying lifecycle
+	// rules. Application flows should prefer CreateAgentPackage/UpdateAgentPackage.
 	SaveAgentPackage(ctx context.Context,
+		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
+	// CreateAgentPackage stamps the creation metadata (timestamp + actor) and
+	// persists the agent package.
+	CreateAgentPackage(ctx context.Context, agentPackage *agentmodel.AgentPackage,
+		actor string) (*agentmodel.AgentPackage, error)
+	// UpdateAgentPackage loads the stored agent package, applies the mutable fields
+	// from the supplied agent package while preserving immutable identity/lifecycle
+	// state, and persists the result.
+	UpdateAgentPackage(ctx context.Context, namespace string, name string,
 		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
 	// DeleteAgentPackage deletes the agent package by its namespace and name.
 	DeleteAgentPackage(ctx context.Context, namespace string, name string,

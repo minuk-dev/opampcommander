@@ -11,7 +11,6 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage/filter"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
@@ -20,11 +19,12 @@ import (
 
 var _ port.AgentPackageManageUsecase = (*Service)(nil)
 
-// Service is a service for managing agent packages.
+// Service is a service for managing agent packages. It maps between the HTTP DTOs
+// and the domain, resolves the acting user, and delegates all lifecycle rules
+// (stamping, immutable-field preservation) to the domain AgentPackageUsecase.
 type Service struct {
 	agentpackageUsecase agentport.AgentPackageUsecase
 	mapper              *helper.Mapper
-	sanityFilter        *filter.Sanity
 	clock               clock.Clock
 	logger              *slog.Logger
 }
@@ -39,7 +39,6 @@ func NewAgentPackageService(
 	return &Service{
 		agentpackageUsecase: agentpackageUsecase,
 		mapper:              helper.NewMapper(realClock, 0),
-		sanityFilter:        filter.NewSanity(),
 		clock:               realClock,
 		logger:              logger,
 	}
@@ -89,19 +88,8 @@ func (a *Service) CreateAgentPackage(
 	apiModel *v1.AgentPackage,
 ) (*v1.AgentPackage, error) {
 	domainModel := a.mapper.MapAPIToAgentPackage(apiModel)
-	// Set the created condition with createdBy information
-	now := a.clock.Now()
 
-	createdBy, err := security.GetUser(ctx)
-	if err != nil {
-		a.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		createdBy = security.NewAnonymousUser()
-	}
-
-	domainModel.MarkAsCreated(now, createdBy.String())
-
-	created, err := a.agentpackageUsecase.SaveAgentPackage(ctx, domainModel)
+	created, err := a.agentpackageUsecase.CreateAgentPackage(ctx, domainModel, a.actor(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create agent package: %w", err)
 	}
@@ -116,17 +104,9 @@ func (a *Service) UpdateAgentPackage(
 	name string,
 	agentPackage *v1.AgentPackage,
 ) (*v1.AgentPackage, error) {
-	existingDomainModel, err := a.agentpackageUsecase.GetAgentPackage(ctx, namespace, name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get existing agent package: %w", err)
-	}
-
 	domainModel := a.mapper.MapAPIToAgentPackage(agentPackage)
 
-	// Sanitize: preserve immutable fields from existing agent package
-	domainModel = a.sanityFilter.Sanitize(existingDomainModel, domainModel)
-
-	updated, err := a.agentpackageUsecase.SaveAgentPackage(ctx, domainModel)
+	updated, err := a.agentpackageUsecase.UpdateAgentPackage(ctx, namespace, name, domainModel)
 	if err != nil {
 		return nil, fmt.Errorf("update agent package: %w", err)
 	}
@@ -140,19 +120,25 @@ func (a *Service) DeleteAgentPackage(
 	namespace string,
 	name string,
 ) error {
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		a.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
-	err = a.agentpackageUsecase.DeleteAgentPackage(
-		ctx, namespace, name, a.clock.Now(), deletedBy.String(),
+	err := a.agentpackageUsecase.DeleteAgentPackage(
+		ctx, namespace, name, a.clock.Now(), a.actor(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("delete agent package: %w", err)
 	}
 
 	return nil
+}
+
+// actor resolves the acting user from the request context, falling back to an
+// anonymous identity (and logging) when none is present.
+func (a *Service) actor(ctx context.Context) string {
+	user, err := security.GetUser(ctx)
+	if err != nil {
+		a.logger.Warn("failed to get user from context", slog.String("error", err.Error()))
+
+		user = security.NewAnonymousUser()
+	}
+
+	return user.String()
 }

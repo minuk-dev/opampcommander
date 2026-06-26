@@ -27,6 +27,15 @@ func (a *AgentPackage) MarkAsCreated(createdAt time.Time, createdBy string) {
 	})
 }
 
+// ApplyUpdate copies the mutable fields from incoming into the receiver while
+// preserving immutable identity and lifecycle state (Name, Namespace, CreatedAt,
+// DeletedAt, and Status conditions). Callers should load the stored agent
+// package, ApplyUpdate the client-supplied one onto it, and persist the receiver.
+func (a *AgentPackage) ApplyUpdate(incoming *AgentPackage) {
+	a.Spec = incoming.Spec
+	a.Metadata.Attributes = incoming.Metadata.Attributes
+}
+
 // MarkAsDeleted marks the agent package as deleted by setting the DeletedAt timestamp.
 func (a *AgentPackage) MarkAsDeleted(deletedAt time.Time, deletedBy string) {
 	// Set the DeletedAt timestamp in metadata for soft delete filtering

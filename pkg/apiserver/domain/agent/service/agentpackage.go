@@ -8,20 +8,29 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ agentport.AgentPackageUsecase = (*AgentPackageService)(nil)
 
-// AgentPackageService provides operations for managing agent packages.
+// AgentPackageService provides operations for managing agent packages, including
+// the creation/update lifecycle rules (stamping and immutable-field preservation).
 type AgentPackageService struct {
 	persistence agentport.AgentPackagePersistencePort
+	clock       clock.Clock
 }
 
 // NewAgentPackageService creates a new AgentPackageService.
 func NewAgentPackageService(persistence agentport.AgentPackagePersistencePort) *AgentPackageService {
 	return &AgentPackageService{
 		persistence: persistence,
+		clock:       clock.NewRealClock(),
 	}
+}
+
+// SetClock overrides the clock used for lifecycle timestamps. Intended for tests.
+func (s *AgentPackageService) SetClock(c clock.Clock) {
+	s.clock = c
 }
 
 // GetAgentPackage implements [agentport.AgentPackageUsecase].
@@ -63,6 +72,44 @@ func (s *AgentPackageService) SaveAgentPackage(
 	}
 
 	return saved, nil
+}
+
+// CreateAgentPackage implements [agentport.AgentPackageUsecase].
+func (s *AgentPackageService) CreateAgentPackage(
+	ctx context.Context,
+	agentPackage *agentmodel.AgentPackage,
+	actor string,
+) (*agentmodel.AgentPackage, error) {
+	agentPackage.MarkAsCreated(s.clock.Now(), actor)
+
+	created, err := s.persistence.PutAgentPackage(ctx, agentPackage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create agent package: %w", err)
+	}
+
+	return created, nil
+}
+
+// UpdateAgentPackage implements [agentport.AgentPackageUsecase].
+func (s *AgentPackageService) UpdateAgentPackage(
+	ctx context.Context,
+	namespace string,
+	name string,
+	agentPackage *agentmodel.AgentPackage,
+) (*agentmodel.AgentPackage, error) {
+	existing, err := s.persistence.GetAgentPackage(ctx, namespace, name, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent package for update: %w", err)
+	}
+
+	existing.ApplyUpdate(agentPackage)
+
+	updated, err := s.persistence.PutAgentPackage(ctx, existing)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update agent package: %w", err)
+	}
+
+	return updated, nil
 }
 
 // DeleteAgentPackage implements [agentport.AgentPackageUsecase].
