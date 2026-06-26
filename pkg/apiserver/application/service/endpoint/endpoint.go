@@ -3,7 +3,6 @@ package endpoint
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -12,22 +11,21 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint/filter"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ port.EndpointManageUsecase = (*Service)(nil)
 
-// Service is a service for managing endpoints.
+// Service is a service for managing endpoints. It maps between the HTTP DTOs and
+// the domain, resolves the acting user, and delegates all lifecycle rules
+// (identity validation, uniqueness, stamping, immutable-field preservation) to the
+// domain EndpointUsecase.
 type Service struct {
 	endpointUsecase agentport.EndpointUsecase
 	mapper          *helper.Mapper
-	sanityFilter    *filter.Sanity
 	clock           clock.Clock
 	logger          *slog.Logger
 }
@@ -42,7 +40,6 @@ func NewEndpointService(
 	return &Service{
 		endpointUsecase: endpointUsecase,
 		mapper:          helper.NewMapper(realClock, 0),
-		sanityFilter:    filter.NewSanity(),
 		clock:           realClock,
 		logger:          logger,
 	}
@@ -97,45 +94,7 @@ func (s *Service) CreateEndpoint(
 ) (*v1.Endpoint, error) {
 	domainModel := s.mapper.MapAPIToEndpoint(apiModel)
 
-	if domainModel.Metadata.Name == "" {
-		return nil, fmt.Errorf("%w: endpoint name must not be empty", domainport.ErrInvalidArgument)
-	}
-
-	// Reject creating over an existing endpoint instead of silently upserting it.
-	_, err := s.endpointUsecase.GetEndpoint(ctx, domainModel.Metadata.Namespace, domainModel.Metadata.Name, nil)
-	switch {
-	case err == nil:
-		return nil, fmt.Errorf("%w: endpoint %q in namespace %q",
-			domainport.ErrResourceAlreadyExist, domainModel.Metadata.Name, domainModel.Metadata.Namespace)
-	case !errors.Is(err, domainport.ErrResourceNotExist):
-		return nil, fmt.Errorf("check existing endpoint: %w", err)
-	}
-
-	now := s.clock.Now()
-
-	createdBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		createdBy = security.NewAnonymousUser()
-	}
-
-	domainModel.Metadata.CreatedAt = now
-	domainModel.Status.Conditions = append(
-		domainModel.Status.Conditions,
-		model.Condition{
-			Type:               model.ConditionTypeCreated,
-			Status:             model.ConditionStatusTrue,
-			LastTransitionTime: now,
-			Reason:             createdBy.String(),
-			Message:            "Endpoint created",
-		},
-	)
-
-	saved, err := s.endpointUsecase.SaveEndpoint(ctx, domainModel)
+	saved, err := s.endpointUsecase.CreateEndpoint(ctx, domainModel, s.actor(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create endpoint: %w", err)
 	}
@@ -150,15 +109,9 @@ func (s *Service) UpdateEndpoint(
 	name string,
 	apiModel *v1.Endpoint,
 ) (*v1.Endpoint, error) {
-	existing, err := s.endpointUsecase.GetEndpoint(ctx, namespace, name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get existing endpoint: %w", err)
-	}
-
 	domainModel := s.mapper.MapAPIToEndpoint(apiModel)
-	domainModel = s.sanityFilter.Sanitize(existing, domainModel)
 
-	updated, err := s.endpointUsecase.SaveEndpoint(ctx, domainModel)
+	updated, err := s.endpointUsecase.UpdateEndpoint(ctx, namespace, name, domainModel)
 	if err != nil {
 		return nil, fmt.Errorf("update endpoint: %w", err)
 	}
@@ -172,22 +125,28 @@ func (s *Service) DeleteEndpoint(
 	namespace string,
 	name string,
 ) error {
-	deletedBy, err := security.GetUser(ctx)
-	if err != nil {
-		s.logger.Warn(
-			"failed to get user from context",
-			slog.String("error", err.Error()),
-		)
-
-		deletedBy = security.NewAnonymousUser()
-	}
-
-	err = s.endpointUsecase.DeleteEndpoint(
-		ctx, namespace, name, s.clock.Now(), deletedBy.String(),
+	err := s.endpointUsecase.DeleteEndpoint(
+		ctx, namespace, name, s.clock.Now(), s.actor(ctx),
 	)
 	if err != nil {
 		return fmt.Errorf("delete endpoint: %w", err)
 	}
 
 	return nil
+}
+
+// actor resolves the acting user from the request context, falling back to an
+// anonymous identity (and logging) when none is present.
+func (s *Service) actor(ctx context.Context) string {
+	user, err := security.GetUser(ctx)
+	if err != nil {
+		s.logger.Warn(
+			"failed to get user from context",
+			slog.String("error", err.Error()),
+		)
+
+		user = security.NewAnonymousUser()
+	}
+
+	return user.String()
 }

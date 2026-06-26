@@ -65,6 +65,22 @@ func (f *fakeEndpointUsecase) SaveEndpoint(
 	return endpoint, nil
 }
 
+func (f *fakeEndpointUsecase) CreateEndpoint(
+	_ context.Context, endpoint *agentmodel.Endpoint, _ string,
+) (*agentmodel.Endpoint, error) {
+	f.store[key(endpoint.Metadata.Namespace, endpoint.Metadata.Name)] = endpoint
+
+	return endpoint, nil
+}
+
+func (f *fakeEndpointUsecase) UpdateEndpoint(
+	_ context.Context, namespace, name string, endpoint *agentmodel.Endpoint,
+) (*agentmodel.Endpoint, error) {
+	f.store[key(namespace, name)] = endpoint
+
+	return endpoint, nil
+}
+
 func (f *fakeEndpointUsecase) DeleteEndpoint(
 	_ context.Context, namespace, name string, deletedAt time.Time, deletedBy string,
 ) error {

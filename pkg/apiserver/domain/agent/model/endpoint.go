@@ -153,6 +153,28 @@ func (e *Endpoint) IsDeleted() bool {
 	return e.Metadata.DeletedAt != nil
 }
 
+// MarkAsCreated stamps the creation timestamp and records a Created condition.
+func (e *Endpoint) MarkAsCreated(createdAt time.Time, createdBy string) {
+	e.Metadata.CreatedAt = createdAt
+	e.Status.Conditions = append(e.Status.Conditions, model.Condition{
+		Type:               model.ConditionTypeCreated,
+		Status:             model.ConditionStatusTrue,
+		LastTransitionTime: createdAt,
+		Reason:             createdBy,
+		Message:            "Endpoint created",
+	})
+}
+
+// ApplyUpdate copies the mutable fields from incoming into the receiver while
+// preserving immutable identity and lifecycle state (Name, Namespace, CreatedAt,
+// DeletedAt, and Status conditions). Callers should load the stored endpoint,
+// ApplyUpdate the client-supplied one onto it, and persist the receiver — this
+// keeps the identity intact and avoids forking a phantom record on update.
+func (e *Endpoint) ApplyUpdate(incoming *Endpoint) {
+	e.Spec = incoming.Spec
+	e.Metadata.Attributes = incoming.Metadata.Attributes
+}
+
 // MarkDeleted marks the endpoint as deleted by setting DeletedAt and adding a
 // deleted condition.
 func (e *Endpoint) MarkDeleted(deletedAt time.Time, deletedBy string) {
