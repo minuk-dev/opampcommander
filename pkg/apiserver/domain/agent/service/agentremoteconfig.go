@@ -8,17 +8,22 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ agentport.AgentRemoteConfigUsecase = (*AgentRemoteConfigService)(nil)
 
-// AgentRemoteConfigService provides operations for managing agent remote configs.
+// AgentRemoteConfigService provides operations for managing agent remote configs,
+// including the creation/update lifecycle rules (stamping and immutable-field
+// preservation).
 type AgentRemoteConfigService struct {
 	persistence agentport.AgentRemoteConfigPersistencePort
 
 	// other domain usecases, used to re-run a config's side effects on reconcile.
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
+
+	clock clock.Clock
 }
 
 // NewAgentRemoteConfigService creates a new AgentRemoteConfigService.
@@ -31,7 +36,13 @@ func NewAgentRemoteConfigService(
 		persistence:              persistence,
 		endpointDetectionUsecase: endpointDetectionUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
+		clock:                    clock.NewRealClock(),
 	}
+}
+
+// SetClock overrides the clock used for lifecycle timestamps. Intended for tests.
+func (s *AgentRemoteConfigService) SetClock(c clock.Clock) {
+	s.clock = c
 }
 
 // GetAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
@@ -79,6 +90,44 @@ func (s *AgentRemoteConfigService) SaveAgentRemoteConfig(
 
 	// Convert resource to the simpler AgentRemoteConfig type
 	return resource, nil
+}
+
+// CreateAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
+func (s *AgentRemoteConfigService) CreateAgentRemoteConfig(
+	ctx context.Context,
+	agentRemoteConfig *agentmodel.AgentRemoteConfig,
+	actor string,
+) (*agentmodel.AgentRemoteConfig, error) {
+	agentRemoteConfig.MarkAsCreated(s.clock.Now(), actor)
+
+	created, err := s.persistence.PutAgentRemoteConfig(ctx, agentRemoteConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create agent remote config: %w", err)
+	}
+
+	return created, nil
+}
+
+// UpdateAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
+func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
+	ctx context.Context,
+	namespace string,
+	name string,
+	agentRemoteConfig *agentmodel.AgentRemoteConfig,
+) (*agentmodel.AgentRemoteConfig, error) {
+	existing, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent remote config for update: %w", err)
+	}
+
+	existing.ApplyUpdate(agentRemoteConfig)
+
+	updated, err := s.persistence.PutAgentRemoteConfig(ctx, existing)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update agent remote config: %w", err)
+	}
+
+	return updated, nil
 }
 
 // DeleteAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].

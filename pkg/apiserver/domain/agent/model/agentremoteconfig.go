@@ -41,6 +41,28 @@ func (arc *AgentRemoteConfig) IsDeleted() bool {
 	return arc.Metadata.DeletedAt != nil
 }
 
+// MarkAsCreated stamps the creation timestamp and records a Created condition.
+func (arc *AgentRemoteConfig) MarkAsCreated(createdAt time.Time, createdBy string) {
+	arc.Metadata.CreatedAt = createdAt
+	arc.Status.Conditions = append(arc.Status.Conditions, model.Condition{
+		Type:               model.ConditionTypeCreated,
+		Status:             model.ConditionStatusTrue,
+		LastTransitionTime: createdAt,
+		Reason:             createdBy,
+		Message:            "Agent remote config created",
+	})
+}
+
+// ApplyUpdate copies the mutable fields from incoming into the receiver while
+// preserving immutable identity and lifecycle state (Name, Namespace, CreatedAt,
+// DeletedAt, and Status conditions). Callers should load the stored config,
+// ApplyUpdate the client-supplied one onto it, and persist the receiver — this
+// keeps the identity intact and avoids forking a phantom record on update.
+func (arc *AgentRemoteConfig) ApplyUpdate(incoming *AgentRemoteConfig) {
+	arc.Spec = incoming.Spec
+	arc.Metadata.Attributes = incoming.Metadata.Attributes
+}
+
 // MarkDeleted marks the agent remote config as deleted by adding a deleted condition.
 func (arc *AgentRemoteConfig) MarkDeleted(deletedAt time.Time, deletedBy string) {
 	arc.Metadata.DeletedAt = &deletedAt
