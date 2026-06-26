@@ -62,6 +62,27 @@ type AgentNotificationUsecase interface {
 	NotifyAgentUpdated(ctx context.Context, agent *agentmodel.Agent) error
 }
 
+// AgentCacheInvalidationPublisher broadcasts agent cache invalidations to peer servers.
+//
+// It is used by external (API-driven) write paths so that a write made on one node is
+// not served stale from another node's read cache. The heartbeat-driven persistence path
+// deliberately does NOT use this — that volume would flood the cluster, and its cross-node
+// staleness is bounded by the cache TTL and harmless.
+type AgentCacheInvalidationPublisher interface {
+	// BroadcastAgentCacheInvalidation asks every other alive server to drop the listed
+	// agents from its cache. It is best-effort: delivery failures are logged, not returned
+	// as hard errors, since the cache entry expires on its own within the TTL regardless.
+	BroadcastAgentCacheInvalidation(ctx context.Context, instanceUIDs ...uuid.UUID) error
+}
+
+// AgentCacheInvalidator drops a single agent from the local in-process cache. It is the
+// receiving end of [AgentCacheInvalidationPublisher]: a peer's broadcast resolves to this.
+type AgentCacheInvalidator interface {
+	// InvalidateCache removes the agent from the local cache, forcing the next read to
+	// go to persistence.
+	InvalidateCache(instanceUID uuid.UUID)
+}
+
 // NamespaceUsecase is an interface that defines the methods for namespace use cases.
 type NamespaceUsecase interface {
 	// GetNamespace retrieves a namespace by its name.

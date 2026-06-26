@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	_ agentport.ServerUsecase = (*ServerService)(nil)
-	_ agentport.LeaderElector = (*ServerService)(nil)
+	_ agentport.ServerUsecase                   = (*ServerService)(nil)
+	_ agentport.LeaderElector                   = (*ServerService)(nil)
+	_ agentport.AgentCacheInvalidationPublisher = (*ServerService)(nil)
 
 	// ErrNoCurrentServerID is returned by IsLeader when the current server has no
 	// identity, so leadership cannot be determined.
@@ -47,6 +48,7 @@ type ServerService struct {
 	serverIdentityProvider  agentport.ServerIdentityProvider
 	connectionUsecase       agentport.ConnectionUsecase
 	agentUsecase            agentport.AgentUsecase
+	agentCacheInvalidator   agentport.AgentCacheInvalidator
 }
 
 // NewServerService creates a new instance of the ServerService.
@@ -58,6 +60,7 @@ func NewServerService(
 	serverIdentityProvider agentport.ServerIdentityProvider,
 	connectionUsecase agentport.ConnectionUsecase,
 	agentUsecase agentport.AgentUsecase,
+	agentCacheInvalidator agentport.AgentCacheInvalidator,
 ) *ServerService {
 	serverCache := ttlcache.New[string, *agentmodel.Server](
 		ttlcache.WithTTL[string, *agentmodel.Server](DefaultServerCacheTTL),
@@ -80,6 +83,7 @@ func NewServerService(
 		heartbeatTimeout:        DefaultHeartbeatTimeout,
 		connectionUsecase:       connectionUsecase,
 		agentUsecase:            agentUsecase,
+		agentCacheInvalidator:   agentCacheInvalidator,
 	}
 }
 
@@ -244,6 +248,59 @@ func (s *ServerService) SendMessageToServer(
 	return nil
 }
 
+// BroadcastAgentCacheInvalidation implements agentport.AgentCacheInvalidationPublisher.
+//
+// It asks every other alive server to drop the listed agents from its cache. The current
+// server is skipped (its cache was already refreshed by the write that triggered this).
+// Delivery is best-effort and per-peer: a failure to reach one peer is logged and does not
+// stop the others or fail the call, because the stale entry expires within the cache TTL
+// regardless.
+func (s *ServerService) BroadcastAgentCacheInvalidation(
+	ctx context.Context,
+	instanceUIDs ...uuid.UUID,
+) error {
+	if len(instanceUIDs) == 0 {
+		return nil
+	}
+
+	servers, err := s.ListServers(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list servers for cache invalidation: %w", err)
+	}
+
+	currentID := ""
+	if s.serverIdentityProvider != nil {
+		currentID = s.serverIdentityProvider.CurrentServerID()
+	}
+
+	for _, server := range servers {
+		if server.ID == currentID {
+			continue
+		}
+
+		message := serverevent.Message{
+			Source: currentID,
+			Target: server.ID,
+			Type:   serverevent.MessageTypeInvalidateAgentCache,
+			Payload: serverevent.MessagePayload{
+				MessageForServerToAgent: nil,
+				MessageForInvalidateAgentCache: &serverevent.MessageForInvalidateAgentCache{
+					AgentInstanceUIDs: instanceUIDs,
+				},
+			},
+		}
+
+		sendErr := s.SendMessageToServer(ctx, server, message)
+		if sendErr != nil {
+			s.logger.Warn("failed to broadcast cache invalidation to peer",
+				slog.String("peerServerID", server.ID),
+				slog.String("error", sendErr.Error()))
+		}
+	}
+
+	return nil
+}
+
 func (s *ServerService) loopForReceivingMessages(ctx context.Context) error {
 	// StartReceiver is a blocking call.
 	// So, we don't need a loop here.
@@ -260,11 +317,38 @@ func (s *ServerService) handleServerEvent(ctx context.Context, event *servereven
 	switch event.Type {
 	case serverevent.MessageTypeSendServerToAgent:
 		return s.handleSendServerToAgentEvent(ctx, event)
+	case serverevent.MessageTypeInvalidateAgentCache:
+		return s.handleInvalidateAgentCacheEvent(event)
 	default:
 		s.logger.Warn("unknown server event type", slog.String("eventType", event.Type.String()))
 
 		return nil
 	}
+}
+
+// handleInvalidateAgentCacheEvent drops the listed agents from this server's local cache
+// so a write made on another node is not served stale from here. It never errors: a
+// missing/empty payload is logged and ignored, since a stale entry expires on its own.
+func (s *ServerService) handleInvalidateAgentCacheEvent(event *serverevent.Message) error {
+	if event.Payload.MessageForInvalidateAgentCache == nil {
+		s.logger.Warn("invalidate-agent-cache event has no payload")
+
+		return nil
+	}
+
+	uids := event.Payload.AgentInstanceUIDs
+	if len(uids) == 0 {
+		return nil
+	}
+
+	for _, instanceUID := range uids {
+		s.agentCacheInvalidator.InvalidateCache(instanceUID)
+	}
+
+	s.logger.Debug("invalidated agents from local cache on peer request",
+		slog.Int("agentCount", len(uids)))
+
+	return nil
 }
 
 var (

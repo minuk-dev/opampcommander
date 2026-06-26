@@ -17,7 +17,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
-var _ agentport.AgentUsecase = (*AgentService)(nil)
+var (
+	_ agentport.AgentUsecase          = (*AgentService)(nil)
+	_ agentport.AgentCacheInvalidator = (*AgentService)(nil)
+)
 
 const (
 	// DefaultAgentCacheTTL is the default time-to-live for agent cache entries.

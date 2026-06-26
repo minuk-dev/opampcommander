@@ -146,7 +146,9 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgents := []*agentmodel.Agent{
@@ -178,7 +180,9 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		mockAgentUsecase.On("SearchAgents", ctx, "default", "test", mock.Anything).Return(nil, errMockError)
 
@@ -199,7 +203,9 @@ func TestService_SearchAgents(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		domainAgents := []*agentmodel.Agent{
 			agentmodel.NewAgent(uuid.New()),
@@ -241,7 +247,9 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // Status.Connected defaults to false
@@ -265,7 +273,9 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // namespace "default"
@@ -288,7 +298,9 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID) // namespace defaults to "default"
@@ -311,7 +323,9 @@ func TestService_DeleteAgent(t *testing.T) {
 		ctx := t.Context()
 		mockAgentUsecase := new(MockAgentUsecase)
 		mockNotificationUsecase := new(MockAgentNotificationUsecase)
-		service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, slog.Default())
+		service := agent.New(
+			mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{}, slog.Default())
 
 		instanceUID := uuid.New()
 		domainAgent := agentmodel.NewAgent(instanceUID)
@@ -327,4 +341,48 @@ func TestService_DeleteAgent(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to delete agent")
 		mockAgentUsecase.AssertExpectations(t)
 	})
+}
+
+// noopCacheInvalidationPublisher satisfies agentport.AgentCacheInvalidationPublisher in
+// tests that do not assert on broadcasts.
+type noopCacheInvalidationPublisher struct{}
+
+func (noopCacheInvalidationPublisher) BroadcastAgentCacheInvalidation(
+	context.Context, ...uuid.UUID,
+) error {
+	return nil
+}
+
+// spyCacheInvalidationPublisher records the UIDs it was asked to broadcast.
+type spyCacheInvalidationPublisher struct {
+	broadcasted []uuid.UUID
+}
+
+func (s *spyCacheInvalidationPublisher) BroadcastAgentCacheInvalidation(
+	_ context.Context, instanceUIDs ...uuid.UUID,
+) error {
+	s.broadcasted = append(s.broadcasted, instanceUIDs...)
+
+	return nil
+}
+
+func TestService_DeleteAgent_BroadcastsCacheInvalidation(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	mockAgentUsecase := new(MockAgentUsecase)
+	mockNotificationUsecase := new(MockAgentNotificationUsecase)
+	spy := new(spyCacheInvalidationPublisher)
+	service := agent.New(mockAgentUsecase, mockNotificationUsecase, stubEndpointDetectionUsecase{}, spy, slog.Default())
+
+	instanceUID := uuid.New()
+	domainAgent := agentmodel.NewAgent(instanceUID)
+	mockAgentUsecase.On("GetAgent", ctx, instanceUID).Return(domainAgent, nil)
+	mockAgentUsecase.On("DeleteAgent", ctx, instanceUID).Return(nil)
+
+	err := service.DeleteAgent(ctx, "default", instanceUID)
+	require.NoError(t, err)
+
+	require.Len(t, spy.broadcasted, 1)
+	assert.Equal(t, instanceUID, spy.broadcasted[0])
 }

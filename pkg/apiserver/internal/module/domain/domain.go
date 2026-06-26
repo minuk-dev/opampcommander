@@ -27,6 +27,7 @@ func New() fx.Option {
 		fx.Annotate(
 			Identity[*agentservice.AgentService],
 			fx.As(new(agentport.AgentUsecase)),
+			fx.As(new(agentport.AgentCacheInvalidator)),
 		),
 		agentservice.NewAgentGroupService,
 		fx.Annotate(
@@ -49,6 +50,7 @@ func New() fx.Option {
 			fx.As(new(agentport.ServerUsecase)),
 			fx.As(new(agentport.ServerMessageUsecase)),
 			fx.As(new(agentport.LeaderElector)),
+			fx.As(new(agentport.AgentCacheInvalidationPublisher)),
 		),
 		agentservice.NewServerIdentityService,
 		fx.Annotate(
