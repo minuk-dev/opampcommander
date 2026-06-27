@@ -13,6 +13,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
+// scopeCluster is the value of the "scope" query parameter that requests a cluster-wide
+// connection listing instead of the default node-local one.
+const scopeCluster = "cluster"
+
 // Controller is a struct that handles HTTP requests related to connections.
 type Controller struct {
 	logger *slog.Logger
@@ -52,15 +56,17 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 //
 // @Summary List Connections
 // @Tags connection
-// @Description Retrieve the live connections in a namespace. NOTE: connections are
-// @Description WebSockets bound to a single server, so this returns only the connections
-// @Description held by the server instance handling the request — in a multi-server (HA)
-// @Description deployment it is a node-local view, not a cluster-wide list. For a global
-// @Description view of which agents are connected (and to which server), use the agents
-// @Description API (each agent reports its Connected status and last-reported server).
+// @Description Retrieve connections in a namespace. By default (scope=local) this returns
+// @Description only the connections held by the server instance handling the request —
+// @Description connections are WebSockets bound to a single node, so in a multi-server (HA)
+// @Description deployment the default is a node-local view. Pass scope=cluster to get a
+// @Description cluster-wide view aggregated from each server's periodic snapshot; those
+// @Description items include the owning serverId. For an always-current view of agent
+// @Description connectivity, the agents API remains authoritative.
 // @Accept  json
 // @Produce json
 // @Param namespace path string true "Namespace"
+// @Param scope query string false "Scope of the listing: 'local' (default) or 'cluster'"
 // @Param limit query int false "Maximum number of connections to return"
 // @Param continue query string false "Token to continue listing connections"
 // @Success 200 {object} v1.ListResponse[v1.Connection]
@@ -76,16 +82,20 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	continueToken := ctx.Query("continue")
+	options := &applicationport.ListOptions{
+		Limit:          limit,
+		Continue:       ctx.Query("continue"),
+		IncludeDeleted: false,
+	}
 
 	var connectionResponse *v1.ListResponse[v1.Connection]
 
-	connectionResponse, err = c.adminUsecase.ListConnections(
-		ctx.Request.Context(), namespace, &applicationport.ListOptions{
-			Limit:          limit,
-			Continue:       continueToken,
-			IncludeDeleted: false,
-		})
+	if ctx.Query("scope") == scopeCluster {
+		connectionResponse, err = c.adminUsecase.ListClusterConnections(ctx.Request.Context(), namespace, options)
+	} else {
+		connectionResponse, err = c.adminUsecase.ListConnections(ctx.Request.Context(), namespace, options)
+	}
+
 	if err != nil {
 		c.logger.Error("failed to list connections", "error", err.Error())
 		ginutil.InternalServerError(ctx, err, "An error occurred while listing connections.")

@@ -23,6 +23,7 @@ type Service struct {
 	clock                    clock.Clock
 	agentUsecase             agentport.AgentUsecase
 	connectionUsecase        agentport.ConnectionUsecase
+	clusterConnectionUsecase agentport.ClusterConnectionUsecase
 	agentNotificationUsecase agentport.AgentNotificationUsecase
 }
 
@@ -30,6 +31,7 @@ type Service struct {
 func New(
 	agentUsecase agentport.AgentUsecase,
 	connectionUsecase agentport.ConnectionUsecase,
+	clusterConnectionUsecase agentport.ClusterConnectionUsecase,
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
 	logger *slog.Logger,
 ) *Service {
@@ -38,6 +40,7 @@ func New(
 		clock:                    clock.RealClock{},
 		agentUsecase:             agentUsecase,
 		connectionUsecase:        connectionUsecase,
+		clusterConnectionUsecase: clusterConnectionUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
 	}
 }
@@ -64,6 +67,41 @@ func (s *Service) ListConnections(
 				InstanceUID:        connection.InstanceUID,
 				Namespace:          connection.Namespace,
 				Type:               connection.Type.String(),
+				ServerID:           "",
+				Alive:              connection.IsAlive(now),
+				LastCommunicatedAt: v1.NewTime(connection.LastCommunicatedAt),
+			}
+		}),
+		v1.ListMeta{
+			RemainingItemCount: response.RemainingItemCount,
+			Continue:           response.Continue,
+		},
+	), nil
+}
+
+// ListClusterConnections lists connections across all alive servers, aggregated from the
+// periodic per-server snapshots. Unlike ListConnections (node-local), this spans the whole
+// cluster; each item carries the ServerID of the node holding the connection.
+func (s *Service) ListClusterConnections(
+	ctx context.Context,
+	namespace string,
+	options *applicationport.ListOptions,
+) (*v1.ListResponse[v1.Connection], error) {
+	response, err := s.clusterConnectionUsecase.ListClusterConnections(ctx, namespace, options.ToDomain())
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster connections: %w", err)
+	}
+
+	now := s.clock.Now()
+
+	return v1.NewConnectionListResponse(
+		lo.Map(response.Items, func(connection *agentmodel.ServerConnection, _ int) v1.Connection {
+			return v1.Connection{
+				ID:                 connection.UID,
+				InstanceUID:        connection.InstanceUID,
+				Namespace:          connection.Namespace,
+				Type:               connection.Type.String(),
+				ServerID:           connection.ServerID,
 				Alive:              connection.IsAlive(now),
 				LastCommunicatedAt: v1.NewTime(connection.LastCommunicatedAt),
 			}

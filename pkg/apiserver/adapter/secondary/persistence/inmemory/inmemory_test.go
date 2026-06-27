@@ -485,3 +485,88 @@ func TestAgentRepository_PutAgentConflictOnConcurrentCreate(t *testing.T) {
 	// The second create-as-v0 must conflict rather than insert a duplicate.
 	require.ErrorIs(t, repo.PutAgent(ctx, createB), model.ErrConflict)
 }
+
+func TestServerConnectionRepository_ReplaceAndList(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewServerConnectionRepository()
+	now := time.Now()
+
+	sc := func(server, ns string, uid uuid.UUID) *agentmodel.ServerConnection {
+		return &agentmodel.ServerConnection{
+			ServerID:           server,
+			UID:                uid,
+			InstanceUID:        uuid.New(),
+			Type:               agentmodel.ConnectionTypeWebSocket,
+			Namespace:          ns,
+			LastCommunicatedAt: now,
+			SnapshotAt:         now,
+		}
+	}
+
+	a1, a2, b1 := uuid.New(), uuid.New(), uuid.New()
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-a", []*agentmodel.ServerConnection{
+		sc("server-a", "default", a1), sc("server-a", "default", a2),
+	}))
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-b", []*agentmodel.ServerConnection{
+		sc("server-b", "default", b1),
+	}))
+
+	// Cluster view spans both servers.
+	resp, err := repo.ListServerConnections(ctx, "default", time.Time{}, nil)
+	require.NoError(t, err)
+	assert.Len(t, resp.Items, 3)
+
+	// Replacing one server's set only affects that server.
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-a", []*agentmodel.ServerConnection{
+		sc("server-a", "default", a1),
+	}))
+
+	resp, err = repo.ListServerConnections(ctx, "default", time.Time{}, nil)
+	require.NoError(t, err)
+	assert.Len(t, resp.Items, 2) // a1 + b1
+
+	// Clearing a server removes its records.
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-b", nil))
+
+	resp, err = repo.ListServerConnections(ctx, "default", time.Time{}, nil)
+	require.NoError(t, err)
+	assert.Len(t, resp.Items, 1)
+	assert.Equal(t, "server-a", resp.Items[0].ServerID)
+}
+
+func TestServerConnectionRepository_ListFiltersNamespaceAndStaleness(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewServerConnectionRepository()
+	now := time.Now()
+
+	fresh := &agentmodel.ServerConnection{
+		ServerID: "server-a", UID: uuid.New(), InstanceUID: uuid.New(),
+		Type: agentmodel.ConnectionTypeHTTP, Namespace: "ns-a",
+		LastCommunicatedAt: now, SnapshotAt: now,
+	}
+	otherNS := &agentmodel.ServerConnection{
+		ServerID: "server-a", UID: uuid.New(), InstanceUID: uuid.New(),
+		Type: agentmodel.ConnectionTypeHTTP, Namespace: "ns-b",
+		LastCommunicatedAt: now, SnapshotAt: now,
+	}
+	stale := &agentmodel.ServerConnection{
+		ServerID: "server-c", UID: uuid.New(), InstanceUID: uuid.New(),
+		Type: agentmodel.ConnectionTypeHTTP, Namespace: "ns-a",
+		LastCommunicatedAt: now, SnapshotAt: now.Add(-10 * time.Minute),
+	}
+
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-a",
+		[]*agentmodel.ServerConnection{fresh, otherNS}))
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-c",
+		[]*agentmodel.ServerConnection{stale}))
+
+	// Namespace filter + staleness cutoff (notBefore) excludes other-namespace and stale records.
+	resp, err := repo.ListServerConnections(ctx, "ns-a", now.Add(-90*time.Second), nil)
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, fresh.UID, resp.Items[0].UID)
+}

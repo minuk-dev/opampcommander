@@ -22,6 +22,10 @@ type Connection struct {
 	// Type is the type of connection (e.g., "http", "websocket").
 	Type string `json:"type"`
 
+	// ServerID is the server instance holding the connection. It is populated for
+	// cluster-wide listings (scope=cluster) and empty for the node-local listing.
+	ServerID string `json:"serverId,omitempty"`
+
 	// LastCommunicatedAt is the timestamp of the last communication with the agent.
 	LastCommunicatedAt Time `json:"lastCommunicatedAt"`
 

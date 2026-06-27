@@ -1905,7 +1905,7 @@ const docTemplate = `{
         },
         "/api/v1/namespaces/{namespace}/connections": {
             "get": {
-                "description": "Retrieve the live connections in a namespace. NOTE: connections are\nWebSockets bound to a single server, so this returns only the connections\nheld by the server instance handling the request — in a multi-server (HA)\ndeployment it is a node-local view, not a cluster-wide list. For a global\nview of which agents are connected (and to which server), use the agents\nAPI (each agent reports its Connected status and last-reported server).",
+                "description": "Retrieve connections in a namespace. By default (scope=local) this returns\nonly the connections held by the server instance handling the request —\nconnections are WebSockets bound to a single node, so in a multi-server (HA)\ndeployment the default is a node-local view. Pass scope=cluster to get a\ncluster-wide view aggregated from each server's periodic snapshot; those\nitems include the owning serverId. For an always-current view of agent\nconnectivity, the agents API remains authoritative.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1923,6 +1923,12 @@ const docTemplate = `{
                         "name": "namespace",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Scope of the listing: 'local' (default) or 'cluster'",
+                        "name": "scope",
+                        "in": "query"
                     },
                     {
                         "type": "integer",
@@ -4105,6 +4111,10 @@ const docTemplate = `{
                 },
                 "namespace": {
                     "description": "Namespace is the namespace the connection belongs to.",
+                    "type": "string"
+                },
+                "serverId": {
+                    "description": "ServerID is the server instance holding the connection. It is populated for\ncluster-wide listings (scope=cluster) and empty for the node-local listing.",
                     "type": "string"
                 },
                 "type": {
