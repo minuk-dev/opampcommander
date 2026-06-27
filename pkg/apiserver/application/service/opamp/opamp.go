@@ -107,11 +107,14 @@ func (s *Service) Name() string {
 }
 
 // Run starts a loop to handle asynchronous operations for the service.
+//
+// The lastSaveAt GC sweep runs on this same loop rather than a dedicated goroutine: the
+// sweep is an in-memory sync.Map.Range that is far cheaper than the per-connection-close
+// MongoDB round-trips the loop already performs, so it does not meaningfully delay
+// connection cleanup, and keeping it here avoids an extra long-lived goroutine per node.
 func (s *Service) Run(ctx context.Context) error {
-	// Run GC on its own goroutine so a long sweep (lastSaveAt can hold hundreds of
-	// thousands of entries at scale) never delays connection-close cleanup on the
-	// main loop. Both goroutines exit on ctx cancellation.
-	go s.runLastSaveAtGC(ctx)
+	gcTicker := time.NewTicker(s.effectiveLastSaveAtGCInterval())
+	defer gcTicker.Stop()
 
 	for {
 		select {
@@ -128,6 +131,8 @@ func (s *Service) Run(ctx context.Context) error {
 			if err != nil {
 				s.logger.Error("failed to clean up connection", slog.String("error", err.Error()))
 			}
+		case <-gcTicker.C:
+			s.gcLastSaveAt()
 		}
 	}
 }
@@ -317,21 +322,6 @@ func (s *Service) gcLastSaveAt() {
 			slog.Int("removed", removed),
 			slog.Duration("ttl", s.effectiveLastSaveAtTTL()),
 		)
-	}
-}
-
-// runLastSaveAtGC ticks gcLastSaveAt on its own goroutine until ctx is done.
-func (s *Service) runLastSaveAtGC(ctx context.Context) {
-	gcTicker := time.NewTicker(s.effectiveLastSaveAtGCInterval())
-	defer gcTicker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-gcTicker.C:
-			s.gcLastSaveAt()
-		}
 	}
 }
 

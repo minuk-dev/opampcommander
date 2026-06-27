@@ -24,8 +24,10 @@ const (
 	// pending UID count for that target reaches this threshold. Acts as a soft cap.
 	DefaultNotificationMaxBatchSize = 500
 	// DefaultNotificationDispatchWorkers is the size of the worker pool that drains
-	// coalesced batches in parallel so one slow target cannot starve the others.
-	DefaultNotificationDispatchWorkers = 4
+	// coalesced batches in parallel so one slow target cannot starve the others. Two is
+	// enough to keep a single slow/large target from blocking the rest at the production
+	// scale this targets (~10 servers), while holding the per-node goroutine count down.
+	DefaultNotificationDispatchWorkers = 2
 	// DefaultNotificationDispatchQueue is the capacity of the dispatch channel feeding
 	// the worker pool. Larger than the worker pool to absorb short bursts without
 	// back-pressuring the flush loop.

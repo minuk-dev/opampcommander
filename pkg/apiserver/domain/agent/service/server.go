@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,16 +102,15 @@ func (s *ServerService) Shutdown() {
 }
 
 // Run starts the server service.
+//
+// The message-receiving loop runs directly: Run is already invoked on its own goroutine
+// by the executor, so wrapping the single blocking loop in a WaitGroup only added another
+// goroutine that parked on Wait. The loop returns on ctx cancellation.
 func (s *ServerService) Run(ctx context.Context) error {
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		err := s.loopForReceivingMessages(ctx)
-		if err != nil {
-			s.logger.Error("message receiving loop exited with error", slog.String("error", err.Error()))
-		}
-	})
-
-	wg.Wait()
+	err := s.loopForReceivingMessages(ctx)
+	if err != nil {
+		s.logger.Error("message receiving loop exited with error", slog.String("error", err.Error()))
+	}
 
 	return nil
 }
