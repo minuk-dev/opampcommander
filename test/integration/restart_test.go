@@ -39,6 +39,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 			agentUsecase,
 			agentNotificationUsecase,
 			mockEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{},
 			slog.Default(),
 		)
 
@@ -97,6 +98,7 @@ func TestRestartAgentIntegration(t *testing.T) {
 			agentUsecase,
 			agentNotificationUsecase,
 			mockEndpointDetectionUsecase{},
+			noopCacheInvalidationPublisher{},
 			slog.Default(),
 		)
 
@@ -211,4 +213,14 @@ func (mockEndpointDetectionUsecase) ExtractEndpointsFromAgent(
 	_ *agentmodel.Agent,
 ) ([]*agentmodel.Endpoint, error) {
 	return nil, nil
+}
+
+// noopCacheInvalidationPublisher satisfies agentport.AgentCacheInvalidationPublisher in
+// integration tests that do not assert on cross-node cache invalidation.
+type noopCacheInvalidationPublisher struct{}
+
+func (noopCacheInvalidationPublisher) BroadcastAgentCacheInvalidation(
+	context.Context, ...uuid.UUID,
+) error {
+	return nil
 }
