@@ -61,7 +61,10 @@ func (s *ConnectionService) GetConnection(
 	return &result, nil
 }
 
-// ListConnections lists connections in a namespace.
+// ListConnections lists connections in a namespace. The server returns only the live
+// connections held by the instance that handles the request, so against an HA deployment
+// this is a node-local view; for a cluster-wide picture of agent connectivity, list agents
+// instead (each carries its connected status and last-reported server).
 func (s *ConnectionService) ListConnections(
 	ctx context.Context,
 	namespace string,

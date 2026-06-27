@@ -377,7 +377,9 @@ type ConnectionUsecase interface {
 	GetOrCreateConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error)
 	// GetConnectionByID returns the connection for the given ID.
 	GetConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error)
-	// ListConnections returns the list of connections filtered by namespace.
+	// ListConnections returns the list of connections filtered by namespace. The result is
+	// scoped to the current server instance (connections are live WebSockets that live on a
+	// single node); in HA, query the agents API for a cluster-wide view of connectivity.
 	ListConnections(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Connection], error)
 	// SaveConnection saves the connection.
