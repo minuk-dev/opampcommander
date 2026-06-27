@@ -42,7 +42,13 @@ type OpAMPUsecase interface {
 
 // AdminUsecase is a use case that handles admin operations.
 type AdminUsecase interface {
+	// ListConnections lists the connections held by the server instance handling the
+	// request (node-local view).
 	ListConnections(ctx context.Context, namespace string,
+		options *ListOptions) (*v1.ListResponse[v1.Connection], error)
+	// ListClusterConnections lists connections across all alive servers, aggregated from
+	// the periodic per-server snapshots. Each item carries its owning ServerID.
+	ListClusterConnections(ctx context.Context, namespace string,
 		options *ListOptions) (*v1.ListResponse[v1.Connection], error)
 }
 

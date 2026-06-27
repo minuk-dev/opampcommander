@@ -22,7 +22,12 @@ import (
 //nolint:funlen // DI wiring: a flat list of service providers/annotations.
 func New() fx.Option {
 	components := []any{
-		fx.Annotate(agentservice.NewConnectionService, fx.As(new(agentport.ConnectionUsecase))),
+		agentservice.NewConnectionService,
+		fx.Annotate(
+			Identity[*agentservice.Service],
+			fx.As(new(agentport.ConnectionUsecase)),
+			fx.As(new(agentport.ClusterConnectionUsecase)),
+		),
 		provideAgentService,
 		fx.Annotate(
 			Identity[*agentservice.AgentService],
@@ -73,6 +78,7 @@ func New() fx.Option {
 			Identity[*userservice.RBACService],
 			fx.As(new(userport.RBACUsecase)),
 		),
+		helper.AsRunner(Identity[*agentservice.Service]),
 		helper.AsRunner(Identity[*agentservice.AgentGroupService]),
 		helper.AsRunner(Identity[*agentservice.ServerService]),
 		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),

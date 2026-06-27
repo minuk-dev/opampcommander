@@ -47,6 +47,7 @@ func NewInMemory() fx.Option {
 			// Agent-domain repositories.
 			fx.Annotate(inmemory.NewAgentGroupRepository, fx.As(new(agentport.AgentGroupPersistencePort))),
 			fx.Annotate(inmemory.NewServerRepository, fx.As(new(agentport.ServerPersistencePort))),
+			fx.Annotate(inmemory.NewServerConnectionRepository, fx.As(new(agentport.ServerConnectionPersistencePort))),
 			fx.Annotate(inmemory.NewAgentPackageRepository, fx.As(new(agentport.AgentPackagePersistencePort))),
 			fx.Annotate(inmemory.NewNamespaceRepository, fx.As(new(agentport.NamespacePersistencePort))),
 			fx.Annotate(inmemory.NewAgentRemoteConfigRepository, fx.As(new(agentport.AgentRemoteConfigPersistencePort))),

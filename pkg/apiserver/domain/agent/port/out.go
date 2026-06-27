@@ -98,6 +98,20 @@ type ServerPersistencePort interface {
 	ListServers(ctx context.Context) ([]*agentmodel.Server, error)
 }
 
+// ServerConnectionPersistencePort persists per-server snapshots of live connections so the
+// cluster-wide connection view can be queried from any node.
+type ServerConnectionPersistencePort interface {
+	// ReplaceServerConnections atomically replaces all snapshot records owned by serverID
+	// with the provided set. An empty set clears the server's records (e.g. on shutdown or
+	// when it holds no connections).
+	ReplaceServerConnections(ctx context.Context, serverID string, conns []*agentmodel.ServerConnection) error
+	// ListServerConnections lists snapshot records across all servers, filtered by namespace.
+	// notBefore drops records whose SnapshotAt is older than it (stale/crashed servers); a
+	// zero notBefore returns all records.
+	ListServerConnections(ctx context.Context, namespace string, notBefore time.Time,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.ServerConnection], error)
+}
+
 // AgentPackagePersistencePort is an interface that defines the methods for agent package persistence.
 type AgentPackagePersistencePort interface {
 	// GetAgentPackage retrieves an agent package by its namespace and name.

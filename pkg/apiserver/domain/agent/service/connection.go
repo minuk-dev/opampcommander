@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
@@ -14,13 +15,28 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
-var _ agentport.ConnectionUsecase = (*Service)(nil)
+var (
+	_ agentport.ConnectionUsecase        = (*Service)(nil)
+	_ agentport.ClusterConnectionUsecase = (*Service)(nil)
+)
 
 const (
 	idxInstanceUID = "instanceUID"
+
+	connectionServiceName = "ConnectionService"
+
+	// DefaultConnectionSnapshotInterval is how often this server persists a snapshot of its
+	// local connections so other servers can see them in the cluster-wide view.
+	DefaultConnectionSnapshotInterval = 30 * time.Second
+	// DefaultConnectionSnapshotStaleness is how long a server's snapshot is trusted after its
+	// last refresh. Records older than this (a crashed/stopped server) are excluded from
+	// cluster reads. Sized at 3x the snapshot interval so a single missed snapshot does not
+	// drop a live server's connections.
+	DefaultConnectionSnapshotStaleness = 3 * DefaultConnectionSnapshotInterval
 )
 
 // Service is a struct that implements the ConnectionUsecase interface.
@@ -28,26 +44,85 @@ const (
 // connectionMap holds only the live connections owned by THIS server instance: an
 // OpAMP WebSocket is a stateful socket that lives on exactly one node, so it cannot be
 // shared or reconstructed elsewhere. Consequently every read here (GetConnectionByID,
-// ListConnections, ...) is node-scoped by design. In an HA deployment, the cluster-wide
-// view of which agents are connected and to which server is the agent record itself
-// (Status.Connected / Status.ConnectionType / Status.LastReportedTo), which is persisted
-// and queryable through the agents API — not this transport-level map.
+// ListConnections, ...) is node-scoped by design.
+//
+// For a cluster-wide view, each server periodically snapshots its connectionMap into the
+// shared ServerConnectionPersistencePort (see Run/ListClusterConnections); reads there span
+// every alive server. The agent record (Status.Connected / ConnectionType / LastReportedTo)
+// remains the authoritative, always-current source of agent connectivity.
 type Service struct {
-	agentUsecase  agentport.AgentUsecase
-	logger        *slog.Logger
-	connectionMap *xsync.MultiMap[*agentmodel.Connection]
+	agentUsecase                    agentport.AgentUsecase
+	logger                          *slog.Logger
+	connectionMap                   *xsync.MultiMap[*agentmodel.Connection]
+	serverIdentityProvider          agentport.ServerIdentityProvider
+	serverConnectionPersistencePort agentport.ServerConnectionPersistencePort
+	clock                           clock.Clock
+
+	snapshotInterval  time.Duration
+	snapshotStaleness time.Duration
 }
 
 // NewConnectionService creates a new instance of the Service struct.
 func NewConnectionService(
 	agentUsecase agentport.AgentUsecase,
+	serverIdentityProvider agentport.ServerIdentityProvider,
+	serverConnectionPersistencePort agentport.ServerConnectionPersistencePort,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
-		agentUsecase:  agentUsecase,
-		logger:        logger,
-		connectionMap: xsync.NewMultiMap[*agentmodel.Connection](),
+		agentUsecase:                    agentUsecase,
+		logger:                          logger,
+		connectionMap:                   xsync.NewMultiMap[*agentmodel.Connection](),
+		serverIdentityProvider:          serverIdentityProvider,
+		serverConnectionPersistencePort: serverConnectionPersistencePort,
+		clock:                           clock.NewRealClock(),
+		snapshotInterval:                DefaultConnectionSnapshotInterval,
+		snapshotStaleness:               DefaultConnectionSnapshotStaleness,
 	}
+}
+
+// Name implements scheduler.Scheduler.
+func (s *Service) Name() string {
+	return connectionServiceName
+}
+
+// Run implements scheduler.Scheduler. It periodically snapshots this server's local
+// connections into the shared store so they appear in the cluster-wide view, and clears
+// the server's records on graceful shutdown so a stopped node drops out immediately rather
+// than lingering until its snapshot goes stale.
+func (s *Service) Run(ctx context.Context) error {
+	ticker := time.NewTicker(s.effectiveSnapshotInterval())
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.clearSnapshotOnShutdown(ctx)
+
+			return nil
+		case <-ticker.C:
+			s.snapshotConnections(ctx)
+		}
+	}
+}
+
+// ListClusterConnections implements agentport.ClusterConnectionUsecase. It returns the
+// connections of every alive server from the shared snapshot store, excluding records whose
+// last snapshot is older than the staleness window (so a crashed server's connections do
+// not linger in the view).
+func (s *Service) ListClusterConnections(
+	ctx context.Context,
+	namespace string,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.ServerConnection], error) {
+	notBefore := s.clock.Now().Add(-s.effectiveSnapshotStaleness())
+
+	resp, err := s.serverConnectionPersistencePort.ListServerConnections(ctx, namespace, notBefore, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster connections: %w", err)
+	}
+
+	return resp, nil
 }
 
 // DeleteConnection implements agentport.ConnectionUsecase.
@@ -236,6 +311,80 @@ func (s *Service) detectConnectionType(id any) agentmodel.ConnectionType {
 	// maintains the connection after OnConnected
 	// HTTP only has connection during request processing
 	return agentmodel.ConnectionTypeWebSocket
+}
+
+// snapshotConnections persists the current set of this server's local connections,
+// replacing any previously stored set for this server.
+func (s *Service) snapshotConnections(ctx context.Context) {
+	serverID := s.serverIdentityProvider.CurrentServerID()
+	if serverID == "" {
+		s.logger.Warn("skipping connection snapshot: current server has no identity")
+
+		return
+	}
+
+	now := s.clock.Now()
+	conns := s.connectionMap.Values()
+
+	records := make([]*agentmodel.ServerConnection, 0, len(conns))
+	for _, conn := range conns {
+		records = append(records, &agentmodel.ServerConnection{
+			ServerID:           serverID,
+			UID:                conn.UID,
+			InstanceUID:        conn.InstanceUID,
+			Type:               conn.Type,
+			Namespace:          conn.Namespace,
+			LastCommunicatedAt: conn.LastCommunicatedAt,
+			SnapshotAt:         now,
+		})
+	}
+
+	err := s.serverConnectionPersistencePort.ReplaceServerConnections(ctx, serverID, records)
+	if err != nil {
+		s.logger.Error("failed to snapshot connections", slog.String("error", err.Error()))
+
+		return
+	}
+
+	s.logger.Debug("snapshotted connections", slog.Int("count", len(records)))
+}
+
+// clearSnapshotOnShutdown removes this server's snapshot records so it drops out of the
+// cluster view promptly on graceful shutdown. The passed ctx is already cancelled (Run only
+// calls this after ctx.Done), so it derives a fresh, short-lived context via WithoutCancel —
+// keeping any request values while shedding the cancellation. Best-effort: failures are
+// logged, not retried.
+func (s *Service) clearSnapshotOnShutdown(ctx context.Context) {
+	serverID := s.serverIdentityProvider.CurrentServerID()
+	if serverID == "" {
+		return
+	}
+
+	const clearTimeout = 5 * time.Second
+
+	clearCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), clearTimeout)
+	defer cancel()
+
+	err := s.serverConnectionPersistencePort.ReplaceServerConnections(clearCtx, serverID, nil)
+	if err != nil {
+		s.logger.Warn("failed to clear connection snapshot on shutdown", slog.String("error", err.Error()))
+	}
+}
+
+func (s *Service) effectiveSnapshotInterval() time.Duration {
+	if s.snapshotInterval <= 0 {
+		return DefaultConnectionSnapshotInterval
+	}
+
+	return s.snapshotInterval
+}
+
+func (s *Service) effectiveSnapshotStaleness() time.Duration {
+	if s.snapshotStaleness <= 0 {
+		return DefaultConnectionSnapshotStaleness
+	}
+
+	return s.snapshotStaleness
 }
 
 // NotSupportedConnectionTypeError is returned when an operation is attempted.

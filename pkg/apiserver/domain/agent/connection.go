@@ -118,6 +118,37 @@ func (conn *Connection) IsAnonymous() bool {
 	return conn.InstanceUID == uuid.Nil
 }
 
+// ServerConnection is a persisted, cluster-visible snapshot of a single live connection,
+// stamped with the server instance that owns it. Each server periodically writes the
+// snapshot of its local connections so other servers can query a cluster-wide view (the
+// in-memory connection map itself is node-local). It is not the live connection — the
+// transport object (Connection.ID) is intentionally absent.
+type ServerConnection struct {
+	// ServerID is the identifier of the server instance that owns this connection.
+	ServerID string
+	// UID is the unique identifier of the connection.
+	UID uuid.UUID
+	// InstanceUID is the id of the agent on the other end.
+	InstanceUID uuid.UUID
+	// Type is the type of the connection.
+	Type ConnectionType
+	// Namespace is the namespace the connection belongs to.
+	Namespace string
+	// LastCommunicatedAt is the last time the connection was communicated with.
+	LastCommunicatedAt time.Time
+	// SnapshotAt is when this record was last refreshed by its owning server. It bounds
+	// staleness: records from a crashed server stop refreshing and are filtered out of
+	// cluster reads once SnapshotAt falls outside the staleness window.
+	SnapshotAt time.Time
+}
+
+// IsAlive reports whether the connection is alive, using the same rule as Connection.IsAlive:
+// WebSocket connections are always considered alive; others are alive while their last
+// communication is within the polling window.
+func (sc *ServerConnection) IsAlive(now time.Time) bool {
+	return sc.Type == ConnectionTypeWebSocket || now.Sub(sc.LastCommunicatedAt) < 2*OpAMPPollingInterval
+}
+
 // IsManaged returns true if the connection is managed.
 func (conn *Connection) IsManaged() bool {
 	return !conn.IsAnonymous()

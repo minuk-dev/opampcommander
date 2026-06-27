@@ -49,6 +49,7 @@ var (
 		certificateCollectionName,
 		namespaceCollectionName,
 		serverCollectionName,
+		serverConnectionCollectionName,
 	}
 
 	indexes = []collectionAndIndexes{
@@ -191,6 +192,26 @@ var (
 				{
 					Keys: bson.D{
 						{Key: "serverId", Value: 1},
+					},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: serverConnectionCollectionName,
+			indexes: []mongo.IndexModel{
+				// Backs ReplaceServerConnections' per-server delete and the cluster-list
+				// query's namespace + snapshot-staleness filter.
+				{
+					Keys: bson.D{
+						{Key: "serverId", Value: 1},
+					},
+					Options: nil,
+				},
+				{
+					Keys: bson.D{
+						{Key: "namespace", Value: 1},
+						{Key: "snapshotAt", Value: 1},
 					},
 					Options: nil,
 				},
