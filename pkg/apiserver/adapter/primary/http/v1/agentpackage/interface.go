@@ -1,8 +1,6 @@
 package agentpackage
 
-import (
-	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-)
+import "github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 
 // Usecase is an alias for the AgentPackageManageUsecase interface.
-type Usecase = applicationport.AgentPackageManageUsecase
+type Usecase = usecase.AgentPackageManageUsecase

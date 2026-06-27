@@ -11,13 +11,14 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-var _ port.AgentRemoteConfigManageUsecase = (*Service)(nil)
+var _ usecase.AgentRemoteConfigManageUsecase = (*Service)(nil)
 
 // Service is a service for managing agent remote configs. It maps between the HTTP
 // DTOs and the domain, resolves the acting user, delegates lifecycle rules
@@ -52,7 +53,7 @@ func NewAgentRemoteConfigService(
 	}
 }
 
-// GetAgentRemoteConfig implements [port.AgentRemoteConfigManageUsecase].
+// GetAgentRemoteConfig implements [usecase.AgentRemoteConfigManageUsecase].
 func (s *Service) GetAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
@@ -69,7 +70,7 @@ func (s *Service) GetAgentRemoteConfig(
 	return s.mapper.MapAgentRemoteConfigToAPI(config), nil
 }
 
-// ListAgentRemoteConfigs implements [port.AgentRemoteConfigManageUsecase].
+// ListAgentRemoteConfigs implements [usecase.AgentRemoteConfigManageUsecase].
 func (s *Service) ListAgentRemoteConfigs(
 	ctx context.Context,
 	options *port.ListOptions,
@@ -99,7 +100,7 @@ func (s *Service) ListAgentRemoteConfigs(
 	}, nil
 }
 
-// CreateAgentRemoteConfig implements [port.AgentRemoteConfigManageUsecase].
+// CreateAgentRemoteConfig implements [usecase.AgentRemoteConfigManageUsecase].
 func (s *Service) CreateAgentRemoteConfig(
 	ctx context.Context,
 	apiModel *v1.AgentRemoteConfig,
@@ -117,7 +118,7 @@ func (s *Service) CreateAgentRemoteConfig(
 	return s.mapper.MapAgentRemoteConfigToAPI(saved), nil
 }
 
-// UpdateAgentRemoteConfig implements [port.AgentRemoteConfigManageUsecase].
+// UpdateAgentRemoteConfig implements [usecase.AgentRemoteConfigManageUsecase].
 func (s *Service) UpdateAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
@@ -139,7 +140,7 @@ func (s *Service) UpdateAgentRemoteConfig(
 	return s.mapper.MapAgentRemoteConfigToAPI(updated), nil
 }
 
-// DeleteAgentRemoteConfig implements [port.AgentRemoteConfigManageUsecase].
+// DeleteAgentRemoteConfig implements [usecase.AgentRemoteConfigManageUsecase].
 func (s *Service) DeleteAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,

@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	domainreconcile "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/reconcile"
 )
 
-var _ port.ReconcileManageUsecase = (*Service)(nil)
+var _ usecase.ReconcileManageUsecase = (*Service)(nil)
 
-// Service implements port.ReconcileManageUsecase by delegating to the domain reconcile
+// Service implements usecase.ReconcileManageUsecase by delegating to the domain reconcile
 // registry. It owns no logic of its own — each kind's behavior lives in its Reconciler.
 type Service struct {
 	registry *domainreconcile.Service
@@ -25,7 +25,7 @@ func New(registry *domainreconcile.Service) *Service {
 	return &Service{registry: registry}
 }
 
-// Reconcile implements port.ReconcileManageUsecase. It translates an unknown-kind error to
+// Reconcile implements usecase.ReconcileManageUsecase. It translates an unknown-kind error to
 // an invalid-argument so the transport maps it to 400 rather than 500; not-found and other
 // errors from the reconciler propagate unchanged for their normal status mapping.
 func (s *Service) Reconcile(ctx context.Context, kind string, namespace string, name string) error {
@@ -41,7 +41,7 @@ func (s *Service) Reconcile(ctx context.Context, kind string, namespace string, 
 	return nil
 }
 
-// ReconcileKinds implements port.ReconcileManageUsecase.
+// ReconcileKinds implements usecase.ReconcileManageUsecase.
 func (s *Service) ReconcileKinds(_ context.Context) []string {
 	return s.registry.Kinds()
 }

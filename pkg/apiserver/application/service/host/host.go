@@ -14,12 +14,13 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-var _ applicationport.HostManageUsecase = (*Service)(nil)
+var _ usecase.HostManageUsecase = (*Service)(nil)
 
 // Service implements the HostManageUsecase interface.
 type Service struct {
@@ -43,7 +44,7 @@ func New(
 	}
 }
 
-// GetHost implements applicationport.HostManageUsecase.
+// GetHost implements usecase.HostManageUsecase.
 func (s *Service) GetHost(ctx context.Context, id string) (*v1.Host, error) {
 	host, err := s.hostUsecase.GetHost(ctx, id)
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *Service) GetHost(ctx context.Context, id string) (*v1.Host, error) {
 	return mapHostToAPI(host), nil
 }
 
-// ListHosts implements applicationport.HostManageUsecase.
+// ListHosts implements usecase.HostManageUsecase.
 func (s *Service) ListHosts(
 	ctx context.Context,
 	options *applicationport.ListOptions,
@@ -76,7 +77,7 @@ func (s *Service) ListHosts(
 	}, nil
 }
 
-// ListAgentsByHost implements applicationport.HostManageUsecase.
+// ListAgentsByHost implements usecase.HostManageUsecase.
 func (s *Service) ListAgentsByHost(
 	ctx context.Context,
 	id string,

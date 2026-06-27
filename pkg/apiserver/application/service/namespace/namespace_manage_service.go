@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
@@ -27,7 +28,7 @@ var (
 	ErrNamespaceAlreadyExists = agentport.ErrNamespaceAlreadyExists
 )
 
-var _ port.NamespaceManageUsecase = (*Service)(nil)
+var _ usecase.NamespaceManageUsecase = (*Service)(nil)
 
 // Service is a service for managing namespaces. It maps between the HTTP DTOs and
 // the domain, extracts the acting user from the request context, and delegates
@@ -51,7 +52,7 @@ func NewNamespaceService(
 	}
 }
 
-// GetNamespace implements [port.NamespaceManageUsecase].
+// GetNamespace implements [usecase.NamespaceManageUsecase].
 func (s *Service) GetNamespace(
 	ctx context.Context,
 	name string,
@@ -65,7 +66,7 @@ func (s *Service) GetNamespace(
 	return s.mapper.MapNamespaceToAPI(ns), nil
 }
 
-// ListNamespaces implements [port.NamespaceManageUsecase].
+// ListNamespaces implements [usecase.NamespaceManageUsecase].
 func (s *Service) ListNamespaces(
 	ctx context.Context,
 	options *port.ListOptions,
@@ -91,7 +92,7 @@ func (s *Service) ListNamespaces(
 	}, nil
 }
 
-// CreateNamespace implements [port.NamespaceManageUsecase].
+// CreateNamespace implements [usecase.NamespaceManageUsecase].
 func (s *Service) CreateNamespace(
 	ctx context.Context,
 	apiModel *v1.Namespace,
@@ -106,7 +107,7 @@ func (s *Service) CreateNamespace(
 	return s.mapper.MapNamespaceToAPI(created), nil
 }
 
-// UpdateNamespace implements [port.NamespaceManageUsecase].
+// UpdateNamespace implements [usecase.NamespaceManageUsecase].
 func (s *Service) UpdateNamespace(
 	ctx context.Context,
 	name string,
@@ -122,7 +123,7 @@ func (s *Service) UpdateNamespace(
 	return s.mapper.MapNamespaceToAPI(updated), nil
 }
 
-// DeleteNamespace implements [port.NamespaceManageUsecase]. The cascade delete and
+// DeleteNamespace implements [usecase.NamespaceManageUsecase]. The cascade delete and
 // the default-namespace guard live in the domain NamespaceUsecase.
 func (s *Service) DeleteNamespace(
 	ctx context.Context,

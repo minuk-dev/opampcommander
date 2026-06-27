@@ -14,12 +14,13 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-var _ applicationport.ContainerManageUsecase = (*Service)(nil)
+var _ usecase.ContainerManageUsecase = (*Service)(nil)
 
 // Service implements the ContainerManageUsecase interface.
 type Service struct {
@@ -43,7 +44,7 @@ func New(
 	}
 }
 
-// GetContainer implements applicationport.ContainerManageUsecase.
+// GetContainer implements usecase.ContainerManageUsecase.
 func (s *Service) GetContainer(ctx context.Context, id string) (*v1.Container, error) {
 	container, err := s.containerUsecase.GetContainer(ctx, id)
 	if err != nil {
@@ -53,7 +54,7 @@ func (s *Service) GetContainer(ctx context.Context, id string) (*v1.Container, e
 	return mapContainerToAPI(container), nil
 }
 
-// ListContainers implements applicationport.ContainerManageUsecase.
+// ListContainers implements usecase.ContainerManageUsecase.
 func (s *Service) ListContainers(
 	ctx context.Context,
 	options *applicationport.ListOptions,
@@ -76,7 +77,7 @@ func (s *Service) ListContainers(
 	}, nil
 }
 
-// ListAgentsByContainer implements applicationport.ContainerManageUsecase.
+// ListAgentsByContainer implements usecase.ContainerManageUsecase.
 func (s *Service) ListAgentsByContainer(
 	ctx context.Context,
 	id string,

@@ -137,7 +137,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
-// OnConnected implements port.OpAMPUsecase.
+// OnConnected implements usecase.OpAMPUsecase.
 //
 // Deprecated: Use OnConnectedWithType instead for proper connection type detection.
 func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
@@ -145,7 +145,7 @@ func (s *Service) OnConnected(ctx context.Context, conn types.Connection) {
 	s.OnConnectedWithType(ctx, conn, false)
 }
 
-// OnConnectedWithType implements port.OpAMPUsecase.
+// OnConnectedWithType implements usecase.OpAMPUsecase.
 // This is called for both WebSocket and HTTP connections.
 // isWebSocket parameter indicates the connection type.
 func (s *Service) OnConnectedWithType(ctx context.Context, conn types.Connection, isWebSocket bool) {
@@ -182,7 +182,7 @@ func (s *Service) OnConnectedWithType(ctx context.Context, conn types.Connection
 	)
 }
 
-// OnMessage implements port.OpAMPUsecase.
+// OnMessage implements usecase.OpAMPUsecase.
 // [1] find agentmodel.Connection by types.Connection
 // [1-1] if not found, unexpected case because all connections should be created when OnConnected is called.
 // so, leave error log and skip connection processing.
@@ -251,7 +251,7 @@ func (s *Service) OnMessage(
 	return response
 }
 
-// OnReadMessageError implements port.OpAMPUsecase.
+// OnReadMessageError implements usecase.OpAMPUsecase.
 func (s *Service) OnReadMessageError(
 	conn types.Connection,
 	messageType int,
@@ -270,7 +270,7 @@ func (s *Service) OnReadMessageError(
 	logger.Error("read message error")
 }
 
-// OnMessageResponseError implements port.OpAMPUsecase.
+// OnMessageResponseError implements usecase.OpAMPUsecase.
 func (s *Service) OnMessageResponseError(conn types.Connection, message *protobufs.ServerToAgent, err error) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	logger := s.logger.With(
@@ -283,7 +283,7 @@ func (s *Service) OnMessageResponseError(conn types.Connection, message *protobu
 	logger.Error("send message error")
 }
 
-// OnConnectionClose implements port.OpAMPUsecase.
+// OnConnectionClose implements usecase.OpAMPUsecase.
 func (s *Service) OnConnectionClose(conn types.Connection) {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))

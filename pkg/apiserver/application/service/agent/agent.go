@@ -14,6 +14,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
@@ -27,7 +28,7 @@ var (
 	ErrAgentNamespaceMismatch = applicationport.ErrAgentNamespaceMismatch
 )
 
-var _ applicationport.AgentManageUsecase = (*Service)(nil)
+var _ usecase.AgentManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the AgentManageUsecase interface.
 type Service struct {
@@ -63,7 +64,7 @@ func New(
 	}
 }
 
-// ListAgentEndpoints implements port.AgentManageUsecase. It returns a read-only view
+// ListAgentEndpoints implements usecase.AgentManageUsecase. It returns a read-only view
 // of the endpoints the agent currently exports to, extracted from its reported
 // effective configuration (not persisted Endpoint resources).
 func (s *Service) ListAgentEndpoints(
@@ -91,7 +92,7 @@ func (s *Service) ListAgentEndpoints(
 	}, nil
 }
 
-// GetAgent implements port.AgentManageUsecase.
+// GetAgent implements usecase.AgentManageUsecase.
 func (s *Service) GetAgent(
 	ctx context.Context,
 	namespace string,
@@ -105,7 +106,7 @@ func (s *Service) GetAgent(
 	return s.mapper.MapAgentToAPI(agent), nil
 }
 
-// ListAgents implements port.AgentManageUsecase.
+// ListAgents implements usecase.AgentManageUsecase.
 func (s *Service) ListAgents(
 	ctx context.Context,
 	namespace string,
@@ -129,7 +130,7 @@ func (s *Service) ListAgents(
 	}, nil
 }
 
-// SearchAgents implements port.AgentManageUsecase.
+// SearchAgents implements usecase.AgentManageUsecase.
 func (s *Service) SearchAgents(
 	ctx context.Context,
 	namespace string,
@@ -154,7 +155,7 @@ func (s *Service) SearchAgents(
 	}, nil
 }
 
-// DeleteAgent implements [port.AgentManageUsecase].
+// DeleteAgent implements [usecase.AgentManageUsecase].
 //
 // Only disconnected agents may be deleted. The connection guard is enforced by the
 // domain DeleteAgent (against a fresh read), so a still-connected agent is rejected
@@ -180,7 +181,7 @@ func (s *Service) DeleteAgent(
 	return nil
 }
 
-// UpdateAgent implements [port.AgentManageUsecase].
+// UpdateAgent implements [usecase.AgentManageUsecase].
 func (s *Service) UpdateAgent(
 	ctx context.Context,
 	namespace string,

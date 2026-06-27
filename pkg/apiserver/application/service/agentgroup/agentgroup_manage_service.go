@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentgroup/filter"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -24,9 +25,9 @@ import (
 // ErrAgentGroupAlreadyExists is returned when an agent group with the same name already exists.
 var ErrAgentGroupAlreadyExists = errors.New("agent group already exists")
 
-var _ port.AgentGroupManageUsecase = (*ManageService)(nil)
+var _ usecase.AgentGroupManageUsecase = (*ManageService)(nil)
 
-// ManageService implements port.AgentGroupManageUsecase. You can inject repository or other dependencies as needed.
+// ManageService implements usecase.AgentGroupManageUsecase. You can inject repository or other dependencies as needed.
 type ManageService struct {
 	agentgroupUsecase agentport.AgentGroupUsecase
 	agentUsecase      agentport.AgentUsecase
@@ -92,7 +93,7 @@ func (s *ManageService) ListAgentGroups(
 	}, nil
 }
 
-// ListAgentsByAgentGroup implements port.AgentGroupManageUsecase.
+// ListAgentsByAgentGroup implements usecase.AgentGroupManageUsecase.
 func (s *ManageService) ListAgentsByAgentGroup(
 	ctx context.Context,
 	namespace string,

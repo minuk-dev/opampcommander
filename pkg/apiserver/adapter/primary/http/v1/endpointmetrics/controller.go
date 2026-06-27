@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -17,12 +17,12 @@ import (
 type Controller struct {
 	logger *slog.Logger
 
-	usecase port.EndpointMetricsUsecase
+	usecase usecase.EndpointMetricsUsecase
 }
 
 // NewController creates a new endpoint-throughput Controller.
 func NewController(
-	usecase port.EndpointMetricsUsecase,
+	usecase usecase.EndpointMetricsUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	return &Controller{

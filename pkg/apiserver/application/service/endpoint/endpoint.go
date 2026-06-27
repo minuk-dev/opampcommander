@@ -11,13 +11,14 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-var _ port.EndpointManageUsecase = (*Service)(nil)
+var _ usecase.EndpointManageUsecase = (*Service)(nil)
 
 // Service is a service for managing endpoints. It maps between the HTTP DTOs and
 // the domain, resolves the acting user, and delegates all lifecycle rules
@@ -45,7 +46,7 @@ func NewEndpointService(
 	}
 }
 
-// GetEndpoint implements [port.EndpointManageUsecase].
+// GetEndpoint implements [usecase.EndpointManageUsecase].
 func (s *Service) GetEndpoint(
 	ctx context.Context,
 	namespace string,
@@ -60,7 +61,7 @@ func (s *Service) GetEndpoint(
 	return s.mapper.MapEndpointToAPI(endpoint), nil
 }
 
-// ListEndpoints implements [port.EndpointManageUsecase].
+// ListEndpoints implements [usecase.EndpointManageUsecase].
 func (s *Service) ListEndpoints(
 	ctx context.Context,
 	namespace string,
@@ -87,7 +88,7 @@ func (s *Service) ListEndpoints(
 	}, nil
 }
 
-// CreateEndpoint implements [port.EndpointManageUsecase].
+// CreateEndpoint implements [usecase.EndpointManageUsecase].
 func (s *Service) CreateEndpoint(
 	ctx context.Context,
 	apiModel *v1.Endpoint,
@@ -102,7 +103,7 @@ func (s *Service) CreateEndpoint(
 	return s.mapper.MapEndpointToAPI(saved), nil
 }
 
-// UpdateEndpoint implements [port.EndpointManageUsecase].
+// UpdateEndpoint implements [usecase.EndpointManageUsecase].
 func (s *Service) UpdateEndpoint(
 	ctx context.Context,
 	namespace string,
@@ -119,7 +120,7 @@ func (s *Service) UpdateEndpoint(
 	return s.mapper.MapEndpointToAPI(updated), nil
 }
 
-// DeleteEndpoint implements [port.EndpointManageUsecase].
+// DeleteEndpoint implements [usecase.EndpointManageUsecase].
 func (s *Service) DeleteEndpoint(
 	ctx context.Context,
 	namespace string,
