@@ -7,9 +7,10 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
-// EndpointMetricsUsecase is a use case that reports how much telemetry collectors
-// are sending to endpoints. The window is the rate window; a non-positive value
-// asks the service to apply its configured default.
+// EndpointMetricsUsecase reports how much telemetry collectors are sending
+// to endpoints. The window is the rate window; a non-positive value asks
+// the service to apply its configured default. It backs the endpoint
+// throughput APIs.
 type EndpointMetricsUsecase interface {
 	// GetEndpointThroughput reports the send throughput for a single endpoint.
 	GetEndpointThroughput(ctx context.Context, namespace string, name string,
