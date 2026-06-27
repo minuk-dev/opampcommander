@@ -42,7 +42,9 @@ func New(
 	}
 }
 
-// ListConnections lists connections filtered by namespace.
+// ListConnections lists connections filtered by namespace. The result is scoped to the
+// server instance handling the request (connections are node-local live WebSockets); in
+// HA use the agents API for a cluster-wide view of connectivity.
 func (s *Service) ListConnections(
 	ctx context.Context,
 	namespace string,

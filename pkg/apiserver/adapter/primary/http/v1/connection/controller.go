@@ -52,7 +52,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 //
 // @Summary List Connections
 // @Tags connection
-// @Description  Retrieve a list of connections in a namespace.
+// @Description Retrieve the live connections in a namespace. NOTE: connections are
+// @Description WebSockets bound to a single server, so this returns only the connections
+// @Description held by the server instance handling the request — in a multi-server (HA)
+// @Description deployment it is a node-local view, not a cluster-wide list. For a global
+// @Description view of which agents are connected (and to which server), use the agents
+// @Description API (each agent reports its Connected status and last-reported server).
 // @Accept  json
 // @Produce json
 // @Param namespace path string true "Namespace"

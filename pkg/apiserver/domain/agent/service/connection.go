@@ -24,6 +24,14 @@ const (
 )
 
 // Service is a struct that implements the ConnectionUsecase interface.
+//
+// connectionMap holds only the live connections owned by THIS server instance: an
+// OpAMP WebSocket is a stateful socket that lives on exactly one node, so it cannot be
+// shared or reconstructed elsewhere. Consequently every read here (GetConnectionByID,
+// ListConnections, ...) is node-scoped by design. In an HA deployment, the cluster-wide
+// view of which agents are connected and to which server is the agent record itself
+// (Status.Connected / Status.ConnectionType / Status.LastReportedTo), which is persisted
+// and queryable through the agents API — not this transport-level map.
 type Service struct {
 	agentUsecase  agentport.AgentUsecase
 	logger        *slog.Logger
@@ -94,6 +102,10 @@ func (s *Service) GetConnectionByInstanceUID(_ context.Context, instanceUID uuid
 }
 
 // ListConnections implements agentport.ConnectionUsecase.
+//
+// It returns only the connections held by this server instance (see the Service doc):
+// in HA the result is the local node's live connections, not a cluster-wide list. Use
+// the agents API for a global view of agent connectivity.
 func (s *Service) ListConnections(
 	_ context.Context,
 	namespace string,

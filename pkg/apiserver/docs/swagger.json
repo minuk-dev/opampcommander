@@ -1897,7 +1897,7 @@
         },
         "/api/v1/namespaces/{namespace}/connections": {
             "get": {
-                "description": "Retrieve a list of connections in a namespace.",
+                "description": "Retrieve the live connections in a namespace. NOTE: connections are\nWebSockets bound to a single server, so this returns only the connections\nheld by the server instance handling the request — in a multi-server (HA)\ndeployment it is a node-local view, not a cluster-wide list. For a global\nview of which agents are connected (and to which server), use the agents\nAPI (each agent reports its Connected status and last-reported server).",
                 "consumes": [
                     "application/json"
                 ],
