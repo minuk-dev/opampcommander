@@ -15,7 +15,7 @@ import (
 	"golang.org/x/oauth2"
 	oauth2github "golang.org/x/oauth2/github"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
@@ -229,7 +229,7 @@ func (s *Service) verifyDBUserPassword(ctx context.Context, username, password s
 
 	user, err := s.userPort.GetUserByUsername(ctx, username)
 	if err != nil {
-		if errors.Is(err, port.ErrResourceNotExist) {
+		if errors.Is(err, model.ErrResourceNotExist) {
 			return "", ErrInvalidUsernameOrPassword
 		}
 

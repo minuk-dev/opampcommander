@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -71,7 +71,7 @@ func TestHandleDomainError_ResourceNotExist(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/agents/123", nil)
 
-	ginutil.HandleDomainError(ctx, port.ErrResourceNotExist, "Agent not found")
+	ginutil.HandleDomainError(ctx, model.ErrResourceNotExist, "Agent not found")
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }

@@ -12,12 +12,12 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 // ErrResourceNotExist is returned when a requested resource does not exist. It aliases the
 // domain sentinel so primary adapters can map it (e.g. to a 404) without importing the domain.
-var ErrResourceNotExist = domainport.ErrResourceNotExist
+var ErrResourceNotExist = model.ErrResourceNotExist
 
 // ErrAgentConnected is returned when attempting to delete an agent that is still connected.
 // Only disconnected agents can be deleted. It aliases the domain sentinel (the guard is

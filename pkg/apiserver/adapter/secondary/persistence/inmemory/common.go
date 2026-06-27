@@ -1,8 +1,8 @@
 package inmemory
 
 import (
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 // namespacedName is the composite key for resources identified by a
@@ -16,13 +16,13 @@ type namespacedName struct {
 // errResourceNotExist returns the shared not-found error so callers (and the
 // HTTP layer's RFC 9457 mapping) treat in-memory misses exactly like MongoDB's.
 func errResourceNotExist() error {
-	return port.ErrResourceNotExist
+	return model.ErrResourceNotExist
 }
 
 // errConflict returns the shared optimistic-concurrency error so the in-memory
 // store rejects stale writes exactly like the MongoDB adapter's version check.
 func errConflict() error {
-	return port.ErrConflict
+	return model.ErrConflict
 }
 
 // matchesSelector reports whether the agent satisfies every identifying and

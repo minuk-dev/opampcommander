@@ -19,7 +19,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup/usecasemock"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -198,7 +198,7 @@ func TestAgentGroupController_Get_NotFound(t *testing.T) {
 
 	usecase.EXPECT().
 		GetAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, port.ErrResourceNotExist)
+		Return(nil, model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
@@ -586,7 +586,7 @@ func TestAgentGroupController_Delete_NotFound(t *testing.T) {
 
 	usecase.EXPECT().
 		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).
-		Return(port.ErrResourceNotExist)
+		Return(model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(

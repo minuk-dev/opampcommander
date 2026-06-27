@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	domainreconcile "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/reconcile"
 )
 
@@ -32,7 +32,7 @@ func (s *Service) Reconcile(ctx context.Context, kind string, namespace string, 
 	err := s.registry.Reconcile(ctx, kind, namespace, name)
 	if err != nil {
 		if errors.Is(err, domainreconcile.ErrUnknownKind) {
-			return fmt.Errorf("%w: %w", domainport.ErrInvalidArgument, err)
+			return fmt.Errorf("%w: %w", model.ErrInvalidArgument, err)
 		}
 
 		return fmt.Errorf("reconcile: %w", err)

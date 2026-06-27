@@ -13,10 +13,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -77,7 +76,7 @@ func TestAgentMongoAdapter_GetAgent(t *testing.T) {
 		got, err := agentRepository.GetAgent(ctx, instanceUID)
 
 		// then
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 		assert.Nil(t, got)
 	})
 }
@@ -506,7 +505,7 @@ func TestAgentMongoAdapter_DeleteAgent(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = agentRepository.GetAgent(ctx, instanceUID)
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 	})
 
 	t.Run("returns ErrResourceNotExist for a missing agent", func(t *testing.T) {
@@ -535,7 +534,7 @@ func TestAgentMongoAdapter_DeleteAgent(t *testing.T) {
 		err = agentRepository.DeleteAgent(ctx, uuid.New())
 
 		// then
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 	})
 }
 
@@ -1513,7 +1512,7 @@ func TestAgentMongoAdapter_OptimisticConcurrency(t *testing.T) {
 		require.NoError(t, agentRepository.PutAgent(ctx, loadA))
 
 		loadB.Metadata.Namespace = "from-b"
-		require.ErrorIs(t, agentRepository.PutAgent(ctx, loadB), port.ErrConflict)
+		require.ErrorIs(t, agentRepository.PutAgent(ctx, loadB), model.ErrConflict)
 
 		stored, err := agentRepository.GetAgent(ctx, uid)
 		require.NoError(t, err)
@@ -1528,6 +1527,6 @@ func TestAgentMongoAdapter_OptimisticConcurrency(t *testing.T) {
 
 		require.NoError(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uid)))
 		// A second create-as-v0 for the same instanceUid must conflict, not duplicate.
-		require.ErrorIs(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uid)), port.ErrConflict)
+		require.ErrorIs(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(uid)), model.ErrConflict)
 	})
 }

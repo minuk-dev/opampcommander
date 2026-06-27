@@ -13,10 +13,9 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 func TestRestartAgentIntegration(t *testing.T) {
@@ -141,7 +140,7 @@ type mockAgentUsecase struct {
 func (m *mockAgentUsecase) GetAgent(_ context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	agent, exists := m.agents[instanceUID]
 	if !exists {
-		return nil, port.ErrResourceNotExist
+		return nil, model.ErrResourceNotExist
 	}
 
 	return agent, nil

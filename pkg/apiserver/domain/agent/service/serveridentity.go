@@ -7,10 +7,9 @@ import (
 	"log/slog"
 	"time"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -122,7 +121,7 @@ func (s *ServerIdentityService) registerServer(ctx context.Context) error {
 
 	// Check if server ID already exists and is alive
 	existingServer, err := s.serverPersistencePort.GetServer(ctx, s.id)
-	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("failed to check existing server: %w", err)
 	}
 

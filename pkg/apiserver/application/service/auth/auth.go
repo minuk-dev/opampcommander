@@ -13,8 +13,8 @@ import (
 	"time"
 
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
@@ -66,7 +66,7 @@ func (s *Service) EnsureUserOnLogin(ctx context.Context, provisioning applicatio
 		s.syncRBACPolicies(ctx, provisioning.Email)
 
 		return
-	case err != nil && !errors.Is(err, domainport.ErrResourceNotExist):
+	case err != nil && !errors.Is(err, model.ErrResourceNotExist):
 		s.logger.Warn("failed to check user existence on login",
 			slog.String("email", provisioning.Email),
 			slog.Any("error", err),
@@ -106,7 +106,7 @@ func (s *Service) EnsureUserOnLogin(ctx context.Context, provisioning applicatio
 func (s *Service) isDeletedUser(ctx context.Context, email string) bool {
 	deleted, err := s.userUsecase.GetUserByEmailIncludingDeleted(ctx, email)
 	if err != nil {
-		if errors.Is(err, domainport.ErrResourceNotExist) {
+		if errors.Is(err, model.ErrResourceNotExist) {
 			return false
 		}
 

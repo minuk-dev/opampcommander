@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -89,7 +88,7 @@ func (s *EndpointService) CreateEndpoint(
 	actor string,
 ) (*agentmodel.Endpoint, error) {
 	if endpoint.Metadata.Name == "" {
-		return nil, fmt.Errorf("%w: endpoint name must not be empty", domainport.ErrInvalidArgument)
+		return nil, fmt.Errorf("%w: endpoint name must not be empty", model.ErrInvalidArgument)
 	}
 
 	// Reject creating over an existing endpoint instead of silently upserting it.
@@ -97,8 +96,8 @@ func (s *EndpointService) CreateEndpoint(
 	switch {
 	case err == nil:
 		return nil, fmt.Errorf("%w: endpoint %q in namespace %q",
-			domainport.ErrResourceAlreadyExist, endpoint.Metadata.Name, endpoint.Metadata.Namespace)
-	case !errors.Is(err, domainport.ErrResourceNotExist):
+			model.ErrResourceAlreadyExist, endpoint.Metadata.Name, endpoint.Metadata.Namespace)
+	case !errors.Is(err, model.ErrResourceNotExist):
 		return nil, fmt.Errorf("check existing endpoint: %w", err)
 	}
 

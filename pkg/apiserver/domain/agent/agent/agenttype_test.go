@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 )
 
 func TestDescriptionAgentType(t *testing.T) {

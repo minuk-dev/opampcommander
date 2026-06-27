@@ -12,10 +12,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -286,7 +285,7 @@ func (s *EndpointDetectionService) createEndpoint(
 			slog.String("namespace", namespace), slog.String("name", name), slog.String("url", exporter.url))
 
 		return
-	case !errors.Is(err, port.ErrResourceNotExist):
+	case !errors.Is(err, model.ErrResourceNotExist):
 		s.logger.Warn("failed to check endpoint name before create",
 			slog.String("namespace", namespace), slog.String("name", name), slog.String("error", err.Error()))
 

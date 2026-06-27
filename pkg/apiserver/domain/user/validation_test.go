@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 func TestValidateUsername(t *testing.T) {

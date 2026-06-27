@@ -23,10 +23,10 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
@@ -245,11 +245,11 @@ func applyNamespace(ctx context.Context, doc manifestDoc, deps bootstrapDeps) er
 	}
 
 	existing, err := deps.namespaceUsecase.GetNamespace(ctx, name, nil)
-	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check namespace %q: %w", name, err)
 	}
 
-	if errors.Is(err, port.ErrResourceNotExist) {
+	if errors.Is(err, model.ErrResourceNotExist) {
 		deps.logger.Info("bootstrap: creating namespace", slog.String("name", name))
 
 		namespace := agentmodel.NewNamespace(name)
@@ -310,11 +310,11 @@ func applyEndpoint(ctx context.Context, doc manifestDoc, deps bootstrapDeps) err
 	desired := helper.NewMapper(deps.clk, 0).MapAPIToEndpoint(&apiEndpoint)
 
 	existing, err := deps.endpointUsecase.GetEndpoint(ctx, namespace, name, nil)
-	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check endpoint %q/%q: %w", namespace, name, err)
 	}
 
-	if errors.Is(err, port.ErrResourceNotExist) {
+	if errors.Is(err, model.ErrResourceNotExist) {
 		deps.logger.Info("bootstrap: creating endpoint",
 			slog.String("namespace", namespace), slog.String("name", name))
 
@@ -373,13 +373,13 @@ func applyRole(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
 	desiredPermissions := append([]string(nil), apiRole.Spec.Permissions...)
 
 	existing, err := deps.rolePersistencePort.GetRoleByName(ctx, name)
-	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check role %q: %w", name, err)
 	}
 
 	var role *usermodel.Role
 
-	if errors.Is(err, port.ErrResourceNotExist) {
+	if errors.Is(err, model.ErrResourceNotExist) {
 		deps.logger.Info("bootstrap: creating role", slog.String("name", name))
 
 		role = usermodel.NewRole(name, apiRole.Spec.IsBuiltIn)
@@ -445,7 +445,7 @@ func applyUser(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
 
 	if apiUser.Spec.Password == "" {
 		return fmt.Errorf("user manifest %q for %q has empty spec.password: %w",
-			doc.source, username, port.ErrResourceNotExist)
+			doc.source, username, model.ErrResourceNotExist)
 	}
 
 	if deps.passwordHasher == nil || !deps.passwordHasher.Enabled() {
@@ -458,11 +458,11 @@ func applyUser(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
 	}
 
 	existing, err := deps.userPersistencePort.GetUserByUsername(ctx, username)
-	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check user %q: %w", username, err)
 	}
 
-	if errors.Is(err, port.ErrResourceNotExist) {
+	if errors.Is(err, model.ErrResourceNotExist) {
 		return createBootstrapUser(ctx, username, email, apiUser.Spec.Password, deps)
 	}
 
@@ -576,7 +576,7 @@ func ensurePermission(ctx context.Context, name string, deps bootstrapDeps) erro
 		return nil
 	}
 
-	if !errors.Is(err, port.ErrResourceNotExist) {
+	if !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check permission %q: %w", name, err)
 	}
 

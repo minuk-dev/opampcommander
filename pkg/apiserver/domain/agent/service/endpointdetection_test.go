@@ -10,10 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // fakeEndpointUsecase is an in-memory agentport.EndpointUsecase for tests, with
@@ -33,11 +32,11 @@ func (f *fakeEndpointUsecase) GetEndpoint(
 ) (*agentmodel.Endpoint, error) {
 	endpoint, ok := f.store[key(namespace, name)]
 	if !ok {
-		return nil, port.ErrResourceNotExist
+		return nil, model.ErrResourceNotExist
 	}
 
 	if endpoint.IsDeleted() && (options == nil || !options.IncludeDeleted) {
-		return nil, port.ErrResourceNotExist
+		return nil, model.ErrResourceNotExist
 	}
 
 	return endpoint, nil
@@ -86,7 +85,7 @@ func (f *fakeEndpointUsecase) DeleteEndpoint(
 ) error {
 	endpoint, ok := f.store[key(namespace, name)]
 	if !ok {
-		return port.ErrResourceNotExist
+		return model.ErrResourceNotExist
 	}
 
 	endpoint.MarkDeleted(deletedAt, deletedBy)
@@ -173,7 +172,7 @@ func TestReconcileMatchesExistingByURLPreservingSpec(t *testing.T) {
 	// The otlp exporter matches the manual endpoint by URL (no duplicate created);
 	// only the mimir exporter is auto-created.
 	_, err = fake.GetEndpoint(ctx, "default", "obs-otlp", &model.GetOptions{IncludeDeleted: true})
-	require.ErrorIs(t, err, port.ErrResourceNotExist)
+	require.ErrorIs(t, err, model.ErrResourceNotExist)
 
 	matched, err := fake.GetEndpoint(ctx, "default", "my-collector", nil)
 	require.NoError(t, err)

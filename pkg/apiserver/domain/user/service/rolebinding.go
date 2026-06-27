@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 

@@ -49,33 +49,42 @@ make debug-server    # delve headless on :2345
 
 ## Architecture
 
-The project uses **Hexagonal Architecture** wired with **Uber FX** dependency injection. There are three explicit layers — domain, application, and adapter — plus shared `pkg/` and `api/v1/` packages.
+The project uses **Hexagonal Architecture** wired with **Uber FX** dependency injection. There are three explicit layers — domain, application, and adapter — plus shared `pkg/` and `api/v1/` packages. The server-side code lives under `pkg/apiserver/`.
 
 ### Layer Summary
 
 | Layer | Path | Role |
 |---|---|---|
-| Domain | `internal/domain/` | Pure business logic; no FX imports allowed (enforced by depguard) |
-| Application | `internal/application/` | Orchestration between domain and HTTP layer; operates on `api/v1` types |
-| Adapter (in) | `internal/adapter/in/` | Gin HTTP controllers, Kafka/in-memory event consumers |
-| Adapter (out) | `internal/adapter/out/` | MongoDB repositories, Kafka producer, Casbin RBAC, GitHub identity |
+| Domain | `pkg/apiserver/domain/` | Pure business logic; no FX imports allowed (enforced by depguard) |
+| Application | `pkg/apiserver/application/` | Orchestration between domain and HTTP layer; operates on `api/v1` types |
+| Adapter (primary/driving) | `pkg/apiserver/adapter/primary/` | Gin HTTP controllers, Kafka/in-memory event consumers, schedulers |
+| Adapter (secondary/driven) | `pkg/apiserver/adapter/secondary/` | MongoDB/in-memory persistence, Kafka producer, Casbin RBAC, metrics |
+
+Each aggregate package under `domain/` (e.g. `domain/agent/`, `domain/user/`)
+holds its models, `port/` (in + out interfaces), and `service/` directly — there
+is no extra `model/` subpackage layer. `domain/model/` (+ `model/vo/`) holds
+models shared across aggregates.
 
 ### FX Wiring
-The root `fx.New(...)` is in `pkg/apiserver/apiserver.go`. Modules:
-- `pkg/apiserver/module/domain/` — domain services → domain port interfaces
-- `pkg/apiserver/module/application/` — application services → application port interfaces
-- `pkg/apiserver/module/infrastructure/` — controllers, repositories, messaging, Casbin
+The root `fx.New(...)` is in `pkg/apiserver/internal/app/app.go`. Only code under
+`pkg/apiserver/internal/` (the composition root) may import FX. Modules live in
+`pkg/apiserver/internal/module/`:
+- `module/domain/` — domain services → domain port interfaces
+- `module/application/` — application services → application port interfaces
+- `module/adapter/{primary,secondary,common}/` — controllers, repositories, messaging, RBAC
+- `module/infrastructure/` and `module/helper/` — cross-cutting wiring (HTTP server, management endpoints)
 
 ### Key Packages
-- `internal/domain/agent/port/in.go` — inbound usecase interfaces consumed by the application layer
-- `internal/domain/agent/port/out.go` — outbound persistence/messaging interfaces implemented by adapters
-- `internal/application/service/opamp/` — central OpAMP protocol handler (`OnConnected`, `OnMessage`, `OnConnectionClose`)
+- `pkg/apiserver/domain/agent/port/in.go` — inbound usecase interfaces consumed by the application layer
+- `pkg/apiserver/domain/agent/port/out.go` — outbound persistence/messaging interfaces implemented by adapters
+- `pkg/apiserver/application/service/opamp/` — central OpAMP protocol handler (`OnConnected`, `OnMessage`, `OnConnectionClose`)
+- `pkg/apiserver/adapter/primary/http/` — Gin HTTP controllers
 - `api/v1/` — HTTP request/response DTOs (kept separate from domain models)
 - `pkg/client/` — Go client library used by `opampctl`
 - `pkg/testutil/` — testcontainers helpers for MongoDB/Kafka/OTel Collector
 
 ### Multi-Server Coordination
-When an agent is connected to server B but server A receives a management request, server A publishes a CloudEvent to Kafka and server B's consumer delivers it over the agent's WebSocket. In single-node mode, `internal/adapter/in/messaging/inmemory/` replaces Kafka.
+When an agent is connected to server B but server A receives a management request, server A publishes a CloudEvent to Kafka and server B's consumer delivers it over the agent's WebSocket. In single-node mode, `pkg/apiserver/adapter/primary/messaging/inmemory/` replaces Kafka.
 
 ### Agent Namespace
 Derived from the OpAMP agent's `service.namespace` identifying attribute; defaults to `"default"`.
@@ -108,7 +117,7 @@ var _ port.SomeInterface = (*SomeService)(nil)
 Mocks live in `usecasemock/` subdirectories next to the packages defining the interfaces. Regenerate with `make prebuilt-mock` (uses `.mockery.yml`).
 
 ### Error Responses
-All HTTP errors use RFC 9457 Problem Details format via `ginutil.HandleDomainError`. `port.ErrResourceNotExist` → 404; others → 500.
+All HTTP errors use RFC 9457 Problem Details format via `ginutil.HandleDomainError`. Shared domain error sentinels live in `pkg/apiserver/domain/model` (e.g. `model.ErrResourceNotExist` → 404; others → 500).
 
 ### Import Ordering (enforced by `gci`)
 1. Standard library
@@ -116,7 +125,7 @@ All HTTP errors use RFC 9457 Problem Details format via `ginutil.HandleDomainErr
 3. Internal (`github.com/minuk-dev/opampcommander`)
 
 ### Import Restrictions (enforced by `depguard`)
-- `internal/**` packages must not import `go.uber.org/fx`
+- Only `pkg/apiserver/internal/**` (the FX composition root) may import `go.uber.org/fx`; all other packages must stay FX-free
 - Production code must not import `pkg/testutil`
 
 ### Swagger Docs

@@ -3,7 +3,7 @@ package opamp
 import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
 
 // connectionInfoToProtobuf converts ConnectionInfo to protobuf ConnectionSettingsOffers.

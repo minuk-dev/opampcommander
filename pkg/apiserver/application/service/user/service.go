@@ -16,8 +16,8 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -217,16 +217,16 @@ func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) ([
 // credential, a "basic" identity, and the login-type label to the domain user.
 // Basic-auth login is keyed on username and identified by email, so both must be present and the
 // username must be unique among active users. Bad input (empty email/username, duplicate username,
-// or basic auth disabled because no pepper is configured) is wrapped in [port.ErrInvalidArgument]
+// or basic auth disabled because no pepper is configured) is wrapped in [model.ErrInvalidArgument]
 // so the controller surfaces it as a 400.
 func (s *Service) applyBasicAuth(ctx context.Context, user *usermodel.User, username, email, password string) error {
 	usernameErr := usermodel.ValidateUsername(username)
 	if usernameErr != nil {
-		return fmt.Errorf("%w: %w", port.ErrInvalidArgument, usernameErr)
+		return fmt.Errorf("%w: %w", model.ErrInvalidArgument, usernameErr)
 	}
 
 	if email == "" {
-		return fmt.Errorf("%w: email is required for a basic-auth user", port.ErrInvalidArgument)
+		return fmt.Errorf("%w: email is required for a basic-auth user", model.ErrInvalidArgument)
 	}
 
 	err := s.ensureUsernameAvailable(ctx, username)
@@ -237,7 +237,7 @@ func (s *Service) applyBasicAuth(ctx context.Context, user *usermodel.User, user
 	hash, err := s.passwordHasher.Hash(password)
 	if err != nil {
 		if errors.Is(err, security.ErrBasicAuthDisabled) {
-			return fmt.Errorf("%w: %w", port.ErrInvalidArgument, err)
+			return fmt.Errorf("%w: %w", model.ErrInvalidArgument, err)
 		}
 
 		return fmt.Errorf("failed to hash password: %w", err)
@@ -255,16 +255,16 @@ func (s *Service) applyBasicAuth(ctx context.Context, user *usermodel.User, user
 	return nil
 }
 
-// ensureUsernameAvailable returns [port.ErrInvalidArgument] when an active user already has the
+// ensureUsernameAvailable returns [model.ErrInvalidArgument] when an active user already has the
 // given username. Basic-auth login resolves a user by username, so duplicates would make login
 // ambiguous (and could shadow a legitimate user). A not-found lookup means the username is free.
 func (s *Service) ensureUsernameAvailable(ctx context.Context, username string) error {
 	_, err := s.userUsecase.GetUserByUsername(ctx, username)
 	if err == nil {
-		return fmt.Errorf("%w: username %q is already in use", port.ErrInvalidArgument, username)
+		return fmt.Errorf("%w: username %q is already in use", model.ErrInvalidArgument, username)
 	}
 
-	if !errors.Is(err, port.ErrResourceNotExist) {
+	if !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("failed to check username availability: %w", err)
 	}
 

@@ -16,7 +16,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/rolebinding/usecasemock"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -175,7 +175,7 @@ func TestRoleBindingController_Get_NotFound(t *testing.T) {
 
 	usecase.EXPECT().
 		GetRoleBinding(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, port.ErrResourceNotExist)
+		Return(nil, model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
@@ -462,7 +462,7 @@ func TestRoleBindingController_Delete_NotFound(t *testing.T) {
 
 	usecase.EXPECT().
 		DeleteRoleBinding(mock.Anything, mock.Anything, mock.Anything).
-		Return(port.ErrResourceNotExist)
+		Return(model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(

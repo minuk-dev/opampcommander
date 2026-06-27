@@ -14,7 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 var (
@@ -68,7 +67,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) get(
 	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, port.ErrResourceNotExist
+			return nil, model.ErrResourceNotExist
 		}
 
 		return nil, fmt.Errorf("failed to get resource from mongodb: %w", err)
@@ -204,7 +203,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *
 }
 
 // deleteOne permanently removes the document identified by key. It returns
-// port.ErrResourceNotExist when no matching document is found.
+// model.ErrResourceNotExist when no matching document is found.
 //
 // WARNING: this is a HARD delete — it issues a real DeleteOne and does NOT apply
 // the soft-delete filter (excludeDeletedFilter) that get/list use. Most resources
@@ -219,7 +218,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) deleteOne(ctx context.Context, ke
 	}
 
 	if result.DeletedCount == 0 {
-		return port.ErrResourceNotExist
+		return model.ErrResourceNotExist
 	}
 
 	return nil

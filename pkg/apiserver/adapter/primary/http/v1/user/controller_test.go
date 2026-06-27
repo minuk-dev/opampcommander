@@ -15,7 +15,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user/usecasemock"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -107,7 +107,7 @@ func TestUserController_Me(t *testing.T) {
 
 		email := "admin@example.com"
 
-		userUsecase.On("GetMyProfile", mock.Anything, email).Return(nil, port.ErrResourceNotExist)
+		userUsecase.On("GetMyProfile", mock.Anything, email).Return(nil, model.ErrResourceNotExist)
 
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/users/me", nil)

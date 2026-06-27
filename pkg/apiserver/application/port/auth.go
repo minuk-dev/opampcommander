@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 // Identity provider names used when provisioning a user on login. They alias the

@@ -10,8 +10,8 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 const (
@@ -122,7 +122,7 @@ func (s *Service) hasIdentifyingAttrsConflict(
 ) (*agentmodel.Agent, bool) {
 	existing, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
-		if !errors.Is(err, domainport.ErrResourceNotExist) {
+		if !errors.Is(err, model.ErrResourceNotExist) {
 			s.logger.Warn("failed to load agent for instanceUID conflict check",
 				slog.String("instanceUID", instanceUID.String()),
 				slog.String("error", err.Error()))

@@ -18,7 +18,7 @@ import (
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/serverevent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 

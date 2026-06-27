@@ -13,7 +13,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	adaptermodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter"
 	applicationmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/application"
 	domainmodule "github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/domain"

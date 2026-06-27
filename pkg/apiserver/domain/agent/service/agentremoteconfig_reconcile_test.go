@@ -7,11 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // fakeARCPersistence is a minimal AgentRemoteConfigPersistencePort returning one stored config.
@@ -25,7 +24,7 @@ func (f *fakeARCPersistence) GetAgentRemoteConfig(
 	if f.stored == nil ||
 		f.stored.Metadata.Namespace != namespace ||
 		f.stored.Metadata.Name != name {
-		return nil, port.ErrResourceNotExist
+		return nil, model.ErrResourceNotExist
 	}
 
 	return f.stored, nil
