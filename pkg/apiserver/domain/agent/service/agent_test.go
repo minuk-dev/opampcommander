@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/serverevent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )

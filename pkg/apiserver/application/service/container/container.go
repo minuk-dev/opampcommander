@@ -14,9 +14,9 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 var _ applicationport.ContainerManageUsecase = (*Service)(nil)
@@ -117,7 +117,7 @@ func (s *Service) resolveAgents(ctx context.Context, instanceUIDs []uuid.UUID) (
 	for _, instanceUID := range instanceUIDs {
 		agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 		if err != nil {
-			if errors.Is(err, port.ErrResourceNotExist) {
+			if errors.Is(err, model.ErrResourceNotExist) {
 				continue
 			}
 

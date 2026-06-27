@@ -5,8 +5,8 @@ import (
 	"slices"
 	"time"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 // The clone* functions deep-copy a domain value so the in-memory store never

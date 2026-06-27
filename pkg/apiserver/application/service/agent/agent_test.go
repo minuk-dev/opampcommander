@@ -13,7 +13,7 @@ import (
 
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 

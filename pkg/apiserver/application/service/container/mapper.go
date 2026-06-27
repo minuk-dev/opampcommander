@@ -5,7 +5,7 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 

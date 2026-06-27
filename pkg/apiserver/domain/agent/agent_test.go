@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 )
 
 func TestNewAgent(t *testing.T) {

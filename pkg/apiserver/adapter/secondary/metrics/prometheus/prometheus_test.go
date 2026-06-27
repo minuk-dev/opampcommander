@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/metrics/prometheus"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
 
 // vectorResponse builds a Prometheus HTTP API instant-vector response body with

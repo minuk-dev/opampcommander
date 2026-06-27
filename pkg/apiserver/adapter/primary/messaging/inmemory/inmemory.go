@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/serverevent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 )
 
 var (

@@ -13,8 +13,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
@@ -76,7 +75,7 @@ func (a *RoleBindingMongoAdapter) GetRoleBinding(
 	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, port.ErrResourceNotExist
+			return nil, model.ErrResourceNotExist
 		}
 
 		return nil, fmt.Errorf("get role binding: %w", err)
@@ -152,7 +151,7 @@ func (a *RoleBindingMongoAdapter) DeleteRoleBinding(
 	}
 
 	if result.MatchedCount == 0 {
-		return port.ErrResourceNotExist
+		return model.ErrResourceNotExist
 	}
 
 	return nil

@@ -11,10 +11,9 @@ import (
 	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/utils/clock"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 var (
@@ -165,7 +164,7 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*ag
 func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	agent, err := s.GetAgent(ctx, instanceUID)
 	if err != nil {
-		if errors.Is(err, port.ErrResourceNotExist) {
+		if errors.Is(err, model.ErrResourceNotExist) {
 			agent = agentmodel.NewAgent(instanceUID, agentmodel.WithNamespace(s.defaultNamespace))
 		} else {
 			return nil, fmt.Errorf("failed to get agent: %w", err)
@@ -176,7 +175,7 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 }
 
 // SaveAgent saves the agent to the persistence layer with optimistic concurrency:
-// the write is rejected with [port.ErrConflict] when another writer (another HA
+// the write is rejected with [model.ErrConflict] when another writer (another HA
 // node, the reconcile loop, a racing API call) modified the agent since it was
 // loaded, rather than silently clobbering that change.
 //
@@ -188,7 +187,7 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) error {
 	err := s.agentPersistencePort.PutAgent(ctx, agent)
 	if err != nil {
-		if errors.Is(err, port.ErrConflict) {
+		if errors.Is(err, model.ErrConflict) {
 			s.InvalidateCache(agent.Metadata.InstanceUID)
 		}
 

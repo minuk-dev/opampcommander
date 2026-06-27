@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
 

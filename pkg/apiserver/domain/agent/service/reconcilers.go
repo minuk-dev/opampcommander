@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/reconcile"
 )
 
@@ -98,7 +98,7 @@ func (*AgentReconciler) Kind() string { return agentKind }
 func (r *AgentReconciler) Reconcile(ctx context.Context, namespace, name string) error {
 	instanceUID, err := uuid.Parse(name)
 	if err != nil {
-		return fmt.Errorf("invalid agent instance uid %q: %w: %w", name, port.ErrInvalidArgument, err)
+		return fmt.Errorf("invalid agent instance uid %q: %w: %w", name, model.ErrInvalidArgument, err)
 	}
 
 	agent, err := r.agentUsecase.GetAgent(ctx, instanceUID)
@@ -109,7 +109,7 @@ func (r *AgentReconciler) Reconcile(ctx context.Context, namespace, name string)
 	// Scope the agent to the requested namespace: an agent in another namespace must not be
 	// reachable here. Treat a mismatch as not-found so it maps to 404 like a missing agent.
 	if agent.Metadata.Namespace != namespace {
-		return fmt.Errorf("agent %s not in namespace %q: %w", instanceUID, namespace, port.ErrResourceNotExist)
+		return fmt.Errorf("agent %s not in namespace %q: %w", instanceUID, namespace, model.ErrResourceNotExist)
 	}
 
 	err = r.groupUsecase.ReconcileAgent(ctx, agent)

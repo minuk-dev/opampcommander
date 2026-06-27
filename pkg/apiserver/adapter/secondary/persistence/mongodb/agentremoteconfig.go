@@ -12,10 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 var _ agentport.AgentRemoteConfigPersistencePort = (*AgentRemoteConfigMongoAdapter)(nil)
@@ -76,7 +75,7 @@ func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, port.ErrResourceNotExist
+			return nil, model.ErrResourceNotExist
 		}
 
 		return nil, fmt.Errorf("get agent remote config: %w", err)

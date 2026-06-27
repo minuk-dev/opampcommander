@@ -15,10 +15,9 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 const (
@@ -132,7 +131,7 @@ func (a *AgentRepository) ListAgents(
 // incremented and the increment is written back onto the passed agent, so the
 // caller — and any cache that clones it afterwards — holds the new version. A
 // concurrent writer that already advanced the version (another HA node, the
-// reconcile loop, a racing API call) makes this return [port.ErrConflict] instead
+// reconcile loop, a racing API call) makes this return [model.ErrConflict] instead
 // of silently clobbering that writer's change.
 //
 // The create case (expected version 0) relies on the unique index on
@@ -154,7 +153,7 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent)
 	result, err := a.collection.ReplaceOne(ctx, filter, doc, options.Replace().SetUpsert(expected == 0))
 	if err != nil {
 		if mongo.IsDuplicateKeyError(err) {
-			return fmt.Errorf("%w: agent %s was created concurrently", port.ErrConflict, agent.Metadata.InstanceUID)
+			return fmt.Errorf("%w: agent %s was created concurrently", model.ErrConflict, agent.Metadata.InstanceUID)
 		}
 
 		return fmt.Errorf("failed to put agent to persistence: %w", err)
@@ -163,7 +162,7 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent)
 	// No matched (and not freshly upserted) document means the version filter did not
 	// find the expected version — another writer advanced it (or deleted the agent).
 	if result.MatchedCount == 0 && result.UpsertedCount == 0 {
-		return fmt.Errorf("%w: agent %s was modified concurrently", port.ErrConflict, agent.Metadata.InstanceUID)
+		return fmt.Errorf("%w: agent %s was modified concurrently", model.ErrConflict, agent.Metadata.InstanceUID)
 	}
 
 	agent.Metadata.ResourceVersion = next

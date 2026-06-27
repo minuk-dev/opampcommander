@@ -9,11 +9,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // MockContainerPersistencePort is a mock implementation of ContainerPersistencePort.
@@ -97,7 +96,7 @@ func TestContainerServiceObserveAgent(t *testing.T) {
 		svc := agentservice.NewContainerService(persistence, fixedClock{now: now})
 		a := containerAgent(t)
 
-		persistence.On("GetContainer", mock.Anything, "pod-uid").Return(nil, port.ErrResourceNotExist)
+		persistence.On("GetContainer", mock.Anything, "pod-uid").Return(nil, model.ErrResourceNotExist)
 		persistence.On("PutContainer", mock.Anything, mock.MatchedBy(func(c *agentmodel.Container) bool {
 			return c.Metadata.ID == "pod-uid" &&
 				c.Spec.Platform == agent.PlatformKubernetes &&

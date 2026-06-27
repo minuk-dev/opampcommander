@@ -16,7 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent/usecasemock"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -369,7 +369,7 @@ func TestAgentControllerGetAgent(t *testing.T) {
 
 		agentUsecase.EXPECT().
 			GetAgent(mock.Anything, "default", mock.Anything).
-			Return(nil, port.ErrResourceNotExist)
+			Return(nil, model.ErrResourceNotExist)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(
@@ -555,7 +555,7 @@ func TestAgentControllerDeleteAgent(t *testing.T) {
 
 		agentUsecase.EXPECT().
 			DeleteAgent(mock.Anything, "default", mock.Anything).
-			Return(port.ErrResourceNotExist)
+			Return(model.ErrResourceNotExist)
 		// when
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(
@@ -679,7 +679,7 @@ func TestAgentControllerSearchAgent(t *testing.T) {
 		// given
 		agentUsecase.EXPECT().
 			SearchAgents(mock.Anything, "default", "1234", mock.Anything).
-			Return(nil, port.ErrResourceNotExist)
+			Return(nil, model.ErrResourceNotExist)
 
 		// when
 		recorder := httptest.NewRecorder()

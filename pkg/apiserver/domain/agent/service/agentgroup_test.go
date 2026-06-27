@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )

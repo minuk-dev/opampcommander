@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/minuk-dev/opampcommander/api"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 // ErrorType represents common error types.
@@ -69,7 +69,7 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	baseURL := GetErrorTypeURI(ctx)
 
-	if errors.Is(err, port.ErrResourceNotExist) {
+	if errors.Is(err, model.ErrResourceNotExist) {
 		ctx.JSON(http.StatusNotFound, &api.ErrorModel{
 			Type:     baseURL,
 			Title:    "Not Found",
@@ -88,19 +88,19 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 		return
 	}
 
-	if errors.Is(err, port.ErrResourceAlreadyExist) {
+	if errors.Is(err, model.ErrResourceAlreadyExist) {
 		ConflictError(ctx, err, "The resource already exists.")
 
 		return
 	}
 
-	if errors.Is(err, port.ErrConflict) {
+	if errors.Is(err, model.ErrConflict) {
 		ConflictError(ctx, err, "The resource was modified concurrently; reload and retry.")
 
 		return
 	}
 
-	if errors.Is(err, port.ErrInvalidArgument) {
+	if errors.Is(err, model.ErrInvalidArgument) {
 		ctx.JSON(http.StatusBadRequest, &api.ErrorModel{
 			Type:     baseURL,
 			Title:    "Bad Request",

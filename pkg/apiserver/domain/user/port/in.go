@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 // UserUsecase is an interface that defines the methods for user use cases.

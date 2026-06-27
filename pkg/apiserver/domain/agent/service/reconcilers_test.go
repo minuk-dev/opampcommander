@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 // fakeAgentLoader returns a fixed agent by UID; the embedded interface covers unused methods.
@@ -23,7 +23,7 @@ type fakeAgentLoader struct {
 
 func (f *fakeAgentLoader) GetAgent(_ context.Context, _ uuid.UUID) (*agentmodel.Agent, error) {
 	if f.agent == nil {
-		return nil, port.ErrResourceNotExist
+		return nil, model.ErrResourceNotExist
 	}
 
 	return f.agent, nil
@@ -73,7 +73,7 @@ func TestAgentReconciler_Reconcile(t *testing.T) {
 
 		err := reconciler.Reconcile(context.Background(), "team-b", uid.String())
 
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 		assert.False(t, group.called, "an agent in another namespace must not be reconciled")
 	})
 
@@ -85,7 +85,7 @@ func TestAgentReconciler_Reconcile(t *testing.T) {
 
 		err := reconciler.Reconcile(context.Background(), "team-a", "not-a-uuid")
 
-		require.ErrorIs(t, err, port.ErrInvalidArgument)
+		require.ErrorIs(t, err, model.ErrInvalidArgument)
 		assert.False(t, group.called)
 	})
 }

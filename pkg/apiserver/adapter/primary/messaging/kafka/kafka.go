@@ -13,8 +13,8 @@ import (
 	"github.com/cloudevents/sdk-go/v2/event"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/serverevent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 

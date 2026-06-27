@@ -14,7 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )

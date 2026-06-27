@@ -8,10 +8,9 @@ import (
 
 	"k8s.io/utils/clock"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 var _ agentport.HostUsecase = (*HostService)(nil)
@@ -68,7 +67,7 @@ func (s *HostService) ObserveAgent(ctx context.Context, agent *agentmodel.Agent)
 
 	host, err := s.persistence.GetHost(ctx, id)
 	if err != nil {
-		if !errors.Is(err, port.ErrResourceNotExist) {
+		if !errors.Is(err, model.ErrResourceNotExist) {
 			return fmt.Errorf("failed to get host for discovery: %w", err)
 		}
 

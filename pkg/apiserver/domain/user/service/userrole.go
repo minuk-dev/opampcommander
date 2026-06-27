@@ -9,8 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
@@ -46,7 +45,7 @@ func (s *UserRoleService) AssignRole(
 ) error {
 	// Check if the role is already assigned in this namespace
 	existing, err := s.userRolePersistencePort.GetUserRoleByUserAndRole(ctx, userID, roleID, namespace)
-	if err != nil && !errors.Is(err, port.ErrResourceNotExist) {
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("failed to check existing role assignment: %w", err)
 	}
 

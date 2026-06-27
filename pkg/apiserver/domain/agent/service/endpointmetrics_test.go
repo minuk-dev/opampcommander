@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 )
 

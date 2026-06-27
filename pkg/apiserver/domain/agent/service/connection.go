@@ -11,7 +11,7 @@ import (
 	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/samber/lo"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/xsync"

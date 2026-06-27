@@ -1,7 +1,7 @@
 // Package kafka provides Kafka messaging models.
 package kafka
 
-import "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/serverevent"
+import "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 
 const (
 	// CloudEventMessageSpec is the CloudEvents spec version used.

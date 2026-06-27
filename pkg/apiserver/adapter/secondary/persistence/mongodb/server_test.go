@@ -12,9 +12,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -66,7 +65,7 @@ func TestServerAdapter_GetServer(t *testing.T) {
 		ctx := t.Context()
 
 		server, err := adapter.GetServer(ctx, "non-existing-server")
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 		assert.Nil(t, server)
 	})
 }

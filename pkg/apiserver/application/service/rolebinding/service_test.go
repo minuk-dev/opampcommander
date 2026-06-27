@@ -14,7 +14,7 @@ import (
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	rolebindingsvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )

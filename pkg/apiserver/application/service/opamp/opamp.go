@@ -13,8 +13,8 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )

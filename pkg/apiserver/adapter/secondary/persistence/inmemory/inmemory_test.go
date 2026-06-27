@@ -12,9 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // errSentinel is a static error used to assert transaction error propagation.
@@ -37,10 +36,10 @@ func TestAgentRepository_PutGetDelete(t *testing.T) {
 	require.NoError(t, repo.DeleteAgent(ctx, uid))
 
 	_, err = repo.GetAgent(ctx, uid)
-	require.ErrorIs(t, err, port.ErrResourceNotExist)
+	require.ErrorIs(t, err, model.ErrResourceNotExist)
 
 	// Deleting a missing agent reports not-found.
-	require.ErrorIs(t, repo.DeleteAgent(ctx, uid), port.ErrResourceNotExist)
+	require.ErrorIs(t, repo.DeleteAgent(ctx, uid), model.ErrResourceNotExist)
 }
 
 func TestAgentRepository_ListByNamespaceAndPagination(t *testing.T) {
@@ -212,7 +211,7 @@ func TestNamespaceRepository_SoftDeleteHiddenUnlessIncluded(t *testing.T) {
 
 	// Default read excludes the soft-deleted namespace.
 	_, err = repo.GetNamespace(ctx, "ns-soft", nil)
-	require.ErrorIs(t, err, port.ErrResourceNotExist)
+	require.ErrorIs(t, err, model.ErrResourceNotExist)
 
 	// IncludeDeleted surfaces it again.
 	//exhaustruct:ignore
@@ -318,7 +317,7 @@ func TestEndpointRepository_PutGetSoftDeleteAndIsolation(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = repo.GetEndpoint(ctx, "default", "tempo", nil)
-	require.ErrorIs(t, err, port.ErrResourceNotExist)
+	require.ErrorIs(t, err, model.ErrResourceNotExist)
 
 	//exhaustruct:ignore
 	revived, err := repo.GetEndpoint(ctx, "default", "tempo", &model.GetOptions{IncludeDeleted: true})
@@ -463,7 +462,7 @@ func TestAgentRepository_PutAgentConflictOnStaleVersion(t *testing.T) {
 
 	// Writer B still holds v1, so its write is rejected instead of clobbering A.
 	loadB.Metadata.Namespace = "from-b"
-	require.ErrorIs(t, repo.PutAgent(ctx, loadB), port.ErrConflict)
+	require.ErrorIs(t, repo.PutAgent(ctx, loadB), model.ErrConflict)
 
 	stored, err := repo.GetAgent(ctx, uid)
 	require.NoError(t, err)
@@ -484,5 +483,5 @@ func TestAgentRepository_PutAgentConflictOnConcurrentCreate(t *testing.T) {
 
 	require.NoError(t, repo.PutAgent(ctx, createA))
 	// The second create-as-v0 must conflict rather than insert a duplicate.
-	require.ErrorIs(t, repo.PutAgent(ctx, createB), port.ErrConflict)
+	require.ErrorIs(t, repo.PutAgent(ctx, createB), model.ErrConflict)
 }

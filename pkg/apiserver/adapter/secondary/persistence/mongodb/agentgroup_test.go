@@ -13,9 +13,8 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -142,7 +141,7 @@ func TestAgentGroupMongoAdapter_GetAgentGroup(t *testing.T) {
 		got, err := adapter.GetAgentGroup(ctx, "default", "non-exist-group", nil)
 
 		// then
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 		assert.Nil(t, got)
 	})
 }
@@ -407,7 +406,7 @@ func TestAgentGroupMongoAdapter_DeleteAgentGroup(t *testing.T) {
 
 		// then - should not be retrievable via normal get (soft deleted)
 		_, err = adapter.GetAgentGroup(ctx, agentGroup.Metadata.Namespace, agentGroup.Metadata.Name, nil)
-		require.ErrorIs(t, err, port.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
 
 		// but should be retrievable with includeDeleted option
 		deletedGroup, err := adapter.GetAgentGroup(

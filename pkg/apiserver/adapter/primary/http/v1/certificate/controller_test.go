@@ -17,7 +17,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate/usecasemock"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -188,7 +188,7 @@ func TestCertificateController_Get_NotFound(t *testing.T) {
 	router := ctrlBase.Router
 
 	usecase.EXPECT().GetCertificate(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, port.ErrResourceNotExist)
+		Return(nil, model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath+"/notfound", nil)
@@ -477,7 +477,7 @@ func TestCertificateController_Delete_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything, mock.Anything).Return(port.ErrResourceNotExist)
+	usecase.EXPECT().DeleteCertificate(mock.Anything, mock.Anything, mock.Anything).Return(model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBasePath+"/something", nil)

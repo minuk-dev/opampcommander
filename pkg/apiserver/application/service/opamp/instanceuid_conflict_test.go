@@ -13,10 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -111,7 +111,7 @@ func TestNewInstanceUIDGeneratesV7(t *testing.T) {
 func TestDetectInstanceUIDConflict_NoConflictForBrandNewAgent(t *testing.T) {
 	t.Parallel()
 
-	agentUC := &stubAgentUsecase{getErr: domainport.ErrResourceNotExist}
+	agentUC := &stubAgentUsecase{getErr: model.ErrResourceNotExist}
 	connUC := &stubConnectionUsecase{byInstanceUIDErr: agentport.ErrConnectionNotFound}
 
 	svc := newTestService(t, agentUC, connUC)
@@ -141,7 +141,7 @@ func TestDetectInstanceUIDConflict_LiveConnectionAloneIsNotConflict(t *testing.T
 	other := aliveConn(t, uuid.New(), instanceUID)
 	current := aliveConn(t, uuid.New(), instanceUID)
 
-	agentUC := &stubAgentUsecase{getErr: domainport.ErrResourceNotExist}
+	agentUC := &stubAgentUsecase{getErr: model.ErrResourceNotExist}
 	connUC := &stubConnectionUsecase{byInstanceUID: other, byID: current}
 
 	svc := newTestService(t, agentUC, connUC)
@@ -387,7 +387,7 @@ func TestHandleInstanceUIDConflict_ReturnsRenewalAndAudits(t *testing.T) {
 func TestHandleInstanceUIDConflict_NoConflictReturnsNil(t *testing.T) {
 	t.Parallel()
 
-	agentUC := &stubAgentUsecase{getErr: domainport.ErrResourceNotExist}
+	agentUC := &stubAgentUsecase{getErr: model.ErrResourceNotExist}
 	connUC := &stubConnectionUsecase{byInstanceUIDErr: agentport.ErrConnectionNotFound}
 
 	svc := newTestService(t, agentUC, connUC)

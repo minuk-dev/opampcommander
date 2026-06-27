@@ -8,11 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // epFakePersistence is a minimal in-memory EndpointPersistencePort for the
@@ -27,7 +26,7 @@ func (f *epFakePersistence) GetEndpoint(
 	_ context.Context, _ string, _ string, _ *model.GetOptions,
 ) (*agentmodel.Endpoint, error) {
 	if f.stored == nil {
-		return nil, domainport.ErrResourceNotExist
+		return nil, model.ErrResourceNotExist
 	}
 
 	return f.stored, nil
@@ -65,7 +64,7 @@ func TestEndpointService_CreateEndpoint_RejectsEmptyName(t *testing.T) {
 
 	_, err := svc.CreateEndpoint(t.Context(), newEndpoint(""), "tester")
 
-	require.ErrorIs(t, err, domainport.ErrInvalidArgument)
+	require.ErrorIs(t, err, model.ErrInvalidArgument)
 	assert.Zero(t, persistence.putCalls, "an invalid endpoint must not be persisted")
 }
 
@@ -77,7 +76,7 @@ func TestEndpointService_CreateEndpoint_RejectsDuplicate(t *testing.T) {
 
 	_, err := svc.CreateEndpoint(t.Context(), newEndpoint("ep"), "tester")
 
-	require.ErrorIs(t, err, domainport.ErrResourceAlreadyExist)
+	require.ErrorIs(t, err, model.ErrResourceAlreadyExist)
 	assert.Zero(t, persistence.putCalls, "a duplicate must not be persisted")
 }
 

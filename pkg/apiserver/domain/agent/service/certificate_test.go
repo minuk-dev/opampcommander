@@ -11,11 +11,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 var (
@@ -129,7 +128,7 @@ func TestCertificateService_GetCertificate(t *testing.T) {
 		certService := agentservice.NewCertificateService(mockPort, logger)
 
 		mockPort.On("GetCertificate", ctx, "default", "non-existent", (*model.GetOptions)(nil)).
-			Return(nil, port.ErrResourceNotExist)
+			Return(nil, model.ErrResourceNotExist)
 
 		cert, err := certService.GetCertificate(ctx, "default", "non-existent", nil)
 
@@ -404,7 +403,7 @@ func TestCertificateService_DeleteCertificate(t *testing.T) {
 		certService := agentservice.NewCertificateService(mockPort, logger)
 
 		mockPort.On("GetCertificate", ctx, "default", "non-existent", (*model.GetOptions)(nil)).
-			Return(nil, port.ErrResourceNotExist)
+			Return(nil, model.ErrResourceNotExist)
 
 		cert, err := certService.DeleteCertificate(ctx, "default", "non-existent", time.Now(), "admin")
 

@@ -14,7 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentgroup/filter"
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"

@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/serverevent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/datastructure/sets"
 )
 

@@ -3,7 +3,7 @@ package mongodb
 import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
 
 // An agent is "connected" when both hold, mirroring agentmodel.Agent.IsConnectedAt:

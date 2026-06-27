@@ -7,7 +7,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/assert"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
 
 func TestRemoteConfigStatus(t *testing.T) {

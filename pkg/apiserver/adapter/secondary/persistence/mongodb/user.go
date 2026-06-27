@@ -13,8 +13,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
-	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
@@ -106,7 +105,7 @@ func (a *UserMongoAdapter) GetUserByUsername(
 	// operator), so a caller-supplied username cannot inject an operator.
 	err := usermodel.ValidateUsername(username)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", port.ErrResourceNotExist, err)
+		return nil, fmt.Errorf("%w: %w", model.ErrResourceNotExist, err)
 	}
 
 	filter := bson.M{"spec.username": username, "metadata.deletedAt": nil}
@@ -116,7 +115,7 @@ func (a *UserMongoAdapter) GetUserByUsername(
 	err = result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, port.ErrResourceNotExist
+			return nil, model.ErrResourceNotExist
 		}
 
 		return nil, fmt.Errorf("get user by username: %w", err)
@@ -199,7 +198,7 @@ func (a *UserMongoAdapter) findUserByEmail(
 	ctx context.Context, email string, includeDeleted bool,
 ) (*usermodel.User, error) {
 	if email == "" {
-		return nil, fmt.Errorf("empty email address: %w", port.ErrResourceNotExist)
+		return nil, fmt.Errorf("empty email address: %w", model.ErrResourceNotExist)
 	}
 
 	filter := bson.M{"spec.email": email}
@@ -212,7 +211,7 @@ func (a *UserMongoAdapter) findUserByEmail(
 	err := result.Err()
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, port.ErrResourceNotExist
+			return nil, model.ErrResourceNotExist
 		}
 
 		return nil, fmt.Errorf("get user by email: %w", err)

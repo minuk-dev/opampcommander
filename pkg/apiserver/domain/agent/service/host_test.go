@@ -10,11 +10,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model/agent"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // fixedClock is a clock.PassiveClock that always reports a fixed time.
@@ -100,7 +99,7 @@ func TestHostServiceObserveAgent(t *testing.T) {
 		svc := agentservice.NewHostService(persistence, fixedClock{now: now})
 		a := hostAgent(t)
 
-		persistence.On("GetHost", mock.Anything, "h-1").Return(nil, port.ErrResourceNotExist)
+		persistence.On("GetHost", mock.Anything, "h-1").Return(nil, model.ErrResourceNotExist)
 		persistence.On("PutHost", mock.Anything, mock.MatchedBy(func(h *agentmodel.Host) bool {
 			return h.Metadata.ID == "h-1" &&
 				len(h.Status.AgentInstanceUIDs) == 1 &&
