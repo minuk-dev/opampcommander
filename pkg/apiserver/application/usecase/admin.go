@@ -11,10 +11,13 @@ import (
 // It backs the admin API and is meant for operators inspecting the fleet,
 // not for agents themselves.
 type AdminUsecase interface {
-	// ListConnections returns the agent<->server connections currently tracked
-	// for the namespace, paged via options.
+	// ListConnections lists the connections held by the server instance handling
+	// the request (node-local view), paged via options.
 	ListConnections(ctx context.Context, namespace string,
 		options *port.ListOptions) (*v1.ListResponse[v1.Connection], error)
+	// ListClusterConnections lists connections across all alive servers,
+	// aggregated from the periodic per-server snapshots. Each item carries its
+	// owning ServerID.
 	ListClusterConnections(ctx context.Context, namespace string,
 		options *port.ListOptions) (*v1.ListResponse[v1.Connection], error)
 }
