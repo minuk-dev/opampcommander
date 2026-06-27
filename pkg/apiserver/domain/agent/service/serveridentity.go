@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/model"
@@ -89,14 +88,13 @@ func (s *ServerIdentityService) Run(ctx context.Context) error {
 
 	s.logger.Info("server registered successfully", slog.String("serverID", s.id))
 
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		err := s.loopForHeartbeat(ctx)
-		if err != nil {
-			s.logger.Error("heartbeat loop exited with error", slog.String("error", err.Error()))
-		}
-	})
-	wg.Wait()
+	// Run the heartbeat loop directly: Run is already invoked on its own goroutine by the
+	// executor, so wrapping the single loop in a WaitGroup just added another goroutine
+	// that did nothing but park on Wait. The loop returns on ctx cancellation.
+	err = s.loopForHeartbeat(ctx)
+	if err != nil {
+		s.logger.Error("heartbeat loop exited with error", slog.String("error", err.Error()))
+	}
 
 	return nil
 }
