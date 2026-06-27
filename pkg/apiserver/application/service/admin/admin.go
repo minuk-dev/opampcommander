@@ -79,15 +79,16 @@ func (s *Service) ListConnections(
 	), nil
 }
 
-// ListClusterConnections lists connections across all alive servers, aggregated from the
-// periodic per-server snapshots. Unlike ListConnections (node-local), this spans the whole
-// cluster; each item carries the ServerID of the node holding the connection.
+// ListClusterConnections lists connections aggregated from the periodic per-server
+// snapshots; each item carries the ServerID of the node holding the connection. A non-empty
+// serverID restricts the result to that one server; empty spans all alive servers.
 func (s *Service) ListClusterConnections(
 	ctx context.Context,
 	namespace string,
+	serverID string,
 	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Connection], error) {
-	response, err := s.clusterConnectionUsecase.ListClusterConnections(ctx, namespace, options.ToDomain())
+	response, err := s.clusterConnectionUsecase.ListClusterConnections(ctx, namespace, serverID, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster connections: %w", err)
 	}

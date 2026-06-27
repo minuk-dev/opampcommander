@@ -394,8 +394,9 @@ type ConnectionUsecase interface {
 // per-server snapshots each node periodically persists. Unlike ConnectionUsecase.ListConnections
 // (which is node-local), this returns connections held by every alive server.
 type ClusterConnectionUsecase interface {
-	// ListClusterConnections returns connections across all servers, filtered by namespace.
-	// Records from servers whose last snapshot is stale (e.g. a crashed node) are excluded.
-	ListClusterConnections(ctx context.Context, namespace string,
+	// ListClusterConnections returns connections filtered by namespace. A non-empty serverID
+	// restricts the result to that one server; an empty serverID spans all servers. Records
+	// from servers whose last snapshot is stale (e.g. a crashed node) are excluded.
+	ListClusterConnections(ctx context.Context, namespace string, serverID string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.ServerConnection], error)
 }

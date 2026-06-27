@@ -69,6 +69,7 @@ func (a *ServerConnectionAdapter) ReplaceServerConnections(
 func (a *ServerConnectionAdapter) ListServerConnections(
 	ctx context.Context,
 	namespace string,
+	serverID string,
 	notBefore time.Time,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.ServerConnection], error) {
@@ -78,6 +79,10 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 	}
 
 	conditions := []bson.M{{"namespace": sanitizeResourceName(namespace)}}
+	if serverID != "" {
+		conditions = append(conditions, bson.M{"serverId": serverID})
+	}
+
 	if !notBefore.IsZero() {
 		conditions = append(conditions, bson.M{"snapshotAt": bson.M{"$gte": notBefore}})
 	}

@@ -164,9 +164,10 @@ func (m *mockAdminUsecase) ListConnections(
 func (m *mockAdminUsecase) ListClusterConnections(
 	ctx context.Context,
 	namespace string,
+	serverID string,
 	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.Connection], error) {
-	args := m.Called(ctx, namespace, options)
+	args := m.Called(ctx, namespace, serverID, options)
 	resp, _ := args.Get(0).(*v1.ListResponse[v1.Connection])
 
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
