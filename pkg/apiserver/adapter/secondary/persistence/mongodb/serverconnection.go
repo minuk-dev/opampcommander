@@ -80,7 +80,9 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 
 	conditions := []bson.M{{"namespace": sanitizeResourceName(namespace)}}
 	if serverID != "" {
-		conditions = append(conditions, bson.M{"serverId": serverID})
+		// Sanitize the user-provided serverId the same way as namespace so it can only
+		// ever be a literal equality match, never a MongoDB operator (NoSQL injection).
+		conditions = append(conditions, bson.M{"serverId": sanitizeResourceName(serverID)})
 	}
 
 	if !notBefore.IsZero() {
