@@ -36,8 +36,17 @@ type RoleUsecase interface {
 	GetRoleByName(ctx context.Context, displayName string) (*usermodel.Role, error)
 	// ListRoles lists all roles.
 	ListRoles(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.Role], error)
-	// SaveRole saves the role.
+	// SaveRole persists the role as-is without applying lifecycle rules. It is the
+	// low-level write used by declarative bootstrap; application flows should prefer
+	// CreateRole/UpdateRole.
 	SaveRole(ctx context.Context, role *usermodel.Role) error
+	// CreateRole persists a user-created role. It forces the role to be non-built-in
+	// and stamps the creation/update timestamps.
+	CreateRole(ctx context.Context, role *usermodel.Role) (*usermodel.Role, error)
+	// UpdateRole applies the mutable spec fields (display name, description,
+	// permissions) from role onto the stored role identified by uid, keeping
+	// IsBuiltIn immutable, and stamps the update timestamp.
+	UpdateRole(ctx context.Context, uid uuid.UUID, role *usermodel.Role) (*usermodel.Role, error)
 	// DeleteRole deletes the role (only if it's not built-in).
 	DeleteRole(ctx context.Context, uid uuid.UUID) error
 }

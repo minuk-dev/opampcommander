@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -71,38 +70,30 @@ func (s *Service) ListRoles(
 
 // CreateRole implements [applicationport.RoleManageUsecase].
 func (s *Service) CreateRole(ctx context.Context, apiRole *v1.Role) (*v1.Role, error) {
-	// User-created roles cannot be marked as built-in
 	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, false)
 	domainRole.Spec.Description = apiRole.Spec.Description
 	domainRole.Spec.Permissions = apiRole.Spec.Permissions
 
-	err := s.roleUsecase.SaveRole(ctx, domainRole)
+	created, err := s.roleUsecase.CreateRole(ctx, domainRole)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create role: %w", err)
 	}
 
-	return s.mapper.MapRoleToAPI(domainRole), nil
+	return s.mapper.MapRoleToAPI(created), nil
 }
 
 // UpdateRole implements [applicationport.RoleManageUsecase].
 func (s *Service) UpdateRole(ctx context.Context, uid uuid.UUID, apiRole *v1.Role) (*v1.Role, error) {
-	existing, err := s.roleUsecase.GetRole(ctx, uid, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get role: %w", err)
-	}
+	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, false)
+	domainRole.Spec.Description = apiRole.Spec.Description
+	domainRole.Spec.Permissions = apiRole.Spec.Permissions
 
-	existing.Spec.DisplayName = apiRole.Spec.DisplayName
-	existing.Spec.Description = apiRole.Spec.Description
-	existing.Spec.Permissions = apiRole.Spec.Permissions
-	// IsBuiltIn is immutable — not updated from the request
-	existing.Metadata.UpdatedAt = time.Now()
-
-	err = s.roleUsecase.SaveRole(ctx, existing)
+	updated, err := s.roleUsecase.UpdateRole(ctx, uid, domainRole)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update role: %w", err)
 	}
 
-	return s.mapper.MapRoleToAPI(existing), nil
+	return s.mapper.MapRoleToAPI(updated), nil
 }
 
 // DeleteRole implements [applicationport.RoleManageUsecase].

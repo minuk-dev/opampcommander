@@ -195,6 +195,30 @@ func (m *mockRoleUsecase) SaveRole(ctx context.Context, role *usermodel.Role) er
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
 
+func (m *mockRoleUsecase) CreateRole(ctx context.Context, role *usermodel.Role) (*usermodel.Role, error) {
+	args := m.Called(ctx, role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	r, _ := args.Get(0).(*usermodel.Role)
+
+	return r, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *mockRoleUsecase) UpdateRole(
+	ctx context.Context, uid uuid.UUID, role *usermodel.Role,
+) (*usermodel.Role, error) {
+	args := m.Called(ctx, uid, role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	r, _ := args.Get(0).(*usermodel.Role)
+
+	return r, args.Error(1) //nolint:wrapcheck // mock error
+}
+
 func (m *mockRoleUsecase) DeleteRole(ctx context.Context, uid uuid.UUID) error {
 	args := m.Called(ctx, uid)
 
