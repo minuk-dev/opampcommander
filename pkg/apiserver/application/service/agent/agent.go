@@ -32,9 +32,10 @@ var _ applicationport.AgentManageUsecase = (*Service)(nil)
 // Service is a struct that implements the AgentManageUsecase interface.
 type Service struct {
 	// domain usecases
-	agentUsecase             agentport.AgentUsecase
-	agentNotificationUsecase agentport.AgentNotificationUsecase
-	endpointDetectionUsecase agentport.EndpointDetectionUsecase
+	agentUsecase               agentport.AgentUsecase
+	agentNotificationUsecase   agentport.AgentNotificationUsecase
+	endpointDetectionUsecase   agentport.EndpointDetectionUsecase
+	cacheInvalidationPublisher agentport.AgentCacheInvalidationPublisher
 
 	// mapper
 	mapper *helper.Mapper
@@ -46,14 +47,16 @@ func New(
 	agentUsecase agentport.AgentUsecase,
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
+	cacheInvalidationPublisher agentport.AgentCacheInvalidationPublisher,
 	logger *slog.Logger,
 ) *Service {
 	realClock := clock.RealClock{}
 
 	return &Service{
-		agentUsecase:             agentUsecase,
-		agentNotificationUsecase: agentNotificationUsecase,
-		endpointDetectionUsecase: endpointDetectionUsecase,
+		agentUsecase:               agentUsecase,
+		agentNotificationUsecase:   agentNotificationUsecase,
+		endpointDetectionUsecase:   endpointDetectionUsecase,
+		cacheInvalidationPublisher: cacheInvalidationPublisher,
 
 		mapper: helper.NewMapper(realClock, agentmodel.DefaultConnectionStaleness),
 		logger: logger,
@@ -172,6 +175,8 @@ func (s *Service) DeleteAgent(
 		return fmt.Errorf("failed to delete agent: %w", err)
 	}
 
+	s.invalidatePeerCaches(ctx, instanceUID)
+
 	return nil
 }
 
@@ -217,7 +222,21 @@ func (s *Service) UpdateAgent(
 		s.logger.Error("failed to notify agent updated", "error", notifyErr.Error())
 	}
 
+	s.invalidatePeerCaches(ctx, instanceUID)
+
 	return s.mapper.MapAgentToAPI(existing), nil
+}
+
+// invalidatePeerCaches asks other nodes to drop their cached copy of the agent after a
+// local API mutation, so they don't serve it stale until their TTL expires. It is
+// best-effort: failures are logged, never surfaced to the API caller, since the entry
+// expires on its own and the local node's cache was already updated by the write.
+func (s *Service) invalidatePeerCaches(ctx context.Context, instanceUID uuid.UUID) {
+	err := s.cacheInvalidationPublisher.BroadcastAgentCacheInvalidation(ctx, instanceUID)
+	if err != nil {
+		s.logger.Error("failed to broadcast agent cache invalidation",
+			"instanceUID", instanceUID.String(), "error", err.Error())
+	}
 }
 
 // getAgentInNamespace fetches an agent by UID and verifies it belongs to the given

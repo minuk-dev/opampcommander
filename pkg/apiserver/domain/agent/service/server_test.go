@@ -366,6 +366,7 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 		mockIdentity,
 		mockConnection,
 		mockAgent,
+		noopAgentCacheInvalidator{},
 	)
 
 	fakeClock := newTestFakeClock(now)
@@ -412,6 +413,7 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 		mockIdentity,
 		mockConnection,
 		mockAgent,
+		noopAgentCacheInvalidator{},
 	)
 
 	fakeClock := newTestFakeClock(now)
@@ -452,6 +454,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 		mockIdentity,
 		mockConnection,
 		mockAgent,
+		noopAgentCacheInvalidator{},
 	)
 
 	_, err := svc.GetServer(ctx, serverID)
@@ -496,6 +499,7 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 		mockIdentity,
 		mockConnection,
 		mockAgent,
+		noopAgentCacheInvalidator{},
 	)
 
 	fakeClock := newTestFakeClock(now)
@@ -548,6 +552,7 @@ func TestServerService_SendMessageToServer_LocalShortCircuit(t *testing.T) {
 		mockIdentity,
 		mockConnection,
 		mockAgent,
+		noopAgentCacheInvalidator{},
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -597,6 +602,7 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 		mockIdentity,
 		mockConnection,
 		mockAgent,
+		noopAgentCacheInvalidator{},
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -620,6 +626,21 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 		mock.Anything, mock.Anything, mock.Anything)
 }
 
+// noopAgentCacheInvalidator satisfies agentport.AgentCacheInvalidator in tests that do
+// not exercise cache invalidation.
+type noopAgentCacheInvalidator struct{}
+
+func (noopAgentCacheInvalidator) InvalidateCache(uuid.UUID) {}
+
+// spyAgentCacheInvalidator records the agent UIDs it was asked to invalidate.
+type spyAgentCacheInvalidator struct {
+	invalidated []uuid.UUID
+}
+
+func (s *spyAgentCacheInvalidator) InvalidateCache(instanceUID uuid.UUID) {
+	s.invalidated = append(s.invalidated, instanceUID)
+}
+
 func newLeaderTestService(
 	mockPersistence *MockServerPersistencePort,
 	mockIdentity *MockServerIdentityProvider,
@@ -633,6 +654,29 @@ func newLeaderTestService(
 		mockIdentity,
 		new(MockConnectionUsecase),
 		new(MockAgentUsecase),
+		noopAgentCacheInvalidator{},
+	)
+	svc.SetClock(newTestFakeClock(now))
+
+	return svc
+}
+
+func newServerServiceForInvalidation(
+	mockPersistence *MockServerPersistencePort,
+	mockEventSender *MockServerEventSenderPort,
+	mockIdentity *MockServerIdentityProvider,
+	invalidator agentport.AgentCacheInvalidator,
+	now time.Time,
+) *agentservice.ServerService {
+	svc := agentservice.NewServerService(
+		slog.Default(),
+		mockPersistence,
+		mockEventSender,
+		new(MockServerEventReceiverPort),
+		mockIdentity,
+		new(MockConnectionUsecase),
+		new(MockAgentUsecase),
+		invalidator,
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -717,4 +761,78 @@ func TestServerService_IsLeader(t *testing.T) {
 		require.ErrorIs(t, err, agentservice.ErrNoCurrentServerID)
 		assert.False(t, isLeader)
 	})
+}
+
+func TestServerService_BroadcastAgentCacheInvalidation_SkipsSelfSendsPeers(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	now := time.Now()
+	uid := uuid.New()
+
+	mockPersistence := new(MockServerPersistencePort)
+	mockEventSender := new(MockServerEventSenderPort)
+	mockIdentity := new(MockServerIdentityProvider)
+
+	mockIdentity.On("CurrentServerID").Return("server-1")
+	mockPersistence.On("ListServers", ctx).Return([]*agentmodel.Server{
+		{ID: "server-1", LastHeartbeatAt: now}, // self
+		{ID: "server-2", LastHeartbeatAt: now}, // peer
+	}, nil)
+	mockEventSender.On("SendMessageToServer", ctx, "server-2", mock.MatchedBy(
+		func(m serverevent.Message) bool {
+			return m.Type == serverevent.MessageTypeInvalidateAgentCache &&
+				m.Payload.MessageForInvalidateAgentCache != nil &&
+				len(m.Payload.AgentInstanceUIDs) == 1 &&
+				m.Payload.AgentInstanceUIDs[0] == uid
+		},
+	)).Return(nil)
+
+	svc := newServerServiceForInvalidation(mockPersistence, mockEventSender, mockIdentity,
+		new(spyAgentCacheInvalidator), now)
+
+	err := svc.BroadcastAgentCacheInvalidation(ctx, uid)
+	require.NoError(t, err)
+
+	mockEventSender.AssertCalled(t, "SendMessageToServer", ctx, "server-2", mock.Anything)
+	mockEventSender.AssertNotCalled(t, "SendMessageToServer", ctx, "server-1", mock.Anything)
+}
+
+func TestServerService_HandleInvalidateAgentCacheEvent_InvalidatesLocally(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	now := time.Now()
+	uid := uuid.New()
+
+	mockPersistence := new(MockServerPersistencePort)
+	mockEventSender := new(MockServerEventSenderPort)
+	mockIdentity := new(MockServerIdentityProvider)
+	spy := new(spyAgentCacheInvalidator)
+
+	// Target the current server so SendMessageToServer dispatches the event locally,
+	// exercising the receive path (handleInvalidateAgentCacheEvent) without Kafka.
+	mockIdentity.On("CurrentServerID").Return("server-1")
+
+	svc := newServerServiceForInvalidation(mockPersistence, mockEventSender, mockIdentity, spy, now)
+
+	msg := serverevent.Message{
+		Source: "server-2",
+		Target: "server-1",
+		Type:   serverevent.MessageTypeInvalidateAgentCache,
+		Payload: serverevent.MessagePayload{
+			MessageForServerToAgent: nil,
+			MessageForInvalidateAgentCache: &serverevent.MessageForInvalidateAgentCache{
+				AgentInstanceUIDs: []uuid.UUID{uid},
+			},
+		},
+	}
+	self := &agentmodel.Server{ID: "server-1", LastHeartbeatAt: now}
+
+	err := svc.SendMessageToServer(ctx, self, msg)
+	require.NoError(t, err)
+
+	require.Len(t, spy.invalidated, 1)
+	assert.Equal(t, uid, spy.invalidated[0])
+	mockEventSender.AssertNotCalled(t, "SendMessageToServer", mock.Anything, mock.Anything, mock.Anything)
 }

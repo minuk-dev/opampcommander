@@ -356,6 +356,7 @@ func (s *AgentNotificationService) dispatchBatch(
 			MessageForServerToAgent: &serverevent.MessageForServerToAgent{
 				TargetAgentInstanceUIDs: uids,
 			},
+			MessageForInvalidateAgentCache: nil,
 		},
 	})
 	if err != nil {
