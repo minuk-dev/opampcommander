@@ -1,8 +1,6 @@
 package certificate
 
-import (
-	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-)
+import "github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 
 // Usecase is an alias for the CertificateManageUsecase interface.
-type Usecase = applicationport.CertificateManageUsecase
+type Usecase = usecase.CertificateManageUsecase

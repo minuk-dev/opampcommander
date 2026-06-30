@@ -9,18 +9,19 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
 // Controller is a struct that implements the namespace controller.
 type Controller struct {
 	logger           *slog.Logger
-	namespaceUsecase port.NamespaceManageUsecase
+	namespaceUsecase usecase.NamespaceManageUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
-	usecase port.NamespaceManageUsecase,
+	usecase usecase.NamespaceManageUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	return &Controller{

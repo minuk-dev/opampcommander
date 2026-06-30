@@ -11,11 +11,12 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
 
-var _ applicationport.AdminUsecase = (*Service)(nil)
+var _ usecase.AdminUsecase = (*Service)(nil)
 
 // Service is a struct that implements the AdminUsecase interface.
 type Service struct {

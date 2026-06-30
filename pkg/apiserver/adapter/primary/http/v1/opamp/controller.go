@@ -10,7 +10,7 @@ import (
 	opampServer "github.com/open-telemetry/opamp-go/server"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 )
 
 // Controller is a struct that implements OPAMP protocol.
@@ -25,7 +25,7 @@ type Controller struct {
 	enableCompression bool
 
 	// usecases
-	opampUsecase port.OpAMPUsecase
+	opampUsecase usecase.OpAMPUsecase
 }
 
 // Option is a function that takes a Controller and modifies it.
@@ -33,7 +33,7 @@ type Option func(*Controller)
 
 // NewController creates a new instance of Controller.
 func NewController(
-	opampUsecase port.OpAMPUsecase,
+	opampUsecase usecase.OpAMPUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	ops := opampServer.New(&Logger{

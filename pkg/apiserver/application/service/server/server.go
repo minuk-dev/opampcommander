@@ -9,13 +9,13 @@ import (
 	"github.com/samber/lo"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-var _ applicationport.ServerManageUsecase = (*Service)(nil)
+var _ usecase.ServerManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the ServerManageUsecase interface.
 type Service struct {

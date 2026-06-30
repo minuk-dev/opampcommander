@@ -1,8 +1,6 @@
 package port
 
 import (
-	"context"
-
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 )
 
@@ -25,11 +23,4 @@ type LoginProvisioning struct {
 	Email string
 	// Groups are provider groups (e.g. GitHub orgs) synced to the user's labels.
 	Groups []string
-}
-
-// AuthProvisioningUsecase creates or updates the user record on login and re-applies
-// RBAC policies so the user picks up default roles and matching bindings. It is
-// best-effort: failures are logged internally and never block authentication.
-type AuthProvisioningUsecase interface {
-	EnsureUserOnLogin(ctx context.Context, provisioning LoginProvisioning)
 }

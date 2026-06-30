@@ -17,6 +17,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/connection"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -137,7 +138,7 @@ func TestConnectionController_List(t *testing.T) {
 	})
 }
 
-var _ applicationport.AdminUsecase = (*mockAdminUsecase)(nil)
+var _ usecase.AdminUsecase = (*mockAdminUsecase)(nil)
 
 type mockAdminUsecase struct {
 	mock.Mock

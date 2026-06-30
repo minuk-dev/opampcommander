@@ -15,6 +15,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
@@ -22,14 +23,14 @@ import (
 type Controller struct {
 	logger              *slog.Logger
 	service             *security.Service
-	provisioningUsecase applicationport.AuthProvisioningUsecase
+	provisioningUsecase usecase.AuthProvisioningUsecase
 }
 
 // NewController creates a new instance of the Controller struct with the provided settings.
 func NewController(
 	logger *slog.Logger,
 	service *security.Service,
-	provisioningUsecase applicationport.AuthProvisioningUsecase,
+	provisioningUsecase usecase.AuthProvisioningUsecase,
 ) *Controller {
 	return &Controller{
 		logger:              logger,
