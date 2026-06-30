@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
-	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -17,13 +17,13 @@ type Controller struct {
 	logger *slog.Logger
 
 	// usecases
-	serverUsecase applicationport.ServerManageUsecase
+	serverUsecase usecase.ServerManageUsecase
 }
 
 // NewController creates a new instance of the Controller struct.
 func NewController(
 	logger *slog.Logger,
-	serverUsecase applicationport.ServerManageUsecase,
+	serverUsecase usecase.ServerManageUsecase,
 ) *Controller {
 	return &Controller{
 		logger:        logger,

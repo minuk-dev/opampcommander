@@ -1,8 +1,6 @@
 package role
 
-import (
-	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
-)
+import "github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 
 // Usecase is an alias for the RoleManageUsecase interface.
-type Usecase = applicationport.RoleManageUsecase
+type Usecase = usecase.RoleManageUsecase

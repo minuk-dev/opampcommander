@@ -9,6 +9,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -23,13 +24,13 @@ type Controller struct {
 	clock  clock.Clock
 
 	// usecases
-	adminUsecase applicationport.AdminUsecase
+	adminUsecase usecase.AdminUsecase
 }
 
 // NewController creates a new instance of the Controller struct.
 func NewController(
 	logger *slog.Logger,
-	adminUsecase applicationport.AdminUsecase,
+	adminUsecase usecase.AdminUsecase,
 ) *Controller {
 	controller := &Controller{
 		logger:       logger,

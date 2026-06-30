@@ -12,11 +12,12 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
-var _ applicationport.RoleBindingManageUsecase = (*Service)(nil)
+var _ usecase.RoleBindingManageUsecase = (*Service)(nil)
 
 // Service implements the RoleBindingManageUsecase interface.
 type Service struct {
@@ -43,7 +44,7 @@ func New(
 	}
 }
 
-// GetRoleBinding implements [applicationport.RoleBindingManageUsecase].
+// GetRoleBinding implements [usecase.RoleBindingManageUsecase].
 func (s *Service) GetRoleBinding(
 	ctx context.Context,
 	namespace, name string,
@@ -57,7 +58,7 @@ func (s *Service) GetRoleBinding(
 	return s.mapper.MapRoleBindingToAPI(rb), nil
 }
 
-// ListRoleBindings implements [applicationport.RoleBindingManageUsecase].
+// ListRoleBindings implements [usecase.RoleBindingManageUsecase].
 func (s *Service) ListRoleBindings(
 	ctx context.Context,
 	options *applicationport.ListOptions,
@@ -80,7 +81,7 @@ func (s *Service) ListRoleBindings(
 	}, nil
 }
 
-// CreateRoleBinding implements [applicationport.RoleBindingManageUsecase].
+// CreateRoleBinding implements [usecase.RoleBindingManageUsecase].
 func (s *Service) CreateRoleBinding(
 	ctx context.Context,
 	apiRB *v1.RoleBinding,
@@ -101,7 +102,7 @@ func (s *Service) CreateRoleBinding(
 	return s.mapper.MapRoleBindingToAPI(created), nil
 }
 
-// UpdateRoleBinding implements [applicationport.RoleBindingManageUsecase].
+// UpdateRoleBinding implements [usecase.RoleBindingManageUsecase].
 func (s *Service) UpdateRoleBinding(
 	ctx context.Context,
 	namespace, name string,
@@ -123,7 +124,7 @@ func (s *Service) UpdateRoleBinding(
 	return s.mapper.MapRoleBindingToAPI(updated), nil
 }
 
-// DeleteRoleBinding implements [applicationport.RoleBindingManageUsecase].
+// DeleteRoleBinding implements [usecase.RoleBindingManageUsecase].
 func (s *Service) DeleteRoleBinding(
 	ctx context.Context,
 	namespace, name string,

@@ -13,12 +13,13 @@ import (
 	"time"
 
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
-var _ applicationport.AuthProvisioningUsecase = (*Service)(nil)
+var _ usecase.AuthProvisioningUsecase = (*Service)(nil)
 
 // Service implements AuthProvisioningUsecase.
 type Service struct {

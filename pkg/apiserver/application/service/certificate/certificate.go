@@ -11,13 +11,14 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-var _ port.CertificateManageUsecase = (*Service)(nil)
+var _ usecase.CertificateManageUsecase = (*Service)(nil)
 
 // Service is a service for managing certificates. It maps between the HTTP DTOs
 // and the domain, resolves the acting user, and delegates all lifecycle rules
@@ -44,7 +45,7 @@ func NewCertificateService(
 	}
 }
 
-// GetCertificate implements [port.CertificateManageUsecase].
+// GetCertificate implements [usecase.CertificateManageUsecase].
 func (s *Service) GetCertificate(
 	ctx context.Context,
 	namespace string,
@@ -59,7 +60,7 @@ func (s *Service) GetCertificate(
 	return s.mapper.MapCertificateToAPI(certificate), nil
 }
 
-// ListCertificates implements [port.CertificateManageUsecase].
+// ListCertificates implements [usecase.CertificateManageUsecase].
 func (s *Service) ListCertificates(
 	ctx context.Context,
 	options *port.ListOptions,
@@ -82,7 +83,7 @@ func (s *Service) ListCertificates(
 	}, nil
 }
 
-// CreateCertificate implements [port.CertificateManageUsecase].
+// CreateCertificate implements [usecase.CertificateManageUsecase].
 func (s *Service) CreateCertificate(
 	ctx context.Context,
 	apiModel *v1.Certificate,
@@ -97,7 +98,7 @@ func (s *Service) CreateCertificate(
 	return s.mapper.MapCertificateToAPI(created), nil
 }
 
-// UpdateCertificate implements [port.CertificateManageUsecase].
+// UpdateCertificate implements [usecase.CertificateManageUsecase].
 func (s *Service) UpdateCertificate(
 	ctx context.Context,
 	namespace string,
@@ -114,7 +115,7 @@ func (s *Service) UpdateCertificate(
 	return s.mapper.MapCertificateToAPI(updated), nil
 }
 
-// DeleteCertificate implements [port.CertificateManageUsecase].
+// DeleteCertificate implements [usecase.CertificateManageUsecase].
 func (s *Service) DeleteCertificate(
 	ctx context.Context,
 	namespace string,

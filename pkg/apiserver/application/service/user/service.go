@@ -16,13 +16,14 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
-var _ applicationport.UserManageUsecase = (*Service)(nil)
+var _ usecase.UserManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the UserManageUsecase interface.
 type Service struct {
@@ -58,7 +59,7 @@ func New(
 	}
 }
 
-// GetUser implements [applicationport.UserManageUsecase].
+// GetUser implements [usecase.UserManageUsecase].
 func (s *Service) GetUser(ctx context.Context, uid uuid.UUID, options *applicationport.GetOptions) (*v1.User, error) {
 	user, err := s.userUsecase.GetUser(ctx, uid, options.ToDomain())
 	if err != nil {
@@ -68,7 +69,7 @@ func (s *Service) GetUser(ctx context.Context, uid uuid.UUID, options *applicati
 	return s.mapper.MapUserToAPI(user), nil
 }
 
-// GetUserByEmail implements [applicationport.UserManageUsecase].
+// GetUserByEmail implements [usecase.UserManageUsecase].
 func (s *Service) GetUserByEmail(ctx context.Context, email string) (*v1.User, error) {
 	user, err := s.userUsecase.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -78,7 +79,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*v1.User, e
 	return s.mapper.MapUserToAPI(user), nil
 }
 
-// ListUsers implements [applicationport.UserManageUsecase].
+// ListUsers implements [usecase.UserManageUsecase].
 func (s *Service) ListUsers(
 	ctx context.Context,
 	options *applicationport.ListOptions,
@@ -101,7 +102,7 @@ func (s *Service) ListUsers(
 	}, nil
 }
 
-// CreateUser implements [applicationport.UserManageUsecase].
+// CreateUser implements [usecase.UserManageUsecase].
 // When a password is supplied, the user is provisioned for basic (username/password) login:
 // the plaintext is hashed (peppered + salted) and only the hash is persisted, and a "basic"
 // identity + login-type label is attached so RBAC default-role enrollment works.
@@ -139,7 +140,7 @@ func (s *Service) CreateUser(ctx context.Context, apiUser *v1.User) (*v1.User, e
 	return s.mapper.MapUserToAPI(domainUser), nil
 }
 
-// DeleteUser implements [applicationport.UserManageUsecase].
+// DeleteUser implements [usecase.UserManageUsecase].
 func (s *Service) DeleteUser(ctx context.Context, uid uuid.UUID) error {
 	err := s.userUsecase.DeleteUser(ctx, uid)
 	if err != nil {
@@ -149,7 +150,7 @@ func (s *Service) DeleteUser(ctx context.Context, uid uuid.UUID) error {
 	return nil
 }
 
-// GetMyProfile implements [applicationport.UserManageUsecase].
+// GetMyProfile implements [usecase.UserManageUsecase].
 // Returns the user's profile together with all roles and the binding that granted each role.
 func (s *Service) GetMyProfile(ctx context.Context, email string) (*v1.UserProfileResponse, error) {
 	user, err := s.userUsecase.GetUserByEmail(ctx, email)

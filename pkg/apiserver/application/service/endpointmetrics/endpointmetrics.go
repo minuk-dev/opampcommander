@@ -12,13 +12,13 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-var _ port.EndpointMetricsUsecase = (*Service)(nil)
+var _ usecase.EndpointMetricsUsecase = (*Service)(nil)
 
 // fallbackWindow is the rate window used when neither the caller nor the
 // configuration provides one.
@@ -53,7 +53,7 @@ func NewEndpointMetricsService(
 	}
 }
 
-// GetEndpointThroughput implements [port.EndpointMetricsUsecase].
+// GetEndpointThroughput implements [usecase.EndpointMetricsUsecase].
 func (s *Service) GetEndpointThroughput(
 	ctx context.Context,
 	namespace string,
@@ -69,7 +69,7 @@ func (s *Service) GetEndpointThroughput(
 	return s.mapper.MapEndpointThroughputToAPI(throughput), nil
 }
 
-// ListEndpointThroughput implements [port.EndpointMetricsUsecase].
+// ListEndpointThroughput implements [usecase.EndpointMetricsUsecase].
 func (s *Service) ListEndpointThroughput(
 	ctx context.Context,
 	namespace string,

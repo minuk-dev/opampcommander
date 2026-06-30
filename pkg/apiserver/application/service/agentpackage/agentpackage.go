@@ -11,13 +11,14 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
-var _ port.AgentPackageManageUsecase = (*Service)(nil)
+var _ usecase.AgentPackageManageUsecase = (*Service)(nil)
 
 // Service is a service for managing agent packages. It maps between the HTTP DTOs
 // and the domain, resolves the acting user, and delegates all lifecycle rules
@@ -44,7 +45,7 @@ func NewAgentPackageService(
 	}
 }
 
-// GetAgentPackage implements [port.AgentPackageManageUsecase].
+// GetAgentPackage implements [usecase.AgentPackageManageUsecase].
 func (a *Service) GetAgentPackage(
 	ctx context.Context,
 	namespace string,
@@ -59,7 +60,7 @@ func (a *Service) GetAgentPackage(
 	return a.mapper.MapAgentPackageToAPI(agentPackage), nil
 }
 
-// ListAgentPackages implements [port.AgentPackageManageUsecase].
+// ListAgentPackages implements [usecase.AgentPackageManageUsecase].
 func (a *Service) ListAgentPackages(
 	ctx context.Context,
 	options *port.ListOptions,
@@ -82,7 +83,7 @@ func (a *Service) ListAgentPackages(
 	}, nil
 }
 
-// CreateAgentPackage implements [port.AgentPackageManageUsecase].
+// CreateAgentPackage implements [usecase.AgentPackageManageUsecase].
 func (a *Service) CreateAgentPackage(
 	ctx context.Context,
 	apiModel *v1.AgentPackage,
@@ -97,7 +98,7 @@ func (a *Service) CreateAgentPackage(
 	return a.mapper.MapAgentPackageToAPI(created), nil
 }
 
-// UpdateAgentPackage implements [port.AgentPackageManageUsecase].
+// UpdateAgentPackage implements [usecase.AgentPackageManageUsecase].
 func (a *Service) UpdateAgentPackage(
 	ctx context.Context,
 	namespace string,
@@ -114,7 +115,7 @@ func (a *Service) UpdateAgentPackage(
 	return a.mapper.MapAgentPackageToAPI(updated), nil
 }
 
-// DeleteAgentPackage implements [port.AgentPackageManageUsecase].
+// DeleteAgentPackage implements [usecase.AgentPackageManageUsecase].
 func (a *Service) DeleteAgentPackage(
 	ctx context.Context,
 	namespace string,

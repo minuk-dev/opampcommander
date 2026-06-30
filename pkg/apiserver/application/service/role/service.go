@@ -13,11 +13,12 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
-var _ applicationport.RoleManageUsecase = (*Service)(nil)
+var _ usecase.RoleManageUsecase = (*Service)(nil)
 
 // Service is a struct that implements the RoleManageUsecase interface.
 type Service struct {
@@ -35,7 +36,7 @@ func New(roleUsecase userport.RoleUsecase, logger *slog.Logger) *Service {
 	}
 }
 
-// GetRole implements [applicationport.RoleManageUsecase].
+// GetRole implements [usecase.RoleManageUsecase].
 func (s *Service) GetRole(ctx context.Context, uid uuid.UUID, options *applicationport.GetOptions) (*v1.Role, error) {
 	role, err := s.roleUsecase.GetRole(ctx, uid, options.ToDomain())
 	if err != nil {
@@ -45,7 +46,7 @@ func (s *Service) GetRole(ctx context.Context, uid uuid.UUID, options *applicati
 	return s.mapper.MapRoleToAPI(role), nil
 }
 
-// ListRoles implements [applicationport.RoleManageUsecase].
+// ListRoles implements [usecase.RoleManageUsecase].
 func (s *Service) ListRoles(
 	ctx context.Context,
 	options *applicationport.ListOptions,
@@ -68,7 +69,7 @@ func (s *Service) ListRoles(
 	}, nil
 }
 
-// CreateRole implements [applicationport.RoleManageUsecase].
+// CreateRole implements [usecase.RoleManageUsecase].
 func (s *Service) CreateRole(ctx context.Context, apiRole *v1.Role) (*v1.Role, error) {
 	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, false)
 	domainRole.Spec.Description = apiRole.Spec.Description
@@ -82,7 +83,7 @@ func (s *Service) CreateRole(ctx context.Context, apiRole *v1.Role) (*v1.Role, e
 	return s.mapper.MapRoleToAPI(created), nil
 }
 
-// UpdateRole implements [applicationport.RoleManageUsecase].
+// UpdateRole implements [usecase.RoleManageUsecase].
 func (s *Service) UpdateRole(ctx context.Context, uid uuid.UUID, apiRole *v1.Role) (*v1.Role, error) {
 	domainRole := usermodel.NewRole(apiRole.Spec.DisplayName, false)
 	domainRole.Spec.Description = apiRole.Spec.Description
@@ -96,7 +97,7 @@ func (s *Service) UpdateRole(ctx context.Context, uid uuid.UUID, apiRole *v1.Rol
 	return s.mapper.MapRoleToAPI(updated), nil
 }
 
-// DeleteRole implements [applicationport.RoleManageUsecase].
+// DeleteRole implements [usecase.RoleManageUsecase].
 func (s *Service) DeleteRole(ctx context.Context, uid uuid.UUID) error {
 	err := s.roleUsecase.DeleteRole(ctx, uid)
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -17,12 +17,12 @@ import (
 type Controller struct {
 	logger *slog.Logger
 
-	reconcileUsecase port.ReconcileManageUsecase
+	reconcileUsecase usecase.ReconcileManageUsecase
 }
 
 // NewController creates a new reconcile Controller.
 func NewController(
-	usecase port.ReconcileManageUsecase,
+	usecase usecase.ReconcileManageUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	return &Controller{

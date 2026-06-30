@@ -6,7 +6,6 @@ import (
 
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	adminApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/admin"
 	agentApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
 	agentgroupApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentgroup"
@@ -25,6 +24,7 @@ import (
 	rolebindingApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
 	serverApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/server"
 	userApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/user"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
@@ -39,69 +39,69 @@ func New() fx.Option {
 		// application
 		fx.Provide(
 			opampApplicationService.New,
-			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(port.OpAMPUsecase))),
+			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(usecase.OpAMPUsecase))),
 			helper.AsRunner(Identity[*opampApplicationService.Service]), // for background processing
 
 			adminApplicationService.New,
-			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(port.AdminUsecase))),
+			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(usecase.AdminUsecase))),
 			serverApplicationService.New,
-			fx.Annotate(Identity[*serverApplicationService.Service], fx.As(new(port.ServerManageUsecase))),
+			fx.Annotate(Identity[*serverApplicationService.Service], fx.As(new(usecase.ServerManageUsecase))),
 
 			agentApplicationService.New,
-			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(port.AgentManageUsecase))),
+			fx.Annotate(Identity[*agentApplicationService.Service], fx.As(new(usecase.AgentManageUsecase))),
 
 			reconcileApplicationService.New,
-			fx.Annotate(Identity[*reconcileApplicationService.Service], fx.As(new(port.ReconcileManageUsecase))),
+			fx.Annotate(Identity[*reconcileApplicationService.Service], fx.As(new(usecase.ReconcileManageUsecase))),
 
 			agentgroupApplicationService.NewManageService,
-			fx.Annotate(Identity[*agentgroupApplicationService.ManageService], fx.As(new(port.AgentGroupManageUsecase))),
+			fx.Annotate(Identity[*agentgroupApplicationService.ManageService], fx.As(new(usecase.AgentGroupManageUsecase))),
 
 			agentpackageApplicationService.NewAgentPackageService,
-			fx.Annotate(Identity[*agentpackageApplicationService.Service], fx.As(new(port.AgentPackageManageUsecase))),
+			fx.Annotate(Identity[*agentpackageApplicationService.Service], fx.As(new(usecase.AgentPackageManageUsecase))),
 
 			namespaceApplicationService.NewNamespaceService,
-			fx.Annotate(Identity[*namespaceApplicationService.Service], fx.As(new(port.NamespaceManageUsecase))),
+			fx.Annotate(Identity[*namespaceApplicationService.Service], fx.As(new(usecase.NamespaceManageUsecase))),
 
 			certificateApplicationService.NewCertificateService,
-			fx.Annotate(Identity[*certificateApplicationService.Service], fx.As(new(port.CertificateManageUsecase))),
+			fx.Annotate(Identity[*certificateApplicationService.Service], fx.As(new(usecase.CertificateManageUsecase))),
 
 			hostApplicationService.New,
-			fx.Annotate(Identity[*hostApplicationService.Service], fx.As(new(port.HostManageUsecase))),
+			fx.Annotate(Identity[*hostApplicationService.Service], fx.As(new(usecase.HostManageUsecase))),
 
 			containerApplicationService.New,
-			fx.Annotate(Identity[*containerApplicationService.Service], fx.As(new(port.ContainerManageUsecase))),
+			fx.Annotate(Identity[*containerApplicationService.Service], fx.As(new(usecase.ContainerManageUsecase))),
 
 			agentremoteconfigApplicationService.NewAgentRemoteConfigService,
 			fx.Annotate(
 				Identity[*agentremoteconfigApplicationService.Service],
-				fx.As(new(port.AgentRemoteConfigManageUsecase)),
+				fx.As(new(usecase.AgentRemoteConfigManageUsecase)),
 			),
 
 			endpointApplicationService.NewEndpointService,
 			fx.Annotate(
 				Identity[*endpointApplicationService.Service],
-				fx.As(new(port.EndpointManageUsecase)),
+				fx.As(new(usecase.EndpointManageUsecase)),
 			),
 
 			provideEndpointMetricsService,
 			fx.Annotate(
 				Identity[*endpointmetricsApplicationService.Service],
-				fx.As(new(port.EndpointMetricsUsecase)),
+				fx.As(new(usecase.EndpointMetricsUsecase)),
 			),
 
 			// user & RBAC application services
 			authApplicationService.New,
-			fx.Annotate(Identity[*authApplicationService.Service], fx.As(new(port.AuthProvisioningUsecase))),
+			fx.Annotate(Identity[*authApplicationService.Service], fx.As(new(usecase.AuthProvisioningUsecase))),
 			userApplicationService.New,
-			fx.Annotate(Identity[*userApplicationService.Service], fx.As(new(port.UserManageUsecase))),
+			fx.Annotate(Identity[*userApplicationService.Service], fx.As(new(usecase.UserManageUsecase))),
 
 			roleApplicationService.New,
-			fx.Annotate(Identity[*roleApplicationService.Service], fx.As(new(port.RoleManageUsecase))),
+			fx.Annotate(Identity[*roleApplicationService.Service], fx.As(new(usecase.RoleManageUsecase))),
 
 			rolebindingApplicationService.New,
 			fx.Annotate(
 				Identity[*rolebindingApplicationService.Service],
-				fx.As(new(port.RoleBindingManageUsecase)),
+				fx.As(new(usecase.RoleBindingManageUsecase)),
 			),
 		),
 	)

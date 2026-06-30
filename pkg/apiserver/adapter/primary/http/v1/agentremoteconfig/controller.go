@@ -9,6 +9,7 @@ import (
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
@@ -16,12 +17,12 @@ import (
 type Controller struct {
 	logger *slog.Logger
 
-	agentRemoteConfigUsecase port.AgentRemoteConfigManageUsecase
+	agentRemoteConfigUsecase usecase.AgentRemoteConfigManageUsecase
 }
 
 // NewController creates a new instance of Controller.
 func NewController(
-	usecase port.AgentRemoteConfigManageUsecase,
+	usecase usecase.AgentRemoteConfigManageUsecase,
 	logger *slog.Logger,
 ) *Controller {
 	controller := &Controller{
