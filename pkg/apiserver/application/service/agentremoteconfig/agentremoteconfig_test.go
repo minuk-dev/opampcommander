@@ -205,17 +205,17 @@ func newSvc(
 	return arcsvc.NewAgentRemoteConfigService(arc, group, det, base.Logger)
 }
 
-func newARC(namespace, name string) *agentmodel.AgentRemoteConfig {
+func newARC() *agentmodel.AgentRemoteConfig {
 	return &agentmodel.AgentRemoteConfig{
-		Metadata: agentmodel.AgentRemoteConfigMetadata{Namespace: namespace, Name: name},
+		Metadata: agentmodel.AgentRemoteConfigMetadata{Namespace: "default", Name: "cfg-1"},
 	}
 }
 
-func apiARC(namespace, name string) *v1.AgentRemoteConfig {
+func apiARC() *v1.AgentRemoteConfig {
 	return &v1.AgentRemoteConfig{
 		Kind:       v1.AgentRemoteConfigKind,
 		APIVersion: v1.APIVersion,
-		Metadata:   v1.AgentRemoteConfigMetadata{Namespace: namespace, Name: name},
+		Metadata:   v1.AgentRemoteConfigMetadata{Namespace: "default", Name: "cfg-1"},
 	}
 }
 
@@ -241,7 +241,7 @@ func TestService_GetAgentRemoteConfig(t *testing.T) {
 		svc := newSvc(t, mockARC, &stubAgentGroupUsecase{}, &stubEndpointDetectionUsecase{})
 
 		mockARC.On("GetAgentRemoteConfig", ctx, "default", "cfg-1", (*model.GetOptions)(nil)).
-			Return(newARC("default", "cfg-1"), nil)
+			Return(newARC(), nil)
 
 		result, err := svc.GetAgentRemoteConfig(ctx, "default", "cfg-1", nil)
 
@@ -280,7 +280,7 @@ func TestService_ListAgentRemoteConfigs(t *testing.T) {
 
 		opts := &applicationport.ListOptions{Limit: 10}
 		resp := &model.ListResponse[*agentmodel.AgentRemoteConfig]{
-			Items:    []*agentmodel.AgentRemoteConfig{newARC("default", "cfg-1")},
+			Items:    []*agentmodel.AgentRemoteConfig{newARC()},
 			Continue: "next",
 		}
 		mockARC.On("ListAgentRemoteConfigs", ctx, opts.ToDomain()).Return(resp, nil)
@@ -326,9 +326,9 @@ func TestService_CreateAgentRemoteConfig(t *testing.T) {
 		svc := newSvc(t, mockARC, group, det)
 
 		mockARC.On("CreateAgentRemoteConfig", ctx, mock.Anything, mock.AnythingOfType("string")).
-			Return(newARC("default", "cfg-1"), nil)
+			Return(newARC(), nil)
 
-		result, err := svc.CreateAgentRemoteConfig(ctx, apiARC("default", "cfg-1"))
+		result, err := svc.CreateAgentRemoteConfig(ctx, apiARC())
 
 		require.NoError(t, err)
 		assert.Equal(t, "cfg-1", result.Metadata.Name)
@@ -346,7 +346,7 @@ func TestService_CreateAgentRemoteConfig(t *testing.T) {
 
 		mockARC.On("CreateAgentRemoteConfig", ctx, mock.Anything, mock.AnythingOfType("string")).Return(nil, errMock)
 
-		result, err := svc.CreateAgentRemoteConfig(ctx, apiARC("default", "cfg-1"))
+		result, err := svc.CreateAgentRemoteConfig(ctx, apiARC())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -368,9 +368,9 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 		svc := newSvc(t, mockARC, group, det)
 
 		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).
-			Return(newARC("default", "cfg-1"), nil)
+			Return(newARC(), nil)
 
-		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC("default", "cfg-1"))
+		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())
 
 		require.NoError(t, err)
 		assert.Equal(t, "cfg-1", result.Metadata.Name)
@@ -388,7 +388,7 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 
 		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).Return(nil, errMock)
 
-		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC("default", "cfg-1"))
+		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())
 
 		require.Error(t, err)
 		assert.Nil(t, result)

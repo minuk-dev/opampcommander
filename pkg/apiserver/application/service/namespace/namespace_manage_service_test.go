@@ -118,11 +118,11 @@ func newSvc(t *testing.T, ns *mockNamespaceUsecase) *namespacesvc.Service {
 	return namespacesvc.NewNamespaceService(ns, base.Logger)
 }
 
-func apiNamespace(name string) *v1.Namespace {
+func apiNamespace() *v1.Namespace {
 	return &v1.Namespace{
 		Kind:       v1.NamespaceKind,
 		APIVersion: v1.APIVersion,
-		Metadata:   v1.NamespaceMetadata{Name: name},
+		Metadata:   v1.NamespaceMetadata{Name: "production"},
 	}
 }
 
@@ -225,7 +225,7 @@ func TestService_CreateNamespace(t *testing.T) {
 			return ns.Metadata.Name == "production"
 		}), mock.AnythingOfType("string")).Return(agentmodel.NewNamespace("production"), nil)
 
-		result, err := svc.CreateNamespace(ctx, apiNamespace("production"))
+		result, err := svc.CreateNamespace(ctx, apiNamespace())
 
 		require.NoError(t, err)
 		assert.Equal(t, "production", result.Metadata.Name)
@@ -242,7 +242,7 @@ func TestService_CreateNamespace(t *testing.T) {
 		mockNS.On("CreateNamespace", ctx, mock.Anything, mock.AnythingOfType("string")).
 			Return(nil, errMock)
 
-		result, err := svc.CreateNamespace(ctx, apiNamespace("production"))
+		result, err := svc.CreateNamespace(ctx, apiNamespace())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -264,7 +264,7 @@ func TestService_UpdateNamespace(t *testing.T) {
 		mockNS.On("UpdateNamespace", ctx, "production", mock.Anything).
 			Return(agentmodel.NewNamespace("production"), nil)
 
-		result, err := svc.UpdateNamespace(ctx, "production", apiNamespace("production"))
+		result, err := svc.UpdateNamespace(ctx, "production", apiNamespace())
 
 		require.NoError(t, err)
 		assert.Equal(t, "production", result.Metadata.Name)
@@ -280,7 +280,7 @@ func TestService_UpdateNamespace(t *testing.T) {
 
 		mockNS.On("UpdateNamespace", ctx, "production", mock.Anything).Return(nil, errMock)
 
-		result, err := svc.UpdateNamespace(ctx, "production", apiNamespace("production"))
+		result, err := svc.UpdateNamespace(ctx, "production", apiNamespace())
 
 		require.Error(t, err)
 		assert.Nil(t, result)

@@ -162,15 +162,13 @@ func newSvc(t *testing.T, container *mockContainerUsecase, agent *mockAgentUseca
 	return containersvc.New(container, agent, base.Logger)
 }
 
-func newContainer(id string, agentUIDs ...uuid.UUID) *agentmodel.Container {
+func newContainer(id string) *agentmodel.Container {
 	return &agentmodel.Container{
 		Metadata: agentmodel.ContainerMetadata{
 			ID:   id,
 			Name: "container-" + id,
 		},
-		Status: agentmodel.ContainerStatus{
-			AgentInstanceUIDs: agentUIDs,
-		},
+		Status: agentmodel.ContainerStatus{},
 	}
 }
 

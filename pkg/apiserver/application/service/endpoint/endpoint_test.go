@@ -121,17 +121,17 @@ func newSvc(t *testing.T, ep *mockEndpointUsecase) *endpointsvc.Service {
 	return endpointsvc.NewEndpointService(ep, base.Logger)
 }
 
-func newEndpoint(namespace, name string) *agentmodel.Endpoint {
+func newEndpoint() *agentmodel.Endpoint {
 	return &agentmodel.Endpoint{
-		Metadata: agentmodel.EndpointMetadata{Namespace: namespace, Name: name},
+		Metadata: agentmodel.EndpointMetadata{Namespace: "default", Name: "ep-1"},
 	}
 }
 
-func apiEndpoint(namespace, name string) *v1.Endpoint {
+func apiEndpoint() *v1.Endpoint {
 	return &v1.Endpoint{
 		Kind:       v1.EndpointKind,
 		APIVersion: v1.APIVersion,
-		Metadata:   v1.EndpointMetadata{Namespace: namespace, Name: name},
+		Metadata:   v1.EndpointMetadata{Namespace: "default", Name: "ep-1"},
 	}
 }
 
@@ -146,7 +146,7 @@ func TestService_GetEndpoint(t *testing.T) {
 		svc := newSvc(t, mockEP)
 
 		mockEP.On("GetEndpoint", ctx, "default", "ep-1", (*model.GetOptions)(nil)).
-			Return(newEndpoint("default", "ep-1"), nil)
+			Return(newEndpoint(), nil)
 
 		result, err := svc.GetEndpoint(ctx, "default", "ep-1", nil)
 
@@ -185,7 +185,7 @@ func TestService_ListEndpoints(t *testing.T) {
 
 		opts := &applicationport.ListOptions{Limit: 10}
 		resp := &model.ListResponse[*agentmodel.Endpoint]{
-			Items:    []*agentmodel.Endpoint{newEndpoint("default", "ep-1")},
+			Items:    []*agentmodel.Endpoint{newEndpoint()},
 			Continue: "next",
 		}
 		mockEP.On("ListEndpoints", ctx, "default", opts.ToDomain()).Return(resp, nil)
@@ -230,9 +230,9 @@ func TestService_CreateEndpoint(t *testing.T) {
 
 		mockEP.On("CreateEndpoint", ctx, mock.MatchedBy(func(e *agentmodel.Endpoint) bool {
 			return e.Metadata.Name == "ep-1"
-		}), mock.AnythingOfType("string")).Return(newEndpoint("default", "ep-1"), nil)
+		}), mock.AnythingOfType("string")).Return(newEndpoint(), nil)
 
-		result, err := svc.CreateEndpoint(ctx, apiEndpoint("default", "ep-1"))
+		result, err := svc.CreateEndpoint(ctx, apiEndpoint())
 
 		require.NoError(t, err)
 		assert.Equal(t, "ep-1", result.Metadata.Name)
@@ -248,7 +248,7 @@ func TestService_CreateEndpoint(t *testing.T) {
 
 		mockEP.On("CreateEndpoint", ctx, mock.Anything, mock.AnythingOfType("string")).Return(nil, errMock)
 
-		result, err := svc.CreateEndpoint(ctx, apiEndpoint("default", "ep-1"))
+		result, err := svc.CreateEndpoint(ctx, apiEndpoint())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -268,9 +268,9 @@ func TestService_UpdateEndpoint(t *testing.T) {
 		svc := newSvc(t, mockEP)
 
 		mockEP.On("UpdateEndpoint", ctx, "default", "ep-1", mock.Anything).
-			Return(newEndpoint("default", "ep-1"), nil)
+			Return(newEndpoint(), nil)
 
-		result, err := svc.UpdateEndpoint(ctx, "default", "ep-1", apiEndpoint("default", "ep-1"))
+		result, err := svc.UpdateEndpoint(ctx, "default", "ep-1", apiEndpoint())
 
 		require.NoError(t, err)
 		assert.Equal(t, "ep-1", result.Metadata.Name)
@@ -286,7 +286,7 @@ func TestService_UpdateEndpoint(t *testing.T) {
 
 		mockEP.On("UpdateEndpoint", ctx, "default", "ep-1", mock.Anything).Return(nil, errMock)
 
-		result, err := svc.UpdateEndpoint(ctx, "default", "ep-1", apiEndpoint("default", "ep-1"))
+		result, err := svc.UpdateEndpoint(ctx, "default", "ep-1", apiEndpoint())
 
 		require.Error(t, err)
 		assert.Nil(t, result)

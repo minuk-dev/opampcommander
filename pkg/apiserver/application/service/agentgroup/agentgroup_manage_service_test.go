@@ -198,15 +198,15 @@ func newSvc(t *testing.T, group *mockAgentGroupUsecase, agent *mockAgentUsecase)
 	return agentgroupsvc.NewManageService(group, agent, base.Logger)
 }
 
-func newGroup(namespace, name string) *agentmodel.AgentGroup {
-	return agentmodel.NewAgentGroup(namespace, name, nil, time.Now(), "tester")
+func newGroup() *agentmodel.AgentGroup {
+	return agentmodel.NewAgentGroup("default", "g-1", nil, time.Now(), "tester")
 }
 
-func apiGroup(namespace, name string) *v1.AgentGroup {
+func apiGroup() *v1.AgentGroup {
 	return &v1.AgentGroup{
 		Kind:       v1.AgentGroupKind,
 		APIVersion: v1.APIVersion,
-		Metadata:   v1.Metadata{Namespace: namespace, Name: name},
+		Metadata:   v1.Metadata{Namespace: "default", Name: "g-1"},
 	}
 }
 
@@ -221,7 +221,7 @@ func TestService_GetAgentGroup(t *testing.T) {
 		svc := newSvc(t, mockGroup, new(mockAgentUsecase))
 
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).
-			Return(newGroup("default", "g-1"), nil)
+			Return(newGroup(), nil)
 
 		result, err := svc.GetAgentGroup(ctx, "default", "g-1", nil)
 
@@ -260,7 +260,7 @@ func TestService_ListAgentGroups(t *testing.T) {
 
 		opts := &applicationport.ListOptions{Limit: 10}
 		resp := &model.ListResponse[*agentmodel.AgentGroup]{
-			Items:    []*agentmodel.AgentGroup{newGroup("default", "g-1")},
+			Items:    []*agentmodel.AgentGroup{newGroup()},
 			Continue: "next",
 		}
 		mockGroup.On("ListAgentGroups", ctx, opts.ToDomain()).Return(resp, nil)
@@ -306,9 +306,9 @@ func TestService_CreateAgentGroup(t *testing.T) {
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).
 			Return(nil, model.ErrResourceNotExist)
 		mockGroup.On("SaveAgentGroup", ctx, "default", "g-1", mock.Anything).
-			Return(newGroup("default", "g-1"), nil)
+			Return(newGroup(), nil)
 
-		result, err := svc.CreateAgentGroup(ctx, apiGroup("default", "g-1"))
+		result, err := svc.CreateAgentGroup(ctx, apiGroup())
 
 		require.NoError(t, err)
 		assert.Equal(t, "g-1", result.Metadata.Name)
@@ -323,13 +323,13 @@ func TestService_CreateAgentGroup(t *testing.T) {
 		svc := newSvc(t, mockGroup, new(mockAgentUsecase))
 
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).
-			Return(newGroup("default", "g-1"), nil)
+			Return(newGroup(), nil)
 
-		result, err := svc.CreateAgentGroup(ctx, apiGroup("default", "g-1"))
+		result, err := svc.CreateAgentGroup(ctx, apiGroup())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
-		assert.ErrorIs(t, err, agentgroupsvc.ErrAgentGroupAlreadyExists)
+		require.ErrorIs(t, err, agentgroupsvc.ErrAgentGroupAlreadyExists)
 		mockGroup.AssertNotCalled(t, "SaveAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		mockGroup.AssertExpectations(t)
 	})
@@ -345,7 +345,7 @@ func TestService_CreateAgentGroup(t *testing.T) {
 			Return(nil, model.ErrResourceNotExist)
 		mockGroup.On("SaveAgentGroup", ctx, "default", "g-1", mock.Anything).Return(nil, errMock)
 
-		result, err := svc.CreateAgentGroup(ctx, apiGroup("default", "g-1"))
+		result, err := svc.CreateAgentGroup(ctx, apiGroup())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -365,11 +365,11 @@ func TestService_UpdateAgentGroup(t *testing.T) {
 		svc := newSvc(t, mockGroup, new(mockAgentUsecase))
 
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).
-			Return(newGroup("default", "g-1"), nil)
+			Return(newGroup(), nil)
 		mockGroup.On("SaveAgentGroup", ctx, "default", "g-1", mock.Anything).
-			Return(newGroup("default", "g-1"), nil)
+			Return(newGroup(), nil)
 
-		result, err := svc.UpdateAgentGroup(ctx, "default", "g-1", apiGroup("default", "g-1"))
+		result, err := svc.UpdateAgentGroup(ctx, "default", "g-1", apiGroup())
 
 		require.NoError(t, err)
 		assert.Equal(t, "g-1", result.Metadata.Name)
@@ -385,7 +385,7 @@ func TestService_UpdateAgentGroup(t *testing.T) {
 
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).Return(nil, errMock)
 
-		result, err := svc.UpdateAgentGroup(ctx, "default", "g-1", apiGroup("default", "g-1"))
+		result, err := svc.UpdateAgentGroup(ctx, "default", "g-1", apiGroup())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -441,7 +441,7 @@ func TestService_ListAgentsByAgentGroup(t *testing.T) {
 		mockAgent := new(mockAgentUsecase)
 		svc := newSvc(t, mockGroup, mockAgent)
 
-		group := newGroup("default", "g-1")
+		group := newGroup()
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).Return(group, nil)
 		mockAgent.On("ListAgentsBySelector", ctx, group.Spec.Selector, mock.Anything).
 			Return(&model.ListResponse[*agentmodel.Agent]{Items: nil}, nil)
@@ -492,7 +492,7 @@ func TestService_ListAgentGroupsByAgent(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, result)
-		assert.ErrorIs(t, err, applicationport.ErrAgentNamespaceMismatch)
+		require.ErrorIs(t, err, applicationport.ErrAgentNamespaceMismatch)
 		mockAgent.AssertExpectations(t)
 	})
 

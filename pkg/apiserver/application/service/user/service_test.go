@@ -264,6 +264,7 @@ func TestService_CreateUser(t *testing.T) {
 			APIVersion: v1.APIVersion,
 			Spec:       v1.UserSpec{Email: "a@example.com", Username: "alice"},
 		}
+
 		mockUser.On("SaveUser", ctx, mock.MatchedBy(func(u *usermodel.User) bool {
 			return u.Spec.Email == "a@example.com"
 		})).Return(nil)
@@ -283,6 +284,7 @@ func TestService_CreateUser(t *testing.T) {
 		svc := newSvc(t, mockUser)
 
 		apiUser := &v1.User{Spec: v1.UserSpec{Email: "a@example.com", Username: "alice"}}
+
 		mockUser.On("SaveUser", ctx, mock.Anything).Return(errMock)
 
 		result, err := svc.CreateUser(ctx, apiUser)

@@ -129,18 +129,18 @@ func newSvc(t *testing.T, cert *mockCertificateUsecase) *certificatesvc.Service 
 	return certificatesvc.NewCertificateService(cert, base.Logger)
 }
 
-func newCert(namespace, name string) *agentmodel.Certificate {
+func newCert() *agentmodel.Certificate {
 	return &agentmodel.Certificate{
-		Metadata: agentmodel.CertificateMetadata{Namespace: namespace, Name: name},
+		Metadata: agentmodel.CertificateMetadata{Namespace: "default", Name: "cert-1"},
 		Spec:     agentmodel.CertificateSpec{Cert: []byte("cert"), PrivateKey: []byte("key")},
 	}
 }
 
-func apiCert(namespace, name string) *v1.Certificate {
+func apiCert() *v1.Certificate {
 	return &v1.Certificate{
 		Kind:       v1.CertificateKind,
 		APIVersion: v1.APIVersion,
-		Metadata:   v1.CertificateMetadata{Namespace: namespace, Name: name},
+		Metadata:   v1.CertificateMetadata{Namespace: "default", Name: "cert-1"},
 	}
 }
 
@@ -155,7 +155,7 @@ func TestService_GetCertificate(t *testing.T) {
 		svc := newSvc(t, mockCert)
 
 		mockCert.On("GetCertificate", ctx, "default", "cert-1", (*model.GetOptions)(nil)).
-			Return(newCert("default", "cert-1"), nil)
+			Return(newCert(), nil)
 
 		result, err := svc.GetCertificate(ctx, "default", "cert-1", nil)
 
@@ -195,7 +195,7 @@ func TestService_ListCertificates(t *testing.T) {
 
 		opts := &applicationport.ListOptions{Limit: 10}
 		resp := &model.ListResponse[*agentmodel.Certificate]{
-			Items:    []*agentmodel.Certificate{newCert("default", "cert-1")},
+			Items:    []*agentmodel.Certificate{newCert()},
 			Continue: "next",
 		}
 		mockCert.On("ListCertificate", ctx, opts.ToDomain()).Return(resp, nil)
@@ -240,9 +240,9 @@ func TestService_CreateCertificate(t *testing.T) {
 
 		mockCert.On("CreateCertificate", ctx, mock.MatchedBy(func(c *agentmodel.Certificate) bool {
 			return c.Metadata.Name == "cert-1"
-		}), mock.AnythingOfType("string")).Return(newCert("default", "cert-1"), nil)
+		}), mock.AnythingOfType("string")).Return(newCert(), nil)
 
-		result, err := svc.CreateCertificate(ctx, apiCert("default", "cert-1"))
+		result, err := svc.CreateCertificate(ctx, apiCert())
 
 		require.NoError(t, err)
 		assert.Equal(t, "cert-1", result.Metadata.Name)
@@ -258,7 +258,7 @@ func TestService_CreateCertificate(t *testing.T) {
 
 		mockCert.On("CreateCertificate", ctx, mock.Anything, mock.AnythingOfType("string")).Return(nil, errMock)
 
-		result, err := svc.CreateCertificate(ctx, apiCert("default", "cert-1"))
+		result, err := svc.CreateCertificate(ctx, apiCert())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -278,9 +278,9 @@ func TestService_UpdateCertificate(t *testing.T) {
 		svc := newSvc(t, mockCert)
 
 		mockCert.On("UpdateCertificate", ctx, "default", "cert-1", mock.Anything, mock.AnythingOfType("string")).
-			Return(newCert("default", "cert-1"), nil)
+			Return(newCert(), nil)
 
-		result, err := svc.UpdateCertificate(ctx, "default", "cert-1", apiCert("default", "cert-1"))
+		result, err := svc.UpdateCertificate(ctx, "default", "cert-1", apiCert())
 
 		require.NoError(t, err)
 		assert.Equal(t, "cert-1", result.Metadata.Name)
@@ -297,7 +297,7 @@ func TestService_UpdateCertificate(t *testing.T) {
 		mockCert.On("UpdateCertificate", ctx, "default", "cert-1", mock.Anything, mock.AnythingOfType("string")).
 			Return(nil, errMock)
 
-		result, err := svc.UpdateCertificate(ctx, "default", "cert-1", apiCert("default", "cert-1"))
+		result, err := svc.UpdateCertificate(ctx, "default", "cert-1", apiCert())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -318,7 +318,7 @@ func TestService_DeleteCertificate(t *testing.T) {
 
 		mockCert.On("DeleteCertificate", ctx, "default", "cert-1",
 			mock.AnythingOfType("time.Time"), mock.AnythingOfType("string")).
-			Return(newCert("default", "cert-1"), nil)
+			Return(newCert(), nil)
 
 		err := svc.DeleteCertificate(ctx, "default", "cert-1")
 

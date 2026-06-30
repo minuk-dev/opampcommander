@@ -68,8 +68,8 @@ func TestService_Reconcile(t *testing.T) {
 		err := svc.Reconcile(ctx, "Nonexistent", "default", "x")
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, model.ErrInvalidArgument)
-		assert.ErrorIs(t, err, domainreconcile.ErrUnknownKind)
+		require.ErrorIs(t, err, model.ErrInvalidArgument)
+		require.ErrorIs(t, err, domainreconcile.ErrUnknownKind)
 	})
 
 	t.Run("reconciler error is wrapped", func(t *testing.T) {
@@ -81,8 +81,8 @@ func TestService_Reconcile(t *testing.T) {
 		err := svc.Reconcile(ctx, "AgentGroup", "default", "group-1")
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errReconcile)
-		assert.NotErrorIs(t, err, model.ErrInvalidArgument)
+		require.ErrorIs(t, err, errReconcile)
+		require.NotErrorIs(t, err, model.ErrInvalidArgument)
 	})
 }
 

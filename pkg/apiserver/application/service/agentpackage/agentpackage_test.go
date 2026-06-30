@@ -121,17 +121,17 @@ func newSvc(t *testing.T, pkg *mockAgentPackageUsecase) *agentpackagesvc.Service
 	return agentpackagesvc.NewAgentPackageService(pkg, base.Logger)
 }
 
-func newPkg(namespace, name string) *agentmodel.AgentPackage {
+func newPkg() *agentmodel.AgentPackage {
 	return &agentmodel.AgentPackage{
-		Metadata: agentmodel.AgentPackageMetadata{Namespace: namespace, Name: name},
+		Metadata: agentmodel.AgentPackageMetadata{Namespace: "default", Name: "pkg-1"},
 	}
 }
 
-func apiPkg(namespace, name string) *v1.AgentPackage {
+func apiPkg() *v1.AgentPackage {
 	return &v1.AgentPackage{
 		Kind:       v1.AgentPackageKind,
 		APIVersion: v1.APIVersion,
-		Metadata:   v1.AgentPackageMetadata{Namespace: namespace, Name: name},
+		Metadata:   v1.AgentPackageMetadata{Namespace: "default", Name: "pkg-1"},
 	}
 }
 
@@ -146,7 +146,7 @@ func TestService_GetAgentPackage(t *testing.T) {
 		svc := newSvc(t, mockPkg)
 
 		mockPkg.On("GetAgentPackage", ctx, "default", "pkg-1", (*model.GetOptions)(nil)).
-			Return(newPkg("default", "pkg-1"), nil)
+			Return(newPkg(), nil)
 
 		result, err := svc.GetAgentPackage(ctx, "default", "pkg-1", nil)
 
@@ -186,7 +186,7 @@ func TestService_ListAgentPackages(t *testing.T) {
 
 		opts := &applicationport.ListOptions{Limit: 10}
 		resp := &model.ListResponse[*agentmodel.AgentPackage]{
-			Items:    []*agentmodel.AgentPackage{newPkg("default", "pkg-1")},
+			Items:    []*agentmodel.AgentPackage{newPkg()},
 			Continue: "next",
 		}
 		mockPkg.On("ListAgentPackages", ctx, opts.ToDomain()).Return(resp, nil)
@@ -231,9 +231,9 @@ func TestService_CreateAgentPackage(t *testing.T) {
 
 		mockPkg.On("CreateAgentPackage", ctx, mock.MatchedBy(func(p *agentmodel.AgentPackage) bool {
 			return p.Metadata.Name == "pkg-1"
-		}), mock.AnythingOfType("string")).Return(newPkg("default", "pkg-1"), nil)
+		}), mock.AnythingOfType("string")).Return(newPkg(), nil)
 
-		result, err := svc.CreateAgentPackage(ctx, apiPkg("default", "pkg-1"))
+		result, err := svc.CreateAgentPackage(ctx, apiPkg())
 
 		require.NoError(t, err)
 		assert.Equal(t, "pkg-1", result.Metadata.Name)
@@ -249,7 +249,7 @@ func TestService_CreateAgentPackage(t *testing.T) {
 
 		mockPkg.On("CreateAgentPackage", ctx, mock.Anything, mock.AnythingOfType("string")).Return(nil, errMock)
 
-		result, err := svc.CreateAgentPackage(ctx, apiPkg("default", "pkg-1"))
+		result, err := svc.CreateAgentPackage(ctx, apiPkg())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -269,9 +269,9 @@ func TestService_UpdateAgentPackage(t *testing.T) {
 		svc := newSvc(t, mockPkg)
 
 		mockPkg.On("UpdateAgentPackage", ctx, "default", "pkg-1", mock.Anything).
-			Return(newPkg("default", "pkg-1"), nil)
+			Return(newPkg(), nil)
 
-		result, err := svc.UpdateAgentPackage(ctx, "default", "pkg-1", apiPkg("default", "pkg-1"))
+		result, err := svc.UpdateAgentPackage(ctx, "default", "pkg-1", apiPkg())
 
 		require.NoError(t, err)
 		assert.Equal(t, "pkg-1", result.Metadata.Name)
@@ -287,7 +287,7 @@ func TestService_UpdateAgentPackage(t *testing.T) {
 
 		mockPkg.On("UpdateAgentPackage", ctx, "default", "pkg-1", mock.Anything).Return(nil, errMock)
 
-		result, err := svc.UpdateAgentPackage(ctx, "default", "pkg-1", apiPkg("default", "pkg-1"))
+		result, err := svc.UpdateAgentPackage(ctx, "default", "pkg-1", apiPkg())
 
 		require.Error(t, err)
 		assert.Nil(t, result)

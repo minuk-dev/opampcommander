@@ -121,18 +121,18 @@ func newSvc(t *testing.T, role *mockRoleUsecase) *rolesvc.Service {
 	return rolesvc.New(role, base.Logger)
 }
 
-func newRole(displayName string) *usermodel.Role {
-	role := usermodel.NewRole(displayName, false)
+func newRole() *usermodel.Role {
+	role := usermodel.NewRole("Viewer", false)
 	role.Spec.Permissions = []string{"agent:read"}
 
 	return role
 }
 
-func apiRole(displayName string) *v1.Role {
+func apiRole() *v1.Role {
 	return &v1.Role{
 		Kind:       v1.RoleKind,
 		APIVersion: v1.APIVersion,
-		Spec:       v1.RoleSpec{DisplayName: displayName, Permissions: []string{"agent:read"}},
+		Spec:       v1.RoleSpec{DisplayName: "Viewer", Permissions: []string{"agent:read"}},
 	}
 }
 
@@ -147,7 +147,7 @@ func TestService_GetRole(t *testing.T) {
 		svc := newSvc(t, mockRole)
 
 		uid := uuid.New()
-		mockRole.On("GetRole", ctx, uid, (*model.GetOptions)(nil)).Return(newRole("Viewer"), nil)
+		mockRole.On("GetRole", ctx, uid, (*model.GetOptions)(nil)).Return(newRole(), nil)
 
 		result, err := svc.GetRole(ctx, uid, nil)
 
@@ -188,7 +188,7 @@ func TestService_ListRoles(t *testing.T) {
 
 		opts := &applicationport.ListOptions{Limit: 10}
 		resp := &model.ListResponse[*usermodel.Role]{
-			Items:    []*usermodel.Role{newRole("Viewer")},
+			Items:    []*usermodel.Role{newRole()},
 			Continue: "next",
 		}
 		mockRole.On("ListRoles", ctx, opts.ToDomain()).Return(resp, nil)
@@ -233,9 +233,9 @@ func TestService_CreateRole(t *testing.T) {
 
 		mockRole.On("CreateRole", ctx, mock.MatchedBy(func(r *usermodel.Role) bool {
 			return r.Spec.DisplayName == "Viewer" && len(r.Spec.Permissions) == 1
-		})).Return(newRole("Viewer"), nil)
+		})).Return(newRole(), nil)
 
-		result, err := svc.CreateRole(ctx, apiRole("Viewer"))
+		result, err := svc.CreateRole(ctx, apiRole())
 
 		require.NoError(t, err)
 		assert.Equal(t, "Viewer", result.Spec.DisplayName)
@@ -251,7 +251,7 @@ func TestService_CreateRole(t *testing.T) {
 
 		mockRole.On("CreateRole", ctx, mock.Anything).Return(nil, errMock)
 
-		result, err := svc.CreateRole(ctx, apiRole("Viewer"))
+		result, err := svc.CreateRole(ctx, apiRole())
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -271,9 +271,9 @@ func TestService_UpdateRole(t *testing.T) {
 		svc := newSvc(t, mockRole)
 
 		uid := uuid.New()
-		mockRole.On("UpdateRole", ctx, uid, mock.Anything).Return(newRole("Viewer"), nil)
+		mockRole.On("UpdateRole", ctx, uid, mock.Anything).Return(newRole(), nil)
 
-		result, err := svc.UpdateRole(ctx, uid, apiRole("Viewer"))
+		result, err := svc.UpdateRole(ctx, uid, apiRole())
 
 		require.NoError(t, err)
 		assert.Equal(t, "Viewer", result.Spec.DisplayName)
@@ -290,7 +290,7 @@ func TestService_UpdateRole(t *testing.T) {
 		uid := uuid.New()
 		mockRole.On("UpdateRole", ctx, uid, mock.Anything).Return(nil, errMock)
 
-		result, err := svc.UpdateRole(ctx, uid, apiRole("Viewer"))
+		result, err := svc.UpdateRole(ctx, uid, apiRole())
 
 		require.Error(t, err)
 		assert.Nil(t, result)

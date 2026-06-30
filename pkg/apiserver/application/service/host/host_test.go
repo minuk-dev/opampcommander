@@ -163,7 +163,7 @@ func newSvc(t *testing.T, host *mockHostUsecase, agent *mockAgentUsecase) *hosts
 	return hostsvc.New(host, agent, base.Logger)
 }
 
-func newHost(id string, agentUIDs ...uuid.UUID) *agentmodel.Host {
+func newHost(id string) *agentmodel.Host {
 	return &agentmodel.Host{
 		Metadata: agentmodel.HostMetadata{
 			ID:          id,
@@ -171,9 +171,7 @@ func newHost(id string, agentUIDs ...uuid.UUID) *agentmodel.Host {
 			FirstSeenAt: time.Now(),
 			LastSeenAt:  time.Now(),
 		},
-		Status: agentmodel.HostStatus{
-			AgentInstanceUIDs: agentUIDs,
-		},
+		Status: agentmodel.HostStatus{},
 	}
 }
 

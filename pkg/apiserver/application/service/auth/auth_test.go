@@ -186,6 +186,7 @@ func TestService_EnsureUserOnLogin(t *testing.T) {
 		svc := newSvc(t, mockUser, rbac)
 
 		deleted := usermodel.NewUser("gone@example.com", "gone")
+
 		mockUser.On("GetUserByEmail", ctx, "gone@example.com").Return(nil, model.ErrResourceNotExist)
 		mockUser.On("GetUserByEmailIncludingDeleted", ctx, "gone@example.com").Return(deleted, nil)
 
