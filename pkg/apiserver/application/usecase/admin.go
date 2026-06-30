@@ -15,9 +15,10 @@ type AdminUsecase interface {
 	// the request (node-local view), paged via options.
 	ListConnections(ctx context.Context, namespace string,
 		options *port.ListOptions) (*v1.ListResponse[v1.Connection], error)
-	// ListClusterConnections lists connections across all alive servers,
-	// aggregated from the periodic per-server snapshots. Each item carries its
-	// owning ServerID.
-	ListClusterConnections(ctx context.Context, namespace string,
+	// ListClusterConnections lists connections aggregated from the periodic
+	// per-server snapshots; each item carries its owning ServerID. A non-empty
+	// serverID restricts the result to that one server; an empty serverID spans
+	// all alive servers.
+	ListClusterConnections(ctx context.Context, namespace string, serverID string,
 		options *port.ListOptions) (*v1.ListResponse[v1.Connection], error)
 }

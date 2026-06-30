@@ -49,15 +49,20 @@ func (r *ServerConnectionRepository) ReplaceServerConnections(
 func (r *ServerConnectionRepository) ListServerConnections(
 	_ context.Context,
 	namespace string,
+	serverID string,
 	notBefore time.Time,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.ServerConnection], error) {
-	return r.store.list(options, func(sc *agentmodel.ServerConnection) bool {
-		if sc.Namespace != namespace {
+	return r.store.list(options, func(conn *agentmodel.ServerConnection) bool {
+		if conn.Namespace != namespace {
 			return false
 		}
 
-		if !notBefore.IsZero() && sc.SnapshotAt.Before(notBefore) {
+		if serverID != "" && conn.ServerID != serverID {
+			return false
+		}
+
+		if !notBefore.IsZero() && conn.SnapshotAt.Before(notBefore) {
 			return false
 		}
 

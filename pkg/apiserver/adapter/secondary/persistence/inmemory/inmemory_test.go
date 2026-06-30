@@ -514,7 +514,7 @@ func TestServerConnectionRepository_ReplaceAndList(t *testing.T) {
 	}))
 
 	// Cluster view spans both servers.
-	resp, err := repo.ListServerConnections(ctx, "default", time.Time{}, nil)
+	resp, err := repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 3)
 
@@ -523,14 +523,14 @@ func TestServerConnectionRepository_ReplaceAndList(t *testing.T) {
 		sc("server-a", "default", a1),
 	}))
 
-	resp, err = repo.ListServerConnections(ctx, "default", time.Time{}, nil)
+	resp, err = repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 2) // a1 + b1
 
 	// Clearing a server removes its records.
 	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-b", nil))
 
-	resp, err = repo.ListServerConnections(ctx, "default", time.Time{}, nil)
+	resp, err = repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 1)
 	assert.Equal(t, "server-a", resp.Items[0].ServerID)
@@ -565,8 +565,40 @@ func TestServerConnectionRepository_ListFiltersNamespaceAndStaleness(t *testing.
 		[]*agentmodel.ServerConnection{stale}))
 
 	// Namespace filter + staleness cutoff (notBefore) excludes other-namespace and stale records.
-	resp, err := repo.ListServerConnections(ctx, "ns-a", now.Add(-90*time.Second), nil)
+	resp, err := repo.ListServerConnections(ctx, "ns-a", "", now.Add(-90*time.Second), nil)
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, fresh.UID, resp.Items[0].UID)
+}
+
+func TestServerConnectionRepository_ListFiltersByServerID(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewServerConnectionRepository()
+	now := time.Now()
+
+	rec := func(server string, uid uuid.UUID) *agentmodel.ServerConnection {
+		return &agentmodel.ServerConnection{
+			ServerID: server, UID: uid, InstanceUID: uuid.New(),
+			Type: agentmodel.ConnectionTypeWebSocket, Namespace: "default",
+			LastCommunicatedAt: now, SnapshotAt: now,
+		}
+	}
+
+	x1, y1 := uuid.New(), uuid.New()
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-x",
+		[]*agentmodel.ServerConnection{rec("server-x", x1)}))
+	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-y",
+		[]*agentmodel.ServerConnection{rec("server-y", y1)}))
+
+	resp, err := repo.ListServerConnections(ctx, "default", "server-x", time.Time{}, nil)
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "server-x", resp.Items[0].ServerID)
+
+	// Empty serverID spans all servers.
+	all, err := repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
+	require.NoError(t, err)
+	assert.Len(t, all.Items, 2)
 }

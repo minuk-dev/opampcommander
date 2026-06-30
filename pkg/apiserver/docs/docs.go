@@ -1931,6 +1931,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Restrict to one server's connections (implies cluster scope)",
+                        "name": "serverId",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Maximum number of connections to return",
                         "name": "limit",
