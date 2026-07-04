@@ -115,9 +115,9 @@ type mockClusterConnectionUsecase struct {
 }
 
 func (m *mockClusterConnectionUsecase) ListClusterConnections(
-	ctx context.Context, namespace string, options *model.ListOptions,
+	ctx context.Context, namespace string, serverID string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.ServerConnection], error) {
-	args := m.Called(ctx, namespace, options)
+	args := m.Called(ctx, namespace, serverID, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -215,9 +215,10 @@ func TestService_ListClusterConnections(t *testing.T) {
 			Items:    []*agentmodel.ServerConnection{serverConn},
 			Continue: "next",
 		}
-		mockCluster.On("ListClusterConnections", ctx, "default", opts.ToDomain()).Return(resp, nil)
+		// A non-empty serverID filters the cluster view to that one server.
+		mockCluster.On("ListClusterConnections", ctx, "default", "server-a", opts.ToDomain()).Return(resp, nil)
 
-		result, err := svc.ListClusterConnections(ctx, "default", opts)
+		result, err := svc.ListClusterConnections(ctx, "default", "server-a", opts)
 
 		require.NoError(t, err)
 		require.Len(t, result.Items, 1)
@@ -234,9 +235,9 @@ func TestService_ListClusterConnections(t *testing.T) {
 		svc := newSvc(t, new(mockConnectionUsecase), mockCluster)
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockCluster.On("ListClusterConnections", ctx, "default", opts.ToDomain()).Return(nil, errMock)
+		mockCluster.On("ListClusterConnections", ctx, "default", "", opts.ToDomain()).Return(nil, errMock)
 
-		result, err := svc.ListClusterConnections(ctx, "default", opts)
+		result, err := svc.ListClusterConnections(ctx, "default", "", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)
