@@ -105,10 +105,11 @@ type ServerConnectionPersistencePort interface {
 	// with the provided set. An empty set clears the server's records (e.g. on shutdown or
 	// when it holds no connections).
 	ReplaceServerConnections(ctx context.Context, serverID string, conns []*agentmodel.ServerConnection) error
-	// ListServerConnections lists snapshot records across all servers, filtered by namespace.
+	// ListServerConnections lists snapshot records, filtered by namespace. A non-empty
+	// serverID restricts the result to that one server; an empty serverID spans all servers.
 	// notBefore drops records whose SnapshotAt is older than it (stale/crashed servers); a
 	// zero notBefore returns all records.
-	ListServerConnections(ctx context.Context, namespace string, notBefore time.Time,
+	ListServerConnections(ctx context.Context, namespace string, serverID string, notBefore time.Time,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.ServerConnection], error)
 }
 

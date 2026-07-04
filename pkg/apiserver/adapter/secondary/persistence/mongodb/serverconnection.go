@@ -69,6 +69,7 @@ func (a *ServerConnectionAdapter) ReplaceServerConnections(
 func (a *ServerConnectionAdapter) ListServerConnections(
 	ctx context.Context,
 	namespace string,
+	serverID string,
 	notBefore time.Time,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.ServerConnection], error) {
@@ -78,6 +79,12 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 	}
 
 	conditions := []bson.M{{"namespace": sanitizeResourceName(namespace)}}
+	if serverID != "" {
+		// Sanitize the user-provided serverId the same way as namespace so it can only
+		// ever be a literal equality match, never a MongoDB operator (NoSQL injection).
+		conditions = append(conditions, bson.M{"serverId": sanitizeResourceName(serverID)})
+	}
+
 	if !notBefore.IsZero() {
 		conditions = append(conditions, bson.M{"snapshotAt": bson.M{"$gte": notBefore}})
 	}

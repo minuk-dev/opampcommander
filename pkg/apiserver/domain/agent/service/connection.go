@@ -113,11 +113,12 @@ func (s *Service) Run(ctx context.Context) error {
 func (s *Service) ListClusterConnections(
 	ctx context.Context,
 	namespace string,
+	serverID string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.ServerConnection], error) {
 	notBefore := s.clock.Now().Add(-s.effectiveSnapshotStaleness())
 
-	resp, err := s.serverConnectionPersistencePort.ListServerConnections(ctx, namespace, notBefore, options)
+	resp, err := s.serverConnectionPersistencePort.ListServerConnections(ctx, namespace, serverID, notBefore, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster connections: %w", err)
 	}

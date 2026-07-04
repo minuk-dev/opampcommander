@@ -2793,6 +2793,10 @@ paths:
         in: query
         name: scope
         type: string
+      - description: Restrict to one server's connections (implies cluster scope)
+        in: query
+        name: serverId
+        type: string
       - description: Maximum number of connections to return
         in: query
         name: limit

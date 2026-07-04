@@ -27,6 +27,7 @@ type fakeServerConnectionStore struct {
 	replacedServerID string
 	replaced         []*agentmodel.ServerConnection
 	listNotBefore    time.Time
+	listServerID     string
 	listResult       []*agentmodel.ServerConnection
 }
 
@@ -40,9 +41,10 @@ func (f *fakeServerConnectionStore) ReplaceServerConnections(
 }
 
 func (f *fakeServerConnectionStore) ListServerConnections(
-	_ context.Context, _ string, notBefore time.Time, _ *model.ListOptions,
+	_ context.Context, _ string, serverID string, notBefore time.Time, _ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.ServerConnection], error) {
 	f.listNotBefore = notBefore
+	f.listServerID = serverID
 
 	return &model.ListResponse[*agentmodel.ServerConnection]{
 		Items:              f.listResult,
@@ -96,7 +98,7 @@ func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testi
 	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
 
 	before := time.Now()
-	resp, err := svc.ListClusterConnections(context.Background(), "default", nil)
+	resp, err := svc.ListClusterConnections(context.Background(), "default", "", nil)
 	after := time.Now()
 
 	require.NoError(t, err)
@@ -107,4 +109,16 @@ func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testi
 	assert.WithinRange(t, store.listNotBefore,
 		before.Add(-DefaultConnectionSnapshotStaleness),
 		after.Add(-DefaultConnectionSnapshotStaleness))
+}
+
+func TestConnectionService_ListClusterConnectionsPassesServerIDFilter(t *testing.T) {
+	t.Parallel()
+
+	store := &fakeServerConnectionStore{}
+	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+
+	_, err := svc.ListClusterConnections(context.Background(), "default", "server-7", nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, "server-7", store.listServerID)
 }

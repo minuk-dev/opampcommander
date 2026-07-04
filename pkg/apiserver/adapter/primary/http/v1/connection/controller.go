@@ -68,6 +68,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Produce json
 // @Param namespace path string true "Namespace"
 // @Param scope query string false "Scope of the listing: 'local' (default) or 'cluster'"
+// @Param serverId query string false "Restrict to one server's connections (implies cluster scope)"
 // @Param limit query int false "Maximum number of connections to return"
 // @Param continue query string false "Token to continue listing connections"
 // @Success 200 {object} v1.ListResponse[v1.Connection]
@@ -89,10 +90,14 @@ func (c *Controller) List(ctx *gin.Context) {
 		IncludeDeleted: false,
 	}
 
+	serverID := ctx.Query("serverId")
+
 	var connectionResponse *v1.ListResponse[v1.Connection]
 
-	if ctx.Query("scope") == scopeCluster {
-		connectionResponse, err = c.adminUsecase.ListClusterConnections(ctx.Request.Context(), namespace, options)
+	// A specific serverId is inherently a cross-node lookup, so it implies cluster scope.
+	if ctx.Query("scope") == scopeCluster || serverID != "" {
+		connectionResponse, err = c.adminUsecase.ListClusterConnections(
+			ctx.Request.Context(), namespace, serverID, options)
 	} else {
 		connectionResponse, err = c.adminUsecase.ListConnections(ctx.Request.Context(), namespace, options)
 	}

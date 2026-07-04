@@ -6,16 +6,18 @@ import {
   Box,
   Chip,
   CircularProgress,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  ToggleButton,
-  ToggleButtonGroup,
 } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import Link from 'next/link';
@@ -23,26 +25,40 @@ import { PageHeader, PaginationFooter } from '@shared/ui';
 import { useNamespace } from '@entities/namespace';
 import { TimeDisplay } from '@shared/preferences';
 import { useCursorPagination } from '@shared/lib';
+import { useApi, type ListResponse } from '@shared/api';
 import type { Connection } from '@entities/connection';
+import type { Server } from '@entities/server';
 
 // Page connections in small batches so a large cluster-wide listing never pulls
 // thousands of rows at once.
 const PAGE_SIZE = 20;
 
-type Scope = 'cluster' | 'local';
+// Sentinel Select values that aren't a concrete server id.
+const ALL_SERVERS = '';
+const LOCAL_NODE = '__local__';
 
 export default function ConnectionsPage() {
   const { namespace } = useNamespace();
-  const [scope, setScope] = useState<Scope>('cluster');
-  const isCluster = scope === 'cluster';
+  // Selected server: '' = all servers (cluster), '__local__' = this node only,
+  // otherwise a specific server id (cluster, filtered to that server).
+  const [selected, setSelected] = useState<string>(ALL_SERVERS);
+
+  const { data: serversData } = useApi<ListResponse<Server>>('/api/v1/servers');
+  const servers = serversData?.items ?? [];
+
+  const isLocal = selected === LOCAL_NODE;
+  const isCluster = !isLocal;
+  const serverId = isCluster && selected !== ALL_SERVERS ? selected : undefined;
 
   const pagination = useCursorPagination<Connection>(
     `/api/v1/namespaces/${namespace}/connections`,
     {
       initialPageSize: PAGE_SIZE,
-      // Cluster scope aggregates every server's connections (each carries its
-      // owning serverId); local scope returns only this node's connections.
-      query: isCluster ? { scope: 'cluster' } : undefined,
+      // Cluster scope aggregates servers' connections (each carries its owning
+      // serverId); a serverId narrows it to one server. Local scope returns only
+      // this node's connections. serverId is filtered server-side so pagination stays
+      // correct.
+      query: isLocal ? undefined : { scope: 'cluster', serverId },
     },
   );
   const { items, isLoading: loading, error: fetchError, refresh } = pagination;
@@ -64,19 +80,23 @@ export default function ConnectionsPage() {
         }
       />
 
-      <ToggleButtonGroup
-        value={scope}
-        exclusive
-        size="small"
-        color="primary"
-        onChange={(_, value: Scope | null) => {
-          if (value !== null) setScope(value);
-        }}
-        sx={{ mb: 2 }}
-      >
-        <ToggleButton value="cluster">All servers</ToggleButton>
-        <ToggleButton value="local">This node</ToggleButton>
-      </ToggleButtonGroup>
+      <FormControl size="small" sx={{ mb: 2, minWidth: { xs: 160, sm: 240 } }}>
+        <InputLabel id="connection-server-label">Server</InputLabel>
+        <Select
+          labelId="connection-server-label"
+          label="Server"
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+        >
+          <MenuItem value={ALL_SERVERS}>All servers</MenuItem>
+          <MenuItem value={LOCAL_NODE}>This node</MenuItem>
+          {servers.map((s) => (
+            <MenuItem key={s.id} value={s.id} sx={{ fontFamily: 'monospace' }}>
+              {s.id}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>

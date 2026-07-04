@@ -55,14 +55,14 @@ func TestServerConnectionMongoAdapter(t *testing.T) {
 		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-b",
 			[]*agentmodel.ServerConnection{rec("server-b", "default", b1, now)}))
 
-		resp, err := adapter.ListServerConnections(ctx, "default", time.Time{}, nil)
+		resp, err := adapter.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 		require.NoError(t, err)
 		assert.Len(t, resp.Items, 2)
 
 		// Replacing one server's set leaves the other untouched.
 		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-a", nil))
 
-		resp, err = adapter.ListServerConnections(ctx, "default", time.Time{}, nil)
+		resp, err = adapter.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 		require.NoError(t, err)
 		require.Len(t, resp.Items, 1)
 		assert.Equal(t, "server-b", resp.Items[0].ServerID)
@@ -74,8 +74,24 @@ func TestServerConnectionMongoAdapter(t *testing.T) {
 		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-stale",
 			[]*agentmodel.ServerConnection{rec("server-stale", "ns-stale", uuid.New(), now.Add(-10*time.Minute))}))
 
-		resp, err := adapter.ListServerConnections(ctx, "ns-stale", now.Add(-90*time.Second), nil)
+		resp, err := adapter.ListServerConnections(ctx, "ns-stale", "", now.Add(-90*time.Second), nil)
 		require.NoError(t, err)
 		assert.Empty(t, resp.Items)
+	})
+
+	t.Run("serverId filter restricts to one server", func(t *testing.T) {
+		t.Parallel()
+
+		x1, y1 := uuid.New(), uuid.New()
+		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-x",
+			[]*agentmodel.ServerConnection{rec("server-x", "ns-filter", x1, now)}))
+		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-y",
+			[]*agentmodel.ServerConnection{rec("server-y", "ns-filter", y1, now)}))
+
+		resp, err := adapter.ListServerConnections(ctx, "ns-filter", "server-x", time.Time{}, nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Items, 1)
+		assert.Equal(t, "server-x", resp.Items[0].ServerID)
+		assert.Equal(t, x1, resp.Items[0].UID)
 	})
 }
