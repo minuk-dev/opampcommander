@@ -195,7 +195,6 @@ func connectionInfoToProtobuf(connectionInfo *agentmodel.ConnectionInfo) *protob
 		return nil
 	}
 
-	//exhaustruct:ignore
 	offers := &protobufs.ConnectionSettingsOffers{
 		Hash: connectionInfo.Hash.Bytes(),
 	}
@@ -234,7 +233,6 @@ func connectionInfoToProtobuf(connectionInfo *agentmodel.ConnectionInfo) *protob
 func opampConnectionSettingsToProtobuf(
 	domain *agentmodel.AgentOpAMPConnectionSettings,
 ) *protobufs.OpAMPConnectionSettings {
-	//exhaustruct:ignore
 	return &protobufs.OpAMPConnectionSettings{
 		DestinationEndpoint: domain.DestinationEndpoint,
 		Headers:             headersToProtobuf(domain.Headers),
@@ -245,7 +243,6 @@ func opampConnectionSettingsToProtobuf(
 func telemetryConnectionSettingsToProtobuf(
 	domain *agentmodel.AgentTelemetryConnectionSettings,
 ) *protobufs.TelemetryConnectionSettings {
-	//exhaustruct:ignore
 	return &protobufs.TelemetryConnectionSettings{
 		DestinationEndpoint: domain.DestinationEndpoint,
 		Headers:             headersToProtobuf(domain.Headers),
@@ -256,7 +253,6 @@ func telemetryConnectionSettingsToProtobuf(
 func otherConnectionSettingsToProtobuf(
 	domain *agentmodel.AgentOtherConnectionSettings,
 ) *protobufs.OtherConnectionSettings {
-	//exhaustruct:ignore
 	return &protobufs.OtherConnectionSettings{
 		DestinationEndpoint: domain.DestinationEndpoint,
 		Headers:             headersToProtobuf(domain.Headers),

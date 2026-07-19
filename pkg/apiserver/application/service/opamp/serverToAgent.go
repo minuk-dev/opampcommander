@@ -22,7 +22,6 @@ func (s *Service) fetchServerToAgent(ctx context.Context, agentModel *agentmodel
 func (s *Service) createFallbackServerToAgent(
 	instanceUID uuid.UUID,
 ) *protobufs.ServerToAgent {
-	//exhaustruct:ignore
 	return &protobufs.ServerToAgent{
 		InstanceUid: instanceUID[:],
 	}

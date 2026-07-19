@@ -34,6 +34,10 @@ linters:
       exclude:
         - '.+/cobra\.Command$'
         - "go.mongodb.org/mongo-driver/v2/bson.Binary"
+        # Protobuf-generated messages carry unexported state/sizeCache/unknownFields and are
+        # never meant to be constructed exhaustively, so exclude the whole opamp-go protobufs
+        # package instead of scattering //exhaustruct:ignore over every literal.
+        - 'github\.com/open-telemetry/opamp-go/protobufs\..+'
         # Optional list/paging filters whose zero values are meaningful defaults;
         # call sites legitimately set only the fields they care about.
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model.ListOptions"
