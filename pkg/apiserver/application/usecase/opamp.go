@@ -7,10 +7,10 @@ import (
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 )
 
-// OpAMPUsecase handles the OpAMP protocol itself. Unlike the REST
-// management use cases, it is implemented by the central OpAMP service and
-// invoked by the opamp-go server adapter as connection callbacks for each
-// connected agent.
+// OpAMPUsecase handles the OpAMP protocol itself. It backs the /api/v1/opamp
+// HTTP/WebSocket endpoint (the opamp controller): unlike the REST CRUD use
+// cases its methods are not request handlers but connection callbacks, invoked
+// by the opamp-go server adapter for each connected agent.
 // Please see [github.com/open-telemetry/opamp-go/server/types/ConnectionCallbacks].
 type OpAMPUsecase interface {
 	// OnConnected is called when an agent connection is established.
