@@ -44,7 +44,7 @@ actually implemented.
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
 | `command` | ✅ | `Restart` — the only command the spec currently defines. |
 | `capabilities` | ✅ | |
-| `flags` (`ReportFullState`) | 🟡 | Set only by the separate cross-server push builder, and only when the agent is incomplete; never set on the hot path. |
+| `flags` (`ReportFullState`) | ✅ | Set by the shared builder (both hot and push paths) when the agent is not yet fully described. |
 | `error_response` | ⛔ | Never populated. |
 | `custom_capabilities` | ⛔ | Always `nil` (server advertises no custom capabilities). |
 | `custom_message` | ⛔ | Always `nil`. |
@@ -73,15 +73,13 @@ actually implemented.
 
 ## Known gaps
 
-1. **Two divergent `ServerToAgent` builders.** The hot path (`fetchServerToAgent`) builds a
-   complete message. The cross-server push path
-   (`domain/agent/service/server.go` → `buildServerToAgentMessage`, reached via the
-   `SendServerToAgent` server event) is a self-described "simplified" stub that **omits**
-   `remote_config`, `packages_available`, `connection_settings`, and `command`. For a normal
-   (fully-described) agent it also leaves `ReportFullState` unset, so the immediate cross-server
-   push is effectively a no-op. Config still converges on the agent's **next** heartbeat via the
-   hot path, so this is an immediacy/latency gap rather than permanent data loss — but it defeats
-   the point of the push.
+1. ~~**Two divergent `ServerToAgent` builders.**~~ *(Resolved in #503.)* The hot path and the
+   cross-server push path now share a single `ServerToAgentBuilder`, so a cross-server push
+   delivers the same complete message (remote config, packages, connection settings, command)
+   as a direct response instead of a degraded stub. Previously the push path
+   (`buildServerToAgentMessage`) omitted those fields and, for a fully-described agent, left
+   `ReportFullState` unset — making the immediate push effectively a no-op until the agent's
+   next heartbeat.
 2. **`AcceptsConnectionSettingsRequest` advertised but unhandled** — the server claims the
    capability but ignores `connection_settings_request`.
 3. **Packages: `TopLevel`-only + silent-drop** on fetch failure (tracked in #496).
