@@ -7,10 +7,12 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"go.uber.org/fx"
+	"go.uber.org/fx/fxevent"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -64,6 +66,16 @@ func appOptions(settings *config.ServerSettings) []fx.Option {
 		// Base utilities
 		helper.NewModule(),
 		management.NewModule(),
+
+		// Route FX's own lifecycle events (provided/invoked/OnStart/OnStop) through the
+		// app's slog logger instead of FX's default console logger. This makes those logs
+		// structured and, crucially, level-controlled — raising the configured log level
+		// (e.g. to warn in e2e tests) silences the otherwise very noisy "[Fx] HOOK ..."
+		// startup stream.
+		fx.WithLogger(func(logger *slog.Logger) fxevent.Logger {
+			return &fxevent.SlogLogger{Logger: logger}
+		}),
+
 		// Initialize HTTP server
 		fx.Invoke(func(*http.Server) {}),
 	}
