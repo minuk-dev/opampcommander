@@ -1,7 +1,6 @@
 package agentservice_test
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -30,7 +29,7 @@ func TestServerToAgentBuilder_Build_AdvertisesServerCapabilities(t *testing.T) {
 	builder := newTestBuilder()
 	agent := agentmodel.NewAgent(uuid.New())
 
-	msg := builder.Build(context.Background(), agent)
+	msg := builder.Build(t.Context(), agent)
 
 	require.NotNil(t, msg)
 
@@ -81,7 +80,7 @@ func TestServerToAgentBuilder_Build_ReportFullState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			msg := newTestBuilder().Build(context.Background(), tt.agent)
+			msg := newTestBuilder().Build(t.Context(), tt.agent)
 			set := msg.GetFlags()&uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState) != 0
 			assert.Equal(t, tt.wantFullState, set)
 		})
@@ -105,7 +104,7 @@ func TestServerToAgentBuilder_Build_IncludesRemoteConfig(t *testing.T) {
 		ContentType: "text/yaml",
 	}))
 
-	msg := builder.Build(context.Background(), agent)
+	msg := builder.Build(t.Context(), agent)
 
 	require.NotNil(t, msg.GetRemoteConfig())
 	assert.NotEmpty(t, msg.GetRemoteConfig().GetConfigHash())
