@@ -194,7 +194,6 @@ func (s *Service) recordInstanceUIDConflict(
 func (s *Service) createRenewalServerToAgent(
 	oldInstanceUID, newInstanceUID uuid.UUID,
 ) *protobufs.ServerToAgent {
-	//exhaustruct:ignore
 	return &protobufs.ServerToAgent{
 		InstanceUid: oldInstanceUID[:],
 		AgentIdentification: &protobufs.AgentIdentification{

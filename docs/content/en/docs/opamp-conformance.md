@@ -44,7 +44,7 @@ actually implemented.
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
 | `command` | ✅ | `Restart` — the only command the spec currently defines. |
 | `capabilities` | ✅ | |
-| `flags` (`ReportFullState`) | ✅ | Set by the shared builder (both hot and push paths) when the agent is not yet fully described. |
+| `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
 | `error_response` | ⛔ | Never populated. |
 | `custom_capabilities` | ⛔ | Always `nil` (server advertises no custom capabilities). |
 | `custom_message` | ⛔ | Always `nil`. |

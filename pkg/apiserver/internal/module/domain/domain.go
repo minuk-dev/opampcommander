@@ -49,6 +49,7 @@ func New() fx.Option {
 		fx.Annotate(agentservice.NewEndpointMetricsService, fx.As(new(agentport.EndpointMetricsUsecase))),
 		fx.Annotate(agentservice.NewEndpointDetectionService, fx.As(new(agentport.EndpointDetectionUsecase))),
 		fx.Annotate(agentservice.NewCertificateService, fx.As(new(agentport.CertificateUsecase))),
+		agentservice.NewServerToAgentBuilder,
 		agentservice.NewServerService,
 		fx.Annotate(
 			Identity[*agentservice.ServerService],

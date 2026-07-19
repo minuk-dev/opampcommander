@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jellydator/ttlcache/v3"
-	"github.com/open-telemetry/opamp-go/protobufs"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -49,6 +48,7 @@ type ServerService struct {
 	connectionUsecase       agentport.ConnectionUsecase
 	agentUsecase            agentport.AgentUsecase
 	agentCacheInvalidator   agentport.AgentCacheInvalidator
+	serverToAgentBuilder    *ServerToAgentBuilder
 }
 
 // NewServerService creates a new instance of the ServerService.
@@ -61,6 +61,7 @@ func NewServerService(
 	connectionUsecase agentport.ConnectionUsecase,
 	agentUsecase agentport.AgentUsecase,
 	agentCacheInvalidator agentport.AgentCacheInvalidator,
+	serverToAgentBuilder *ServerToAgentBuilder,
 ) *ServerService {
 	serverCache := ttlcache.New[string, *agentmodel.Server](
 		ttlcache.WithTTL[string, *agentmodel.Server](DefaultServerCacheTTL),
@@ -84,6 +85,7 @@ func NewServerService(
 		connectionUsecase:       connectionUsecase,
 		agentUsecase:            agentUsecase,
 		agentCacheInvalidator:   agentCacheInvalidator,
+		serverToAgentBuilder:    serverToAgentBuilder,
 	}
 }
 
@@ -398,9 +400,11 @@ func (s *ServerService) sendServerToAgentForInstance(ctx context.Context, instan
 		return fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	// Build the ServerToAgent message based on agent's current state
-	// This should include any pending commands, config updates, etc.
-	serverToAgentMessage := s.buildServerToAgentMessage(agent)
+	// Build the full ServerToAgent message from the agent's current state (remote config,
+	// packages, connection settings, pending commands) via the shared builder — the same one
+	// the OpAMP hot path uses — so a cross-server push delivers the same message as a direct
+	// response rather than a degraded stub.
+	serverToAgentMessage := s.serverToAgentBuilder.Build(ctx, agent)
 
 	// Send the message via the connection service
 	err = s.connectionUsecase.SendServerToAgent(ctx, instanceUID, serverToAgentMessage)
@@ -409,27 +413,6 @@ func (s *ServerService) sendServerToAgentForInstance(ctx context.Context, instan
 	}
 
 	return nil
-}
-
-// buildServerToAgentMessage builds a ServerToAgent message for the given agent.
-// This is a simplified version - you may want to use the opamp service's fetchServerToAgent instead.
-func (s *ServerService) buildServerToAgentMessage(agent *agentmodel.Agent) *protobufs.ServerToAgent {
-	var flags uint64
-
-	// Request ReportFullState if needed
-	if agent.NeedFullStateCommand() {
-		flags |= uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState)
-	}
-
-	instanceUID := agent.Metadata.InstanceUID
-
-	//exhaustruct:ignore
-	return &protobufs.ServerToAgent{
-		InstanceUid: instanceUID[:],
-		Flags:       flags,
-		// Note: RemoteConfig building is omitted here for simplicity
-		// In production, you should fetch agent groups and build config properly
-	}
 }
 
 func (s *ServerService) getCachedServer(id string) (*agentmodel.Server, bool) {
