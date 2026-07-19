@@ -10,6 +10,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # octocov posts the coverage report as a PR comment
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +30,11 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Report coverage (octocov)
+        uses: k1LoW/octocov-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   test-e2e:
     runs-on: ubuntu-latest
