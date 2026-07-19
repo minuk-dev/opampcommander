@@ -1,6 +1,8 @@
 package opamp
 
 import (
+	"encoding/base64"
+	"strconv"
 	"time"
 
 	"github.com/open-telemetry/opamp-go/protobufs"
@@ -61,11 +63,38 @@ func customCapabilitiesToDomain(customCapabilities *protobufs.CustomCapabilities
 func toMap(proto []*protobufs.KeyValue) map[string]string {
 	retval := make(map[string]string, len(proto))
 	for _, kv := range proto {
-		// iss#1: Handle other types.
-		retval[kv.GetKey()] = kv.GetValue().GetStringValue()
+		retval[kv.GetKey()] = anyValueToString(kv.GetValue())
 	}
 
 	return retval
+}
+
+// anyValueToString renders an OpAMP AnyValue as a string for storage in the agent's
+// string-keyed attribute maps. Scalar values keep their natural representation (so a
+// non-string identifying attribute such as an int process.pid is preserved instead of being
+// silently dropped to ""); bytes are base64-encoded and nested array/kvlist values fall back
+// to their protobuf text form.
+func anyValueToString(value *protobufs.AnyValue) string {
+	if value == nil {
+		return ""
+	}
+
+	switch value.GetValue().(type) {
+	case *protobufs.AnyValue_StringValue:
+		return value.GetStringValue()
+	case *protobufs.AnyValue_BoolValue:
+		return strconv.FormatBool(value.GetBoolValue())
+	case *protobufs.AnyValue_IntValue:
+		return strconv.FormatInt(value.GetIntValue(), 10)
+	case *protobufs.AnyValue_DoubleValue:
+		return strconv.FormatFloat(value.GetDoubleValue(), 'g', -1, 64)
+	case *protobufs.AnyValue_BytesValue:
+		return base64.StdEncoding.EncodeToString(value.GetBytesValue())
+	case *protobufs.AnyValue_ArrayValue, *protobufs.AnyValue_KvlistValue:
+		return value.String()
+	default:
+		return ""
+	}
 }
 
 func healthToDomain(health *protobufs.ComponentHealth) *agentmodel.AgentComponentHealth {
