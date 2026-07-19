@@ -58,7 +58,7 @@ actually implemented.
 |---|:---:|---|
 | `instance_uid` | ✅ | Incl. instance-UID conflict handling (`instanceuid_conflict.go`). |
 | `sequence_num` | ✅ | Recorded per report. |
-| `agent_description` | 🟡 | Ingested, but only string `AnyValue`s are kept — non-string attribute values are dropped (`protobufsToDomain.go`, `toMap`). |
+| `agent_description` | ✅ | Ingested; every `AnyValue` kind is preserved as its string form (#504). Attributes are stored as `map[string]string`, so structured array/kvlist values keep a best-effort textual form. |
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
 | `effective_config` | ✅ | Stored. |
@@ -86,8 +86,10 @@ actually implemented.
 4. **Custom messages / custom capabilities** are unsupported end-to-end (server→agent always
    `nil`; agent→server `custom_message` dropped).
 5. **`error_response` is never sent**, so the agent gets no structured error signal from the server.
-6. **Non-string attribute values are dropped** in `toMap`, losing fidelity for identifying /
-   non-identifying attributes and component metadata.
+6. ~~**Non-string attribute values are dropped** in `toMap`.~~ *(Resolved in #504.)* Every
+   `AnyValue` kind is now rendered to its string form, so non-string identifying attributes
+   (e.g. an int `process.pid`) are preserved and still participate in AgentGroup selector
+   matching.
 
 ## Test coverage
 
