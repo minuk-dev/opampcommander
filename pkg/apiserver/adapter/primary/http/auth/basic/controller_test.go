@@ -1,8 +1,11 @@
 package basic_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +19,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/goleak"
 
+	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/basic"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
@@ -119,6 +123,17 @@ func newAuthedRouter(controller *basic.Controller, user *security.User) *gin.Eng
 	}
 
 	return router
+}
+
+// refreshBody marshals a RefreshTokenRequest into a request body reader.
+func refreshBody(t *testing.T, token string) io.Reader {
+	t.Helper()
+
+	// G117: this marshals a test-supplied token into a request body, not a real secret.
+	raw, err := json.Marshal(v1auth.RefreshTokenRequest{RefreshToken: token}) //nolint:gosec
+	require.NoError(t, err)
+
+	return bytes.NewReader(raw)
 }
 
 func TestController_RoutesInfo(t *testing.T) {
@@ -237,7 +252,7 @@ func TestController_Refresh(t *testing.T) {
 		require.NotEmpty(t, login.RefreshToken)
 
 		recorder := httptest.NewRecorder()
-		body := strings.NewReader(`{"refreshToken":"` + login.RefreshToken + `"}`)
+		body := refreshBody(t, login.RefreshToken)
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/refresh", body)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
@@ -272,7 +287,7 @@ func TestController_Refresh(t *testing.T) {
 		controller := basic.NewController(slog.Default(), newService(t, inmemory.NewUserRepository(), 0), &provisioningSpy{})
 
 		recorder := httptest.NewRecorder()
-		body := strings.NewReader(`{}`)
+		body := refreshBody(t, "")
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/refresh", body)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
@@ -288,7 +303,7 @@ func TestController_Refresh(t *testing.T) {
 		controller := basic.NewController(slog.Default(), newService(t, inmemory.NewUserRepository(), 0), &provisioningSpy{})
 
 		recorder := httptest.NewRecorder()
-		body := strings.NewReader(`{"refreshToken":"not-a-valid-token"}`)
+		body := refreshBody(t, "not-a-valid-token")
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/refresh", body)
 		require.NoError(t, err)
 		req.Header.Set("Content-Type", "application/json")
