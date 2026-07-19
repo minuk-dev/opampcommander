@@ -670,6 +670,21 @@ type AgentOtherConnectionSettings struct {
 	Certificate         *AgentCertificate
 }
 
+// HasEndpoint reports whether these settings carry a usable destination endpoint.
+func (s *AgentOpAMPConnectionSettings) HasEndpoint() bool {
+	return s != nil && s.DestinationEndpoint != ""
+}
+
+// HasEndpoint reports whether these settings carry a usable destination endpoint.
+func (s *AgentTelemetryConnectionSettings) HasEndpoint() bool {
+	return s != nil && s.DestinationEndpoint != ""
+}
+
+// HasEndpoint reports whether these settings carry a usable destination endpoint.
+func (s *AgentOtherConnectionSettings) HasEndpoint() bool {
+	return s != nil && s.DestinationEndpoint != ""
+}
+
 // AgentCertificate represents a certificate used by an agent for secure communications.
 type AgentCertificate struct {
 	Cert       []byte

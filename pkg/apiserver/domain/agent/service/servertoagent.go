@@ -135,39 +135,13 @@ func (b *ServerToAgentBuilder) buildPackagesAvailable(
 
 	instanceUID := agentModel.Metadata.InstanceUID
 
-	agentPackages := lo.OmitByValues(
-		lo.SliceToMap(agentModel.Spec.PackagesAvailable.Packages,
-			func(pkgName string) (string, *protobufs.PackageAvailable) {
-				agentPackage, err := b.agentPackageUsecase.GetAgentPackage(
-					ctx, agentModel.Metadata.Namespace, pkgName, nil,
-				)
-				if err != nil {
-					b.logger.Error("failed to get agent package", "name", pkgName, "error", err)
+	agentPackages := make(map[string]*protobufs.PackageAvailable)
 
-					return pkgName, nil
-				}
-
-				return pkgName, &protobufs.PackageAvailable{
-					//nolint:godox // Tracked in issue tracker
-					// TODO: Support different package types in the future
-					Type:    protobufs.PackageType_PackageType_TopLevel,
-					Version: agentPackage.Spec.Version,
-					File: &protobufs.DownloadableFile{
-						DownloadUrl: agentPackage.Spec.DownloadURL,
-						ContentHash: agentPackage.Spec.ContentHash,
-						Signature:   agentPackage.Spec.Signature,
-						Headers: &protobufs.Headers{
-							Headers: lo.MapToSlice(agentPackage.Spec.Headers, func(k, v string) *protobufs.Header {
-								return &protobufs.Header{
-									Key:   k,
-									Value: v,
-								}
-							}),
-						},
-					},
-					Hash: agentPackage.Spec.Hash,
-				}
-			}), nil)
+	for _, pkgName := range agentModel.Spec.PackagesAvailable.Packages {
+		if pkg := b.resolveAvailablePackage(ctx, agentModel.Metadata.Namespace, pkgName); pkg != nil {
+			agentPackages[pkgName] = pkg
+		}
+	}
 
 	hash, err := vo.NewHashFromAny(agentPackages)
 	if err != nil {
@@ -179,6 +153,39 @@ func (b *ServerToAgentBuilder) buildPackagesAvailable(
 	return &protobufs.PackagesAvailable{
 		Packages:        agentPackages,
 		AllPackagesHash: hash.Bytes(),
+	}
+}
+
+// resolveAvailablePackage looks up one advertised package by name and converts it into a
+// protobuf PackageAvailable, or nil if it cannot be resolved (which skips it, so the offer
+// omits packages that are momentarily unavailable rather than failing the whole message).
+func (b *ServerToAgentBuilder) resolveAvailablePackage(
+	ctx context.Context,
+	namespace, pkgName string,
+) *protobufs.PackageAvailable {
+	agentPackage, err := b.agentPackageUsecase.GetAgentPackage(ctx, namespace, pkgName, nil)
+	if err != nil {
+		b.logger.Error("failed to get agent package", "name", pkgName, "error", err)
+
+		return nil
+	}
+
+	return &protobufs.PackageAvailable{
+		//nolint:godox // Tracked in issue tracker
+		// TODO: Support different package types in the future
+		Type:    protobufs.PackageType_PackageType_TopLevel,
+		Version: agentPackage.Spec.Version,
+		File: &protobufs.DownloadableFile{
+			DownloadUrl: agentPackage.Spec.DownloadURL,
+			ContentHash: agentPackage.Spec.ContentHash,
+			Signature:   agentPackage.Spec.Signature,
+			Headers: &protobufs.Headers{
+				Headers: lo.MapToSlice(agentPackage.Spec.Headers, func(key, value string) *protobufs.Header {
+					return &protobufs.Header{Key: key, Value: value}
+				}),
+			},
+		},
+		Hash: agentPackage.Spec.Hash,
 	}
 }
 
@@ -194,22 +201,22 @@ func connectionInfoToProtobuf(connectionInfo *agentmodel.ConnectionInfo) *protob
 	}
 
 	opamp := connectionInfo.OpAMP()
-	if opamp != nil && opamp.DestinationEndpoint != "" {
+	if opamp.HasEndpoint() {
 		offers.Opamp = opampConnectionSettingsToProtobuf(opamp)
 	}
 
 	ownMetrics := connectionInfo.OwnMetrics()
-	if ownMetrics != nil && ownMetrics.DestinationEndpoint != "" {
+	if ownMetrics.HasEndpoint() {
 		offers.OwnMetrics = telemetryConnectionSettingsToProtobuf(ownMetrics)
 	}
 
 	ownLogs := connectionInfo.OwnLogs()
-	if ownLogs != nil && ownLogs.DestinationEndpoint != "" {
+	if ownLogs.HasEndpoint() {
 		offers.OwnLogs = telemetryConnectionSettingsToProtobuf(ownLogs)
 	}
 
 	ownTraces := connectionInfo.OwnTraces()
-	if ownTraces != nil && ownTraces.DestinationEndpoint != "" {
+	if ownTraces.HasEndpoint() {
 		offers.OwnTraces = telemetryConnectionSettingsToProtobuf(ownTraces)
 	}
 
@@ -278,16 +285,11 @@ func headersToProtobuf(headers map[string][]string) *protobufs.Headers {
 		return nil
 	}
 
-	pbHeaders := make([]*protobufs.Header, 0)
-
-	for key, values := range headers {
-		for _, value := range values {
-			pbHeaders = append(pbHeaders, &protobufs.Header{
-				Key:   key,
-				Value: value,
-			})
-		}
-	}
+	pbHeaders := lo.Flatten(lo.MapToSlice(headers, func(key string, values []string) []*protobufs.Header {
+		return lo.Map(values, func(value string, _ int) *protobufs.Header {
+			return &protobufs.Header{Key: key, Value: value}
+		})
+	}))
 
 	return &protobufs.Headers{
 		Headers: pbHeaders,
