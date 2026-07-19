@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -172,6 +173,10 @@ func buildServerSettings(
 				//exhaustruct:ignore
 				Log: observability.LogSettings{
 					Format: observability.LogFormatText,
+					// Keep test output readable: at info level the FX lifecycle stream and
+					// per-request logs bury the actual test failures. warn still surfaces
+					// genuine problems (errors/warnings) from the server under test.
+					Level: slog.LevelWarn,
 				},
 			},
 		},
