@@ -17,6 +17,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -50,11 +51,11 @@ type Service struct {
 	logger                   *slog.Logger
 	agentUsecase             agentport.AgentUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
-	agentPackageUsecase      agentport.AgentPackageUsecase
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
 	hostUsecase              agentport.HostUsecase
 	containerUsecase         agentport.ContainerUsecase
 	serverIdentityProvider   agentport.ServerIdentityProvider
+	serverToAgentBuilder     *agentservice.ServerToAgentBuilder
 
 	agentNotificationUsecase agentport.AgentNotificationUsecase
 
@@ -76,7 +77,7 @@ func New(
 	serverIdentityProvider agentport.ServerIdentityProvider,
 	agentGroupUsecase agentport.AgentGroupUsecase,
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
-	agentPackageUsecase agentport.AgentPackageUsecase,
+	serverToAgentBuilder *agentservice.ServerToAgentBuilder,
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	hostUsecase agentport.HostUsecase,
 	containerUsecase agentport.ContainerUsecase,
@@ -88,9 +89,9 @@ func New(
 		agentUsecase:             agentUsecase,
 		connectionUsecase:        connectionUsecase,
 		serverIdentityProvider:   serverIdentityProvider,
+		serverToAgentBuilder:     serverToAgentBuilder,
 		agentGroupUsecase:        agentGroupUsecase,
 		agentNotificationUsecase: agentNotificationUsecase,
-		agentPackageUsecase:      agentPackageUsecase,
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		hostUsecase:              hostUsecase,
 		containerUsecase:         containerUsecase,
