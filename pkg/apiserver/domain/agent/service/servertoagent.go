@@ -44,8 +44,10 @@ func (b *ServerToAgentBuilder) Build(
 ) *protobufs.ServerToAgent {
 	instanceUID := agentModel.Metadata.InstanceUID
 
+	// Ask for a full-state report only while the agent's info is incomplete (self-terminating
+	// once it reports). Not NeedFullStateCommand(), which is ~always true and would loop.
 	var flags uint64
-	if agentModel.NeedFullStateCommand() {
+	if !agentModel.Metadata.IsComplete() {
 		flags |= uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState)
 	}
 

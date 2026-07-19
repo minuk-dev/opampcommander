@@ -23,7 +23,7 @@ func newTestBuilder() *agentservice.ServerToAgentBuilder {
 
 // TestServerToAgentBuilder_Build_AdvertisesServerCapabilities guards the regression that
 // the cross-server push path used to send an almost-empty ServerToAgent. Even for a bare
-// agent the builder must advertise the server capabilities and request full state.
+// agent the builder must advertise the server capabilities.
 func TestServerToAgentBuilder_Build_AdvertisesServerCapabilities(t *testing.T) {
 	t.Parallel()
 
@@ -46,11 +46,46 @@ func TestServerToAgentBuilder_Build_AdvertisesServerCapabilities(t *testing.T) {
 		assert.NotZero(t, msg.GetCapabilities()&uint64(capability),
 			"server capability %v should be advertised", capability)
 	}
+}
 
-	// A not-yet-fully-described agent must be asked to report its full state.
-	assert.NotZero(t,
-		msg.GetFlags()&uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState),
-		"ReportFullState flag should be set for an incomplete agent")
+// completeAgent returns an agent that has reported a description and capabilities, so
+// IsComplete() is true.
+func completeAgent(t *testing.T) *agentmodel.Agent {
+	t.Helper()
+
+	capabilities := modelagent.Capabilities(modelagent.AgentCapabilityReportsStatus)
+	agent := agentmodel.NewAgent(uuid.New(), agentmodel.WithCapabilities(&capabilities))
+	agent.Metadata.Description.IdentifyingAttributes = map[string]string{"service.name": "collector"}
+	require.True(t, agent.Metadata.IsComplete())
+
+	return agent
+}
+
+// TestServerToAgentBuilder_Build_ReportFullState pins the exact condition for the
+// ReportFullState flag: requested only while the agent's reported info is incomplete, and
+// NOT once it is complete. Setting it unconditionally previously drove an endless agent
+// re-report loop.
+func TestServerToAgentBuilder_Build_ReportFullState(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		agent         *agentmodel.Agent
+		wantFullState bool
+	}{
+		{"incomplete agent is asked to report full state", agentmodel.NewAgent(uuid.New()), true},
+		{"complete agent is not asked", completeAgent(t), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			msg := newTestBuilder().Build(context.Background(), tt.agent)
+			set := msg.GetFlags()&uint64(protobufs.ServerToAgentFlags_ServerToAgentFlags_ReportFullState) != 0
+			assert.Equal(t, tt.wantFullState, set)
+		})
+	}
 }
 
 // TestServerToAgentBuilder_Build_IncludesRemoteConfig is the core of the two-builders
