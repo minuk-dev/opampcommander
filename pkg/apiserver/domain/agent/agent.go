@@ -692,6 +692,12 @@ type AgentCertificate struct {
 	CaCert     []byte
 }
 
+// IsEmpty reports whether the certificate carries no material (and treats a nil certificate
+// as empty).
+func (c *AgentCertificate) IsEmpty() bool {
+	return c == nil || (len(c.Cert) == 0 && len(c.PrivateKey) == 0 && len(c.CaCert) == 0)
+}
+
 // NewConnectionInfo creates a new ConnectionInfo with the given settings.
 func NewConnectionInfo(
 	opamp *AgentOpAMPConnectionSettings,

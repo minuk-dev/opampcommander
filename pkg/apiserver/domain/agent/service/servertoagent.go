@@ -261,11 +261,7 @@ func otherConnectionSettingsToProtobuf(
 }
 
 func agentCertificateToProtobuf(cert *agentmodel.AgentCertificate) *protobufs.TLSCertificate {
-	if cert == nil {
-		return nil
-	}
-
-	if len(cert.Cert) == 0 && len(cert.PrivateKey) == 0 && len(cert.CaCert) == 0 {
+	if cert.IsEmpty() {
 		return nil
 	}
 
@@ -281,13 +277,11 @@ func headersToProtobuf(headers map[string][]string) *protobufs.Headers {
 		return nil
 	}
 
-	pbHeaders := lo.Flatten(lo.MapToSlice(headers, func(key string, values []string) []*protobufs.Header {
-		return lo.Map(values, func(value string, _ int) *protobufs.Header {
-			return &protobufs.Header{Key: key, Value: value}
-		})
-	}))
-
 	return &protobufs.Headers{
-		Headers: pbHeaders,
+		Headers: lo.Flatten(lo.MapToSlice(headers, func(key string, values []string) []*protobufs.Header {
+			return lo.Map(values, func(value string, _ int) *protobufs.Header {
+				return &protobufs.Header{Key: key, Value: value}
+			})
+		})),
 	}
 }
