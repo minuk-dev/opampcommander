@@ -345,7 +345,7 @@ func (c *Controller) Update(ctx *gin.Context) {
 
 	var req v1.Agent
 
-	err = ctx.ShouldBindJSON(&req)
+	err = ginutil.BindJSON(ctx, &req)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "body", "", err, false)
 
