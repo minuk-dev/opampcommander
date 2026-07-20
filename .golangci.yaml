@@ -170,6 +170,7 @@ linters:
             - gopkg.in/yaml.v3
             - gotest.tools/icmd
             - go.uber.org/goleak
+            - github.com/open-telemetry/opamp-go/server/types
             - github.com/IBM/sarama
             - github.com/cloudevents/sdk-go/v2
             - github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
