@@ -226,8 +226,11 @@ func (s *Service) OnMessage(
 	if err != nil {
 		logger.Error("failed to get agent", slog.String("error", err.Error()))
 
-		// whan the agent cannot be retrieved, return a fallback ServerToAgent message
-		return s.createFallbackServerToAgent(instanceUID)
+		// The server could not load the agent's state, so it cannot process this message.
+		// Signal it as Unavailable (a transient server-side failure) so the agent retries.
+		return s.createErrorServerToAgent(instanceUID,
+			protobufs.ServerErrorResponseType_ServerErrorResponseType_Unavailable,
+			"failed to load agent state")
 	}
 
 	s.syncConnectionNamespace(ctx, logger, connection, agent)
@@ -240,7 +243,15 @@ func (s *Service) OnMessage(
 	// Update agent connection status
 	agent.UpdateLastCommunicationInfo(receivedAt, connection)
 
-	s.reportAndReconcileGroups(ctx, logger, message, agent, currentServer)
+	reportErr := s.reportAndReconcileGroups(ctx, logger, message, agent, currentServer)
+	if reportErr != nil {
+		// The agent's report could not be absorbed into its state. Return an error-only
+		// response (BadRequest) rather than a desired-state message the agent would ignore,
+		// and skip persistence so partially-applied state is not written.
+		return s.createErrorServerToAgent(instanceUID,
+			protobufs.ServerErrorResponseType_ServerErrorResponseType_BadRequest,
+			reportErr.Error())
+	}
 
 	s.maybePersistAgent(ctx, logger, instanceUID, message, agent, receivedAt)
 
@@ -354,8 +365,10 @@ func (s *Service) report(
 	agentToServer *protobufs.AgentToServer,
 	by *agentmodel.Server,
 ) error {
+	now := s.clock.Now()
+
 	// Update communication info
-	agent.RecordLastReported(by, s.clock.Now(), agentToServer.GetSequenceNum())
+	agent.RecordLastReported(by, now, agentToServer.GetSequenceNum())
 
 	err := agent.ReportDescription(descToDomain(agentToServer.GetAgentDescription()))
 	if err != nil {
@@ -379,7 +392,7 @@ func (s *Service) report(
 		return fmt.Errorf("failed to report effective config: %w", err)
 	}
 
-	err = agent.ReportRemoteConfigStatus(remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus()))
+	err = agent.ReportRemoteConfigStatus(remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus(), now))
 	if err != nil {
 		return fmt.Errorf("failed to report remote config status: %w", err)
 	}
@@ -404,6 +417,10 @@ func (s *Service) report(
 	if err != nil {
 		return fmt.Errorf("failed to report available components: %w", err)
 	}
+
+	// agentToServer.CustomMessage is intentionally not consumed: custom message exchange is
+	// unsupported (the server declares no custom capabilities), so a custom_message is dropped.
+	// See the "Custom messages" section of docs/content/en/docs/opamp-conformance.md.
 
 	return nil
 }
@@ -597,13 +614,17 @@ func identityChanged(prev identitySnapshot, agent *agentmodel.Agent) bool {
 // that is the only report() input that can affect AgentGroup selectors, and skipping
 // the snapshot avoids two map allocations on every heartbeat plus a full ListAgentGroups
 // scan when agents put monotonic counters under NonIdentifyingAttributes.
+//
+// It returns the report error (if any) so the caller can surface it to the agent as an
+// error_response; on error the group reconcile is skipped because the agent's state may be
+// inconsistent.
 func (s *Service) reportAndReconcileGroups(
 	ctx context.Context,
 	logger *slog.Logger,
 	message *protobufs.AgentToServer,
 	agent *agentmodel.Agent,
 	currentServer *agentmodel.Server,
-) {
+) error {
 	hasDescription := message.GetAgentDescription() != nil
 
 	var prevIdentity identitySnapshot
@@ -614,11 +635,15 @@ func (s *Service) reportAndReconcileGroups(
 	err := s.report(agent, message, currentServer)
 	if err != nil {
 		logger.Error("failed to report agent", slog.String("error", err.Error()))
+
+		return err
 	}
 
 	if hasDescription {
 		s.maybeApplyMatchingAgentGroups(ctx, logger, agent, prevIdentity)
 	}
+
+	return nil
 }
 
 // maybePersistAgent writes the agent through the throttle if the message warrants it,

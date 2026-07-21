@@ -27,7 +27,7 @@ actually implemented.
 | `OffersRemoteConfig` | ✅ | ✅ | Delivered by the shared `ServerToAgentBuilder` on both the hot path and the cross-server push path. |
 | `AcceptsEffectiveConfig` | ✅ | ✅ | Stored on the agent. |
 | `OffersConnectionSettings` | ✅ | ✅ | `opamp`, `own_metrics`, `own_logs`, `own_traces`, `other_connections`, each with headers + TLS certificate. |
-| `AcceptsConnectionSettingsRequest` | ✅ | ⛔ | Advertised, but `connection_settings_request` from the agent is **not processed**. |
+| `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | Intentionally **not advertised**: `connection_settings_request` is not processed, so the capability is withheld rather than claimed-but-ignored. |
 | `OffersPackages` | ✅ | 🟡 | Only `TopLevel` package type; a package-fetch failure is silently dropped (see #496). |
 | `AcceptsPackagesStatus` | ✅ | ✅ | Stored on the agent. |
 
@@ -45,9 +45,9 @@ actually implemented.
 | `command` | ✅ | `Restart` — the only command the spec currently defines. |
 | `capabilities` | ✅ | |
 | `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
-| `error_response` | ⛔ | Never populated. |
-| `custom_capabilities` | ⛔ | Always `nil` (server advertises no custom capabilities). |
-| `custom_message` | ⛔ | Always `nil`. |
+| `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
+| `custom_capabilities` | ⛔ | Always `nil` — [intentionally unsupported](#custom-messages). |
+| `custom_message` | ⛔ | Always `nil` — [intentionally unsupported](#custom-messages). |
 
 ## Agent → Server processing
 
@@ -62,14 +62,14 @@ actually implemented.
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
 | `effective_config` | ✅ | Stored. |
-| `remote_config_status` | ✅ | Stored (uses `time.Now()` rather than the injected clock — hygiene nit). |
+| `remote_config_status` | ✅ | Stored; `LastUpdatedAt` is stamped from the injected clock. |
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
 | `available_components` | ✅ | Incl. nested sub-components. |
-| `custom_capabilities` | ✅ | Stored. |
+| `custom_capabilities` | ✅ | Stored (the agent's declared custom capabilities), but not acted on — see [Custom messages](#custom-messages). |
 | `agent_disconnect` | 🟡 | Detected; disconnect is handled via connection-close, not an explicit report. |
-| `connection_settings_request` | ⛔ | Not processed despite `AcceptsConnectionSettingsRequest` being advertised. |
-| `custom_message` | ⛔ | Not processed. |
+| `connection_settings_request` | ⛔ | Not processed; the server withholds `AcceptsConnectionSettingsRequest` rather than advertising it. |
+| `custom_message` | ⛔ | [Intentionally not processed](#custom-messages) — dropped. |
 
 ## Known gaps
 
@@ -80,15 +80,42 @@ actually implemented.
    (`buildServerToAgentMessage`) omitted those fields and, for a fully-described agent, left
    `ReportFullState` unset — making the immediate push effectively a no-op until the agent's
    next heartbeat.
-2. **`AcceptsConnectionSettingsRequest` advertised but unhandled** — the server claims the
-   capability but ignores `connection_settings_request`.
+2. ~~**`AcceptsConnectionSettingsRequest` advertised but unhandled.**~~ *(Resolved.)* The server
+   no longer advertises the capability, so agents are not invited to send a
+   `connection_settings_request` the server would silently ignore. Re-advertise once the request
+   is processed.
 3. **Packages: `TopLevel`-only + silent-drop** on fetch failure (tracked in #496).
-4. **Custom messages / custom capabilities** are unsupported end-to-end (server→agent always
-   `nil`; agent→server `custom_message` dropped).
-5. **`error_response` is never sent**, so the agent gets no structured error signal from the server.
+4. **Custom messages / custom capabilities** are [intentionally unsupported](#custom-messages)
+   (documented decision, not an oversight).
+5. ~~**`error_response` is never sent.**~~ *(Resolved in #531.)* When the server cannot process an
+   incoming `AgentToServer` it now replies with an error-only `ServerToAgent`: `Unavailable`
+   when the agent's state cannot be loaded, `BadRequest` when the reported fields cannot be
+   absorbed. Processing short-circuits so no partially-applied state is persisted.
 6. ~~**Non-string attribute values are dropped** in `toMap`.~~ *(Resolved in #504.)* Non-string
    `AnyValue`s are now preserved in their string form for identifying / non-identifying
    attributes and component metadata.
+
+## Custom messages
+
+OpAMP lets an Agent and Server exchange vendor-specific data outside the standard schema via
+`custom_capabilities` and `custom_message` (in both `AgentToServer` and `ServerToAgent`). Both
+sides must first advertise a matching custom capability before exchanging the corresponding
+custom messages.
+
+**OpAMP Commander intentionally does not support custom message exchange.** This is a deliberate
+decision, not an unimplemented gap:
+
+- The server advertises **no** custom capabilities, so it never populates
+  `ServerToAgent.custom_capabilities` and never originates a `ServerToAgent.custom_message`.
+- An incoming `AgentToServer.custom_message` is **dropped** (not stored or routed).
+- The agent's declared `AgentToServer.custom_capabilities` *are* stored as part of the agent's
+  reported state, but the server takes no action on them.
+
+Custom messages are inherently vendor-specific: supporting them would mean defining and
+maintaining server-side semantics for message types the OpAMP spec deliberately leaves open.
+OpAMP Commander targets **general-purpose, spec-standard** agent management, so this is out of
+scope until a concrete, broadly-useful custom protocol justifies it. If you need custom message
+exchange, please open an issue describing the use case.
 
 ## Test coverage
 

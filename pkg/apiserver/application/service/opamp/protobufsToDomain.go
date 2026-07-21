@@ -23,7 +23,13 @@ func descToDomain(desc *protobufs.AgentDescription) *modelagent.Description {
 	}
 }
 
-func remoteConfigStatusToDomain(remoteConfigStatus *protobufs.RemoteConfigStatus) *agentmodel.AgentRemoteConfigStatus {
+// remoteConfigStatusToDomain converts the agent's reported remote-config status. lastUpdatedAt
+// is supplied by the caller (the injected clock) rather than read from time.Now() here, so the
+// timestamp is deterministic and testable.
+func remoteConfigStatusToDomain(
+	remoteConfigStatus *protobufs.RemoteConfigStatus,
+	lastUpdatedAt time.Time,
+) *agentmodel.AgentRemoteConfigStatus {
 	if remoteConfigStatus == nil {
 		return nil
 	}
@@ -32,7 +38,7 @@ func remoteConfigStatusToDomain(remoteConfigStatus *protobufs.RemoteConfigStatus
 		LastRemoteConfigHash: remoteConfigStatus.GetLastRemoteConfigHash(),
 		Status:               agentmodel.RemoteConfigStatus(remoteConfigStatus.GetStatus()),
 		ErrorMessage:         remoteConfigStatus.GetErrorMessage(),
-		LastUpdatedAt:        time.Now(),
+		LastUpdatedAt:        lastUpdatedAt,
 	}
 }
 

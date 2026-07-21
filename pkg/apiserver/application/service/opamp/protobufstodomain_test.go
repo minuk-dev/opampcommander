@@ -3,6 +3,7 @@ package opamp
 
 import (
 	"testing"
+	"time"
 
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/assert"
@@ -67,4 +68,29 @@ func TestAnyValueToString(t *testing.T) {
 			assert.Equal(t, tt.want, anyValueToString(tt.in))
 		})
 	}
+}
+
+// TestRemoteConfigStatusToDomain_UsesSuppliedTimestamp pins that the converter stamps the
+// caller-supplied time (the injected clock) rather than reading time.Now() itself, so the
+// LastUpdatedAt is deterministic.
+func TestRemoteConfigStatusToDomain_UsesSuppliedTimestamp(t *testing.T) {
+	t.Parallel()
+
+	lastUpdatedAt := time.Date(2026, time.July, 21, 10, 0, 0, 0, time.UTC)
+
+	got := remoteConfigStatusToDomain(&protobufs.RemoteConfigStatus{
+		LastRemoteConfigHash: []byte{0x01},
+		Status:               protobufs.RemoteConfigStatuses_RemoteConfigStatuses_APPLIED,
+		ErrorMessage:         "",
+	}, lastUpdatedAt)
+
+	require.NotNil(t, got)
+	assert.Equal(t, lastUpdatedAt, got.LastUpdatedAt)
+}
+
+// TestRemoteConfigStatusToDomain_NilReturnsNil keeps the nil short-circuit intact.
+func TestRemoteConfigStatusToDomain_NilReturnsNil(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, remoteConfigStatusToDomain(nil, time.Now()))
 }

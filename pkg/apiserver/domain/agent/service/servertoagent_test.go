@@ -38,13 +38,18 @@ func TestServerToAgentBuilder_Build_AdvertisesServerCapabilities(t *testing.T) {
 		protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig,
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig,
 		protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings,
-		protobufs.ServerCapabilities_ServerCapabilities_AcceptsConnectionSettingsRequest,
 		protobufs.ServerCapabilities_ServerCapabilities_OffersPackages,
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus,
 	} {
 		assert.NotZero(t, msg.GetCapabilities()&uint64(capability),
 			"server capability %v should be advertised", capability)
 	}
+
+	// AcceptsConnectionSettingsRequest must NOT be advertised while the server does not
+	// process connection_settings_request — advertising it would invite ignored requests.
+	assert.Zero(t,
+		msg.GetCapabilities()&uint64(protobufs.ServerCapabilities_ServerCapabilities_AcceptsConnectionSettingsRequest),
+		"AcceptsConnectionSettingsRequest must not be advertised until it is handled")
 }
 
 // completeAgent returns an agent that has reported a description and capabilities, so
