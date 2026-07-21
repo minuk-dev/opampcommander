@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -21,6 +22,9 @@ var _ userport.RolePersistencePort = (*RoleMongoAdapter)(nil)
 const (
 	roleCollectionName = "roles"
 )
+
+// errInvalidDisplayName is returned when a role display name is empty or malformed.
+var errInvalidDisplayName = errors.New("invalid display name")
 
 // RoleMongoAdapter is a struct that implements the RolePersistencePort interface.
 type RoleMongoAdapter struct {
@@ -67,6 +71,11 @@ func (a *RoleMongoAdapter) GetRole(
 func (a *RoleMongoAdapter) GetRoleByName(
 	ctx context.Context, displayName string,
 ) (*usermodel.Role, error) {
+	displayName = strings.TrimSpace(displayName)
+	if displayName == "" || strings.HasPrefix(displayName, "$") {
+		return nil, fmt.Errorf("get role by name: %w", errInvalidDisplayName)
+	}
+
 	filter := bson.M{
 		"spec.displayName":   displayName,
 		"metadata.deletedAt": nil,
