@@ -530,12 +530,30 @@ func (s *AgentGroupService) propagateAgentGroupChangesToAgents(
 	}
 }
 
-// reconcileAll re-scans every agent group and re-applies it to its matching agents.
+// reconcileAll repairs any drift between agent groups and agents. It runs two complementary
+// passes because neither alone is sufficient:
+//   - reconcileAllGroups (group-driven) iterates groups → their matching agents. It also
+//     records the per-group and per-agent RemoteConfigApplied conditions and re-drains
+//     recently-deleted groups.
+//   - reconcileAllAgents (agent-centric) iterates every agent → the union of its matching
+//     groups. This is the only pass that catches an agent that stopped matching a still-
+//     existing group because its own identity attributes changed: from that group's point
+//     of view the agent is simply no longer a member, so the group-driven pass never
+//     revisits it to drop the group's now-stale contribution.
+//
+// Both passes are idempotent (they only write when an agent's desired spec actually
+// changed), so running them back-to-back is cheap when nothing has drifted.
+func (s *AgentGroupService) reconcileAll(ctx context.Context) {
+	s.reconcileAllGroups(ctx)
+	s.reconcileAllAgents(ctx)
+}
+
+// reconcileAllGroups re-scans every agent group and re-applies it to its matching agents.
 // updateAgentsByAgentGroup is idempotent — it only writes when the agent's desired spec
 // actually changed — so this is cheap when nothing has drifted. Recently-deleted groups
 // are processed too (see shouldReconcileDeletedGroup) so a dropped delete event still
 // results in the deleted group's config being dropped from its former members.
-func (s *AgentGroupService) reconcileAll(ctx context.Context) {
+func (s *AgentGroupService) reconcileAllGroups(ctx context.Context) {
 	groups, err := s.persistencePort.ListAgentGroups(ctx, nil)
 	if err != nil {
 		s.logger.Error("reconcile loop: failed to list agent groups",
@@ -557,6 +575,68 @@ func (s *AgentGroupService) reconcileAll(ctx context.Context) {
 				slog.String("error", err.Error()),
 			)
 		}
+	}
+}
+
+// reconcileAllAgents re-applies the union of matching agent groups to every agent, dropping
+// any config contributed by a group that no longer selects it. This is the agent-centric
+// counterpart to reconcileAllGroups: because it starts from the agent (not the group), it
+// self-heals the identity-change orphan case the group-driven pass structurally cannot — an
+// agent whose attributes changed so a still-existing group's selector no longer matches it.
+// An empty selector lists every agent across all namespaces; ApplyMatchingAgentGroupsToAgent
+// re-scopes each agent to groups in its own namespace. Idempotent: an agent whose desired
+// spec is unchanged is not written.
+func (s *AgentGroupService) reconcileAllAgents(ctx context.Context) {
+	var continueToken string
+
+	// An empty selector (no attribute constraints) matches every agent.
+	//exhaustruct:ignore
+	allAgents := agentmodel.AgentSelector{}
+
+	for {
+		agentsResp, err := s.agentUsecase.ListAgentsBySelector(ctx, allAgents, &model.ListOptions{
+			Limit:          PropagationChunkSize,
+			Continue:       continueToken,
+			IncludeDeleted: false,
+		})
+		if err != nil {
+			s.logger.Error("reconcile loop: failed to list agents for agent-centric reconcile",
+				slog.String("error", err.Error()))
+
+			return
+		}
+
+		for _, agent := range agentsResp.Items {
+			before := agentSpecFingerprint(agent)
+
+			err := s.ApplyMatchingAgentGroupsToAgent(ctx, agent)
+			if err != nil {
+				s.logger.Warn("reconcile loop: failed to apply matching groups to agent",
+					slog.String("agent", agent.Metadata.InstanceUID.String()),
+					slog.String("error", err.Error()),
+				)
+
+				continue
+			}
+
+			if before == agentSpecFingerprint(agent) {
+				continue
+			}
+
+			err = s.agentUsecase.SaveAgent(ctx, agent)
+			if err != nil {
+				s.logger.Warn("reconcile loop: failed to save agent-centric reconciled agent",
+					slog.String("agent", agent.Metadata.InstanceUID.String()),
+					slog.String("error", err.Error()),
+				)
+			}
+		}
+
+		if agentsResp.Continue == "" {
+			break
+		}
+
+		continueToken = agentsResp.Continue
 	}
 }
 
