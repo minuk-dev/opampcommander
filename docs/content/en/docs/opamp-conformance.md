@@ -46,8 +46,8 @@ actually implemented.
 | `capabilities` | ✅ | |
 | `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
 | `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
-| `custom_capabilities` | ⛔ | Always `nil` (server advertises no custom capabilities). |
-| `custom_message` | ⛔ | Always `nil`. |
+| `custom_capabilities` | ⛔ | Always `nil` — [intentionally unsupported](#custom-messages). |
+| `custom_message` | ⛔ | Always `nil` — [intentionally unsupported](#custom-messages). |
 
 ## Agent → Server processing
 
@@ -66,10 +66,10 @@ actually implemented.
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
 | `available_components` | ✅ | Incl. nested sub-components. |
-| `custom_capabilities` | ✅ | Stored. |
+| `custom_capabilities` | ✅ | Stored (the agent's declared custom capabilities), but not acted on — see [Custom messages](#custom-messages). |
 | `agent_disconnect` | 🟡 | Detected; disconnect is handled via connection-close, not an explicit report. |
 | `connection_settings_request` | ⛔ | Not processed; the server withholds `AcceptsConnectionSettingsRequest` rather than advertising it. |
-| `custom_message` | ⛔ | Not processed. |
+| `custom_message` | ⛔ | [Intentionally not processed](#custom-messages) — dropped. |
 
 ## Known gaps
 
@@ -85,14 +85,36 @@ actually implemented.
    `connection_settings_request` the server would silently ignore. Re-advertise once the request
    is processed.
 3. **Packages: `TopLevel`-only + silent-drop** on fetch failure (tracked in #496).
-4. **Custom messages / custom capabilities** are unsupported end-to-end (server→agent always
-   `nil`; agent→server `custom_message` dropped).
+4. **Custom messages / custom capabilities** are [intentionally unsupported](#custom-messages)
+   (documented decision, not an oversight).
 5. ~~**`error_response` is never sent.**~~ *(Resolved.)* When the server cannot process an
    incoming `AgentToServer` it now replies with an error-only `ServerToAgent`: `Unavailable`
    when the agent's state cannot be loaded, `BadRequest` when the reported fields cannot be
    absorbed. Processing short-circuits so no partially-applied state is persisted.
 6. **Non-string attribute values are dropped** in `toMap`, losing fidelity for identifying /
    non-identifying attributes and component metadata.
+
+## Custom messages
+
+OpAMP lets an Agent and Server exchange vendor-specific data outside the standard schema via
+`custom_capabilities` and `custom_message` (in both `AgentToServer` and `ServerToAgent`). Both
+sides must first advertise a matching custom capability before exchanging the corresponding
+custom messages.
+
+**OpAMP Commander intentionally does not support custom message exchange.** This is a deliberate
+decision, not an unimplemented gap:
+
+- The server advertises **no** custom capabilities, so it never populates
+  `ServerToAgent.custom_capabilities` and never originates a `ServerToAgent.custom_message`.
+- An incoming `AgentToServer.custom_message` is **dropped** (not stored or routed).
+- The agent's declared `AgentToServer.custom_capabilities` *are* stored as part of the agent's
+  reported state, but the server takes no action on them.
+
+Custom messages are inherently vendor-specific: supporting them would mean defining and
+maintaining server-side semantics for message types the OpAMP spec deliberately leaves open.
+OpAMP Commander targets **general-purpose, spec-standard** agent management, so this is out of
+scope until a concrete, broadly-useful custom protocol justifies it. If you need custom message
+exchange, please open an issue describing the use case.
 
 ## Test coverage
 
