@@ -354,8 +354,10 @@ func (s *Service) report(
 	agentToServer *protobufs.AgentToServer,
 	by *agentmodel.Server,
 ) error {
+	now := s.clock.Now()
+
 	// Update communication info
-	agent.RecordLastReported(by, s.clock.Now(), agentToServer.GetSequenceNum())
+	agent.RecordLastReported(by, now, agentToServer.GetSequenceNum())
 
 	err := agent.ReportDescription(descToDomain(agentToServer.GetAgentDescription()))
 	if err != nil {
@@ -379,7 +381,7 @@ func (s *Service) report(
 		return fmt.Errorf("failed to report effective config: %w", err)
 	}
 
-	err = agent.ReportRemoteConfigStatus(remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus()))
+	err = agent.ReportRemoteConfigStatus(remoteConfigStatusToDomain(agentToServer.GetRemoteConfigStatus(), now))
 	if err != nil {
 		return fmt.Errorf("failed to report remote config status: %w", err)
 	}

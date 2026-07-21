@@ -62,7 +62,7 @@ actually implemented.
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
 | `effective_config` | ✅ | Stored. |
-| `remote_config_status` | ✅ | Stored (uses `time.Now()` rather than the injected clock — hygiene nit). |
+| `remote_config_status` | ✅ | Stored; `LastUpdatedAt` is stamped from the injected clock. |
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
 | `available_components` | ✅ | Incl. nested sub-components. |
