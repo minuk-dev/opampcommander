@@ -264,10 +264,9 @@ func TestAgentController_Update(t *testing.T) {
 		ctrlBase, _ := gapSetup(t)
 		uid := uuid.New()
 
-		// NOTE: unlike the other controllers (which wrap the bind error via ginutil.BindJSON and
-		// return 400), Update passes the raw ShouldBindJSON error to HandleValidationError, which
-		// maps unknown errors to 500. This asserts the current behavior; see PR description.
-		require.Equal(t, http.StatusInternalServerError,
+		// A malformed body is a client error: Update wraps the bind error via ginutil.BindJSON
+		// (like the other controllers) so HandleValidationError maps it to 400.
+		require.Equal(t, http.StatusBadRequest,
 			gapReq(t, ctrlBase.Router, http.MethodPut, gapBase+"/"+uid.String(), `{not-json`).Code)
 	})
 
