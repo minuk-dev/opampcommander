@@ -1099,6 +1099,87 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 	})
 }
 
+func TestReconcileAllAgents(t *testing.T) {
+	t.Parallel()
+
+	newSvc := func() (*AgentGroupService, *mockAgentGroupPersistence, *mockAgentUsecase) {
+		mockPersistence := new(mockAgentGroupPersistence)
+		mockAgentUC := new(mockAgentUsecase)
+		svc := NewAgentGroupService(
+			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+			mockAgentUC, alwaysLeaderElector{}, slog.Default())
+
+		return svc, mockPersistence, mockAgentUC
+	}
+
+	// agentWithStaleConfig is an agent that still carries a group's remote config in its spec.
+	agentWithStaleConfig := func() *agentmodel.Agent {
+		a := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{"service.name": "changed"},
+		}))
+		a.Spec.RemoteConfig = &agentmodel.AgentSpecRemoteConfig{
+			ConfigMap: agentmodel.AgentConfigMap{
+				ConfigMap: map[string]agentmodel.AgentConfigFile{"prod/cfg": {Body: []byte("stale")}},
+			},
+		}
+
+		return a
+	}
+
+	t.Run("clears config from an agent no longer selected by any group (identity-change orphan)", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		svc, mockPersistence, mockAgentUC := newSvc()
+
+		orphan := agentWithStaleConfig()
+
+		// A group still exists but its selector no longer matches the agent (its identity changed).
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "prod"},
+			Spec: agentmodel.AgentGroupSpec{
+				Selector: agentmodel.AgentSelector{
+					IdentifyingAttributes: map[string]string{"service.name": "was-matching"},
+				},
+			},
+		}
+
+		mockAgentUC.On("ListAgentsBySelector", ctx, agentmodel.AgentSelector{}, mock.Anything).
+			Return(&model.ListResponse[*agentmodel.Agent]{Items: []*agentmodel.Agent{orphan}}, nil)
+		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{group}}, nil)
+		// The agent drifted (config -> none), so it must be persisted with the config dropped.
+		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
+			return a.Spec.RemoteConfig == nil
+		})).Return(nil)
+
+		svc.reconcileAllAgents(ctx)
+
+		mockAgentUC.AssertExpectations(t)
+	})
+
+	t.Run("does not re-save an agent whose desired spec is unchanged", func(t *testing.T) {
+		t.Parallel()
+
+		ctx := t.Context()
+		svc, mockPersistence, mockAgentUC := newSvc()
+
+		// Agent with no config and no matching group -> desired state already matches -> no write.
+		a := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{"service.name": "changed"},
+		}))
+
+		mockAgentUC.On("ListAgentsBySelector", ctx, agentmodel.AgentSelector{}, mock.Anything).
+			Return(&model.ListResponse[*agentmodel.Agent]{Items: []*agentmodel.Agent{a}}, nil)
+		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
+
+		svc.reconcileAllAgents(ctx)
+
+		mockAgentUC.AssertNotCalled(t, "SaveAgent", mock.Anything, mock.Anything)
+	})
+}
+
 // alwaysLeaderElector is a test double that always reports leadership, so the
 // reconcile loop behaves as it did before leader election was introduced.
 type alwaysLeaderElector struct{}
@@ -1120,17 +1201,28 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 
 	listOpts := (*model.ListOptions)(nil)
 
+	// noAgents lets the agent-centric reconcile pass (reconcileAllAgents) run to a clean
+	// no-op: it lists agents once with an empty selector and gets nothing back.
+	noAgents := func(m *mockAgentUsecase) *mockAgentUsecase {
+		m.On("ListAgentsBySelector", mock.Anything, agentmodel.AgentSelector{}, mock.Anything).
+			Return(&model.ListResponse[*agentmodel.Agent]{Items: nil}, nil)
+
+		return m
+	}
+
 	t.Run("skips the reconcile scan when not leader", func(t *testing.T) {
 		t.Parallel()
 		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
+		mockAgentUC := new(mockAgentUsecase)
 		svc := NewAgentGroupService(
 			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			new(mockAgentUsecase), fakeLeaderElector{leader: false, err: nil}, slog.Default())
+			mockAgentUC, fakeLeaderElector{leader: false, err: nil}, slog.Default())
 
 		svc.reconcileAllIfLeader(ctx)
 
 		mockPersistence.AssertNotCalled(t, "ListAgentGroups", mock.Anything, mock.Anything)
+		mockAgentUC.AssertNotCalled(t, "ListAgentsBySelector", mock.Anything, mock.Anything, mock.Anything)
 	})
 
 	t.Run("runs the reconcile scan when leader", func(t *testing.T) {
@@ -1139,13 +1231,16 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockPersistence.On("ListAgentGroups", mock.Anything, listOpts).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
+
+		mockAgentUC := noAgents(new(mockAgentUsecase))
 		svc := NewAgentGroupService(
 			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			new(mockAgentUsecase), fakeLeaderElector{leader: true, err: nil}, slog.Default())
+			mockAgentUC, fakeLeaderElector{leader: true, err: nil}, slog.Default())
 
 		svc.reconcileAllIfLeader(ctx)
 
 		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, listOpts)
+		mockAgentUC.AssertCalled(t, "ListAgentsBySelector", mock.Anything, agentmodel.AgentSelector{}, mock.Anything)
 	})
 
 	t.Run("fails open and reconciles when leader election errors", func(t *testing.T) {
@@ -1154,12 +1249,15 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockPersistence.On("ListAgentGroups", mock.Anything, listOpts).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
+
+		mockAgentUC := noAgents(new(mockAgentUsecase))
 		svc := NewAgentGroupService(
 			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			new(mockAgentUsecase), fakeLeaderElector{leader: false, err: errBoomLeader}, slog.Default())
+			mockAgentUC, fakeLeaderElector{leader: false, err: errBoomLeader}, slog.Default())
 
 		svc.reconcileAllIfLeader(ctx)
 
 		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, listOpts)
+		mockAgentUC.AssertCalled(t, "ListAgentsBySelector", mock.Anything, agentmodel.AgentSelector{}, mock.Anything)
 	})
 }
