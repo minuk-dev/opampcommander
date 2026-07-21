@@ -45,7 +45,7 @@ actually implemented.
 | `command` | ✅ | `Restart` — the only command the spec currently defines. |
 | `capabilities` | ✅ | |
 | `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
-| `error_response` | ⛔ | Never populated. |
+| `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
 | `custom_capabilities` | ⛔ | Always `nil` (server advertises no custom capabilities). |
 | `custom_message` | ⛔ | Always `nil`. |
 
@@ -85,7 +85,10 @@ actually implemented.
 3. **Packages: `TopLevel`-only + silent-drop** on fetch failure (tracked in #496).
 4. **Custom messages / custom capabilities** are unsupported end-to-end (server→agent always
    `nil`; agent→server `custom_message` dropped).
-5. **`error_response` is never sent**, so the agent gets no structured error signal from the server.
+5. ~~**`error_response` is never sent.**~~ *(Resolved.)* When the server cannot process an
+   incoming `AgentToServer` it now replies with an error-only `ServerToAgent`: `Unavailable`
+   when the agent's state cannot be loaded, `BadRequest` when the reported fields cannot be
+   absorbed. Processing short-circuits so no partially-applied state is persisted.
 6. **Non-string attribute values are dropped** in `toMap`, losing fidelity for identifying /
    non-identifying attributes and component metadata.
 
