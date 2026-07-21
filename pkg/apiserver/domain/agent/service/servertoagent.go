@@ -2,7 +2,9 @@ package agentservice
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/samber/lo"
@@ -130,6 +132,12 @@ func (b *ServerToAgentBuilder) Build(
 
 // buildPackagesAvailable resolves each package name advertised on the agent into a
 // protobuf PackageAvailable entry, or nil when the agent has no packages to offer.
+//
+// A package that cannot be resolved is omitted from the offer (an undescribable download
+// cannot be advertised) but never silently: the unresolved names are aggregated and logged
+// once at warn level with the agent identity, so "my collector never got its package" is
+// diagnosable instead of looking like the package was simply not assigned. A resolution
+// failure for one package does not drop the others, nor the rest of the ServerToAgent.
 func (b *ServerToAgentBuilder) buildPackagesAvailable(
 	ctx context.Context,
 	agentModel *agentmodel.Agent,
@@ -142,10 +150,25 @@ func (b *ServerToAgentBuilder) buildPackagesAvailable(
 
 	agentPackages := make(map[string]*protobufs.PackageAvailable)
 
+	var unresolved []string
+
 	for _, pkgName := range agentModel.Spec.PackagesAvailable.Packages {
-		if pkg := b.resolveAvailablePackage(ctx, agentModel.Metadata.Namespace, pkgName); pkg != nil {
-			agentPackages[pkgName] = pkg
+		pkg, err := b.resolveAvailablePackage(ctx, agentModel.Metadata.Namespace, pkgName)
+		if err != nil {
+			unresolved = append(unresolved, pkgName)
+
+			continue
 		}
+
+		agentPackages[pkgName] = pkg
+	}
+
+	if len(unresolved) > 0 {
+		b.logger.Warn("some agent packages could not be resolved and were withheld from the offer",
+			slog.String("instance_uid", instanceUID.String()),
+			slog.String("namespace", agentModel.Metadata.Namespace),
+			slog.Any("unresolved_packages", unresolved),
+		)
 	}
 
 	hash, err := vo.NewHashFromAny(agentPackages)
@@ -162,23 +185,19 @@ func (b *ServerToAgentBuilder) buildPackagesAvailable(
 }
 
 // resolveAvailablePackage looks up one advertised package by name and converts it into a
-// protobuf PackageAvailable, or nil if it cannot be resolved (which skips it, so the offer
-// omits packages that are momentarily unavailable rather than failing the whole message).
+// protobuf PackageAvailable. It returns the resolution error (rather than swallowing it) so
+// the caller can surface which packages were withheld.
 func (b *ServerToAgentBuilder) resolveAvailablePackage(
 	ctx context.Context,
 	namespace, pkgName string,
-) *protobufs.PackageAvailable {
+) (*protobufs.PackageAvailable, error) {
 	agentPackage, err := b.agentPackageUsecase.GetAgentPackage(ctx, namespace, pkgName, nil)
 	if err != nil {
-		b.logger.Error("failed to get agent package", "name", pkgName, "error", err)
-
-		return nil
+		return nil, fmt.Errorf("get agent package %q: %w", pkgName, err)
 	}
 
 	return &protobufs.PackageAvailable{
-		//nolint:godox // Tracked in issue tracker
-		// TODO: Support different package types in the future
-		Type:    protobufs.PackageType_PackageType_TopLevel,
+		Type:    b.packageType(agentPackage.Spec.PackageType, pkgName),
 		Version: agentPackage.Spec.Version,
 		File: &protobufs.DownloadableFile{
 			DownloadUrl: agentPackage.Spec.DownloadURL,
@@ -191,6 +210,25 @@ func (b *ServerToAgentBuilder) resolveAvailablePackage(
 			},
 		},
 		Hash: agentPackage.Spec.Hash,
+	}, nil
+}
+
+// packageType maps an AgentPackage's spec package type to the OpAMP protobuf enum. The match
+// is case-insensitive; an empty type defaults to TopLevel. An unrecognized value also falls
+// back to TopLevel but is logged, so a typo does not silently change the advertised type.
+func (b *ServerToAgentBuilder) packageType(specType, pkgName string) protobufs.PackageType {
+	switch strings.ToLower(strings.TrimSpace(specType)) {
+	case "", "toplevel":
+		return protobufs.PackageType_PackageType_TopLevel
+	case "addon":
+		return protobufs.PackageType_PackageType_Addon
+	default:
+		b.logger.Warn("unrecognized agent package type; defaulting to TopLevel",
+			slog.String("package", pkgName),
+			slog.String("package_type", specType),
+		)
+
+		return protobufs.PackageType_PackageType_TopLevel
 	}
 }
 
