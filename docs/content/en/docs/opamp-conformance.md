@@ -27,7 +27,7 @@ actually implemented.
 | `OffersRemoteConfig` | ✅ | ✅ | Delivered on the hot path; **omitted** on the cross-server push path (see [Known gaps](#known-gaps)). |
 | `AcceptsEffectiveConfig` | ✅ | ✅ | Stored on the agent. |
 | `OffersConnectionSettings` | ✅ | ✅ | `opamp`, `own_metrics`, `own_logs`, `own_traces`, `other_connections`, each with headers + TLS certificate. |
-| `AcceptsConnectionSettingsRequest` | ✅ | ⛔ | Advertised, but `connection_settings_request` from the agent is **not processed**. |
+| `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | Intentionally **not advertised**: `connection_settings_request` is not processed, so the capability is withheld rather than claimed-but-ignored. |
 | `OffersPackages` | ✅ | 🟡 | Only `TopLevel` package type; a package-fetch failure is silently dropped (see #496). |
 | `AcceptsPackagesStatus` | ✅ | ✅ | Stored on the agent. |
 
@@ -68,7 +68,7 @@ actually implemented.
 | `available_components` | ✅ | Incl. nested sub-components. |
 | `custom_capabilities` | ✅ | Stored. |
 | `agent_disconnect` | 🟡 | Detected; disconnect is handled via connection-close, not an explicit report. |
-| `connection_settings_request` | ⛔ | Not processed despite `AcceptsConnectionSettingsRequest` being advertised. |
+| `connection_settings_request` | ⛔ | Not processed; the server withholds `AcceptsConnectionSettingsRequest` rather than advertising it. |
 | `custom_message` | ⛔ | Not processed. |
 
 ## Known gaps
@@ -80,8 +80,10 @@ actually implemented.
    (`buildServerToAgentMessage`) omitted those fields and, for a fully-described agent, left
    `ReportFullState` unset — making the immediate push effectively a no-op until the agent's
    next heartbeat.
-2. **`AcceptsConnectionSettingsRequest` advertised but unhandled** — the server claims the
-   capability but ignores `connection_settings_request`.
+2. ~~**`AcceptsConnectionSettingsRequest` advertised but unhandled.**~~ *(Resolved.)* The server
+   no longer advertises the capability, so agents are not invited to send a
+   `connection_settings_request` the server would silently ignore. Re-advertise once the request
+   is processed.
 3. **Packages: `TopLevel`-only + silent-drop** on fetch failure (tracked in #496).
 4. **Custom messages / custom capabilities** are unsupported end-to-end (server→agent always
    `nil`; agent→server `custom_message` dropped).

@@ -98,7 +98,9 @@ func (b *ServerToAgentBuilder) Build(
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig)
-	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsConnectionSettingsRequest)
+	// AcceptsConnectionSettingsRequest is intentionally not advertised: the server does not
+	// yet process the agent's connection_settings_request, so claiming the capability would
+	// invite requests it silently ignores. Re-add it once the request is handled.
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_OffersPackages)
 	capabilities |= int32(protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus)
