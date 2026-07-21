@@ -28,7 +28,7 @@ actually implemented.
 | `AcceptsEffectiveConfig` | ✅ | ✅ | Stored on the agent. |
 | `OffersConnectionSettings` | ✅ | ✅ | `opamp`, `own_metrics`, `own_logs`, `own_traces`, `other_connections`, each with headers + TLS certificate. |
 | `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | Intentionally **not advertised**: `connection_settings_request` is not processed, so the capability is withheld rather than claimed-but-ignored. |
-| `OffersPackages` | ✅ | 🟡 | Only `TopLevel` package type; a package-fetch failure is silently dropped (see #496). |
+| `OffersPackages` | ✅ | ✅ | Package type derives from the package spec (`TopLevel`/`AddOn`); an unresolvable package is withheld from the offer and logged, not silently dropped (#496). |
 | `AcceptsPackagesStatus` | ✅ | ✅ | Stored on the agent. |
 
 ## Server → Agent message fields
@@ -40,7 +40,7 @@ actually implemented.
 | `instance_uid` | ✅ | |
 | `remote_config` | ✅ | Built from the agent's materialized `Spec.RemoteConfig.ConfigMap` with a content hash. |
 | `connection_settings` | ✅ | Full offer set incl. TLS certificates and headers. |
-| `packages_available` | 🟡 | `TopLevel` only; silent drop on fetch failure (#496). |
+| `packages_available` | ✅ | Package type derived from the spec; an unresolvable package is withheld and logged rather than silently dropped (#496). |
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
 | `command` | ✅ | `Restart` — the only command the spec currently defines. |
 | `capabilities` | ✅ | |
@@ -84,7 +84,10 @@ actually implemented.
    no longer advertises the capability, so agents are not invited to send a
    `connection_settings_request` the server would silently ignore. Re-advertise once the request
    is processed.
-3. **Packages: `TopLevel`-only + silent-drop** on fetch failure (tracked in #496).
+3. ~~**Packages: `TopLevel`-only + silent-drop** on fetch failure.~~ *(Resolved in #496.)* The
+   advertised `PackageType` now derives from the package spec (`TopLevel`/`AddOn`), and a package
+   that cannot be resolved is withheld from the offer and logged (with the agent identity and the
+   affected package names) instead of being silently dropped.
 4. **Custom messages / custom capabilities** are [intentionally unsupported](#custom-messages)
    (documented decision, not an oversight).
 5. ~~**`error_response` is never sent.**~~ *(Resolved.)* When the server cannot process an
