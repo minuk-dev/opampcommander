@@ -24,6 +24,9 @@ const (
 	roleCollectionName = "roles"
 )
 
+// errInvalidDisplayName is returned when a role display name is empty or malformed.
+var errInvalidDisplayName = errors.New("invalid display name")
+
 // RoleMongoAdapter is a struct that implements the RolePersistencePort interface.
 type RoleMongoAdapter struct {
 	common commonEntityAdapter[entity.Role, string]
@@ -71,7 +74,7 @@ func (a *RoleMongoAdapter) GetRoleByName(
 ) (*usermodel.Role, error) {
 	displayName = strings.TrimSpace(displayName)
 	if displayName == "" || strings.HasPrefix(displayName, "$") {
-		return nil, fmt.Errorf("get role by name: invalid display name")
+		return nil, fmt.Errorf("get role by name: %w", errInvalidDisplayName)
 	}
 
 	filter := bson.M{
