@@ -418,6 +418,10 @@ func (s *Service) report(
 		return fmt.Errorf("failed to report available components: %w", err)
 	}
 
+	// agentToServer.CustomMessage is intentionally not consumed: custom message exchange is
+	// unsupported (the server declares no custom capabilities), so a custom_message is dropped.
+	// See the "Custom messages" section of docs/content/en/docs/opamp-conformance.md.
+
 	return nil
 }
 

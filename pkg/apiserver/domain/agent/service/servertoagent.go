@@ -120,8 +120,11 @@ func (b *ServerToAgentBuilder) Build(
 		Capabilities:        uint64(capabilities), // safe: int32 to uint64
 		AgentIdentification: agentIdentification,
 		Command:             command,
-		CustomCapabilities:  nil,
-		CustomMessage:       nil,
+		// Custom capabilities and custom messages are intentionally not supported: the server
+		// advertises no custom capabilities and never originates a custom_message. See the
+		// "Custom messages" section of docs/content/en/docs/opamp-conformance.md.
+		CustomCapabilities: nil,
+		CustomMessage:      nil,
 	}
 }
 
