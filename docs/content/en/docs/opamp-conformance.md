@@ -11,7 +11,7 @@ handling changes.
 
 **Legend:** ✅ Implemented · 🟡 Partial · ⛔ Not implemented
 
-> Audited against `main` on 2026-07-19. Primary sources:
+> Audited against `main` on 2026-07-21. Primary sources:
 > `pkg/apiserver/application/service/opamp/{opamp,serverToAgent,protobufsToDomain,domainToProtobufs}.go`
 > and `pkg/apiserver/domain/agent/service/server.go`.
 
@@ -24,7 +24,7 @@ actually implemented.
 | ServerCapability | Advertised | Fulfilled | Notes |
 |---|:---:|:---:|---|
 | `AcceptsStatus` | ✅ | ✅ | Full `AgentToServer` ingestion via `report()`. |
-| `OffersRemoteConfig` | ✅ | ✅ | Delivered on the hot path; **omitted** on the cross-server push path (see [Known gaps](#known-gaps)). |
+| `OffersRemoteConfig` | ✅ | ✅ | Delivered by the shared `ServerToAgentBuilder` on both the hot path and the cross-server push path. |
 | `AcceptsEffectiveConfig` | ✅ | ✅ | Stored on the agent. |
 | `OffersConnectionSettings` | ✅ | ✅ | `opamp`, `own_metrics`, `own_logs`, `own_traces`, `other_connections`, each with headers + TLS certificate. |
 | `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | Intentionally **not advertised**: `connection_settings_request` is not processed, so the capability is withheld rather than claimed-but-ignored. |
@@ -58,7 +58,7 @@ actually implemented.
 |---|:---:|---|
 | `instance_uid` | ✅ | Incl. instance-UID conflict handling (`instanceuid_conflict.go`). |
 | `sequence_num` | ✅ | Recorded per report. |
-| `agent_description` | 🟡 | Ingested, but only string `AnyValue`s are kept — non-string attribute values are dropped (`protobufsToDomain.go`, `toMap`). |
+| `agent_description` | ✅ | Ingested; non-string `AnyValue`s are preserved in their string form (`protobufsToDomain.go`, `anyValueToString`). |
 | `capabilities` | ✅ | Stored. |
 | `health` (`ComponentHealth`) | ✅ | Incl. nested sub-component health. |
 | `effective_config` | ✅ | Stored. |
@@ -90,12 +90,13 @@ actually implemented.
    affected package names) instead of being silently dropped.
 4. **Custom messages / custom capabilities** are [intentionally unsupported](#custom-messages)
    (documented decision, not an oversight).
-5. ~~**`error_response` is never sent.**~~ *(Resolved.)* When the server cannot process an
+5. ~~**`error_response` is never sent.**~~ *(Resolved in #531.)* When the server cannot process an
    incoming `AgentToServer` it now replies with an error-only `ServerToAgent`: `Unavailable`
    when the agent's state cannot be loaded, `BadRequest` when the reported fields cannot be
    absorbed. Processing short-circuits so no partially-applied state is persisted.
-6. **Non-string attribute values are dropped** in `toMap`, losing fidelity for identifying /
-   non-identifying attributes and component metadata.
+6. ~~**Non-string attribute values are dropped** in `toMap`.~~ *(Resolved in #504.)* Non-string
+   `AnyValue`s are now preserved in their string form for identifying / non-identifying
+   attributes and component metadata.
 
 ## Custom messages
 
