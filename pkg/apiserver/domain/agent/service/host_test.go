@@ -137,4 +137,37 @@ func TestHostServiceObserveAgent(t *testing.T) {
 		assert.Equal(t, now, existing.Metadata.LastSeenAt)
 		persistence.AssertExpectations(t)
 	})
+
+	t.Run("retries the read-modify-write when a concurrent writer wins", func(t *testing.T) {
+		t.Parallel()
+
+		persistence := &MockHostPersistencePort{}
+		svc := agentservice.NewHostService(persistence, fixedClock{now: now})
+		a := hostAgent(t)
+		existing := agentmodel.NewHost("h-1", now.Add(-time.Hour))
+
+		persistence.On("GetHost", mock.Anything, "h-1").Return(existing, nil)
+		// The first write loses the optimistic-concurrency race; the retry re-reads
+		// and succeeds instead of dropping this agent's observation.
+		persistence.On("PutHost", mock.Anything, mock.Anything).Return(nil, model.ErrConflict).Once()
+		persistence.On("PutHost", mock.Anything, mock.Anything).Return(&agentmodel.Host{}, nil).Once()
+
+		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		persistence.AssertNumberOfCalls(t, "PutHost", 2)
+		persistence.AssertExpectations(t)
+	})
+
+	t.Run("gives up and surfaces the conflict after exhausting retries", func(t *testing.T) {
+		t.Parallel()
+
+		persistence := &MockHostPersistencePort{}
+		svc := agentservice.NewHostService(persistence, fixedClock{now: now})
+		a := hostAgent(t)
+		existing := agentmodel.NewHost("h-1", now.Add(-time.Hour))
+
+		persistence.On("GetHost", mock.Anything, "h-1").Return(existing, nil)
+		persistence.On("PutHost", mock.Anything, mock.Anything).Return(nil, model.ErrConflict)
+
+		require.ErrorIs(t, svc.ObserveAgent(context.Background(), a), model.ErrConflict)
+	})
 }

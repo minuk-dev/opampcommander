@@ -1,6 +1,7 @@
 package infrastructure
 
 import (
+	"context"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -12,7 +13,9 @@ import (
 
 	inmemory "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
@@ -368,6 +371,70 @@ spec:
 
 	// Reconciliation is idempotent: a second apply must not error.
 	require.NoError(t, applyManifests(t.Context(), docs, deps))
+}
+
+// conflictOnceEndpointUsecase wraps an EndpointUsecase and returns model.ErrConflict
+// on the first SaveEndpoint call, simulating losing a bootstrap optimistic-
+// concurrency race to a concurrent apiserver before succeeding on retry.
+type conflictOnceEndpointUsecase struct {
+	agentport.EndpointUsecase
+
+	saveCalls int
+}
+
+func (w *conflictOnceEndpointUsecase) SaveEndpoint(
+	ctx context.Context, endpoint *agentmodel.Endpoint,
+) (*agentmodel.Endpoint, error) {
+	w.saveCalls++
+	if w.saveCalls == 1 {
+		return nil, model.ErrConflict
+	}
+
+	return w.EndpointUsecase.SaveEndpoint(ctx, endpoint) //nolint:wrapcheck // test delegate
+}
+
+func TestApplyManifests_EndpointUpdateRetriesOnConflict(t *testing.T) {
+	t.Parallel()
+
+	deps, _, _ := newTestDeps()
+	endpointRepo := inmemory.NewEndpointRepository()
+	delegate := agentservice.NewEndpointService(endpointRepo)
+
+	// Seed an existing endpoint whose spec differs from the manifest, so bootstrap
+	// takes the update path (the only one that can hit a version conflict).
+	seeded := agentmodel.NewEndpoint("default", "vm", nil, deps.clk.Now(), "system")
+	seeded.Spec.URL = "http://old/insert"
+	_, err := delegate.SaveEndpoint(t.Context(), seeded)
+	require.NoError(t, err)
+
+	wrapper := &conflictOnceEndpointUsecase{EndpointUsecase: delegate}
+	deps.endpointUsecase = wrapper
+
+	dir := writeManifests(t, deps.fs, map[string]string{
+		"30-endpoint.yaml": `kind: Endpoint
+apiVersion: v1
+metadata:
+  name: vm
+  namespace: default
+spec:
+  url: http://vm/insert
+  protocol: prometheusremotewrite
+  signals:
+    metrics: true
+`,
+	})
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	require.NoError(t, err)
+
+	// The first write loses the race; applyEndpoint must re-read and retry rather
+	// than fail startup, so the manifest still converges.
+	require.NoError(t, applyManifests(t.Context(), docs, deps))
+	assert.GreaterOrEqual(t, wrapper.saveCalls, 2, "the conflicting write must be retried")
+
+	got, err := endpointRepo.GetEndpoint(t.Context(), "default", "vm", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "http://vm/insert", got.Spec.URL, "the desired spec must win after the retry")
 }
 
 func TestApplyManifests_EndpointRequiresNamespace(t *testing.T) {

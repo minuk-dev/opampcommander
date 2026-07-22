@@ -30,6 +30,10 @@ func (f *apFakePersistence) GetAgentPackage(
 		return nil, f.getErr
 	}
 
+	if f.stored == nil {
+		return nil, model.ErrResourceNotExist
+	}
+
 	return f.stored, nil
 }
 
@@ -70,6 +74,29 @@ func TestAgentPackageService_CreateAgentPackage_Stamps(t *testing.T) {
 	cond := created.Status.Conditions[0]
 	assert.Equal(t, model.ConditionTypeCreated, cond.Type)
 	assert.Equal(t, "tester", cond.Reason, "the acting user must be stamped as the condition reason")
+}
+
+func TestAgentPackageService_CreateAgentPackage_RejectsExisting(t *testing.T) {
+	t.Parallel()
+
+	stored := &agentmodel.AgentPackage{
+		Metadata: agentmodel.AgentPackageMetadata{Name: "pkg", Namespace: "default", ResourceVersion: 5},
+		Spec:     agentmodel.AgentPackageSpec{Version: "1.0.0"},
+	}
+	persistence := &apFakePersistence{stored: stored}
+	svc := agentservice.NewAgentPackageService(persistence)
+
+	input := &agentmodel.AgentPackage{
+		Metadata: agentmodel.AgentPackageMetadata{Name: "pkg", Namespace: "default"},
+		Spec:     agentmodel.AgentPackageSpec{Version: "2.0.0"},
+	}
+
+	_, err := svc.CreateAgentPackage(t.Context(), input, "tester")
+
+	// Creating over an existing package must be rejected, not silently upsert it
+	// (which would overwrite the package and rewind its ResourceVersion).
+	require.ErrorIs(t, err, model.ErrResourceAlreadyExist)
+	assert.Equal(t, 0, persistence.putCalls, "no write may happen when the package already exists")
 }
 
 func TestAgentPackageService_UpdateAgentPackage_PreservesImmutableFields(t *testing.T) {
