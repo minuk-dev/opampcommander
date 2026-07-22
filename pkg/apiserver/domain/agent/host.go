@@ -31,6 +31,13 @@ type HostMetadata struct {
 	// Labels and Annotations are reserved for user-supplied metadata.
 	Labels      map[string]string
 	Annotations map[string]string
+	// ResourceVersion is an optimistic-concurrency token. It is 0 for a host that
+	// has never been persisted and is incremented by the persistence layer on every
+	// successful write. An update only succeeds if the stored version still equals
+	// the version this in-memory copy was loaded with; otherwise the persistence
+	// layer returns model.ErrConflict so a concurrent writer (another HA node
+	// discovering the same host) cannot be silently clobbered.
+	ResourceVersion int64
 	// FirstSeenAt is when the host was first discovered.
 	FirstSeenAt time.Time
 	// LastSeenAt is the most recent time an agent on this host reported.
@@ -76,12 +83,13 @@ func HostIDOf(desc agent.Description) string {
 func NewHost(id string, now time.Time) *Host {
 	return &Host{
 		Metadata: HostMetadata{
-			ID:          id,
-			Name:        "",
-			Labels:      make(map[string]string),
-			Annotations: make(map[string]string),
-			FirstSeenAt: now,
-			LastSeenAt:  now,
+			ID:              id,
+			Name:            "",
+			Labels:          make(map[string]string),
+			Annotations:     make(map[string]string),
+			ResourceVersion: 0,
+			FirstSeenAt:     now,
+			LastSeenAt:      now,
 		},
 		Spec: HostSpec{
 			Platform: agent.PlatformUnknown,

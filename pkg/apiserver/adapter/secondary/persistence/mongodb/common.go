@@ -202,6 +202,48 @@ func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *
 	return nil
 }
 
+// casReplace performs an optimistic-concurrency upsert of doc, identified by
+// keyFilter, whose resourceVersion field has already been set to the next version.
+//
+// expected is the version the caller loaded doc at. When it is greater than 0 the
+// write matches only a stored document still at that version, so a concurrent
+// writer that advanced it makes casReplace return [model.ErrConflict] instead of
+// silently clobbering the change. expected 0 is a create (or the first write of a
+// pre-optimistic-concurrency document that has no resourceVersion field yet): it
+// upserts by key alone, so a legacy document is migrated rather than duplicated.
+//
+// If the collection carries a unique index on the logical key, a racing create is
+// rejected as a duplicate key, which casReplace also surfaces as [model.ErrConflict].
+func casReplace(
+	ctx context.Context,
+	collection *mongo.Collection,
+	keyFilter bson.M,
+	doc any,
+	expected int64,
+) error {
+	filter := maps.Clone(keyFilter)
+	if expected != 0 {
+		filter[resourceVersionFieldName] = expected
+	}
+
+	result, err := collection.ReplaceOne(ctx, filter, doc, options.Replace().SetUpsert(expected == 0))
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return fmt.Errorf("%w: resource was created concurrently", model.ErrConflict)
+		}
+
+		return fmt.Errorf("failed to put resource to mongodb: %w", err)
+	}
+
+	// No matched (and not freshly upserted) document means the version filter did not
+	// find the expected version — another writer advanced it (or deleted the resource).
+	if result.MatchedCount == 0 && result.UpsertedCount == 0 {
+		return fmt.Errorf("%w: resource was modified concurrently", model.ErrConflict)
+	}
+
+	return nil
+}
+
 // deleteOne permanently removes the document identified by key. It returns
 // model.ErrResourceNotExist when no matching document is found.
 //

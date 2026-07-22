@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
@@ -22,7 +23,8 @@ const (
 
 // HostMongoAdapter implements the HostPersistencePort interface.
 type HostMongoAdapter struct {
-	common commonEntityAdapter[entity.Host, string]
+	collection *mongo.Collection
+	common     commonEntityAdapter[entity.Host, string]
 }
 
 // NewHostRepository creates a new instance of HostMongoAdapter.
@@ -39,6 +41,7 @@ func NewHostRepository(
 	}
 
 	return &HostMongoAdapter{
+		collection: collection,
 		common: newCommonAdapter(
 			logger,
 			collection,
@@ -81,15 +84,29 @@ func (a *HostMongoAdapter) ListHosts(
 }
 
 // PutHost implements agentport.HostPersistencePort.
+//
+// PutHost is an optimistic-concurrency write: an update only succeeds when the
+// stored document's resourceVersion still equals the version the in-memory host
+// was loaded with, otherwise it returns [model.ErrConflict] rather than clobbering
+// a concurrent writer (another HA node that discovered the same host). On success
+// the version is incremented and written back onto the passed host.
 func (a *HostMongoAdapter) PutHost(
 	ctx context.Context, host *agentmodel.Host,
 ) (*agentmodel.Host, error) {
-	hostEntity := entity.HostFromDomain(host)
+	expected := host.Metadata.ResourceVersion
+	next := expected + 1
 
-	err := a.common.put(ctx, hostEntity)
+	hostEntity := entity.HostFromDomain(host)
+	hostEntity.Metadata.ResourceVersion = next
+
+	filter := bson.M{entity.HostKeyFieldName: host.Metadata.ID}
+
+	err := casReplace(ctx, a.collection, filter, hostEntity, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put host: %w", err)
 	}
+
+	host.Metadata.ResourceVersion = next
 
 	return host, nil
 }

@@ -28,11 +28,12 @@ type AgentPackage struct {
 
 // AgentPackageMetadata represents the metadata of an agent package.
 type AgentPackageMetadata struct {
-	Name       string            `bson:"name"`
-	Namespace  string            `bson:"namespace"`
-	Attributes map[string]string `bson:"attributes,omitempty"`
-	CreatedAt  time.Time         `bson:"createdAt"`
-	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
+	Name            string            `bson:"name"`
+	Namespace       string            `bson:"namespace"`
+	Attributes      map[string]string `bson:"attributes,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"` // Optimistic-concurrency token
+	CreatedAt       time.Time         `bson:"createdAt"`
+	DeletedAt       *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // AgentPackageSpec represents the specification of an agent package.
@@ -62,11 +63,12 @@ func (ap *AgentPackage) ToDomain() *agentmodel.AgentPackage {
 
 func (m *AgentPackageMetadata) toDomain() agentmodel.AgentPackageMetadata {
 	return agentmodel.AgentPackageMetadata{
-		Name:       m.Name,
-		Namespace:  m.Namespace,
-		Attributes: m.Attributes,
-		CreatedAt:  m.CreatedAt,
-		DeletedAt:  m.DeletedAt,
+		Name:            m.Name,
+		Namespace:       m.Namespace,
+		Attributes:      m.Attributes,
+		ResourceVersion: m.ResourceVersion,
+		CreatedAt:       m.CreatedAt,
+		DeletedAt:       m.DeletedAt,
 	}
 }
 
@@ -105,11 +107,12 @@ func AgentPackageFromDomain(domain *agentmodel.AgentPackage) *AgentPackage {
 
 func agentPackageMetadataFromDomain(metadata agentmodel.AgentPackageMetadata) AgentPackageMetadata {
 	return AgentPackageMetadata{
-		Name:       metadata.Name,
-		Namespace:  metadata.Namespace,
-		Attributes: metadata.Attributes,
-		CreatedAt:  metadata.CreatedAt,
-		DeletedAt:  metadata.DeletedAt,
+		Name:            metadata.Name,
+		Namespace:       metadata.Namespace,
+		Attributes:      metadata.Attributes,
+		ResourceVersion: metadata.ResourceVersion,
+		CreatedAt:       metadata.CreatedAt,
+		DeletedAt:       metadata.DeletedAt,
 	}
 }
 

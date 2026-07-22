@@ -23,11 +23,12 @@ type EndpointResourceEntity struct {
 
 // EndpointResourceMetadata represents the metadata of an endpoint resource.
 type EndpointResourceMetadata struct {
-	Name       string            `bson:"name"`
-	Namespace  string            `bson:"namespace"`
-	Attributes map[string]string `bson:"attributes,omitempty"`
-	CreatedAt  time.Time         `bson:"createdAt"`
-	DeletedAt  *time.Time        `bson:"deletedAt,omitempty"`
+	Name            string            `bson:"name"`
+	Namespace       string            `bson:"namespace"`
+	Attributes      map[string]string `bson:"attributes,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"` // Optimistic-concurrency token
+	CreatedAt       time.Time         `bson:"createdAt"`
+	DeletedAt       *time.Time        `bson:"deletedAt,omitempty"`
 }
 
 // EndpointResourceSpec represents the specification of an endpoint resource.
@@ -71,11 +72,12 @@ type EndpointResourceEntityStatus struct {
 func (e *EndpointResourceEntity) ToDomain() *agentmodel.Endpoint {
 	return &agentmodel.Endpoint{
 		Metadata: agentmodel.EndpointMetadata{
-			Name:       e.Metadata.Name,
-			Namespace:  e.Metadata.Namespace,
-			Attributes: e.Metadata.Attributes,
-			CreatedAt:  e.Metadata.CreatedAt,
-			DeletedAt:  e.Metadata.DeletedAt,
+			Name:            e.Metadata.Name,
+			Namespace:       e.Metadata.Namespace,
+			Attributes:      e.Metadata.Attributes,
+			ResourceVersion: e.Metadata.ResourceVersion,
+			CreatedAt:       e.Metadata.CreatedAt,
+			DeletedAt:       e.Metadata.DeletedAt,
 		},
 		Spec: agentmodel.EndpointSpec{
 			URL:      e.Spec.URL,
@@ -137,11 +139,12 @@ func EndpointResourceEntityFromDomain(
 	//nolint:exhaustruct // ID is set by MongoDB
 	return &EndpointResourceEntity{
 		Metadata: EndpointResourceMetadata{
-			Name:       endpoint.Metadata.Name,
-			Namespace:  endpoint.Metadata.Namespace,
-			Attributes: endpoint.Metadata.Attributes,
-			CreatedAt:  endpoint.Metadata.CreatedAt,
-			DeletedAt:  endpoint.Metadata.DeletedAt,
+			Name:            endpoint.Metadata.Name,
+			Namespace:       endpoint.Metadata.Namespace,
+			Attributes:      endpoint.Metadata.Attributes,
+			ResourceVersion: endpoint.Metadata.ResourceVersion,
+			CreatedAt:       endpoint.Metadata.CreatedAt,
+			DeletedAt:       endpoint.Metadata.DeletedAt,
 		},
 		Spec: EndpointResourceSpec{
 			URL:      endpoint.Spec.URL,

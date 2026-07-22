@@ -253,8 +253,11 @@ func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *agentmode
 			Name:       apiModel.Metadata.Name,
 			Namespace:  apiModel.Metadata.Namespace,
 			Attributes: agentmodel.OfAttributes(apiModel.Metadata.Attributes),
-			CreatedAt:  apiModel.Metadata.CreatedAt.Time,
-			DeletedAt:  nil,
+			// ResourceVersion is server-managed; a client-supplied model does not carry
+			// it. The service layer loads the stored version before writing.
+			ResourceVersion: 0,
+			CreatedAt:       apiModel.Metadata.CreatedAt.Time,
+			DeletedAt:       nil,
 		},
 		Spec: agentmodel.AgentPackageSpec{
 			PackageType: apiModel.Spec.PackageType,
@@ -490,8 +493,11 @@ func (mapper *Mapper) MapAPIToEndpoint(
 			Name:       api.Metadata.Name,
 			Namespace:  api.Metadata.Namespace,
 			Attributes: agentmodel.OfAttributes(api.Metadata.Attributes),
-			CreatedAt:  api.Metadata.CreatedAt.Time,
-			DeletedAt:  nil,
+			// ResourceVersion is server-managed; a client-supplied model does not carry
+			// it. The service layer loads the stored version before writing.
+			ResourceVersion: 0,
+			CreatedAt:       api.Metadata.CreatedAt.Time,
+			DeletedAt:       nil,
 		},
 		Spec: agentmodel.EndpointSpec{
 			URL:      api.Spec.URL,

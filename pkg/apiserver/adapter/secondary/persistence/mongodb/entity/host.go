@@ -28,12 +28,13 @@ type Host struct {
 
 // HostMetadata represents the metadata of a host.
 type HostMetadata struct {
-	ID          string            `bson:"id"`
-	Name        string            `bson:"name,omitempty"`
-	Labels      map[string]string `bson:"labels,omitempty"`
-	Annotations map[string]string `bson:"annotations,omitempty"`
-	FirstSeenAt time.Time         `bson:"firstSeenAt"`
-	LastSeenAt  time.Time         `bson:"lastSeenAt"`
+	ID              string            `bson:"id"`
+	Name            string            `bson:"name,omitempty"`
+	Labels          map[string]string `bson:"labels,omitempty"`
+	Annotations     map[string]string `bson:"annotations,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"` // Optimistic-concurrency token
+	FirstSeenAt     time.Time         `bson:"firstSeenAt"`
+	LastSeenAt      time.Time         `bson:"lastSeenAt"`
 }
 
 // HostSpec represents the spec of a host.
@@ -58,12 +59,13 @@ type HostResourceStatus struct {
 func (h *Host) ToDomain() *agentmodel.Host {
 	return &agentmodel.Host{
 		Metadata: agentmodel.HostMetadata{
-			ID:          h.Metadata.ID,
-			Name:        h.Metadata.Name,
-			Labels:      h.Metadata.Labels,
-			Annotations: h.Metadata.Annotations,
-			FirstSeenAt: h.Metadata.FirstSeenAt,
-			LastSeenAt:  h.Metadata.LastSeenAt,
+			ID:              h.Metadata.ID,
+			Name:            h.Metadata.Name,
+			Labels:          h.Metadata.Labels,
+			Annotations:     h.Metadata.Annotations,
+			ResourceVersion: h.Metadata.ResourceVersion,
+			FirstSeenAt:     h.Metadata.FirstSeenAt,
+			LastSeenAt:      h.Metadata.LastSeenAt,
 		},
 		Spec: agentmodel.HostSpec{
 			Platform: agent.Platform(h.Spec.Platform),
@@ -93,12 +95,13 @@ func HostFromDomain(domain *agentmodel.Host) *Host {
 			ID:      nil,
 		},
 		Metadata: HostMetadata{
-			ID:          domain.Metadata.ID,
-			Name:        domain.Metadata.Name,
-			Labels:      domain.Metadata.Labels,
-			Annotations: domain.Metadata.Annotations,
-			FirstSeenAt: domain.Metadata.FirstSeenAt,
-			LastSeenAt:  domain.Metadata.LastSeenAt,
+			ID:              domain.Metadata.ID,
+			Name:            domain.Metadata.Name,
+			Labels:          domain.Metadata.Labels,
+			Annotations:     domain.Metadata.Annotations,
+			ResourceVersion: domain.Metadata.ResourceVersion,
+			FirstSeenAt:     domain.Metadata.FirstSeenAt,
+			LastSeenAt:      domain.Metadata.LastSeenAt,
 		},
 		Spec: HostSpec{
 			Platform:      string(domain.Spec.Platform),

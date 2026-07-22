@@ -1,5 +1,3 @@
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
-//nolint:dupl // MongoDB adapter pattern - similar structure is intentional
 package mongodb
 
 import (
@@ -10,7 +8,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -114,21 +111,29 @@ func (a *AgentPackageMongoAdapter) ListAgentPackages(
 }
 
 // PutAgentPackage implements agentport.AgentPackagePersistencePort.
+//
+// PutAgentPackage is an optimistic-concurrency write: an update only succeeds when
+// the stored document's resourceVersion still equals the version the in-memory
+// agent package was loaded with, otherwise it returns [model.ErrConflict] rather
+// than silently clobbering a concurrent writer. On success the version is
+// incremented and written back onto the passed agent package.
 func (a *AgentPackageMongoAdapter) PutAgentPackage(
 	ctx context.Context, agentPackage *agentmodel.AgentPackage,
 ) (*agentmodel.AgentPackage, error) {
-	agentPackageEntity := entity.AgentPackageFromDomain(agentPackage)
 	namespace := agentPackage.Metadata.Namespace
 	name := agentPackage.Metadata.Name
+	expected := agentPackage.Metadata.ResourceVersion
+	next := expected + 1
 
-	_, err := a.collection.ReplaceOne(ctx,
-		a.filterByNamespaceAndName(namespace, name),
-		agentPackageEntity,
-		options.Replace().SetUpsert(true),
-	)
+	agentPackageEntity := entity.AgentPackageFromDomain(agentPackage)
+	agentPackageEntity.Metadata.ResourceVersion = next
+
+	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), agentPackageEntity, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put agent package: %w", err)
 	}
+
+	agentPackage.Metadata.ResourceVersion = next
 
 	// Return the domain model directly instead of querying again
 	// This avoids issues with soft-deleted documents not being found

@@ -26,12 +26,13 @@ type Container struct {
 
 // ContainerMetadata represents the metadata of a container.
 type ContainerMetadata struct {
-	ID          string            `bson:"id"`
-	Name        string            `bson:"name,omitempty"`
-	Labels      map[string]string `bson:"labels,omitempty"`
-	Annotations map[string]string `bson:"annotations,omitempty"`
-	FirstSeenAt time.Time         `bson:"firstSeenAt"`
-	LastSeenAt  time.Time         `bson:"lastSeenAt"`
+	ID              string            `bson:"id"`
+	Name            string            `bson:"name,omitempty"`
+	Labels          map[string]string `bson:"labels,omitempty"`
+	Annotations     map[string]string `bson:"annotations,omitempty"`
+	ResourceVersion int64             `bson:"resourceVersion"` // Optimistic-concurrency token
+	FirstSeenAt     time.Time         `bson:"firstSeenAt"`
+	LastSeenAt      time.Time         `bson:"lastSeenAt"`
 }
 
 // ContainerSpec represents the spec of a container.
@@ -57,12 +58,13 @@ type ContainerResourceStatus struct {
 func (c *Container) ToDomain() *agentmodel.Container {
 	return &agentmodel.Container{
 		Metadata: agentmodel.ContainerMetadata{
-			ID:          c.Metadata.ID,
-			Name:        c.Metadata.Name,
-			Labels:      c.Metadata.Labels,
-			Annotations: c.Metadata.Annotations,
-			FirstSeenAt: c.Metadata.FirstSeenAt,
-			LastSeenAt:  c.Metadata.LastSeenAt,
+			ID:              c.Metadata.ID,
+			Name:            c.Metadata.Name,
+			Labels:          c.Metadata.Labels,
+			Annotations:     c.Metadata.Annotations,
+			ResourceVersion: c.Metadata.ResourceVersion,
+			FirstSeenAt:     c.Metadata.FirstSeenAt,
+			LastSeenAt:      c.Metadata.LastSeenAt,
 		},
 		Spec: agentmodel.ContainerSpec{
 			Platform:  agent.Platform(c.Spec.Platform),
@@ -94,12 +96,13 @@ func ContainerFromDomain(domain *agentmodel.Container) *Container {
 			ID:      nil,
 		},
 		Metadata: ContainerMetadata{
-			ID:          domain.Metadata.ID,
-			Name:        domain.Metadata.Name,
-			Labels:      domain.Metadata.Labels,
-			Annotations: domain.Metadata.Annotations,
-			FirstSeenAt: domain.Metadata.FirstSeenAt,
-			LastSeenAt:  domain.Metadata.LastSeenAt,
+			ID:              domain.Metadata.ID,
+			Name:            domain.Metadata.Name,
+			Labels:          domain.Metadata.Labels,
+			Annotations:     domain.Metadata.Annotations,
+			ResourceVersion: domain.Metadata.ResourceVersion,
+			FirstSeenAt:     domain.Metadata.FirstSeenAt,
+			LastSeenAt:      domain.Metadata.LastSeenAt,
 		},
 		Spec: ContainerSpec{
 			Platform:         string(domain.Spec.Platform),

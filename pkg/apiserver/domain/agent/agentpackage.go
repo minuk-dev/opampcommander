@@ -56,6 +56,13 @@ type AgentPackageMetadata struct {
 	Name       string
 	Namespace  string
 	Attributes Attributes
+	// ResourceVersion is an optimistic-concurrency token. It is 0 for an agent
+	// package that has never been persisted and is incremented by the persistence
+	// layer on every successful write. An update only succeeds if the stored version
+	// still equals the version this in-memory copy was loaded with; otherwise the
+	// persistence layer returns model.ErrConflict so a concurrent writer cannot be
+	// silently clobbered. Callers must not set this by hand — load, mutate, save.
+	ResourceVersion int64
 	// CreatedAt is the timestamp when the agent package was created.
 	CreatedAt time.Time
 	// DeletedAt is the timestamp when the agent package was soft deleted.
