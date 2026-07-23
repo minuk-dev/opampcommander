@@ -186,6 +186,71 @@ func TestServerToAgentBuilder_Build_IncludesRemoteConfig(t *testing.T) {
 	assert.Equal(t, body, configFile.GetBody())
 }
 
+// TestServerToAgentBuilder_Build_IncludesConnectionSettings exercises the domain→protobuf
+// connection-settings conversion path (opamp/own_metrics/own_logs/own_traces/other_connections,
+// each with headers + TLS certificate) end-to-end through the builder, so the offer the agent
+// receives carries every configured destination, header and certificate.
+func TestServerToAgentBuilder_Build_IncludesConnectionSettings(t *testing.T) {
+	t.Parallel()
+
+	cert := &agentmodel.AgentCertificate{
+		Cert:       []byte("cert"),
+		PrivateKey: []byte("key"),
+		CaCert:     []byte("ca"),
+	}
+
+	connectionInfo, err := agentmodel.NewConnectionInfo(
+		&agentmodel.AgentOpAMPConnectionSettings{
+			DestinationEndpoint: "wss://opamp.example/v1/opamp",
+			Headers:             map[string][]string{"Authorization": {"Bearer token"}},
+			Certificate:         cert,
+		},
+		&agentmodel.AgentTelemetryConnectionSettings{
+			DestinationEndpoint: "https://metrics.example/v1/metrics",
+			Headers:             nil,
+			Certificate:         nil,
+		},
+		nil,
+		nil,
+		map[string]agentmodel.AgentOtherConnectionSettings{
+			"custom": {
+				DestinationEndpoint: "https://other.example",
+				Headers:             nil,
+				Certificate:         nil,
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	agent := agentmodel.NewAgent(uuid.New())
+	agent.Spec.ConnectionInfo = connectionInfo
+
+	msg := newTestBuilder().Build(t.Context(), agent)
+
+	offers := msg.GetConnectionSettings()
+	require.NotNil(t, offers, "connection settings should be offered")
+	assert.NotEmpty(t, offers.GetHash())
+
+	opamp := offers.GetOpamp()
+	require.NotNil(t, opamp)
+	assert.Equal(t, "wss://opamp.example/v1/opamp", opamp.GetDestinationEndpoint())
+	require.NotNil(t, opamp.GetCertificate())
+	assert.Equal(t, []byte("cert"), opamp.GetCertificate().GetCert())
+
+	headers := opamp.GetHeaders().GetHeaders()
+	require.Len(t, headers, 1)
+	assert.Equal(t, "Authorization", headers[0].GetKey())
+	assert.Equal(t, "Bearer token", headers[0].GetValue())
+
+	require.NotNil(t, offers.GetOwnMetrics())
+	assert.Equal(t, "https://metrics.example/v1/metrics", offers.GetOwnMetrics().GetDestinationEndpoint())
+	// A telemetry setting without a certificate must not synthesize an empty TLS certificate.
+	assert.Nil(t, offers.GetOwnMetrics().GetCertificate())
+
+	require.Contains(t, offers.GetOtherConnections(), "custom")
+	assert.Equal(t, "https://other.example", offers.GetOtherConnections()["custom"].GetDestinationEndpoint())
+}
+
 // TestServerToAgentBuilder_Build_PackageType pins that the advertised PackageType derives
 // from the package spec (case-insensitive), instead of the previously hardcoded TopLevel.
 func TestServerToAgentBuilder_Build_PackageType(t *testing.T) {

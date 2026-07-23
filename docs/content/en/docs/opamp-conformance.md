@@ -122,7 +122,12 @@ exchange, please open an issue describing the use case.
 
 ## Test coverage
 
-Most OpAMP message-path behavior is exercised only by the Docker-based E2E suite
-(`test/e2e/apiserver`). The message builders and protobuf↔domain converters have little direct
-unit coverage. Interop against a real OTel Collector `opamp` extension is a goal (a Collector
-test helper already exists in `pkg/testutil`).
+Full-path OpAMP behavior (registration, remote-config offer/apply, packages, HTTP vs WebSocket
+transports) is exercised against a real OTel Collector `opamp` extension by the Docker-based E2E
+suite (`test/e2e/apiserver`, using the Collector helper in `pkg/testutil`).
+
+The message builders and protobuf↔domain converters also have direct, Docker-free unit coverage:
+the `AgentToServer` converters in
+`pkg/apiserver/application/service/opamp/protobufstodomain_converters_test.go` and the
+`ServerToAgent` builder (including the connection-settings offer path) in
+`pkg/apiserver/domain/agent/service/servertoagent_test.go`.
