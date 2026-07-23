@@ -8,7 +8,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -114,21 +113,29 @@ func (a *EndpointMongoAdapter) ListEndpoints(
 }
 
 // PutEndpoint implements agentport.EndpointPersistencePort.
+//
+// PutEndpoint is an optimistic-concurrency write: an update only succeeds when the
+// stored document's resourceVersion still equals the version the in-memory endpoint
+// was loaded with, otherwise it returns [model.ErrConflict] rather than silently
+// clobbering a concurrent writer. On success the version is incremented and written
+// back onto the passed endpoint.
 func (a *EndpointMongoAdapter) PutEndpoint(
 	ctx context.Context, endpoint *agentmodel.Endpoint,
 ) (*agentmodel.Endpoint, error) {
-	endpointEntity := entity.EndpointResourceEntityFromDomain(endpoint)
 	namespace := endpoint.Metadata.Namespace
 	name := endpoint.Metadata.Name
+	expected := endpoint.Metadata.ResourceVersion
+	next := expected + 1
 
-	_, err := a.collection.ReplaceOne(ctx,
-		a.filterByNamespaceAndName(namespace, name),
-		endpointEntity,
-		options.Replace().SetUpsert(true),
-	)
+	endpointEntity := entity.EndpointResourceEntityFromDomain(endpoint)
+	endpointEntity.Metadata.ResourceVersion = next
+
+	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), endpointEntity, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put endpoint: %w", err)
 	}
+
+	endpoint.Metadata.ResourceVersion = next
 
 	// Return the domain model directly instead of querying again
 	// This avoids issues with soft-deleted documents not being found

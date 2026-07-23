@@ -309,6 +309,31 @@ func applyEndpoint(ctx context.Context, doc manifestDoc, deps bootstrapDeps) err
 
 	desired := helper.NewMapper(deps.clk, 0).MapAPIToEndpoint(&apiEndpoint)
 
+	// The endpoint is versioned (optimistic concurrency), so a concurrent apiserver
+	// startup applying the same manifest can lose the compare-and-swap and get
+	// model.ErrConflict. Retry by re-reading: the winner has already written the
+	// desired spec, so the next pass converges (equal -> skip) instead of failing
+	// startup. Bootstrap must stay idempotent across concurrent HA processes.
+	for attempt := 0; ; attempt++ {
+		err = reconcileBootstrapEndpoint(ctx, deps, namespace, name, desired)
+		if err == nil || !errors.Is(err, model.ErrConflict) || attempt >= bootstrapConflictRetries {
+			return err
+		}
+	}
+}
+
+// bootstrapConflictRetries bounds how many times a bootstrap endpoint write is
+// re-read and retried after losing an optimistic-concurrency race to another
+// apiserver applying the same manifest.
+const bootstrapConflictRetries = 3
+
+// reconcileBootstrapEndpoint creates the endpoint when absent, or updates it in
+// place when the manifest changes its spec/attributes, leaving it untouched when
+// already in the desired state. It may return a wrapped model.ErrConflict, which
+// applyEndpoint retries.
+func reconcileBootstrapEndpoint(
+	ctx context.Context, deps bootstrapDeps, namespace, name string, desired *agentmodel.Endpoint,
+) error {
 	existing, err := deps.endpointUsecase.GetEndpoint(ctx, namespace, name, nil)
 	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check endpoint %q/%q: %w", namespace, name, err)

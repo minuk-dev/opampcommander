@@ -2,6 +2,7 @@ package agentservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -80,6 +81,17 @@ func (s *AgentPackageService) CreateAgentPackage(
 	agentPackage *agentmodel.AgentPackage,
 	actor string,
 ) (*agentmodel.AgentPackage, error) {
+	// Reject creating over an existing package instead of silently upserting it,
+	// which would overwrite it and rewind its optimistic-concurrency version.
+	_, err := s.persistence.GetAgentPackage(ctx, agentPackage.Metadata.Namespace, agentPackage.Metadata.Name, nil)
+	switch {
+	case err == nil:
+		return nil, fmt.Errorf("%w: agent package %q in namespace %q",
+			model.ErrResourceAlreadyExist, agentPackage.Metadata.Name, agentPackage.Metadata.Namespace)
+	case !errors.Is(err, model.ErrResourceNotExist):
+		return nil, fmt.Errorf("check existing agent package: %w", err)
+	}
+
 	agentPackage.MarkAsCreated(s.clock.Now(), actor)
 
 	created, err := s.persistence.PutAgentPackage(ctx, agentPackage)

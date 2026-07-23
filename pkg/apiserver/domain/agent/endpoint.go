@@ -31,6 +31,13 @@ type EndpointMetadata struct {
 	Namespace string
 	// Attributes is a map of user-supplied attributes for the endpoint.
 	Attributes Attributes
+	// ResourceVersion is an optimistic-concurrency token. It is 0 for an endpoint
+	// that has never been persisted and is incremented by the persistence layer on
+	// every successful write. An update only succeeds if the stored version still
+	// equals the version this in-memory copy was loaded with; otherwise the
+	// persistence layer returns model.ErrConflict so a concurrent writer cannot be
+	// silently clobbered. Callers must not set this by hand — load, mutate, save.
+	ResourceVersion int64
 	// CreatedAt is the timestamp when the endpoint was created.
 	CreatedAt time.Time
 	// DeletedAt is the timestamp when the endpoint was soft deleted.
@@ -121,11 +128,12 @@ func NewEndpoint(
 ) *Endpoint {
 	return &Endpoint{
 		Metadata: EndpointMetadata{
-			Name:       name,
-			Namespace:  namespace,
-			Attributes: attributes,
-			CreatedAt:  createdAt,
-			DeletedAt:  nil,
+			Name:            name,
+			Namespace:       namespace,
+			Attributes:      attributes,
+			ResourceVersion: 0,
+			CreatedAt:       createdAt,
+			DeletedAt:       nil,
 		},
 		Spec: EndpointSpec{
 			URL:          "",

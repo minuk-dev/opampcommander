@@ -119,4 +119,21 @@ func TestContainerServiceObserveAgent(t *testing.T) {
 		persistence.AssertNotCalled(t, "GetContainer")
 		persistence.AssertNotCalled(t, "PutContainer")
 	})
+
+	t.Run("retries the read-modify-write when a concurrent writer wins", func(t *testing.T) {
+		t.Parallel()
+
+		persistence := &MockContainerPersistencePort{}
+		svc := agentservice.NewContainerService(persistence, fixedClock{now: now})
+		a := containerAgent(t)
+		existing := agentmodel.NewContainer("pod-uid", now.Add(-time.Hour))
+
+		persistence.On("GetContainer", mock.Anything, "pod-uid").Return(existing, nil)
+		persistence.On("PutContainer", mock.Anything, mock.Anything).Return(nil, model.ErrConflict).Once()
+		persistence.On("PutContainer", mock.Anything, mock.Anything).Return(&agentmodel.Container{}, nil).Once()
+
+		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		persistence.AssertNumberOfCalls(t, "PutContainer", 2)
+		persistence.AssertExpectations(t)
+	})
 }

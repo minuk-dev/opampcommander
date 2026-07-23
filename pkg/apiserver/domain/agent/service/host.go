@@ -1,4 +1,3 @@
-//nolint:dupl // Host and Container discovery services intentionally share this shape.
 package agentservice
 
 import (
@@ -56,6 +55,12 @@ func (s *HostService) ListHosts(
 }
 
 // ObserveAgent implements [agentport.HostUsecase].
+//
+// Discovery is a read-modify-write, so a concurrent writer (another HA node
+// discovering the same host) can make PutHost return [model.ErrConflict]. Rather
+// than dropping this agent's association until its next report, the whole cycle is
+// retried on conflict so the losing write re-reads the winner's version and merges
+// onto it.
 func (s *HostService) ObserveAgent(ctx context.Context, agent *agentmodel.Agent) error {
 	id := agentmodel.HostIDOf(agent.Metadata.Description)
 	if id == "" {
@@ -65,21 +70,33 @@ func (s *HostService) ObserveAgent(ctx context.Context, agent *agentmodel.Agent)
 
 	now := s.clock.Now()
 
-	host, err := s.persistence.GetHost(ctx, id)
-	if err != nil {
-		if !errors.Is(err, model.ErrResourceNotExist) {
-			return fmt.Errorf("failed to get host for discovery: %w", err)
+	for attempt := 0; ; attempt++ {
+		host, err := s.persistence.GetHost(ctx, id)
+		if err != nil {
+			if !errors.Is(err, model.ErrResourceNotExist) {
+				return fmt.Errorf("failed to get host for discovery: %w", err)
+			}
+
+			host = agentmodel.NewHost(id, now)
 		}
 
-		host = agentmodel.NewHost(id, now)
-	}
+		host.ObserveAgent(agent.Metadata.InstanceUID, agent.Metadata.Description, now)
 
-	host.ObserveAgent(agent.Metadata.InstanceUID, agent.Metadata.Description, now)
+		_, err = s.persistence.PutHost(ctx, host)
+		if err == nil {
+			return nil
+		}
 
-	_, err = s.persistence.PutHost(ctx, host)
-	if err != nil {
+		if errors.Is(err, model.ErrConflict) && attempt < discoveryObserveConflictRetries {
+			continue
+		}
+
 		return fmt.Errorf("failed to save discovered host: %w", err)
 	}
-
-	return nil
 }
+
+// discoveryObserveConflictRetries bounds how many times a host/container discovery
+// read-modify-write is retried when a concurrent writer wins the optimistic-
+// concurrency race. A small bound is enough: contention is between the few agents
+// on one machine, and any residual loss self-heals on the next agent report.
+const discoveryObserveConflictRetries = 3

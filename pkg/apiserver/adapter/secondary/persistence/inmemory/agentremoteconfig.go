@@ -1,4 +1,3 @@
-//nolint:dupl // namespaced CRUD repositories intentionally share this shape.
 package inmemory
 
 import (

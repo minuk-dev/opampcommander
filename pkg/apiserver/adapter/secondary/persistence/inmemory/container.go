@@ -30,10 +30,28 @@ func (r *ContainerRepository) GetContainer(_ context.Context, id string) (*agent
 }
 
 // PutContainer implements agentport.ContainerPersistencePort.
+//
+// Like the MongoDB adapter, this is an optimistic-concurrency write: an update
+// (ResourceVersion > 0) succeeds only if the stored version still matches, else it
+// returns [model.ErrConflict]. On success the version is incremented and written
+// back onto the passed container.
 func (r *ContainerRepository) PutContainer(
 	_ context.Context, container *agentmodel.Container,
 ) (*agentmodel.Container, error) {
-	r.store.put(container.Metadata.ID, container)
+	expected := container.Metadata.ResourceVersion
+	next := expected + 1
+
+	toStore := cloneContainer(container)
+	toStore.Metadata.ResourceVersion = next
+
+	err := r.store.casPutOrCreate(container.Metadata.ID, toStore, expected, func(c *agentmodel.Container) int64 {
+		return c.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	container.Metadata.ResourceVersion = next
 
 	return container, nil
 }

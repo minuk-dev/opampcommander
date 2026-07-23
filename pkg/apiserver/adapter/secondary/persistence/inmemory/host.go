@@ -30,8 +30,26 @@ func (r *HostRepository) GetHost(_ context.Context, id string) (*agentmodel.Host
 }
 
 // PutHost implements agentport.HostPersistencePort.
+//
+// Like the MongoDB adapter, this is an optimistic-concurrency write: an update
+// (ResourceVersion > 0) succeeds only if the stored version still matches, else it
+// returns [model.ErrConflict]. On success the version is incremented and written
+// back onto the passed host.
 func (r *HostRepository) PutHost(_ context.Context, host *agentmodel.Host) (*agentmodel.Host, error) {
-	r.store.put(host.Metadata.ID, host)
+	expected := host.Metadata.ResourceVersion
+	next := expected + 1
+
+	toStore := cloneHost(host)
+	toStore.Metadata.ResourceVersion = next
+
+	err := r.store.casPutOrCreate(host.Metadata.ID, toStore, expected, func(h *agentmodel.Host) int64 {
+		return h.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	host.Metadata.ResourceVersion = next
 
 	return host, nil
 }

@@ -1,4 +1,3 @@
-//nolint:dupl // namespaced CRUD repositories intentionally share this shape.
 package inmemory
 
 import (
@@ -35,13 +34,32 @@ func (r *AgentPackageRepository) GetAgentPackage(
 }
 
 // PutAgentPackage implements agentport.AgentPackagePersistencePort.
+//
+// Like the MongoDB adapter, this is an optimistic-concurrency write: an update
+// (ResourceVersion > 0) succeeds only if the stored version still matches, else it
+// returns [model.ErrConflict]. On success the version is incremented and written
+// back onto the passed agent package.
 func (r *AgentPackageRepository) PutAgentPackage(
 	_ context.Context, agentPackage *agentmodel.AgentPackage,
 ) (*agentmodel.AgentPackage, error) {
-	r.store.put(namespacedName{
+	key := namespacedName{
 		Namespace: agentPackage.Metadata.Namespace,
 		Name:      agentPackage.Metadata.Name,
-	}, agentPackage)
+	}
+	expected := agentPackage.Metadata.ResourceVersion
+	next := expected + 1
+
+	toStore := cloneAgentPackage(agentPackage)
+	toStore.Metadata.ResourceVersion = next
+
+	err := r.store.casPutOrCreate(key, toStore, expected, func(ap *agentmodel.AgentPackage) int64 {
+		return ap.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	agentPackage.Metadata.ResourceVersion = next
 
 	return agentPackage, nil
 }

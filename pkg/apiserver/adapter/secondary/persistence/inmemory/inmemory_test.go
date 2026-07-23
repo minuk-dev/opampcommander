@@ -602,3 +602,179 @@ func TestServerConnectionRepository_ListFiltersByServerID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, all.Items, 2)
 }
+
+func newTestAgentPackage(namespace, name string) *agentmodel.AgentPackage {
+	return &agentmodel.AgentPackage{
+		Metadata: agentmodel.AgentPackageMetadata{Name: name, Namespace: namespace},
+		Spec:     agentmodel.AgentPackageSpec{PackageType: "top", Version: "1.0.0"},
+		Status:   agentmodel.AgentPackageStatus{},
+	}
+}
+
+func TestAgentPackageRepository_PutOptimisticConcurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentPackageRepository()
+
+	// A freshly created package starts at version 0; the first write inserts it as v1.
+	pkg := newTestAgentPackage("default", "otelcol")
+	assert.Equal(t, int64(0), pkg.Metadata.ResourceVersion)
+
+	saved, err := repo.PutAgentPackage(ctx, pkg)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), saved.Metadata.ResourceVersion, "PutAgentPackage must bump the caller's version")
+
+	// Two writers load the same v1 snapshot.
+	loadA, err := repo.GetAgentPackage(ctx, "default", "otelcol", nil)
+	require.NoError(t, err)
+	loadB, err := repo.GetAgentPackage(ctx, "default", "otelcol", nil)
+	require.NoError(t, err)
+
+	// Writer A wins, advancing the stored version to v2.
+	loadA.Spec.Version = "2.0.0"
+	_, err = repo.PutAgentPackage(ctx, loadA)
+	require.NoError(t, err)
+
+	// Writer B still holds v1, so its write is rejected instead of clobbering A.
+	loadB.Spec.Version = "3.0.0"
+	_, err = repo.PutAgentPackage(ctx, loadB)
+	require.ErrorIs(t, err, model.ErrConflict)
+
+	stored, err := repo.GetAgentPackage(ctx, "default", "otelcol", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "2.0.0", stored.Spec.Version, "the losing writer must not overwrite the winner")
+	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+}
+
+func TestHostRepository_PutOptimisticConcurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewHostRepository()
+	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
+
+	host := agentmodel.NewHost("host-1", now)
+	assert.Equal(t, int64(0), host.Metadata.ResourceVersion)
+
+	saved, err := repo.PutHost(ctx, host)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), saved.Metadata.ResourceVersion, "PutHost must bump the caller's version")
+
+	loadA, err := repo.GetHost(ctx, "host-1")
+	require.NoError(t, err)
+	loadB, err := repo.GetHost(ctx, "host-1")
+	require.NoError(t, err)
+
+	loadA.Metadata.Name = "host-a"
+	_, err = repo.PutHost(ctx, loadA)
+	require.NoError(t, err)
+
+	loadB.Metadata.Name = "host-b"
+	_, err = repo.PutHost(ctx, loadB)
+	require.ErrorIs(t, err, model.ErrConflict)
+
+	stored, err := repo.GetHost(ctx, "host-1")
+	require.NoError(t, err)
+	assert.Equal(t, "host-a", stored.Metadata.Name, "the losing writer must not overwrite the winner")
+	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+}
+
+func TestAgentRemoteConfigRepository_PutGetListSoftDelete(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRemoteConfigRepository()
+
+	config := &agentmodel.AgentRemoteConfig{
+		Metadata: agentmodel.AgentRemoteConfigMetadata{Name: "cfg", Namespace: "default"},
+		Spec:     agentmodel.AgentRemoteConfigSpec{Value: []byte("body"), ContentType: "text/yaml"},
+	}
+
+	_, err := repo.PutAgentRemoteConfig(ctx, config)
+	require.NoError(t, err)
+
+	got, err := repo.GetAgentRemoteConfig(ctx, "default", "cfg", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "cfg", got.Metadata.Name)
+	assert.Equal(t, []byte("body"), got.Spec.Value)
+
+	list, err := repo.ListAgentRemoteConfigs(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+
+	// Soft delete hides it from the default read.
+	deletedAt := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	config.Metadata.DeletedAt = &deletedAt
+	_, err = repo.PutAgentRemoteConfig(ctx, config)
+	require.NoError(t, err)
+
+	_, err = repo.GetAgentRemoteConfig(ctx, "default", "cfg", nil)
+	require.ErrorIs(t, err, model.ErrResourceNotExist)
+}
+
+func TestContainerRepository_PutOptimisticConcurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewContainerRepository()
+	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
+
+	container := agentmodel.NewContainer("container-1", now)
+	assert.Equal(t, int64(0), container.Metadata.ResourceVersion)
+
+	saved, err := repo.PutContainer(ctx, container)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), saved.Metadata.ResourceVersion, "PutContainer must bump the caller's version")
+
+	loadA, err := repo.GetContainer(ctx, "container-1")
+	require.NoError(t, err)
+	loadB, err := repo.GetContainer(ctx, "container-1")
+	require.NoError(t, err)
+
+	loadA.Metadata.Name = "cont-a"
+	_, err = repo.PutContainer(ctx, loadA)
+	require.NoError(t, err)
+
+	loadB.Metadata.Name = "cont-b"
+	_, err = repo.PutContainer(ctx, loadB)
+	require.ErrorIs(t, err, model.ErrConflict)
+
+	stored, err := repo.GetContainer(ctx, "container-1")
+	require.NoError(t, err)
+	assert.Equal(t, "cont-a", stored.Metadata.Name, "the losing writer must not overwrite the winner")
+	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+}
+
+func TestEndpointRepository_PutOptimisticConcurrency(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewEndpointRepository()
+	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
+
+	endpoint := agentmodel.NewEndpoint("default", "tempo", nil, now, "tester")
+	assert.Equal(t, int64(0), endpoint.Metadata.ResourceVersion)
+
+	saved, err := repo.PutEndpoint(ctx, endpoint)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), saved.Metadata.ResourceVersion, "PutEndpoint must bump the caller's version")
+
+	loadA, err := repo.GetEndpoint(ctx, "default", "tempo", nil)
+	require.NoError(t, err)
+	loadB, err := repo.GetEndpoint(ctx, "default", "tempo", nil)
+	require.NoError(t, err)
+
+	loadA.Spec.URL = "https://a.example.com"
+	_, err = repo.PutEndpoint(ctx, loadA)
+	require.NoError(t, err)
+
+	loadB.Spec.URL = "https://b.example.com"
+	_, err = repo.PutEndpoint(ctx, loadB)
+	require.ErrorIs(t, err, model.ErrConflict)
+
+	stored, err := repo.GetEndpoint(ctx, "default", "tempo", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "https://a.example.com", stored.Spec.URL, "the losing writer must not overwrite the winner")
+	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+}

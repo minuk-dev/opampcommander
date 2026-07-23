@@ -34,13 +34,32 @@ func (r *EndpointRepository) GetEndpoint(
 }
 
 // PutEndpoint implements agentport.EndpointPersistencePort.
+//
+// Like the MongoDB adapter, this is an optimistic-concurrency write: an update
+// (ResourceVersion > 0) succeeds only if the stored version still matches, else it
+// returns [model.ErrConflict]. On success the version is incremented and written
+// back onto the passed endpoint.
 func (r *EndpointRepository) PutEndpoint(
 	_ context.Context, endpoint *agentmodel.Endpoint,
 ) (*agentmodel.Endpoint, error) {
-	r.store.put(namespacedName{
+	key := namespacedName{
 		Namespace: endpoint.Metadata.Namespace,
 		Name:      endpoint.Metadata.Name,
-	}, endpoint)
+	}
+	expected := endpoint.Metadata.ResourceVersion
+	next := expected + 1
+
+	toStore := cloneEndpoint(endpoint)
+	toStore.Metadata.ResourceVersion = next
+
+	err := r.store.casPutOrCreate(key, toStore, expected, func(e *agentmodel.Endpoint) int64 {
+		return e.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint.Metadata.ResourceVersion = next
 
 	return endpoint, nil
 }

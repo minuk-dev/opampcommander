@@ -1,4 +1,3 @@
-//nolint:dupl // Host and Container discovery services intentionally share this shape.
 package agentservice
 
 import (
@@ -56,6 +55,10 @@ func (s *ContainerService) ListContainers(
 }
 
 // ObserveAgent implements [agentport.ContainerUsecase].
+//
+// Like host discovery, this is a read-modify-write retried on
+// [model.ErrConflict] so a concurrent writer (another HA node discovering the same
+// container) does not drop this agent's association.
 func (s *ContainerService) ObserveAgent(ctx context.Context, agent *agentmodel.Agent) error {
 	id := agentmodel.ContainerIDOf(agent.Metadata.Description)
 	if id == "" {
@@ -65,21 +68,27 @@ func (s *ContainerService) ObserveAgent(ctx context.Context, agent *agentmodel.A
 
 	now := s.clock.Now()
 
-	container, err := s.persistence.GetContainer(ctx, id)
-	if err != nil {
-		if !errors.Is(err, model.ErrResourceNotExist) {
-			return fmt.Errorf("failed to get container for discovery: %w", err)
+	for attempt := 0; ; attempt++ {
+		container, err := s.persistence.GetContainer(ctx, id)
+		if err != nil {
+			if !errors.Is(err, model.ErrResourceNotExist) {
+				return fmt.Errorf("failed to get container for discovery: %w", err)
+			}
+
+			container = agentmodel.NewContainer(id, now)
 		}
 
-		container = agentmodel.NewContainer(id, now)
-	}
+		container.ObserveAgent(agent.Metadata.InstanceUID, agent.Metadata.Description, now)
 
-	container.ObserveAgent(agent.Metadata.InstanceUID, agent.Metadata.Description, now)
+		_, err = s.persistence.PutContainer(ctx, container)
+		if err == nil {
+			return nil
+		}
 
-	_, err = s.persistence.PutContainer(ctx, container)
-	if err != nil {
+		if errors.Is(err, model.ErrConflict) && attempt < discoveryObserveConflictRetries {
+			continue
+		}
+
 		return fmt.Errorf("failed to save discovered container: %w", err)
 	}
-
-	return nil
 }
