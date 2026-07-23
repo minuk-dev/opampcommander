@@ -99,6 +99,74 @@ func TestAgentPackageService_CreateAgentPackage_RejectsExisting(t *testing.T) {
 	assert.Equal(t, 0, persistence.putCalls, "no write may happen when the package already exists")
 }
 
+func TestAgentPackageService_GetListSaveDelete(t *testing.T) {
+	t.Parallel()
+
+	t.Run("get delegates to persistence", func(t *testing.T) {
+		t.Parallel()
+
+		stored := &agentmodel.AgentPackage{
+			Metadata: agentmodel.AgentPackageMetadata{Name: "pkg", Namespace: "default"},
+		}
+		svc := agentservice.NewAgentPackageService(&apFakePersistence{stored: stored})
+
+		got, err := svc.GetAgentPackage(t.Context(), "default", "pkg", nil)
+		require.NoError(t, err)
+		assert.Equal(t, "pkg", got.Metadata.Name)
+	})
+
+	t.Run("get propagates not-found", func(t *testing.T) {
+		t.Parallel()
+
+		svc := agentservice.NewAgentPackageService(&apFakePersistence{})
+
+		_, err := svc.GetAgentPackage(t.Context(), "default", "missing", nil)
+		require.ErrorIs(t, err, model.ErrResourceNotExist)
+	})
+
+	t.Run("list delegates to persistence", func(t *testing.T) {
+		t.Parallel()
+
+		svc := agentservice.NewAgentPackageService(&apFakePersistence{})
+
+		resp, err := svc.ListAgentPackages(t.Context(), nil)
+		require.NoError(t, err)
+		assert.Empty(t, resp.Items)
+	})
+
+	t.Run("save writes as-is", func(t *testing.T) {
+		t.Parallel()
+
+		persistence := &apFakePersistence{}
+		svc := agentservice.NewAgentPackageService(persistence)
+		pkg := &agentmodel.AgentPackage{
+			Metadata: agentmodel.AgentPackageMetadata{Name: "pkg", Namespace: "default", ResourceVersion: 2},
+		}
+
+		_, err := svc.SaveAgentPackage(t.Context(), pkg)
+		require.NoError(t, err)
+		assert.Equal(t, 1, persistence.putCalls)
+		assert.Equal(t, int64(2), persistence.lastPut.Metadata.ResourceVersion)
+	})
+
+	t.Run("delete stamps a deletion and persists it", func(t *testing.T) {
+		t.Parallel()
+
+		stored := &agentmodel.AgentPackage{
+			Metadata: agentmodel.AgentPackageMetadata{Name: "pkg", Namespace: "default"},
+		}
+		persistence := &apFakePersistence{stored: stored}
+		svc := agentservice.NewAgentPackageService(persistence)
+
+		deletedAt := time.Date(2026, 6, 20, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, svc.DeleteAgentPackage(t.Context(), "default", "pkg", deletedAt, "tester"))
+
+		require.Equal(t, 1, persistence.putCalls)
+		require.NotNil(t, persistence.lastPut.Metadata.DeletedAt)
+		assert.Equal(t, deletedAt, *persistence.lastPut.Metadata.DeletedAt)
+	})
+}
+
 func TestAgentPackageService_UpdateAgentPackage_PreservesImmutableFields(t *testing.T) {
 	t.Parallel()
 

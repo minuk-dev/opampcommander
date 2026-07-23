@@ -680,6 +680,39 @@ func TestHostRepository_PutOptimisticConcurrency(t *testing.T) {
 	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
 }
 
+func TestAgentRemoteConfigRepository_PutGetListSoftDelete(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewAgentRemoteConfigRepository()
+
+	config := &agentmodel.AgentRemoteConfig{
+		Metadata: agentmodel.AgentRemoteConfigMetadata{Name: "cfg", Namespace: "default"},
+		Spec:     agentmodel.AgentRemoteConfigSpec{Value: []byte("body"), ContentType: "text/yaml"},
+	}
+
+	_, err := repo.PutAgentRemoteConfig(ctx, config)
+	require.NoError(t, err)
+
+	got, err := repo.GetAgentRemoteConfig(ctx, "default", "cfg", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "cfg", got.Metadata.Name)
+	assert.Equal(t, []byte("body"), got.Spec.Value)
+
+	list, err := repo.ListAgentRemoteConfigs(ctx, nil)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+
+	// Soft delete hides it from the default read.
+	deletedAt := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	config.Metadata.DeletedAt = &deletedAt
+	_, err = repo.PutAgentRemoteConfig(ctx, config)
+	require.NoError(t, err)
+
+	_, err = repo.GetAgentRemoteConfig(ctx, "default", "cfg", nil)
+	require.ErrorIs(t, err, model.ErrResourceNotExist)
+}
+
 func TestContainerRepository_PutOptimisticConcurrency(t *testing.T) {
 	t.Parallel()
 
