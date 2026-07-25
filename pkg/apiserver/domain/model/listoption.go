@@ -33,6 +33,11 @@ type GetOptions struct {
 }
 
 // ListResponse is a generic struct that represents a paginated response for listing resources.
+//
+// Pagination convention, shared by every listing path: Continue is an opaque resume token,
+// non-empty whenever Items is non-empty (even on the final page) and echoed back verbatim on
+// the next request. End-of-list is signaled by RemainingItemCount reaching 0, not by Continue
+// becoming empty.
 type ListResponse[T any] struct {
 	RemainingItemCount int64
 	Continue           string
