@@ -35,32 +35,34 @@ func TestServerConnectionMongoAdapter(t *testing.T) {
 	})
 
 	database := client.Database("testdb")
+	require.NoError(t, mongodb.EnsureSchema(ctx, database))
+
 	adapter := mongodb.NewServerConnectionAdapter(database, base.Logger)
 
 	now := time.Now()
-	rec := func(server, ns string, uid uuid.UUID, snapshotAt time.Time) *agentmodel.ServerConnection {
+	rec := func(server, ns string, uid uuid.UUID) *agentmodel.ServerConnection {
 		return &agentmodel.ServerConnection{
 			ServerID: server, UID: uid, InstanceUID: uuid.New(),
 			Type: agentmodel.ConnectionTypeWebSocket, Namespace: ns,
-			LastCommunicatedAt: now, SnapshotAt: snapshotAt,
+			LastCommunicatedAt: now, SnapshotAt: now,
 		}
 	}
 
 	a1, b1 := uuid.New(), uuid.New()
 
-	t.Run("replace per server and list cluster-wide", func(t *testing.T) {
+	t.Run("sync per server and list cluster-wide", func(t *testing.T) {
 		t.Parallel()
-		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-a",
-			[]*agentmodel.ServerConnection{rec("server-a", "default", a1, now)}))
-		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-b",
-			[]*agentmodel.ServerConnection{rec("server-b", "default", b1, now)}))
+		require.NoError(t, adapter.SyncServerConnections(ctx, "server-a", now,
+			[]*agentmodel.ServerConnection{rec("server-a", "default", a1)}, nil))
+		require.NoError(t, adapter.SyncServerConnections(ctx, "server-b", now,
+			[]*agentmodel.ServerConnection{rec("server-b", "default", b1)}, nil))
 
 		resp, err := adapter.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 		require.NoError(t, err)
 		assert.Len(t, resp.Items, 2)
 
-		// Replacing one server's set leaves the other untouched.
-		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-a", nil))
+		// Removing one server leaves the other untouched.
+		require.NoError(t, adapter.RemoveServer(ctx, "server-a"))
 
 		resp, err = adapter.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 		require.NoError(t, err)
@@ -69,10 +71,11 @@ func TestServerConnectionMongoAdapter(t *testing.T) {
 		assert.Equal(t, b1, resp.Items[0].UID)
 	})
 
-	t.Run("staleness cutoff excludes old snapshots", func(t *testing.T) {
+	t.Run("staleness cutoff excludes crashed servers", func(t *testing.T) {
 		t.Parallel()
-		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-stale",
-			[]*agentmodel.ServerConnection{rec("server-stale", "ns-stale", uuid.New(), now.Add(-10*time.Minute))}))
+		// A stale heartbeat marks the server crashed, so its connections drop out.
+		require.NoError(t, adapter.SyncServerConnections(ctx, "server-stale", now.Add(-10*time.Minute),
+			[]*agentmodel.ServerConnection{rec("server-stale", "ns-stale", uuid.New())}, nil))
 
 		resp, err := adapter.ListServerConnections(ctx, "ns-stale", "", now.Add(-90*time.Second), nil)
 		require.NoError(t, err)
@@ -83,10 +86,10 @@ func TestServerConnectionMongoAdapter(t *testing.T) {
 		t.Parallel()
 
 		x1, y1 := uuid.New(), uuid.New()
-		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-x",
-			[]*agentmodel.ServerConnection{rec("server-x", "ns-filter", x1, now)}))
-		require.NoError(t, adapter.ReplaceServerConnections(ctx, "server-y",
-			[]*agentmodel.ServerConnection{rec("server-y", "ns-filter", y1, now)}))
+		require.NoError(t, adapter.SyncServerConnections(ctx, "server-x", now,
+			[]*agentmodel.ServerConnection{rec("server-x", "ns-filter", x1)}, nil))
+		require.NoError(t, adapter.SyncServerConnections(ctx, "server-y", now,
+			[]*agentmodel.ServerConnection{rec("server-y", "ns-filter", y1)}, nil))
 
 		resp, err := adapter.ListServerConnections(ctx, "ns-filter", "server-x", time.Time{}, nil)
 		require.NoError(t, err)

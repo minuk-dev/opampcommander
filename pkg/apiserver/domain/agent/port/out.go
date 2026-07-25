@@ -98,17 +98,32 @@ type ServerPersistencePort interface {
 	ListServers(ctx context.Context) ([]*agentmodel.Server, error)
 }
 
-// ServerConnectionPersistencePort persists per-server snapshots of live connections so the
-// cluster-wide connection view can be queried from any node.
+// ServerConnectionPersistencePort persists per-server connection records so the cluster-wide
+// connection view can be queried from any node.
+//
+// Liveness is decoupled from membership: a server refreshes a single heartbeat every cycle
+// (O(1)), while connection records are written only when they change. A record is visible in
+// the cluster view only while its owning server's heartbeat is fresh, so a crashed server's
+// connections drop out without any per-record rewrite.
 type ServerConnectionPersistencePort interface {
-	// ReplaceServerConnections atomically replaces all snapshot records owned by serverID
-	// with the provided set. An empty set clears the server's records (e.g. on shutdown or
-	// when it holds no connections).
-	ReplaceServerConnections(ctx context.Context, serverID string, conns []*agentmodel.ServerConnection) error
-	// ListServerConnections lists snapshot records, filtered by namespace. A non-empty
-	// serverID restricts the result to that one server; an empty serverID spans all servers.
-	// notBefore drops records whose SnapshotAt is older than it (stale/crashed servers); a
-	// zero notBefore returns all records.
+	// SyncServerConnections refreshes serverID's heartbeat to heartbeatAt and applies an
+	// incremental change set: upserts the given records (keyed by connection UID) and deletes
+	// the given UIDs. In steady state upserts and deletes are empty and only the heartbeat is
+	// written. Called once per snapshot cycle by the owning server.
+	SyncServerConnections(
+		ctx context.Context,
+		serverID string,
+		heartbeatAt time.Time,
+		upserts []*agentmodel.ServerConnection,
+		deletes []uuid.UUID,
+	) error
+	// RemoveServer deletes serverID's heartbeat and all its connection records, dropping the
+	// server out of the cluster view immediately (graceful shutdown, or self-cleanup on start).
+	RemoveServer(ctx context.Context, serverID string) error
+	// ListServerConnections lists connections owned by servers whose heartbeat is at or after
+	// notBefore (stale/crashed servers excluded); a zero notBefore includes every server. A
+	// non-empty serverID restricts the result to that one server; an empty serverID spans all.
+	// Results are filtered by namespace.
 	ListServerConnections(ctx context.Context, namespace string, serverID string, notBefore time.Time,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.ServerConnection], error)
 }

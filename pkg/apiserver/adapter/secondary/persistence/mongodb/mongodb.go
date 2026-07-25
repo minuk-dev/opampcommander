@@ -6,12 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
+
+// serverHeartbeatTTL is how long a server heartbeat survives without a refresh before MongoDB's
+// TTL monitor drops it. Sized well above the snapshot interval so a live server (which refreshes
+// every cycle) is never expired; it only garbage-collects heartbeats of crashed servers.
+const serverHeartbeatTTL = 10 * time.Minute
 
 // sanitizeResourceName validates and returns a safe resource name for MongoDB queries.
 // Each rune is checked against a whitelist and copied to a new string, preventing
@@ -50,6 +56,7 @@ var (
 		namespaceCollectionName,
 		serverCollectionName,
 		serverConnectionCollectionName,
+		serverHeartbeatCollectionName,
 	}
 
 	indexes = []collectionAndIndexes{
@@ -200,20 +207,36 @@ var (
 		{
 			collectionName: serverConnectionCollectionName,
 			indexes: []mongo.IndexModel{
-				// Backs ReplaceServerConnections' per-server delete and the cluster-list
-				// query's namespace + snapshot-staleness filter.
+				// Unique key backing the incremental upsert (ReplaceOne by uid) and the
+				// delete-by-uid path in SyncServerConnections.
+				{
+					Keys:    bson.D{{Key: "uid", Value: 1}},
+					Options: options.Index().SetUnique(true),
+				},
+				// Backs RemoveServer's per-server delete and the cluster-list query's
+				// namespace + owning-server filter.
 				{
 					Keys: bson.D{
+						{Key: "namespace", Value: 1},
 						{Key: "serverId", Value: 1},
 					},
 					Options: nil,
 				},
+			},
+		},
+		{
+			collectionName: serverHeartbeatCollectionName,
+			indexes: []mongo.IndexModel{
+				// One heartbeat per server; backs the upsert and the liveness lookup.
 				{
-					Keys: bson.D{
-						{Key: "namespace", Value: 1},
-						{Key: "snapshotAt", Value: 1},
-					},
-					Options: nil,
+					Keys:    bson.D{{Key: "serverId", Value: 1}},
+					Options: options.Index().SetUnique(true),
+				},
+				// TTL index: a crashed server's heartbeat (and thus its cluster-view
+				// visibility) expires automatically once it stops refreshing.
+				{
+					Keys:    bson.D{{Key: "lastSeenAt", Value: 1}},
+					Options: options.Index().SetExpireAfterSeconds(int32(serverHeartbeatTTL.Seconds())),
 				},
 			},
 		},

@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -16,13 +18,19 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-const serverConnectionCollectionName = "serverconnections"
+const (
+	serverConnectionCollectionName = "serverconnections"
+	serverHeartbeatCollectionName  = "serverheartbeats"
+)
 
 var _ agentport.ServerConnectionPersistencePort = (*ServerConnectionAdapter)(nil)
 
-// ServerConnectionAdapter persists per-server connection snapshots in MongoDB.
+// ServerConnectionAdapter persists per-server connection records and liveness heartbeats in
+// MongoDB. Membership (connections) is written incrementally; liveness (heartbeats) is a single
+// O(1) upsert per cycle, and reads join the two so a stale server's connections drop out.
 type ServerConnectionAdapter struct {
 	collection *mongo.Collection
+	heartbeats *mongo.Collection
 	logger     *slog.Logger
 }
 
@@ -30,42 +38,66 @@ type ServerConnectionAdapter struct {
 func NewServerConnectionAdapter(database *mongo.Database, logger *slog.Logger) *ServerConnectionAdapter {
 	return &ServerConnectionAdapter{
 		collection: database.Collection(serverConnectionCollectionName),
+		heartbeats: database.Collection(serverHeartbeatCollectionName),
 		logger:     logger,
 	}
 }
 
-// ReplaceServerConnections implements agentport.ServerConnectionPersistencePort.
+// SyncServerConnections implements agentport.ServerConnectionPersistencePort.
 //
-// It deletes the owning server's existing records and inserts the new set. The two steps
-// are not transactional; a reader hitting the brief gap simply sees this server's
-// connections momentarily missing, which is acceptable for a periodic snapshot view.
-func (a *ServerConnectionAdapter) ReplaceServerConnections(
+// It refreshes the server's heartbeat and applies the incremental change set. The steps are
+// not transactional, which is acceptable for a periodic snapshot view: a reader may briefly see
+// a just-added connection missing or a just-removed one present until the next cycle.
+func (a *ServerConnectionAdapter) SyncServerConnections(
 	ctx context.Context,
 	serverID string,
-	conns []*agentmodel.ServerConnection,
+	heartbeatAt time.Time,
+	upserts []*agentmodel.ServerConnection,
+	deletes []uuid.UUID,
 ) error {
-	_, err := a.collection.DeleteMany(ctx, bson.M{"serverId": serverID})
+	err := a.refreshHeartbeat(ctx, serverID, heartbeatAt)
 	if err != nil {
-		return fmt.Errorf("failed to delete server connections from mongodb: %w", err)
+		return err
 	}
 
-	if len(conns) == 0 {
-		return nil
+	if len(deletes) > 0 {
+		deleteIDs := lo.Map(deletes, func(uid uuid.UUID, _ int) string { return uid.String() })
+
+		_, err = a.collection.DeleteMany(ctx, bson.M{"serverId": serverID, "uid": bson.M{"$in": deleteIDs}})
+		if err != nil {
+			return fmt.Errorf("failed to delete server connections from mongodb: %w", err)
+		}
 	}
 
-	docs := lo.Map(conns, func(conn *agentmodel.ServerConnection, _ int) any {
-		return entity.ServerConnectionFromDomain(conn)
-	})
+	for _, conn := range upserts {
+		ent := entity.ServerConnectionFromDomain(conn)
 
-	_, err = a.collection.InsertMany(ctx, docs)
-	if err != nil {
-		return fmt.Errorf("failed to insert server connections to mongodb: %w", err)
+		_, err = a.collection.ReplaceOne(ctx, bson.M{"uid": ent.UID}, ent, options.Replace().SetUpsert(true))
+		if err != nil {
+			return fmt.Errorf("failed to upsert server connection to mongodb: %w", err)
+		}
 	}
 
 	return nil
 }
 
-// ListServerConnections implements agentport.ServerConnectionPersistencePort.
+// RemoveServer implements agentport.ServerConnectionPersistencePort.
+func (a *ServerConnectionAdapter) RemoveServer(ctx context.Context, serverID string) error {
+	_, err := a.heartbeats.DeleteOne(ctx, bson.M{"serverId": serverID})
+	if err != nil {
+		return fmt.Errorf("failed to delete server heartbeat from mongodb: %w", err)
+	}
+
+	_, err = a.collection.DeleteMany(ctx, bson.M{"serverId": serverID})
+	if err != nil {
+		return fmt.Errorf("failed to delete server connections from mongodb: %w", err)
+	}
+
+	return nil
+}
+
+// ListServerConnections implements agentport.ServerConnectionPersistencePort. It first resolves
+// the set of live servers from the heartbeat collection, then returns only their connections.
 func (a *ServerConnectionAdapter) ListServerConnections(
 	ctx context.Context,
 	namespace string,
@@ -78,15 +110,19 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 		options = &model.ListOptions{}
 	}
 
-	conditions := []bson.M{{"namespace": sanitizeResourceName(namespace)}}
-	if serverID != "" {
-		// Sanitize the user-provided serverId the same way as namespace so it can only
-		// ever be a literal equality match, never a MongoDB operator (NoSQL injection).
-		conditions = append(conditions, bson.M{"serverId": sanitizeResourceName(serverID)})
+	liveServerIDs, err := a.liveServerIDs(ctx, serverID, notBefore)
+	if err != nil {
+		return nil, err
 	}
 
-	if !notBefore.IsZero() {
-		conditions = append(conditions, bson.M{"snapshotAt": bson.M{"$gte": notBefore}})
+	if len(liveServerIDs) == 0 {
+		//exhaustruct:ignore
+		return &model.ListResponse[*agentmodel.ServerConnection]{}, nil
+	}
+
+	conditions := []bson.M{
+		{"namespace": sanitizeResourceName(namespace)},
+		{"serverId": bson.M{"$in": liveServerIDs}},
 	}
 
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
@@ -117,6 +153,55 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 		Continue:           continueToken,
 		RemainingItemCount: count - int64(len(entities)),
 	}, nil
+}
+
+func (a *ServerConnectionAdapter) refreshHeartbeat(ctx context.Context, serverID string, at time.Time) error {
+	heartbeat := &entity.ServerHeartbeat{ID: nil, ServerID: serverID, LastSeenAt: at}
+
+	_, err := a.heartbeats.ReplaceOne(ctx, bson.M{"serverId": serverID}, heartbeat, options.Replace().SetUpsert(true))
+	if err != nil {
+		return fmt.Errorf("failed to refresh server heartbeat in mongodb: %w", err)
+	}
+
+	return nil
+}
+
+// liveServerIDs returns the serverIDs whose heartbeat is at or after notBefore. A non-empty
+// serverID restricts the query to that one server; a zero notBefore matches every heartbeat.
+func (a *ServerConnectionAdapter) liveServerIDs(
+	ctx context.Context,
+	serverID string,
+	notBefore time.Time,
+) ([]string, error) {
+	filter := bson.M{}
+	if serverID != "" {
+		filter["serverId"] = sanitizeResourceName(serverID)
+	}
+
+	if !notBefore.IsZero() {
+		filter["lastSeenAt"] = bson.M{"$gte": notBefore}
+	}
+
+	cursor, err := a.heartbeats.Find(ctx, filter, options.Find().SetProjection(bson.M{"serverId": 1}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find server heartbeats in mongodb: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var heartbeats []*entity.ServerHeartbeat
+
+	err = cursor.All(ctx, &heartbeats)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode server heartbeats from mongodb: %w", err)
+	}
+
+	return lo.Map(heartbeats, func(hb *entity.ServerHeartbeat, _ int) string { return hb.ServerID }), nil
 }
 
 // findServerConnections runs the paginated find and returns the decoded entities plus the

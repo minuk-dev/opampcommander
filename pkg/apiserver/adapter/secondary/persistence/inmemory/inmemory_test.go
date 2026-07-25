@@ -486,7 +486,7 @@ func TestAgentRepository_PutAgentConflictOnConcurrentCreate(t *testing.T) {
 	require.ErrorIs(t, repo.PutAgent(ctx, createB), model.ErrConflict)
 }
 
-func TestServerConnectionRepository_ReplaceAndList(t *testing.T) {
+func TestServerConnectionRepository_SyncAndList(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -506,29 +506,27 @@ func TestServerConnectionRepository_ReplaceAndList(t *testing.T) {
 	}
 
 	a1, a2, b1 := uuid.New(), uuid.New(), uuid.New()
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-a", []*agentmodel.ServerConnection{
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-a", now, []*agentmodel.ServerConnection{
 		sc("server-a", "default", a1), sc("server-a", "default", a2),
-	}))
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-b", []*agentmodel.ServerConnection{
+	}, nil))
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-b", now, []*agentmodel.ServerConnection{
 		sc("server-b", "default", b1),
-	}))
+	}, nil))
 
-	// Cluster view spans both servers.
+	// Cluster view spans both live servers.
 	resp, err := repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 3)
 
-	// Replacing one server's set only affects that server.
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-a", []*agentmodel.ServerConnection{
-		sc("server-a", "default", a1),
-	}))
+	// An incremental delete only affects the named connection.
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-a", now, nil, []uuid.UUID{a2}))
 
 	resp, err = repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 2) // a1 + b1
 
-	// Clearing a server removes its records.
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-b", nil))
+	// Removing a server drops its heartbeat and records.
+	require.NoError(t, repo.RemoveServer(ctx, "server-b"))
 
 	resp, err = repo.ListServerConnections(ctx, "default", "", time.Time{}, nil)
 	require.NoError(t, err)
@@ -553,18 +551,20 @@ func TestServerConnectionRepository_ListFiltersNamespaceAndStaleness(t *testing.
 		Type: agentmodel.ConnectionTypeHTTP, Namespace: "ns-b",
 		LastCommunicatedAt: now, SnapshotAt: now,
 	}
+	// Owned by a server whose heartbeat is stale (crashed), so it must be excluded.
 	stale := &agentmodel.ServerConnection{
 		ServerID: "server-c", UID: uuid.New(), InstanceUID: uuid.New(),
 		Type: agentmodel.ConnectionTypeHTTP, Namespace: "ns-a",
-		LastCommunicatedAt: now, SnapshotAt: now.Add(-10 * time.Minute),
+		LastCommunicatedAt: now, SnapshotAt: now,
 	}
 
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-a",
-		[]*agentmodel.ServerConnection{fresh, otherNS}))
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-c",
-		[]*agentmodel.ServerConnection{stale}))
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-a", now,
+		[]*agentmodel.ServerConnection{fresh, otherNS}, nil))
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-c", now.Add(-10*time.Minute),
+		[]*agentmodel.ServerConnection{stale}, nil))
 
-	// Namespace filter + staleness cutoff (notBefore) excludes other-namespace and stale records.
+	// Namespace filter + staleness cutoff (notBefore on the owning server's heartbeat) excludes
+	// the other-namespace record and the crashed server's record.
 	resp, err := repo.ListServerConnections(ctx, "ns-a", "", now.Add(-90*time.Second), nil)
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
@@ -587,10 +587,10 @@ func TestServerConnectionRepository_ListFiltersByServerID(t *testing.T) {
 	}
 
 	x1, y1 := uuid.New(), uuid.New()
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-x",
-		[]*agentmodel.ServerConnection{rec("server-x", x1)}))
-	require.NoError(t, repo.ReplaceServerConnections(ctx, "server-y",
-		[]*agentmodel.ServerConnection{rec("server-y", y1)}))
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-x", now,
+		[]*agentmodel.ServerConnection{rec("server-x", x1)}, nil))
+	require.NoError(t, repo.SyncServerConnections(ctx, "server-y", now,
+		[]*agentmodel.ServerConnection{rec("server-y", y1)}, nil))
 
 	resp, err := repo.ListServerConnections(ctx, "default", "server-x", time.Time{}, nil)
 	require.NoError(t, err)
