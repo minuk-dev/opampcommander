@@ -2,6 +2,7 @@ package agentservice
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 	"time"
@@ -109,6 +110,70 @@ func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testi
 	assert.WithinRange(t, store.listNotBefore,
 		before.Add(-DefaultConnectionSnapshotStaleness),
 		after.Add(-DefaultConnectionSnapshotStaleness))
+}
+
+// TestConnectionService_ListConnectionsPaginationConvention pins the shared pagination
+// contract on the node-local path (see model.ListResponse), guarding the previous
+// divergence where it emitted a "\xff" end-of-list sentinel token.
+func TestConnectionService_ListConnectionsPaginationConvention(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := NewConnectionService(nil, stubServerIdentity{id: "s1"}, &fakeServerConnectionStore{}, slog.Default())
+
+	const total = 5
+	for i := range total {
+		conn := agentmodel.NewConnection(fmt.Sprintf("default-conn-%d", i), agentmodel.ConnectionTypeWebSocket)
+		conn.SetNamespace("default")
+		require.NoError(t, svc.SaveConnection(ctx, conn))
+	}
+	// Filtered out by namespace.
+	other := agentmodel.NewConnection("other-conn", agentmodel.ConnectionTypeWebSocket)
+	other.SetNamespace("other")
+	require.NoError(t, svc.SaveConnection(ctx, other))
+
+	// Full listing: all items, end-of-list, Continue still a token (not "\xff").
+	full, err := svc.ListConnections(ctx, "default", &model.ListOptions{Limit: 0})
+	require.NoError(t, err)
+	require.Len(t, full.Items, total)
+	assert.Equal(t, int64(0), full.RemainingItemCount)
+	assert.NotEmpty(t, full.Continue, "Continue is a resume token, non-empty when items are returned")
+	assert.NotContains(t, full.Continue, "\xff", "the \\xff end-of-list sentinel must be gone")
+
+	// Empty page: no items, empty Continue.
+	empty, err := svc.ListConnections(ctx, "nonexistent", &model.ListOptions{Limit: 10})
+	require.NoError(t, err)
+	assert.Empty(t, empty.Items)
+	assert.Empty(t, empty.Continue)
+	assert.Equal(t, int64(0), empty.RemainingItemCount)
+
+	// Paged traversal returns every item exactly once, in the full-listing order.
+	pagedIDs := make([]string, 0, total)
+	cont := ""
+
+	for pages := 0; ; pages++ {
+		require.LessOrEqual(t, pages, total, "pagination must terminate")
+
+		resp, listErr := svc.ListConnections(ctx, "default", &model.ListOptions{Limit: 2, Continue: cont})
+		require.NoError(t, listErr)
+
+		for _, item := range resp.Items {
+			pagedIDs = append(pagedIDs, item.IDString())
+		}
+
+		if resp.RemainingItemCount == 0 {
+			break
+		}
+
+		cont = resp.Continue
+	}
+
+	fullIDs := make([]string, 0, len(full.Items))
+	for _, conn := range full.Items {
+		fullIDs = append(fullIDs, conn.IDString())
+	}
+
+	assert.Equal(t, fullIDs, pagedIDs, "paged traversal must equal the full ordered listing, with no repeats")
 }
 
 func TestConnectionService_ListClusterConnectionsPassesServerIDFilter(t *testing.T) {

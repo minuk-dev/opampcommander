@@ -207,32 +207,35 @@ func (s *Service) ListConnections(
 	keys := lo.Keys(keyValues)
 	sort.Strings(keys)
 
+	// Exclusive resume after the token, mirroring the persistence layer so both
+	// listing paths share one continue-token contract (see model.ListResponse).
 	if options.Continue != "" {
-		// Find the index of the continue token
 		index := sort.SearchStrings(keys, options.Continue)
-		if index < len(keys) {
-			keys = keys[index:]
-		} else {
-			keys = nil // If continue token not found, return empty list
+		if index < len(keys) && keys[index] == options.Continue {
+			index++
 		}
+
+		keys = keys[index:]
 	}
 
-	totalMatchedItemsCount := len(keys)
+	remainingFromHere := len(keys)
 
-	var nextContinue string
+	page := keys
 	if options.Limit > 0 && int64(len(keys)) > options.Limit {
-		nextContinue = keys[options.Limit]
-		keys = keys[:options.Limit]
-	} else {
-		nextContinue = "\xff" // Use a sentinel value to indicate no more items
+		page = keys[:options.Limit]
+	}
+
+	continueToken := ""
+	if len(page) > 0 {
+		continueToken = page[len(page)-1]
 	}
 
 	return &model.ListResponse[*agentmodel.Connection]{
-		Items: lo.Map(keys, func(key string, _ int) *agentmodel.Connection {
+		Items: lo.Map(page, func(key string, _ int) *agentmodel.Connection {
 			return keyValues[key]
 		}),
-		Continue:           nextContinue,
-		RemainingItemCount: int64(totalMatchedItemsCount - len(keys)),
+		Continue:           continueToken,
+		RemainingItemCount: int64(remainingFromHere - len(page)),
 	}, nil
 }
 
