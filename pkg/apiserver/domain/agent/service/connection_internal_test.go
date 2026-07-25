@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -148,7 +149,10 @@ func TestConnectionService_ListConnectionsPaginationConvention(t *testing.T) {
 	assert.Equal(t, int64(0), empty.RemainingItemCount)
 
 	// Paged traversal returns every item exactly once, in the full-listing order.
-	pagedIDs := make([]string, 0, total)
+	connID := func(conn *agentmodel.Connection, _ int) string { return conn.IDString() }
+
+	var pagedIDs []string
+
 	cont := ""
 
 	for pages := 0; ; pages++ {
@@ -157,9 +161,7 @@ func TestConnectionService_ListConnectionsPaginationConvention(t *testing.T) {
 		resp, listErr := svc.ListConnections(ctx, "default", &model.ListOptions{Limit: 2, Continue: cont})
 		require.NoError(t, listErr)
 
-		for _, item := range resp.Items {
-			pagedIDs = append(pagedIDs, item.IDString())
-		}
+		pagedIDs = append(pagedIDs, lo.Map(resp.Items, connID)...)
 
 		if resp.RemainingItemCount == 0 {
 			break
@@ -168,12 +170,8 @@ func TestConnectionService_ListConnectionsPaginationConvention(t *testing.T) {
 		cont = resp.Continue
 	}
 
-	fullIDs := make([]string, 0, len(full.Items))
-	for _, conn := range full.Items {
-		fullIDs = append(fullIDs, conn.IDString())
-	}
-
-	assert.Equal(t, fullIDs, pagedIDs, "paged traversal must equal the full ordered listing, with no repeats")
+	assert.Equal(t, lo.Map(full.Items, connID), pagedIDs,
+		"paged traversal must equal the full ordered listing, with no repeats")
 }
 
 func TestConnectionService_ListClusterConnectionsPassesServerIDFilter(t *testing.T) {
