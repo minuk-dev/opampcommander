@@ -60,6 +60,16 @@ type Service struct {
 
 	snapshotInterval  time.Duration
 	snapshotStaleness time.Duration
+
+	// lastSnapshot is the set of connection records last synced to the shared store, keyed by
+	// UID. It is the baseline for the next cycle's incremental diff and is touched only from
+	// the single Run goroutine, so it needs no lock.
+	lastSnapshot map[uuid.UUID]agentmodel.ServerConnection
+
+	// needsReconcile forces the next snapshot to first clear any records left by a prior
+	// incarnation of this serverID before diffing. It stays set until that clear succeeds, so a
+	// transient failure cannot leave orphaned records advertised as live.
+	needsReconcile bool
 }
 
 // NewConnectionService creates a new instance of the Service struct.
@@ -78,6 +88,8 @@ func NewConnectionService(
 		clock:                           clock.NewRealClock(),
 		snapshotInterval:                DefaultConnectionSnapshotInterval,
 		snapshotStaleness:               DefaultConnectionSnapshotStaleness,
+		lastSnapshot:                    nil,
+		needsReconcile:                  true,
 	}
 }
 
@@ -91,6 +103,11 @@ func (s *Service) Name() string {
 // the server's records on graceful shutdown so a stopped node drops out immediately rather
 // than lingering until its snapshot goes stale.
 func (s *Service) Run(ctx context.Context) error {
+	// Take an initial snapshot so connections appear promptly instead of only after the first
+	// interval. The first snapshot also clears any records left by a prior incarnation (see the
+	// needsReconcile handling in snapshotConnections).
+	s.snapshotConnections(ctx)
+
 	ticker := time.NewTicker(s.effectiveSnapshotInterval())
 	defer ticker.Stop()
 
@@ -317,8 +334,13 @@ func (s *Service) detectConnectionType(id any) agentmodel.ConnectionType {
 	return agentmodel.ConnectionTypeWebSocket
 }
 
-// snapshotConnections persists the current set of this server's local connections,
-// replacing any previously stored set for this server.
+// snapshotConnections refreshes this server's heartbeat and syncs only the connections that
+// changed since the last cycle: newly-added or field-changed records are upserted and dropped
+// connections are deleted. In steady state the diff is empty, so only the heartbeat is written.
+//
+// The first call (and any retry after a failed reconcile) first clears records left by a prior
+// incarnation of this serverID; until that clear succeeds it returns without writing anything,
+// so the server never advertises a fresh heartbeat over orphaned records.
 func (s *Service) snapshotConnections(ctx context.Context) {
 	serverID := s.serverIdentityProvider.CurrentServerID()
 	if serverID == "" {
@@ -327,12 +349,69 @@ func (s *Service) snapshotConnections(ctx context.Context) {
 		return
 	}
 
+	if s.needsReconcile {
+		err := s.serverConnectionPersistencePort.RemoveServer(ctx, serverID)
+		if err != nil {
+			s.logger.Warn("failed to clear stale connection records; staying out of the cluster view until it succeeds",
+				slog.String("error", err.Error()))
+
+			return
+		}
+
+		s.needsReconcile = false
+		s.lastSnapshot = nil
+	}
+
 	now := s.clock.Now()
+	current := s.currentServerConnections(serverID, now)
+
+	var (
+		upserts []*agentmodel.ServerConnection
+		deletes []uuid.UUID
+	)
+
+	for uid, record := range current {
+		if prev, ok := s.lastSnapshot[uid]; !ok || !serverConnectionEqual(prev, *record) {
+			upserts = append(upserts, record)
+		}
+	}
+
+	for uid := range s.lastSnapshot {
+		if _, ok := current[uid]; !ok {
+			deletes = append(deletes, uid)
+		}
+	}
+
+	err := s.serverConnectionPersistencePort.SyncServerConnections(ctx, serverID, now, upserts, deletes)
+	if err != nil {
+		// Keep lastSnapshot unchanged so the same diff is retried next cycle.
+		s.logger.Error("failed to sync connection snapshot", slog.String("error", err.Error()))
+
+		return
+	}
+
+	next := make(map[uuid.UUID]agentmodel.ServerConnection, len(current))
+	for uid, record := range current {
+		next[uid] = *record
+	}
+
+	s.lastSnapshot = next
+
+	s.logger.Debug("synced connection snapshot",
+		slog.Int("upserts", len(upserts)), slog.Int("deletes", len(deletes)))
+}
+
+// currentServerConnections builds this server's connection records from its live connection
+// map, keyed by UID.
+func (s *Service) currentServerConnections(
+	serverID string,
+	now time.Time,
+) map[uuid.UUID]*agentmodel.ServerConnection {
 	conns := s.connectionMap.Values()
 
-	records := make([]*agentmodel.ServerConnection, 0, len(conns))
+	records := make(map[uuid.UUID]*agentmodel.ServerConnection, len(conns))
 	for _, conn := range conns {
-		records = append(records, &agentmodel.ServerConnection{
+		records[conn.UID] = &agentmodel.ServerConnection{
 			ServerID:           serverID,
 			UID:                conn.UID,
 			InstanceUID:        conn.InstanceUID,
@@ -340,17 +419,22 @@ func (s *Service) snapshotConnections(ctx context.Context) {
 			Namespace:          conn.Namespace,
 			LastCommunicatedAt: conn.LastCommunicatedAt,
 			SnapshotAt:         now,
-		})
+		}
 	}
 
-	err := s.serverConnectionPersistencePort.ReplaceServerConnections(ctx, serverID, records)
-	if err != nil {
-		s.logger.Error("failed to snapshot connections", slog.String("error", err.Error()))
+	return records
+}
 
-		return
-	}
-
-	s.logger.Debug("snapshotted connections", slog.Int("count", len(records)))
+// serverConnectionEqual compares the stable identity of two records, ignoring the timestamps
+// (SnapshotAt, LastCommunicatedAt). Excluding LastCommunicatedAt is deliberate: it changes on
+// every agent message and re-upserting for it would defeat the incremental-write goal, so the
+// cluster view's LastCommunicatedAt is best-effort (as of the record's last identity change).
+func serverConnectionEqual(a, b agentmodel.ServerConnection) bool {
+	return a.ServerID == b.ServerID &&
+		a.UID == b.UID &&
+		a.InstanceUID == b.InstanceUID &&
+		a.Type == b.Type &&
+		a.Namespace == b.Namespace
 }
 
 // clearSnapshotOnShutdown removes this server's snapshot records so it drops out of the
@@ -369,7 +453,7 @@ func (s *Service) clearSnapshotOnShutdown(ctx context.Context) {
 	clearCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), clearTimeout)
 	defer cancel()
 
-	err := s.serverConnectionPersistencePort.ReplaceServerConnections(clearCtx, serverID, nil)
+	err := s.serverConnectionPersistencePort.RemoveServer(clearCtx, serverID)
 	if err != nil {
 		s.logger.Warn("failed to clear connection snapshot on shutdown", slog.String("error", err.Error()))
 	}

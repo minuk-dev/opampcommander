@@ -68,3 +68,12 @@ func ServerConnectionFromDomain(conn *agentmodel.ServerConnection) *ServerConnec
 		SnapshotAt:         conn.SnapshotAt,
 	}
 }
+
+// ServerHeartbeat is a per-server liveness record in MongoDB. Each alive server refreshes
+// LastSeenAt every snapshot cycle; a connection is visible in the cluster view only while its
+// owning server's heartbeat is fresh. A TTL index on LastSeenAt drops dead servers' heartbeats.
+type ServerHeartbeat struct {
+	ID         *bson.ObjectID `bson:"_id,omitempty"`
+	ServerID   string         `bson:"serverId"`
+	LastSeenAt time.Time      `bson:"lastSeenAt"`
+}

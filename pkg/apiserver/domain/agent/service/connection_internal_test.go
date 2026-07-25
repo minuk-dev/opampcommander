@@ -59,18 +59,30 @@ func (s stubServerIdentity) CurrentServer(context.Context) (*agentmodel.Server, 
 }
 
 type fakeServerConnectionStore struct {
-	replacedServerID string
-	replaced         []*agentmodel.ServerConnection
-	listNotBefore    time.Time
-	listServerID     string
-	listResult       []*agentmodel.ServerConnection
+	syncedServerID  string
+	heartbeatAt     time.Time
+	upserts         []*agentmodel.ServerConnection
+	deletes         []uuid.UUID
+	removedServerID string
+	listNotBefore   time.Time
+	listServerID    string
+	listResult      []*agentmodel.ServerConnection
 }
 
-func (f *fakeServerConnectionStore) ReplaceServerConnections(
-	_ context.Context, serverID string, conns []*agentmodel.ServerConnection,
+func (f *fakeServerConnectionStore) SyncServerConnections(
+	_ context.Context, serverID string, heartbeatAt time.Time,
+	upserts []*agentmodel.ServerConnection, deletes []uuid.UUID,
 ) error {
-	f.replacedServerID = serverID
-	f.replaced = conns
+	f.syncedServerID = serverID
+	f.heartbeatAt = heartbeatAt
+	f.upserts = upserts
+	f.deletes = deletes
+
+	return nil
+}
+
+func (f *fakeServerConnectionStore) RemoveServer(_ context.Context, serverID string) error {
+	f.removedServerID = serverID
 
 	return nil
 }
@@ -103,11 +115,11 @@ func TestConnectionService_snapshotConnections(t *testing.T) {
 
 	svc.snapshotConnections(ctx)
 
-	assert.Equal(t, "server-1", store.replacedServerID)
-	require.Len(t, store.replaced, 1)
-	assert.Equal(t, "server-1", store.replaced[0].ServerID)
-	assert.Equal(t, instanceUID, store.replaced[0].InstanceUID)
-	assert.Equal(t, conn.UID, store.replaced[0].UID)
+	assert.Equal(t, "server-1", store.syncedServerID)
+	require.Len(t, store.upserts, 1)
+	assert.Equal(t, "server-1", store.upserts[0].ServerID)
+	assert.Equal(t, instanceUID, store.upserts[0].InstanceUID)
+	assert.Equal(t, conn.UID, store.upserts[0].UID)
 }
 
 func TestConnectionService_snapshotConnectionsSkipsWithoutIdentity(t *testing.T) {
@@ -118,8 +130,127 @@ func TestConnectionService_snapshotConnectionsSkipsWithoutIdentity(t *testing.T)
 
 	svc.snapshotConnections(context.Background())
 
-	assert.Empty(t, store.replacedServerID)
-	assert.Nil(t, store.replaced)
+	assert.Empty(t, store.syncedServerID)
+	assert.Nil(t, store.upserts)
+}
+
+// TestConnectionService_snapshotConnectionsIsIncremental pins the #486 behavior: each cycle
+// writes only the diff since the last one — new/changed connections are upserted, dropped ones
+// deleted, and a steady state writes nothing but the heartbeat.
+func TestConnectionService_snapshotConnectionsIsIncremental(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store := &fakeServerConnectionStore{}
+	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+
+	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
+	conn.SetNamespace("default")
+	require.NoError(t, svc.SaveConnection(ctx, conn))
+
+	// First cycle upserts the new connection.
+	svc.snapshotConnections(ctx)
+	require.Len(t, store.upserts, 1)
+	assert.Empty(t, store.deletes)
+
+	// Steady state: nothing changed, so nothing is written but the heartbeat.
+	store.upserts, store.deletes = nil, nil
+
+	svc.snapshotConnections(ctx)
+	assert.Empty(t, store.upserts)
+	assert.Empty(t, store.deletes)
+	assert.Equal(t, "server-1", store.syncedServerID, "the heartbeat is still refreshed")
+
+	// An identity change re-upserts just that record.
+	conn.SetInstanceUID(uuid.New())
+	require.NoError(t, svc.SaveConnection(ctx, conn))
+
+	store.upserts, store.deletes = nil, nil
+
+	svc.snapshotConnections(ctx)
+	require.Len(t, store.upserts, 1)
+	assert.Empty(t, store.deletes)
+
+	// Dropping the connection deletes it.
+	require.NoError(t, svc.DeleteConnection(ctx, conn))
+
+	store.upserts, store.deletes = nil, nil
+
+	svc.snapshotConnections(ctx)
+	assert.Empty(t, store.upserts)
+	require.Len(t, store.deletes, 1)
+	assert.Equal(t, conn.UID, store.deletes[0])
+}
+
+// reconcileFailStore fails the first N RemoveServer calls, then succeeds.
+type reconcileFailStore struct {
+	fakeServerConnectionStore
+
+	removeFailsLeft int
+}
+
+func (s *reconcileFailStore) RemoveServer(ctx context.Context, serverID string) error {
+	if s.removeFailsLeft > 0 {
+		s.removeFailsLeft--
+
+		return errFakeSend
+	}
+
+	return s.fakeServerConnectionStore.RemoveServer(ctx, serverID)
+}
+
+// TestConnectionService_snapshotRetriesReconcile guards the fix for the startup-orphan risk:
+// while the initial clear-of-prior-records fails, the server writes nothing (no heartbeat), so
+// it never advertises a fresh heartbeat over records it could not reconcile; it retries until
+// the clear succeeds.
+func TestConnectionService_snapshotRetriesReconcile(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store := &reconcileFailStore{fakeServerConnectionStore: fakeServerConnectionStore{}, removeFailsLeft: 1}
+	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+
+	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
+	conn.SetNamespace("default")
+	require.NoError(t, svc.SaveConnection(ctx, conn))
+
+	// First cycle: the reconcile clear fails, so nothing is synced.
+	svc.snapshotConnections(ctx)
+	assert.Empty(t, store.syncedServerID, "no heartbeat or membership until the clear succeeds")
+
+	// Next cycle: the clear succeeds and the connection is synced.
+	svc.snapshotConnections(ctx)
+	assert.Equal(t, "server-1", store.syncedServerID)
+	require.Len(t, store.upserts, 1)
+}
+
+// syncFailStore reconciles fine but fails every SyncServerConnections.
+type syncFailStore struct {
+	fakeServerConnectionStore
+}
+
+func (s *syncFailStore) SyncServerConnections(
+	_ context.Context, _ string, _ time.Time, _ []*agentmodel.ServerConnection, _ []uuid.UUID,
+) error {
+	return errFakeSend
+}
+
+// TestConnectionService_snapshotKeepsBaselineOnSyncError checks that a failed sync leaves the
+// diff baseline untouched so the same change set is retried next cycle.
+func TestConnectionService_snapshotKeepsBaselineOnSyncError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, &syncFailStore{}, slog.Default())
+
+	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
+	conn.SetNamespace("default")
+	require.NoError(t, svc.SaveConnection(ctx, conn))
+
+	svc.snapshotConnections(ctx)
+
+	assert.False(t, svc.needsReconcile, "the reconcile clear succeeded")
+	assert.Nil(t, svc.lastSnapshot, "a failed sync must not advance the diff baseline")
 }
 
 func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testing.T) {
@@ -403,8 +534,7 @@ func TestConnectionService_RunClearsSnapshotOnCancel(t *testing.T) {
 	cancel() // Run must observe the cancelled ctx and clear this server's snapshot.
 
 	require.NoError(t, svc.Run(ctx))
-	assert.Equal(t, "server-1", store.replacedServerID)
-	assert.Nil(t, store.replaced, "shutdown clears the server's records")
+	assert.Equal(t, "server-1", store.removedServerID, "shutdown removes the server's records")
 }
 
 func TestConnectionService_clearSnapshotOnShutdownSkipsWithoutIdentity(t *testing.T) {
@@ -414,7 +544,7 @@ func TestConnectionService_clearSnapshotOnShutdownSkipsWithoutIdentity(t *testin
 	svc := NewConnectionService(nil, stubServerIdentity{id: ""}, store, slog.Default())
 
 	svc.clearSnapshotOnShutdown(context.Background())
-	assert.Empty(t, store.replacedServerID, "no identity means no clear call")
+	assert.Empty(t, store.removedServerID, "no identity means no clear call")
 }
 
 func TestConnectionErrors(t *testing.T) {
@@ -432,9 +562,13 @@ func TestConnectionErrors(t *testing.T) {
 // error branches of the snapshot/cluster paths.
 type erroringServerConnectionStore struct{ err error }
 
-func (e *erroringServerConnectionStore) ReplaceServerConnections(
-	_ context.Context, _ string, _ []*agentmodel.ServerConnection,
+func (e *erroringServerConnectionStore) SyncServerConnections(
+	_ context.Context, _ string, _ time.Time, _ []*agentmodel.ServerConnection, _ []uuid.UUID,
 ) error {
+	return e.err
+}
+
+func (e *erroringServerConnectionStore) RemoveServer(_ context.Context, _ string) error {
 	return e.err
 }
 
@@ -477,18 +611,20 @@ func TestConnectionService_ListConnectionsNilOptions(t *testing.T) {
 
 // signalingStore reports each ReplaceServerConnections call on a channel so a test
 // can observe the periodic snapshot tick deterministically.
-type signalingStore struct{ replaced chan struct{} }
+type signalingStore struct{ synced chan struct{} }
 
-func (s *signalingStore) ReplaceServerConnections(
-	_ context.Context, _ string, _ []*agentmodel.ServerConnection,
+func (s *signalingStore) SyncServerConnections(
+	_ context.Context, _ string, _ time.Time, _ []*agentmodel.ServerConnection, _ []uuid.UUID,
 ) error {
 	select {
-	case s.replaced <- struct{}{}:
+	case s.synced <- struct{}{}:
 	default:
 	}
 
 	return nil
 }
+
+func (s *signalingStore) RemoveServer(_ context.Context, _ string) error { return nil }
 
 func (s *signalingStore) ListServerConnections(
 	_ context.Context, _ string, _ string, _ time.Time, _ *model.ListOptions,
@@ -500,7 +636,7 @@ func (s *signalingStore) ListServerConnections(
 func TestConnectionService_RunSnapshotsOnTick(t *testing.T) {
 	t.Parallel()
 
-	store := &signalingStore{replaced: make(chan struct{}, 1)}
+	store := &signalingStore{synced: make(chan struct{}, 2)}
 	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
 	svc.snapshotInterval = time.Millisecond
 
@@ -510,10 +646,14 @@ func TestConnectionService_RunSnapshotsOnTick(t *testing.T) {
 
 	go func() { done <- svc.Run(ctx) }()
 
-	select {
-	case <-store.replaced:
-	case <-time.After(2 * time.Second):
-		t.Fatal("expected a snapshot within the interval")
+	// The first sync is Run's initial reconcile; wait for a second one so the periodic
+	// ticker.C branch is exercised, not only the startup snapshot.
+	for range 2 {
+		select {
+		case <-store.synced:
+		case <-time.After(2 * time.Second):
+			t.Fatal("expected a periodic snapshot within the interval")
+		}
 	}
 
 	cancel()
