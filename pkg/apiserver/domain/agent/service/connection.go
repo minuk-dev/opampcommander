@@ -65,6 +65,11 @@ type Service struct {
 	// UID. It is the baseline for the next cycle's incremental diff and is touched only from
 	// the single Run goroutine, so it needs no lock.
 	lastSnapshot map[uuid.UUID]agentmodel.ServerConnection
+
+	// needsReconcile forces the next snapshot to first clear any records left by a prior
+	// incarnation of this serverID before diffing. It stays set until that clear succeeds, so a
+	// transient failure cannot leave orphaned records advertised as live.
+	needsReconcile bool
 }
 
 // NewConnectionService creates a new instance of the Service struct.
@@ -84,6 +89,7 @@ func NewConnectionService(
 		snapshotInterval:                DefaultConnectionSnapshotInterval,
 		snapshotStaleness:               DefaultConnectionSnapshotStaleness,
 		lastSnapshot:                    nil,
+		needsReconcile:                  true,
 	}
 }
 
@@ -97,9 +103,10 @@ func (s *Service) Name() string {
 // the server's records on graceful shutdown so a stopped node drops out immediately rather
 // than lingering until its snapshot goes stale.
 func (s *Service) Run(ctx context.Context) error {
-	// Clear any records left by a prior incarnation of this server, then take an initial
-	// snapshot so connections appear promptly instead of only after the first interval.
-	s.reconcileFromScratch(ctx)
+	// Take an initial snapshot so connections appear promptly instead of only after the first
+	// interval. The first snapshot also clears any records left by a prior incarnation (see the
+	// needsReconcile handling in snapshotConnections).
+	s.snapshotConnections(ctx)
 
 	ticker := time.NewTicker(s.effectiveSnapshotInterval())
 	defer ticker.Stop()
@@ -327,31 +334,32 @@ func (s *Service) detectConnectionType(id any) agentmodel.ConnectionType {
 	return agentmodel.ConnectionTypeWebSocket
 }
 
-// reconcileFromScratch drops this server's stored records and re-syncs from an empty baseline,
-// so leftover records from a previous incarnation (same serverID) cannot linger as orphans.
-func (s *Service) reconcileFromScratch(ctx context.Context) {
-	serverID := s.serverIdentityProvider.CurrentServerID()
-	if serverID != "" {
-		err := s.serverConnectionPersistencePort.RemoveServer(ctx, serverID)
-		if err != nil {
-			s.logger.Warn("failed to clear stale connection records on start", slog.String("error", err.Error()))
-		}
-	}
-
-	s.lastSnapshot = nil
-
-	s.snapshotConnections(ctx)
-}
-
 // snapshotConnections refreshes this server's heartbeat and syncs only the connections that
 // changed since the last cycle: newly-added or field-changed records are upserted and dropped
 // connections are deleted. In steady state the diff is empty, so only the heartbeat is written.
+//
+// The first call (and any retry after a failed reconcile) first clears records left by a prior
+// incarnation of this serverID; until that clear succeeds it returns without writing anything,
+// so the server never advertises a fresh heartbeat over orphaned records.
 func (s *Service) snapshotConnections(ctx context.Context) {
 	serverID := s.serverIdentityProvider.CurrentServerID()
 	if serverID == "" {
 		s.logger.Warn("skipping connection snapshot: current server has no identity")
 
 		return
+	}
+
+	if s.needsReconcile {
+		err := s.serverConnectionPersistencePort.RemoveServer(ctx, serverID)
+		if err != nil {
+			s.logger.Warn("failed to clear stale connection records; staying out of the cluster view until it succeeds",
+				slog.String("error", err.Error()))
+
+			return
+		}
+
+		s.needsReconcile = false
+		s.lastSnapshot = nil
 	}
 
 	now := s.clock.Now()

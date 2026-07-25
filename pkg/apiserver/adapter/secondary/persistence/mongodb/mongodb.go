@@ -15,9 +15,11 @@ import (
 )
 
 // serverHeartbeatTTL is how long a server heartbeat survives without a refresh before MongoDB's
-// TTL monitor drops it. Sized well above the snapshot interval so a live server (which refreshes
-// every cycle) is never expired; it only garbage-collects heartbeats of crashed servers.
-const serverHeartbeatTTL = 10 * time.Minute
+// TTL monitor drops it. It is pure garbage collection of crashed servers, NOT the liveness
+// cutoff (reads use the caller's notBefore); it must therefore stay far above any configured
+// read-staleness window, or a still-"live" server's heartbeat could be reaped early. Sized at
+// 24h so no realistic staleness setting approaches it.
+const serverHeartbeatTTL = 24 * time.Hour
 
 // sanitizeResourceName validates and returns a safe resource name for MongoDB queries.
 // Each rune is checked against a whitelist and copied to a new string, preventing
@@ -207,11 +209,13 @@ var (
 		{
 			collectionName: serverConnectionCollectionName,
 			indexes: []mongo.IndexModel{
-				// Unique key backing the incremental upsert (ReplaceOne by uid) and the
-				// delete-by-uid path in SyncServerConnections.
+				// Backs the incremental upsert (ReplaceOne by uid) and the delete-by-uid path
+				// in SyncServerConnections. Not unique: connection UIDs are already unique by
+				// construction (one owning server each), and a unique index would abort
+				// EnsureSchema at startup if pre-upgrade data happened to contain a duplicate.
 				{
 					Keys:    bson.D{{Key: "uid", Value: 1}},
-					Options: options.Index().SetUnique(true),
+					Options: nil,
 				},
 				// Backs RemoveServer's per-server delete and the cluster-list query's
 				// namespace + owning-server filter.

@@ -134,11 +134,14 @@ type ServerConnection struct {
 	Type ConnectionType
 	// Namespace is the namespace the connection belongs to.
 	Namespace string
-	// LastCommunicatedAt is the last time the connection was communicated with.
+	// LastCommunicatedAt is the last time the connection was communicated with. It is
+	// informational in the cluster view: the record is not re-written just because it advances
+	// (that would defeat the incremental-write model), so it reflects the connection's last
+	// identity-changing sync rather than its most recent message.
 	LastCommunicatedAt time.Time
-	// SnapshotAt is when this record was last refreshed by its owning server. It bounds
-	// staleness: records from a crashed server stop refreshing and are filtered out of
-	// cluster reads once SnapshotAt falls outside the staleness window.
+	// SnapshotAt is when this record was last written by its owning server. It is informational
+	// only; cluster-read staleness is now gated on the owning server's heartbeat, not on this
+	// field.
 	SnapshotAt time.Time
 }
 

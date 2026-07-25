@@ -44,10 +44,8 @@ func (r *ServerConnectionRepository) SyncServerConnections(
 	upserts []*agentmodel.ServerConnection,
 	deletes []uuid.UUID,
 ) error {
-	r.heartbeatMu.Lock()
-	r.heartbeats[serverID] = heartbeatAt
-	r.heartbeatMu.Unlock()
-
+	// Apply membership before the heartbeat, mirroring the MongoDB adapter's ordering so the
+	// server only becomes visible once its connection set is in place.
 	for _, conn := range upserts {
 		r.store.put(conn.UID, conn)
 	}
@@ -55,6 +53,10 @@ func (r *ServerConnectionRepository) SyncServerConnections(
 	for _, uid := range deletes {
 		_ = r.store.delete(uid)
 	}
+
+	r.heartbeatMu.Lock()
+	r.heartbeats[serverID] = heartbeatAt
+	r.heartbeatMu.Unlock()
 
 	return nil
 }

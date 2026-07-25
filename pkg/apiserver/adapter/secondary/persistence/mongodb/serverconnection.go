@@ -45,9 +45,10 @@ func NewServerConnectionAdapter(database *mongo.Database, logger *slog.Logger) *
 
 // SyncServerConnections implements agentport.ServerConnectionPersistencePort.
 //
-// It refreshes the server's heartbeat and applies the incremental change set. The steps are
-// not transactional, which is acceptable for a periodic snapshot view: a reader may briefly see
-// a just-added connection missing or a just-removed one present until the next cycle.
+// Membership (upserts/deletes) is applied first and the heartbeat is refreshed last, so a
+// partial failure never leaves a fresh heartbeat advertising an incomplete connection set: the
+// server stays out of the cluster view until a fully-successful cycle. The steps are not
+// transactional, which is acceptable for a periodic snapshot view.
 func (a *ServerConnectionAdapter) SyncServerConnections(
 	ctx context.Context,
 	serverID string,
@@ -55,15 +56,10 @@ func (a *ServerConnectionAdapter) SyncServerConnections(
 	upserts []*agentmodel.ServerConnection,
 	deletes []uuid.UUID,
 ) error {
-	err := a.refreshHeartbeat(ctx, serverID, heartbeatAt)
-	if err != nil {
-		return err
-	}
-
 	if len(deletes) > 0 {
 		deleteIDs := lo.Map(deletes, func(uid uuid.UUID, _ int) string { return uid.String() })
 
-		_, err = a.collection.DeleteMany(ctx, bson.M{"serverId": serverID, "uid": bson.M{"$in": deleteIDs}})
+		_, err := a.collection.DeleteMany(ctx, bson.M{"serverId": serverID, "uid": bson.M{"$in": deleteIDs}})
 		if err != nil {
 			return fmt.Errorf("failed to delete server connections from mongodb: %w", err)
 		}
@@ -72,13 +68,13 @@ func (a *ServerConnectionAdapter) SyncServerConnections(
 	for _, conn := range upserts {
 		ent := entity.ServerConnectionFromDomain(conn)
 
-		_, err = a.collection.ReplaceOne(ctx, bson.M{"uid": ent.UID}, ent, options.Replace().SetUpsert(true))
+		_, err := a.collection.ReplaceOne(ctx, bson.M{"uid": ent.UID}, ent, options.Replace().SetUpsert(true))
 		if err != nil {
 			return fmt.Errorf("failed to upsert server connection to mongodb: %w", err)
 		}
 	}
 
-	return nil
+	return a.refreshHeartbeat(ctx, serverID, heartbeatAt)
 }
 
 // RemoveServer implements agentport.ServerConnectionPersistencePort.

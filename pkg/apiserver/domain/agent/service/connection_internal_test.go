@@ -182,6 +182,77 @@ func TestConnectionService_snapshotConnectionsIsIncremental(t *testing.T) {
 	assert.Equal(t, conn.UID, store.deletes[0])
 }
 
+// reconcileFailStore fails the first N RemoveServer calls, then succeeds.
+type reconcileFailStore struct {
+	fakeServerConnectionStore
+
+	removeFailsLeft int
+}
+
+func (s *reconcileFailStore) RemoveServer(ctx context.Context, serverID string) error {
+	if s.removeFailsLeft > 0 {
+		s.removeFailsLeft--
+
+		return errFakeSend
+	}
+
+	return s.fakeServerConnectionStore.RemoveServer(ctx, serverID)
+}
+
+// TestConnectionService_snapshotRetriesReconcile guards the fix for the startup-orphan risk:
+// while the initial clear-of-prior-records fails, the server writes nothing (no heartbeat), so
+// it never advertises a fresh heartbeat over records it could not reconcile; it retries until
+// the clear succeeds.
+func TestConnectionService_snapshotRetriesReconcile(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	store := &reconcileFailStore{fakeServerConnectionStore: fakeServerConnectionStore{}, removeFailsLeft: 1}
+	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+
+	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
+	conn.SetNamespace("default")
+	require.NoError(t, svc.SaveConnection(ctx, conn))
+
+	// First cycle: the reconcile clear fails, so nothing is synced.
+	svc.snapshotConnections(ctx)
+	assert.Empty(t, store.syncedServerID, "no heartbeat or membership until the clear succeeds")
+
+	// Next cycle: the clear succeeds and the connection is synced.
+	svc.snapshotConnections(ctx)
+	assert.Equal(t, "server-1", store.syncedServerID)
+	require.Len(t, store.upserts, 1)
+}
+
+// syncFailStore reconciles fine but fails every SyncServerConnections.
+type syncFailStore struct {
+	fakeServerConnectionStore
+}
+
+func (s *syncFailStore) SyncServerConnections(
+	_ context.Context, _ string, _ time.Time, _ []*agentmodel.ServerConnection, _ []uuid.UUID,
+) error {
+	return errFakeSend
+}
+
+// TestConnectionService_snapshotKeepsBaselineOnSyncError checks that a failed sync leaves the
+// diff baseline untouched so the same change set is retried next cycle.
+func TestConnectionService_snapshotKeepsBaselineOnSyncError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, &syncFailStore{}, slog.Default())
+
+	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
+	conn.SetNamespace("default")
+	require.NoError(t, svc.SaveConnection(ctx, conn))
+
+	svc.snapshotConnections(ctx)
+
+	assert.False(t, svc.needsReconcile, "the reconcile clear succeeded")
+	assert.Nil(t, svc.lastSnapshot, "a failed sync must not advance the diff baseline")
+}
+
 func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testing.T) {
 	t.Parallel()
 
