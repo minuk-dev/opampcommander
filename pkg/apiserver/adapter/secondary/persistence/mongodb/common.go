@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"maps"
 	"reflect"
-	"sync"
+	"slices"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -90,7 +90,7 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	return a.listWithFilter(ctx, options, nil)
 }
 
-//nolint:funlen // Reason: unavoidable, runs find + count and assembles a list response.
+// listWithFilter lists entities matching the soft-delete filter combined with extraFilter.
 func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 	ctx context.Context,
 	options *model.ListOptions,
@@ -113,80 +113,104 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 		baseFilter = combineFilters(a.excludeDeletedFilter(), extraFilter)
 	}
 
-	var (
-		countRetval         int64
-		continueTokenRetval string
-		entitiesRetval      []*Entity
-		fErr                error
-		lErr                error
+	if baseFilter == nil {
+		baseFilter = bson.M{}
+	}
+
+	prefix := mongo.Pipeline{bson.D{{Key: "$match", Value: baseFilter}}}
+
+	entities, continueToken, remaining, err := aggregateListPage[Entity](
+		ctx, a.logger, a.collection, prefix, continueTokenObjectID, options.Limit,
 	)
-
-	findTask := func() {
-		entities, listErr := a.listWithContinueTokenAndLimit(
-			ctx, continueTokenObjectID, options.Limit, baseFilter,
-		)
-		if listErr != nil {
-			fErr = fmt.Errorf("failed to list resources from mongodb: %w", listErr)
-
-			return
-		}
-
-		continueToken, tokenErr := getContinueTokenFromEntities(entities)
-		if tokenErr != nil {
-			fErr = fmt.Errorf("failed to get continue token from entities: %w", tokenErr)
-
-			return
-		}
-
-		entitiesRetval = entities
-		continueTokenRetval = continueToken
-	}
-
-	countTask := func() {
-		filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
-
-		cnt, countErr := a.collection.CountDocuments(ctx, filter)
-		if countErr != nil {
-			lErr = fmt.Errorf("failed to count resources in mongodb: %w", countErr)
-
-			return
-		}
-
-		countRetval = cnt
-	}
-
-	runListQueries(ctx, findTask, countTask)
-
-	if fErr != nil || lErr != nil {
-		return nil, fmt.Errorf("list operation failed: %w %w", fErr, lErr)
+	if err != nil {
+		return nil, err
 	}
 
 	return &model.ListResponse[*Entity]{
-		Items:              entitiesRetval,
-		Continue:           continueTokenRetval,
-		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
+		Items:              entities,
+		Continue:           continueToken,
+		RemainingItemCount: remaining,
 	}, nil
 }
 
-// runListQueries runs the find and count queries that back list operations.
-// Outside a MongoDB session it runs them in parallel to save a round-trip.
-// Inside a session (i.e. a transaction) the driver's *mongo.Session is NOT
-// goroutine-safe — see https://pkg.go.dev/go.mongodb.org/mongo-driver/v2/mongo#Session
-// — so we serialise to avoid session-state corruption / "transaction in progress"
-// errors when a List call happens inside [port.TransactionRunner].
-func runListQueries(ctx context.Context, findTask, countTask func()) {
-	if mongo.SessionFromContext(ctx) != nil {
-		findTask()
-		countTask()
+// facetPage is the single document a $facet emits: the page plus a one-element count array
+// ($count emits nothing when zero documents match).
+type facetPage[Entity any] struct {
+	Items []*Entity `bson:"items"`
+	Count []struct {
+		Count int64 `bson:"count"`
+	} `bson:"count"`
+}
 
-		return
+// aggregateListPage runs a single-snapshot paginated list. prefix selects the candidate
+// documents (a $match, plus e.g. a $lookup); a $facet then returns the page and the total count
+// in one snapshot, so RemainingItemCount cannot skew against the page the way a separate find +
+// CountDocuments can. The single round-trip is also session-safe inside a transaction.
+//
+// The _id-ascending sort makes the {_id: {$gt: token}} continue-token scheme stable and lets a
+// sharded mongos merge-sort shard results; it is required for correctness, not just determinism.
+// A non-positive limit means "no limit".
+func aggregateListPage[Entity any](
+	ctx context.Context,
+	logger *slog.Logger,
+	collection *mongo.Collection,
+	prefix mongo.Pipeline,
+	continueToken bson.ObjectID,
+	limit int64,
+) ([]*Entity, string, int64, error) {
+	pipeline := slices.Clone(prefix)
+
+	if continueTokenFilter := withContinueToken(continueToken); continueTokenFilter != nil {
+		pipeline = append(pipeline, bson.D{{Key: "$match", Value: continueTokenFilter}})
 	}
 
-	var queryWg sync.WaitGroup
+	itemStages := bson.A{bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}}}
+	if limit > 0 {
+		itemStages = append(itemStages, bson.D{{Key: "$limit", Value: limit}})
+	}
 
-	queryWg.Go(findTask)
-	queryWg.Go(countTask)
-	queryWg.Wait()
+	pipeline = append(pipeline, bson.D{{Key: "$facet", Value: bson.D{
+		{Key: "items", Value: itemStages},
+		{Key: "count", Value: bson.A{bson.D{{Key: "$count", Value: "count"}}}},
+	}}})
+
+	cursor, err := collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("failed to list resources from mongodb: %w", err)
+	}
+
+	defer func() {
+		closeErr := cursor.Close(ctx)
+		if closeErr != nil {
+			logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
+		}
+	}()
+
+	var results []facetPage[Entity]
+
+	err = cursor.All(ctx, &results)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("failed to decode resources from mongodb: %w", err)
+	}
+
+	// $facet emits exactly one document; a missing one means an empty page.
+	if len(results) == 0 {
+		return nil, "", 0, nil
+	}
+
+	page := results[0]
+
+	continueTokenStr, err := getContinueTokenFromEntities(page.Items)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("failed to get continue token from entities: %w", err)
+	}
+
+	var count int64
+	if len(page.Count) > 0 {
+		count = page.Count[0].Count
+	}
+
+	return page.Items, continueTokenStr, count - int64(len(page.Items)), nil
 }
 
 func (a *commonEntityAdapter[Entity, KeyType]) put(ctx context.Context, entity *Entity) error {
@@ -266,36 +290,6 @@ func (a *commonEntityAdapter[Entity, KeyType]) deleteOne(ctx context.Context, ke
 	return nil
 }
 
-func (a *commonEntityAdapter[Entity, KeyType]) listWithContinueTokenAndLimit(
-	ctx context.Context,
-	continueTokenObjectID bson.ObjectID,
-	limit int64,
-	baseFilter bson.M,
-) ([]*Entity, error) {
-	filter := combineFilters(baseFilter, withContinueToken(continueTokenObjectID))
-
-	cursor, err := a.collection.Find(ctx, filter, withPageOptions(limit))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list resources from mongodb: %w", err)
-	}
-
-	defer func() {
-		closeErr := cursor.Close(ctx)
-		if closeErr != nil {
-			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
-		}
-	}()
-
-	var entities []*Entity
-
-	err = cursor.All(ctx, &entities)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode resources from mongodb: %w", err)
-	}
-
-	return entities, nil
-}
-
 func getContinueTokenFromEntities[Entity any](entities []*Entity) (string, error) {
 	if len(entities) == 0 {
 		return "", nil
@@ -344,20 +338,4 @@ func withContinueToken(continueToken bson.ObjectID) bson.M {
 	}
 
 	return bson.M{"_id": bson.M{"$gt": continueToken}}
-}
-
-// withPageOptions builds Find options for cursor pagination. Results are always
-// sorted by _id ascending so the {_id: {$gt: token}} continue-token scheme is
-// stable: every page resumes exactly after the previous one, with no skipped or
-// duplicated documents. Without an explicit sort the query planner may return a
-// different order (e.g. when another index is selected), and a sharded cluster's
-// mongos only merge-sorts results when a sort is given — so this sort is required
-// for correctness, not just determinism. A non-positive limit means "no limit".
-func withPageOptions(limit int64) *options.FindOptionsBuilder {
-	opts := options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
-	if limit > 0 {
-		opts.SetLimit(limit)
-	}
-
-	return opts
 }

@@ -100,13 +100,9 @@ func TestTransactionRunner_RollsBackOnError(t *testing.T) {
 	assert.Zero(t, cnt, "all writes should be rolled back when callback errors")
 }
 
-// TestTransactionRunner_ListInsideTransaction guards against issue:
-// commonEntityAdapter.list/listWithFilter previously ran find + count in
-// parallel goroutines sharing the same ctx; inside a transaction this would
-// concurrently use a non-goroutine-safe *mongo.Session and corrupt session
-// state or trip "transaction in progress" errors. This test exercises the
-// real cascade pattern (put then list in the same transaction) to ensure
-// runListQueries correctly serialises inside a session.
+// TestTransactionRunner_ListInsideTransaction keeps list queries session-safe inside a
+// transaction: the list path issues a single $facet aggregation (no goroutines sharing a
+// non-goroutine-safe *mongo.Session), exercised here via put-then-list in one transaction.
 func TestTransactionRunner_ListInsideTransaction(t *testing.T) {
 	testcontainers.SkipIfProviderIsNotHealthy(t)
 	t.Parallel()

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -181,20 +180,11 @@ func (a *AgentRepository) DeleteAgent(ctx context.Context, instanceUID uuid.UUID
 }
 
 // ListAgentsBySelector implements agentport.AgentPersistencePort.
-//
-//nolint:funlen // Reason: unavoidable.
 func (a *AgentRepository) ListAgentsBySelector(
 	ctx context.Context,
 	selector agentmodel.AgentSelector,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	var (
-		// To prevent shadowing in goroutines, we use retval suffix.
-		countRetval         int64
-		continueTokenRetval string
-		entitiesRetval      []*entity.Agent
-	)
-
 	if options == nil {
 		//exhaustruct:ignore
 		options = &model.ListOptions{}
@@ -205,85 +195,26 @@ func (a *AgentRepository) ListAgentsBySelector(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	allConditions := SelectorToMatchConditions(AgentSelectorToEntity(selector))
-
+	conditions := SelectorToMatchConditions(AgentSelectorToEntity(selector))
 	if options.ConnectedOnly {
-		allConditions = append(allConditions, connectedMatchFilter())
+		conditions = append(conditions, connectedMatchFilter())
 	}
 
-	// Add continue token condition if present
-	continueTokenFilter := withContinueToken(continueTokenObjectID)
-	if continueTokenFilter != nil {
-		allConditions = append(allConditions, continueTokenFilter)
-	}
+	prefix := mongo.Pipeline{bson.D{{Key: "$match", Value: buildFilter(conditions)}}}
 
-	filter := buildFilter(allConditions)
-
-	var queryWg sync.WaitGroup
-
-	var (
-		fErr error
-		lErr error
+	entities, continueToken, remaining, err := aggregateListPage[entity.Agent](
+		ctx, a.logger, a.collection, prefix, continueTokenObjectID, options.Limit,
 	)
-
-	queryWg.Go(func() {
-		cursor, err := a.collection.Find(ctx, filter, withPageOptions(options.Limit))
-		if err != nil {
-			fErr = fmt.Errorf("failed to find agents by selector from mongodb: %w", err)
-
-			return
-		}
-
-		defer func() {
-			closeErr := cursor.Close(ctx)
-			if closeErr != nil {
-				a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
-			}
-		}()
-
-		var entities []*entity.Agent
-
-		err = cursor.All(ctx, &entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to decode agents by selector from mongodb: %w", err)
-
-			return
-		}
-
-		continueToken, err := getContinueTokenFromEntities(entities)
-		if err != nil {
-			fErr = fmt.Errorf("failed to get continue token from entities: %w", err)
-
-			return
-		}
-
-		entitiesRetval = entities
-		continueTokenRetval = continueToken
-	})
-
-	queryWg.Go(func() {
-		cnt, err := a.collection.CountDocuments(ctx, filter)
-		if err != nil {
-			lErr = fmt.Errorf("failed to count agents by selector in mongodb: %w", err)
-
-			return
-		}
-
-		countRetval = cnt
-	})
-
-	queryWg.Wait()
-
-	if fErr != nil || lErr != nil {
-		return nil, fmt.Errorf("list by selector operation failed: %w %w", fErr, lErr)
+	if err != nil {
+		return nil, err
 	}
 
 	return &model.ListResponse[*agentmodel.Agent]{
-		Items: lo.Map(entitiesRetval, func(item *entity.Agent, _ int) *agentmodel.Agent {
+		Items: lo.Map(entities, func(item *entity.Agent, _ int) *agentmodel.Agent {
 			return item.ToDomain()
 		}),
-		Continue:           continueTokenRetval,
-		RemainingItemCount: countRetval - int64(len(entitiesRetval)),
+		Continue:           continueToken,
+		RemainingItemCount: remaining,
 	}, nil
 }
 
@@ -334,25 +265,28 @@ func (a *AgentRepository) SearchAgents(
 		}, nil
 	}
 
-	// Build search filter
-	filter, err := a.buildSearchFilter(namespace, query, options)
+	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
+	if err != nil && options.Continue != "" {
+		return nil, fmt.Errorf("invalid continue token: %w", err)
+	}
+
+	prefix := mongo.Pipeline{
+		bson.D{{Key: "$match", Value: buildFilter(a.buildSearchConditions(namespace, query, options))}},
+	}
+
+	entities, continueToken, remaining, err := aggregateListPage[entity.Agent](
+		ctx, a.logger, a.collection, prefix, continueTokenObjectID, options.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	// Execute parallel queries
-	entities, continueToken, count, err := a.executeSearchQueries(ctx, filter, options)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert to domain models
 	return &model.ListResponse[*agentmodel.Agent]{
 		Items: lo.Map(entities, func(item *entity.Agent, _ int) *agentmodel.Agent {
 			return item.ToDomain()
 		}),
 		Continue:           continueToken,
-		RemainingItemCount: count - int64(len(entities)),
+		RemainingItemCount: remaining,
 	}, nil
 }
 
@@ -377,20 +311,13 @@ func validateSearchQuery(query string) error {
 	return nil
 }
 
-func (a *AgentRepository) buildSearchFilter(
+// buildSearchConditions builds the match conditions for a non-empty search query. The
+// continue-token condition is applied by [aggregateListPage], not here.
+func (a *AgentRepository) buildSearchConditions(
 	namespace string,
 	query string,
 	options *model.ListOptions,
-) (bson.M, error) {
-	if query == "" {
-		return bson.M{}, nil
-	}
-
-	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
-	if err != nil && options.Continue != "" {
-		return nil, fmt.Errorf("invalid continue token: %w", err)
-	}
-
+) []bson.M {
 	// Prefix-match instanceUidString with a parameterized range scan instead of a
 	// user-built $regex: instanceUidString is always a lower-cased UUID, so we
 	// lower-case the query (preserving the previous case-insensitive behaviour) and
@@ -413,86 +340,7 @@ func (a *AgentRepository) buildSearchFilter(
 		conditions = append(conditions, connectedMatchFilter())
 	}
 
-	// Add continue token condition if present
-	continueTokenFilter := withContinueToken(continueTokenObjectID)
-	if continueTokenFilter != nil {
-		conditions = append(conditions, continueTokenFilter)
-	}
-
-	return buildFilter(conditions), nil
-}
-
-func (a *AgentRepository) executeSearchQueries(
-	ctx context.Context,
-	filter bson.M,
-	options *model.ListOptions,
-) ([]*entity.Agent, string, int64, error) {
-	var (
-		entities      []*entity.Agent
-		continueToken string
-		count         int64
-		findErr       error
-		countErr      error
-	)
-
-	var queryWg sync.WaitGroup
-
-	queryWg.Go(func() {
-		entities, continueToken, findErr = a.findAgents(ctx, filter, options)
-	})
-
-	queryWg.Go(func() {
-		count, countErr = a.countAgents(ctx, filter)
-	})
-
-	queryWg.Wait()
-
-	if findErr != nil || countErr != nil {
-		return nil, "", 0, fmt.Errorf("search operation failed: %w %w", findErr, countErr)
-	}
-
-	return entities, continueToken, count, nil
-}
-
-func (a *AgentRepository) findAgents(
-	ctx context.Context,
-	filter bson.M,
-	options *model.ListOptions,
-) ([]*entity.Agent, string, error) {
-	cursor, err := a.collection.Find(ctx, filter, withPageOptions(options.Limit))
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to search agents from mongodb: %w", err)
-	}
-
-	defer func() {
-		closeErr := cursor.Close(ctx)
-		if closeErr != nil {
-			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
-		}
-	}()
-
-	var entities []*entity.Agent
-
-	err = cursor.All(ctx, &entities)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to decode search agents from mongodb: %w", err)
-	}
-
-	continueToken, err := getContinueTokenFromEntities(entities)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get continue token from entities: %w", err)
-	}
-
-	return entities, continueToken, nil
-}
-
-func (a *AgentRepository) countAgents(ctx context.Context, filter bson.M) (int64, error) {
-	count, err := a.collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count search agents in mongodb: %w", err)
-	}
-
-	return count, nil
+	return conditions
 }
 
 // ensureIndexes creates necessary indexes for the agent collection.

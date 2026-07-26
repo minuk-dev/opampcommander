@@ -21,6 +21,9 @@ import (
 const (
 	serverConnectionCollectionName = "serverconnections"
 	serverHeartbeatCollectionName  = "serverheartbeats"
+
+	// heartbeatLookupField is the transient $lookup field; $unset before the page is decoded.
+	heartbeatLookupField = "heartbeat"
 )
 
 var _ agentport.ServerConnectionPersistencePort = (*ServerConnectionAdapter)(nil)
@@ -92,8 +95,9 @@ func (a *ServerConnectionAdapter) RemoveServer(ctx context.Context, serverID str
 	return nil
 }
 
-// ListServerConnections implements agentport.ServerConnectionPersistencePort. It first resolves
-// the set of live servers from the heartbeat collection, then returns only their connections.
+// ListServerConnections implements agentport.ServerConnectionPersistencePort. It returns the
+// namespace's connections whose owning server is still live, joining each connection to its
+// heartbeat with a single $lookup instead of a separate heartbeat query plus a large $in.
 func (a *ServerConnectionAdapter) ListServerConnections(
 	ctx context.Context,
 	namespace string,
@@ -106,38 +110,35 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 		options = &model.ListOptions{}
 	}
 
-	liveServerIDs, err := a.liveServerIDs(ctx, serverID, notBefore)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(liveServerIDs) == 0 {
-		//exhaustruct:ignore
-		return &model.ListResponse[*agentmodel.ServerConnection]{}, nil
-	}
-
-	conditions := []bson.M{
-		{"namespace": sanitizeResourceName(namespace)},
-		{"serverId": bson.M{"$in": liveServerIDs}},
-	}
-
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
 	if err != nil && options.Continue != "" {
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	if continueTokenFilter := withContinueToken(continueTokenObjectID); continueTokenFilter != nil {
-		conditions = append(conditions, continueTokenFilter)
+	match := bson.M{"namespace": sanitizeResourceName(namespace)}
+	if serverID != "" {
+		match["serverId"] = sanitizeResourceName(serverID)
 	}
 
-	filter := buildFilter(conditions)
-
-	count, err := a.collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return nil, fmt.Errorf("failed to count server connections in mongodb: %w", err)
+	// Keep only connections whose server has a heartbeat at/after notBefore. A zero notBefore
+	// still requires a heartbeat to exist, since an absent one yields no lastSeenAt to match.
+	prefix := mongo.Pipeline{
+		bson.D{{Key: "$match", Value: match}},
+		bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: serverHeartbeatCollectionName},
+			{Key: "localField", Value: "serverId"},
+			{Key: "foreignField", Value: "serverId"},
+			{Key: "as", Value: heartbeatLookupField},
+		}}},
+		bson.D{{Key: "$match", Value: bson.M{
+			heartbeatLookupField + ".lastSeenAt": bson.M{"$gte": notBefore},
+		}}},
+		bson.D{{Key: "$unset", Value: heartbeatLookupField}},
 	}
 
-	entities, continueToken, err := a.findServerConnections(ctx, filter, options.Limit)
+	entities, continueToken, remaining, err := aggregateListPage[entity.ServerConnection](
+		ctx, a.logger, a.collection, prefix, continueTokenObjectID, options.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +148,7 @@ func (a *ServerConnectionAdapter) ListServerConnections(
 			return item.ToDomain()
 		}),
 		Continue:           continueToken,
-		RemainingItemCount: count - int64(len(entities)),
+		RemainingItemCount: remaining,
 	}, nil
 }
 
@@ -160,76 +161,4 @@ func (a *ServerConnectionAdapter) refreshHeartbeat(ctx context.Context, serverID
 	}
 
 	return nil
-}
-
-// liveServerIDs returns the serverIDs whose heartbeat is at or after notBefore. A non-empty
-// serverID restricts the query to that one server; a zero notBefore matches every heartbeat.
-func (a *ServerConnectionAdapter) liveServerIDs(
-	ctx context.Context,
-	serverID string,
-	notBefore time.Time,
-) ([]string, error) {
-	filter := bson.M{}
-	if serverID != "" {
-		filter["serverId"] = sanitizeResourceName(serverID)
-	}
-
-	if !notBefore.IsZero() {
-		filter["lastSeenAt"] = bson.M{"$gte": notBefore}
-	}
-
-	cursor, err := a.heartbeats.Find(ctx, filter, options.Find().SetProjection(bson.M{"serverId": 1}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to find server heartbeats in mongodb: %w", err)
-	}
-
-	defer func() {
-		closeErr := cursor.Close(ctx)
-		if closeErr != nil {
-			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
-		}
-	}()
-
-	var heartbeats []*entity.ServerHeartbeat
-
-	err = cursor.All(ctx, &heartbeats)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode server heartbeats from mongodb: %w", err)
-	}
-
-	return lo.Map(heartbeats, func(hb *entity.ServerHeartbeat, _ int) string { return hb.ServerID }), nil
-}
-
-// findServerConnections runs the paginated find and returns the decoded entities plus the
-// continue token for the next page.
-func (a *ServerConnectionAdapter) findServerConnections(
-	ctx context.Context,
-	filter bson.M,
-	limit int64,
-) ([]*entity.ServerConnection, string, error) {
-	cursor, err := a.collection.Find(ctx, filter, withPageOptions(limit))
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to find server connections in mongodb: %w", err)
-	}
-
-	defer func() {
-		closeErr := cursor.Close(ctx)
-		if closeErr != nil {
-			a.logger.Warn("failed to close mongodb cursor", slog.String("error", closeErr.Error()))
-		}
-	}()
-
-	var entities []*entity.ServerConnection
-
-	err = cursor.All(ctx, &entities)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to decode server connections from mongodb: %w", err)
-	}
-
-	continueToken, err := getContinueTokenFromEntities(entities)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to get continue token from entities: %w", err)
-	}
-
-	return entities, continueToken, nil
 }
