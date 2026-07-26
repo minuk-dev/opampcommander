@@ -47,6 +47,42 @@ database:
 
 `inmemory` keeps no data across restarts and is intended for development and tests.
 
+### Sharded cluster (MongoDB)
+
+To scale horizontally beyond a single shard, point `endpoints` at your `mongos`
+routers and turn on sharding-aware schema management. This is opt-in and requires
+`ddlAuto: true`.
+
+```yaml
+database:
+  type: mongodb
+  endpoints:
+    - "mongodb://<user>:<password>@mongos-0:27017,mongos-1:27017/?replicaSet="
+  databaseName: opampcommander
+  ddlAuto: true
+  sharding:
+    enabled: true          # enableSharding + shardCollection on startup
+```
+
+When `sharding.enabled` is set, startup additionally runs `enableSharding` on the
+database and `shardCollection` for the collections that grow with fleet size. The
+operation is idempotent — restarts against an already-sharded cluster are a no-op.
+
+The shard-key plan is built into the server (it is tied to the collections' unique
+indexes and query patterns, so it is not operator-configurable):
+
+| Collection | Shard key | Rationale |
+|---|---|---|
+| `agents` | `{ "metadata.instanceUid": "hashed" }` | Largest collection; the unique index is on `metadata.instanceUid`, so the shard key must be prefixed by it. Hashed spreads writes evenly and keeps uniqueness single-shard; point lookups by instanceUid stay targeted, namespace list becomes scatter-gather. |
+| `serverconnections` | `{ "uid": "hashed" }` | Grows with live agent connections; `uid` is unique by construction. |
+
+All other collections (config-/cluster-scale: `agentgroups`, `agentpackages`,
+`agentremoteconfigs`, `certificates`, `endpoints`, `namespaces`, `servers`,
+`serverheartbeats`, `users`, and the RBAC collections) stay on the primary shard —
+sharding them would add routing cost with no benefit. They are still created
+explicitly at startup so they land deterministically. `hosts` and `containers` are
+sharding candidates for very large fleets; they are created but not yet sharded.
+
 ## Events (single-node vs. multi-node)
 
 ```yaml
@@ -161,6 +197,7 @@ Every option above has a flag. A few common ones:
 | `--address` | `localhost:8080` | API + OpAMP WebSocket address |
 | `--database.type` | `inmemory` | `inmemory` or `mongodb` |
 | `--database.endpoints` | `mongodb://localhost:27017` | Database endpoints |
+| `--database.sharding.enabled` | `false` | Sharding-aware schema management (needs `--database.ddlAuto`) |
 | `--event.enabled` | `false` | Enable multi-node events |
 | `--event.type` | `inmemory` | `inmemory` or `kafka` |
 | `--management.address` | `localhost:9090` | Management server address |

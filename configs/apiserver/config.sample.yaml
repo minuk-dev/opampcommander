@@ -14,6 +14,10 @@ database:
   connectTimeout: 10s
   databaseName: "opampcommander"
   ddlAuto: true
+  # Enable sharding-aware schema management when running against a MongoDB
+  # sharded cluster (point endpoints at mongos routers). Requires ddlAuto.
+  # sharding:
+  #   enabled: true
 management:
   address: localhost:9090
   metric:

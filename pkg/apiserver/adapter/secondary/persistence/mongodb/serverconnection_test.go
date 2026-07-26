@@ -35,7 +35,7 @@ func TestServerConnectionMongoAdapter(t *testing.T) {
 	})
 
 	database := client.Database("testdb")
-	require.NoError(t, mongodb.EnsureSchema(ctx, database))
+	require.NoError(t, mongodb.EnsureSchema(ctx, database, false))
 
 	adapter := mongodb.NewServerConnectionAdapter(database, base.Logger)
 

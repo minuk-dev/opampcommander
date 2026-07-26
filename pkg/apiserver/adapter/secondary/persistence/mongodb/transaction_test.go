@@ -118,7 +118,7 @@ func TestTransactionRunner_ListInsideTransaction(t *testing.T) {
 	})
 
 	database := client.Database("txdb_list")
-	require.NoError(t, mongodb.EnsureSchema(ctx, database))
+	require.NoError(t, mongodb.EnsureSchema(ctx, database, false))
 
 	repo := mongodb.NewAgentGroupRepository(database, base.Logger)
 	runner := mongodb.NewTransactionRunner(client)

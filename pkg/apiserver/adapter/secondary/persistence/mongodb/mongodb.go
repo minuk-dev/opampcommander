@@ -49,16 +49,47 @@ func isAllowedResourceNameRune(r rune) bool {
 
 //nolint:gochecknoglobals // These are constants for collection names and indexes.
 var (
+	// collections is the full managed collection set. Every collection is created
+	// explicitly here — rather than lazily on first insert — so that in a sharded
+	// cluster each one lands deterministically (config-scale collections stay on the
+	// primary shard; the sharded ones are handled by shardedCollections below).
 	collections = []string{
 		agentCollectionName,
 		agentGroupCollectionName,
 		agentPackageCollectionName,
 		agentRemoteConfigCollectionName,
 		certificateCollectionName,
+		endpointCollectionName,
+		hostCollectionName,
+		containerCollectionName,
 		namespaceCollectionName,
 		serverCollectionName,
 		serverConnectionCollectionName,
 		serverHeartbeatCollectionName,
+		userCollectionName,
+		roleCollectionName,
+		roleBindingCollectionName,
+		permissionCollectionName,
+		userRoleCollectionName,
+	}
+
+	// shardedCollections is the built-in shard-key plan. Only collections that grow
+	// with fleet size are sharded; config-/cluster-scale collections stay on the
+	// primary shard. Each shard key uses a hashed index for even write distribution,
+	// and — per MongoDB's rule that a unique index must be prefixed by the shard key —
+	// is a prefix of that collection's unique logical-key index, so hashed routing keeps
+	// uniqueness single-shard.
+	shardedCollections = []shardCollectionSpec{
+		{
+			// Largest collection; unique index is on metadata.instanceUid.
+			collectionName: agentCollectionName,
+			shardKey:       bson.D{{Key: "metadata.instanceUid", Value: "hashed"}},
+		},
+		{
+			// Grows with live agent connections; uid is unique by construction.
+			collectionName: serverConnectionCollectionName,
+			shardKey:       bson.D{{Key: "uid", Value: "hashed"}},
+		},
 	}
 
 	indexes = []collectionAndIndexes{
@@ -75,6 +106,15 @@ var (
 						{Key: "metadata.instanceUid", Value: 1},
 					},
 					Options: options.Index().SetUnique(true),
+				},
+				// Hashed shard-key index (see shardedCollections). Kept alongside the
+				// unique index above so shardCollection has a matching index on a
+				// possibly-non-empty collection; unused on non-sharded deployments.
+				{
+					Keys: bson.D{
+						{Key: "metadata.instanceUid", Value: "hashed"},
+					},
+					Options: nil,
 				},
 				{
 					Keys: bson.D{
@@ -217,6 +257,12 @@ var (
 					Keys:    bson.D{{Key: "uid", Value: 1}},
 					Options: nil,
 				},
+				// Hashed shard-key index (see shardedCollections); must exist before
+				// shardCollection runs. Unused on non-sharded deployments.
+				{
+					Keys:    bson.D{{Key: "uid", Value: "hashed"}},
+					Options: nil,
+				},
 				// Backs RemoveServer's per-server delete and the cluster-list query's
 				// namespace + owning-server filter.
 				{
@@ -268,9 +314,15 @@ var (
 
 // EnsureSchema ensures that the necessary collections and indexes exist in the MongoDB database.
 // This function should be called during application startup.
+//
+// When sharding is true the database is additionally prepared for a sharded cluster:
+// sharding is enabled on the database and the collections in the built-in shard-key
+// plan (shardedCollections) are sharded. The operation is idempotent — re-running it
+// against an already-sharded cluster is a no-op.
 func EnsureSchema(
 	ctx context.Context,
 	database *mongo.Database,
+	sharding bool,
 ) error {
 	err := createNonExistingCollections(ctx, database, collections)
 	if err != nil {
@@ -280,6 +332,13 @@ func EnsureSchema(
 	err = createIndexes(ctx, database, indexes)
 	if err != nil {
 		return fmt.Errorf("failed to create indexes: %w", err)
+	}
+
+	if sharding {
+		err = ensureSharding(ctx, database, shardedCollections)
+		if err != nil {
+			return fmt.Errorf("failed to ensure sharding: %w", err)
+		}
 	}
 
 	return nil
@@ -336,4 +395,72 @@ func createIndexes(
 	}
 
 	return nil
+}
+
+// shardCollectionSpec describes how a single collection is sharded.
+type shardCollectionSpec struct {
+	collectionName string
+	// shardKey is the shardCollection key document, e.g. {"uid": "hashed"}.
+	shardKey bson.D
+}
+
+// ensureSharding enables sharding on the database and shards the planned collections.
+// It is idempotent: enabling sharding on an already-enabled database and re-sharding
+// an already-sharded collection with the same key are both treated as success.
+func ensureSharding(
+	ctx context.Context,
+	database *mongo.Database,
+	specs []shardCollectionSpec,
+) error {
+	admin := database.Client().Database("admin")
+
+	err := runAdminCommand(ctx, admin, bson.D{{Key: "enableSharding", Value: database.Name()}})
+	if err != nil {
+		return fmt.Errorf("failed to enable sharding on database %s: %w", database.Name(), err)
+	}
+
+	for _, spec := range specs {
+		namespace := database.Name() + "." + spec.collectionName
+
+		err := runAdminCommand(ctx, admin, bson.D{
+			{Key: "shardCollection", Value: namespace},
+			{Key: "key", Value: spec.shardKey},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to shard collection %s: %w", namespace, err)
+		}
+	}
+
+	return nil
+}
+
+// runAdminCommand runs a sharding admin command, tolerating the errors that make
+// the operation idempotent (already-enabled / already-sharded) the same way
+// createNonExistingCollections tolerates NamespaceExists.
+func runAdminCommand(ctx context.Context, admin *mongo.Database, command bson.D) error {
+	err := admin.RunCommand(ctx, command).Err()
+	if err != nil && !isAlreadyShardedError(err) {
+		return fmt.Errorf("admin command failed: %w", err)
+	}
+
+	return nil
+}
+
+// isAlreadyShardedError reports whether err indicates the database/collection is
+// already in the desired sharded state, which is safe to ignore for idempotency.
+func isAlreadyShardedError(err error) bool {
+	var cmdErr mongo.CommandError
+	if !errors.As(err, &cmdErr) {
+		return false
+	}
+
+	// AlreadyInitialized (23) is returned when re-sharding a collection with the
+	// same key; the message check covers server versions that report it as a plain
+	// command error instead.
+	const alreadyInitialized = 23
+	if cmdErr.Code == alreadyInitialized {
+		return true
+	}
+
+	return strings.Contains(cmdErr.Message, "already sharded")
 }

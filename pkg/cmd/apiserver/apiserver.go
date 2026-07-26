@@ -34,6 +34,9 @@ type CommandOption struct {
 		ConnectTimeout time.Duration `mapstructure:"connectTimeout"`
 		DatabaseName   string        `mapstructure:"databaseName"`
 		DDLAuto        bool          `mapstructure:"ddlAuto"`
+		Sharding       struct {
+			Enabled bool `mapstructure:"enabled"`
+		} `mapstructure:"sharding"`
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
 	Event       struct {
@@ -169,6 +172,9 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
 	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
 	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
+	cmd.Flags().Bool("database.sharding.enabled", false,
+		"enable sharding-aware schema management (enableSharding + shardCollection); requires database.ddlAuto "+
+			"and endpoints pointing at mongos routers")
 	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
 	cmd.Flags().String("event.type", "inmemory", "event protocol type (inmemory, kafka)")
 	cmd.Flags().Bool("event.enabled", false, "enable event communication")
@@ -315,6 +321,9 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			ConnectTimeout: opt.Database.ConnectTimeout,
 			DatabaseName:   opt.Database.DatabaseName,
 			DDLAuto:        opt.Database.DDLAuto,
+			Sharding: appconfig.ShardingSettings{
+				Enabled: opt.Database.Sharding.Enabled,
+			},
 		},
 		Security: security.Config{
 			AdminSettings: security.AdminSettings{
