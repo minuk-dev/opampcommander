@@ -117,6 +117,9 @@ Open <http://localhost:3000>. See [`web/README.md`](web/README.md) for details.
 
 ## Development
 
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for commit conventions, the pull-request
+flow, and the branch lifecycle (when to rebase vs. delete a branch).
+
 ### Infrastructure
 
 ```sh
