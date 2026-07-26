@@ -11,9 +11,9 @@ handling changes.
 
 **Legend:** ✅ Implemented · 🟡 Partial · ⛔ Not implemented
 
-> Audited against `main` on 2026-07-21. Primary sources:
-> `pkg/apiserver/application/service/opamp/{opamp,serverToAgent,protobufsToDomain,domainToProtobufs}.go`
-> and `pkg/apiserver/domain/agent/service/server.go`.
+> Audited against `main` on 2026-07-26. Primary sources:
+> `pkg/apiserver/application/service/opamp/{opamp,serverToAgent,protobufsToDomain,domainToProtobufs,custommessage}.go`
+> and `pkg/apiserver/domain/agent/service/{server,servertoagent}.go`.
 
 ## Server capabilities
 
@@ -46,8 +46,8 @@ actually implemented.
 | `capabilities` | ✅ | |
 | `flags` (`ReportFullState`) | ✅ | Requested only while the agent's reported info is incomplete (its description or capabilities are still missing); not once it is complete. |
 | `error_response` | ✅ | Sent when the server cannot process an `AgentToServer`: `Unavailable` if the agent state cannot be loaded, `BadRequest` if the reported fields cannot be absorbed. Error-only message (no desired-state fields). |
-| `custom_capabilities` | ⛔ | Always `nil` — [intentionally unsupported](#custom-messages). |
-| `custom_message` | ⛔ | Always `nil` — [intentionally unsupported](#custom-messages). |
+| `custom_capabilities` | 🟡 | Advertises the custom capabilities of the registered custom-message handlers; unset when none are registered (the default). See [Custom messages](#custom-messages). |
+| `custom_message` | 🟡 | Sent as a handler's reply to an inbound `custom_message`, gated on the agent having advertised the capability. Never server-originated (no out-of-band send API yet). See [Custom messages](#custom-messages). |
 
 ## Agent → Server processing
 
@@ -66,10 +66,10 @@ actually implemented.
 | `connection_settings_status` | ✅ | Stored. |
 | `package_statuses` | ✅ | Stored. |
 | `available_components` | ✅ | Incl. nested sub-components. |
-| `custom_capabilities` | ✅ | Stored (the agent's declared custom capabilities), but not acted on — see [Custom messages](#custom-messages). |
+| `custom_capabilities` | ✅ | Stored (the agent's declared custom capabilities); used to gate outbound custom messages — see [Custom messages](#custom-messages). |
 | `agent_disconnect` | 🟡 | Detected; disconnect is handled via connection-close, not an explicit report. |
 | `connection_settings_request` | ⛔ | Not processed; the server withholds `AcceptsConnectionSettingsRequest` rather than advertising it. |
-| `custom_message` | ⛔ | [Intentionally not processed](#custom-messages) — dropped. |
+| `custom_message` | 🟡 | Routed to the custom-message handler registered for its capability, if any; dropped when no handler is registered. See [Custom messages](#custom-messages). |
 
 ## Known gaps
 
@@ -88,8 +88,10 @@ actually implemented.
    advertised `PackageType` now derives from the package spec (`TopLevel`/`AddOn`), and a package
    that cannot be resolved is withheld from the offer and logged (with the agent identity and the
    affected package names) instead of being silently dropped.
-4. **Custom messages / custom capabilities** are [intentionally unsupported](#custom-messages)
-   (documented decision, not an oversight).
+4. **Custom messages / custom capabilities** are supported through a [dispatch seam](#custom-messages)
+   (#551): inbound `custom_message`s are routed to a handler registered per capability, and a
+   handler may reply on the same response. No handlers ship by default, and there is no
+   out-of-band (server-originated) send API yet.
 5. ~~**`error_response` is never sent.**~~ *(Resolved in #531.)* When the server cannot process an
    incoming `AgentToServer` it now replies with an error-only `ServerToAgent`: `Unavailable`
    when the agent's state cannot be loaded, `BadRequest` when the reported fields cannot be
@@ -105,20 +107,28 @@ OpAMP lets an Agent and Server exchange vendor-specific data outside the standar
 sides must first advertise a matching custom capability before exchanging the corresponding
 custom messages.
 
-**OpAMP Commander intentionally does not support custom message exchange.** This is a deliberate
-decision, not an unimplemented gap:
+Because custom messages are inherently vendor-specific, OpAMP Commander does not hard-code any
+custom protocol. Instead it exposes a **dispatch seam** so a feature can plug one in without
+touching the core OpAMP handler:
 
-- The server advertises **no** custom capabilities, so it never populates
-  `ServerToAgent.custom_capabilities` and never originates a `ServerToAgent.custom_message`.
-- An incoming `AgentToServer.custom_message` is **dropped** (not stored or routed).
-- The agent's declared `AgentToServer.custom_capabilities` *are* stored as part of the agent's
-  reported state, but the server takes no action on them.
+- A `CustomMessageHandler` (`application/service/opamp/custommessage.go`) serves a single
+  custom-capability string. Handlers are collected into an FX group
+  (`AsCustomMessageHandler`) and indexed by capability in a `CustomMessageRegistry`.
+- The server advertises the registered handlers' capabilities in
+  `ServerToAgent.custom_capabilities` (via the shared `ServerToAgentBuilder`). With **no handlers
+  registered — the default — the field stays unset**, so the wire behavior is identical to the
+  previous no-support state.
+- An inbound `AgentToServer.custom_message` is routed to the handler registered for its capability.
+  A handler may return an outbound `custom_message`, which is merged into the same hot-path
+  `ServerToAgent` reply. If no handler is registered for the capability, the message is dropped.
+- Outbound custom messages are **capability-gated**: the server never sends a `custom_message` for
+  a capability the agent has not advertised (`Agent.HasCustomCapability`).
 
-Custom messages are inherently vendor-specific: supporting them would mean defining and
-maintaining server-side semantics for message types the OpAMP spec deliberately leaves open.
-OpAMP Commander targets **general-purpose, spec-standard** agent management, so this is out of
-scope until a concrete, broadly-useful custom protocol justifies it. If you need custom message
-exchange, please open an issue describing the use case.
+Delivery is **fire-and-forget with an optional inline reply** — there is no request/response
+correlation, and no out-of-band (server-originated) send API yet. The agent's declared
+`AgentToServer.custom_capabilities` are also stored as part of its reported state. If you need a
+concrete custom protocol wired up, or a server-initiated send API, please open an issue describing
+the use case.
 
 ## Test coverage
 

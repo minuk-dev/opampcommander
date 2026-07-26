@@ -59,6 +59,8 @@ type Service struct {
 
 	agentNotificationUsecase agentport.AgentNotificationUsecase
 
+	customMessageRegistry *CustomMessageRegistry
+
 	closedConnectionCh chan types.Connection
 
 	connectionUsecase        agentport.ConnectionUsecase
@@ -81,6 +83,7 @@ func New(
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	hostUsecase agentport.HostUsecase,
 	containerUsecase agentport.ContainerUsecase,
+	customMessageRegistry *CustomMessageRegistry,
 	logger *slog.Logger,
 ) *Service {
 	return &Service{
@@ -95,6 +98,7 @@ func New(
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		hostUsecase:              hostUsecase,
 		containerUsecase:         containerUsecase,
+		customMessageRegistry:    customMessageRegistry,
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
@@ -261,6 +265,10 @@ func (s *Service) OnMessage(
 
 	response := s.fetchServerToAgent(ctx, agent)
 
+	if reply := s.handleInboundCustomMessage(ctx, logger, agent, message.GetCustomMessage()); reply != nil {
+		response.CustomMessage = reply
+	}
+
 	logger.Info("end successfully")
 
 	return response
@@ -311,6 +319,57 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	}
 
 	logger.Info("end")
+}
+
+// handleInboundCustomMessage routes an inbound custom_message to the handler registered for its
+// custom capability and returns the handler's optional reply as a wire message to include in the
+// same ServerToAgent response, or nil for no reply.
+//
+// It returns nil (dropping the message) when: there is no custom_message, no registry, no handler
+// for the capability, the handler errored, or the agent has not advertised the reply's capability
+// (the OpAMP spec forbids sending a custom_message for a capability the agent did not advertise).
+func (s *Service) handleInboundCustomMessage(
+	ctx context.Context,
+	logger *slog.Logger,
+	agent *agentmodel.Agent,
+	msg *protobufs.CustomMessage,
+) *protobufs.CustomMessage {
+	if msg == nil || s.customMessageRegistry == nil {
+		return nil
+	}
+
+	capability := msg.GetCapability()
+
+	handler, ok := s.customMessageRegistry.Handler(capability)
+	if !ok {
+		logger.Debug("no handler for inbound custom message capability, dropping",
+			slog.String("capability", capability))
+
+		return nil
+	}
+
+	reply, err := handler.HandleCustomMessage(ctx, agent, customMessageToDomain(msg))
+	if err != nil {
+		logger.Error("custom message handler failed",
+			slog.String("capability", capability),
+			slog.String("error", err.Error()))
+
+		return nil
+	}
+
+	if reply == nil {
+		return nil
+	}
+
+	// Capability gate: never send a custom_message for a capability the agent has not advertised.
+	if !agent.HasCustomCapability(reply.Capability) {
+		logger.Warn("dropping outbound custom message: agent has not advertised its capability",
+			slog.String("capability", reply.Capability))
+
+		return nil
+	}
+
+	return customMessageToProtobuf(reply)
 }
 
 // gcLastSaveAt removes lastSaveAt entries older than lastSaveAtTTL. Entries for
@@ -418,9 +477,9 @@ func (s *Service) report(
 		return fmt.Errorf("failed to report available components: %w", err)
 	}
 
-	// agentToServer.CustomMessage is intentionally not consumed: custom message exchange is
-	// unsupported (the server declares no custom capabilities), so a custom_message is dropped.
-	// See the "Custom messages" section of docs/content/en/docs/opamp-conformance.md.
+	// agentToServer.CustomMessage is not consumed here: report() folds the agent's reported
+	// state into the model, whereas a custom_message is routed to its registered handler on the
+	// hot path (see handleInboundCustomMessage in OnMessage), not persisted as agent state.
 
 	return nil
 }

@@ -27,8 +27,14 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
+
+// customMessageHandlersGroup is the FX group into which OpAMP custom-message handlers are
+// collected. A feature plugs a handler in by adding one AsCustomMessageHandler line below; the
+// registry indexes them by capability and the ServerToAgentBuilder advertises those capabilities.
+const customMessageHandlersGroup = `group:"opampCustomMessageHandlers"`
 
 // New creates a new module for application services.
 //
@@ -41,6 +47,16 @@ func New() fx.Option {
 			opampApplicationService.New,
 			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(usecase.OpAMPUsecase))),
 			helper.AsRunner(Identity[*opampApplicationService.Service]), // for background processing
+
+			// Custom-message dispatch seam: the registry indexes the handlers collected in the
+			// "opampCustomMessageHandlers" group (empty by default) and derives the custom
+			// capabilities the ServerToAgentBuilder advertises. No handlers → no advertised
+			// custom capabilities → behavior unchanged.
+			fx.Annotate(
+				opampApplicationService.NewCustomMessageRegistry,
+				fx.ParamTags(customMessageHandlersGroup),
+			),
+			provideServerCustomCapabilities,
 
 			adminApplicationService.New,
 			fx.Annotate(Identity[*adminApplicationService.Service], fx.As(new(usecase.AdminUsecase))),
@@ -118,6 +134,26 @@ func provideEndpointMetricsService(
 		usecase,
 		settings.MetricsBackend.DefaultWindow,
 		logger,
+	)
+}
+
+// provideServerCustomCapabilities exposes the registry's advertised custom capabilities as the
+// domain type the ServerToAgentBuilder consumes, keeping the registry the single source of truth
+// for which custom capabilities the server offers.
+func provideServerCustomCapabilities(
+	registry *opampApplicationService.CustomMessageRegistry,
+) agentservice.ServerCustomCapabilities {
+	return registry.Capabilities()
+}
+
+// AsCustomMessageHandler annotates a CustomMessageHandler constructor so its result is added to
+// the "opampCustomMessageHandlers" group consumed by the registry. This is the plug-in point for
+// a feature that speaks a custom OpAMP capability.
+func AsCustomMessageHandler(f any) any {
+	return fx.Annotate(
+		f,
+		fx.As(new(opampApplicationService.CustomMessageHandler)),
+		fx.ResultTags(customMessageHandlersGroup),
 	)
 }
 

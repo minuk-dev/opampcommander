@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -1073,6 +1074,13 @@ func (a *Agent) ReportCustomCapabilities(capabilities *AgentCustomCapabilities) 
 	a.Metadata.CustomCapabilities = *capabilities
 
 	return nil
+}
+
+// HasCustomCapability reports whether the agent has advertised the given OpAMP custom
+// capability. The server must not send a custom_message for a capability the agent has
+// not advertised, so this gate is checked before any outbound custom message.
+func (a *Agent) HasCustomCapability(capability string) bool {
+	return slices.Contains(a.Metadata.CustomCapabilities.Capabilities, capability)
 }
 
 // ReportAvailableComponents is a method to report the available components of the agent.

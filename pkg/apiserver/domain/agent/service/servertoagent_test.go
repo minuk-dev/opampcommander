@@ -21,7 +21,7 @@ import (
 // newTestBuilder builds a ServerToAgentBuilder with no package usecase: the tests here do
 // not exercise packages, so it is never invoked.
 func newTestBuilder() *agentservice.ServerToAgentBuilder {
-	return agentservice.NewServerToAgentBuilder(nil, slog.Default())
+	return agentservice.NewServerToAgentBuilder(nil, nil, slog.Default())
 }
 
 var (
@@ -277,7 +277,7 @@ func TestServerToAgentBuilder_Build_PackageType(t *testing.T) {
 					"pkg": {Spec: agentmodel.AgentPackageSpec{PackageType: tt.specType, Version: "1.0.0"}},
 				},
 			}
-			builder := agentservice.NewServerToAgentBuilder(fake, slog.Default())
+			builder := agentservice.NewServerToAgentBuilder(fake, nil, slog.Default())
 
 			msg := builder.Build(t.Context(), agentWithPackages("pkg"))
 
@@ -300,7 +300,7 @@ func TestServerToAgentBuilder_Build_UnresolvedPackage(t *testing.T) {
 		},
 		getErr: errPackageNotFound,
 	}
-	builder := agentservice.NewServerToAgentBuilder(fake, slog.Default())
+	builder := agentservice.NewServerToAgentBuilder(fake, nil, slog.Default())
 
 	msg := builder.Build(t.Context(), agentWithPackages("good", "missing"))
 
@@ -309,4 +309,36 @@ func TestServerToAgentBuilder_Build_UnresolvedPackage(t *testing.T) {
 	assert.NotContains(t, packages, "missing", "unresolvable package must be withheld")
 	// The message itself is still well-formed (capabilities advertised) despite the failure.
 	assert.NotZero(t, msg.GetCapabilities())
+}
+
+// TestServerToAgentBuilder_Build_AdvertisesCustomCapabilities verifies that the server's
+// registered custom capabilities are advertised in ServerToAgent.custom_capabilities, and that
+// an empty set leaves the field unset (preserving the no-handlers default).
+func TestServerToAgentBuilder_Build_AdvertisesCustomCapabilities(t *testing.T) {
+	t.Parallel()
+
+	t.Run("advertises the configured custom capabilities", func(t *testing.T) {
+		t.Parallel()
+
+		builder := agentservice.NewServerToAgentBuilder(
+			nil,
+			agentservice.ServerCustomCapabilities{"com.example.a", "com.example.b"},
+			slog.Default(),
+		)
+
+		msg := builder.Build(t.Context(), agentmodel.NewAgent(uuid.New()))
+
+		require.NotNil(t, msg.GetCustomCapabilities())
+		assert.Equal(t, []string{"com.example.a", "com.example.b"},
+			msg.GetCustomCapabilities().GetCapabilities())
+	})
+
+	t.Run("no custom capabilities leaves the field unset", func(t *testing.T) {
+		t.Parallel()
+
+		msg := newTestBuilder().Build(t.Context(), agentmodel.NewAgent(uuid.New()))
+
+		assert.Nil(t, msg.GetCustomCapabilities())
+		assert.Nil(t, msg.GetCustomMessage())
+	})
 }

@@ -14,6 +14,11 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
 )
 
+// ServerCustomCapabilities lists the OpAMP custom capability strings the server advertises
+// in ServerToAgent.custom_capabilities. It is derived from the registered custom-message
+// handlers (empty when none are registered, which keeps custom_capabilities unset).
+type ServerCustomCapabilities []string
+
 // ServerToAgentBuilder builds the [protobufs.ServerToAgent] message that describes an
 // agent's desired state (remote config, connection settings, available packages, pending
 // commands, and server capabilities) from the agent's persisted state.
@@ -23,16 +28,21 @@ import (
 // cross-server push path (delivering a change to an agent connected to another server).
 type ServerToAgentBuilder struct {
 	agentPackageUsecase agentport.AgentPackageUsecase
+	customCapabilities  ServerCustomCapabilities
 	logger              *slog.Logger
 }
 
-// NewServerToAgentBuilder creates a new ServerToAgentBuilder.
+// NewServerToAgentBuilder creates a new ServerToAgentBuilder. customCapabilities is the set of
+// custom capabilities the server advertises to every agent; it is empty unless custom-message
+// handlers are registered.
 func NewServerToAgentBuilder(
 	agentPackageUsecase agentport.AgentPackageUsecase,
+	customCapabilities ServerCustomCapabilities,
 	logger *slog.Logger,
 ) *ServerToAgentBuilder {
 	return &ServerToAgentBuilder{
 		agentPackageUsecase: agentPackageUsecase,
+		customCapabilities:  customCapabilities,
 		logger:              logger,
 	}
 }
@@ -112,6 +122,13 @@ func (b *ServerToAgentBuilder) Build(
 		connectionSettings = connectionInfoToProtobuf(agentModel.Spec.ConnectionInfo)
 	}
 
+	var customCapabilities *protobufs.CustomCapabilities
+	if len(b.customCapabilities) > 0 {
+		customCapabilities = &protobufs.CustomCapabilities{
+			Capabilities: b.customCapabilities,
+		}
+	}
+
 	return &protobufs.ServerToAgent{
 		InstanceUid:         instanceUID[:],
 		ErrorResponse:       nil,
@@ -122,10 +139,13 @@ func (b *ServerToAgentBuilder) Build(
 		Capabilities:        uint64(capabilities), // safe: int32 to uint64
 		AgentIdentification: agentIdentification,
 		Command:             command,
-		// Custom capabilities and custom messages are intentionally not supported: the server
-		// advertises no custom capabilities and never originates a custom_message. See the
-		// "Custom messages" section of docs/content/en/docs/opamp-conformance.md.
-		CustomCapabilities: nil,
+		// custom_capabilities advertises the custom capabilities the server supports (the
+		// registered custom-message handlers). custom_message is left unset here: a server
+		// custom_message is only ever a reply to an inbound one, merged in on the hot path
+		// by the OpAMP handler, never originated by this desired-state builder (which also
+		// feeds the cross-server push path). See the "Custom messages" section of
+		// docs/content/en/docs/opamp-conformance.md.
+		CustomCapabilities: customCapabilities,
 		CustomMessage:      nil,
 	}
 }
