@@ -424,3 +424,19 @@ func TestAgent_IsConnectedAt(t *testing.T) {
 		})
 	}
 }
+
+func TestAgent_HasCustomCapability(t *testing.T) {
+	t.Parallel()
+
+	a := agentmodel.NewAgent(uuid.New(),
+		agentmodel.WithCustomCapabilities(&agentmodel.AgentCustomCapabilities{
+			Capabilities: []string{"com.example.a", "com.example.b"},
+		}))
+
+	assert.True(t, a.HasCustomCapability("com.example.a"))
+	assert.True(t, a.HasCustomCapability("com.example.b"))
+	assert.False(t, a.HasCustomCapability("com.example.missing"))
+
+	// A fresh agent advertises no custom capabilities.
+	assert.False(t, agentmodel.NewAgent(uuid.New()).HasCustomCapability("com.example.a"))
+}

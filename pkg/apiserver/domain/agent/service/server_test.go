@@ -367,7 +367,7 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
 	fakeClock := newTestFakeClock(now)
@@ -415,7 +415,7 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
 	fakeClock := newTestFakeClock(now)
@@ -457,7 +457,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
 	_, err := svc.GetServer(ctx, serverID)
@@ -503,7 +503,7 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
 	fakeClock := newTestFakeClock(now)
@@ -557,7 +557,7 @@ func TestServerService_SendMessageToServer_LocalShortCircuit(t *testing.T) {
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -608,7 +608,7 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -661,7 +661,7 @@ func newLeaderTestService(
 		new(MockConnectionUsecase),
 		new(MockAgentUsecase),
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -684,7 +684,7 @@ func newServerServiceForInvalidation(
 		new(MockConnectionUsecase),
 		new(MockAgentUsecase),
 		invalidator,
-		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 	svc.SetClock(newTestFakeClock(now))
 
