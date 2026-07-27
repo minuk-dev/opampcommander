@@ -60,8 +60,18 @@ auth:
         - "opampcommander"
 event:
   enabled: false  # Set to false for standalone mode (no inter-server communication)
-  type: "inmemory"  # Use "inmemory" for standalone mode, "kafka" for distributed mode
+  # Transport for inter-server events (pick one):
+  #   "inmemory" - standalone mode (single node)
+  #   "kafka"    - distributed mode via a broker (broadcast-and-filter)
+  #   "direct"   - distributed mode, targeted peer-to-peer delivery (no broker)
+  type: "inmemory"
   kafka:
     brokers:
       - "localhost:9092"
     topic: "dev.opampcommander.events"
+  # Used when type == "direct". Each server dials the destination peer directly,
+  # resolved from the server registry, so a targeted message reaches exactly one server.
+  direct:
+    subProtocol: "grpc"          # "grpc" or "http"
+    listenAddress: ":8081"        # address this server's receiver binds to
+    advertiseAddress: ""          # address peers dial to reach this server, e.g. "$POD_IP:8081"

@@ -35,6 +35,7 @@ type ServerIdentityService struct {
 	heartbeatInterval time.Duration
 	heartbeatTimeout  time.Duration
 	id                string
+	address           string
 
 	clock                 clock.Clock
 	logger                *slog.Logger
@@ -45,11 +46,13 @@ type ServerIdentityService struct {
 func NewServerIdentityService(
 	serverPersistencePort agentport.ServerPersistencePort,
 	serverID agentmodel.ServerID,
+	serverAddress agentmodel.ServerAddress,
 	logger *slog.Logger,
 ) *ServerIdentityService {
 	return &ServerIdentityService{
 		clock:                 clock.NewRealClock(),
 		id:                    serverID.String(),
+		address:               serverAddress.String(),
 		heartbeatInterval:     DefaultHeartbeatInterval,
 		heartbeatTimeout:      DefaultHeartbeatTimeout,
 		serverPersistencePort: serverPersistencePort,
@@ -132,6 +135,7 @@ func (s *ServerIdentityService) registerServer(ctx context.Context) error {
 	// Register or update the server
 	server := &agentmodel.Server{
 		ID:              s.id,
+		Address:         s.address,
 		LastHeartbeatAt: now,
 		Conditions:      []model.Condition{},
 	}
@@ -163,6 +167,8 @@ func (s *ServerIdentityService) sendHeartbeat(ctx context.Context) error {
 	}
 
 	server.LastHeartbeatAt = s.clock.Now()
+	// Keep the advertised address fresh (and repair it if an older record lacked it).
+	server.Address = s.address
 
 	err = s.serverPersistencePort.PutServer(ctx, server)
 	if err != nil {

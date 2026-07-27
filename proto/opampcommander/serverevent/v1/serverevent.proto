@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package opampcommander.serverevent.v1;
+
+option go_package =
+    "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/direct/gen/opampcommander/serverevent/v1;servereventv1";
+
+// ServerEventService delivers a targeted inter-server event directly to the
+// server that owns the destination agent connection, without a broker hop.
+service ServerEventService {
+  // Deliver hands a single server event to the receiving server.
+  rpc Deliver(DeliverRequest) returns (DeliverResponse);
+}
+
+// DeliverRequest carries one server-to-server event. The payload is the
+// JSON-encoded serverevent.MessagePayload so the wire encoding is shared with
+// the HTTP transport.
+message DeliverRequest {
+  // source is the sender server ID.
+  string source = 1;
+  // target is the recipient server ID.
+  string target = 2;
+  // type is the serverevent.MessageType string.
+  string type = 3;
+  // payload is the JSON-encoded serverevent.MessagePayload.
+  bytes payload = 4;
+}
+
+// DeliverResponse is intentionally empty; delivery is acknowledged by a
+// successful RPC.
+message DeliverResponse {}

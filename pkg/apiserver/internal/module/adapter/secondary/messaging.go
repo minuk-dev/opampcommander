@@ -11,6 +11,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
+	outdirect "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/direct"
 	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -39,6 +40,7 @@ func newEventSender(
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	hub *inmemory.EventSenderAdapter,
+	serverPersistencePort agentport.ServerPersistencePort,
 ) (agentport.ServerEventSenderPort, error) {
 	switch settings.ProtocolType {
 	case config.EventProtocolTypeKafka:
@@ -53,6 +55,8 @@ func newEventSender(
 		}
 
 		return adapter, nil
+	case config.EventProtocolTypeDirect:
+		return createDirectSender(settings, logger, lifecycle, serverPersistencePort)
 	case config.EventProtocolTypeInMemory:
 		return hub, nil
 	}
@@ -60,6 +64,44 @@ func newEventSender(
 	return nil, &common.UnsupportedEventProtocolError{
 		ProtocolType: settings.ProtocolType.String(),
 	}
+}
+
+// createDirectSender builds the direct (peer-to-peer) sender, selecting the wire
+// sub-protocol (HTTP or gRPC) and registering the deliverer for graceful shutdown.
+func createDirectSender(
+	settings *config.EventSettings,
+	logger *slog.Logger,
+	lifecycle fx.Lifecycle,
+	serverPersistencePort agentport.ServerPersistencePort,
+) (agentport.ServerEventSenderPort, error) {
+	var deliverer outdirect.Deliverer
+
+	switch settings.DirectSettings.SubProtocol {
+	case config.DirectSubProtocolGRPC:
+		deliverer = outdirect.NewGRPCDeliverer(logger)
+	case config.DirectSubProtocolHTTP:
+		deliverer = outdirect.NewHTTPDeliverer(logger)
+	default:
+		return nil, &common.UnsupportedEventProtocolError{
+			ProtocolType: "direct/" + settings.DirectSettings.SubProtocol.String(),
+		}
+	}
+
+	adapter := outdirect.NewEventSenderAdapter(serverPersistencePort, deliverer, logger)
+
+	lifecycle.Append(fx.Hook{
+		OnStart: nil,
+		OnStop: func(context.Context) error {
+			err := adapter.Close()
+			if err != nil {
+				return fmt.Errorf("failed to close direct sender: %w", err)
+			}
+
+			return nil
+		},
+	})
+
+	return adapter, nil
 }
 
 func createKafkaSender(

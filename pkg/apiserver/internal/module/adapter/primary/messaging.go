@@ -11,6 +11,7 @@ import (
 	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.uber.org/fx"
 
+	indirect "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/direct"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
 	inkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/kafka"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -57,6 +58,8 @@ func newEventReceiver(
 		}
 
 		return adapter, nil
+	case config.EventProtocolTypeDirect:
+		return createDirectReceiver(settings, logger)
 	case config.EventProtocolTypeInMemory:
 		return hub, nil
 	}
@@ -64,6 +67,30 @@ func newEventReceiver(
 	return nil, &common.UnsupportedEventProtocolError{
 		ProtocolType: settings.ProtocolType.String(),
 	}
+}
+
+// createDirectReceiver builds the direct (peer-to-peer) receiver, selecting the wire
+// sub-protocol (HTTP or gRPC) and binding it to the configured listen address.
+func createDirectReceiver(
+	settings *config.EventSettings,
+	logger *slog.Logger,
+) (agentport.ServerEventReceiverPort, error) {
+	address := settings.DirectSettings.ListenAddress
+
+	var receiver indirect.Receiver
+
+	switch settings.DirectSettings.SubProtocol {
+	case config.DirectSubProtocolGRPC:
+		receiver = indirect.NewGRPCReceiver(address, logger)
+	case config.DirectSubProtocolHTTP:
+		receiver = indirect.NewHTTPReceiver(address, logger)
+	default:
+		return nil, &common.UnsupportedEventProtocolError{
+			ProtocolType: "direct/" + settings.DirectSettings.SubProtocol.String(),
+		}
+	}
+
+	return indirect.NewEventReceiverAdapter(receiver, logger), nil
 }
 
 // createKafkaReceiver creates a Kafka receiver with lifecycle management.
