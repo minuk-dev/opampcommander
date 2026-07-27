@@ -26,16 +26,19 @@ const defaultHTTPTimeout = 5 * time.Second
 // HTTPDeliverer delivers server events to peers over HTTP/JSON.
 type HTTPDeliverer struct {
 	client *http.Client
+	token  string
 	logger *slog.Logger
 }
 
-// NewHTTPDeliverer creates a new HTTPDeliverer.
-func NewHTTPDeliverer(logger *slog.Logger) *HTTPDeliverer {
+// NewHTTPDeliverer creates a new HTTPDeliverer. A non-empty token is sent as a bearer
+// credential so the receiving peer can authenticate the sender.
+func NewHTTPDeliverer(token string, logger *slog.Logger) *HTTPDeliverer {
 	return &HTTPDeliverer{
 		//exhaustruct:ignore
 		client: &http.Client{
 			Timeout: defaultHTTPTimeout,
 		},
+		token:  token,
 		logger: logger,
 	}
 }
@@ -57,6 +60,10 @@ func (d *HTTPDeliverer) Deliver(ctx context.Context, address string, message ser
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	if d.token != "" {
+		req.Header.Set(commondirect.AuthHeader, commondirect.BearerPrefix+d.token)
+	}
 
 	resp, err := d.client.Do(req)
 	if err != nil {

@@ -110,12 +110,20 @@ type MockServerEventSenderPort struct {
 
 func (m *MockServerEventSenderPort) SendMessageToServer(
 	ctx context.Context,
-	serverID string,
+	server *agentmodel.Server,
 	message serverevent.Message,
 ) error {
-	args := m.Called(ctx, serverID, message)
+	args := m.Called(ctx, server, message)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+// matchServerID matches the *agentmodel.Server argument by its ID, so expectations stay
+// readable now that SendMessageToServer takes the resolved server rather than an ID string.
+func matchServerID(id string) any {
+	return mock.MatchedBy(func(s *agentmodel.Server) bool {
+		return s != nil && s.ID == id
+	})
 }
 
 type MockServerEventReceiverPort struct {
@@ -597,7 +605,7 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 	mockAgent := new(MockAgentUsecase)
 
 	mockIdentity.On("CurrentServerID").Return(currentServerID)
-	mockEventSender.On("SendMessageToServer", ctx, remoteServerID, mock.Anything).Return(nil)
+	mockEventSender.On("SendMessageToServer", ctx, matchServerID(remoteServerID), mock.Anything).Return(nil)
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
@@ -627,7 +635,7 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 	err := svc.SendMessageToServer(ctx, target, msg)
 	require.NoError(t, err)
 
-	mockEventSender.AssertCalled(t, "SendMessageToServer", ctx, remoteServerID, mock.Anything)
+	mockEventSender.AssertCalled(t, "SendMessageToServer", ctx, matchServerID(remoteServerID), mock.Anything)
 	mockConnection.AssertNotCalled(t, "SendServerToAgent",
 		mock.Anything, mock.Anything, mock.Anything)
 }
@@ -787,7 +795,7 @@ func TestServerService_BroadcastAgentCacheInvalidation_SkipsSelfSendsPeers(t *te
 		{ID: "server-1", LastHeartbeatAt: now}, // self
 		{ID: "server-2", LastHeartbeatAt: now}, // peer
 	}, nil)
-	mockEventSender.On("SendMessageToServer", ctx, "server-2", mock.MatchedBy(
+	mockEventSender.On("SendMessageToServer", ctx, matchServerID("server-2"), mock.MatchedBy(
 		func(m serverevent.Message) bool {
 			return m.Type == serverevent.MessageTypeInvalidateAgentCache &&
 				m.Payload.MessageForInvalidateAgentCache != nil &&
@@ -802,8 +810,8 @@ func TestServerService_BroadcastAgentCacheInvalidation_SkipsSelfSendsPeers(t *te
 	err := svc.BroadcastAgentCacheInvalidation(ctx, uid)
 	require.NoError(t, err)
 
-	mockEventSender.AssertCalled(t, "SendMessageToServer", ctx, "server-2", mock.Anything)
-	mockEventSender.AssertNotCalled(t, "SendMessageToServer", ctx, "server-1", mock.Anything)
+	mockEventSender.AssertCalled(t, "SendMessageToServer", ctx, matchServerID("server-2"), mock.Anything)
+	mockEventSender.AssertNotCalled(t, "SendMessageToServer", ctx, matchServerID("server-1"), mock.Anything)
 }
 
 func TestServerService_HandleInvalidateAgentCacheEvent_InvalidatesLocally(t *testing.T) {

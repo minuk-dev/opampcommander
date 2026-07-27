@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 
 	commondirect "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/direct"
 	servereventv1 "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/direct/gen/opampcommander/serverevent/v1"
@@ -20,8 +21,10 @@ var _ Deliverer = (*GRPCDeliverer)(nil)
 // created lazily per peer address and reused across deliveries.
 //
 // Transport security is currently insecure (plaintext), consistent with in-cluster
-// pod-to-pod traffic; mTLS between peers is left as a follow-up.
+// pod-to-pod traffic; mTLS between peers is left as a follow-up. A non-empty token is
+// attached as bearer metadata so the receiving peer can authenticate the sender.
 type GRPCDeliverer struct {
+	token  string
 	logger *slog.Logger
 
 	mu    sync.Mutex
@@ -29,8 +32,9 @@ type GRPCDeliverer struct {
 }
 
 // NewGRPCDeliverer creates a new GRPCDeliverer.
-func NewGRPCDeliverer(logger *slog.Logger) *GRPCDeliverer {
+func NewGRPCDeliverer(token string, logger *slog.Logger) *GRPCDeliverer {
 	return &GRPCDeliverer{
+		token:  token,
 		logger: logger,
 		mu:     sync.Mutex{},
 		conns:  make(map[string]*grpc.ClientConn),
@@ -49,6 +53,10 @@ func (d *GRPCDeliverer) Deliver(ctx context.Context, address string, message ser
 		return fmt.Errorf("failed to encode payload: %w", err)
 	}
 
+	if d.token != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, commondirect.AuthMetadataKey, commondirect.BearerPrefix+d.token)
+	}
+
 	client := servereventv1.NewServerEventServiceClient(conn)
 
 	_, err = client.Deliver(ctx, &servereventv1.DeliverRequest{
@@ -58,6 +66,10 @@ func (d *GRPCDeliverer) Deliver(ctx context.Context, address string, message ser
 		Payload: payload,
 	})
 	if err != nil {
+		// Drop the connection so a subsequent send re-dials, rather than reusing a
+		// connection to a peer that may have moved to a new address.
+		d.evict(address)
+
 		return fmt.Errorf("failed to deliver via gRPC to %s: %w", address, err)
 	}
 
@@ -100,4 +112,24 @@ func (d *GRPCDeliverer) connFor(address string) (*grpc.ClientConn, error) {
 	d.conns[address] = conn
 
 	return conn, nil
+}
+
+// evict closes and removes the cached connection for the address, if present.
+func (d *GRPCDeliverer) evict(address string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	conn, ok := d.conns[address]
+	if !ok {
+		return
+	}
+
+	delete(d.conns, address)
+
+	err := conn.Close()
+	if err != nil {
+		d.logger.Warn("failed to close evicted gRPC connection",
+			slog.String("address", address),
+			slog.String("error", err.Error()))
+	}
 }

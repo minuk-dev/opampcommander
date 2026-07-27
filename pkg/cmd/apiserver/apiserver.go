@@ -49,6 +49,7 @@ type CommandOption struct {
 			SubProtocol      string `mapstructure:"subProtocol"`
 			ListenAddress    string `mapstructure:"listenAddress"`
 			AdvertiseAddress string `mapstructure:"advertiseAddress"`
+			AuthToken        string `mapstructure:"authToken"`
 		} `mapstructure:"direct"`
 	} `mapstructure:"event"`
 	Management struct {
@@ -370,6 +371,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				SubProtocol:      appconfig.DirectSubProtocol(opt.Event.Direct.SubProtocol),
 				ListenAddress:    opt.Event.Direct.ListenAddress,
 				AdvertiseAddress: opt.Event.Direct.AdvertiseAddress,
+				AuthToken:        opt.Event.Direct.AuthToken,
 			},
 		},
 		ManagementSettings: appconfig.ManagementSettings{

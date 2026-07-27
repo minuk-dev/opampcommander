@@ -4,15 +4,34 @@
 package direct
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 )
 
 // DeliverPath is the HTTP path the direct receiver serves and the sender POSTs to.
 const DeliverPath = "/internal/v1/serverevents:deliver"
+
+const (
+	// AuthHeader is the HTTP header carrying the pre-shared bearer credential.
+	AuthHeader = "Authorization"
+	// AuthMetadataKey is the gRPC metadata key carrying the pre-shared bearer credential.
+	AuthMetadataKey = "authorization"
+	// BearerPrefix prefixes the token in both the HTTP header and the gRPC metadata.
+	BearerPrefix = "Bearer "
+)
+
+// ConstantTimeTokenMatch reports whether presented equals expected without leaking timing.
+// BearerPrefix is stripped from presented before comparison.
+func ConstantTimeTokenMatch(expected, presented string) bool {
+	presented = strings.TrimPrefix(presented, BearerPrefix)
+
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(presented)) == 1
+}
 
 // ErrUnknownMessageType is returned when an envelope carries a message type this
 // server does not recognize.

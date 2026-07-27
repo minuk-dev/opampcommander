@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 )
@@ -37,7 +38,7 @@ func NewEventHubAdapter(
 // In standalone mode, this is a no-op as there are no other servers to communicate with.
 func (e *EventSenderAdapter) SendMessageToServer(
 	ctx context.Context,
-	_ string, // meaningless serverID in standalone mode
+	_ *agentmodel.Server, // meaningless target in standalone mode
 	msg serverevent.Message,
 ) error {
 	select {

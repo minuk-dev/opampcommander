@@ -32,6 +32,10 @@ type DirectSettings struct {
 	// (e.g. "10.0.0.5:8081" or "$POD_IP:8081"). It is stored in the server
 	// registry and used by other servers to route targeted messages here.
 	AdvertiseAddress string
+	// AuthToken is a pre-shared bearer credential. When set, the receiver requires
+	// each incoming delivery to present it and the sender attaches it. When empty,
+	// peers are trusted (suitable only for an isolated cluster network).
+	AuthToken string
 }
 
 // DirectSubProtocol represents the wire protocol used by the direct transport.

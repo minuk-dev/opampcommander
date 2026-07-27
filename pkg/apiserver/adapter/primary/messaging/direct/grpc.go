@@ -8,6 +8,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	commondirect "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/direct"
@@ -20,15 +21,20 @@ var _ Receiver = (*GRPCReceiver)(nil)
 
 // GRPCReceiver serves incoming server events over gRPC.
 type GRPCReceiver struct {
-	address string
-	logger  *slog.Logger
+	address         string
+	currentServerID string
+	token           string
+	logger          *slog.Logger
 }
 
-// NewGRPCReceiver creates a new GRPCReceiver bound to address.
-func NewGRPCReceiver(address string, logger *slog.Logger) *GRPCReceiver {
+// NewGRPCReceiver creates a new GRPCReceiver bound to address. currentServerID rejects
+// misrouted messages; a non-empty token requires senders to present a matching bearer.
+func NewGRPCReceiver(address, currentServerID, token string, logger *slog.Logger) *GRPCReceiver {
 	return &GRPCReceiver{
-		address: address,
-		logger:  logger,
+		address:         address,
+		currentServerID: currentServerID,
+		token:           token,
+		logger:          logger,
 	}
 }
 
@@ -44,6 +50,8 @@ func (r *GRPCReceiver) Serve(ctx context.Context, handler agentport.ReceiveServe
 	server := grpc.NewServer()
 	servereventv1.RegisterServerEventServiceServer(server, &grpcService{
 		UnimplementedServerEventServiceServer: servereventv1.UnimplementedServerEventServiceServer{},
+		currentServerID:                       r.currentServerID,
+		token:                                 r.token,
 		handler:                               handler,
 		logger:                                r.logger,
 	})
@@ -67,8 +75,10 @@ func (r *GRPCReceiver) Serve(ctx context.Context, handler agentport.ReceiveServe
 type grpcService struct {
 	servereventv1.UnimplementedServerEventServiceServer
 
-	handler agentport.ReceiveServerEventHandler
-	logger  *slog.Logger
+	currentServerID string
+	token           string
+	handler         agentport.ReceiveServerEventHandler
+	logger          *slog.Logger
 }
 
 // Deliver implements servereventv1.ServerEventServiceServer.
@@ -76,10 +86,25 @@ func (s *grpcService) Deliver(
 	ctx context.Context,
 	request *servereventv1.DeliverRequest,
 ) (*servereventv1.DeliverResponse, error) {
+	if !s.authorized(ctx) {
+		//nolint:wrapcheck // gRPC handlers return status errors verbatim so the code propagates.
+		return nil, status.Error(codes.Unauthenticated, "invalid or missing credential")
+	}
+
 	messageType, err := commondirect.ParseMessageType(request.GetType())
 	if err != nil {
 		//nolint:wrapcheck // gRPC handlers return status errors verbatim so the code propagates.
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	target := request.GetTarget()
+	if target != "" && target != s.currentServerID {
+		s.logger.Warn("rejecting direct message addressed to another server",
+			slog.String("target", target),
+			slog.String("current", s.currentServerID))
+
+		//nolint:wrapcheck // gRPC handlers return status errors verbatim so the code propagates.
+		return nil, status.Error(codes.FailedPrecondition, "message addressed to another server")
 	}
 
 	payload, err := commondirect.DecodePayload(request.GetPayload())
@@ -90,7 +115,7 @@ func (s *grpcService) Deliver(
 
 	message := serverevent.Message{
 		Source:  request.GetSource(),
-		Target:  request.GetTarget(),
+		Target:  target,
 		Type:    messageType,
 		Payload: payload,
 	}
@@ -104,4 +129,24 @@ func (s *grpcService) Deliver(
 	}
 
 	return &servereventv1.DeliverResponse{}, nil
+}
+
+// authorized reports whether the RPC carries the required bearer credential. When no
+// token is configured, all requests are accepted (trusted-network mode).
+func (s *grpcService) authorized(ctx context.Context) bool {
+	if s.token == "" {
+		return true
+	}
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return false
+	}
+
+	values := md.Get(commondirect.AuthMetadataKey)
+	if len(values) == 0 {
+		return false
+	}
+
+	return commondirect.ConstantTimeTokenMatch(s.token, values[0])
 }

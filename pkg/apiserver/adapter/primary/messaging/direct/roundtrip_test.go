@@ -19,49 +19,70 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-// staticResolver resolves every server ID to a single fixed address.
-type staticResolver struct {
-	address string
+const targetServerID = "server-b"
+
+var _ agentport.ServerEventSenderPort = (*outdirect.EventSenderAdapter)(nil)
+
+type transport struct {
+	name        string
+	newReceiver func(addr, serverID, token string, logger *slog.Logger) indirect.Receiver
+	newDelivery func(token string, logger *slog.Logger) outdirect.Deliverer
 }
 
-func (r staticResolver) GetServer(_ context.Context, id string) (*agentmodel.Server, error) {
-	return &agentmodel.Server{
-		ID:              id,
-		Address:         r.address,
-		LastHeartbeatAt: time.Time{},
-		Conditions:      nil,
-	}, nil
-}
-
-func TestDirectTransport_RoundTrip(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name        string
-		newReceiver func(addr string, logger *slog.Logger) indirect.Receiver
-		newDelivery func(logger *slog.Logger) outdirect.Deliverer
-	}{
+func transports() []transport {
+	return []transport{
 		{
 			name: "http",
-			newReceiver: func(addr string, logger *slog.Logger) indirect.Receiver {
-				return indirect.NewHTTPReceiver(addr, logger)
+			newReceiver: func(addr, serverID, token string, logger *slog.Logger) indirect.Receiver {
+				return indirect.NewHTTPReceiver(addr, serverID, token, logger)
 			},
-			newDelivery: func(logger *slog.Logger) outdirect.Deliverer {
-				return outdirect.NewHTTPDeliverer(logger)
+			newDelivery: func(token string, logger *slog.Logger) outdirect.Deliverer {
+				return outdirect.NewHTTPDeliverer(token, logger)
 			},
 		},
 		{
 			name: "grpc",
-			newReceiver: func(addr string, logger *slog.Logger) indirect.Receiver {
-				return indirect.NewGRPCReceiver(addr, logger)
+			newReceiver: func(addr, serverID, token string, logger *slog.Logger) indirect.Receiver {
+				return indirect.NewGRPCReceiver(addr, serverID, token, logger)
 			},
-			newDelivery: func(logger *slog.Logger) outdirect.Deliverer {
-				return outdirect.NewGRPCDeliverer(logger)
+			newDelivery: func(token string, logger *slog.Logger) outdirect.Deliverer {
+				return outdirect.NewGRPCDeliverer(token, logger)
 			},
 		},
 	}
+}
 
-	for _, tt := range tests {
+func peer(address string) *agentmodel.Server {
+	return &agentmodel.Server{
+		ID:              targetServerID,
+		Address:         address,
+		LastHeartbeatAt: time.Time{},
+		Conditions:      nil,
+	}
+}
+
+func sampleMessage() serverevent.Message {
+	return serverevent.Message{
+		Source: "server-a",
+		Target: targetServerID,
+		Type:   serverevent.MessageTypeSendServerToAgent,
+		Payload: serverevent.MessagePayload{
+			MessageForServerToAgent: &serverevent.MessageForServerToAgent{
+				TargetAgentInstanceUIDs: []uuid.UUID{uuid.New()},
+			},
+			MessageForInvalidateAgentCache: nil,
+		},
+	}
+}
+
+// TestDirectTransport_RoundTrip exercises a full sender -> receiver delivery, including
+// bearer-token authentication, over both sub-protocols.
+func TestDirectTransport_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	const token = "shared-secret"
+
+	for _, tt := range transports() {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -69,51 +90,110 @@ func TestDirectTransport_RoundTrip(t *testing.T) {
 			address := freeAddress(t)
 
 			received := make(chan *serverevent.Message, 1)
-			//nolint:unparam // signature must match agentport.ReceiveServerEventHandler.
-			handler := func(_ context.Context, msg *serverevent.Message) error {
-				received <- msg
-
-				return nil
-			}
 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
-			receiver := indirect.NewEventReceiverAdapter(tt.newReceiver(address, logger), logger)
+			receiver := indirect.NewEventReceiverAdapter(tt.newReceiver(address, targetServerID, token, logger), logger)
 			serveErr := make(chan error, 1)
 
-			go func() { serveErr <- receiver.StartReceiver(ctx, handler) }()
+			go func() { serveErr <- receiver.StartReceiver(ctx, capturingHandler(received)) }()
 
-			deliverer := tt.newDelivery(logger)
+			deliverer := tt.newDelivery(token, logger)
 
 			defer func() { _ = deliverer.Close() }()
 
-			sender := outdirect.NewEventSenderAdapter(staticResolver{address: address}, deliverer, logger)
+			sender := outdirect.NewEventSenderAdapter(deliverer, logger)
+			message := sampleMessage()
 
-			agentUID := uuid.New()
-			message := serverevent.Message{
-				Source: "server-a",
-				Target: "server-b",
-				Type:   serverevent.MessageTypeSendServerToAgent,
-				Payload: serverevent.MessagePayload{
-					MessageForServerToAgent: &serverevent.MessageForServerToAgent{
-						TargetAgentInstanceUIDs: []uuid.UUID{agentUID},
-					},
-					MessageForInvalidateAgentCache: nil,
-				},
-			}
+			sendUntilDelivered(ctx, t, sender, peer(address), message)
 
-			sendUntilDelivered(ctx, t, sender, message)
+			got := requireReceive(t, received)
+			assert.Equal(t, message.Source, got.Source)
+			assert.Equal(t, message.Type, got.Type)
+			require.NotNil(t, got.Payload.MessageForServerToAgent)
 
-			select {
-			case got := <-received:
-				assert.Equal(t, message.Source, got.Source)
-				assert.Equal(t, message.Type, got.Type)
-				require.NotNil(t, got.Payload.MessageForServerToAgent)
-				assert.Equal(t, []uuid.UUID{agentUID}, got.Payload.TargetAgentInstanceUIDs)
-			case <-time.After(5 * time.Second):
-				t.Fatal("timed out waiting for message delivery")
-			}
+			cancel()
+			require.NoError(t, <-serveErr)
+		})
+	}
+}
+
+// TestDirectTransport_RejectsBadToken verifies the receiver refuses a sender that presents
+// the wrong credential, and never invokes the handler.
+func TestDirectTransport_RejectsBadToken(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range transports() {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
+			address := freeAddress(t)
+
+			received := make(chan *serverevent.Message, 1)
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			receiver := indirect.NewEventReceiverAdapter(
+				tt.newReceiver(address, targetServerID, "right-token", logger), logger)
+			serveErr := make(chan error, 1)
+
+			go func() { serveErr <- receiver.StartReceiver(ctx, capturingHandler(received)) }()
+
+			deliverer := tt.newDelivery("wrong-token", logger)
+
+			defer func() { _ = deliverer.Close() }()
+
+			sender := outdirect.NewEventSenderAdapter(deliverer, logger)
+
+			requireServing(ctx, t, address)
+
+			err := sender.SendMessageToServer(ctx, peer(address), sampleMessage())
+			require.Error(t, err)
+			requireNoReceive(t, received)
+
+			cancel()
+			require.NoError(t, <-serveErr)
+		})
+	}
+}
+
+// TestDirectTransport_RejectsWrongTarget verifies a message addressed to a different server
+// is refused rather than processed by whoever received it.
+func TestDirectTransport_RejectsWrongTarget(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range transports() {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
+			address := freeAddress(t)
+
+			received := make(chan *serverevent.Message, 1)
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			// Receiver believes it is "server-c"; the message targets "server-b".
+			receiver := indirect.NewEventReceiverAdapter(tt.newReceiver(address, "server-c", "", logger), logger)
+			serveErr := make(chan error, 1)
+
+			go func() { serveErr <- receiver.StartReceiver(ctx, capturingHandler(received)) }()
+
+			deliverer := tt.newDelivery("", logger)
+
+			defer func() { _ = deliverer.Close() }()
+
+			sender := outdirect.NewEventSenderAdapter(deliverer, logger)
+
+			requireServing(ctx, t, address)
+
+			err := sender.SendMessageToServer(ctx, peer(address), sampleMessage())
+			require.Error(t, err)
+			requireNoReceive(t, received)
 
 			cancel()
 			require.NoError(t, <-serveErr)
@@ -127,27 +207,51 @@ func TestDirectSender_NoAddress(t *testing.T) {
 	t.Parallel()
 
 	logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
-	deliverer := outdirect.NewHTTPDeliverer(logger)
+	deliverer := outdirect.NewHTTPDeliverer("", logger)
 
 	defer func() { _ = deliverer.Close() }()
 
-	sender := outdirect.NewEventSenderAdapter(staticResolver{address: ""}, deliverer, logger)
+	sender := outdirect.NewEventSenderAdapter(deliverer, logger)
 
-	err := sender.SendMessageToServer(t.Context(), "server-b", serverevent.Message{
-		Source: "server-a",
-		Target: "server-b",
-		Type:   serverevent.MessageTypeInvalidateAgentCache,
-		Payload: serverevent.MessagePayload{
-			MessageForServerToAgent: nil,
-			MessageForInvalidateAgentCache: &serverevent.MessageForInvalidateAgentCache{
-				AgentInstanceUIDs: []uuid.UUID{uuid.New()},
-			},
-		},
-	})
+	err := sender.SendMessageToServer(t.Context(), peer(""), sampleMessage())
 	require.ErrorIs(t, err, outdirect.ErrNoPeerAddress)
 }
 
-var _ agentport.ServerEventSenderPort = (*outdirect.EventSenderAdapter)(nil)
+func capturingHandler(received chan<- *serverevent.Message) agentport.ReceiveServerEventHandler {
+	return func(_ context.Context, msg *serverevent.Message) error {
+		received <- msg
+
+		return nil
+	}
+}
+
+// requireReceive returns the first message delivered to the channel, failing if none
+// arrives within the timeout.
+func requireReceive(t *testing.T, received <-chan *serverevent.Message) *serverevent.Message {
+	t.Helper()
+
+	var got *serverevent.Message
+
+	require.Eventually(t, func() bool {
+		select {
+		case got = <-received:
+			return true
+		default:
+			return false
+		}
+	}, 5*time.Second, 50*time.Millisecond, "timed out waiting for message delivery")
+
+	return got
+}
+
+// requireNoReceive asserts that no message is delivered to the channel.
+func requireNoReceive(t *testing.T, received <-chan *serverevent.Message) {
+	t.Helper()
+
+	require.Never(t, func() bool {
+		return len(received) > 0
+	}, 200*time.Millisecond, 20*time.Millisecond, "handler was invoked unexpectedly")
+}
 
 // sendUntilDelivered retries delivery until it succeeds, tolerating the brief window
 // before the receiver is accepting connections.
@@ -155,24 +259,33 @@ func sendUntilDelivered(
 	ctx context.Context,
 	t *testing.T,
 	sender *outdirect.EventSenderAdapter,
+	server *agentmodel.Server,
 	message serverevent.Message,
 ) {
 	t.Helper()
 
-	deadline := time.Now().Add(5 * time.Second)
+	require.Eventually(t, func() bool {
+		return sender.SendMessageToServer(ctx, server, message) == nil
+	}, 5*time.Second, 50*time.Millisecond, "failed to deliver message before deadline")
+}
 
-	for {
-		err := sender.SendMessageToServer(ctx, "server-b", message)
-		if err == nil {
-			return
+// requireServing blocks until the receiver at address accepts a TCP connection, so a
+// subsequent send exercises the receiver rather than a connection-refused error.
+func requireServing(ctx context.Context, t *testing.T, address string) {
+	t.Helper()
+
+	require.Eventually(t, func() bool {
+		var dialer net.Dialer
+
+		conn, err := dialer.DialContext(ctx, "tcp", address)
+		if err != nil {
+			return false
 		}
 
-		if time.Now().After(deadline) {
-			t.Fatalf("failed to deliver message before deadline: %v", err)
-		}
+		_ = conn.Close()
 
-		time.Sleep(50 * time.Millisecond)
-	}
+		return true
+	}, 5*time.Second, 50*time.Millisecond, "receiver never started serving on %s", address)
 }
 
 // freeAddress reserves an ephemeral localhost port and returns its address.

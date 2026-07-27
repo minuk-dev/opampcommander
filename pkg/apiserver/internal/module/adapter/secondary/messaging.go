@@ -40,7 +40,6 @@ func newEventSender(
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	hub *inmemory.EventSenderAdapter,
-	serverPersistencePort agentport.ServerPersistencePort,
 ) (agentport.ServerEventSenderPort, error) {
 	switch settings.ProtocolType {
 	case config.EventProtocolTypeKafka:
@@ -56,7 +55,7 @@ func newEventSender(
 
 		return adapter, nil
 	case config.EventProtocolTypeDirect:
-		return createDirectSender(settings, logger, lifecycle, serverPersistencePort)
+		return createDirectSender(settings, logger, lifecycle)
 	case config.EventProtocolTypeInMemory:
 		return hub, nil
 	}
@@ -72,22 +71,23 @@ func createDirectSender(
 	settings *config.EventSettings,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
-	serverPersistencePort agentport.ServerPersistencePort,
 ) (agentport.ServerEventSenderPort, error) {
+	token := settings.DirectSettings.AuthToken
+
 	var deliverer outdirect.Deliverer
 
 	switch settings.DirectSettings.SubProtocol {
 	case config.DirectSubProtocolGRPC:
-		deliverer = outdirect.NewGRPCDeliverer(logger)
+		deliverer = outdirect.NewGRPCDeliverer(token, logger)
 	case config.DirectSubProtocolHTTP:
-		deliverer = outdirect.NewHTTPDeliverer(logger)
+		deliverer = outdirect.NewHTTPDeliverer(token, logger)
 	default:
 		return nil, &common.UnsupportedEventProtocolError{
 			ProtocolType: "direct/" + settings.DirectSettings.SubProtocol.String(),
 		}
 	}
 
-	adapter := outdirect.NewEventSenderAdapter(serverPersistencePort, deliverer, logger)
+	adapter := outdirect.NewEventSenderAdapter(deliverer, logger)
 
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,

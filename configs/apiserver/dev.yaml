@@ -74,4 +74,5 @@ event:
   direct:
     subProtocol: "grpc"          # "grpc" or "http"
     listenAddress: ":8081"        # address this server's receiver binds to
-    advertiseAddress: ""          # address peers dial to reach this server, e.g. "$POD_IP:8081"
+    advertiseAddress: ""          # address peers dial to reach this server (required in direct mode); in k8s set env EVENT_DIRECT_ADVERTISEADDRESS to "$(POD_IP):8081"
+    authToken: ""                 # pre-shared bearer token; when set, peers must present it. Empty = trust the cluster network

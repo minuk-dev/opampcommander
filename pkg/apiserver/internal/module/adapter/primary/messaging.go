@@ -59,7 +59,7 @@ func newEventReceiver(
 
 		return adapter, nil
 	case config.EventProtocolTypeDirect:
-		return createDirectReceiver(settings, logger)
+		return createDirectReceiver(settings, serverID, logger)
 	case config.EventProtocolTypeInMemory:
 		return hub, nil
 	}
@@ -69,24 +69,34 @@ func newEventReceiver(
 	}
 }
 
+// ErrDirectAddressRequired is returned when the direct transport is configured without the
+// listen or advertise address it needs to be reachable.
+var ErrDirectAddressRequired = errors.New(
+	"direct transport requires event.direct.listenAddress and event.direct.advertiseAddress")
+
 // createDirectReceiver builds the direct (peer-to-peer) receiver, selecting the wire
-// sub-protocol (HTTP or gRPC) and binding it to the configured listen address.
+// sub-protocol (HTTP or gRPC) and binding it to the configured listen address. It fails
+// fast when the transport is misconfigured, so a server never starts silently unreachable.
 func createDirectReceiver(
 	settings *config.EventSettings,
+	serverID agentmodel.ServerID,
 	logger *slog.Logger,
 ) (agentport.ServerEventReceiverPort, error) {
-	address := settings.DirectSettings.ListenAddress
+	directSettings := settings.DirectSettings
+	if directSettings.ListenAddress == "" || directSettings.AdvertiseAddress == "" {
+		return nil, ErrDirectAddressRequired
+	}
 
 	var receiver indirect.Receiver
 
-	switch settings.DirectSettings.SubProtocol {
+	switch directSettings.SubProtocol {
 	case config.DirectSubProtocolGRPC:
-		receiver = indirect.NewGRPCReceiver(address, logger)
+		receiver = indirect.NewGRPCReceiver(directSettings.ListenAddress, serverID.String(), directSettings.AuthToken, logger)
 	case config.DirectSubProtocolHTTP:
-		receiver = indirect.NewHTTPReceiver(address, logger)
+		receiver = indirect.NewHTTPReceiver(directSettings.ListenAddress, serverID.String(), directSettings.AuthToken, logger)
 	default:
 		return nil, &common.UnsupportedEventProtocolError{
-			ProtocolType: "direct/" + settings.DirectSettings.SubProtocol.String(),
+			ProtocolType: "direct/" + directSettings.SubProtocol.String(),
 		}
 	}
 

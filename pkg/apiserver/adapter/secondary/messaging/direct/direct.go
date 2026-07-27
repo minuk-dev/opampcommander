@@ -1,7 +1,7 @@
 // Package direct implements the sender side of the direct (peer-to-peer) server-event
-// transport. Instead of publishing to a broker, it resolves the destination server's
-// address from the server registry and delivers the message to that peer directly, so
-// a targeted message reaches exactly one server (O(1) delivery).
+// transport. Instead of publishing to a broker, it delivers the message to the target
+// server's registered address directly, so a targeted message reaches exactly one server
+// (O(1) delivery).
 package direct
 
 import (
@@ -22,13 +22,6 @@ var _ agentport.ServerEventSenderPort = (*EventSenderAdapter)(nil)
 // so it cannot be reached over the direct transport.
 var ErrNoPeerAddress = errors.New("target server has no direct address")
 
-// PeerResolver resolves a server ID to its registry record, whose Address the sender
-// dials. It is satisfied by the server persistence adapter.
-type PeerResolver interface {
-	// GetServer retrieves a server by its ID.
-	GetServer(ctx context.Context, id string) (*agentmodel.Server, error)
-}
-
 // Deliverer sends a single message to a peer at the given address using a concrete
 // wire protocol (HTTP or gRPC).
 type Deliverer interface {
@@ -38,20 +31,19 @@ type Deliverer interface {
 }
 
 // EventSenderAdapter implements agentport.ServerEventSenderPort using direct peer delivery.
+// It reads the destination address straight from the resolved server the caller passes,
+// so no extra registry lookup is needed.
 type EventSenderAdapter struct {
-	resolver  PeerResolver
 	deliverer Deliverer
 	logger    *slog.Logger
 }
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	resolver PeerResolver,
 	deliverer Deliverer,
 	logger *slog.Logger,
 ) *EventSenderAdapter {
 	return &EventSenderAdapter{
-		resolver:  resolver,
 		deliverer: deliverer,
 		logger:    logger,
 	}
@@ -65,21 +57,16 @@ func NewEventSenderAdapter(
 // periodically.
 func (a *EventSenderAdapter) SendMessageToServer(
 	ctx context.Context,
-	serverID string,
+	server *agentmodel.Server,
 	message serverevent.Message,
 ) error {
-	server, err := a.resolver.GetServer(ctx, serverID)
-	if err != nil {
-		return fmt.Errorf("failed to resolve peer %s: %w", serverID, err)
-	}
-
 	if server.Address == "" {
-		return fmt.Errorf("%w: server %s", ErrNoPeerAddress, serverID)
+		return fmt.Errorf("%w: server %s", ErrNoPeerAddress, server.ID)
 	}
 
-	err = a.deliverer.Deliver(ctx, server.Address, message)
+	err := a.deliverer.Deliver(ctx, server.Address, message)
 	if err != nil {
-		return fmt.Errorf("failed to deliver message to server %s at %s: %w", serverID, server.Address, err)
+		return fmt.Errorf("failed to deliver message to server %s at %s: %w", server.ID, server.Address, err)
 	}
 
 	return nil

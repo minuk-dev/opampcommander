@@ -21,17 +21,25 @@ const defaultReadHeaderTimeout = 5 * time.Second
 // defaultShutdownTimeout bounds graceful shutdown of the receiver server.
 const defaultShutdownTimeout = 5 * time.Second
 
+// maxBodyBytes caps an incoming delivery body. Payloads are small lists of UUIDs.
+const maxBodyBytes = 1 << 20 // 1 MiB
+
 // HTTPReceiver serves incoming server events over HTTP/JSON.
 type HTTPReceiver struct {
-	address string
-	logger  *slog.Logger
+	address         string
+	currentServerID string
+	token           string
+	logger          *slog.Logger
 }
 
-// NewHTTPReceiver creates a new HTTPReceiver bound to address.
-func NewHTTPReceiver(address string, logger *slog.Logger) *HTTPReceiver {
+// NewHTTPReceiver creates a new HTTPReceiver bound to address. currentServerID rejects
+// misrouted messages; a non-empty token requires senders to present a matching bearer.
+func NewHTTPReceiver(address, currentServerID, token string, logger *slog.Logger) *HTTPReceiver {
 	return &HTTPReceiver{
-		address: address,
-		logger:  logger,
+		address:         address,
+		currentServerID: currentServerID,
+		token:           token,
+		logger:          logger,
 	}
 }
 
@@ -82,6 +90,14 @@ func (r *HTTPReceiver) handleDeliver(
 			return
 		}
 
+		if !r.authorized(request) {
+			http.Error(writer, "unauthorized", http.StatusUnauthorized)
+
+			return
+		}
+
+		request.Body = http.MaxBytesReader(writer, request.Body, maxBodyBytes)
+
 		var envelope commondirect.Envelope
 
 		err := json.NewDecoder(request.Body).Decode(&envelope)
@@ -98,6 +114,15 @@ func (r *HTTPReceiver) handleDeliver(
 			return
 		}
 
+		if message.Target != "" && message.Target != r.currentServerID {
+			r.logger.Warn("rejecting direct message addressed to another server",
+				slog.String("target", message.Target),
+				slog.String("current", r.currentServerID))
+			http.Error(writer, "message addressed to another server", http.StatusConflict)
+
+			return
+		}
+
 		err = handler(request.Context(), &message)
 		if err != nil {
 			r.logger.Warn("failed to handle direct message", slog.String("error", err.Error()))
@@ -108,4 +133,14 @@ func (r *HTTPReceiver) handleDeliver(
 
 		writer.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// authorized reports whether the request carries the required bearer credential. When no
+// token is configured, all requests are accepted (trusted-network mode).
+func (r *HTTPReceiver) authorized(request *http.Request) bool {
+	if r.token == "" {
+		return true
+	}
+
+	return commondirect.ConstantTimeTokenMatch(r.token, request.Header.Get(commondirect.AuthHeader))
 }
