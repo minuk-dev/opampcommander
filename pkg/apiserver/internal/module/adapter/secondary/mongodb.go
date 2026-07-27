@@ -125,7 +125,7 @@ func NewMongoDatabase(
 		// Register schema initialization in lifecycle
 		lifecycle.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
-				err := mongodb.EnsureSchema(ctx, database)
+				err := mongodb.EnsureSchema(ctx, database, settings.DatabaseSettings.Sharding.Enabled)
 				if err != nil {
 					return fmt.Errorf("failed to ensure mongo schema: %w", err)
 				}

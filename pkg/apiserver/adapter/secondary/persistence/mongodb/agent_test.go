@@ -1479,7 +1479,7 @@ func TestAgentMongoAdapter_OptimisticConcurrency(t *testing.T) {
 	database := client.Database("testdb")
 	// The concurrent-create conflict relies on the unique index on metadata.instanceUid,
 	// which is owned by EnsureSchema rather than the repository constructor.
-	require.NoError(t, mongodb.EnsureSchema(ctx, database))
+	require.NoError(t, mongodb.EnsureSchema(ctx, database, false))
 
 	agentRepository := mongodb.NewAgentRepository(database, base.Logger)
 

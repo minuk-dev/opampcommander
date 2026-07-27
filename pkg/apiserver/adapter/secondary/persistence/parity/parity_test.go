@@ -106,7 +106,7 @@ func startMongoDatabase(t *testing.T) *mongo.Database {
 	t.Cleanup(func() { require.NoError(t, client.Disconnect(ctx)) })
 
 	database := client.Database("parity_test")
-	require.NoError(t, mongodb.EnsureSchema(ctx, database))
+	require.NoError(t, mongodb.EnsureSchema(ctx, database, false))
 
 	return database
 }
