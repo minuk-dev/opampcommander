@@ -19,7 +19,7 @@ require (
 	github.com/open-telemetry/opamp-go v0.23.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/prometheus/client_golang v1.23.2
-	github.com/prometheus/common v0.70.0
+	github.com/prometheus/common v0.70.1
 	github.com/samber/lo v1.53.0
 	github.com/samber/mo v1.17.0
 	github.com/samber/slog-gin v1.21.1
