@@ -97,7 +97,10 @@ func provideCasbinEnforcer(
 			slog.Any("error", err),
 		)
 
-		fallback, fallbackErr := casbinEnforcer.NewEnforcerFromModel(
+		// Use the no-op-adapter enforcer, not NewEnforcerFromModel: the latter
+		// leaves the enforcer with a nil adapter, so the startup SyncPolicies →
+		// SavePolicy call panics. NewInMemoryEnforcer makes SavePolicy a safe no-op.
+		fallback, fallbackErr := casbinEnforcer.NewInMemoryEnforcer(
 			logger, rbacModel,
 		)
 		if fallbackErr != nil {

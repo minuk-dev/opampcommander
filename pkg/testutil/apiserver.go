@@ -148,6 +148,7 @@ func buildServerSettings(
 			ConnectTimeout: dbConnectTimeout,
 			DatabaseName:   databaseName,
 			DDLAuto:        true,
+			Sharding:       config.ShardingSettings{Enabled: false},
 		},
 		//exhaustruct:ignore
 		Security: security.Config{
@@ -256,6 +257,7 @@ func (b *Base) StartStandaloneAPIServer() *APIServer {
 		ConnectTimeout: 0,
 		DatabaseName:   "",
 		DDLAuto:        false,
+		Sharding:       config.ShardingSettings{Enabled: false},
 	}
 
 	return b.launchAPIServer(settings, serverID, serverPort, managementPort, "")
