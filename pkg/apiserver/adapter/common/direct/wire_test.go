@@ -88,3 +88,53 @@ func TestPayloadEncodeDecode(t *testing.T) {
 	require.NotNil(t, got.MessageForInvalidateAgentCache)
 	assert.Equal(t, []uuid.UUID{agentUID}, got.AgentInstanceUIDs)
 }
+
+func TestEnvelopeToMessage_UnknownType(t *testing.T) {
+	t.Parallel()
+
+	env := commondirect.Envelope{
+		Source: "server-a",
+		Target: "server-b",
+		Type:   "Bogus",
+		Payload: serverevent.MessagePayload{
+			MessageForServerToAgent:        nil,
+			MessageForInvalidateAgentCache: nil,
+		},
+	}
+
+	_, err := env.ToMessage()
+	require.ErrorIs(t, err, commondirect.ErrUnknownMessageType)
+}
+
+func TestDecodePayload_Invalid(t *testing.T) {
+	t.Parallel()
+
+	_, err := commondirect.DecodePayload([]byte("{not json"))
+	require.Error(t, err)
+}
+
+func TestConstantTimeTokenMatch(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		expected  string
+		presented string
+		want      bool
+	}{
+		{"bearer match", "s3cret", "Bearer s3cret", true},
+		{"raw match", "s3cret", "s3cret", true},
+		{"mismatch", "s3cret", "Bearer nope", false},
+		{"empty presented", "s3cret", "", false},
+		{"prefix only", "s3cret", "Bearer ", false},
+		{"both empty match", "", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tt.want, commondirect.ConstantTimeTokenMatch(tt.expected, tt.presented))
+		})
+	}
+}

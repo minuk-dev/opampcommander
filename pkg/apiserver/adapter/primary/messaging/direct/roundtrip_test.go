@@ -160,6 +160,48 @@ func TestDirectTransport_RejectsBadToken(t *testing.T) {
 	}
 }
 
+// TestDirectTransport_RejectsMissingToken verifies the receiver refuses a sender that
+// presents no credential at all when a token is required.
+func TestDirectTransport_RejectsMissingToken(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range transports() {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
+			address := freeAddress(t)
+
+			received := make(chan *serverevent.Message, 1)
+
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+
+			receiver := indirect.NewEventReceiverAdapter(
+				tt.newReceiver(address, targetServerID, "required-token", logger), logger)
+			serveErr := make(chan error, 1)
+
+			go func() { serveErr <- receiver.StartReceiver(ctx, capturingHandler(received)) }()
+
+			// Sender configured with no token, so it presents no credential.
+			deliverer := tt.newDelivery("", logger)
+
+			defer func() { _ = deliverer.Close() }()
+
+			sender := outdirect.NewEventSenderAdapter(deliverer, logger)
+
+			requireServing(ctx, t, address)
+
+			err := sender.SendMessageToServer(ctx, peer(address), sampleMessage())
+			require.Error(t, err)
+			requireNoReceive(t, received)
+
+			cancel()
+			require.NoError(t, <-serveErr)
+		})
+	}
+}
+
 // TestDirectTransport_RejectsWrongTarget verifies a message addressed to a different server
 // is refused rather than processed by whoever received it.
 func TestDirectTransport_RejectsWrongTarget(t *testing.T) {
