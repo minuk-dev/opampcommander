@@ -142,6 +142,33 @@ func TestAgentRemoteConfigService_KeepsExplicitSchemaRefs(t *testing.T) {
 	assert.Equal(t, []string{"pinned"}, created.Spec.SchemaRefs)
 }
 
+// TestAgentRemoteConfigService_SkipAnnotationBypassesAutoResolve verifies the
+// skip-schema-validation annotation prevents auto-resolution even when a matching schema
+// exists.
+func TestAgentRemoteConfigService_SkipAnnotationBypassesAutoResolve(t *testing.T) {
+	t.Parallel()
+
+	schemaRepo := inmemory.NewRemoteConfigSchemaRepository()
+	matcher := agentservice.NewRemoteConfigSchemaService(schemaRepo)
+	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{
+		"receivers":  {"otlp"},
+		"processors": {"batch"},
+		"exporters":  {"otlp"},
+	})
+
+	arcSvc := agentservice.NewAgentRemoteConfigService(
+		inmemory.NewAgentRemoteConfigRepository(), nil, nil, matcher, nil)
+
+	config := newSchemaRemoteConfig(sampleCollectorConfig)
+	config.Metadata.Attributes = agentmodel.Attributes{
+		agentmodel.SkipSchemaValidationAnnotation: "true",
+	}
+
+	created, err := arcSvc.CreateAgentRemoteConfig(t.Context(), config, "tester")
+	require.NoError(t, err)
+	assert.Empty(t, created.Spec.SchemaRefs)
+}
+
 // TestAgentRemoteConfigService_UpdateDoesNotAutoResolve verifies auto-resolution runs only
 // on create: an update can clear SchemaRefs without them being re-derived.
 func TestAgentRemoteConfigService_UpdateDoesNotAutoResolve(t *testing.T) {

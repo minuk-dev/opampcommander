@@ -1,10 +1,18 @@
 package agentmodel
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
+
+// SkipSchemaValidationAnnotation is a metadata-attribute key that, when set to a truthy
+// value (e.g. "true") on an AgentRemoteConfig, tells the server to skip schema handling
+// for that config: SchemaRefs are not auto-resolved on create, and schema validation
+// (once implemented, #563) is bypassed on create/update. It lets an operator store a
+// config that intentionally does not match any known RemoteConfigSchema.
+const SkipSchemaValidationAnnotation = "opampcommander.io/skip-schema-validation"
 
 // AgentRemoteConfig represents a standalone remote configuration resource.
 // This is different from AgentRemoteConfig in agentgroup.go which is embedded in AgentGroup.
@@ -12,6 +20,19 @@ type AgentRemoteConfig struct {
 	Metadata AgentRemoteConfigMetadata
 	Spec     AgentRemoteConfigSpec
 	Status   AgentRemoteConfigResourceStatus
+}
+
+// SkipSchemaValidation reports whether this config carries the
+// SkipSchemaValidationAnnotation set to a truthy value.
+func (arc *AgentRemoteConfig) SkipSchemaValidation() bool {
+	value, ok := arc.Metadata.Attributes[SkipSchemaValidationAnnotation]
+	if !ok {
+		return false
+	}
+
+	skip, err := strconv.ParseBool(value)
+
+	return err == nil && skip
 }
 
 // AgentRemoteConfigMetadata contains metadata for the agent remote config resource.

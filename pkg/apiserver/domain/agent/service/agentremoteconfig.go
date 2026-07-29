@@ -194,13 +194,14 @@ func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
 // autoResolveSchemaRefs fills config.Spec.SchemaRefs with the schemas the config is
 // compatible with, when the caller left it empty and a matcher is available. It runs
 // only on create, so an update can explicitly clear SchemaRefs without them being
-// re-derived. It is best-effort: a resolution error is logged but never blocks the
-// save (an explicit SchemaRefs is always preserved).
+// re-derived, and is skipped entirely when the config carries the
+// SkipSchemaValidationAnnotation. It is best-effort: a resolution error is logged but
+// never blocks the save (an explicit SchemaRefs is always preserved).
 func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 	ctx context.Context,
 	config *agentmodel.AgentRemoteConfig,
 ) {
-	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 {
+	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 || config.SkipSchemaValidation() {
 		return
 	}
 
