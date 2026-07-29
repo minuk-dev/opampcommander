@@ -217,6 +217,61 @@ func TestParity_Endpoint(t *testing.T) {
 	runAggregateParity(t, endpointAggregate())
 }
 
+func TestParity_RemoteConfigSchema(t *testing.T) {
+	t.Parallel()
+	runAggregateParity(t, remoteConfigSchemaAggregate())
+}
+
+func remoteConfigSchemaAggregate() aggregate[*agentmodel.RemoteConfigSchema] {
+	return aggregate[*agentmodel.RemoteConfigSchema]{
+		label: "remoteconfigschema",
+		makeObj: func(ns, name string) *agentmodel.RemoteConfigSchema {
+			return agentmodel.NewRemoteConfigSchema(ns, name, nil, contractTime(), "tester")
+		},
+		setMarker:   func(s *agentmodel.RemoteConfigSchema, m string) { s.Spec.Binary = m },
+		getMarker:   func(s *agentmodel.RemoteConfigSchema) string { return s.Spec.Binary },
+		markDeleted: func(s *agentmodel.RemoteConfigSchema) { s.MarkDeleted(contractTime().Add(time.Hour), "tester") },
+		inmemory: func() backend[*agentmodel.RemoteConfigSchema] {
+			repo := inmemory.NewRemoteConfigSchemaRepository()
+
+			return backend[*agentmodel.RemoteConfigSchema]{
+				name: "inmemory",
+				put:  repo.PutRemoteConfigSchema,
+				get: func(ctx context.Context, ns, name string, incl bool) (*agentmodel.RemoteConfigSchema, error) {
+					return repo.GetRemoteConfigSchema(ctx, ns, name, getOptions(incl))
+				},
+				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.RemoteConfigSchema, error) {
+					resp, err := repo.ListRemoteConfigSchemas(ctx, ns, nil)
+					if err != nil {
+						return nil, fmt.Errorf("parity list: %w", err)
+					}
+
+					return resp.Items, nil
+				},
+			}
+		},
+		mongo: func(db *mongo.Database) backend[*agentmodel.RemoteConfigSchema] {
+			repo := mongodb.NewRemoteConfigSchemaRepository(db, slog.Default())
+
+			return backend[*agentmodel.RemoteConfigSchema]{
+				name: "mongodb",
+				put:  repo.PutRemoteConfigSchema,
+				get: func(ctx context.Context, ns, name string, incl bool) (*agentmodel.RemoteConfigSchema, error) {
+					return repo.GetRemoteConfigSchema(ctx, ns, name, getOptions(incl))
+				},
+				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.RemoteConfigSchema, error) {
+					resp, err := repo.ListRemoteConfigSchemas(ctx, ns, nil)
+					if err != nil {
+						return nil, fmt.Errorf("parity list: %w", err)
+					}
+
+					return resp.Items, nil
+				},
+			}
+		},
+	}
+}
+
 func endpointAggregate() aggregate[*agentmodel.Endpoint] {
 	return aggregate[*agentmodel.Endpoint]{
 		label: "endpoint",

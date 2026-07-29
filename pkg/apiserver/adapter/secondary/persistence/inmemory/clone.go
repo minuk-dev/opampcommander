@@ -230,6 +230,7 @@ func cloneAgentRemoteConfig(remoteConfig *agentmodel.AgentRemoteConfig) *agentmo
 	cloned.Metadata.Attributes = maps.Clone(remoteConfig.Metadata.Attributes)
 	cloned.Metadata.DeletedAt = cloneTimePtr(remoteConfig.Metadata.DeletedAt)
 	cloned.Spec.Value = cloneBytes(remoteConfig.Spec.Value)
+	cloned.Spec.SchemaRefs = slices.Clone(remoteConfig.Spec.SchemaRefs)
 	cloned.Status.Conditions = slices.Clone(remoteConfig.Status.Conditions)
 
 	return &cloned
@@ -273,6 +274,28 @@ func cloneEndpointTenant(tenant agentmodel.EndpointTenant) agentmodel.EndpointTe
 	}
 
 	return cloned
+}
+
+func cloneRemoteConfigSchema(schema *agentmodel.RemoteConfigSchema) *agentmodel.RemoteConfigSchema {
+	if schema == nil {
+		return nil
+	}
+
+	cloned := *schema
+	cloned.Metadata.Attributes = maps.Clone(schema.Metadata.Attributes)
+	cloned.Metadata.DeletedAt = cloneTimePtr(schema.Metadata.DeletedAt)
+	cloned.Status.Conditions = slices.Clone(schema.Status.Conditions)
+
+	if schema.Spec.Components != nil {
+		components := make(agentmodel.ComponentCatalog, len(schema.Spec.Components))
+		for class, names := range schema.Spec.Components {
+			components[class] = slices.Clone(names)
+		}
+
+		cloned.Spec.Components = components
+	}
+
+	return &cloned
 }
 
 func cloneCertificate(certificate *agentmodel.Certificate) *agentmodel.Certificate {

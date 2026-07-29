@@ -1,3 +1,4 @@
+//nolint:dupl // Resource CRUD adapters intentionally mirror the other aggregates.
 package mongodb
 
 import (

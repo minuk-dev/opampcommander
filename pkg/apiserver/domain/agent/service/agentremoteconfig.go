@@ -22,6 +22,9 @@ type AgentRemoteConfigService struct {
 	// other domain usecases, used to re-run a config's side effects on reconcile.
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
+	// schemaMatcher auto-detects which RemoteConfigSchemas a config is compatible
+	// with, to populate SchemaRefs when the caller did not set them. May be nil.
+	schemaMatcher agentport.RemoteConfigSchemaMatcher
 
 	clock clock.Clock
 }
@@ -31,11 +34,13 @@ func NewAgentRemoteConfigService(
 	persistence agentport.AgentRemoteConfigPersistencePort,
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
 	agentGroupUsecase agentport.AgentGroupUsecase,
+	schemaMatcher agentport.RemoteConfigSchemaMatcher,
 ) *AgentRemoteConfigService {
 	return &AgentRemoteConfigService{
 		persistence:              persistence,
 		endpointDetectionUsecase: endpointDetectionUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
+		schemaMatcher:            schemaMatcher,
 		clock:                    clock.NewRealClock(),
 	}
 }
@@ -99,6 +104,7 @@ func (s *AgentRemoteConfigService) CreateAgentRemoteConfig(
 	actor string,
 ) (*agentmodel.AgentRemoteConfig, error) {
 	agentRemoteConfig.MarkAsCreated(s.clock.Now(), actor)
+	s.autoResolveSchemaRefs(ctx, agentRemoteConfig)
 
 	created, err := s.persistence.PutAgentRemoteConfig(ctx, agentRemoteConfig)
 	if err != nil {
@@ -121,6 +127,7 @@ func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
 	}
 
 	existing.ApplyUpdate(agentRemoteConfig)
+	s.autoResolveSchemaRefs(ctx, existing)
 
 	updated, err := s.persistence.PutAgentRemoteConfig(ctx, existing)
 	if err != nil {
@@ -179,4 +186,26 @@ func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
 	}
 
 	return nil
+}
+
+// autoResolveSchemaRefs fills config.Spec.SchemaRefs with the schemas the config is
+// compatible with, when the caller left it empty and a matcher is available. It is
+// best-effort: any resolution error is ignored so a transient schema-listing failure
+// never blocks saving the config (an explicit SchemaRefs is always preserved).
+func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
+	ctx context.Context,
+	config *agentmodel.AgentRemoteConfig,
+) {
+	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 {
+		return
+	}
+
+	refs, err := s.schemaMatcher.ResolveSchemaRefs(ctx, config)
+	if err != nil {
+		return
+	}
+
+	if len(refs) > 0 {
+		config.Spec.SchemaRefs = refs
+	}
 }

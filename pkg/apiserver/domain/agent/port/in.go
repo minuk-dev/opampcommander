@@ -174,6 +174,8 @@ type AgentRemoteConfigUsecase interface {
 }
 
 // EndpointUsecase is an interface that defines the methods for endpoint use cases.
+//
+//nolint:dupl // Resource use case interfaces intentionally mirror the other aggregates.
 type EndpointUsecase interface {
 	// GetEndpoint retrieves an endpoint by its namespace and name.
 	GetEndpoint(ctx context.Context, namespace string,
@@ -201,6 +203,51 @@ type EndpointUsecase interface {
 	// DeleteEndpoint deletes the endpoint by its namespace and name.
 	DeleteEndpoint(ctx context.Context, namespace string, name string,
 		deletedAt time.Time, deletedBy string) error
+}
+
+// RemoteConfigSchemaUsecase defines the methods for remote config schema use cases.
+// A RemoteConfigSchema pins the collector build (distribution + version) a remote
+// config is validated against.
+//
+//nolint:dupl // Resource use case interfaces intentionally mirror the other aggregates.
+type RemoteConfigSchemaUsecase interface {
+	// GetRemoteConfigSchema retrieves a schema by its namespace and name.
+	GetRemoteConfigSchema(ctx context.Context, namespace string,
+		name string, options *model.GetOptions) (*agentmodel.RemoteConfigSchema, error)
+	// ListRemoteConfigSchemas lists schemas filtered by namespace.
+	ListRemoteConfigSchemas(
+		ctx context.Context, namespace string, options *model.ListOptions,
+	) (*model.ListResponse[*agentmodel.RemoteConfigSchema], error)
+	// SaveRemoteConfigSchema persists the schema as-is without applying lifecycle
+	// rules. Application flows should prefer CreateRemoteConfigSchema/UpdateRemoteConfigSchema.
+	SaveRemoteConfigSchema(
+		ctx context.Context, schema *agentmodel.RemoteConfigSchema,
+	) (*agentmodel.RemoteConfigSchema, error)
+	// CreateRemoteConfigSchema validates the schema identity, rejects creating over
+	// an existing schema, stamps the creation metadata (timestamp + actor), and
+	// persists it. It returns ErrInvalidArgument for an empty name and
+	// ErrResourceAlreadyExist when a schema with the same identity exists.
+	CreateRemoteConfigSchema(ctx context.Context, schema *agentmodel.RemoteConfigSchema,
+		actor string) (*agentmodel.RemoteConfigSchema, error)
+	// UpdateRemoteConfigSchema loads the stored schema, applies the mutable fields
+	// from the supplied schema while preserving immutable identity/lifecycle state,
+	// and persists the result.
+	UpdateRemoteConfigSchema(ctx context.Context, namespace string, name string,
+		schema *agentmodel.RemoteConfigSchema) (*agentmodel.RemoteConfigSchema, error)
+	// DeleteRemoteConfigSchema deletes the schema by its namespace and name.
+	DeleteRemoteConfigSchema(ctx context.Context, namespace string, name string,
+		deletedAt time.Time, deletedBy string) error
+}
+
+// RemoteConfigSchemaMatcher resolves which RemoteConfigSchemas a remote config is
+// compatible with by matching the components the config uses against each schema's
+// component catalog. It is used to auto-populate an AgentRemoteConfig's SchemaRefs.
+type RemoteConfigSchemaMatcher interface {
+	// ResolveSchemaRefs returns the names of the schemas in the config's namespace
+	// whose component catalog is a superset of the components the config uses, i.e.
+	// the schemas the config is compatible with. An unparseable config yields no
+	// matches rather than an error.
+	ResolveSchemaRefs(ctx context.Context, config *agentmodel.AgentRemoteConfig) ([]string, error)
 }
 
 // EndpointMetricsUsecase aggregates how much telemetry collectors are sending to

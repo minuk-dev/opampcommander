@@ -20,21 +20,22 @@ type Client struct {
 	Endpoint string
 	common   service
 
-	AgentService             *AgentService
-	AgentGroupService        *AgentGroupService
-	AgentPackageService      *AgentPackageService
-	AgentRemoteConfigService *AgentRemoteConfigService
-	EndpointService          *EndpointService
-	CertificateService       *CertificateService
-	ConnectionService        *ConnectionService
-	AuthService              *AuthService
-	NamespaceService         *NamespaceService
-	HostService              *HostService
-	ContainerService         *ContainerService
-	UserService              *UserService
-	RoleService              *RoleService
-	RoleBindingService       *RoleBindingService
-	ReconcileService         *ReconcileService
+	AgentService              *AgentService
+	AgentGroupService         *AgentGroupService
+	AgentPackageService       *AgentPackageService
+	AgentRemoteConfigService  *AgentRemoteConfigService
+	EndpointService           *EndpointService
+	RemoteConfigSchemaService *RemoteConfigSchemaService
+	CertificateService        *CertificateService
+	ConnectionService         *ConnectionService
+	AuthService               *AuthService
+	NamespaceService          *NamespaceService
+	HostService               *HostService
+	ContainerService          *ContainerService
+	UserService               *UserService
+	RoleService               *RoleService
+	RoleBindingService        *RoleBindingService
+	ReconcileService          *ReconcileService
 }
 
 type service struct {
@@ -51,21 +52,22 @@ func New(endpoint string, opt ...Option) *Client {
 		common:   service,
 
 		// Initialize services to nil, they will be set later
-		AgentService:             nil,
-		AgentGroupService:        nil,
-		AgentPackageService:      nil,
-		AgentRemoteConfigService: nil,
-		EndpointService:          nil,
-		CertificateService:       nil,
-		ConnectionService:        nil,
-		AuthService:              nil,
-		NamespaceService:         nil,
-		HostService:              nil,
-		ContainerService:         nil,
-		UserService:              nil,
-		RoleService:              nil,
-		RoleBindingService:       nil,
-		ReconcileService:         nil,
+		AgentService:              nil,
+		AgentGroupService:         nil,
+		AgentPackageService:       nil,
+		AgentRemoteConfigService:  nil,
+		EndpointService:           nil,
+		RemoteConfigSchemaService: nil,
+		CertificateService:        nil,
+		ConnectionService:         nil,
+		AuthService:               nil,
+		NamespaceService:          nil,
+		HostService:               nil,
+		ContainerService:          nil,
+		UserService:               nil,
+		RoleService:               nil,
+		RoleBindingService:        nil,
+		ReconcileService:          nil,
 	}
 
 	for _, o := range opt {
@@ -79,6 +81,7 @@ func New(endpoint string, opt ...Option) *Client {
 	client.AgentPackageService = NewAgentPackageService(&service)
 	client.AgentRemoteConfigService = NewAgentRemoteConfigService(&service)
 	client.EndpointService = NewEndpointService(&service)
+	client.RemoteConfigSchemaService = NewRemoteConfigSchemaService(&service)
 	client.CertificateService = NewCertificateService(&service)
 	client.NamespaceService = NewNamespaceService(&service)
 	client.HostService = NewHostService(&service)

@@ -29,6 +29,14 @@ type AgentRemoteConfigSpec struct {
 	Value []byte
 	// ContentType is the MIME type of the configuration content.
 	ContentType string
+	// SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in
+	// the same namespace) that this config targets, pinning the collector builds it
+	// is validated against. A config may be simultaneously compatible with several
+	// schemas (e.g. multiple collector versions or distributions), so this is a
+	// list. It is referenceable-only: the references are stored and resolvable but
+	// not enforced here. Empty means no schema is pinned, which keeps the current
+	// lenient behavior (backward compatible).
+	SchemaRefs []string
 }
 
 // AgentRemoteConfigResourceStatus contains the status of the agent remote config resource.

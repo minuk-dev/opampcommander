@@ -55,7 +55,7 @@ func TestAgentRemoteConfigService_CreateAgentRemoteConfig_Stamps(t *testing.T) {
 
 	persistence := &arcFakePersistence{}
 	// Create/Update only touch persistence + clock; the reconcile collaborators are unused here.
-	svc := agentservice.NewAgentRemoteConfigService(persistence, nil, nil)
+	svc := agentservice.NewAgentRemoteConfigService(persistence, nil, nil, nil)
 
 	input := &agentmodel.AgentRemoteConfig{
 		Metadata: agentmodel.AgentRemoteConfigMetadata{Name: "cfg", Namespace: "default"},
@@ -86,7 +86,7 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_PreservesImmutableFiel
 	}
 
 	persistence := &arcFakePersistence{stored: stored}
-	svc := agentservice.NewAgentRemoteConfigService(persistence, nil, nil)
+	svc := agentservice.NewAgentRemoteConfigService(persistence, nil, nil, nil)
 
 	incoming := &agentmodel.AgentRemoteConfig{
 		Metadata: agentmodel.AgentRemoteConfigMetadata{
