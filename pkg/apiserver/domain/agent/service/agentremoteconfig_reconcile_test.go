@@ -94,7 +94,7 @@ func TestAgentRemoteConfigService_ReconcileAgentRemoteConfig(t *testing.T) {
 		detection := &spyEndpointDetection{}
 		group := &spyAgentGroup{}
 
-		service := agentservice.NewAgentRemoteConfigService(persistence, detection, group, nil)
+		service := agentservice.NewAgentRemoteConfigService(persistence, detection, group, nil, nil)
 
 		err := service.ReconcileAgentRemoteConfig(context.Background(), "default", "obs")
 
@@ -111,7 +111,7 @@ func TestAgentRemoteConfigService_ReconcileAgentRemoteConfig(t *testing.T) {
 		detection := &spyEndpointDetection{}
 		group := &spyAgentGroup{}
 
-		service := agentservice.NewAgentRemoteConfigService(persistence, detection, group, nil)
+		service := agentservice.NewAgentRemoteConfigService(persistence, detection, group, nil, nil)
 
 		err := service.ReconcileAgentRemoteConfig(context.Background(), "default", "missing")
 

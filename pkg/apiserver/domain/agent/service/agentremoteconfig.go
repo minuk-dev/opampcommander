@@ -3,6 +3,7 @@ package agentservice
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -26,7 +27,8 @@ type AgentRemoteConfigService struct {
 	// with, to populate SchemaRefs when the caller did not set them. May be nil.
 	schemaMatcher agentport.RemoteConfigSchemaMatcher
 
-	clock clock.Clock
+	clock  clock.Clock
+	logger *slog.Logger
 }
 
 // NewAgentRemoteConfigService creates a new AgentRemoteConfigService.
@@ -35,6 +37,7 @@ func NewAgentRemoteConfigService(
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
 	agentGroupUsecase agentport.AgentGroupUsecase,
 	schemaMatcher agentport.RemoteConfigSchemaMatcher,
+	logger *slog.Logger,
 ) *AgentRemoteConfigService {
 	return &AgentRemoteConfigService{
 		persistence:              persistence,
@@ -42,6 +45,7 @@ func NewAgentRemoteConfigService(
 		agentGroupUsecase:        agentGroupUsecase,
 		schemaMatcher:            schemaMatcher,
 		clock:                    clock.NewRealClock(),
+		logger:                   logger,
 	}
 }
 
@@ -127,7 +131,6 @@ func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
 	}
 
 	existing.ApplyUpdate(agentRemoteConfig)
-	s.autoResolveSchemaRefs(ctx, existing)
 
 	updated, err := s.persistence.PutAgentRemoteConfig(ctx, existing)
 	if err != nil {
@@ -189,9 +192,10 @@ func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
 }
 
 // autoResolveSchemaRefs fills config.Spec.SchemaRefs with the schemas the config is
-// compatible with, when the caller left it empty and a matcher is available. It is
-// best-effort: any resolution error is ignored so a transient schema-listing failure
-// never blocks saving the config (an explicit SchemaRefs is always preserved).
+// compatible with, when the caller left it empty and a matcher is available. It runs
+// only on create, so an update can explicitly clear SchemaRefs without them being
+// re-derived. It is best-effort: a resolution error is logged but never blocks the
+// save (an explicit SchemaRefs is always preserved).
 func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 	ctx context.Context,
 	config *agentmodel.AgentRemoteConfig,
@@ -202,6 +206,13 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 
 	refs, err := s.schemaMatcher.ResolveSchemaRefs(ctx, config)
 	if err != nil {
+		if s.logger != nil {
+			s.logger.WarnContext(ctx, "failed to auto-resolve schema refs",
+				slog.String("namespace", config.Metadata.Namespace),
+				slog.String("name", config.Metadata.Name),
+				slog.String("error", err.Error()))
+		}
+
 		return
 	}
 

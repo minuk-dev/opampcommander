@@ -43,6 +43,12 @@ func (s *RemoteConfigSchemaService) ResolveSchemaRefs(
 		return nil, nil //nolint:nilerr // unparseable config => no matches, by design
 	}
 
+	// No detected components means we cannot infer compatibility. Match nothing rather
+	// than matching every schema vacuously, and skip the schema listing entirely.
+	if len(used) == 0 {
+		return nil, nil
+	}
+
 	schemas, err := s.persistence.ListRemoteConfigSchemas(ctx, config.Metadata.Namespace, nil)
 	if err != nil {
 		return nil, fmt.Errorf("list schemas for match: %w", err)

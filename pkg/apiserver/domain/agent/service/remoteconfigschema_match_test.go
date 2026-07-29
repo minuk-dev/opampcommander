@@ -84,6 +84,20 @@ func TestRemoteConfigSchemaService_ResolveSchemaRefs_UnparseableYieldsNone(t *te
 	assert.Empty(t, refs)
 }
 
+// TestRemoteConfigSchemaService_ResolveSchemaRefs_NoComponentsMatchesNone verifies that a
+// config declaring no components matches no schema (rather than matching every schema
+// vacuously).
+func TestRemoteConfigSchemaService_ResolveSchemaRefs_NoComponentsMatchesNone(t *testing.T) {
+	t.Parallel()
+
+	svc := agentservice.NewRemoteConfigSchemaService(inmemory.NewRemoteConfigSchemaRepository())
+	seedSchema(t, svc, "contrib", agentmodel.ComponentCatalog{"receivers": {"otlp"}})
+
+	refs, err := svc.ResolveSchemaRefs(t.Context(), newSchemaRemoteConfig("service:\n  pipelines: {}\n"))
+	require.NoError(t, err)
+	assert.Empty(t, refs)
+}
+
 // TestAgentRemoteConfigService_AutoResolvesSchemaRefs verifies that creating an
 // AgentRemoteConfig without explicit SchemaRefs auto-populates them from the
 // compatible schemas.
@@ -99,7 +113,7 @@ func TestAgentRemoteConfigService_AutoResolvesSchemaRefs(t *testing.T) {
 	})
 
 	arcRepo := inmemory.NewAgentRemoteConfigRepository()
-	arcSvc := agentservice.NewAgentRemoteConfigService(arcRepo, nil, nil, matcher)
+	arcSvc := agentservice.NewAgentRemoteConfigService(arcRepo, nil, nil, matcher, nil)
 
 	config := newSchemaRemoteConfig(sampleCollectorConfig)
 
@@ -118,7 +132,7 @@ func TestAgentRemoteConfigService_KeepsExplicitSchemaRefs(t *testing.T) {
 	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{"receivers": {"otlp"}})
 
 	arcSvc := agentservice.NewAgentRemoteConfigService(
-		inmemory.NewAgentRemoteConfigRepository(), nil, nil, matcher)
+		inmemory.NewAgentRemoteConfigRepository(), nil, nil, matcher, nil)
 
 	config := newSchemaRemoteConfig(sampleCollectorConfig)
 	config.Spec.SchemaRefs = []string{"pinned"}
@@ -126,4 +140,34 @@ func TestAgentRemoteConfigService_KeepsExplicitSchemaRefs(t *testing.T) {
 	created, err := arcSvc.CreateAgentRemoteConfig(t.Context(), config, "tester")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"pinned"}, created.Spec.SchemaRefs)
+}
+
+// TestAgentRemoteConfigService_UpdateDoesNotAutoResolve verifies auto-resolution runs only
+// on create: an update can clear SchemaRefs without them being re-derived.
+func TestAgentRemoteConfigService_UpdateDoesNotAutoResolve(t *testing.T) {
+	t.Parallel()
+
+	schemaRepo := inmemory.NewRemoteConfigSchemaRepository()
+	matcher := agentservice.NewRemoteConfigSchemaService(schemaRepo)
+	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{
+		"receivers":  {"otlp"},
+		"processors": {"batch"},
+		"exporters":  {"otlp"},
+	})
+
+	arcSvc := agentservice.NewAgentRemoteConfigService(
+		inmemory.NewAgentRemoteConfigRepository(), nil, nil, matcher, nil)
+	ctx := t.Context()
+
+	created, err := arcSvc.CreateAgentRemoteConfig(ctx, newSchemaRemoteConfig(sampleCollectorConfig), "tester")
+	require.NoError(t, err)
+	require.Equal(t, []string{"contrib"}, created.Spec.SchemaRefs)
+
+	// Update with SchemaRefs cleared: the update must not re-derive them.
+	update := newSchemaRemoteConfig(sampleCollectorConfig)
+	update.Spec.SchemaRefs = nil
+
+	updated, err := arcSvc.UpdateAgentRemoteConfig(ctx, "default", "cfg", update)
+	require.NoError(t, err)
+	assert.Empty(t, updated.Spec.SchemaRefs)
 }
