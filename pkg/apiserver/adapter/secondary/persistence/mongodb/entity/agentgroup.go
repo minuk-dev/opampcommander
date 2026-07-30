@@ -76,6 +76,7 @@ func (c *AgentGroupAgentRemoteConfig) toDomain() agentmodel.AgentGroupAgentRemot
 		domain.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
 			Value:       c.AgentRemoteConfigSpec.Value,
 			ContentType: c.AgentRemoteConfigSpec.ContentType,
+			SchemaRefs:  nil,
 		}
 	}
 

@@ -3,6 +3,7 @@ package agentservice
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -22,8 +23,12 @@ type AgentRemoteConfigService struct {
 	// other domain usecases, used to re-run a config's side effects on reconcile.
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase
 	agentGroupUsecase        agentport.AgentGroupUsecase
+	// schemaMatcher auto-detects which RemoteConfigSchemas a config is compatible
+	// with, to populate SchemaRefs when the caller did not set them. May be nil.
+	schemaMatcher agentport.RemoteConfigSchemaMatcher
 
-	clock clock.Clock
+	clock  clock.Clock
+	logger *slog.Logger
 }
 
 // NewAgentRemoteConfigService creates a new AgentRemoteConfigService.
@@ -31,12 +36,16 @@ func NewAgentRemoteConfigService(
 	persistence agentport.AgentRemoteConfigPersistencePort,
 	endpointDetectionUsecase agentport.EndpointDetectionUsecase,
 	agentGroupUsecase agentport.AgentGroupUsecase,
+	schemaMatcher agentport.RemoteConfigSchemaMatcher,
+	logger *slog.Logger,
 ) *AgentRemoteConfigService {
 	return &AgentRemoteConfigService{
 		persistence:              persistence,
 		endpointDetectionUsecase: endpointDetectionUsecase,
 		agentGroupUsecase:        agentGroupUsecase,
+		schemaMatcher:            schemaMatcher,
 		clock:                    clock.NewRealClock(),
+		logger:                   logger,
 	}
 }
 
@@ -99,6 +108,7 @@ func (s *AgentRemoteConfigService) CreateAgentRemoteConfig(
 	actor string,
 ) (*agentmodel.AgentRemoteConfig, error) {
 	agentRemoteConfig.MarkAsCreated(s.clock.Now(), actor)
+	s.autoResolveSchemaRefs(ctx, agentRemoteConfig)
 
 	created, err := s.persistence.PutAgentRemoteConfig(ctx, agentRemoteConfig)
 	if err != nil {
@@ -179,4 +189,35 @@ func (s *AgentRemoteConfigService) ReconcileAgentRemoteConfig(
 	}
 
 	return nil
+}
+
+// autoResolveSchemaRefs fills config.Spec.SchemaRefs with the schemas the config is
+// compatible with, when the caller left it empty and a matcher is available. It runs
+// only on create, so an update can explicitly clear SchemaRefs without them being
+// re-derived, and is skipped entirely when the config carries the
+// SkipSchemaValidationAnnotation. It is best-effort: a resolution error is logged but
+// never blocks the save (an explicit SchemaRefs is always preserved).
+func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
+	ctx context.Context,
+	config *agentmodel.AgentRemoteConfig,
+) {
+	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 || config.SkipSchemaValidation() {
+		return
+	}
+
+	refs, err := s.schemaMatcher.ResolveSchemaRefs(ctx, config)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.WarnContext(ctx, "failed to auto-resolve schema refs",
+				slog.String("namespace", config.Metadata.Namespace),
+				slog.String("name", config.Metadata.Name),
+				slog.String("error", err.Error()))
+		}
+
+		return
+	}
+
+	if len(refs) > 0 {
+		config.Spec.SchemaRefs = refs
+	}
 }

@@ -2427,6 +2427,300 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/remoteconfigschemas": {
+            "get": {
+                "description": "Retrieve a list of remote config schemas in a namespace.",
+                "tags": [
+                    "remoteconfigschema"
+                ],
+                "summary": "List RemoteConfigSchemas",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of schemas to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing schemas",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted schemas",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-RemoteConfigSchema"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new remote config schema.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remoteconfigschema"
+                ],
+                "summary": "Create RemoteConfigSchema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "RemoteConfigSchema to create",
+                        "name": "remoteconfigschema",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RemoteConfigSchema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/RemoteConfigSchema"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/namespaces/{namespace}/remoteconfigschemas/{name}": {
+            "get": {
+                "description": "Retrieve a remote config schema by its name.",
+                "tags": [
+                    "remoteconfigschema"
+                ],
+                "summary": "Get RemoteConfigSchema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the schema",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted schema",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RemoteConfigSchema"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an existing remote config schema.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "remoteconfigschema"
+                ],
+                "summary": "Update RemoteConfigSchema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the schema",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated RemoteConfigSchema",
+                        "name": "remoteconfigschema",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RemoteConfigSchema"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RemoteConfigSchema"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a remote config schema by its name.",
+                "tags": [
+                    "remoteconfigschema"
+                ],
+                "summary": "Delete RemoteConfigSchema",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Name of the schema",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/rolebindings": {
             "get": {
                 "description": "Retrieves a list of role bindings with pagination options.",
@@ -4044,6 +4338,15 @@ const docTemplate = `{
                 }
             }
         },
+        "ComponentCatalog": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
         "ComponentDetails": {
             "type": "object",
             "properties": {
@@ -4833,6 +5136,26 @@ const docTemplate = `{
                 }
             }
         },
+        "ListResponse-RemoteConfigSchema": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RemoteConfigSchema"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "ListResponse-Role": {
             "type": "object",
             "properties": {
@@ -4986,6 +5309,75 @@ const docTemplate = `{
                 "refreshToken": {
                     "description": "RefreshToken is the refresh token previously issued by the server.",
                     "type": "string"
+                }
+            }
+        },
+        "RemoteConfigSchema": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/RemoteConfigSchemaMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/RemoteConfigSchemaSpec"
+                },
+                "status": {
+                    "$ref": "#/definitions/RemoteConfigSchemaStatus"
+                }
+            }
+        },
+        "RemoteConfigSchemaMetadata": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "RemoteConfigSchemaSpec": {
+            "type": "object",
+            "properties": {
+                "binary": {
+                    "description": "Binary identifies the collector build/distribution (e.g. \"otelcol\",\n\"otelcol-contrib\", or a vendor/custom distribution). Extensible free-form string.",
+                    "type": "string"
+                },
+                "components": {
+                    "description": "Components is the catalog of components a config for this binary may reference,\nkeyed by open-ended component class (e.g. \"receivers\", \"processors\",\n\"exporters\", \"extensions\", \"connectors\") since OpAMP does not guarantee a\nfixed set of classes. Values are the available component names (names only).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ComponentCatalog"
+                        }
+                    ]
+                },
+                "version": {
+                    "description": "Version is the collector version (semver) the schema describes.",
+                    "type": "string"
+                }
+            }
+        },
+        "RemoteConfigSchemaStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
                 }
             }
         },
@@ -5527,6 +5919,13 @@ const docTemplate = `{
             "properties": {
                 "contentType": {
                     "type": "string"
+                },
+                "schemaRefs": {
+                    "description": "SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in\nthe same namespace) this config targets. A config may be compatible with\nseveral schemas at once, so this is a list. Referenceable-only.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "value": {
                     "type": "string"

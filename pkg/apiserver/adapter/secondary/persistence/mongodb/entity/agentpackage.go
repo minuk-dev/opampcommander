@@ -164,8 +164,9 @@ type AgentRemoteConfigResourceMetadata struct {
 
 // AgentRemoteConfigResourceSpec represents the specification of an agent remote config resource.
 type AgentRemoteConfigResourceSpec struct {
-	Value       []byte `bson:"value"`
-	ContentType string `bson:"contentType"`
+	Value       []byte   `bson:"value"`
+	ContentType string   `bson:"contentType"`
+	SchemaRefs  []string `bson:"schemaRefs,omitempty"`
 }
 
 // AgentRemoteConfigResourceEntityStatus represents the status of an agent remote config resource.
@@ -186,6 +187,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteCo
 		Spec: agentmodel.AgentRemoteConfigSpec{
 			Value:       arc.Spec.Value,
 			ContentType: arc.Spec.ContentType,
+			SchemaRefs:  arc.Spec.SchemaRefs,
 		},
 		Status: agentmodel.AgentRemoteConfigResourceStatus{
 			Conditions: lo.Map(arc.Status.Conditions, func(c Condition, _ int) model.Condition {
@@ -211,6 +213,7 @@ func AgentRemoteConfigResourceEntityFromDomain(
 		Spec: AgentRemoteConfigResourceSpec{
 			Value:       arc.Spec.Value,
 			ContentType: arc.Spec.ContentType,
+			SchemaRefs:  arc.Spec.SchemaRefs,
 		},
 		Status: AgentRemoteConfigResourceEntityStatus{
 			Conditions: lo.Map(arc.Status.Conditions, func(c model.Condition, _ int) Condition {

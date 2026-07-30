@@ -177,6 +177,24 @@ type EndpointPersistencePort interface {
 	) (*model.ListResponse[*agentmodel.Endpoint], error)
 }
 
+// RemoteConfigSchemaPersistencePort defines the methods for remote config schema persistence.
+type RemoteConfigSchemaPersistencePort interface {
+	// GetRemoteConfigSchema retrieves a schema by its namespace and name.
+	GetRemoteConfigSchema(ctx context.Context, namespace string,
+		name string, options *model.GetOptions) (*agentmodel.RemoteConfigSchema, error)
+	// PutRemoteConfigSchema saves or updates a schema.
+	PutRemoteConfigSchema(
+		ctx context.Context,
+		schema *agentmodel.RemoteConfigSchema,
+	) (*agentmodel.RemoteConfigSchema, error)
+	// ListRemoteConfigSchemas retrieves a list of schemas filtered by namespace with pagination options.
+	ListRemoteConfigSchemas(
+		ctx context.Context,
+		namespace string,
+		options *model.ListOptions,
+	) (*model.ListResponse[*agentmodel.RemoteConfigSchema], error)
+}
+
 // EndpointMetricsQueryPort queries a metrics backend (a Prometheus-compatible
 // store) for how much telemetry collectors are sending to an endpoint. It is an
 // outbound port implemented by a metrics-backend adapter; the endpoint's

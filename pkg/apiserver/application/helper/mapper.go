@@ -352,6 +352,7 @@ func (mapper *Mapper) MapAgentRemoteConfigToAPI(
 		Spec: v1.AgentRemoteConfigSpec{
 			Value:       string(domain.Spec.Value),
 			ContentType: domain.Spec.ContentType,
+			SchemaRefs:  domain.Spec.SchemaRefs,
 		},
 		Status: v1.AgentRemoteConfigStatus{
 			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
@@ -378,8 +379,67 @@ func (mapper *Mapper) MapAPIToAgentRemoteConfig(
 		Spec: agentmodel.AgentRemoteConfigSpec{
 			Value:       []byte(api.Spec.Value),
 			ContentType: api.Spec.ContentType,
+			SchemaRefs:  api.Spec.SchemaRefs,
 		},
 		Status: agentmodel.AgentRemoteConfigResourceStatus{
+			Conditions: nil,
+		},
+	}
+}
+
+// MapRemoteConfigSchemaToAPI maps a domain model RemoteConfigSchema to an API model.
+func (mapper *Mapper) MapRemoteConfigSchemaToAPI(
+	domain *agentmodel.RemoteConfigSchema,
+) *v1.RemoteConfigSchema {
+	if domain == nil {
+		return nil
+	}
+
+	return &v1.RemoteConfigSchema{
+		Kind:       v1.RemoteConfigSchemaKind,
+		APIVersion: v1.APIVersion,
+		Metadata: v1.RemoteConfigSchemaMetadata{
+			Name:       domain.Metadata.Name,
+			Namespace:  domain.Metadata.Namespace,
+			Attributes: v1.Attributes(domain.Metadata.Attributes),
+			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
+		},
+		Spec: v1.RemoteConfigSchemaSpec{
+			Binary:     domain.Spec.Binary,
+			Version:    domain.Spec.Version,
+			Components: v1.ComponentCatalog(domain.Spec.Components),
+		},
+		Status: v1.RemoteConfigSchemaStatus{
+			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+		},
+	}
+}
+
+// MapAPIToRemoteConfigSchema maps an API model RemoteConfigSchema to a domain model.
+func (mapper *Mapper) MapAPIToRemoteConfigSchema(
+	api *v1.RemoteConfigSchema,
+) *agentmodel.RemoteConfigSchema {
+	if api == nil {
+		return nil
+	}
+
+	return &agentmodel.RemoteConfigSchema{
+		Metadata: agentmodel.RemoteConfigSchemaMetadata{
+			Name:       api.Metadata.Name,
+			Namespace:  api.Metadata.Namespace,
+			Attributes: agentmodel.OfAttributes(api.Metadata.Attributes),
+			// ResourceVersion is server-managed; a client-supplied model does not carry
+			// it. The service layer loads the stored version before writing.
+			ResourceVersion: 0,
+			CreatedAt:       api.Metadata.CreatedAt.Time,
+			DeletedAt:       nil,
+		},
+		Spec: agentmodel.RemoteConfigSchemaSpec{
+			Binary:     api.Spec.Binary,
+			Version:    api.Spec.Version,
+			Components: agentmodel.ComponentCatalog(api.Spec.Components),
+		},
+		Status: agentmodel.RemoteConfigSchemaStatus{
 			Conditions: nil,
 		},
 	}
@@ -1065,6 +1125,7 @@ func mapGroupRemoteConfigFromAPI(api *v1.AgentGroupRemoteConfig) agentmodel.Agen
 		domain.AgentRemoteConfigSpec = &agentmodel.AgentRemoteConfigSpec{
 			Value:       []byte(api.AgentRemoteConfigSpec.Value),
 			ContentType: api.AgentRemoteConfigSpec.ContentType,
+			SchemaRefs:  nil,
 		}
 	}
 
@@ -1083,6 +1144,7 @@ func mapGroupRemoteConfigToAPI(domain *agentmodel.AgentGroupAgentRemoteConfig) v
 		api.AgentRemoteConfigSpec = &v1.AgentRemoteConfigSpec{
 			Value:       string(domain.AgentRemoteConfigSpec.Value),
 			ContentType: domain.AgentRemoteConfigSpec.ContentType,
+			SchemaRefs:  nil,
 		}
 	}
 

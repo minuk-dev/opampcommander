@@ -20,6 +20,7 @@ import (
 	namespaceApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/namespace"
 	opampApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/opamp"
 	reconcileApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/reconcile"
+	remoteconfigschemaApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/remoteconfigschema"
 	roleApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/role"
 	rolebindingApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/rolebinding"
 	serverApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/server"
@@ -97,6 +98,12 @@ func New() fx.Option {
 			fx.Annotate(
 				Identity[*endpointApplicationService.Service],
 				fx.As(new(usecase.EndpointManageUsecase)),
+			),
+
+			remoteconfigschemaApplicationService.NewRemoteConfigSchemaService,
+			fx.Annotate(
+				Identity[*remoteconfigschemaApplicationService.Service],
+				fx.As(new(usecase.RemoteConfigSchemaManageUsecase)),
 			),
 
 			provideEndpointMetricsService,

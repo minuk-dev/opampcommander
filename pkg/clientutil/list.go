@@ -233,6 +233,39 @@ func ListAgentRemoteConfigFully(
 	}
 }
 
+// ListRemoteConfigSchemaFully lists all remote config schemas in a namespace.
+// It continues to fetch schemas until there are no more to fetch.
+func ListRemoteConfigSchemaFully(
+	ctx context.Context,
+	cli *client.Client,
+	namespace string,
+	opts ...client.ListOption,
+) ([]v1.RemoteConfigSchema, error) {
+	var schemas []v1.RemoteConfigSchema
+
+	continueToken := ""
+
+	for {
+		requestOpts := append([]client.ListOption{
+			client.WithContinueToken(continueToken),
+			client.WithLimit(ChunkSize),
+		}, opts...)
+
+		resp, err := cli.RemoteConfigSchemaService.ListRemoteConfigSchemas(ctx, namespace, requestOpts...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list remote config schemas: %w", err)
+		}
+
+		if len(resp.Items) == 0 {
+			return schemas, nil
+		}
+
+		schemas = append(schemas, resp.Items...)
+
+		continueToken = resp.Metadata.Continue
+	}
+}
+
 // ListEndpointFully lists all endpoints in a namespace.
 // It continues to fetch endpoints until there are no more to fetch.
 func ListEndpointFully(

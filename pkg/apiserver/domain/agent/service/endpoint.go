@@ -1,3 +1,4 @@
+//nolint:dupl // Resource CRUD services intentionally mirror the other aggregates.
 package agentservice
 
 import (

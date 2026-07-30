@@ -26,6 +26,10 @@ type AgentRemoteConfigMetadata struct {
 type AgentRemoteConfigSpec struct {
 	Value       string `json:"value"`
 	ContentType string `json:"contentType"`
+	// SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in
+	// the same namespace) this config targets. A config may be compatible with
+	// several schemas at once, so this is a list. Referenceable-only.
+	SchemaRefs []string `json:"schemaRefs,omitempty"`
 }
 
 // AgentRemoteConfigStatus represents the status of an agent remote config.

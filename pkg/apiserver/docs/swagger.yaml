@@ -410,6 +410,12 @@ definitions:
           $ref: '#/definitions/Condition'
         type: array
     type: object
+  ComponentCatalog:
+    additionalProperties:
+      items:
+        type: string
+      type: array
+    type: object
   ComponentDetails:
     properties:
       type:
@@ -964,6 +970,19 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
+  ListResponse-RemoteConfigSchema:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/RemoteConfigSchema'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   ListResponse-Role:
     properties:
       apiVersion:
@@ -1067,6 +1086,56 @@ definitions:
         type: string
     required:
     - refreshToken
+    type: object
+  RemoteConfigSchema:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/RemoteConfigSchemaMetadata'
+      spec:
+        $ref: '#/definitions/RemoteConfigSchemaSpec'
+      status:
+        $ref: '#/definitions/RemoteConfigSchemaStatus'
+    type: object
+  RemoteConfigSchemaMetadata:
+    properties:
+      attributes:
+        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+      createdAt:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+    type: object
+  RemoteConfigSchemaSpec:
+    properties:
+      binary:
+        description: |-
+          Binary identifies the collector build/distribution (e.g. "otelcol",
+          "otelcol-contrib", or a vendor/custom distribution). Extensible free-form string.
+        type: string
+      components:
+        allOf:
+        - $ref: '#/definitions/ComponentCatalog'
+        description: |-
+          Components is the catalog of components a config for this binary may reference,
+          keyed by open-ended component class (e.g. "receivers", "processors",
+          "exporters", "extensions", "connectors") since OpAMP does not guarantee a
+          fixed set of classes. Values are the available component names (names only).
+      version:
+        description: Version is the collector version (semver) the schema describes.
+        type: string
+    type: object
+  RemoteConfigSchemaStatus:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
     type: object
   Role:
     properties:
@@ -1436,6 +1505,14 @@ definitions:
     properties:
       contentType:
         type: string
+      schemaRefs:
+        description: |-
+          SchemaRefs optionally references one or more RemoteConfigSchemas (by name, in
+          the same namespace) this config targets. A config may be compatible with
+          several schemas at once, so this is a list. Referenceable-only.
+        items:
+          type: string
+        type: array
       value:
         type: string
     type: object
@@ -3139,6 +3216,207 @@ paths:
       summary: Reconcile a resource
       tags:
       - reconcile
+  /api/v1/namespaces/{namespace}/remoteconfigschemas:
+    get:
+      description: Retrieve a list of remote config schemas in a namespace.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Maximum number of schemas to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing schemas
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted schemas
+        in: query
+        name: includeDeleted
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-RemoteConfigSchema'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List RemoteConfigSchemas
+      tags:
+      - remoteconfigschema
+    post:
+      consumes:
+      - application/json
+      description: Create a new remote config schema.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: RemoteConfigSchema to create
+        in: body
+        name: remoteconfigschema
+        required: true
+        schema:
+          $ref: '#/definitions/RemoteConfigSchema'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/RemoteConfigSchema'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create RemoteConfigSchema
+      tags:
+      - remoteconfigschema
+  /api/v1/namespaces/{namespace}/remoteconfigschemas/{name}:
+    delete:
+      description: Delete a remote config schema by its name.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the schema
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Delete RemoteConfigSchema
+      tags:
+      - remoteconfigschema
+    get:
+      description: Retrieve a remote config schema by its name.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the schema
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Include soft-deleted schema
+        in: query
+        name: includeDeleted
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/RemoteConfigSchema'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get RemoteConfigSchema
+      tags:
+      - remoteconfigschema
+    put:
+      consumes:
+      - application/json
+      description: Update an existing remote config schema.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Name of the schema
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Updated RemoteConfigSchema
+        in: body
+        name: remoteconfigschema
+        required: true
+        schema:
+          $ref: '#/definitions/RemoteConfigSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/RemoteConfigSchema'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Update RemoteConfigSchema
+      tags:
+      - remoteconfigschema
   /api/v1/namespaces/{namespace}/rolebindings:
     get:
       description: Retrieves a list of role bindings with pagination options.

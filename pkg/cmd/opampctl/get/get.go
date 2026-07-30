@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/endpoint"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/host"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/namespace"
+	remoteconfigschema "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/remoteconfigschema"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/role"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/rolebinding"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/user"
@@ -49,6 +50,9 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(endpoint.NewCommand(endpoint.CommandOptions{
+		GlobalConfig: options.GlobalConfig,
+	}))
+	cmd.AddCommand(remoteconfigschema.NewCommand(remoteconfigschema.CommandOptions{
 		GlobalConfig: options.GlobalConfig,
 	}))
 	cmd.AddCommand(certificate.NewCommand(certificate.CommandOptions{
