@@ -13,6 +13,9 @@ import (
 type Server struct {
 	// ID is the unique identifier for the server.
 	ID string
+	// Address is the address peers dial to reach this server directly (the
+	// `direct` transport). It is empty when direct delivery is not in use.
+	Address string
 	// LastHeartbeatAt is the last time the server sent a heartbeat.
 	LastHeartbeatAt time.Time
 	// Conditions is a list of conditions that apply to the server.
@@ -26,6 +29,7 @@ func (s *Server) Clone() *Server {
 
 	return &Server{
 		ID:              s.ID,
+		Address:         s.Address,
 		LastHeartbeatAt: s.LastHeartbeatAt,
 		Conditions:      conditionsCopy,
 	}

@@ -227,6 +227,7 @@ func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName strin
 	managementPort := b.GetFreeTCPPort()
 
 	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
+	//exhaustruct:ignore
 	settings.EventSettings = config.EventSettings{
 		ProtocolType: config.EventProtocolTypeKafka,
 		KafkaSettings: config.KafkaSettings{

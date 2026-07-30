@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
@@ -59,9 +60,10 @@ func NewEventSenderAdapter(
 // SendMessageToServer implements agentport.ServerEventSenderPort.
 func (e *EventSenderAdapter) SendMessageToServer(
 	ctx context.Context,
-	serverID string,
+	server *agentmodel.Server,
 	message serverevent.Message,
 ) error {
+	serverID := server.ID
 	event := cloudevents.NewEvent()
 
 	// Is it better to add message.EventID field?

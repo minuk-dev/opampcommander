@@ -38,6 +38,9 @@ linters:
         # never meant to be constructed exhaustively, so exclude the whole opamp-go protobufs
         # package instead of scattering //exhaustruct:ignore over every literal.
         - 'github\.com/open-telemetry/opamp-go/protobufs\..+'
+        # Our own protobuf-generated messages (direct transport) carry the same
+        # unexported state and are likewise never constructed exhaustively.
+        - 'github\.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/direct/gen/.+'
         # Optional list/paging filters whose zero values are meaningful defaults;
         # call sites legitimately set only the fields they care about.
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model.ListOptions"
@@ -93,6 +96,12 @@ linters:
             - github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2
             - github.com/cloudevents/sdk-go/v2
             - github.com/IBM/sarama
+            # Direct (peer-to-peer) transport
+            - google.golang.org/grpc
+            - google.golang.org/grpc/codes
+            - google.golang.org/grpc/status
+            - google.golang.org/grpc/metadata
+            - google.golang.org/grpc/credentials/insecure
             # Utils
             - github.com/samber/lo
             - github.com/samber/mo

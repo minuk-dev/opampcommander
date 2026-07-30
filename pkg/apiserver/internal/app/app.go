@@ -137,5 +137,9 @@ func NewConfigModule(settings *config.ServerSettings) fx.Option {
 		fx.Provide(helper.PointerFunc(settings.EventSettings)),
 		// serverID provider with explicit type (owned by the domain)
 		fx.Provide(func() agentmodel.ServerID { return settings.ServerID }),
+		// advertise address for the direct transport (empty unless direct is configured)
+		fx.Provide(func() agentmodel.ServerAddress {
+			return agentmodel.ServerAddress(settings.EventSettings.DirectSettings.AdvertiseAddress)
+		}),
 	)
 }

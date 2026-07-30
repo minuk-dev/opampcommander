@@ -1,7 +1,7 @@
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
 
-.PHONY: lint lint-fix prebuilt-doc build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic release docker docker-image
+.PHONY: lint lint-fix prebuilt-doc prebuilt-proto build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic release docker docker-image
 
 all: prebuilt-doc build
 
@@ -20,7 +20,10 @@ build-dev: prebuilt-doc
 prebuilt-mock:
 	mockery
 
-generate: prebuilt-doc prebuilt-mock
+prebuilt-proto:
+	buf generate
+
+generate: prebuilt-doc prebuilt-proto prebuilt-mock
 
 start-mongodb:
 	@mkdir -p ./default.mongodb

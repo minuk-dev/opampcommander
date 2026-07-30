@@ -45,6 +45,12 @@ type CommandOption struct {
 			Brokers []string `mapstructure:"brokers"`
 			Topic   string   `mapstructure:"topic"`
 		}
+		Direct struct {
+			SubProtocol      string `mapstructure:"subProtocol"`
+			ListenAddress    string `mapstructure:"listenAddress"`
+			AdvertiseAddress string `mapstructure:"advertiseAddress"`
+			AuthToken        string `mapstructure:"authToken"`
+		} `mapstructure:"direct"`
 	} `mapstructure:"event"`
 	Management struct {
 		Address string `mapstructure:"address"`
@@ -360,6 +366,12 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			KafkaSettings: appconfig.KafkaSettings{
 				Brokers: opt.Event.Kafka.Brokers,
 				Topic:   opt.Event.Kafka.Topic,
+			},
+			DirectSettings: appconfig.DirectSettings{
+				SubProtocol:      appconfig.DirectSubProtocol(opt.Event.Direct.SubProtocol),
+				ListenAddress:    opt.Event.Direct.ListenAddress,
+				AdvertiseAddress: opt.Event.Direct.AdvertiseAddress,
+				AuthToken:        opt.Event.Direct.AuthToken,
 			},
 		},
 		ManagementSettings: appconfig.ManagementSettings{

@@ -52,8 +52,9 @@ type AgentPersistencePort interface {
 
 // ServerEventSenderPort is an interface that defines the methods for sending events to servers.
 type ServerEventSenderPort interface {
-	// SendMessageToServer sends a message to the specified server.
-	SendMessageToServer(ctx context.Context, serverID string, message serverevent.Message) error
+	// SendMessageToServer sends a message to the specified server. The caller passes the
+	// resolved server so transports needing its address (e.g. direct) do not re-read it.
+	SendMessageToServer(ctx context.Context, server *agentmodel.Server, message serverevent.Message) error
 }
 
 // ServerEventReceiverPort is an interface that defines the methods for receiving events from servers.

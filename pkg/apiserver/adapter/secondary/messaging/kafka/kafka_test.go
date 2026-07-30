@@ -18,6 +18,7 @@ import (
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -51,7 +52,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 	defer func() { _ = consumer.Close(ctx) }()
 
 	// When: Send message
-	serverID := "test-server-id"
+	server := &agentmodel.Server{ID: "test-server-id"}
 	targetServer := "target-server-id"
 	agentUID := uuid.New()
 	message := serverevent.Message{
@@ -64,7 +65,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 		},
 	}
 
-	err = adapter.SendMessageToServer(ctx, serverID, message)
+	err = adapter.SendMessageToServer(ctx, server, message)
 	require.NoError(t, err)
 
 	// Then: Message should be received

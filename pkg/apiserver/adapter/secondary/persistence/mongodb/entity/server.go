@@ -16,6 +16,8 @@ type Server struct {
 	ID *bson.ObjectID `bson:"_id,omitempty"`
 	// ServerID is the unique identifier for the server.
 	ServerID string `bson:"serverId"`
+	// Address is the address peers dial to reach this server directly.
+	Address string `bson:"address,omitempty"`
 	// LastHeartbeatAt is the last time the server sent a heartbeat.
 	LastHeartbeatAt time.Time `bson:"lastHeartbeatAt"`
 	// Conditions is a list of conditions that apply to the server.
@@ -30,6 +32,7 @@ func (s *Server) ToDomainModel() *agentmodel.Server {
 
 	return &agentmodel.Server{
 		ID:              s.ServerID,
+		Address:         s.Address,
 		LastHeartbeatAt: s.LastHeartbeatAt,
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
@@ -46,6 +49,7 @@ func ToServerEntity(server *agentmodel.Server) *Server {
 	return &Server{
 		ID:              nil,
 		ServerID:        server.ID,
+		Address:         server.Address,
 		LastHeartbeatAt: server.LastHeartbeatAt,
 		Conditions: lo.Map(server.Conditions, func(c model.Condition, _ int) Condition {
 			return NewConditionFromDomain(c)
