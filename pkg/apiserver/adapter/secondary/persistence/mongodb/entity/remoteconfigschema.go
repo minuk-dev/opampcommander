@@ -37,6 +37,9 @@ type RemoteConfigSchemaResourceSpec struct {
 	Version string `bson:"version"`
 	// Components is the component catalog keyed by open-ended component class.
 	Components map[string][]string `bson:"components,omitempty"`
+	// ComponentConfigs holds the per-component config field schema keyed by class then
+	// component name. The domain ConfigField is stored directly (bson marshals it).
+	ComponentConfigs map[string]map[string]agentmodel.ConfigField `bson:"componentConfigs,omitempty"`
 }
 
 // RemoteConfigSchemaResourceEntityStat represents the status of a schema resource.
@@ -56,9 +59,10 @@ func (e *RemoteConfigSchemaResourceEntity) ToDomain() *agentmodel.RemoteConfigSc
 			DeletedAt:       e.Metadata.DeletedAt,
 		},
 		Spec: agentmodel.RemoteConfigSchemaSpec{
-			Binary:     e.Spec.Binary,
-			Version:    e.Spec.Version,
-			Components: agentmodel.ComponentCatalog(e.Spec.Components),
+			Binary:           e.Spec.Binary,
+			Version:          e.Spec.Version,
+			Components:       agentmodel.ComponentCatalog(e.Spec.Components),
+			ComponentConfigs: agentmodel.ComponentConfigCatalog(e.Spec.ComponentConfigs),
 		},
 		Status: agentmodel.RemoteConfigSchemaStatus{
 			Conditions: lo.Map(e.Status.Conditions, func(c Condition, _ int) model.Condition {
@@ -83,9 +87,10 @@ func RemoteConfigSchemaResourceEntityFromDomain(
 			DeletedAt:       schema.Metadata.DeletedAt,
 		},
 		Spec: RemoteConfigSchemaResourceSpec{
-			Binary:     schema.Spec.Binary,
-			Version:    schema.Spec.Version,
-			Components: map[string][]string(schema.Spec.Components),
+			Binary:           schema.Spec.Binary,
+			Version:          schema.Spec.Version,
+			Components:       map[string][]string(schema.Spec.Components),
+			ComponentConfigs: map[string]map[string]agentmodel.ConfigField(schema.Spec.ComponentConfigs),
 		},
 		Status: RemoteConfigSchemaResourceEntityStat{
 			Conditions: lo.Map(schema.Status.Conditions, func(c model.Condition, _ int) Condition {

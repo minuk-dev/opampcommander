@@ -54,6 +54,36 @@ type RemoteConfigSchemaSpec struct {
 	// Components is the catalog of components a config for this binary may
 	// reference. This is what a validator consults.
 	Components ComponentCatalog
+	// ComponentConfigs holds the config field schema of each component, keyed by
+	// class then component name. Optional and additive: absent components are
+	// validated for existence only, present ones field-by-field.
+	ComponentConfigs ComponentConfigCatalog
+}
+
+// ComponentConfigCatalog maps component class -> component name -> the root config
+// field schema (an object field) describing that component's config.
+type ComponentConfigCatalog map[string]map[string]ConfigField
+
+// Coarse config field kinds used by ConfigField.Type.
+const (
+	ConfigFieldTypeString   = "string"
+	ConfigFieldTypeInt      = "int"
+	ConfigFieldTypeFloat    = "float"
+	ConfigFieldTypeBool     = "bool"
+	ConfigFieldTypeDuration = "duration"
+	ConfigFieldTypeObject   = "object"
+	ConfigFieldTypeArray    = "array"
+	ConfigFieldTypeMap      = "map"
+	ConfigFieldTypeAny      = "any"
+)
+
+// ConfigField describes the shape of one config field for structural + type
+// validation. For an object, Fields holds the named sub-fields; for an array or map,
+// Elem holds the element/value schema. Type "any" accepts any value.
+type ConfigField struct {
+	Type   string
+	Fields map[string]ConfigField
+	Elem   *ConfigField
 }
 
 // ComponentCatalog lists the available components of a collector build, keyed by
@@ -90,9 +120,10 @@ func NewRemoteConfigSchema(
 			DeletedAt:       nil,
 		},
 		Spec: RemoteConfigSchemaSpec{
-			Binary:     "",
-			Version:    "",
-			Components: ComponentCatalog{},
+			Binary:           "",
+			Version:          "",
+			Components:       ComponentCatalog{},
+			ComponentConfigs: nil,
 		},
 		Status: RemoteConfigSchemaStatus{
 			Conditions: []model.Condition{

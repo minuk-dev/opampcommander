@@ -31,25 +31,27 @@ var (
 
 // CommandOptions holds the flags for the generate remoteconfigschema command.
 type CommandOptions struct {
-	binaryPath string
-	from       string
-	name       string
-	namespace  string
-	binary     string
-	version    string
-	formatType string
+	binaryPath       string
+	from             string
+	name             string
+	namespace        string
+	binary           string
+	version          string
+	componentConfigs string
+	formatType       string
 }
 
 // NewCommand creates the 'opampctl generate remoteconfigschema' command.
 func NewCommand() *cobra.Command {
 	options := &CommandOptions{
-		binaryPath: "",
-		from:       "",
-		name:       "",
-		namespace:  "default",
-		binary:     "",
-		version:    "",
-		formatType: "yaml",
+		binaryPath:       "",
+		from:             "",
+		name:             "",
+		namespace:        "default",
+		binary:           "",
+		version:          "",
+		componentConfigs: "",
+		formatType:       "yaml",
 	}
 
 	//exhaustruct:ignore
@@ -75,6 +77,8 @@ func NewCommand() *cobra.Command {
 		"Distribution label override (default: buildinfo.command)")
 	cmd.Flags().StringVar(&options.version, "version", "",
 		"Version override (default: buildinfo.version)")
+	cmd.Flags().StringVar(&options.componentConfigs, "component-configs", "",
+		"Path to a JSON file of per-component config field schemas to merge into the catalog")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "yaml", "Output format (yaml, json)")
 
 	return cmd
@@ -92,12 +96,41 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
+	err = o.loadComponentConfigs(collected)
+	if err != nil {
+		return err
+	}
+
 	schema, err := o.buildSchema(collected)
 	if err != nil {
 		return err
 	}
 
 	return render(cmd.OutOrStdout(), schema, o.formatType)
+}
+
+// loadComponentConfigs reads the optional --component-configs JSON file (a
+// v1.ComponentConfigCatalog produced by the reflection-based generator) into collected.
+func (o *CommandOptions) loadComponentConfigs(collected *collected) error {
+	if o.componentConfigs == "" {
+		return nil
+	}
+
+	data, err := os.ReadFile(filepath.Clean(o.componentConfigs))
+	if err != nil {
+		return fmt.Errorf("read %q: %w", o.componentConfigs, err)
+	}
+
+	var catalog v1.ComponentConfigCatalog
+
+	err = json.Unmarshal(data, &catalog)
+	if err != nil {
+		return fmt.Errorf("decode component configs %q: %w", o.componentConfigs, err)
+	}
+
+	collected.ComponentConfigs = catalog
+
+	return nil
 }
 
 func (o *CommandOptions) readComponents(cmd *cobra.Command) ([]byte, error) {
@@ -145,9 +178,10 @@ func (o *CommandOptions) buildSchema(collected *collected) (*v1.RemoteConfigSche
 			Namespace: o.namespace,
 		},
 		Spec: v1.RemoteConfigSchemaSpec{
-			Binary:     binary,
-			Version:    version,
-			Components: collected.Components,
+			Binary:           binary,
+			Version:          version,
+			Components:       collected.Components,
+			ComponentConfigs: collected.ComponentConfigs,
 		},
 	}, nil
 }

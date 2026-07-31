@@ -416,6 +416,12 @@ definitions:
         type: string
       type: array
     type: object
+  ComponentConfigCatalog:
+    additionalProperties:
+      additionalProperties:
+        $ref: '#/definitions/ConfigField'
+      type: object
+    type: object
   ComponentDetails:
     properties:
       type:
@@ -454,6 +460,17 @@ definitions:
     - ConditionTypeHealthy
     - ConditionTypeConfigured
     - ConditionTypeRegistered
+  ConfigField:
+    properties:
+      elem:
+        $ref: '#/definitions/ConfigField'
+      fields:
+        additionalProperties:
+          $ref: '#/definitions/ConfigField'
+        type: object
+      type:
+        type: string
+    type: object
   Connection:
     properties:
       alive:
@@ -1118,6 +1135,15 @@ definitions:
           Binary identifies the collector build/distribution (e.g. "otelcol",
           "otelcol-contrib", or a vendor/custom distribution). Extensible free-form string.
         type: string
+      componentConfigs:
+        allOf:
+        - $ref: '#/definitions/ComponentConfigCatalog'
+        description: |-
+          ComponentConfigs holds the config field schema of each component, keyed by
+          component class then component name. It is optional and additive: when a
+          component has no entry here, only its existence is validated; when present, a
+          config targeting that component is validated field-by-field (unknown keys and
+          type mismatches). Populated from the collector's component config structs.
       components:
         allOf:
         - $ref: '#/definitions/ComponentCatalog'

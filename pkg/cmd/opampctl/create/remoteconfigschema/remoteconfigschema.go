@@ -132,9 +132,10 @@ func (opt *CommandOptions) buildRequest() (*v1.RemoteConfigSchema, string, error
 			Attributes: opt.attributes,
 		},
 		Spec: v1.RemoteConfigSchemaSpec{
-			Binary:     opt.binary,
-			Version:    opt.version,
-			Components: v1.ComponentCatalog{},
+			Binary:           opt.binary,
+			Version:          opt.version,
+			Components:       v1.ComponentCatalog{},
+			ComponentConfigs: nil,
 		},
 	}, opt.namespace, nil
 }

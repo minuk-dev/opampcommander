@@ -4347,6 +4347,15 @@ const docTemplate = `{
                 }
             }
         },
+        "ComponentConfigCatalog": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                    "$ref": "#/definitions/ConfigField"
+                }
+            }
+        },
         "ComponentDetails": {
             "type": "object",
             "properties": {
@@ -4398,6 +4407,23 @@ const docTemplate = `{
                 "ConditionTypeConfigured",
                 "ConditionTypeRegistered"
             ]
+        },
+        "ConfigField": {
+            "type": "object",
+            "properties": {
+                "elem": {
+                    "$ref": "#/definitions/ConfigField"
+                },
+                "fields": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ConfigField"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
         },
         "Connection": {
             "type": "object",
@@ -5355,6 +5381,14 @@ const docTemplate = `{
                 "binary": {
                     "description": "Binary identifies the collector build/distribution (e.g. \"otelcol\",\n\"otelcol-contrib\", or a vendor/custom distribution). Extensible free-form string.",
                     "type": "string"
+                },
+                "componentConfigs": {
+                    "description": "ComponentConfigs holds the config field schema of each component, keyed by\ncomponent class then component name. It is optional and additive: when a\ncomponent has no entry here, only its existence is validated; when present, a\nconfig targeting that component is validated field-by-field (unknown keys and\ntype mismatches). Populated from the collector's component config structs.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ComponentConfigCatalog"
+                        }
+                    ]
                 },
                 "components": {
                     "description": "Components is the catalog of components a config for this binary may reference,\nkeyed by open-ended component class (e.g. \"receivers\", \"processors\",\n\"exporters\", \"extensions\", \"connectors\") since OpAMP does not guarantee a\nfixed set of classes. Values are the available component names (names only).",

@@ -10,11 +10,13 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
 
-// collected is the parsed result of an `otelcol components` document.
+// collected is the parsed result of an `otelcol components` document, optionally
+// enriched with per-component config field schemas from --component-configs.
 type collected struct {
-	Command    string
-	Version    string
-	Components v1.ComponentCatalog
+	Command          string
+	Version          string
+	Components       v1.ComponentCatalog
+	ComponentConfigs v1.ComponentConfigCatalog
 }
 
 // componentEntry is one component listed under a class in `otelcol components` output.
@@ -85,9 +87,10 @@ func parseComponents(data []byte) (*collected, error) {
 	addClass(catalog, "connectors", doc.Connectors)
 
 	return &collected{
-		Command:    doc.BuildInfo.Command,
-		Version:    doc.BuildInfo.Version,
-		Components: catalog,
+		Command:          doc.BuildInfo.Command,
+		Version:          doc.BuildInfo.Version,
+		Components:       catalog,
+		ComponentConfigs: nil,
 	}, nil
 }
 
