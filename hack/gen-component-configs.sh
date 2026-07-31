@@ -20,7 +20,21 @@
 #
 set -euo pipefail
 
+# Never auto-download a newer Go toolchain (blocked in some environments by GOSUMDB=off);
+# use the installed one. Components that require a newer toolchain are skipped via SKIP_MODULES.
+export GOTOOLCHAIN="${GOTOOLCHAIN:-local}"
+
+# Route module downloads through the public proxy. Many components depend on vanity import
+# paths (code.cloudfoundry.org, software.sslmate.com, ...) that a direct (GOPROXY=direct)
+# fetch cannot resolve in a restricted network; the proxy serves them from one reachable host.
+export GOPROXY="${GEN_GOPROXY:-https://proxy.golang.org,direct}"
+
 RELEASES_REPO="open-telemetry/opentelemetry-collector-releases"
+
+# SKIP_MODULES is an awk regex of component module paths to exclude (e.g. ones that
+# require a newer Go toolchain than installed). Excluded components fall back to
+# existence-only validation.
+SKIP_MODULES="${SKIP_MODULES:-opentelemetry.io/obi}"
 
 log() { printf '%s\n' "$*" >&2; }
 
@@ -49,13 +63,14 @@ main() {
     version="${3#v}"
   fi
 
-  # Parse "class<TAB>importpath<TAB>modversion" from the manifest.
+  # Parse "class<TAB>importpath<TAB>modversion" from the manifest, skipping SKIP_MODULES.
   local entries
-  entries="$(awk '
+  entries="$(awk -v skip="$SKIP_MODULES" '
     /^[a-z]+:[[:space:]]*$/ { cls=$1; sub(/:$/,"",cls); next }
     /^[[:space:]]*-[[:space:]]*gomod:/ {
       path=$3; ver=$4
-      if (cls=="receivers"||cls=="processors"||cls=="exporters"||cls=="extensions"||cls=="connectors")
+      if ((cls=="receivers"||cls=="processors"||cls=="exporters"||cls=="extensions"||cls=="connectors") &&
+          (skip=="" || path !~ skip))
         print cls "\t" path "\t" ver
     }
   ' "$manifest")"
@@ -100,7 +115,7 @@ main() {
       [[ -z "$path" ]] && continue
       go mod edit -require="$path@$ver"
     done <<<"$entries"
-    go mod tidy >/dev/null 2>&1
+    go mod tidy >/dev/null
     go run . "$command" "$version"
   )
 }

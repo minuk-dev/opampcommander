@@ -43,5 +43,11 @@ CONFIGS_DIR=/tmp/cfgcatalogs FORCE=1 VERSIONS="v0.157.0" DISTS="otelcol" hack/ge
 
 Compiling the component set is heavy (large module downloads), so populating config
 schemas for every distribution/version is best done in CI. Currently the newest
-`otelcol` and `otelcol-k8s` carry config schemas; the rest validate component
-existence only until regenerated.
+`otelcol`, `otelcol-contrib`, and `otelcol-k8s` (the default-seeded versions) carry
+config schemas; older versions validate component existence only until regenerated.
+
+`gen-component-configs.sh` pins `GOTOOLCHAIN=local` and routes modules through
+`GOPROXY=https://proxy.golang.org` (many components use vanity import paths a direct
+fetch can't resolve). Components whose module needs a newer toolchain than installed are
+excluded via `SKIP_MODULES` (default: the `obi` component); excluded components fall back
+to existence-only validation.
