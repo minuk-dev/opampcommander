@@ -1,0 +1,160 @@
+
+// The lines above are generated per distribution: the package clause, the imports
+// (stdlib + factory packages), the cfgFactory interface, and factories(). Everything
+// below is fixed and reflects each component's config struct into a field-type tree.
+
+type entry struct {
+	class   string
+	factory cfgFactory
+}
+
+// configField mirrors api/v1.ConfigField (kept local so this throwaway program has no
+// dependency on the opampcommander module).
+type configField struct {
+	Type   string                 `json:"type"`
+	Fields map[string]configField `json:"fields,omitempty"`
+	Elem   *configField           `json:"elem,omitempty"`
+}
+
+const maxDepth = 12
+
+var durationType = reflect.TypeOf(time.Duration(0))
+
+func walk(t reflect.Type, depth int) configField {
+	for t != nil && t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	if t == nil || depth > maxDepth {
+		return configField{Type: "any"}
+	}
+
+	if t == durationType {
+		return configField{Type: "duration"}
+	}
+
+	switch t.Kind() {
+	case reflect.Struct:
+		return walkStruct(t, depth)
+	case reflect.Map:
+		elem := walk(t.Elem(), depth+1)
+
+		return configField{Type: "map", Elem: &elem}
+	case reflect.Slice, reflect.Array:
+		elem := walk(t.Elem(), depth+1)
+
+		return configField{Type: "array", Elem: &elem}
+	case reflect.String:
+		return configField{Type: "string"}
+	case reflect.Bool:
+		return configField{Type: "bool"}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return configField{Type: "int"}
+	case reflect.Float32, reflect.Float64:
+		return configField{Type: "float"}
+	default:
+		return configField{Type: "any"}
+	}
+}
+
+func walkStruct(t reflect.Type, depth int) configField {
+	// configoptional.Optional[T] and similar wrappers carry the real config in an
+	// (unexported, untagged) field of type T. Merge any struct-typed field's object
+	// so the wrapped config's fields are surfaced instead of an empty object.
+	if isWrapper(t) {
+		return unwrapStruct(t, depth)
+	}
+
+	fields := map[string]configField{}
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		name, squash := parseMapstructure(field.Tag.Get("mapstructure"))
+		if name == "-" {
+			continue
+		}
+
+		if squash || (name == "" && field.Anonymous) {
+			// Flatten embedded/squashed struct into the parent.
+			sub := walk(field.Type, depth+1)
+			for key, value := range sub.Fields {
+				fields[key] = value
+			}
+
+			continue
+		}
+
+		if name == "" {
+			continue // untagged, non-embedded field is not part of the config surface
+		}
+
+		fields[name] = walk(field.Type, depth+1)
+	}
+
+	return configField{Type: "object", Fields: fields}
+}
+
+// isWrapper reports whether t is a generic optional/config wrapper (e.g.
+// configoptional.Optional[T]) whose real config lives in an untagged field of type T.
+func isWrapper(t reflect.Type) bool {
+	return strings.Contains(t.PkgPath(), "configoptional") && strings.HasPrefix(t.Name(), "Optional")
+}
+
+// unwrapStruct merges the object fields of every struct-typed field of t, surfacing the
+// wrapped config's fields regardless of export/tag state.
+func unwrapStruct(t reflect.Type, depth int) configField {
+	fields := map[string]configField{}
+
+	for i := 0; i < t.NumField(); i++ {
+		sub := walk(t.Field(i).Type, depth+1)
+		for key, value := range sub.Fields {
+			fields[key] = value
+		}
+	}
+
+	return configField{Type: "object", Fields: fields}
+}
+
+func parseMapstructure(tag string) (string, bool) {
+	parts := strings.Split(tag, ",")
+	name := parts[0]
+
+	for _, opt := range parts[1:] {
+		if opt == "squash" {
+			return name, true
+		}
+	}
+
+	return name, false
+}
+
+func main() {
+	command, version := os.Args[1], os.Args[2]
+	_ = command
+	_ = version
+
+	catalog := map[string]map[string]configField{}
+
+	for _, e := range factories() {
+		name := e.factory.Type().String()
+		root := walk(reflect.TypeOf(e.factory.CreateDefaultConfig()), 0)
+
+		if catalog[e.class] == nil {
+			catalog[e.class] = map[string]configField{}
+		}
+
+		catalog[e.class][name] = root
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+
+	if err := enc.Encode(catalog); err != nil {
+		panic(err)
+	}
+}

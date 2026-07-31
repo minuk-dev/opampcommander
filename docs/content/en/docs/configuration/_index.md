@@ -130,6 +130,12 @@ component catalog of each OTel Collector distribution/version) under
 Point `bootstrap.remoteConfigSchemaDir` elsewhere to use a different library.
 Regenerate it with `make gen-remoteconfigschema`.
 
+A schema may also carry per-component config field schemas (`spec.componentConfigs`),
+which let a config's component settings be validated (unknown keys / type mismatches),
+not just component existence. These are reflected from the components' Go config structs
+(`hack/gen-component-configs.sh`, merged via `CONFIGS_DIR`); components without an entry
+keep existence-only validation.
+
 ## Management (observability)
 
 The management server runs on a separate address and hosts health checks, metrics,

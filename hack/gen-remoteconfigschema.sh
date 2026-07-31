@@ -32,6 +32,18 @@ NAMESPACE="${NAMESPACE:-default}"
 
 log() { printf '%s\n' "$*" >&2; }
 
+# config_flag <dist> <ver> prints `--component-configs <path>` (two lines) when CONFIGS_DIR
+# holds a per-component config schema JSON for this distribution/version (produced by
+# hack/gen-component-configs.sh), else nothing. Callers read it into an array. This is
+# what adds field-level config validation to a schema. Kept nameref-free for bash 3.2.
+config_flag() {
+  local dist="$1" ver="$2" json="${CONFIGS_DIR:-}/${1}-${2}.json"
+
+  if [[ -n "${CONFIGS_DIR:-}" && -s "$json" ]]; then
+    printf -- '--component-configs\n%s\n' "$json"
+  fi
+}
+
 # host platform -> release asset suffix (e.g. darwin_arm64, linux_amd64)
 detect_platform() {
   local os arch
@@ -88,9 +100,13 @@ gen_one() {
   fi
   rm -f "$work/$dist"
 
+  local cfgflag=()
+  while IFS= read -r cfgline; do cfgflag+=("$cfgline"); done < <(config_flag "$dist" "$ver")
+
   if ! "$OPAMPCTL" generate remoteconfigschema \
     --from "$work/components.yaml" \
     --binary "$dist" --version "$ver" --name "${dist}-${ver}" \
+    ${cfgflag[@]+"${cfgflag[@]}"} \
     -n "$NAMESPACE" -o yaml >"$work/schema.yaml" 2>/dev/null; then
     return 1
   fi
@@ -186,9 +202,13 @@ gen_derived() {
     return 1
   fi
 
+  local cfgflag=()
+  while IFS= read -r cfgline; do cfgflag+=("$cfgline"); done < <(config_flag "$dist" "$ver")
+
   if ! "$OPAMPCTL" generate remoteconfigschema \
     --from "$work/components.yaml" \
     --binary "$dist" --version "$ver" --name "${dist}-${ver}" \
+    ${cfgflag[@]+"${cfgflag[@]}"} \
     -n "$NAMESPACE" -o yaml >"$work/schema.yaml" 2>/dev/null; then
     return 1
   fi
