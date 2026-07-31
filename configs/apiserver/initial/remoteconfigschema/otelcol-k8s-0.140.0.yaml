@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: RemoteConfigSchema
+metadata:
+    attributes: null
+    createdAt: null
+    name: otelcol-k8s-0.140.0
+    namespace: default
+spec:
+    binary: otelcol-k8s
+    components:
+        connectors:
+            - count
+            - exceptions
+            - failover
+            - forward
+            - otlp_json
+            - round_robin
+            - routing
+            - service_graph
+            - span_metrics
+        exporters:
+            - debug
+            - file
+            - load_balancing
+            - nop
+            - otelarrow
+            - otlp_grpc
+            - otlp_http
+        extensions:
+            - ack
+            - basicauth
+            - bearertokenauth
+            - cgroup_runtime
+            - file_storage
+            - headers_setter
+            - health_check
+            - host_observer
+            - http_forwarder
+            - k8s_leader_elector
+            - k8s_observer
+            - oauth2client
+            - oidc
+            - opamp
+            - pprof
+            - zpages
+        processors:
+            - attributes
+            - batch
+            - cumulative_to_delta
+            - deltatocumulative
+            - deltatorate
+            - filter
+            - groupbyattrs
+            - groupbytrace
+            - interval
+            - k8s_attributes
+            - log_dedup
+            - memory_limiter
+            - metrics_transform
+            - probabilistic_sampler
+            - redaction
+            - remotetap
+            - resource
+            - resource_detection
+            - tail_sampling
+            - transform
+        receivers:
+            - file_log
+            - fluent_forward
+            - host_metrics
+            - http_check
+            - jaeger
+            - journald
+            - k8s_cluster
+            - k8s_events
+            - k8s_objects
+            - kubelet_stats
+            - otelarrow
+            - otlp
+            - prometheus
+            - receiver_creator
+            - zipkin
+    version: 0.140.0
+status:
+    conditions: null

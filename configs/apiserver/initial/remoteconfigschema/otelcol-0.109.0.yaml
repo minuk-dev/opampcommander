@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: RemoteConfigSchema
+metadata:
+    attributes: null
+    createdAt: null
+    name: otelcol-0.109.0
+    namespace: default
+spec:
+    binary: otelcol
+    components:
+        connectors:
+            - forward
+        exporters:
+            - debug
+            - file
+            - kafka
+            - logging
+            - nop
+            - opencensus
+            - otlp
+            - otlphttp
+            - prometheus
+            - prometheusremotewrite
+            - zipkin
+        extensions:
+            - health_check
+            - pprof
+            - zpages
+        processors:
+            - attributes
+            - batch
+            - filter
+            - memory_limiter
+            - probabilistic_sampler
+            - resource
+            - span
+        receivers:
+            - hostmetrics
+            - jaeger
+            - kafka
+            - nop
+            - opencensus
+            - otlp
+            - prometheus
+            - zipkin
+    version: 0.109.0
+status:
+    conditions: null
