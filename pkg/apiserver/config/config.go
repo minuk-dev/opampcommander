@@ -27,6 +27,16 @@ type ServerSettings struct {
 	RBACModelPath      string
 }
 
+// RemoteConfigSchema load policies for BootstrapSettings.RemoteConfigSchemaLoad.
+const (
+	// RemoteConfigSchemaLoadLatest seeds only the newest version per distribution.
+	RemoteConfigSchemaLoadLatest = "latest"
+	// RemoteConfigSchemaLoadAll seeds every version found in the schema library.
+	RemoteConfigSchemaLoadAll = "all"
+	// RemoteConfigSchemaLoadNone disables schema seeding.
+	RemoteConfigSchemaLoadNone = "none"
+)
+
 // BootstrapSettings configures how the server seeds built-in resources on startup.
 //
 // On every start the server reconciles the YAML manifests found under Dir into the
@@ -39,6 +49,17 @@ type BootstrapSettings struct {
 	// Dir is the directory of initial manifest YAML files applied on startup.
 	// When empty, manifest reconciliation is skipped (e.g. tests).
 	Dir string
+	// RemoteConfigSchemaDir is the directory of the pre-built RemoteConfigSchema
+	// library (one YAML per collector distribution/version). When empty it defaults
+	// to the "remoteconfigschema" subdirectory of Dir; when both are empty, schema
+	// seeding is skipped. The main manifest reconciler ignores this subdirectory, so
+	// it is loaded separately according to RemoteConfigSchemaLoad.
+	RemoteConfigSchemaDir string
+	// RemoteConfigSchemaLoad selects which schemas from RemoteConfigSchemaDir are
+	// seeded on startup: "latest" (default) seeds only the newest version per
+	// distribution, "all" seeds every version in the library, and "none" disables
+	// schema seeding while keeping the library on disk for opt-in use.
+	RemoteConfigSchemaLoad string
 	// DefaultNamespace is the namespace an agent is placed in when it does not
 	// report a service.namespace identifying attribute. It is also the namespace
 	// in which the built-in default role is auto-granted to every user.

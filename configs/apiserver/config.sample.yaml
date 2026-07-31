@@ -5,6 +5,11 @@ bootstrap:
   # change the built-in defaults. The container image ships them at
   # /etc/opampcommander/initial (also exposed via the BOOTSTRAP_DIR env var).
   dir: /etc/opampcommander/initial
+  # Pre-built RemoteConfigSchema library (component catalog per collector
+  # distribution/version). Empty defaults to <dir>/remoteconfigschema.
+  # remoteConfigSchemaDir: /etc/opampcommander/initial/remoteconfigschema
+  # Which schemas to seed on startup: latest (newest per distribution), all, or none.
+  remoteConfigSchemaLoad: latest
   defaultNamespace: default # agents without a service.namespace land here
   defaultRole: default # built-in role auto-granted to every user
 database:

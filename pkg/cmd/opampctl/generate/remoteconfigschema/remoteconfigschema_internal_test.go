@@ -48,6 +48,40 @@ func TestParseComponents(t *testing.T) {
 	assert.Equal(t, []string{"forward"}, collected.Components["connectors"])
 }
 
+// scalarComponents is the older `otelcol components` shape (pre-~v0.85), where each
+// component is a bare scalar string rather than a `- name:` mapping.
+const scalarComponents = `
+buildinfo:
+    command: otelcol
+    version: 0.70.0
+receivers:
+    - otlp
+    - hostmetrics
+processors:
+    - batch
+    - memory_limiter
+exporters:
+    - otlp
+    - logging
+extensions:
+    - health_check
+    - zpages
+`
+
+func TestParseComponents_ScalarFormat(t *testing.T) {
+	t.Parallel()
+
+	collected, err := parseComponents([]byte(scalarComponents))
+	require.NoError(t, err)
+
+	assert.Equal(t, "otelcol", collected.Command)
+	assert.Equal(t, "0.70.0", collected.Version)
+	assert.Equal(t, []string{"hostmetrics", "otlp"}, collected.Components["receivers"])
+	assert.Equal(t, []string{"batch", "memory_limiter"}, collected.Components["processors"])
+	assert.Equal(t, []string{"logging", "otlp"}, collected.Components["exporters"])
+	assert.Equal(t, []string{"health_check", "zpages"}, collected.Components["extensions"])
+}
+
 func TestBuildSchema_DefaultsFromBuildInfo(t *testing.T) {
 	t.Parallel()
 

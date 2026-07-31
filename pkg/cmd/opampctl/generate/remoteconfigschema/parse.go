@@ -18,8 +18,40 @@ type collected struct {
 }
 
 // componentEntry is one component listed under a class in `otelcol components` output.
+// Two historical shapes are accepted: newer collectors emit a mapping with a `name`
+// field (plus module/stability), while older ones (pre-~v0.85) list the component as a
+// bare scalar string.
 type componentEntry struct {
 	Name string `yaml:"name"`
+}
+
+// UnmarshalYAML accepts either a bare scalar (`- otlp`) or a mapping (`- name: otlp`).
+func (e *componentEntry) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.MappingNode {
+		var mapping struct {
+			Name string `yaml:"name"`
+		}
+
+		err := value.Decode(&mapping)
+		if err != nil {
+			return fmt.Errorf("decode component entry: %w", err)
+		}
+
+		e.Name = mapping.Name
+
+		return nil
+	}
+
+	var name string
+
+	err := value.Decode(&name)
+	if err != nil {
+		return fmt.Errorf("decode component entry: %w", err)
+	}
+
+	e.Name = name
+
+	return nil
 }
 
 // componentsDoc mirrors the relevant parts of `otelcol components` YAML output.

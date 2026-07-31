@@ -15,6 +15,7 @@ func main() {
 
 	err := cmd.Execute()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "opampctl not executed. err=%+v", err)
+		fmt.Fprintf(os.Stderr, "opampctl not executed. err=%+v\n", err)
+		os.Exit(1)
 	}
 }

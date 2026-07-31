@@ -108,11 +108,27 @@ On startup the server reconciles a directory of manifest YAML files into persist
 ```yaml
 bootstrap:
   dir: /etc/opampcommander/initial
+  remoteConfigSchemaLoad: latest   # latest | all | none
   defaultNamespace: default   # namespace for agents without a service.namespace
   defaultRole: default        # role auto-granted to every user
 ```
 
 Setting `bootstrap.dir` empty disables bootstrapping.
+
+### RemoteConfigSchema library
+
+The image also ships a pre-built library of `RemoteConfigSchema` manifests (the
+component catalog of each OTel Collector distribution/version) under
+`<bootstrap.dir>/remoteconfigschema`. On startup these are seeded per
+`bootstrap.remoteConfigSchemaLoad`:
+
+- `latest` (default) — seed only the newest version of each distribution
+  (`otelcol`, `otelcol-contrib`, `otelcol-k8s`)
+- `all` — seed every version in the library
+- `none` — seed nothing (the files remain on disk for opt-in use)
+
+Point `bootstrap.remoteConfigSchemaDir` elsewhere to use a different library.
+Regenerate it with `make gen-remoteconfigschema`.
 
 ## Management (observability)
 

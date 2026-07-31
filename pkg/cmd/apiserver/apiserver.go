@@ -117,9 +117,11 @@ type CommandOption struct {
 		} `mapstructure:"oauth2"`
 	} `mapstructure:"auth"`
 	Bootstrap struct {
-		Dir              string `mapstructure:"dir"`
-		DefaultNamespace string `mapstructure:"defaultNamespace"`
-		DefaultRole      string `mapstructure:"defaultRole"`
+		Dir                    string `mapstructure:"dir"`
+		RemoteConfigSchemaDir  string `mapstructure:"remoteConfigSchemaDir"`
+		RemoteConfigSchemaLoad string `mapstructure:"remoteConfigSchemaLoad"`
+		DefaultNamespace       string `mapstructure:"defaultNamespace"`
+		DefaultRole            string `mapstructure:"defaultRole"`
 	} `mapstructure:"bootstrap"`
 
 	MetricsBackend struct {
@@ -243,6 +245,11 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.Flags().String("bootstrap.dir", "",
 		"directory of initial manifest YAML files to seed on startup "+
 			"(empty disables; the container image sets BOOTSTRAP_DIR=/etc/opampcommander/initial)")
+	cmd.Flags().String("bootstrap.remoteConfigSchemaDir", "",
+		"directory of the pre-built RemoteConfigSchema library "+
+			"(empty defaults to <bootstrap.dir>/remoteconfigschema)")
+	cmd.Flags().String("bootstrap.remoteConfigSchemaLoad", "latest",
+		"which schemas to seed on startup: latest (newest per distribution), all, or none")
 	cmd.Flags().String("bootstrap.defaultNamespace", "default",
 		"namespace agents without a service.namespace are placed in, and where the default role is granted")
 	cmd.Flags().String("bootstrap.defaultRole", "default",
@@ -408,9 +415,11 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 		},
 		CacheSettings: appconfig.DefaultCacheSettings(),
 		BootstrapSettings: appconfig.BootstrapSettings{
-			Dir:              opt.Bootstrap.Dir,
-			DefaultNamespace: defaultString(opt.Bootstrap.DefaultNamespace, agentmodel.DefaultNamespaceName),
-			DefaultRole:      defaultString(opt.Bootstrap.DefaultRole, usermodel.RoleDefault),
+			Dir:                    opt.Bootstrap.Dir,
+			RemoteConfigSchemaDir:  opt.Bootstrap.RemoteConfigSchemaDir,
+			RemoteConfigSchemaLoad: opt.Bootstrap.RemoteConfigSchemaLoad,
+			DefaultNamespace:       defaultString(opt.Bootstrap.DefaultNamespace, agentmodel.DefaultNamespaceName),
+			DefaultRole:            defaultString(opt.Bootstrap.DefaultRole, usermodel.RoleDefault),
 		},
 		MetricsBackend: appconfig.MetricsBackendSettings{
 			Type:          appconfig.MetricsBackendType(opt.MetricsBackend.Type),
