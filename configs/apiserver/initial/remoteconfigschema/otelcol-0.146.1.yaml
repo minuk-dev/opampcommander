@@ -7,6 +7,3747 @@ metadata:
     namespace: default
 spec:
     binary: otelcol
+    componentConfigs:
+        connectors:
+            forward:
+                type: object
+        exporters:
+            debug:
+                fields:
+                    output_paths:
+                        elem:
+                            type: string
+                        type: array
+                    sampling_initial:
+                        type: int
+                    sampling_thereafter:
+                        type: int
+                    sending_queue:
+                        fields:
+                            batch:
+                                fields:
+                                    flush_timeout:
+                                        type: duration
+                                    max_size:
+                                        type: int
+                                    min_size:
+                                        type: int
+                                    sizer:
+                                        type: object
+                                type: object
+                            block_on_overflow:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                            sizer:
+                                type: object
+                            storage:
+                                type: object
+                            wait_for_result:
+                                type: bool
+                        type: object
+                    use_internal_logger:
+                        type: bool
+                    verbosity:
+                        type: int
+                type: object
+            file:
+                fields:
+                    append:
+                        type: bool
+                    compression:
+                        type: string
+                    create_directory:
+                        type: bool
+                    directory_permissions:
+                        type: string
+                    encoding:
+                        type: object
+                    flush_interval:
+                        type: duration
+                    format:
+                        type: string
+                    group_by:
+                        fields:
+                            enabled:
+                                type: bool
+                            max_open_files:
+                                type: int
+                            resource_attribute:
+                                type: string
+                        type: object
+                    path:
+                        type: string
+                    rotation:
+                        fields:
+                            localtime:
+                                type: bool
+                            max_backups:
+                                type: int
+                            max_days:
+                                type: int
+                            max_megabytes:
+                                type: int
+                        type: object
+                type: object
+            kafka:
+                fields:
+                    auth:
+                        fields:
+                            kerberos:
+                                fields:
+                                    config_file:
+                                        type: string
+                                    disable_fast_negotiation:
+                                        type: bool
+                                    keytab_file:
+                                        type: string
+                                    password:
+                                        type: string
+                                    realm:
+                                        type: string
+                                    service_name:
+                                        type: string
+                                    use_keytab:
+                                        type: bool
+                                    username:
+                                        type: string
+                                type: object
+                            plain_text:
+                                fields:
+                                    password:
+                                        type: string
+                                    username:
+                                        type: string
+                                type: object
+                            sasl:
+                                fields:
+                                    aws_msk:
+                                        fields:
+                                            region:
+                                                type: string
+                                        type: object
+                                    mechanism:
+                                        type: string
+                                    password:
+                                        type: string
+                                    username:
+                                        type: string
+                                    version:
+                                        type: int
+                                type: object
+                            tls:
+                                fields:
+                                    ca_file:
+                                        type: string
+                                    ca_pem:
+                                        type: string
+                                    cert_file:
+                                        type: string
+                                    cert_pem:
+                                        type: string
+                                    cipher_suites:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    curve_preferences:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    include_system_ca_certs_pool:
+                                        type: bool
+                                    insecure:
+                                        type: bool
+                                    insecure_skip_verify:
+                                        type: bool
+                                    key_file:
+                                        type: string
+                                    key_pem:
+                                        type: string
+                                    max_version:
+                                        type: string
+                                    min_version:
+                                        type: string
+                                    reload_interval:
+                                        type: duration
+                                    server_name_override:
+                                        type: string
+                                    tpm:
+                                        fields:
+                                            auth:
+                                                type: string
+                                            enabled:
+                                                type: bool
+                                            owner_auth:
+                                                type: string
+                                            path:
+                                                type: string
+                                        type: object
+                                type: object
+                        type: object
+                    brokers:
+                        elem:
+                            type: string
+                        type: array
+                    client_id:
+                        type: string
+                    conn_idle_timeout:
+                        type: duration
+                    encoding:
+                        type: string
+                    include_metadata_keys:
+                        elem:
+                            type: string
+                        type: array
+                    logs:
+                        fields:
+                            encoding:
+                                type: string
+                            topic:
+                                type: string
+                            topic_from_metadata_key:
+                                type: string
+                        type: object
+                    metadata:
+                        fields:
+                            full:
+                                type: bool
+                            refresh_interval:
+                                type: duration
+                            retry:
+                                fields:
+                                    backoff:
+                                        type: duration
+                                    max:
+                                        type: int
+                                type: object
+                        type: object
+                    metrics:
+                        fields:
+                            encoding:
+                                type: string
+                            topic:
+                                type: string
+                            topic_from_metadata_key:
+                                type: string
+                        type: object
+                    partition_logs_by_resource_attributes:
+                        type: bool
+                    partition_logs_by_trace_id:
+                        type: bool
+                    partition_metrics_by_resource_attributes:
+                        type: bool
+                    partition_traces_by_id:
+                        type: bool
+                    producer:
+                        fields:
+                            allow_auto_topic_creation:
+                                type: bool
+                            compression:
+                                type: string
+                            compression_params:
+                                fields:
+                                    level:
+                                        type: int
+                                type: object
+                            flush_max_messages:
+                                type: int
+                            linger:
+                                type: duration
+                            max_message_bytes:
+                                type: int
+                            required_acks:
+                                type: int
+                        type: object
+                    profiles:
+                        fields:
+                            encoding:
+                                type: string
+                            topic:
+                                type: string
+                            topic_from_metadata_key:
+                                type: string
+                        type: object
+                    protocol_version:
+                        type: string
+                    rack_id:
+                        type: string
+                    resolve_canonical_bootstrap_servers_only:
+                        type: bool
+                    retry_on_failure:
+                        fields:
+                            enabled:
+                                type: bool
+                            initial_interval:
+                                type: duration
+                            max_elapsed_time:
+                                type: duration
+                            max_interval:
+                                type: duration
+                            multiplier:
+                                type: float
+                            randomization_factor:
+                                type: float
+                        type: object
+                    sending_queue:
+                        fields:
+                            batch:
+                                fields:
+                                    flush_timeout:
+                                        type: duration
+                                    max_size:
+                                        type: int
+                                    min_size:
+                                        type: int
+                                    sizer:
+                                        type: object
+                                type: object
+                            block_on_overflow:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                            sizer:
+                                type: object
+                            storage:
+                                type: object
+                            wait_for_result:
+                                type: bool
+                        type: object
+                    timeout:
+                        type: duration
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            insecure:
+                                type: bool
+                            insecure_skip_verify:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            server_name_override:
+                                type: string
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    topic:
+                        type: string
+                    topic_from_attribute:
+                        type: string
+                    traces:
+                        fields:
+                            encoding:
+                                type: string
+                            topic:
+                                type: string
+                            topic_from_metadata_key:
+                                type: string
+                        type: object
+                    use_leader_epoch:
+                        type: bool
+                type: object
+            nop:
+                type: object
+            otlp_grpc:
+                fields:
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                        type: object
+                    authority:
+                        type: string
+                    balancer_name:
+                        type: string
+                    compression:
+                        type: string
+                    endpoint:
+                        type: string
+                    headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    keepalive:
+                        fields:
+                            permit_without_stream:
+                                type: bool
+                            time:
+                                type: duration
+                            timeout:
+                                type: duration
+                        type: object
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    read_buffer_size:
+                        type: int
+                    retry_on_failure:
+                        fields:
+                            enabled:
+                                type: bool
+                            initial_interval:
+                                type: duration
+                            max_elapsed_time:
+                                type: duration
+                            max_interval:
+                                type: duration
+                            multiplier:
+                                type: float
+                            randomization_factor:
+                                type: float
+                        type: object
+                    sending_queue:
+                        fields:
+                            batch:
+                                fields:
+                                    flush_timeout:
+                                        type: duration
+                                    max_size:
+                                        type: int
+                                    min_size:
+                                        type: int
+                                    sizer:
+                                        type: object
+                                type: object
+                            block_on_overflow:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                            sizer:
+                                type: object
+                            storage:
+                                type: object
+                            wait_for_result:
+                                type: bool
+                        type: object
+                    timeout:
+                        type: duration
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            insecure:
+                                type: bool
+                            insecure_skip_verify:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            server_name_override:
+                                type: string
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    wait_for_ready:
+                        type: bool
+                    write_buffer_size:
+                        type: int
+                type: object
+            otlp_http:
+                fields:
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                        type: object
+                    compression:
+                        type: string
+                    compression_params:
+                        fields:
+                            level:
+                                type: int
+                        type: object
+                    cookies:
+                        type: object
+                    disable_keep_alives:
+                        type: bool
+                    encoding:
+                        type: string
+                    endpoint:
+                        type: string
+                    force_attempt_http2:
+                        type: bool
+                    headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    http2_ping_timeout:
+                        type: duration
+                    http2_read_idle_timeout:
+                        type: duration
+                    idle_conn_timeout:
+                        type: duration
+                    logs_endpoint:
+                        type: string
+                    max_conns_per_host:
+                        type: int
+                    max_idle_conns:
+                        type: int
+                    max_idle_conns_per_host:
+                        type: int
+                    metrics_endpoint:
+                        type: string
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    profiles_endpoint:
+                        type: string
+                    proxy_url:
+                        type: string
+                    read_buffer_size:
+                        type: int
+                    retry_on_failure:
+                        fields:
+                            enabled:
+                                type: bool
+                            initial_interval:
+                                type: duration
+                            max_elapsed_time:
+                                type: duration
+                            max_interval:
+                                type: duration
+                            multiplier:
+                                type: float
+                            randomization_factor:
+                                type: float
+                        type: object
+                    sending_queue:
+                        fields:
+                            batch:
+                                fields:
+                                    flush_timeout:
+                                        type: duration
+                                    max_size:
+                                        type: int
+                                    min_size:
+                                        type: int
+                                    sizer:
+                                        type: object
+                                type: object
+                            block_on_overflow:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                            sizer:
+                                type: object
+                            storage:
+                                type: object
+                            wait_for_result:
+                                type: bool
+                        type: object
+                    timeout:
+                        type: duration
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            insecure:
+                                type: bool
+                            insecure_skip_verify:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            server_name_override:
+                                type: string
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    traces_endpoint:
+                        type: string
+                    write_buffer_size:
+                        type: int
+                type: object
+            prometheus:
+                fields:
+                    add_metric_suffixes:
+                        type: bool
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                            request_params:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    compression_algorithms:
+                        elem:
+                            type: string
+                        type: array
+                    const_labels:
+                        elem:
+                            type: string
+                        type: map
+                    cors:
+                        fields:
+                            allowed_headers:
+                                elem:
+                                    type: string
+                                type: array
+                            allowed_origins:
+                                elem:
+                                    type: string
+                                type: array
+                            max_age:
+                                type: int
+                        type: object
+                    dialer:
+                        fields:
+                            timeout:
+                                type: duration
+                        type: object
+                    enable_open_metrics:
+                        type: bool
+                    endpoint:
+                        type: string
+                    idle_timeout:
+                        type: duration
+                    include_metadata:
+                        type: bool
+                    keep_alives_enabled:
+                        type: bool
+                    max_request_body_size:
+                        type: int
+                    metric_expiration:
+                        type: duration
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    namespace:
+                        type: string
+                    read_header_timeout:
+                        type: duration
+                    read_timeout:
+                        type: duration
+                    resource_to_telemetry_conversion:
+                        fields:
+                            enabled:
+                                type: bool
+                            exclude_service_attributes:
+                                type: bool
+                        type: object
+                    response_headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    send_timestamps:
+                        type: bool
+                    sending_queue:
+                        fields:
+                            batch:
+                                fields:
+                                    flush_timeout:
+                                        type: duration
+                                    max_size:
+                                        type: int
+                                    min_size:
+                                        type: int
+                                    sizer:
+                                        type: object
+                                type: object
+                            block_on_overflow:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                            sizer:
+                                type: object
+                            storage:
+                                type: object
+                            wait_for_result:
+                                type: bool
+                        type: object
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            client_ca_file:
+                                type: string
+                            client_ca_file_reload:
+                                type: bool
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    translation_strategy:
+                        type: string
+                    transport:
+                        type: string
+                    without_scope_info:
+                        type: bool
+                    write_timeout:
+                        type: duration
+                type: object
+            prometheusremotewrite:
+                fields:
+                    add_metric_suffixes:
+                        type: bool
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                        type: object
+                    compression:
+                        type: string
+                    compression_params:
+                        fields:
+                            level:
+                                type: int
+                        type: object
+                    cookies:
+                        type: object
+                    disable_keep_alives:
+                        type: bool
+                    endpoint:
+                        type: string
+                    external_labels:
+                        elem:
+                            type: string
+                        type: map
+                    force_attempt_http2:
+                        type: bool
+                    headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    http2_ping_timeout:
+                        type: duration
+                    http2_read_idle_timeout:
+                        type: duration
+                    idle_conn_timeout:
+                        type: duration
+                    max_batch_request_parallelism:
+                        type: int
+                    max_batch_size_bytes:
+                        type: int
+                    max_conns_per_host:
+                        type: int
+                    max_idle_conns:
+                        type: int
+                    max_idle_conns_per_host:
+                        type: int
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    namespace:
+                        type: string
+                    protobuf_message:
+                        type: string
+                    proxy_url:
+                        type: string
+                    read_buffer_size:
+                        type: int
+                    remote_write_queue:
+                        fields:
+                            enabled:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                        type: object
+                    resource_to_telemetry_conversion:
+                        fields:
+                            enabled:
+                                type: bool
+                            exclude_service_attributes:
+                                type: bool
+                        type: object
+                    retry_on_failure:
+                        fields:
+                            enabled:
+                                type: bool
+                            initial_interval:
+                                type: duration
+                            max_elapsed_time:
+                                type: duration
+                            max_interval:
+                                type: duration
+                            multiplier:
+                                type: float
+                            randomization_factor:
+                                type: float
+                        type: object
+                    send_metadata:
+                        type: bool
+                    target_info:
+                        fields:
+                            enabled:
+                                type: bool
+                        type: object
+                    timeout:
+                        type: duration
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            insecure:
+                                type: bool
+                            insecure_skip_verify:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            server_name_override:
+                                type: string
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    wal:
+                        fields:
+                            buffer_size:
+                                type: int
+                            directory:
+                                type: string
+                            lag_record_frequency:
+                                type: duration
+                            truncate_frequency:
+                                type: duration
+                        type: object
+                    write_buffer_size:
+                        type: int
+                type: object
+            zipkin:
+                fields:
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                        type: object
+                    compression:
+                        type: string
+                    compression_params:
+                        fields:
+                            level:
+                                type: int
+                        type: object
+                    cookies:
+                        type: object
+                    default_service_name:
+                        type: string
+                    disable_keep_alives:
+                        type: bool
+                    endpoint:
+                        type: string
+                    force_attempt_http2:
+                        type: bool
+                    format:
+                        type: string
+                    headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    http2_ping_timeout:
+                        type: duration
+                    http2_read_idle_timeout:
+                        type: duration
+                    idle_conn_timeout:
+                        type: duration
+                    max_conns_per_host:
+                        type: int
+                    max_idle_conns:
+                        type: int
+                    max_idle_conns_per_host:
+                        type: int
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    proxy_url:
+                        type: string
+                    read_buffer_size:
+                        type: int
+                    retry_on_failure:
+                        fields:
+                            enabled:
+                                type: bool
+                            initial_interval:
+                                type: duration
+                            max_elapsed_time:
+                                type: duration
+                            max_interval:
+                                type: duration
+                            multiplier:
+                                type: float
+                            randomization_factor:
+                                type: float
+                        type: object
+                    sending_queue:
+                        fields:
+                            batch:
+                                fields:
+                                    flush_timeout:
+                                        type: duration
+                                    max_size:
+                                        type: int
+                                    min_size:
+                                        type: int
+                                    sizer:
+                                        type: object
+                                type: object
+                            block_on_overflow:
+                                type: bool
+                            num_consumers:
+                                type: int
+                            queue_size:
+                                type: int
+                            sizer:
+                                type: object
+                            storage:
+                                type: object
+                            wait_for_result:
+                                type: bool
+                        type: object
+                    timeout:
+                        type: duration
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            insecure:
+                                type: bool
+                            insecure_skip_verify:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            server_name_override:
+                                type: string
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    write_buffer_size:
+                        type: int
+                type: object
+        extensions:
+            health_check:
+                fields:
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                            request_params:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    check_collector_pipeline:
+                        fields:
+                            enabled:
+                                type: bool
+                            exporter_failure_threshold:
+                                type: int
+                            interval:
+                                type: string
+                        type: object
+                    component_health:
+                        fields:
+                            include_permanent_errors:
+                                type: bool
+                            include_recoverable_errors:
+                                type: bool
+                            recovery_duration:
+                                type: duration
+                        type: object
+                    compression_algorithms:
+                        elem:
+                            type: string
+                        type: array
+                    cors:
+                        fields:
+                            allowed_headers:
+                                elem:
+                                    type: string
+                                type: array
+                            allowed_origins:
+                                elem:
+                                    type: string
+                                type: array
+                            max_age:
+                                type: int
+                        type: object
+                    dialer:
+                        fields:
+                            timeout:
+                                type: duration
+                        type: object
+                    endpoint:
+                        type: string
+                    grpc:
+                        fields:
+                            auth:
+                                fields:
+                                    authenticator:
+                                        type: object
+                                type: object
+                            dialer:
+                                fields:
+                                    timeout:
+                                        type: duration
+                                type: object
+                            endpoint:
+                                type: string
+                            include_metadata:
+                                type: bool
+                            keepalive:
+                                fields:
+                                    enforcement_policy:
+                                        fields:
+                                            min_time:
+                                                type: duration
+                                            permit_without_stream:
+                                                type: bool
+                                        type: object
+                                    server_parameters:
+                                        fields:
+                                            max_connection_age:
+                                                type: duration
+                                            max_connection_age_grace:
+                                                type: duration
+                                            max_connection_idle:
+                                                type: duration
+                                            time:
+                                                type: duration
+                                            timeout:
+                                                type: duration
+                                        type: object
+                                type: object
+                            max_concurrent_streams:
+                                type: int
+                            max_recv_msg_size_mib:
+                                type: int
+                            middlewares:
+                                elem:
+                                    fields:
+                                        id:
+                                            type: object
+                                    type: object
+                                type: array
+                            read_buffer_size:
+                                type: int
+                            tls:
+                                fields:
+                                    ca_file:
+                                        type: string
+                                    ca_pem:
+                                        type: string
+                                    cert_file:
+                                        type: string
+                                    cert_pem:
+                                        type: string
+                                    cipher_suites:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    client_ca_file:
+                                        type: string
+                                    client_ca_file_reload:
+                                        type: bool
+                                    curve_preferences:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    include_system_ca_certs_pool:
+                                        type: bool
+                                    key_file:
+                                        type: string
+                                    key_pem:
+                                        type: string
+                                    max_version:
+                                        type: string
+                                    min_version:
+                                        type: string
+                                    reload_interval:
+                                        type: duration
+                                    tpm:
+                                        fields:
+                                            auth:
+                                                type: string
+                                            enabled:
+                                                type: bool
+                                            owner_auth:
+                                                type: string
+                                            path:
+                                                type: string
+                                        type: object
+                                type: object
+                            transport:
+                                type: string
+                            write_buffer_size:
+                                type: int
+                        type: object
+                    http:
+                        fields:
+                            auth:
+                                fields:
+                                    authenticator:
+                                        type: object
+                                    request_params:
+                                        elem:
+                                            type: string
+                                        type: array
+                                type: object
+                            compression_algorithms:
+                                elem:
+                                    type: string
+                                type: array
+                            config:
+                                fields:
+                                    enabled:
+                                        type: bool
+                                    path:
+                                        type: string
+                                type: object
+                            cors:
+                                fields:
+                                    allowed_headers:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    allowed_origins:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    max_age:
+                                        type: int
+                                type: object
+                            dialer:
+                                fields:
+                                    timeout:
+                                        type: duration
+                                type: object
+                            endpoint:
+                                type: string
+                            idle_timeout:
+                                type: duration
+                            include_metadata:
+                                type: bool
+                            keep_alives_enabled:
+                                type: bool
+                            max_request_body_size:
+                                type: int
+                            middlewares:
+                                elem:
+                                    fields:
+                                        id:
+                                            type: object
+                                    type: object
+                                type: array
+                            read_header_timeout:
+                                type: duration
+                            read_timeout:
+                                type: duration
+                            response_headers:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        value:
+                                            type: string
+                                    type: object
+                                type: array
+                            status:
+                                fields:
+                                    enabled:
+                                        type: bool
+                                    path:
+                                        type: string
+                                type: object
+                            tls:
+                                fields:
+                                    ca_file:
+                                        type: string
+                                    ca_pem:
+                                        type: string
+                                    cert_file:
+                                        type: string
+                                    cert_pem:
+                                        type: string
+                                    cipher_suites:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    client_ca_file:
+                                        type: string
+                                    client_ca_file_reload:
+                                        type: bool
+                                    curve_preferences:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    include_system_ca_certs_pool:
+                                        type: bool
+                                    key_file:
+                                        type: string
+                                    key_pem:
+                                        type: string
+                                    max_version:
+                                        type: string
+                                    min_version:
+                                        type: string
+                                    reload_interval:
+                                        type: duration
+                                    tpm:
+                                        fields:
+                                            auth:
+                                                type: string
+                                            enabled:
+                                                type: bool
+                                            owner_auth:
+                                                type: string
+                                            path:
+                                                type: string
+                                        type: object
+                                type: object
+                            transport:
+                                type: string
+                            write_timeout:
+                                type: duration
+                        type: object
+                    idle_timeout:
+                        type: duration
+                    include_metadata:
+                        type: bool
+                    keep_alives_enabled:
+                        type: bool
+                    max_request_body_size:
+                        type: int
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    path:
+                        type: string
+                    read_header_timeout:
+                        type: duration
+                    read_timeout:
+                        type: duration
+                    response_body:
+                        fields:
+                            healthy:
+                                type: string
+                            unhealthy:
+                                type: string
+                        type: object
+                    response_headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            client_ca_file:
+                                type: string
+                            client_ca_file_reload:
+                                type: bool
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    transport:
+                        type: string
+                    use_v2:
+                        type: bool
+                    write_timeout:
+                        type: duration
+                type: object
+            pprof:
+                fields:
+                    block_profile_fraction:
+                        type: int
+                    dialer:
+                        fields:
+                            timeout:
+                                type: duration
+                        type: object
+                    endpoint:
+                        type: string
+                    mutex_profile_fraction:
+                        type: int
+                    save_to_file:
+                        type: string
+                type: object
+            zpages:
+                fields:
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                            request_params:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    compression_algorithms:
+                        elem:
+                            type: string
+                        type: array
+                    cors:
+                        fields:
+                            allowed_headers:
+                                elem:
+                                    type: string
+                                type: array
+                            allowed_origins:
+                                elem:
+                                    type: string
+                                type: array
+                            max_age:
+                                type: int
+                        type: object
+                    dialer:
+                        fields:
+                            timeout:
+                                type: duration
+                        type: object
+                    endpoint:
+                        type: string
+                    expvar:
+                        fields:
+                            enabled:
+                                type: bool
+                        type: object
+                    idle_timeout:
+                        type: duration
+                    include_metadata:
+                        type: bool
+                    keep_alives_enabled:
+                        type: bool
+                    max_request_body_size:
+                        type: int
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    read_header_timeout:
+                        type: duration
+                    read_timeout:
+                        type: duration
+                    response_headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            client_ca_file:
+                                type: string
+                            client_ca_file_reload:
+                                type: bool
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    transport:
+                        type: string
+                    write_timeout:
+                        type: duration
+                type: object
+        processors:
+            attributes:
+                fields:
+                    actions:
+                        elem:
+                            fields:
+                                action:
+                                    type: string
+                                converted_type:
+                                    type: string
+                                default_value:
+                                    type: any
+                                from_attribute:
+                                    type: string
+                                from_context:
+                                    type: string
+                                key:
+                                    type: string
+                                pattern:
+                                    type: string
+                                value:
+                                    type: any
+                            type: object
+                        type: array
+                    exclude:
+                        fields:
+                            attributes:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            libraries:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        version:
+                                            type: string
+                                    type: object
+                                type: array
+                            log_bodies:
+                                elem:
+                                    type: string
+                                type: array
+                            log_severity_number:
+                                fields:
+                                    match_undefined:
+                                        type: bool
+                                    min:
+                                        type: int
+                                type: object
+                            log_severity_texts:
+                                elem:
+                                    type: string
+                                type: array
+                            match_type:
+                                type: string
+                            metric_names:
+                                elem:
+                                    type: string
+                                type: array
+                            regexp:
+                                fields:
+                                    cacheenabled:
+                                        type: bool
+                                    cachemaxnumentries:
+                                        type: int
+                                type: object
+                            resources:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            services:
+                                elem:
+                                    type: string
+                                type: array
+                            span_kinds:
+                                elem:
+                                    type: string
+                                type: array
+                            span_names:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    include:
+                        fields:
+                            attributes:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            libraries:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        version:
+                                            type: string
+                                    type: object
+                                type: array
+                            log_bodies:
+                                elem:
+                                    type: string
+                                type: array
+                            log_severity_number:
+                                fields:
+                                    match_undefined:
+                                        type: bool
+                                    min:
+                                        type: int
+                                type: object
+                            log_severity_texts:
+                                elem:
+                                    type: string
+                                type: array
+                            match_type:
+                                type: string
+                            metric_names:
+                                elem:
+                                    type: string
+                                type: array
+                            regexp:
+                                fields:
+                                    cacheenabled:
+                                        type: bool
+                                    cachemaxnumentries:
+                                        type: int
+                                type: object
+                            resources:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            services:
+                                elem:
+                                    type: string
+                                type: array
+                            span_kinds:
+                                elem:
+                                    type: string
+                                type: array
+                            span_names:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                type: object
+            batch:
+                fields:
+                    metadata_cardinality_limit:
+                        type: int
+                    metadata_keys:
+                        elem:
+                            type: string
+                        type: array
+                    send_batch_max_size:
+                        type: int
+                    send_batch_size:
+                        type: int
+                    timeout:
+                        type: duration
+                type: object
+            filter:
+                fields:
+                    error_mode:
+                        type: string
+                    log_conditions:
+                        elem:
+                            fields:
+                                conditions:
+                                    elem:
+                                        type: string
+                                    type: array
+                                context:
+                                    type: string
+                                error_mode:
+                                    type: string
+                            type: object
+                        type: array
+                    logs:
+                        fields:
+                            exclude:
+                                fields:
+                                    bodies:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    match_type:
+                                        type: string
+                                    record_attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    resource_attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    severity_number:
+                                        fields:
+                                            match_undefined:
+                                                type: bool
+                                            min:
+                                                type: string
+                                        type: object
+                                    severity_texts:
+                                        elem:
+                                            type: string
+                                        type: array
+                                type: object
+                            include:
+                                fields:
+                                    bodies:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    match_type:
+                                        type: string
+                                    record_attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    resource_attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    severity_number:
+                                        fields:
+                                            match_undefined:
+                                                type: bool
+                                            min:
+                                                type: string
+                                        type: object
+                                    severity_texts:
+                                        elem:
+                                            type: string
+                                        type: array
+                                type: object
+                            log_record:
+                                elem:
+                                    type: string
+                                type: array
+                            resource:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    metric_conditions:
+                        elem:
+                            fields:
+                                conditions:
+                                    elem:
+                                        type: string
+                                    type: array
+                                context:
+                                    type: string
+                                error_mode:
+                                    type: string
+                            type: object
+                        type: array
+                    metrics:
+                        fields:
+                            datapoint:
+                                elem:
+                                    type: string
+                                type: array
+                            exclude:
+                                fields:
+                                    expressions:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    match_type:
+                                        type: string
+                                    metric_names:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    regexp:
+                                        fields:
+                                            cacheenabled:
+                                                type: bool
+                                            cachemaxnumentries:
+                                                type: int
+                                        type: object
+                                    resource_attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                type: object
+                            include:
+                                fields:
+                                    expressions:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    match_type:
+                                        type: string
+                                    metric_names:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    regexp:
+                                        fields:
+                                            cacheenabled:
+                                                type: bool
+                                            cachemaxnumentries:
+                                                type: int
+                                        type: object
+                                    resource_attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                type: object
+                            metric:
+                                elem:
+                                    type: string
+                                type: array
+                            regexp:
+                                fields:
+                                    cacheenabled:
+                                        type: bool
+                                    cachemaxnumentries:
+                                        type: int
+                                type: object
+                            resource:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    profile_conditions:
+                        elem:
+                            fields:
+                                conditions:
+                                    elem:
+                                        type: string
+                                    type: array
+                                context:
+                                    type: string
+                                error_mode:
+                                    type: string
+                            type: object
+                        type: array
+                    profiles:
+                        fields:
+                            profile:
+                                elem:
+                                    type: string
+                                type: array
+                            resource:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    spans:
+                        fields:
+                            exclude:
+                                fields:
+                                    attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    libraries:
+                                        elem:
+                                            fields:
+                                                name:
+                                                    type: string
+                                                version:
+                                                    type: string
+                                            type: object
+                                        type: array
+                                    log_bodies:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    log_severity_number:
+                                        fields:
+                                            match_undefined:
+                                                type: bool
+                                            min:
+                                                type: int
+                                        type: object
+                                    log_severity_texts:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    match_type:
+                                        type: string
+                                    metric_names:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    regexp:
+                                        fields:
+                                            cacheenabled:
+                                                type: bool
+                                            cachemaxnumentries:
+                                                type: int
+                                        type: object
+                                    resources:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    services:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    span_kinds:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    span_names:
+                                        elem:
+                                            type: string
+                                        type: array
+                                type: object
+                            include:
+                                fields:
+                                    attributes:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    libraries:
+                                        elem:
+                                            fields:
+                                                name:
+                                                    type: string
+                                                version:
+                                                    type: string
+                                            type: object
+                                        type: array
+                                    log_bodies:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    log_severity_number:
+                                        fields:
+                                            match_undefined:
+                                                type: bool
+                                            min:
+                                                type: int
+                                        type: object
+                                    log_severity_texts:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    match_type:
+                                        type: string
+                                    metric_names:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    regexp:
+                                        fields:
+                                            cacheenabled:
+                                                type: bool
+                                            cachemaxnumentries:
+                                                type: int
+                                        type: object
+                                    resources:
+                                        elem:
+                                            fields:
+                                                key:
+                                                    type: string
+                                                value:
+                                                    type: any
+                                            type: object
+                                        type: array
+                                    services:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    span_kinds:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    span_names:
+                                        elem:
+                                            type: string
+                                        type: array
+                                type: object
+                        type: object
+                    trace_conditions:
+                        elem:
+                            fields:
+                                conditions:
+                                    elem:
+                                        type: string
+                                    type: array
+                                context:
+                                    type: string
+                                error_mode:
+                                    type: string
+                            type: object
+                        type: array
+                    traces:
+                        fields:
+                            resource:
+                                elem:
+                                    type: string
+                                type: array
+                            span:
+                                elem:
+                                    type: string
+                                type: array
+                            spanevent:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                type: object
+            memory_limiter:
+                fields:
+                    check_interval:
+                        type: duration
+                    limit_mib:
+                        type: int
+                    limit_percentage:
+                        type: int
+                    min_gc_interval_when_hard_limited:
+                        type: duration
+                    min_gc_interval_when_soft_limited:
+                        type: duration
+                    spike_limit_mib:
+                        type: int
+                    spike_limit_percentage:
+                        type: int
+                type: object
+            probabilistic_sampler:
+                fields:
+                    attribute_source:
+                        type: string
+                    fail_closed:
+                        type: bool
+                    from_attribute:
+                        type: string
+                    hash_seed:
+                        type: int
+                    mode:
+                        type: string
+                    sampling_percentage:
+                        type: float
+                    sampling_precision:
+                        type: int
+                    sampling_priority:
+                        type: string
+                type: object
+            resource:
+                fields:
+                    attributes:
+                        elem:
+                            fields:
+                                action:
+                                    type: string
+                                converted_type:
+                                    type: string
+                                default_value:
+                                    type: any
+                                from_attribute:
+                                    type: string
+                                from_context:
+                                    type: string
+                                key:
+                                    type: string
+                                pattern:
+                                    type: string
+                                value:
+                                    type: any
+                            type: object
+                        type: array
+                type: object
+            span:
+                fields:
+                    exclude:
+                        fields:
+                            attributes:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            libraries:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        version:
+                                            type: string
+                                    type: object
+                                type: array
+                            log_bodies:
+                                elem:
+                                    type: string
+                                type: array
+                            log_severity_number:
+                                fields:
+                                    match_undefined:
+                                        type: bool
+                                    min:
+                                        type: int
+                                type: object
+                            log_severity_texts:
+                                elem:
+                                    type: string
+                                type: array
+                            match_type:
+                                type: string
+                            metric_names:
+                                elem:
+                                    type: string
+                                type: array
+                            regexp:
+                                fields:
+                                    cacheenabled:
+                                        type: bool
+                                    cachemaxnumentries:
+                                        type: int
+                                type: object
+                            resources:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            services:
+                                elem:
+                                    type: string
+                                type: array
+                            span_kinds:
+                                elem:
+                                    type: string
+                                type: array
+                            span_names:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    include:
+                        fields:
+                            attributes:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            libraries:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        version:
+                                            type: string
+                                    type: object
+                                type: array
+                            log_bodies:
+                                elem:
+                                    type: string
+                                type: array
+                            log_severity_number:
+                                fields:
+                                    match_undefined:
+                                        type: bool
+                                    min:
+                                        type: int
+                                type: object
+                            log_severity_texts:
+                                elem:
+                                    type: string
+                                type: array
+                            match_type:
+                                type: string
+                            metric_names:
+                                elem:
+                                    type: string
+                                type: array
+                            regexp:
+                                fields:
+                                    cacheenabled:
+                                        type: bool
+                                    cachemaxnumentries:
+                                        type: int
+                                type: object
+                            resources:
+                                elem:
+                                    fields:
+                                        key:
+                                            type: string
+                                        value:
+                                            type: any
+                                    type: object
+                                type: array
+                            services:
+                                elem:
+                                    type: string
+                                type: array
+                            span_kinds:
+                                elem:
+                                    type: string
+                                type: array
+                            span_names:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    name:
+                        fields:
+                            from_attributes:
+                                elem:
+                                    type: string
+                                type: array
+                            separator:
+                                type: string
+                            to_attributes:
+                                fields:
+                                    break_after_match:
+                                        type: bool
+                                    keep_original_name:
+                                        type: bool
+                                    rules:
+                                        elem:
+                                            type: string
+                                        type: array
+                                type: object
+                        type: object
+                    status:
+                        fields:
+                            code:
+                                type: string
+                            description:
+                                type: string
+                        type: object
+                type: object
+        receivers:
+            hostmetrics:
+                fields:
+                    collection_interval:
+                        type: duration
+                    initial_delay:
+                        type: duration
+                    metadata_collection_interval:
+                        type: duration
+                    root_path:
+                        type: string
+                    timeout:
+                        type: duration
+                type: object
+            jaeger:
+                fields:
+                    protocols:
+                        fields:
+                            grpc:
+                                fields:
+                                    auth:
+                                        fields:
+                                            authenticator:
+                                                type: object
+                                        type: object
+                                    dialer:
+                                        fields:
+                                            timeout:
+                                                type: duration
+                                        type: object
+                                    endpoint:
+                                        type: string
+                                    include_metadata:
+                                        type: bool
+                                    keepalive:
+                                        fields:
+                                            enforcement_policy:
+                                                fields:
+                                                    min_time:
+                                                        type: duration
+                                                    permit_without_stream:
+                                                        type: bool
+                                                type: object
+                                            server_parameters:
+                                                fields:
+                                                    max_connection_age:
+                                                        type: duration
+                                                    max_connection_age_grace:
+                                                        type: duration
+                                                    max_connection_idle:
+                                                        type: duration
+                                                    time:
+                                                        type: duration
+                                                    timeout:
+                                                        type: duration
+                                                type: object
+                                        type: object
+                                    max_concurrent_streams:
+                                        type: int
+                                    max_recv_msg_size_mib:
+                                        type: int
+                                    middlewares:
+                                        elem:
+                                            fields:
+                                                id:
+                                                    type: object
+                                            type: object
+                                        type: array
+                                    read_buffer_size:
+                                        type: int
+                                    tls:
+                                        fields:
+                                            ca_file:
+                                                type: string
+                                            ca_pem:
+                                                type: string
+                                            cert_file:
+                                                type: string
+                                            cert_pem:
+                                                type: string
+                                            cipher_suites:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            client_ca_file:
+                                                type: string
+                                            client_ca_file_reload:
+                                                type: bool
+                                            curve_preferences:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            include_system_ca_certs_pool:
+                                                type: bool
+                                            key_file:
+                                                type: string
+                                            key_pem:
+                                                type: string
+                                            max_version:
+                                                type: string
+                                            min_version:
+                                                type: string
+                                            reload_interval:
+                                                type: duration
+                                            tpm:
+                                                fields:
+                                                    auth:
+                                                        type: string
+                                                    enabled:
+                                                        type: bool
+                                                    owner_auth:
+                                                        type: string
+                                                    path:
+                                                        type: string
+                                                type: object
+                                        type: object
+                                    transport:
+                                        type: string
+                                    write_buffer_size:
+                                        type: int
+                                type: object
+                            thrift_binary:
+                                fields:
+                                    endpoint:
+                                        type: string
+                                    max_packet_size:
+                                        type: int
+                                    queue_size:
+                                        type: int
+                                    socket_buffer_size:
+                                        type: int
+                                    workers:
+                                        type: int
+                                type: object
+                            thrift_compact:
+                                fields:
+                                    endpoint:
+                                        type: string
+                                    max_packet_size:
+                                        type: int
+                                    queue_size:
+                                        type: int
+                                    socket_buffer_size:
+                                        type: int
+                                    workers:
+                                        type: int
+                                type: object
+                            thrift_http:
+                                fields:
+                                    auth:
+                                        fields:
+                                            authenticator:
+                                                type: object
+                                            request_params:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                        type: object
+                                    compression_algorithms:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    cors:
+                                        fields:
+                                            allowed_headers:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            allowed_origins:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            max_age:
+                                                type: int
+                                        type: object
+                                    dialer:
+                                        fields:
+                                            timeout:
+                                                type: duration
+                                        type: object
+                                    endpoint:
+                                        type: string
+                                    idle_timeout:
+                                        type: duration
+                                    include_metadata:
+                                        type: bool
+                                    keep_alives_enabled:
+                                        type: bool
+                                    max_request_body_size:
+                                        type: int
+                                    middlewares:
+                                        elem:
+                                            fields:
+                                                id:
+                                                    type: object
+                                            type: object
+                                        type: array
+                                    read_header_timeout:
+                                        type: duration
+                                    read_timeout:
+                                        type: duration
+                                    response_headers:
+                                        elem:
+                                            fields:
+                                                name:
+                                                    type: string
+                                                value:
+                                                    type: string
+                                            type: object
+                                        type: array
+                                    tls:
+                                        fields:
+                                            ca_file:
+                                                type: string
+                                            ca_pem:
+                                                type: string
+                                            cert_file:
+                                                type: string
+                                            cert_pem:
+                                                type: string
+                                            cipher_suites:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            client_ca_file:
+                                                type: string
+                                            client_ca_file_reload:
+                                                type: bool
+                                            curve_preferences:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            include_system_ca_certs_pool:
+                                                type: bool
+                                            key_file:
+                                                type: string
+                                            key_pem:
+                                                type: string
+                                            max_version:
+                                                type: string
+                                            min_version:
+                                                type: string
+                                            reload_interval:
+                                                type: duration
+                                            tpm:
+                                                fields:
+                                                    auth:
+                                                        type: string
+                                                    enabled:
+                                                        type: bool
+                                                    owner_auth:
+                                                        type: string
+                                                    path:
+                                                        type: string
+                                                type: object
+                                        type: object
+                                    transport:
+                                        type: string
+                                    write_timeout:
+                                        type: duration
+                                type: object
+                        type: object
+                    remote_sampling:
+                        fields:
+                            auth:
+                                fields:
+                                    authenticator:
+                                        type: object
+                                type: object
+                            authority:
+                                type: string
+                            balancer_name:
+                                type: string
+                            compression:
+                                type: string
+                            endpoint:
+                                type: string
+                            headers:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        value:
+                                            type: string
+                                    type: object
+                                type: array
+                            host_endpoint:
+                                type: string
+                            keepalive:
+                                fields:
+                                    permit_without_stream:
+                                        type: bool
+                                    time:
+                                        type: duration
+                                    timeout:
+                                        type: duration
+                                type: object
+                            middlewares:
+                                elem:
+                                    fields:
+                                        id:
+                                            type: object
+                                    type: object
+                                type: array
+                            read_buffer_size:
+                                type: int
+                            strategy_file:
+                                type: string
+                            strategy_file_reload_interval:
+                                type: duration
+                            tls:
+                                fields:
+                                    ca_file:
+                                        type: string
+                                    ca_pem:
+                                        type: string
+                                    cert_file:
+                                        type: string
+                                    cert_pem:
+                                        type: string
+                                    cipher_suites:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    curve_preferences:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    include_system_ca_certs_pool:
+                                        type: bool
+                                    insecure:
+                                        type: bool
+                                    insecure_skip_verify:
+                                        type: bool
+                                    key_file:
+                                        type: string
+                                    key_pem:
+                                        type: string
+                                    max_version:
+                                        type: string
+                                    min_version:
+                                        type: string
+                                    reload_interval:
+                                        type: duration
+                                    server_name_override:
+                                        type: string
+                                    tpm:
+                                        fields:
+                                            auth:
+                                                type: string
+                                            enabled:
+                                                type: bool
+                                            owner_auth:
+                                                type: string
+                                            path:
+                                                type: string
+                                        type: object
+                                type: object
+                            wait_for_ready:
+                                type: bool
+                            write_buffer_size:
+                                type: int
+                        type: object
+                type: object
+            kafka:
+                fields:
+                    auth:
+                        fields:
+                            kerberos:
+                                fields:
+                                    config_file:
+                                        type: string
+                                    disable_fast_negotiation:
+                                        type: bool
+                                    keytab_file:
+                                        type: string
+                                    password:
+                                        type: string
+                                    realm:
+                                        type: string
+                                    service_name:
+                                        type: string
+                                    use_keytab:
+                                        type: bool
+                                    username:
+                                        type: string
+                                type: object
+                            plain_text:
+                                fields:
+                                    password:
+                                        type: string
+                                    username:
+                                        type: string
+                                type: object
+                            sasl:
+                                fields:
+                                    aws_msk:
+                                        fields:
+                                            region:
+                                                type: string
+                                        type: object
+                                    mechanism:
+                                        type: string
+                                    password:
+                                        type: string
+                                    username:
+                                        type: string
+                                    version:
+                                        type: int
+                                type: object
+                            tls:
+                                fields:
+                                    ca_file:
+                                        type: string
+                                    ca_pem:
+                                        type: string
+                                    cert_file:
+                                        type: string
+                                    cert_pem:
+                                        type: string
+                                    cipher_suites:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    curve_preferences:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    include_system_ca_certs_pool:
+                                        type: bool
+                                    insecure:
+                                        type: bool
+                                    insecure_skip_verify:
+                                        type: bool
+                                    key_file:
+                                        type: string
+                                    key_pem:
+                                        type: string
+                                    max_version:
+                                        type: string
+                                    min_version:
+                                        type: string
+                                    reload_interval:
+                                        type: duration
+                                    server_name_override:
+                                        type: string
+                                    tpm:
+                                        fields:
+                                            auth:
+                                                type: string
+                                            enabled:
+                                                type: bool
+                                            owner_auth:
+                                                type: string
+                                            path:
+                                                type: string
+                                        type: object
+                                type: object
+                        type: object
+                    autocommit:
+                        fields:
+                            enable:
+                                type: bool
+                            interval:
+                                type: duration
+                        type: object
+                    brokers:
+                        elem:
+                            type: string
+                        type: array
+                    client_id:
+                        type: string
+                    conn_idle_timeout:
+                        type: duration
+                    error_backoff:
+                        fields:
+                            enabled:
+                                type: bool
+                            initial_interval:
+                                type: duration
+                            max_elapsed_time:
+                                type: duration
+                            max_interval:
+                                type: duration
+                            multiplier:
+                                type: float
+                            randomization_factor:
+                                type: float
+                        type: object
+                    group_id:
+                        type: string
+                    group_instance_id:
+                        type: string
+                    group_rebalance_strategy:
+                        type: string
+                    header_extraction:
+                        fields:
+                            extract_headers:
+                                type: bool
+                            headers:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    heartbeat_interval:
+                        type: duration
+                    initial_offset:
+                        type: string
+                    logs:
+                        fields:
+                            encoding:
+                                type: string
+                            exclude_topic:
+                                type: string
+                            exclude_topics:
+                                elem:
+                                    type: string
+                                type: array
+                            topic:
+                                type: string
+                            topics:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    max_fetch_size:
+                        type: int
+                    max_fetch_wait:
+                        type: duration
+                    max_partition_fetch_size:
+                        type: int
+                    message_marking:
+                        fields:
+                            after:
+                                type: bool
+                            on_error:
+                                type: bool
+                            on_permanent_error:
+                                type: bool
+                        type: object
+                    metadata:
+                        fields:
+                            full:
+                                type: bool
+                            refresh_interval:
+                                type: duration
+                            retry:
+                                fields:
+                                    backoff:
+                                        type: duration
+                                    max:
+                                        type: int
+                                type: object
+                        type: object
+                    metrics:
+                        fields:
+                            encoding:
+                                type: string
+                            exclude_topic:
+                                type: string
+                            exclude_topics:
+                                elem:
+                                    type: string
+                                type: array
+                            topic:
+                                type: string
+                            topics:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    min_fetch_size:
+                        type: int
+                    profiles:
+                        fields:
+                            encoding:
+                                type: string
+                            exclude_topic:
+                                type: string
+                            exclude_topics:
+                                elem:
+                                    type: string
+                                type: array
+                            topic:
+                                type: string
+                            topics:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    protocol_version:
+                        type: string
+                    rack_id:
+                        type: string
+                    resolve_canonical_bootstrap_servers_only:
+                        type: bool
+                    session_timeout:
+                        type: duration
+                    telemetry:
+                        fields:
+                            metrics:
+                                fields:
+                                    kafka_receiver_records_delay:
+                                        fields:
+                                            enabled:
+                                                type: bool
+                                        type: object
+                                type: object
+                        type: object
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            insecure:
+                                type: bool
+                            insecure_skip_verify:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            server_name_override:
+                                type: string
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    traces:
+                        fields:
+                            encoding:
+                                type: string
+                            exclude_topic:
+                                type: string
+                            exclude_topics:
+                                elem:
+                                    type: string
+                                type: array
+                            topic:
+                                type: string
+                            topics:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    use_leader_epoch:
+                        type: bool
+                type: object
+            nop:
+                type: object
+            otlp:
+                fields:
+                    protocols:
+                        fields:
+                            grpc:
+                                fields:
+                                    auth:
+                                        fields:
+                                            authenticator:
+                                                type: object
+                                        type: object
+                                    dialer:
+                                        fields:
+                                            timeout:
+                                                type: duration
+                                        type: object
+                                    endpoint:
+                                        type: string
+                                    include_metadata:
+                                        type: bool
+                                    keepalive:
+                                        fields:
+                                            enforcement_policy:
+                                                fields:
+                                                    min_time:
+                                                        type: duration
+                                                    permit_without_stream:
+                                                        type: bool
+                                                type: object
+                                            server_parameters:
+                                                fields:
+                                                    max_connection_age:
+                                                        type: duration
+                                                    max_connection_age_grace:
+                                                        type: duration
+                                                    max_connection_idle:
+                                                        type: duration
+                                                    time:
+                                                        type: duration
+                                                    timeout:
+                                                        type: duration
+                                                type: object
+                                        type: object
+                                    max_concurrent_streams:
+                                        type: int
+                                    max_recv_msg_size_mib:
+                                        type: int
+                                    middlewares:
+                                        elem:
+                                            fields:
+                                                id:
+                                                    type: object
+                                            type: object
+                                        type: array
+                                    read_buffer_size:
+                                        type: int
+                                    tls:
+                                        fields:
+                                            ca_file:
+                                                type: string
+                                            ca_pem:
+                                                type: string
+                                            cert_file:
+                                                type: string
+                                            cert_pem:
+                                                type: string
+                                            cipher_suites:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            client_ca_file:
+                                                type: string
+                                            client_ca_file_reload:
+                                                type: bool
+                                            curve_preferences:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            include_system_ca_certs_pool:
+                                                type: bool
+                                            key_file:
+                                                type: string
+                                            key_pem:
+                                                type: string
+                                            max_version:
+                                                type: string
+                                            min_version:
+                                                type: string
+                                            reload_interval:
+                                                type: duration
+                                            tpm:
+                                                fields:
+                                                    auth:
+                                                        type: string
+                                                    enabled:
+                                                        type: bool
+                                                    owner_auth:
+                                                        type: string
+                                                    path:
+                                                        type: string
+                                                type: object
+                                        type: object
+                                    transport:
+                                        type: string
+                                    write_buffer_size:
+                                        type: int
+                                type: object
+                            http:
+                                fields:
+                                    auth:
+                                        fields:
+                                            authenticator:
+                                                type: object
+                                            request_params:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                        type: object
+                                    compression_algorithms:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    cors:
+                                        fields:
+                                            allowed_headers:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            allowed_origins:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            max_age:
+                                                type: int
+                                        type: object
+                                    dialer:
+                                        fields:
+                                            timeout:
+                                                type: duration
+                                        type: object
+                                    endpoint:
+                                        type: string
+                                    idle_timeout:
+                                        type: duration
+                                    include_metadata:
+                                        type: bool
+                                    keep_alives_enabled:
+                                        type: bool
+                                    logs_url_path:
+                                        type: string
+                                    max_request_body_size:
+                                        type: int
+                                    metrics_url_path:
+                                        type: string
+                                    middlewares:
+                                        elem:
+                                            fields:
+                                                id:
+                                                    type: object
+                                            type: object
+                                        type: array
+                                    read_header_timeout:
+                                        type: duration
+                                    read_timeout:
+                                        type: duration
+                                    response_headers:
+                                        elem:
+                                            fields:
+                                                name:
+                                                    type: string
+                                                value:
+                                                    type: string
+                                            type: object
+                                        type: array
+                                    tls:
+                                        fields:
+                                            ca_file:
+                                                type: string
+                                            ca_pem:
+                                                type: string
+                                            cert_file:
+                                                type: string
+                                            cert_pem:
+                                                type: string
+                                            cipher_suites:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            client_ca_file:
+                                                type: string
+                                            client_ca_file_reload:
+                                                type: bool
+                                            curve_preferences:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            include_system_ca_certs_pool:
+                                                type: bool
+                                            key_file:
+                                                type: string
+                                            key_pem:
+                                                type: string
+                                            max_version:
+                                                type: string
+                                            min_version:
+                                                type: string
+                                            reload_interval:
+                                                type: duration
+                                            tpm:
+                                                fields:
+                                                    auth:
+                                                        type: string
+                                                    enabled:
+                                                        type: bool
+                                                    owner_auth:
+                                                        type: string
+                                                    path:
+                                                        type: string
+                                                type: object
+                                        type: object
+                                    traces_url_path:
+                                        type: string
+                                    transport:
+                                        type: string
+                                    write_timeout:
+                                        type: duration
+                                type: object
+                        type: object
+                type: object
+            prometheus:
+                fields:
+                    api_server:
+                        fields:
+                            enabled:
+                                type: bool
+                            server_config:
+                                fields:
+                                    auth:
+                                        fields:
+                                            authenticator:
+                                                type: object
+                                            request_params:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                        type: object
+                                    compression_algorithms:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    cors:
+                                        fields:
+                                            allowed_headers:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            allowed_origins:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            max_age:
+                                                type: int
+                                        type: object
+                                    dialer:
+                                        fields:
+                                            timeout:
+                                                type: duration
+                                        type: object
+                                    endpoint:
+                                        type: string
+                                    idle_timeout:
+                                        type: duration
+                                    include_metadata:
+                                        type: bool
+                                    keep_alives_enabled:
+                                        type: bool
+                                    max_request_body_size:
+                                        type: int
+                                    middlewares:
+                                        elem:
+                                            fields:
+                                                id:
+                                                    type: object
+                                            type: object
+                                        type: array
+                                    read_header_timeout:
+                                        type: duration
+                                    read_timeout:
+                                        type: duration
+                                    response_headers:
+                                        elem:
+                                            fields:
+                                                name:
+                                                    type: string
+                                                value:
+                                                    type: string
+                                            type: object
+                                        type: array
+                                    tls:
+                                        fields:
+                                            ca_file:
+                                                type: string
+                                            ca_pem:
+                                                type: string
+                                            cert_file:
+                                                type: string
+                                            cert_pem:
+                                                type: string
+                                            cipher_suites:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            client_ca_file:
+                                                type: string
+                                            client_ca_file_reload:
+                                                type: bool
+                                            curve_preferences:
+                                                elem:
+                                                    type: string
+                                                type: array
+                                            include_system_ca_certs_pool:
+                                                type: bool
+                                            key_file:
+                                                type: string
+                                            key_pem:
+                                                type: string
+                                            max_version:
+                                                type: string
+                                            min_version:
+                                                type: string
+                                            reload_interval:
+                                                type: duration
+                                            tpm:
+                                                fields:
+                                                    auth:
+                                                        type: string
+                                                    enabled:
+                                                        type: bool
+                                                    owner_auth:
+                                                        type: string
+                                                    path:
+                                                        type: string
+                                                type: object
+                                        type: object
+                                    transport:
+                                        type: string
+                                    write_timeout:
+                                        type: duration
+                                type: object
+                        type: object
+                    config:
+                        type: object
+                    report_extra_scrape_metrics:
+                        type: bool
+                    target_allocator:
+                        fields:
+                            auth:
+                                fields:
+                                    authenticator:
+                                        type: object
+                                type: object
+                            collector_id:
+                                type: string
+                            compression:
+                                type: string
+                            compression_params:
+                                fields:
+                                    level:
+                                        type: int
+                                type: object
+                            cookies:
+                                type: object
+                            disable_keep_alives:
+                                type: bool
+                            endpoint:
+                                type: string
+                            force_attempt_http2:
+                                type: bool
+                            headers:
+                                elem:
+                                    fields:
+                                        name:
+                                            type: string
+                                        value:
+                                            type: string
+                                    type: object
+                                type: array
+                            http_scrape_config:
+                                type: object
+                            http_sd_config:
+                                type: object
+                            http2_ping_timeout:
+                                type: duration
+                            http2_read_idle_timeout:
+                                type: duration
+                            idle_conn_timeout:
+                                type: duration
+                            interval:
+                                type: duration
+                            max_conns_per_host:
+                                type: int
+                            max_idle_conns:
+                                type: int
+                            max_idle_conns_per_host:
+                                type: int
+                            middlewares:
+                                elem:
+                                    fields:
+                                        id:
+                                            type: object
+                                    type: object
+                                type: array
+                            proxy_url:
+                                type: string
+                            read_buffer_size:
+                                type: int
+                            timeout:
+                                type: duration
+                            tls:
+                                fields:
+                                    ca_file:
+                                        type: string
+                                    ca_pem:
+                                        type: string
+                                    cert_file:
+                                        type: string
+                                    cert_pem:
+                                        type: string
+                                    cipher_suites:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    curve_preferences:
+                                        elem:
+                                            type: string
+                                        type: array
+                                    include_system_ca_certs_pool:
+                                        type: bool
+                                    insecure:
+                                        type: bool
+                                    insecure_skip_verify:
+                                        type: bool
+                                    key_file:
+                                        type: string
+                                    key_pem:
+                                        type: string
+                                    max_version:
+                                        type: string
+                                    min_version:
+                                        type: string
+                                    reload_interval:
+                                        type: duration
+                                    server_name_override:
+                                        type: string
+                                    tpm:
+                                        fields:
+                                            auth:
+                                                type: string
+                                            enabled:
+                                                type: bool
+                                            owner_auth:
+                                                type: string
+                                            path:
+                                                type: string
+                                        type: object
+                                type: object
+                            write_buffer_size:
+                                type: int
+                        type: object
+                    trim_metric_suffixes:
+                        type: bool
+                type: object
+            zipkin:
+                fields:
+                    auth:
+                        fields:
+                            authenticator:
+                                type: object
+                            request_params:
+                                elem:
+                                    type: string
+                                type: array
+                        type: object
+                    compression_algorithms:
+                        elem:
+                            type: string
+                        type: array
+                    cors:
+                        fields:
+                            allowed_headers:
+                                elem:
+                                    type: string
+                                type: array
+                            allowed_origins:
+                                elem:
+                                    type: string
+                                type: array
+                            max_age:
+                                type: int
+                        type: object
+                    dialer:
+                        fields:
+                            timeout:
+                                type: duration
+                        type: object
+                    endpoint:
+                        type: string
+                    idle_timeout:
+                        type: duration
+                    include_metadata:
+                        type: bool
+                    keep_alives_enabled:
+                        type: bool
+                    max_request_body_size:
+                        type: int
+                    middlewares:
+                        elem:
+                            fields:
+                                id:
+                                    type: object
+                            type: object
+                        type: array
+                    parse_string_tags:
+                        type: bool
+                    read_header_timeout:
+                        type: duration
+                    read_timeout:
+                        type: duration
+                    response_headers:
+                        elem:
+                            fields:
+                                name:
+                                    type: string
+                                value:
+                                    type: string
+                            type: object
+                        type: array
+                    tls:
+                        fields:
+                            ca_file:
+                                type: string
+                            ca_pem:
+                                type: string
+                            cert_file:
+                                type: string
+                            cert_pem:
+                                type: string
+                            cipher_suites:
+                                elem:
+                                    type: string
+                                type: array
+                            client_ca_file:
+                                type: string
+                            client_ca_file_reload:
+                                type: bool
+                            curve_preferences:
+                                elem:
+                                    type: string
+                                type: array
+                            include_system_ca_certs_pool:
+                                type: bool
+                            key_file:
+                                type: string
+                            key_pem:
+                                type: string
+                            max_version:
+                                type: string
+                            min_version:
+                                type: string
+                            reload_interval:
+                                type: duration
+                            tpm:
+                                fields:
+                                    auth:
+                                        type: string
+                                    enabled:
+                                        type: bool
+                                    owner_auth:
+                                        type: string
+                                    path:
+                                        type: string
+                                type: object
+                        type: object
+                    transport:
+                        type: string
+                    write_timeout:
+                        type: duration
+                type: object
     components:
         connectors:
             - forward
