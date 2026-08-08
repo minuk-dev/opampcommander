@@ -1,9 +1,12 @@
 // Package remoteconfigschema implements 'opampctl generate remoteconfigschema', which
-// builds a RemoteConfigSchema from an OTel Collector's `components` output (parsed from a
-// running binary, a file, or stdin), so a schema can be seeded per distribution/version.
+// builds a RemoteConfigSchema for a collector build: either from a schema registry,
+// which describes the components a published release ships and the settings they
+// accept, or from a collector's own `components` output, which is what a custom
+// distribution can report about itself.
 package remoteconfigschema
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
@@ -21,8 +25,8 @@ import (
 )
 
 var (
-	// ErrNoInput is returned when no components source is provided.
-	ErrNoInput = errors.New("provide --binary-path, or --from <file> (use - for stdin)")
+	// ErrNoInput is returned when no schema source is provided.
+	ErrNoInput = errors.New("provide --distribution, --binary-path, or --from <file> (use - for stdin)")
 	// ErrNameRequired is returned when a name cannot be determined.
 	ErrNameRequired = errors.New("--name is required when the components output has no buildinfo.command/version")
 	// ErrUnsupportedFormat is returned for an output format other than yaml/json.
@@ -31,42 +35,56 @@ var (
 
 // CommandOptions holds the flags for the generate remoteconfigschema command.
 type CommandOptions struct {
-	binaryPath       string
-	from             string
-	name             string
-	namespace        string
-	binary           string
-	version          string
-	componentConfigs string
-	formatType       string
+	distribution   string
+	schemaLocation string
+	binaryPath     string
+	from           string
+	name           string
+	namespace      string
+	binary         string
+	version        string
+	stripDocs      bool
+	formatType     string
 }
 
 // NewCommand creates the 'opampctl generate remoteconfigschema' command.
 func NewCommand() *cobra.Command {
 	options := &CommandOptions{
-		binaryPath:       "",
-		from:             "",
-		name:             "",
-		namespace:        "default",
-		binary:           "",
-		version:          "",
-		componentConfigs: "",
-		formatType:       "yaml",
+		distribution:   "",
+		schemaLocation: DefaultSchemaLocation,
+		binaryPath:     "",
+		from:           "",
+		name:           "",
+		namespace:      "default",
+		binary:         "",
+		version:        VersionLatest,
+		stripDocs:      false,
+		formatType:     "yaml",
 	}
 
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
 		Use:   "remoteconfigschema",
-		Short: "Generate a RemoteConfigSchema from an OTel Collector's components output",
+		Short: "Generate a RemoteConfigSchema for a collector build",
 		Long: "Generate a RemoteConfigSchema (component catalog) for a collector build.\n" +
-			"The catalog is read from `otelcol components` output, sourced either by running a\n" +
-			"binary (--binary-path) or from a file/stdin (--from).\n" +
 			"\n" +
-			"  opampctl generate remoteconfigschema --binary-path ./otelcol-contrib > schema.yaml\n" +
-			"  ./otelcol-contrib components | opampctl generate remoteconfigschema --from - > schema.yaml",
+			"For a published release, read it from the schema registry (--distribution), which\n" +
+			"describes the components the release ships and the settings each one accepts.\n" +
+			"For a custom distribution, read it from the binary's own `components` output\n" +
+			"(--binary-path, or --from for a file/stdin), which reports the components it has\n" +
+			"but not their settings.\n" +
+			"\n" +
+			"  opampctl generate remoteconfigschema --distribution contrib > schema.yaml\n" +
+			"  opampctl generate remoteconfigschema --distribution core --version v0.150.0 > schema.yaml\n" +
+			"  opampctl generate remoteconfigschema --binary-path ./otelcol-custom > schema.yaml\n" +
+			"  ./otelcol-custom components | opampctl generate remoteconfigschema --from - > schema.yaml",
 		RunE: options.Run,
 	}
 
+	cmd.Flags().StringVarP(&options.distribution, "distribution", "d", "",
+		"Collector distribution to read from the schema registry (core, contrib, k8s, otlp, ...)")
+	cmd.Flags().StringVar(&options.schemaLocation, "schema-location", DefaultSchemaLocation,
+		"Schema registry base URL, or a path to a local checkout of one")
 	cmd.Flags().StringVar(&options.binaryPath, "binary-path", "",
 		"Path to a collector binary; runs '<binary> components' to read the catalog")
 	cmd.Flags().StringVarP(&options.from, "from", "f", "",
@@ -75,30 +93,24 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
 	cmd.Flags().StringVar(&options.binary, "binary", "",
 		"Distribution label override (default: buildinfo.command)")
-	cmd.Flags().StringVar(&options.version, "version", "",
-		"Version override (default: buildinfo.version)")
-	cmd.Flags().StringVar(&options.componentConfigs, "component-configs", "",
-		"Path to a JSON file of per-component config field schemas to merge into the catalog")
+	cmd.Flags().StringVar(&options.version, "version", VersionLatest,
+		"Collector version: which release to read from the registry, or an override for buildinfo.version")
+	cmd.Flags().BoolVar(&options.stripDocs, "strip-docs", false,
+		"Drop field documentation, keeping only what validation needs")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "yaml", "Output format (yaml, json)")
 
 	return cmd
 }
 
-// Run reads the components output, builds a RemoteConfigSchema, and writes it to stdout.
+// Run reads the component catalog, builds a RemoteConfigSchema, and writes it to stdout.
 func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	data, err := o.readComponents(cmd)
+	collected, err := o.collect(cmd)
 	if err != nil {
 		return err
 	}
 
-	collected, err := parseComponents(data)
-	if err != nil {
-		return err
-	}
-
-	err = o.loadComponentConfigs(collected)
-	if err != nil {
-		return err
+	if o.stripDocs {
+		stripDocs(collected.Components)
 	}
 
 	schema, err := o.buildSchema(collected)
@@ -109,28 +121,18 @@ func (o *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 	return render(cmd.OutOrStdout(), schema, o.formatType)
 }
 
-// loadComponentConfigs reads the optional --component-configs JSON file (a
-// v1.ComponentConfigCatalog produced by the reflection-based generator) into collected.
-func (o *CommandOptions) loadComponentConfigs(collected *collected) error {
-	if o.componentConfigs == "" {
-		return nil
+// collect reads the component catalog from whichever source the flags select.
+func (o *CommandOptions) collect(cmd *cobra.Command) (*collected, error) {
+	if o.distribution != "" {
+		return fetchFromRegistry(cmd.Context(), o.schemaLocation, o.distribution, o.version)
 	}
 
-	data, err := os.ReadFile(filepath.Clean(o.componentConfigs))
+	data, err := o.readComponents(cmd)
 	if err != nil {
-		return fmt.Errorf("read %q: %w", o.componentConfigs, err)
+		return nil, err
 	}
 
-	var catalog v1.ComponentConfigCatalog
-
-	err = json.Unmarshal(data, &catalog)
-	if err != nil {
-		return fmt.Errorf("decode component configs %q: %w", o.componentConfigs, err)
-	}
-
-	collected.ComponentConfigs = catalog
-
-	return nil
+	return parseComponents(data)
 }
 
 func (o *CommandOptions) readComponents(cmd *cobra.Command) ([]byte, error) {
@@ -157,8 +159,8 @@ func (o *CommandOptions) readComponents(cmd *cobra.Command) ([]byte, error) {
 }
 
 func (o *CommandOptions) buildSchema(collected *collected) (*v1.RemoteConfigSchema, error) {
-	binary := lo.CoalesceOrEmpty(o.binary, collected.Command)
-	version := lo.CoalesceOrEmpty(o.version, collected.Version)
+	binary := lo.CoalesceOrEmpty(o.binary, collected.Command, binaryForDistribution(o.distribution))
+	version := lo.CoalesceOrEmpty(versionOverride(o.version), collected.Version)
 
 	name := o.name
 	if name == "" {
@@ -178,12 +180,35 @@ func (o *CommandOptions) buildSchema(collected *collected) (*v1.RemoteConfigSche
 			Namespace: o.namespace,
 		},
 		Spec: v1.RemoteConfigSchemaSpec{
-			Binary:           binary,
-			Version:          version,
-			Components:       collected.Components,
-			ComponentConfigs: collected.ComponentConfigs,
+			Binary:     binary,
+			Version:    version,
+			Components: collected.Components,
 		},
 	}, nil
+}
+
+// versionOverride reads --version as an override of the version the source reports.
+// "latest" is not one: it selects which release to read from the registry, and the
+// release itself then says which version it is.
+func versionOverride(version string) string {
+	if version == VersionLatest {
+		return ""
+	}
+
+	return strings.TrimPrefix(version, "v")
+}
+
+// binaryForDistribution names the binary a registry distribution builds: the upstream
+// releases publish "otelcol" for core and "otelcol-<distribution>" for the rest.
+func binaryForDistribution(distribution string) string {
+	switch distribution {
+	case "":
+		return ""
+	case "core":
+		return "otelcol"
+	default:
+		return "otelcol-" + distribution
+	}
 }
 
 // runComponents executes '<binaryPath> components' and returns its stdout.
@@ -225,6 +250,10 @@ func render(writer io.Writer, schema *v1.RemoteConfigSchema, format string) erro
 	}
 }
 
+// yamlIndent is the indentation of generated YAML. The schema library is large enough
+// that the difference from yaml.v3's default of four spaces is measured in megabytes.
+const yamlIndent = 2
+
 // toYAML marshals via JSON first so the v1 types' json tags are honored (yaml.v3 does
 // not read json tags), yielding YAML keys that round-trip through 'create -f'.
 func toYAML(value any) ([]byte, error) {
@@ -240,10 +269,20 @@ func toYAML(value any) ([]byte, error) {
 		return nil, fmt.Errorf("decode json: %w", err)
 	}
 
-	data, err := yaml.Marshal(generic)
+	var buffer bytes.Buffer
+
+	encoder := yaml.NewEncoder(&buffer)
+	encoder.SetIndent(yamlIndent)
+
+	err = encoder.Encode(generic)
 	if err != nil {
 		return nil, fmt.Errorf("encode yaml: %w", err)
 	}
 
-	return data, nil
+	err = encoder.Close()
+	if err != nil {
+		return nil, fmt.Errorf("encode yaml: %w", err)
+	}
+
+	return buffer.Bytes(), nil
 }
