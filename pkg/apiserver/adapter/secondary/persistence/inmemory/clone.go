@@ -286,16 +286,59 @@ func cloneRemoteConfigSchema(schema *agentmodel.RemoteConfigSchema) *agentmodel.
 	cloned.Metadata.DeletedAt = cloneTimePtr(schema.Metadata.DeletedAt)
 	cloned.Status.Conditions = slices.Clone(schema.Status.Conditions)
 
-	if schema.Spec.Components != nil {
-		components := make(agentmodel.ComponentCatalog, len(schema.Spec.Components))
-		for class, names := range schema.Spec.Components {
-			components[class] = slices.Clone(names)
-		}
-
-		cloned.Spec.Components = components
-	}
+	cloned.Spec.Components = cloneComponentCatalog(schema.Spec.Components)
 
 	return &cloned
+}
+
+// cloneComponentCatalog deep-copies a component catalog, including each component's
+// config field tree, so a stored schema cannot be mutated through a returned copy.
+func cloneComponentCatalog(catalog agentmodel.ComponentCatalog) agentmodel.ComponentCatalog {
+	if catalog == nil {
+		return nil
+	}
+
+	cloned := make(agentmodel.ComponentCatalog, len(catalog))
+	for class, byName := range catalog {
+		components := make(map[string]agentmodel.Component, len(byName))
+		for name, component := range byName {
+			components[name] = cloneComponent(component)
+		}
+
+		cloned[class] = components
+	}
+
+	return cloned
+}
+
+func cloneComponent(component agentmodel.Component) agentmodel.Component {
+	cloned := component
+	cloned.Signals = slices.Clone(component.Signals)
+	cloned.Stability = maps.Clone(component.Stability)
+	cloned.Pairs = slices.Clone(component.Pairs)
+
+	if component.Fields != nil {
+		fields := cloneConfigField(*component.Fields)
+		cloned.Fields = &fields
+	}
+
+	return cloned
+}
+
+func cloneConfigField(field agentmodel.ConfigField) agentmodel.ConfigField {
+	cloned := field
+	cloned.Enum = slices.Clone(field.Enum)
+
+	if field.Children != nil {
+		children := make(map[string]agentmodel.ConfigField, len(field.Children))
+		for key, sub := range field.Children {
+			children[key] = cloneConfigField(sub)
+		}
+
+		cloned.Children = children
+	}
+
+	return cloned
 }
 
 func cloneCertificate(certificate *agentmodel.Certificate) *agentmodel.Certificate {

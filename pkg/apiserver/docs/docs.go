@@ -4338,21 +4338,54 @@ const docTemplate = `{
                 }
             }
         },
-        "ComponentCatalog": {
+        "Component": {
             "type": "object",
-            "additionalProperties": {
-                "type": "array",
-                "items": {
+            "properties": {
+                "fields": {
+                    "description": "Fields is the root of the component's config field schema (a \"map\" field). When\nnil, a config targeting this component is validated for existence only; when\nset, it is validated field-by-field.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ConfigField"
+                        }
+                    ]
+                },
+                "module": {
+                    "description": "Module is the Go module the component is built from.",
+                    "type": "string"
+                },
+                "pairs": {
+                    "description": "Pairs are the signal conversions a connector supports.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SignalPair"
+                    }
+                },
+                "signals": {
+                    "description": "Signals are the telemetry signals the component handles (\"traces\", \"metrics\",\n\"logs\", \"profiles\"). Empty for extensions and for connectors, which use Pairs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "stability": {
+                    "description": "Stability is the component's stability level per signal (for a connector, per\n\"\u003cfrom\u003e_to_\u003cto\u003e\" pair), e.g. {\"metrics\": \"beta\"}.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "description": "Type is the component type name as written in a collector config\n(e.g. \"otlp\", \"memory_limiter\").",
                     "type": "string"
                 }
             }
         },
-        "ComponentConfigCatalog": {
+        "ComponentCatalog": {
             "type": "object",
             "additionalProperties": {
                 "type": "object",
                 "additionalProperties": {
-                    "$ref": "#/definitions/ConfigField"
+                    "$ref": "#/definitions/Component"
                 }
             }
         },
@@ -4411,14 +4444,23 @@ const docTemplate = `{
         "ConfigField": {
             "type": "object",
             "properties": {
-                "elem": {
-                    "$ref": "#/definitions/ConfigField"
-                },
-                "fields": {
+                "children": {
                     "type": "object",
                     "additionalProperties": {
                         "$ref": "#/definitions/ConfigField"
                     }
+                },
+                "doc": {
+                    "type": "string"
+                },
+                "enum": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "open": {
+                    "type": "boolean"
                 },
                 "type": {
                     "type": "string"
@@ -5382,16 +5424,8 @@ const docTemplate = `{
                     "description": "Binary identifies the collector build/distribution (e.g. \"otelcol\",\n\"otelcol-contrib\", or a vendor/custom distribution). Extensible free-form string.",
                     "type": "string"
                 },
-                "componentConfigs": {
-                    "description": "ComponentConfigs holds the config field schema of each component, keyed by\ncomponent class then component name. It is optional and additive: when a\ncomponent has no entry here, only its existence is validated; when present, a\nconfig targeting that component is validated field-by-field (unknown keys and\ntype mismatches). Populated from the collector's component config structs.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/ComponentConfigCatalog"
-                        }
-                    ]
-                },
                 "components": {
-                    "description": "Components is the catalog of components a config for this binary may reference,\nkeyed by open-ended component class (e.g. \"receivers\", \"processors\",\n\"exporters\", \"extensions\", \"connectors\") since OpAMP does not guarantee a\nfixed set of classes. Values are the available component names (names only).",
+                    "description": "Components is the catalog of components a config for this binary may reference,\nkeyed by open-ended component class (e.g. \"receivers\", \"processors\",\n\"exporters\", \"extensions\", \"connectors\") since OpAMP does not guarantee a\nfixed set of classes, then by component type name.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/ComponentCatalog"
@@ -5693,6 +5727,17 @@ const docTemplate = `{
                 "ServerConditionTypeRegistered",
                 "ServerConditionTypeAlive"
             ]
+        },
+        "SignalPair": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
+                }
+            }
         },
         "SignalThroughput": {
             "type": "object",

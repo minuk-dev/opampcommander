@@ -13,7 +13,6 @@ import (
 	"reflect"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -560,7 +559,7 @@ func latestRemoteConfigSchemaPerBinary(schemas []*v1.RemoteConfigSchema) []*v1.R
 
 	for _, schema := range schemas {
 		current, ok := latest[schema.Spec.Binary]
-		if !ok || compareCollectorVersion(schema.Spec.Version, current.Spec.Version) > 0 {
+		if !ok || agentmodel.CompareCollectorVersion(schema.Spec.Version, current.Spec.Version) > 0 {
 			latest[schema.Spec.Binary] = schema
 		}
 	}
@@ -578,46 +577,6 @@ func latestRemoteConfigSchemaPerBinary(schemas []*v1.RemoteConfigSchema) []*v1.R
 	}
 
 	return out
-}
-
-// collectorVersionParts is the number of numeric components (major.minor.patch) in a
-// collector version.
-const collectorVersionParts = 3
-
-// compareCollectorVersion compares two clean MAJOR.MINOR.PATCH collector versions,
-// returning -1, 0, or 1. Any pre-release/build suffix and non-numeric parts sort as 0,
-// which is sufficient for selecting the newest stable release in the schema library.
-func compareCollectorVersion(left, right string) int {
-	leftParts := parseCollectorVersion(left)
-	rightParts := parseCollectorVersion(right)
-
-	for i := range leftParts {
-		switch {
-		case leftParts[i] < rightParts[i]:
-			return -1
-		case leftParts[i] > rightParts[i]:
-			return 1
-		}
-	}
-
-	return 0
-}
-
-// parseCollectorVersion splits a version into its numeric major/minor/patch parts,
-// dropping any pre-release/build suffix.
-func parseCollectorVersion(version string) [collectorVersionParts]int {
-	if idx := strings.IndexAny(version, "-+"); idx >= 0 {
-		version = version[:idx]
-	}
-
-	var parts [collectorVersionParts]int
-
-	segments := strings.SplitN(version, ".", collectorVersionParts)
-	for i := 0; i < len(segments) && i < len(parts); i++ {
-		parts[i], _ = strconv.Atoi(segments[i])
-	}
-
-	return parts
 }
 
 // applyRole upserts a role, setting its permission list to exactly the manifest's

@@ -2,6 +2,8 @@ package agentmodel
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 )
 
 // ConfigValidationError is a single problem found while validating a component config
@@ -22,58 +24,115 @@ func (e ConfigValidationError) Error() string {
 	return e.Path + ": " + e.Message
 }
 
-// ValidateComponentConfig validates a component's config (a decoded YAML/JSON object)
-// against the schema's config field catalog. It returns nil when the schema does not
-// describe this component's config (existence-only validation) and a list of problems
-// otherwise. class is the component class ("receivers", ...) and name the component
-// type ("otlp", ...).
-func (s *RemoteConfigSchema) ValidateComponentConfig(
+// ValidateComponent validates one component of a collector config against the schema:
+// that the collector build ships it, and — when the schema describes its settings —
+// that config matches them field by field. class is the component class
+// ("receivers", ...) and name the component type ("otlp", ...).
+//
+// It is lenient wherever the schema is silent: a class the catalog does not describe,
+// a component with no field schema, and an open-ended field are all accepted, so a
+// shallow catalog reports nothing rather than reporting everything.
+func (s *RemoteConfigSchema) ValidateComponent(
 	class string, name string, config map[string]any,
 ) []ConfigValidationError {
-	byName, ok := s.Spec.ComponentConfigs[class]
+	byName, ok := s.Spec.Components[class]
 	if !ok {
 		return nil
 	}
 
-	field, ok := byName[name]
+	component, ok := byName[name]
 	if !ok {
+		return []ConfigValidationError{{
+			Path:    "",
+			Message: fmt.Sprintf("unknown %s %q for %s %s", singularClass(class), name, s.Spec.Binary, s.Spec.Version),
+		}}
+	}
+
+	if component.Fields == nil {
 		return nil
 	}
 
-	return field.validate("", config)
+	return component.Fields.validate("", config)
+}
+
+// ValidateSignalSupport reports a problem when the component is used in a pipeline of
+// the given signal but does not handle that signal. Unknown components and components
+// whose signals the catalog does not record are accepted.
+func (s *RemoteConfigSchema) ValidateSignalSupport(
+	class string, name string, signal string,
+) []ConfigValidationError {
+	component, ok := s.Component(class, name)
+	if !ok || component.SupportsSignal(signal) {
+		return nil
+	}
+
+	return []ConfigValidationError{{
+		Path: "",
+		Message: fmt.Sprintf("%s %q does not support %s (supports %s)",
+			singularClass(class), name, signal, strings.Join(component.Signals, ", ")),
+	}}
+}
+
+// ValidateConnectorPair reports a problem when the connector is used to convert
+// fromSignal into toSignal but does not support that conversion. Unknown connectors
+// and connectors whose pairs the catalog does not record are accepted.
+func (s *RemoteConfigSchema) ValidateConnectorPair(
+	class string, name string, fromSignal string, toSignal string,
+) []ConfigValidationError {
+	component, ok := s.Component(class, name)
+	if !ok || component.SupportsPair(fromSignal, toSignal) {
+		return nil
+	}
+
+	return []ConfigValidationError{{
+		Path: "",
+		Message: fmt.Sprintf("%s %q does not convert %s to %s",
+			singularClass(class), name, fromSignal, toSignal),
+	}}
+}
+
+// singularClass renders a class key ("receivers") for use in a message about a single
+// component ("receiver"). Class keys are open-ended, so anything that does not end in
+// "s" is left as is.
+func singularClass(class string) string {
+	return strings.TrimSuffix(class, "s")
 }
 
 // validate walks value against the field schema, collecting problems. It is lenient by
-// design — it reports unknown object keys and coarse type mismatches, but treats a nil
-// value and an "any"-typed field as always valid, since the goal is to catch typos and
-// obvious shape errors, not to enforce every constraint.
+// design — it reports unknown keys of a closed map, values outside an enum, and coarse
+// type mismatches, but treats a nil value and an untyped field as always valid, since
+// the goal is to catch typos and obvious shape errors, not to enforce every constraint.
 func (f ConfigField) validate(path string, value any) []ConfigValidationError {
-	if value == nil || f.Type == ConfigFieldTypeAny {
+	if value == nil || f.Type == "" {
 		return nil
 	}
 
 	switch f.Type {
-	case ConfigFieldTypeObject:
-		return f.validateObject(path, value)
 	case ConfigFieldTypeMap:
 		return f.validateMap(path, value)
-	case ConfigFieldTypeArray:
-		return f.validateArray(path, value)
+	case ConfigFieldTypeList:
+		return f.validateList(path, value)
 	default:
 		return f.validateScalar(path, value)
 	}
 }
 
-func (f ConfigField) validateObject(path string, value any) []ConfigValidationError {
+func (f ConfigField) validateMap(path string, value any) []ConfigValidationError {
 	asMap, ok := value.(map[string]any)
 	if !ok {
-		return []ConfigValidationError{{Path: path, Message: typeMismatch("object", value)}}
+		return []ConfigValidationError{{Path: path, Message: typeMismatch("map", value)}}
+	}
+
+	// An open field, or one whose settings the schema does not spell out, accepts any
+	// key: there is nothing to check it against.
+	if f.Open || len(f.Children) == 0 {
+		return nil
 	}
 
 	var problems []ConfigValidationError
 
 	for key, sub := range asMap {
-		child, known := f.Fields[key]
+		child, known := f.Children[key]
 		if !known {
 			problems = append(problems, ConfigValidationError{
 				Path:    join(path, key),
@@ -89,50 +148,46 @@ func (f ConfigField) validateObject(path string, value any) []ConfigValidationEr
 	return problems
 }
 
-func (f ConfigField) validateMap(path string, value any) []ConfigValidationError {
-	asMap, ok := value.(map[string]any)
-	if !ok {
-		return []ConfigValidationError{{Path: path, Message: typeMismatch("map", value)}}
-	}
-
-	if f.Elem == nil {
-		return nil
-	}
-
-	var problems []ConfigValidationError
-
-	for key, sub := range asMap {
-		problems = append(problems, f.Elem.validate(join(path, key), sub)...)
-	}
-
-	return problems
-}
-
-func (f ConfigField) validateArray(path string, value any) []ConfigValidationError {
+func (f ConfigField) validateList(path string, value any) []ConfigValidationError {
 	asSlice, ok := value.([]any)
 	if !ok {
-		return []ConfigValidationError{{Path: path, Message: typeMismatch("array", value)}}
+		return []ConfigValidationError{{Path: path, Message: typeMismatch("list", value)}}
 	}
 
-	if f.Elem == nil {
+	item, ok := f.Children[ConfigFieldItemKey]
+	if !ok {
 		return nil
 	}
 
 	var problems []ConfigValidationError
 
 	for i, sub := range asSlice {
-		problems = append(problems, f.Elem.validate(fmt.Sprintf("%s[%d]", path, i), sub)...)
+		problems = append(problems, item.validate(fmt.Sprintf("%s[%d]", path, i), sub)...)
 	}
 
 	return problems
 }
 
 func (f ConfigField) validateScalar(path string, value any) []ConfigValidationError {
-	if scalarMatches(f.Type, value) {
+	if !scalarMatches(f.Type, value) {
+		return []ConfigValidationError{{Path: path, Message: typeMismatch(f.Type, value)}}
+	}
+
+	return f.validateEnum(path, value)
+}
+
+// validateEnum reports a value outside the field's allowed set. Only strings are
+// checked: the enums the collector publishes are string-valued.
+func (f ConfigField) validateEnum(path string, value any) []ConfigValidationError {
+	asString, isString := value.(string)
+	if len(f.Enum) == 0 || !isString || slices.Contains(f.Enum, asString) {
 		return nil
 	}
 
-	return []ConfigValidationError{{Path: path, Message: typeMismatch(f.Type, value)}}
+	return []ConfigValidationError{{
+		Path:    path,
+		Message: fmt.Sprintf("invalid value %q (want one of: %s)", asString, strings.Join(f.Enum, ", ")),
+	}}
 }
 
 // scalarMatches reports whether value is acceptable for a scalar field type. It is

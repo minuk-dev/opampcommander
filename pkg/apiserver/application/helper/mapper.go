@@ -405,10 +405,9 @@ func (mapper *Mapper) MapRemoteConfigSchemaToAPI(
 			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
 		},
 		Spec: v1.RemoteConfigSchemaSpec{
-			Binary:           domain.Spec.Binary,
-			Version:          domain.Spec.Version,
-			Components:       v1.ComponentCatalog(domain.Spec.Components),
-			ComponentConfigs: domainConfigCatalogToAPI(domain.Spec.ComponentConfigs),
+			Binary:     domain.Spec.Binary,
+			Version:    domain.Spec.Version,
+			Components: domainComponentCatalogToAPI(domain.Spec.Components),
 		},
 		Status: v1.RemoteConfigSchemaStatus{
 			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
@@ -436,10 +435,9 @@ func (mapper *Mapper) MapAPIToRemoteConfigSchema(
 			DeletedAt:       nil,
 		},
 		Spec: agentmodel.RemoteConfigSchemaSpec{
-			Binary:           api.Spec.Binary,
-			Version:          api.Spec.Version,
-			Components:       agentmodel.ComponentCatalog(api.Spec.Components),
-			ComponentConfigs: apiConfigCatalogToDomain(api.Spec.ComponentConfigs),
+			Binary:     api.Spec.Binary,
+			Version:    api.Spec.Version,
+			Components: apiComponentCatalogToDomain(api.Spec.Components),
 		},
 		Status: agentmodel.RemoteConfigSchemaStatus{
 			Conditions: nil,
@@ -447,20 +445,41 @@ func (mapper *Mapper) MapAPIToRemoteConfigSchema(
 	}
 }
 
-// domainConfigCatalogToAPI converts a domain component config catalog to the API type.
-func domainConfigCatalogToAPI(catalog agentmodel.ComponentConfigCatalog) v1.ComponentConfigCatalog {
+// domainComponentCatalogToAPI converts a domain component catalog to the API type.
+func domainComponentCatalogToAPI(catalog agentmodel.ComponentCatalog) v1.ComponentCatalog {
 	if catalog == nil {
 		return nil
 	}
 
-	out := make(v1.ComponentConfigCatalog, len(catalog))
+	out := make(v1.ComponentCatalog, len(catalog))
 	for class, byName := range catalog {
-		fields := make(map[string]v1.ConfigField, len(byName))
-		for name, sub := range byName {
-			fields[name] = domainConfigFieldToAPI(sub)
+		components := make(map[string]v1.Component, len(byName))
+		for name, component := range byName {
+			components[name] = domainComponentToAPI(component)
 		}
 
-		out[class] = fields
+		out[class] = components
+	}
+
+	return out
+}
+
+// domainComponentToAPI converts a domain Component to the API type.
+func domainComponentToAPI(component agentmodel.Component) v1.Component {
+	out := v1.Component{
+		Type:      component.Type,
+		Signals:   component.Signals,
+		Stability: component.Stability,
+		Pairs: lo.Map(component.Pairs, func(pair agentmodel.SignalPair, _ int) v1.SignalPair {
+			return v1.SignalPair{From: pair.From, To: pair.To}
+		}),
+		Module: component.Module,
+		Fields: nil,
+	}
+
+	if component.Fields != nil {
+		fields := domainConfigFieldToAPI(*component.Fields)
+		out.Fields = &fields
 	}
 
 	return out
@@ -468,37 +487,59 @@ func domainConfigCatalogToAPI(catalog agentmodel.ComponentConfigCatalog) v1.Comp
 
 // domainConfigFieldToAPI converts a domain ConfigField tree to the API type.
 func domainConfigFieldToAPI(field agentmodel.ConfigField) v1.ConfigField {
-	out := v1.ConfigField{Type: field.Type, Fields: nil, Elem: nil}
-
-	if field.Fields != nil {
-		out.Fields = make(map[string]v1.ConfigField, len(field.Fields))
-		for key, sub := range field.Fields {
-			out.Fields[key] = domainConfigFieldToAPI(sub)
-		}
+	out := v1.ConfigField{
+		Type:     field.Type,
+		Children: nil,
+		Open:     field.Open,
+		Enum:     field.Enum,
+		Doc:      field.Doc,
 	}
 
-	if field.Elem != nil {
-		elem := domainConfigFieldToAPI(*field.Elem)
-		out.Elem = &elem
+	if field.Children != nil {
+		out.Children = make(map[string]v1.ConfigField, len(field.Children))
+		for key, sub := range field.Children {
+			out.Children[key] = domainConfigFieldToAPI(sub)
+		}
 	}
 
 	return out
 }
 
-// apiConfigCatalogToDomain converts an API component config catalog to the domain type.
-func apiConfigCatalogToDomain(catalog v1.ComponentConfigCatalog) agentmodel.ComponentConfigCatalog {
+// apiComponentCatalogToDomain converts an API component catalog to the domain type.
+func apiComponentCatalogToDomain(catalog v1.ComponentCatalog) agentmodel.ComponentCatalog {
 	if catalog == nil {
 		return nil
 	}
 
-	out := make(agentmodel.ComponentConfigCatalog, len(catalog))
+	out := make(agentmodel.ComponentCatalog, len(catalog))
 	for class, byName := range catalog {
-		fields := make(map[string]agentmodel.ConfigField, len(byName))
-		for name, sub := range byName {
-			fields[name] = apiConfigFieldToDomain(sub)
+		components := make(map[string]agentmodel.Component, len(byName))
+		for name, component := range byName {
+			components[name] = apiComponentToDomain(component)
 		}
 
-		out[class] = fields
+		out[class] = components
+	}
+
+	return out
+}
+
+// apiComponentToDomain converts an API Component to the domain type.
+func apiComponentToDomain(component v1.Component) agentmodel.Component {
+	out := agentmodel.Component{
+		Type:      component.Type,
+		Signals:   component.Signals,
+		Stability: component.Stability,
+		Pairs: lo.Map(component.Pairs, func(pair v1.SignalPair, _ int) agentmodel.SignalPair {
+			return agentmodel.SignalPair{From: pair.From, To: pair.To}
+		}),
+		Module: component.Module,
+		Fields: nil,
+	}
+
+	if component.Fields != nil {
+		fields := apiConfigFieldToDomain(*component.Fields)
+		out.Fields = &fields
 	}
 
 	return out
@@ -506,18 +547,19 @@ func apiConfigCatalogToDomain(catalog v1.ComponentConfigCatalog) agentmodel.Comp
 
 // apiConfigFieldToDomain converts an API ConfigField tree to the domain type.
 func apiConfigFieldToDomain(field v1.ConfigField) agentmodel.ConfigField {
-	out := agentmodel.ConfigField{Type: field.Type, Fields: nil, Elem: nil}
-
-	if field.Fields != nil {
-		out.Fields = make(map[string]agentmodel.ConfigField, len(field.Fields))
-		for key, sub := range field.Fields {
-			out.Fields[key] = apiConfigFieldToDomain(sub)
-		}
+	out := agentmodel.ConfigField{
+		Type:     field.Type,
+		Children: nil,
+		Open:     field.Open,
+		Enum:     field.Enum,
+		Doc:      field.Doc,
 	}
 
-	if field.Elem != nil {
-		elem := apiConfigFieldToDomain(*field.Elem)
-		out.Elem = &elem
+	if field.Children != nil {
+		out.Children = make(map[string]agentmodel.ConfigField, len(field.Children))
+		for key, sub := range field.Children {
+			out.Children[key] = apiConfigFieldToDomain(sub)
+		}
 	}
 
 	return out

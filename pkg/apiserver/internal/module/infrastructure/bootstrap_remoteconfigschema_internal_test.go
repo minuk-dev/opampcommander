@@ -25,7 +25,8 @@ spec:
   version: 0.129.0
   components:
     receivers:
-      - otlp
+      otlp:
+        type: otlp
 `
 
 const schemaOtelcol130 = `kind: RemoteConfigSchema
@@ -38,8 +39,12 @@ spec:
   version: 0.130.0
   components:
     receivers:
-      - otlp
-      - hostmetrics
+      otlp:
+        type: otlp
+        signals: [traces, metrics, logs]
+      hostmetrics:
+        type: hostmetrics
+        signals: [metrics]
 `
 
 const schemaContrib130 = `kind: RemoteConfigSchema
@@ -52,7 +57,8 @@ spec:
   version: 0.130.0
   components:
     receivers:
-      - otlp
+      otlp:
+        type: otlp
 `
 
 // writeSchemas writes the given schema library files into schemaDir on fs.
@@ -189,9 +195,11 @@ spec:
   version: 0.130.0
   components:
     receivers:
-      - otlp
+      otlp:
+        type: otlp
     exporters:
-      - debug
+      debug:
+        type: debug
 `
 
 	require.NoError(t, afero.WriteFile(
@@ -201,7 +209,7 @@ spec:
 	schema, err := deps.schemaUsecase.GetRemoteConfigSchema(t.Context(), "default", "otelcol-0.130.0", nil)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), schema.Metadata.ResourceVersion, "changed manifest triggers exactly one update")
-	assert.Equal(t, []string{"debug"}, schema.Spec.Components["exporters"])
+	assert.Contains(t, schema.Spec.Components["exporters"], "debug")
 }
 
 func TestApplyManifests_RoutesRemoteConfigSchemaKind(t *testing.T) {

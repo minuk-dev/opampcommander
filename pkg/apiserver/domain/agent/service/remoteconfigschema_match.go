@@ -16,8 +16,7 @@ import (
 var _ agentport.RemoteConfigSchemaMatcher = (*RemoteConfigSchemaService)(nil)
 
 // componentSections returns the OpenTelemetry Collector config sections that declare
-// components. Their keys become the ComponentCatalog class keys, matching the class
-// keys a schema catalog uses.
+// components. Their keys are the class keys a schema catalog uses.
 func componentSections() []string {
 	return []string{"receivers", "processors", "exporters", "extensions", "connectors"}
 }
@@ -63,10 +62,14 @@ func (s *RemoteConfigSchemaService) ResolveSchemaRefs(
 	return matched, nil
 }
 
+// usedComponents is the set of component type names a collector config references,
+// keyed by component class.
+type usedComponents map[string][]string
+
 // extractUsedComponents parses a collector config (YAML or JSON — YAML is a superset)
 // and returns the set of component type names it references, keyed by component class.
 // A component ID like "otlp/mimir" contributes the type "otlp".
-func extractUsedComponents(content []byte) (agentmodel.ComponentCatalog, error) {
+func extractUsedComponents(content []byte) (usedComponents, error) {
 	var root map[string]any
 
 	err := yaml.Unmarshal(content, &root)
@@ -74,7 +77,7 @@ func extractUsedComponents(content []byte) (agentmodel.ComponentCatalog, error) 
 		return nil, fmt.Errorf("parse collector config: %w", err)
 	}
 
-	used := agentmodel.ComponentCatalog{}
+	used := usedComponents{}
 
 	for _, section := range componentSections() {
 		entries, ok := root[section].(map[string]any)
@@ -109,9 +112,9 @@ func componentType(id string) string {
 }
 
 // schemaSupports reports whether catalog contains every used component (per class).
-func schemaSupports(catalog, used agentmodel.ComponentCatalog) bool {
+func schemaSupports(catalog agentmodel.ComponentCatalog, used usedComponents) bool {
 	for class, names := range used {
-		if !lo.Every(catalog[class], names) {
+		if !lo.Every(lo.Keys(catalog[class]), names) {
 			return false
 		}
 	}
