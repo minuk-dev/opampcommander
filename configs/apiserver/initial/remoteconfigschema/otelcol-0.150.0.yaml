@@ -3,7 +3,7 @@ kind: RemoteConfigSchema
 metadata:
   attributes: null
   createdAt: null
-  name: otelcol-0.130.0
+  name: otelcol-0.150.0
   namespace: default
 spec:
   binary: otelcol
@@ -16,21 +16,63 @@ spec:
             to: logs
           - from: metrics
             to: metrics
+          - from: profiles
+            to: profiles
           - from: traces
             to: traces
         stability:
           logs_to_logs: beta
           metrics_to_metrics: beta
+          profiles_to_profiles: alpha
           traces_to_traces: beta
         type: forward
     exporters:
       debug:
         fields:
           children:
+            output_paths:
+              children:
+                item:
+                  type: string
+              type: list
             sampling_initial:
               type: int
             sampling_thereafter:
               type: int
+            sending_queue:
+              children:
+                batch:
+                  children:
+                    flush_timeout:
+                      type: duration
+                    max_size:
+                      type: int
+                    min_size:
+                      type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
+                    sizer:
+                      type: string
+                  type: map
+                block_on_overflow:
+                  type: bool
+                num_consumers:
+                  type: int
+                queue_size:
+                  type: int
+                sizer:
+                  type: string
+                storage:
+                  type: string
+                wait_for_result:
+                  type: bool
+              type: map
             use_internal_logger:
               type: bool
             verbosity:
@@ -43,10 +85,10 @@ spec:
           - logs
           - profiles
         stability:
-          logs: development
-          metrics: development
-          profiles: development
-          traces: development
+          logs: alpha
+          metrics: alpha
+          profiles: alpha
+          traces: alpha
         type: debug
       file:
         fields:
@@ -54,6 +96,10 @@ spec:
             append:
               type: bool
             compression:
+              type: string
+            create_directory:
+              type: bool
+            directory_permissions:
               type: string
             encoding:
               type: string
@@ -136,6 +182,8 @@ spec:
                       type: map
                     mechanism:
                       type: string
+                    oauthbearer_token_source:
+                      type: string
                     password:
                       type: string
                     username:
@@ -201,13 +249,17 @@ spec:
               type: list
             client_id:
               type: string
-            encoding:
-              type: string
+            conn_idle_timeout:
+              type: duration
+            enabled:
+              type: bool
             include_metadata_keys:
               children:
                 item:
                   type: string
               type: list
+            initial_interval:
+              type: duration
             logs:
               children:
                 encoding:
@@ -217,6 +269,10 @@ spec:
                 topic_from_metadata_key:
                   type: string
               type: map
+            max_elapsed_time:
+              type: duration
+            max_interval:
+              type: duration
             metadata:
               children:
                 full:
@@ -240,7 +296,11 @@ spec:
                 topic_from_metadata_key:
                   type: string
               type: map
+            multiplier:
+              type: float
             partition_logs_by_resource_attributes:
+              type: bool
+            partition_logs_by_trace_id:
               type: bool
             partition_metrics_by_resource_attributes:
               type: bool
@@ -248,6 +308,8 @@ spec:
               type: bool
             producer:
               children:
+                allow_auto_topic_creation:
+                  type: bool
                 compression:
                   type: string
                 compression_params:
@@ -257,13 +319,51 @@ spec:
                   type: map
                 flush_max_messages:
                   type: int
+                linger:
+                  type: duration
                 max_message_bytes:
                   type: int
                 required_acks:
                   type: int
               type: map
+            profiles:
+              children:
+                encoding:
+                  type: string
+                topic:
+                  type: string
+                topic_from_metadata_key:
+                  type: string
+              type: map
             protocol_version:
               type: string
+            rack_id:
+              type: string
+            randomization_factor:
+              type: float
+            record_headers:
+              children:
+                item:
+                  children:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  type: map
+            record_partitioner:
+              children:
+                extension:
+                  type: string
+                least_backup:
+                  open: true
+                round_robin:
+                  open: true
+                sticky_key:
+                  children:
+                    hasher:
+                      type: string
+                  type: map
+              type: map
             resolve_canonical_bootstrap_servers_only:
               type: bool
             retry_on_failure:
@@ -291,6 +391,14 @@ spec:
                       type: int
                     min_size:
                       type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
                     sizer:
                       type: string
                   type: map
@@ -361,8 +469,6 @@ spec:
                       type: string
                   type: map
               type: map
-            topic:
-              type: string
             topic_from_attribute:
               type: string
             traces:
@@ -374,15 +480,19 @@ spec:
                 topic_from_metadata_key:
                   type: string
               type: map
+            use_leader_epoch:
+              type: bool
           type: map
         module: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/kafkaexporter
         signals:
           - traces
           - metrics
           - logs
+          - profiles
         stability:
           logs: beta
           metrics: beta
+          profiles: development
           traces: beta
         type: kafka
       nop:
@@ -391,157 +501,13 @@ spec:
           - traces
           - metrics
           - logs
+          - profiles
         stability:
           logs: beta
           metrics: beta
+          profiles: alpha
           traces: beta
         type: nop
-      opencensus:
-        fields:
-          children:
-            auth:
-              children:
-                authenticator:
-                  type: string
-              type: map
-            authority:
-              type: string
-            balancer_name:
-              type: string
-            compression:
-              type: string
-            endpoint:
-              type: string
-            headers:
-              open: true
-              type: map
-            keepalive:
-              children:
-                permit_without_stream:
-                  type: bool
-                time:
-                  type: duration
-                timeout:
-                  type: duration
-              type: map
-            middlewares:
-              children:
-                item:
-                  children:
-                    id:
-                      type: string
-                  type: map
-              type: list
-            num_workers:
-              type: int
-            read_buffer_size:
-              type: int
-            retry_on_failure:
-              children:
-                enabled:
-                  type: bool
-                initial_interval:
-                  type: duration
-                max_elapsed_time:
-                  type: duration
-                max_interval:
-                  type: duration
-                multiplier:
-                  type: float
-                randomization_factor:
-                  type: float
-              type: map
-            sending_queue:
-              children:
-                batch:
-                  children:
-                    flush_timeout:
-                      type: duration
-                    max_size:
-                      type: int
-                    min_size:
-                      type: int
-                    sizer:
-                      type: string
-                  type: map
-                block_on_overflow:
-                  type: bool
-                enabled:
-                  type: bool
-                num_consumers:
-                  type: int
-                queue_size:
-                  type: int
-                sizer:
-                  type: string
-                storage:
-                  type: string
-                wait_for_result:
-                  type: bool
-              type: map
-            tls:
-              children:
-                ca_file:
-                  type: string
-                ca_pem:
-                  type: string
-                cert_file:
-                  type: string
-                cert_pem:
-                  type: string
-                cipher_suites:
-                  children:
-                    item:
-                      type: string
-                  type: list
-                curve_preferences:
-                  children:
-                    item:
-                      type: string
-                  type: list
-                include_system_ca_certs_pool:
-                  type: bool
-                insecure:
-                  type: bool
-                insecure_skip_verify:
-                  type: bool
-                key_file:
-                  type: string
-                key_pem:
-                  type: string
-                max_version:
-                  type: string
-                min_version:
-                  type: string
-                reload_interval:
-                  type: duration
-                server_name_override:
-                  type: string
-                tpm:
-                  children:
-                    auth:
-                      type: string
-                    enabled:
-                      type: bool
-                    owner_auth:
-                      type: string
-                    path:
-                      type: string
-                  type: map
-              type: map
-            wait_for_ready:
-              type: bool
-            write_buffer_size:
-              type: int
-          type: map
-        module: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/opencensusexporter
-        signals:
-          - traces
-          - metrics
-        stability:
-          metrics: deprecated
-          traces: deprecated
-        type: opencensus
       otlp:
         fields:
           children:
@@ -558,9 +524,7 @@ spec:
               type: string
             endpoint:
               type: string
-            headers:
-              open: true
-              type: map
+            headers: {}
             keepalive:
               children:
                 permit_without_stream:
@@ -605,12 +569,18 @@ spec:
                       type: int
                     min_size:
                       type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
                     sizer:
                       type: string
                   type: map
                 block_on_overflow:
-                  type: bool
-                enabled:
                   type: bool
                 num_consumers:
                   type: int
@@ -689,10 +659,164 @@ spec:
         stability:
           logs: stable
           metrics: stable
-          profiles: development
+          profiles: alpha
           traces: stable
         type: otlp
-      otlphttp:
+      otlp_grpc:
+        fields:
+          children:
+            auth:
+              children:
+                authenticator:
+                  type: string
+              type: map
+            authority:
+              type: string
+            balancer_name:
+              type: string
+            compression:
+              type: string
+            endpoint:
+              type: string
+            headers: {}
+            keepalive:
+              children:
+                permit_without_stream:
+                  type: bool
+                time:
+                  type: duration
+                timeout:
+                  type: duration
+              type: map
+            middlewares:
+              children:
+                item:
+                  children:
+                    id:
+                      type: string
+                  type: map
+              type: list
+            read_buffer_size:
+              type: int
+            retry_on_failure:
+              children:
+                enabled:
+                  type: bool
+                initial_interval:
+                  type: duration
+                max_elapsed_time:
+                  type: duration
+                max_interval:
+                  type: duration
+                multiplier:
+                  type: float
+                randomization_factor:
+                  type: float
+              type: map
+            sending_queue:
+              children:
+                batch:
+                  children:
+                    flush_timeout:
+                      type: duration
+                    max_size:
+                      type: int
+                    min_size:
+                      type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
+                    sizer:
+                      type: string
+                  type: map
+                block_on_overflow:
+                  type: bool
+                num_consumers:
+                  type: int
+                queue_size:
+                  type: int
+                sizer:
+                  type: string
+                storage:
+                  type: string
+                wait_for_result:
+                  type: bool
+              type: map
+            timeout:
+              type: duration
+            tls:
+              children:
+                ca_file:
+                  type: string
+                ca_pem:
+                  type: string
+                cert_file:
+                  type: string
+                cert_pem:
+                  type: string
+                cipher_suites:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                curve_preferences:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                include_system_ca_certs_pool:
+                  type: bool
+                insecure:
+                  type: bool
+                insecure_skip_verify:
+                  type: bool
+                key_file:
+                  type: string
+                key_pem:
+                  type: string
+                max_version:
+                  type: string
+                min_version:
+                  type: string
+                reload_interval:
+                  type: duration
+                server_name_override:
+                  type: string
+                tpm:
+                  children:
+                    auth:
+                      type: string
+                    enabled:
+                      type: bool
+                    owner_auth:
+                      type: string
+                    path:
+                      type: string
+                  type: map
+              type: map
+            wait_for_ready:
+              type: bool
+            write_buffer_size:
+              type: int
+          type: map
+        module: go.opentelemetry.io/collector/exporter/otlpexporter
+        signals:
+          - traces
+          - metrics
+          - logs
+          - profiles
+        stability:
+          logs: stable
+          metrics: stable
+          profiles: alpha
+          traces: stable
+        type: otlp_grpc
+      otlp_http:
         fields:
           children:
             auth:
@@ -708,9 +832,7 @@ spec:
                   type: int
               type: map
             cookies:
-              children:
-                enabled:
-                  type: bool
+              open: true
               type: map
             disable_keep_alives:
               type: bool
@@ -718,9 +840,9 @@ spec:
               type: string
             endpoint:
               type: string
-            headers:
-              open: true
-              type: map
+            force_attempt_http2:
+              type: bool
+            headers: {}
             http2_ping_timeout:
               type: duration
             http2_read_idle_timeout:
@@ -737,7 +859,7 @@ spec:
               type: int
             metrics_endpoint:
               type: string
-            middleware:
+            middlewares:
               children:
                 item:
                   children:
@@ -745,6 +867,8 @@ spec:
                       type: string
                   type: map
               type: list
+            profiles_endpoint:
+              type: string
             proxy_url:
               type: string
             read_buffer_size:
@@ -774,12 +898,18 @@ spec:
                       type: int
                     min_size:
                       type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
                     sizer:
                       type: string
                   type: map
                 block_on_overflow:
-                  type: bool
-                enabled:
                   type: bool
                 num_consumers:
                   type: int
@@ -858,7 +988,182 @@ spec:
         stability:
           logs: stable
           metrics: stable
-          profiles: development
+          profiles: alpha
+          traces: stable
+        type: otlp_http
+      otlphttp:
+        fields:
+          children:
+            auth:
+              children:
+                authenticator:
+                  type: string
+              type: map
+            compression:
+              type: string
+            compression_params:
+              children:
+                level:
+                  type: int
+              type: map
+            cookies:
+              open: true
+              type: map
+            disable_keep_alives:
+              type: bool
+            encoding:
+              type: string
+            endpoint:
+              type: string
+            force_attempt_http2:
+              type: bool
+            headers: {}
+            http2_ping_timeout:
+              type: duration
+            http2_read_idle_timeout:
+              type: duration
+            idle_conn_timeout:
+              type: duration
+            logs_endpoint:
+              type: string
+            max_conns_per_host:
+              type: int
+            max_idle_conns:
+              type: int
+            max_idle_conns_per_host:
+              type: int
+            metrics_endpoint:
+              type: string
+            middlewares:
+              children:
+                item:
+                  children:
+                    id:
+                      type: string
+                  type: map
+              type: list
+            profiles_endpoint:
+              type: string
+            proxy_url:
+              type: string
+            read_buffer_size:
+              type: int
+            retry_on_failure:
+              children:
+                enabled:
+                  type: bool
+                initial_interval:
+                  type: duration
+                max_elapsed_time:
+                  type: duration
+                max_interval:
+                  type: duration
+                multiplier:
+                  type: float
+                randomization_factor:
+                  type: float
+              type: map
+            sending_queue:
+              children:
+                batch:
+                  children:
+                    flush_timeout:
+                      type: duration
+                    max_size:
+                      type: int
+                    min_size:
+                      type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
+                    sizer:
+                      type: string
+                  type: map
+                block_on_overflow:
+                  type: bool
+                num_consumers:
+                  type: int
+                queue_size:
+                  type: int
+                sizer:
+                  type: string
+                storage:
+                  type: string
+                wait_for_result:
+                  type: bool
+              type: map
+            timeout:
+              type: duration
+            tls:
+              children:
+                ca_file:
+                  type: string
+                ca_pem:
+                  type: string
+                cert_file:
+                  type: string
+                cert_pem:
+                  type: string
+                cipher_suites:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                curve_preferences:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                include_system_ca_certs_pool:
+                  type: bool
+                insecure:
+                  type: bool
+                insecure_skip_verify:
+                  type: bool
+                key_file:
+                  type: string
+                key_pem:
+                  type: string
+                max_version:
+                  type: string
+                min_version:
+                  type: string
+                reload_interval:
+                  type: duration
+                server_name_override:
+                  type: string
+                tpm:
+                  children:
+                    auth:
+                      type: string
+                    enabled:
+                      type: bool
+                    owner_auth:
+                      type: string
+                    path:
+                      type: string
+                  type: map
+              type: map
+            traces_endpoint:
+              type: string
+            write_buffer_size:
+              type: int
+          type: map
+        module: go.opentelemetry.io/collector/exporter/otlphttpexporter
+        signals:
+          - traces
+          - metrics
+          - logs
+          - profiles
+        stability:
+          logs: stable
+          metrics: stable
+          profiles: alpha
           traces: stable
         type: otlphttp
       prometheus:
@@ -899,6 +1204,11 @@ spec:
                 max_age:
                   type: int
               type: map
+            dialer:
+              children:
+                timeout:
+                  type: duration
+              type: map
             enable_open_metrics:
               type: bool
             endpoint:
@@ -907,11 +1217,13 @@ spec:
               type: duration
             include_metadata:
               type: bool
+            keep_alives_enabled:
+              type: bool
             max_request_body_size:
               type: int
             metric_expiration:
               type: duration
-            middleware:
+            middlewares:
               children:
                 item:
                   children:
@@ -929,12 +1241,56 @@ spec:
               children:
                 enabled:
                   type: bool
+                exclude_service_attributes:
+                  type: bool
               type: map
             response_headers:
-              open: true
-              type: map
+              children:
+                item:
+                  children:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  type: map
             send_timestamps:
               type: bool
+            sending_queue:
+              children:
+                batch:
+                  children:
+                    flush_timeout:
+                      type: duration
+                    max_size:
+                      type: int
+                    min_size:
+                      type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
+                    sizer:
+                      type: string
+                  type: map
+                block_on_overflow:
+                  type: bool
+                enabled:
+                  type: bool
+                num_consumers:
+                  type: int
+                queue_size:
+                  type: int
+                sizer:
+                  type: string
+                storage:
+                  type: string
+                wait_for_result:
+                  type: bool
+              type: map
             tls:
               children:
                 ca_file:
@@ -983,6 +1339,12 @@ spec:
                       type: string
                   type: map
               type: map
+            translation_strategy:
+              type: string
+            transport:
+              type: string
+            without_scope_info:
+              type: bool
             write_timeout:
               type: duration
           type: map
@@ -1010,25 +1372,37 @@ spec:
                   type: int
               type: map
             cookies:
-              children:
-                enabled:
-                  type: bool
+              open: true
               type: map
             disable_keep_alives:
+              type: bool
+            disable_scope_info:
+              type: bool
+            enabled:
               type: bool
             endpoint:
               type: string
             external_labels:
               open: true
               type: map
+            force_attempt_http2:
+              type: bool
             headers:
-              open: true
-              type: map
+              children:
+                item:
+                  children:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  type: map
             http2_ping_timeout:
               type: duration
             http2_read_idle_timeout:
               type: duration
             idle_conn_timeout:
+              type: duration
+            initial_interval:
               type: duration
             max_batch_request_parallelism:
               type: int
@@ -1036,11 +1410,15 @@ spec:
               type: int
             max_conns_per_host:
               type: int
+            max_elapsed_time:
+              type: duration
             max_idle_conns:
               type: int
             max_idle_conns_per_host:
               type: int
-            middleware:
+            max_interval:
+              type: duration
+            middlewares:
               children:
                 item:
                   children:
@@ -1048,6 +1426,8 @@ spec:
                       type: string
                   type: map
               type: list
+            multiplier:
+              type: float
             namespace:
               type: string
             protobuf_message:
@@ -1055,6 +1435,8 @@ spec:
               type: map
             proxy_url:
               type: string
+            randomization_factor:
+              type: float
             read_buffer_size:
               type: int
             remote_write_queue:
@@ -1069,6 +1451,8 @@ spec:
             resource_to_telemetry_conversion:
               children:
                 enabled:
+                  type: bool
+                exclude_service_attributes:
                   type: bool
               type: map
             retry_on_failure:
@@ -1151,6 +1535,8 @@ spec:
                   type: int
                 directory:
                   type: string
+                lag_record_frequency:
+                  type: duration
                 truncate_frequency:
                   type: duration
               type: map
@@ -1179,34 +1565,48 @@ spec:
                   type: int
               type: map
             cookies:
-              children:
-                enabled:
-                  type: bool
+              open: true
               type: map
             default_service_name:
               type: string
             disable_keep_alives:
               type: bool
+            enabled:
+              type: bool
             endpoint:
               type: string
+            force_attempt_http2:
+              type: bool
             format:
               type: string
             headers:
-              open: true
-              type: map
+              children:
+                item:
+                  children:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  type: map
             http2_ping_timeout:
               type: duration
             http2_read_idle_timeout:
               type: duration
             idle_conn_timeout:
               type: duration
+            initial_interval:
+              type: duration
             max_conns_per_host:
               type: int
+            max_elapsed_time:
+              type: duration
             max_idle_conns:
               type: int
             max_idle_conns_per_host:
               type: int
-            middleware:
+            max_interval:
+              type: duration
+            middlewares:
               children:
                 item:
                   children:
@@ -1214,8 +1614,12 @@ spec:
                       type: string
                   type: map
               type: list
+            multiplier:
+              type: float
             proxy_url:
               type: string
+            randomization_factor:
+              type: float
             read_buffer_size:
               type: int
             retry_on_failure:
@@ -1243,6 +1647,14 @@ spec:
                       type: int
                     min_size:
                       type: int
+                    partition:
+                      children:
+                        metadata_keys:
+                          children:
+                            item:
+                              type: string
+                          type: list
+                      type: map
                     sizer:
                       type: string
                   type: map
@@ -1345,6 +1757,15 @@ spec:
                 interval:
                   type: string
               type: map
+            component_health:
+              children:
+                include_permanent_errors:
+                  type: bool
+                include_recoverable_errors:
+                  type: bool
+                recovery_duration:
+                  type: duration
+              type: map
             compression_algorithms:
               children:
                 item:
@@ -1365,15 +1786,259 @@ spec:
                 max_age:
                   type: int
               type: map
+            dialer:
+              children:
+                timeout:
+                  type: duration
+              type: map
             endpoint:
               type: string
+            grpc:
+              children:
+                auth:
+                  children:
+                    authenticator:
+                      type: string
+                  type: map
+                dialer:
+                  children:
+                    timeout:
+                      type: duration
+                  type: map
+                endpoint:
+                  type: string
+                include_metadata:
+                  type: bool
+                keepalive:
+                  children:
+                    enforcement_policy:
+                      children:
+                        min_time:
+                          type: duration
+                        permit_without_stream:
+                          type: bool
+                      type: map
+                    server_parameters:
+                      children:
+                        max_connection_age:
+                          type: duration
+                        max_connection_age_grace:
+                          type: duration
+                        max_connection_idle:
+                          type: duration
+                        time:
+                          type: duration
+                        timeout:
+                          type: duration
+                      type: map
+                  type: map
+                max_concurrent_streams:
+                  type: int
+                max_recv_msg_size_mib:
+                  type: int
+                middlewares:
+                  children:
+                    item:
+                      children:
+                        id:
+                          type: string
+                      type: map
+                  type: list
+                read_buffer_size:
+                  type: int
+                tls:
+                  children:
+                    ca_file:
+                      type: string
+                    ca_pem:
+                      type: string
+                    cert_file:
+                      type: string
+                    cert_pem:
+                      type: string
+                    cipher_suites:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    client_ca_file:
+                      type: string
+                    client_ca_file_reload:
+                      type: bool
+                    curve_preferences:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    include_system_ca_certs_pool:
+                      type: bool
+                    key_file:
+                      type: string
+                    key_pem:
+                      type: string
+                    max_version:
+                      type: string
+                    min_version:
+                      type: string
+                    reload_interval:
+                      type: duration
+                    tpm:
+                      children:
+                        auth:
+                          type: string
+                        enabled:
+                          type: bool
+                        owner_auth:
+                          type: string
+                        path:
+                          type: string
+                      type: map
+                  type: map
+                transport:
+                  type: string
+                write_buffer_size:
+                  type: int
+              type: map
+            http:
+              children:
+                auth:
+                  children:
+                    authenticator:
+                      type: string
+                    request_params:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                  type: map
+                compression_algorithms:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                config:
+                  children:
+                    enabled:
+                      type: bool
+                    include_attributes:
+                      type: bool
+                    path:
+                      type: string
+                  type: map
+                cors:
+                  children:
+                    allowed_headers:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    allowed_origins:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    max_age:
+                      type: int
+                  type: map
+                dialer:
+                  children:
+                    timeout:
+                      type: duration
+                  type: map
+                endpoint:
+                  type: string
+                idle_timeout:
+                  type: duration
+                include_metadata:
+                  type: bool
+                keep_alives_enabled:
+                  type: bool
+                max_request_body_size:
+                  type: int
+                middlewares:
+                  children:
+                    item:
+                      children:
+                        id:
+                          type: string
+                      type: map
+                  type: list
+                read_header_timeout:
+                  type: duration
+                read_timeout:
+                  type: duration
+                response_headers: {}
+                status:
+                  children:
+                    enabled:
+                      type: bool
+                    include_attributes:
+                      type: bool
+                    path:
+                      type: string
+                  type: map
+                tls:
+                  children:
+                    ca_file:
+                      type: string
+                    ca_pem:
+                      type: string
+                    cert_file:
+                      type: string
+                    cert_pem:
+                      type: string
+                    cipher_suites:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    client_ca_file:
+                      type: string
+                    client_ca_file_reload:
+                      type: bool
+                    curve_preferences:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    include_system_ca_certs_pool:
+                      type: bool
+                    key_file:
+                      type: string
+                    key_pem:
+                      type: string
+                    max_version:
+                      type: string
+                    min_version:
+                      type: string
+                    reload_interval:
+                      type: duration
+                    tpm:
+                      children:
+                        auth:
+                          type: string
+                        enabled:
+                          type: bool
+                        owner_auth:
+                          type: string
+                        path:
+                          type: string
+                      type: map
+                  type: map
+                transport:
+                  type: string
+                write_timeout:
+                  type: duration
+              type: map
             idle_timeout:
               type: duration
             include_metadata:
               type: bool
+            keep_alives_enabled:
+              type: bool
             max_request_body_size:
               type: int
-            middleware:
+            middlewares:
               children:
                 item:
                   children:
@@ -1394,9 +2059,7 @@ spec:
                 unhealthy:
                   type: string
               type: map
-            response_headers:
-              open: true
-              type: map
+            response_headers: {}
             tls:
               children:
                 ca_file:
@@ -1445,12 +2108,16 @@ spec:
                       type: string
                   type: map
               type: map
+            transport:
+              type: string
+            use_v2:
+              type: bool
             write_timeout:
               type: duration
           type: map
         module: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension
         stability:
-          extension: beta
+          extension: alpha
         type: health_check
       pprof:
         fields:
@@ -1506,6 +2173,11 @@ spec:
                 max_age:
                   type: int
               type: map
+            dialer:
+              children:
+                timeout:
+                  type: duration
+              type: map
             endpoint:
               type: string
             expvar:
@@ -1517,9 +2189,11 @@ spec:
               type: duration
             include_metadata:
               type: bool
+            keep_alives_enabled:
+              type: bool
             max_request_body_size:
               type: int
-            middleware:
+            middlewares:
               children:
                 item:
                   children:
@@ -1531,9 +2205,7 @@ spec:
               type: duration
             read_timeout:
               type: duration
-            response_headers:
-              open: true
-              type: map
+            response_headers: {}
             tls:
               children:
                 ca_file:
@@ -1582,6 +2254,8 @@ spec:
                       type: string
                   type: map
               type: map
+            transport:
+              type: string
             write_timeout:
               type: duration
           type: map
@@ -1601,6 +2275,9 @@ spec:
                       type: string
                     converted_type:
                       type: string
+                    default_value:
+                      open: true
+                      type: map
                     from_attribute:
                       type: string
                     from_context:
@@ -1819,6 +2496,21 @@ spec:
           children:
             error_mode:
               type: string
+            log_conditions:
+              children:
+                item:
+                  children:
+                    conditions:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    context:
+                      type: string
+                    error_mode:
+                      type: string
+                  type: map
+              type: list
             logs:
               children:
                 exclude:
@@ -1914,7 +2606,27 @@ spec:
                     item:
                       type: string
                   type: list
+                resource:
+                  children:
+                    item:
+                      type: string
+                  type: list
               type: map
+            metric_conditions:
+              children:
+                item:
+                  children:
+                    conditions:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    context:
+                      type: string
+                    error_mode:
+                      type: string
+                  type: map
+              type: list
             metrics:
               children:
                 datapoint:
@@ -2000,6 +2712,39 @@ spec:
                     cachemaxnumentries:
                       type: int
                   type: map
+                resource:
+                  children:
+                    item:
+                      type: string
+                  type: list
+              type: map
+            profile_conditions:
+              children:
+                item:
+                  children:
+                    conditions:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    context:
+                      type: string
+                    error_mode:
+                      type: string
+                  type: map
+              type: list
+            profiles:
+              children:
+                profile:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                resource:
+                  children:
+                    item:
+                      type: string
+                  type: list
               type: map
             spans:
               children:
@@ -2166,8 +2911,28 @@ spec:
                       type: list
                   type: map
               type: map
+            trace_conditions:
+              children:
+                item:
+                  children:
+                    conditions:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    context:
+                      type: string
+                    error_mode:
+                      type: string
+                  type: map
+              type: list
             traces:
               children:
+                resource:
+                  children:
+                    item:
+                      type: string
+                  type: list
                 span:
                   children:
                     item:
@@ -2185,9 +2950,11 @@ spec:
           - traces
           - metrics
           - logs
+          - profiles
         stability:
           logs: alpha
           metrics: alpha
+          profiles: development
           traces: alpha
         type: filter
       memory_limiter:
@@ -2259,6 +3026,9 @@ spec:
                       type: string
                     converted_type:
                       type: string
+                    default_value:
+                      open: true
+                      type: map
                     from_attribute:
                       type: string
                     from_context:
@@ -2512,6 +3282,112 @@ spec:
       jaeger:
         fields:
           children:
+            grpc:
+              children:
+                auth:
+                  children:
+                    authenticator:
+                      type: string
+                  type: map
+                dialer:
+                  children:
+                    timeout:
+                      type: duration
+                  type: map
+                endpoint:
+                  type: string
+                include_metadata:
+                  type: bool
+                keepalive:
+                  children:
+                    enforcement_policy:
+                      children:
+                        min_time:
+                          type: duration
+                        permit_without_stream:
+                          type: bool
+                      type: map
+                    server_parameters:
+                      children:
+                        max_connection_age:
+                          type: duration
+                        max_connection_age_grace:
+                          type: duration
+                        max_connection_idle:
+                          type: duration
+                        time:
+                          type: duration
+                        timeout:
+                          type: duration
+                      type: map
+                  type: map
+                max_concurrent_streams:
+                  type: int
+                max_recv_msg_size_mib:
+                  type: int
+                middlewares:
+                  children:
+                    item:
+                      children:
+                        id:
+                          type: string
+                      type: map
+                  type: list
+                read_buffer_size:
+                  type: int
+                tls:
+                  children:
+                    ca_file:
+                      type: string
+                    ca_pem:
+                      type: string
+                    cert_file:
+                      type: string
+                    cert_pem:
+                      type: string
+                    cipher_suites:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    client_ca_file:
+                      type: string
+                    client_ca_file_reload:
+                      type: bool
+                    curve_preferences:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    include_system_ca_certs_pool:
+                      type: bool
+                    key_file:
+                      type: string
+                    key_pem:
+                      type: string
+                    max_version:
+                      type: string
+                    min_version:
+                      type: string
+                    reload_interval:
+                      type: duration
+                    tpm:
+                      children:
+                        auth:
+                          type: string
+                        enabled:
+                          type: bool
+                        owner_auth:
+                          type: string
+                        path:
+                          type: string
+                      type: map
+                  type: map
+                transport:
+                  type: string
+                write_buffer_size:
+                  type: int
+              type: map
             protocols:
               children:
                 grpc:
@@ -2678,15 +3554,22 @@ spec:
                         max_age:
                           type: int
                       type: map
+                    dialer:
+                      children:
+                        timeout:
+                          type: duration
+                      type: map
                     endpoint:
                       type: string
                     idle_timeout:
                       type: duration
                     include_metadata:
                       type: bool
+                    keep_alives_enabled:
+                      type: bool
                     max_request_body_size:
                       type: int
-                    middleware:
+                    middlewares:
                       children:
                         item:
                           children:
@@ -2698,9 +3581,7 @@ spec:
                       type: duration
                     read_timeout:
                       type: duration
-                    response_headers:
-                      open: true
-                      type: map
+                    response_headers: {}
                     tls:
                       children:
                         ca_file:
@@ -2749,6 +3630,8 @@ spec:
                               type: string
                           type: map
                       type: map
+                    transport:
+                      type: string
                     write_timeout:
                       type: duration
                   type: map
@@ -2769,8 +3652,14 @@ spec:
                 endpoint:
                   type: string
                 headers:
-                  open: true
-                  type: map
+                  children:
+                    item:
+                      children:
+                        name:
+                          type: string
+                        value:
+                          type: string
+                      type: map
                 host_endpoint:
                   type: string
                 keepalive:
@@ -2851,6 +3740,147 @@ spec:
                 write_buffer_size:
                   type: int
               type: map
+            thrift_binary:
+              children:
+                endpoint:
+                  type: string
+                max_packet_size:
+                  type: int
+                queue_size:
+                  type: int
+                socket_buffer_size:
+                  type: int
+                workers:
+                  type: int
+              type: map
+            thrift_compact:
+              children:
+                endpoint:
+                  type: string
+                max_packet_size:
+                  type: int
+                queue_size:
+                  type: int
+                socket_buffer_size:
+                  type: int
+                workers:
+                  type: int
+              type: map
+            thrift_http:
+              children:
+                auth:
+                  children:
+                    authenticator:
+                      type: string
+                    request_params:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                  type: map
+                compression_algorithms:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                cors:
+                  children:
+                    allowed_headers:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    allowed_origins:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    max_age:
+                      type: int
+                  type: map
+                endpoint:
+                  type: string
+                idle_timeout:
+                  type: duration
+                include_metadata:
+                  type: bool
+                keep_alives_enabled:
+                  type: bool
+                max_request_body_size:
+                  type: int
+                middlewares:
+                  children:
+                    item:
+                      children:
+                        id:
+                          type: string
+                      type: map
+                  type: list
+                read_header_timeout:
+                  type: duration
+                read_timeout:
+                  type: duration
+                response_headers:
+                  children:
+                    item:
+                      children:
+                        name:
+                          type: string
+                        value:
+                          type: string
+                      type: map
+                  type: list
+                tls:
+                  children:
+                    ca_file:
+                      type: string
+                    ca_pem:
+                      type: string
+                    cert_file:
+                      type: string
+                    cert_pem:
+                      type: string
+                    cipher_suites:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    client_ca_file:
+                      type: string
+                    client_ca_file_reload:
+                      type: bool
+                    curve_preferences:
+                      children:
+                        item:
+                          type: string
+                      type: list
+                    include_system_ca_certs_pool:
+                      type: bool
+                    key_file:
+                      type: string
+                    key_pem:
+                      type: string
+                    max_version:
+                      type: string
+                    min_version:
+                      type: string
+                    reload_interval:
+                      type: duration
+                    tpm:
+                      children:
+                        auth:
+                          type: string
+                        enabled:
+                          type: bool
+                        owner_auth:
+                          type: string
+                        path:
+                          type: string
+                      type: map
+                  type: map
+                write_timeout:
+                  type: duration
+              type: map
           type: map
         module: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver
         signals:
@@ -2897,6 +3927,8 @@ spec:
                           type: string
                       type: map
                     mechanism:
+                      type: string
+                    oauthbearer_token_source:
                       type: string
                     password:
                       type: string
@@ -2970,10 +4002,8 @@ spec:
               type: list
             client_id:
               type: string
-            default_fetch_size:
-              type: int
-            encoding:
-              type: string
+            conn_idle_timeout:
+              type: duration
             error_backoff:
               children:
                 enabled:
@@ -3013,18 +4043,30 @@ spec:
               children:
                 encoding:
                   type: string
-                topic:
-                  type: string
+                exclude_topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
               type: map
             max_fetch_size:
               type: int
             max_fetch_wait:
               type: duration
+            max_partition_fetch_size:
+              type: int
             message_marking:
               children:
                 after:
                   type: bool
                 on_error:
+                  type: bool
+                on_permanent_error:
                   type: bool
               type: map
             metadata:
@@ -3045,17 +4087,53 @@ spec:
               children:
                 encoding:
                   type: string
-                topic:
-                  type: string
+                exclude_topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
               type: map
             min_fetch_size:
               type: int
+            profiles:
+              children:
+                encoding:
+                  type: string
+                exclude_topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
+              type: map
             protocol_version:
+              type: string
+            rack_id:
               type: string
             resolve_canonical_bootstrap_servers_only:
               type: bool
             session_timeout:
               type: duration
+            telemetry:
+              children:
+                metrics:
+                  children:
+                    kafka_receiver_records_delay:
+                      children:
+                        enabled:
+                          type: bool
+                      type: map
+                  type: map
+              type: map
             tls:
               children:
                 ca_file:
@@ -3106,24 +4184,34 @@ spec:
                       type: string
                   type: map
               type: map
-            topic:
-              type: string
             traces:
               children:
                 encoding:
                   type: string
-                topic:
-                  type: string
+                exclude_topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
+                topics:
+                  children:
+                    item:
+                      type: string
+                  type: list
               type: map
+            use_leader_epoch:
+              type: bool
           type: map
         module: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkareceiver
         signals:
           - traces
           - metrics
           - logs
+          - profiles
         stability:
           logs: beta
           metrics: beta
+          profiles: development
           traces: beta
         type: kafka
       nop:
@@ -3132,131 +4220,13 @@ spec:
           - traces
           - metrics
           - logs
+          - profiles
         stability:
           logs: beta
           metrics: beta
+          profiles: alpha
           traces: beta
         type: nop
-      opencensus:
-        fields:
-          children:
-            auth:
-              children:
-                authenticator:
-                  type: string
-              type: map
-            cors_allowed_origins:
-              children:
-                item:
-                  type: string
-              type: list
-            dialer:
-              children:
-                timeout:
-                  type: duration
-              type: map
-            endpoint:
-              type: string
-            include_metadata:
-              type: bool
-            keepalive:
-              children:
-                enforcement_policy:
-                  children:
-                    min_time:
-                      type: duration
-                    permit_without_stream:
-                      type: bool
-                  type: map
-                server_parameters:
-                  children:
-                    max_connection_age:
-                      type: duration
-                    max_connection_age_grace:
-                      type: duration
-                    max_connection_idle:
-                      type: duration
-                    time:
-                      type: duration
-                    timeout:
-                      type: duration
-                  type: map
-              type: map
-            max_concurrent_streams:
-              type: int
-            max_recv_msg_size_mib:
-              type: int
-            middlewares:
-              children:
-                item:
-                  children:
-                    id:
-                      type: string
-                  type: map
-              type: list
-            read_buffer_size:
-              type: int
-            tls:
-              children:
-                ca_file:
-                  type: string
-                ca_pem:
-                  type: string
-                cert_file:
-                  type: string
-                cert_pem:
-                  type: string
-                cipher_suites:
-                  children:
-                    item:
-                      type: string
-                  type: list
-                client_ca_file:
-                  type: string
-                client_ca_file_reload:
-                  type: bool
-                curve_preferences:
-                  children:
-                    item:
-                      type: string
-                  type: list
-                include_system_ca_certs_pool:
-                  type: bool
-                key_file:
-                  type: string
-                key_pem:
-                  type: string
-                max_version:
-                  type: string
-                min_version:
-                  type: string
-                reload_interval:
-                  type: duration
-                tpm:
-                  children:
-                    auth:
-                      type: string
-                    enabled:
-                      type: bool
-                    owner_auth:
-                      type: string
-                    path:
-                      type: string
-                  type: map
-              type: map
-            transport:
-              type: string
-            write_buffer_size:
-              type: int
-          type: map
-        module: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver
-        signals:
-          - traces
-          - metrics
-        stability:
-          metrics: deprecated
-          traces: deprecated
-        type: opencensus
       otlp:
         fields:
           children:
@@ -3400,11 +4370,18 @@ spec:
                         max_age:
                           type: int
                       type: map
+                    dialer:
+                      children:
+                        timeout:
+                          type: duration
+                      type: map
                     endpoint:
                       type: string
                     idle_timeout:
                       type: duration
                     include_metadata:
+                      type: bool
+                    keep_alives_enabled:
                       type: bool
                     logs_url_path:
                       type: string
@@ -3412,7 +4389,7 @@ spec:
                       type: int
                     metrics_url_path:
                       type: string
-                    middleware:
+                    middlewares:
                       children:
                         item:
                           children:
@@ -3424,9 +4401,7 @@ spec:
                       type: duration
                     read_timeout:
                       type: duration
-                    response_headers:
-                      open: true
-                      type: map
+                    response_headers: {}
                     tls:
                       children:
                         ca_file:
@@ -3477,6 +4452,8 @@ spec:
                       type: map
                     traces_url_path:
                       type: string
+                    transport:
+                      type: string
                     write_timeout:
                       type: duration
                   type: map
@@ -3491,7 +4468,7 @@ spec:
         stability:
           logs: stable
           metrics: stable
-          profiles: development
+          profiles: alpha
           traces: stable
         type: otlp
       prometheus:
@@ -3533,15 +4510,22 @@ spec:
                         max_age:
                           type: int
                       type: map
+                    dialer:
+                      children:
+                        timeout:
+                          type: duration
+                      type: map
                     endpoint:
                       type: string
                     idle_timeout:
                       type: duration
                     include_metadata:
                       type: bool
+                    keep_alives_enabled:
+                      type: bool
                     max_request_body_size:
                       type: int
-                    middleware:
+                    middlewares:
                       children:
                         item:
                           children:
@@ -3554,8 +4538,14 @@ spec:
                     read_timeout:
                       type: duration
                     response_headers:
-                      open: true
-                      type: map
+                      children:
+                        item:
+                          children:
+                            name:
+                              type: string
+                            value:
+                              type: string
+                          type: map
                     tls:
                       children:
                         ca_file:
@@ -3604,15 +4594,13 @@ spec:
                               type: string
                           type: map
                       type: map
+                    transport:
+                      type: string
                     write_timeout:
                       type: duration
                   type: map
               type: map
             config: {}
-            report_extra_scrape_metrics:
-              type: bool
-            start_time_metric_regex:
-              type: string
             target_allocator:
               children:
                 auth:
@@ -3630,17 +4618,23 @@ spec:
                       type: int
                   type: map
                 cookies:
-                  children:
-                    enabled:
-                      type: bool
+                  open: true
                   type: map
                 disable_keep_alives:
                   type: bool
                 endpoint:
                   type: string
+                force_attempt_http2:
+                  type: bool
                 headers:
-                  open: true
-                  type: map
+                  children:
+                    item:
+                      children:
+                        name:
+                          type: string
+                        value:
+                          type: string
+                      type: map
                 http_scrape_config: {}
                 http_sd_config: {}
                 http2_ping_timeout:
@@ -3657,7 +4651,7 @@ spec:
                   type: int
                 max_idle_conns_per_host:
                   type: int
-                middleware:
+                middlewares:
                   children:
                     item:
                       children:
@@ -3726,8 +4720,6 @@ spec:
               type: map
             trim_metric_suffixes:
               type: bool
-            use_start_time_metric:
-              type: bool
           type: map
         module: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusreceiver
         signals:
@@ -3768,15 +4760,22 @@ spec:
                 max_age:
                   type: int
               type: map
+            dialer:
+              children:
+                timeout:
+                  type: duration
+              type: map
             endpoint:
               type: string
             idle_timeout:
               type: duration
             include_metadata:
               type: bool
+            keep_alives_enabled:
+              type: bool
             max_request_body_size:
               type: int
-            middleware:
+            middlewares:
               children:
                 item:
                   children:
@@ -3791,8 +4790,14 @@ spec:
             read_timeout:
               type: duration
             response_headers:
-              open: true
-              type: map
+              children:
+                item:
+                  children:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  type: map
             tls:
               children:
                 ca_file:
@@ -3841,6 +4846,8 @@ spec:
                       type: string
                   type: map
               type: map
+            transport:
+              type: string
             write_timeout:
               type: duration
           type: map
@@ -3850,6 +4857,6 @@ spec:
         stability:
           traces: beta
         type: zipkin
-  version: 0.130.0
+  version: 0.150.0
 status:
   conditions: null

@@ -13,6 +13,3 @@ coverage.out
 # macOS
 .DS_Store
 .bin/
-
-# Python
-__pycache__/
