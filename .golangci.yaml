@@ -111,6 +111,7 @@ linters:
             - github.com/puzpuzpuz/xsync/v3
             - github.com/spf13/pflag
             - github.com/jellydator/ttlcache/v3
+            - golang.org/x/mod/semver
             # authentication
             - golang.org/x/oauth2
             - golang.org/x/oauth2/github

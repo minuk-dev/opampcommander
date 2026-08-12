@@ -185,9 +185,12 @@ func buildServerSettings(
 		// Seed from the repository's default manifest directory so tests exercise the
 		// same built-in resources a stock deployment ships.
 		BootstrapSettings: config.BootstrapSettings{
-			Dir:              repoInitialDir(),
-			DefaultNamespace: agentmodel.DefaultNamespaceName,
-			DefaultRole:      usermodel.RoleDefault,
+			Dir: repoInitialDir(),
+			// Tests don't need the full schema library seeded; keep setup fast.
+			RemoteConfigSchemaDir:  "",
+			RemoteConfigSchemaLoad: config.RemoteConfigSchemaLoadNone,
+			DefaultNamespace:       agentmodel.DefaultNamespaceName,
+			DefaultRole:            usermodel.RoleDefault,
 		},
 		RBACModelPath: "",
 	}

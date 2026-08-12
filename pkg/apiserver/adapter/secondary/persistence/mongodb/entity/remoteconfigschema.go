@@ -35,8 +35,10 @@ type RemoteConfigSchemaResourceMetadata struct {
 type RemoteConfigSchemaResourceSpec struct {
 	Binary  string `bson:"binary"`
 	Version string `bson:"version"`
-	// Components is the component catalog keyed by open-ended component class.
-	Components map[string][]string `bson:"components,omitempty"`
+	// Components is the component catalog keyed by open-ended component class and then
+	// by component type name. The domain Component is stored directly (bson marshals
+	// it, including the nested config field schema).
+	Components map[string]map[string]agentmodel.Component `bson:"components,omitempty"`
 }
 
 // RemoteConfigSchemaResourceEntityStat represents the status of a schema resource.
@@ -85,7 +87,7 @@ func RemoteConfigSchemaResourceEntityFromDomain(
 		Spec: RemoteConfigSchemaResourceSpec{
 			Binary:     schema.Spec.Binary,
 			Version:    schema.Spec.Version,
-			Components: map[string][]string(schema.Spec.Components),
+			Components: map[string]map[string]agentmodel.Component(schema.Spec.Components),
 		},
 		Status: RemoteConfigSchemaResourceEntityStat{
 			Conditions: lo.Map(schema.Status.Conditions, func(c model.Condition, _ int) Condition {

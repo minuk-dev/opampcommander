@@ -31,13 +31,15 @@ service:
       exporters: [otlp/backend]
 `
 
+// seedSchema stores a schema whose catalog lists the given component names per class,
+// which is all schema matching looks at.
 func seedSchema(
-	t *testing.T, svc *agentservice.RemoteConfigSchemaService, name string, components agentmodel.ComponentCatalog,
+	t *testing.T, svc *agentservice.RemoteConfigSchemaService, name string, names map[string][]string,
 ) {
 	t.Helper()
 
 	schema := agentmodel.NewRemoteConfigSchema("default", name, nil, time.Now(), "tester")
-	schema.Spec.Components = components
+	schema.Spec.Components = catalogOf(names)
 
 	_, err := svc.CreateRemoteConfigSchema(t.Context(), schema, "tester")
 	require.NoError(t, err)
@@ -58,13 +60,13 @@ func TestRemoteConfigSchemaService_ResolveSchemaRefs(t *testing.T) {
 	ctx := t.Context()
 
 	// Compatible: contains every used component (otlp receiver, batch processor, otlp exporter).
-	seedSchema(t, svc, "contrib", agentmodel.ComponentCatalog{
+	seedSchema(t, svc, "contrib", map[string][]string{
 		"receivers":  {"otlp", "hostmetrics"},
 		"processors": {"batch", "memory_limiter"},
 		"exporters":  {"otlp", "debug"},
 	})
 	// Incompatible: missing the batch processor.
-	seedSchema(t, svc, "core", agentmodel.ComponentCatalog{
+	seedSchema(t, svc, "core", map[string][]string{
 		"receivers": {"otlp"},
 		"exporters": {"otlp"},
 	})
@@ -91,7 +93,7 @@ func TestRemoteConfigSchemaService_ResolveSchemaRefs_NoComponentsMatchesNone(t *
 	t.Parallel()
 
 	svc := agentservice.NewRemoteConfigSchemaService(inmemory.NewRemoteConfigSchemaRepository())
-	seedSchema(t, svc, "contrib", agentmodel.ComponentCatalog{"receivers": {"otlp"}})
+	seedSchema(t, svc, "contrib", map[string][]string{"receivers": {"otlp"}})
 
 	refs, err := svc.ResolveSchemaRefs(t.Context(), newSchemaRemoteConfig("service:\n  pipelines: {}\n"))
 	require.NoError(t, err)
@@ -106,7 +108,7 @@ func TestAgentRemoteConfigService_AutoResolvesSchemaRefs(t *testing.T) {
 
 	schemaRepo := inmemory.NewRemoteConfigSchemaRepository()
 	matcher := agentservice.NewRemoteConfigSchemaService(schemaRepo)
-	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{
+	seedSchema(t, matcher, "contrib", map[string][]string{
 		"receivers":  {"otlp"},
 		"processors": {"batch"},
 		"exporters":  {"otlp"},
@@ -129,7 +131,7 @@ func TestAgentRemoteConfigService_KeepsExplicitSchemaRefs(t *testing.T) {
 
 	schemaRepo := inmemory.NewRemoteConfigSchemaRepository()
 	matcher := agentservice.NewRemoteConfigSchemaService(schemaRepo)
-	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{"receivers": {"otlp"}})
+	seedSchema(t, matcher, "contrib", map[string][]string{"receivers": {"otlp"}})
 
 	arcSvc := agentservice.NewAgentRemoteConfigService(
 		inmemory.NewAgentRemoteConfigRepository(), nil, nil, matcher, nil)
@@ -150,7 +152,7 @@ func TestAgentRemoteConfigService_SkipAnnotationBypassesAutoResolve(t *testing.T
 
 	schemaRepo := inmemory.NewRemoteConfigSchemaRepository()
 	matcher := agentservice.NewRemoteConfigSchemaService(schemaRepo)
-	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{
+	seedSchema(t, matcher, "contrib", map[string][]string{
 		"receivers":  {"otlp"},
 		"processors": {"batch"},
 		"exporters":  {"otlp"},
@@ -176,7 +178,7 @@ func TestAgentRemoteConfigService_UpdateDoesNotAutoResolve(t *testing.T) {
 
 	schemaRepo := inmemory.NewRemoteConfigSchemaRepository()
 	matcher := agentservice.NewRemoteConfigSchemaService(schemaRepo)
-	seedSchema(t, matcher, "contrib", agentmodel.ComponentCatalog{
+	seedSchema(t, matcher, "contrib", map[string][]string{
 		"receivers":  {"otlp"},
 		"processors": {"batch"},
 		"exporters":  {"otlp"},
@@ -197,4 +199,21 @@ func TestAgentRemoteConfigService_UpdateDoesNotAutoResolve(t *testing.T) {
 	updated, err := arcSvc.UpdateAgentRemoteConfig(ctx, "default", "cfg", update)
 	require.NoError(t, err)
 	assert.Empty(t, updated.Spec.SchemaRefs)
+}
+
+// catalogOf builds a catalog of components known only by name.
+func catalogOf(names map[string][]string) agentmodel.ComponentCatalog {
+	catalog := make(agentmodel.ComponentCatalog, len(names))
+
+	for class, classNames := range names {
+		components := make(map[string]agentmodel.Component, len(classNames))
+		for _, name := range classNames {
+			//exhaustruct:ignore // a name-only catalog entry carries nothing else
+			components[name] = agentmodel.Component{Type: name}
+		}
+
+		catalog[class] = components
+	}
+
+	return catalog
 }

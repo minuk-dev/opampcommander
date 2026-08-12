@@ -53,6 +53,9 @@ var (
 	errEmptyUserEmail         = errors.New("user manifest has empty spec.email")
 	errEmptyEndpointName      = errors.New("endpoint manifest has empty metadata.name")
 	errEmptyEndpointNamespace = errors.New("endpoint manifest has empty metadata.namespace")
+
+	errEmptyRemoteConfigSchemaName      = errors.New("remote config schema manifest has empty metadata.name")
+	errEmptyRemoteConfigSchemaNamespace = errors.New("remote config schema manifest has empty metadata.namespace")
 )
 
 // bootstrapUIDNamespace is a fixed UUID namespace used to derive deterministic UIDs
@@ -84,6 +87,7 @@ type bootstrapDeps struct {
 	fs                        afero.Fs
 	namespaceUsecase          agentport.NamespaceUsecase
 	endpointUsecase           agentport.EndpointUsecase
+	schemaUsecase             agentport.RemoteConfigSchemaUsecase
 	rolePersistencePort       userport.RolePersistencePort
 	permissionPersistencePort userport.PermissionPersistencePort
 	userPersistencePort       userport.UserPersistencePort
@@ -217,6 +221,8 @@ func applyManifests(ctx context.Context, docs []manifestDoc, deps bootstrapDeps)
 			err = applyUser(ctx, doc, deps)
 		case v1.EndpointKind:
 			err = applyEndpoint(ctx, doc, deps)
+		case v1.RemoteConfigSchemaKind:
+			err = applyRemoteConfigSchemaDoc(ctx, doc, deps)
 		default:
 			return fmt.Errorf("%w: kind %q in %q", errUnsupportedKind, doc.kind, doc.source)
 		}
@@ -370,6 +376,207 @@ func reconcileBootstrapEndpoint(
 	}
 
 	return nil
+}
+
+// applyRemoteConfigSchemaDoc decodes a RemoteConfigSchema manifest document and applies it.
+func applyRemoteConfigSchemaDoc(ctx context.Context, doc manifestDoc, deps bootstrapDeps) error {
+	var apiSchema v1.RemoteConfigSchema
+
+	err := json.Unmarshal(doc.json, &apiSchema)
+	if err != nil {
+		return fmt.Errorf("decode RemoteConfigSchema from %q: %w", doc.source, err)
+	}
+
+	return applyRemoteConfigSchema(ctx, &apiSchema, doc.source, deps)
+}
+
+// applyRemoteConfigSchema upserts a RemoteConfigSchema. Like the other bootstrap
+// resources it is declarative: a missing schema is created with a Created condition,
+// and an existing one has its spec (binary/version/components) and attributes
+// overwritten from the manifest while its CreatedAt and conditions are preserved.
+// Redundant writes on unchanged manifests are skipped. Optimistic-concurrency
+// conflicts from a concurrent HA startup applying the same schema are retried by
+// re-reading, matching the endpoint applier.
+func applyRemoteConfigSchema(
+	ctx context.Context, apiSchema *v1.RemoteConfigSchema, source string, deps bootstrapDeps,
+) error {
+	name := apiSchema.Metadata.Name
+	if name == "" {
+		return fmt.Errorf("%w: %q", errEmptyRemoteConfigSchemaName, source)
+	}
+
+	namespace := apiSchema.Metadata.Namespace
+	if namespace == "" {
+		return fmt.Errorf("%w: %q", errEmptyRemoteConfigSchemaNamespace, source)
+	}
+
+	desired := helper.NewMapper(deps.clk, 0).MapAPIToRemoteConfigSchema(apiSchema)
+
+	for attempt := 0; ; attempt++ {
+		err := reconcileBootstrapRemoteConfigSchema(ctx, deps, namespace, name, desired)
+		if err == nil || !errors.Is(err, model.ErrConflict) || attempt >= bootstrapConflictRetries {
+			return err
+		}
+	}
+}
+
+// reconcileBootstrapRemoteConfigSchema creates the schema when absent, or updates it
+// in place when the manifest changes its spec/attributes, leaving it untouched when
+// already in the desired state. It may return a wrapped model.ErrConflict, which
+// applyRemoteConfigSchema retries.
+func reconcileBootstrapRemoteConfigSchema(
+	ctx context.Context, deps bootstrapDeps, namespace, name string, desired *agentmodel.RemoteConfigSchema,
+) error {
+	existing, err := deps.schemaUsecase.GetRemoteConfigSchema(ctx, namespace, name, nil)
+	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
+		return fmt.Errorf("check remote config schema %q/%q: %w", namespace, name, err)
+	}
+
+	if errors.Is(err, model.ErrResourceNotExist) {
+		deps.logger.Info("bootstrap: creating remote config schema",
+			slog.String("namespace", namespace), slog.String("name", name))
+
+		schema := agentmodel.NewRemoteConfigSchema(
+			namespace, name, desired.Metadata.Attributes, deps.clk.Now(), "system")
+		schema.Spec = desired.Spec
+
+		_, err = deps.schemaUsecase.SaveRemoteConfigSchema(ctx, schema)
+		if err != nil {
+			return fmt.Errorf("save remote config schema %q/%q: %w", namespace, name, err)
+		}
+
+		return nil
+	}
+
+	// Already exists: only re-save when the manifest actually changes the spec or
+	// attributes, to avoid a redundant write on every startup.
+	if reflect.DeepEqual(existing.Spec, desired.Spec) &&
+		maps.Equal(existing.Metadata.Attributes, desired.Metadata.Attributes) {
+		return nil
+	}
+
+	existing.ApplyUpdate(desired)
+
+	_, err = deps.schemaUsecase.SaveRemoteConfigSchema(ctx, existing)
+	if err != nil {
+		return fmt.Errorf("save remote config schema %q/%q: %w", namespace, name, err)
+	}
+
+	return nil
+}
+
+// reconcileRemoteConfigSchemas seeds the pre-built RemoteConfigSchema library from
+// dir according to policy: "latest" seeds only the newest version per distribution,
+// "all" seeds every version, "none" disables seeding. dir is loaded separately from
+// the main manifest reconciler, which ignores subdirectories.
+func reconcileRemoteConfigSchemas(ctx context.Context, dir, policy string, deps bootstrapDeps) error {
+	if policy == config.RemoteConfigSchemaLoadNone {
+		deps.logger.Info("bootstrap: remote config schema seeding disabled")
+
+		return nil
+	}
+
+	if dir == "" {
+		return nil
+	}
+
+	isDir, err := afero.DirExists(deps.fs, dir)
+	if err != nil {
+		return fmt.Errorf("stat remote config schema dir %q: %w", dir, err)
+	}
+
+	if !isDir {
+		deps.logger.Warn("bootstrap: remote config schema dir does not exist, skipping",
+			slog.String("dir", dir))
+
+		return nil
+	}
+
+	docs, err := loadManifestDocs(deps.fs, dir)
+	if err != nil {
+		return err
+	}
+
+	schemas, err := decodeRemoteConfigSchemaDocs(docs)
+	if err != nil {
+		return err
+	}
+
+	if policy == config.RemoteConfigSchemaLoadLatest {
+		schemas = latestRemoteConfigSchemaPerBinary(schemas)
+	}
+
+	deps.logger.Info("bootstrap: seeding remote config schemas",
+		slog.String("dir", dir),
+		slog.String("policy", policy),
+		slog.Int("count", len(schemas)),
+	)
+
+	for _, apiSchema := range schemas {
+		err = applyRemoteConfigSchema(ctx, apiSchema, apiSchema.Metadata.Name, deps)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// decodeRemoteConfigSchemaDocs decodes every document in the schema library dir into a
+// RemoteConfigSchema, rejecting any manifest whose apiVersion/kind is unexpected.
+func decodeRemoteConfigSchemaDocs(docs []manifestDoc) ([]*v1.RemoteConfigSchema, error) {
+	schemas := make([]*v1.RemoteConfigSchema, 0, len(docs))
+
+	for _, doc := range docs {
+		if doc.apiVersion != v1.APIVersion {
+			return nil, fmt.Errorf("%w: %q in %q (want %q)",
+				errUnsupportedAPIVersion, doc.apiVersion, doc.source, v1.APIVersion)
+		}
+
+		if doc.kind != v1.RemoteConfigSchemaKind {
+			return nil, fmt.Errorf("%w: kind %q in %q (remote config schema dir expects %q)",
+				errUnsupportedKind, doc.kind, doc.source, v1.RemoteConfigSchemaKind)
+		}
+
+		var apiSchema v1.RemoteConfigSchema
+
+		err := json.Unmarshal(doc.json, &apiSchema)
+		if err != nil {
+			return nil, fmt.Errorf("decode RemoteConfigSchema from %q: %w", doc.source, err)
+		}
+
+		schemas = append(schemas, &apiSchema)
+	}
+
+	return schemas, nil
+}
+
+// latestRemoteConfigSchemaPerBinary keeps only the highest-versioned schema for each
+// Spec.Binary, comparing Spec.Version as semver. The result is ordered by binary name
+// so seeding is deterministic.
+func latestRemoteConfigSchemaPerBinary(schemas []*v1.RemoteConfigSchema) []*v1.RemoteConfigSchema {
+	latest := make(map[string]*v1.RemoteConfigSchema)
+
+	for _, schema := range schemas {
+		current, ok := latest[schema.Spec.Binary]
+		if !ok || agentmodel.CompareCollectorVersion(schema.Spec.Version, current.Spec.Version) > 0 {
+			latest[schema.Spec.Binary] = schema
+		}
+	}
+
+	binaries := make([]string, 0, len(latest))
+	for binary := range latest {
+		binaries = append(binaries, binary)
+	}
+
+	sort.Strings(binaries)
+
+	out := make([]*v1.RemoteConfigSchema, 0, len(binaries))
+	for _, binary := range binaries {
+		out = append(out, latest[binary])
+	}
+
+	return out
 }
 
 // applyRole upserts a role, setting its permission list to exactly the manifest's
@@ -621,11 +828,13 @@ func ensurePermission(ctx context.Context, name string, deps bootstrapDeps) erro
 }
 
 // registerBootstrapHook reconciles the initial manifests under BootstrapSettings.Dir
-// into persistence on startup. When Dir is empty, reconciliation is skipped.
+// into persistence on startup, then seeds the pre-built RemoteConfigSchema library.
+// When Dir is empty, reconciliation is skipped.
 func registerBootstrapHook(
 	lifecycle fx.Lifecycle,
 	namespaceUsecase agentport.NamespaceUsecase,
 	endpointUsecase agentport.EndpointUsecase,
+	schemaUsecase agentport.RemoteConfigSchemaUsecase,
 	rolePersistencePort userport.RolePersistencePort,
 	permissionPersistencePort userport.PermissionPersistencePort,
 	userPersistencePort userport.UserPersistencePort,
@@ -637,6 +846,7 @@ func registerBootstrapHook(
 		fs:                        afero.NewOsFs(),
 		namespaceUsecase:          namespaceUsecase,
 		endpointUsecase:           endpointUsecase,
+		schemaUsecase:             schemaUsecase,
 		rolePersistencePort:       rolePersistencePort,
 		permissionPersistencePort: permissionPersistencePort,
 		userPersistencePort:       userPersistencePort,
@@ -645,12 +855,36 @@ func registerBootstrapHook(
 		logger:                    logger,
 	}
 
+	schemaDir, schemaLoad := resolveRemoteConfigSchemaSettings(&settings.BootstrapSettings)
+
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			return reconcileManifests(ctx, settings.BootstrapSettings.Dir, deps)
+			err := reconcileManifests(ctx, settings.BootstrapSettings.Dir, deps)
+			if err != nil {
+				return err
+			}
+
+			return reconcileRemoteConfigSchemas(ctx, schemaDir, schemaLoad, deps)
 		},
 		OnStop: nil,
 	})
+}
+
+// resolveRemoteConfigSchemaSettings derives the effective schema library directory and
+// load policy. The directory defaults to the "remoteconfigschema" subdirectory of the
+// manifest dir when unset; the policy defaults to "latest".
+func resolveRemoteConfigSchemaSettings(settings *config.BootstrapSettings) (string, string) {
+	dir := settings.RemoteConfigSchemaDir
+	if dir == "" && settings.Dir != "" {
+		dir = filepath.Join(settings.Dir, "remoteconfigschema")
+	}
+
+	load := settings.RemoteConfigSchemaLoad
+	if load == "" {
+		load = config.RemoteConfigSchemaLoadLatest
+	}
+
+	return dir, load
 }
 
 // reconcileManifests applies the initial manifests from dir. dir is the directory of

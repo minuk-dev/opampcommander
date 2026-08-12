@@ -25,6 +25,9 @@ prebuilt-proto:
 
 generate: prebuilt-doc prebuilt-proto prebuilt-mock
 
+gen-remoteconfigschema:
+	./hack/gen-remoteconfigschema.sh
+
 start-mongodb:
 	@mkdir -p ./default.mongodb
 	@docker run -d --name mongodb-dev \

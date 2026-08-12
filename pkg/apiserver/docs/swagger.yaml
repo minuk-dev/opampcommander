@@ -410,11 +410,48 @@ definitions:
           $ref: '#/definitions/Condition'
         type: array
     type: object
+  Component:
+    properties:
+      fields:
+        allOf:
+        - $ref: '#/definitions/ConfigField'
+        description: |-
+          Fields is the root of the component's config field schema (a "map" field). When
+          nil, a config targeting this component is validated for existence only; when
+          set, it is validated field-by-field.
+      module:
+        description: Module is the Go module the component is built from.
+        type: string
+      pairs:
+        description: Pairs are the signal conversions a connector supports.
+        items:
+          $ref: '#/definitions/SignalPair'
+        type: array
+      signals:
+        description: |-
+          Signals are the telemetry signals the component handles ("traces", "metrics",
+          "logs", "profiles"). Empty for extensions and for connectors, which use Pairs.
+        items:
+          type: string
+        type: array
+      stability:
+        additionalProperties:
+          type: string
+        description: |-
+          Stability is the component's stability level per signal (for a connector, per
+          "<from>_to_<to>" pair), e.g. {"metrics": "beta"}.
+        type: object
+      type:
+        description: |-
+          Type is the component type name as written in a collector config
+          (e.g. "otlp", "memory_limiter").
+        type: string
+    type: object
   ComponentCatalog:
     additionalProperties:
-      items:
-        type: string
-      type: array
+      additionalProperties:
+        $ref: '#/definitions/Component'
+      type: object
     type: object
   ComponentDetails:
     properties:
@@ -454,6 +491,23 @@ definitions:
     - ConditionTypeHealthy
     - ConditionTypeConfigured
     - ConditionTypeRegistered
+  ConfigField:
+    properties:
+      children:
+        additionalProperties:
+          $ref: '#/definitions/ConfigField'
+        type: object
+      doc:
+        type: string
+      enum:
+        items:
+          type: string
+        type: array
+      open:
+        type: boolean
+      type:
+        type: string
+    type: object
   Connection:
     properties:
       alive:
@@ -1125,7 +1179,7 @@ definitions:
           Components is the catalog of components a config for this binary may reference,
           keyed by open-ended component class (e.g. "receivers", "processors",
           "exporters", "extensions", "connectors") since OpAMP does not guarantee a
-          fixed set of classes. Values are the available component names (names only).
+          fixed set of classes, then by component type name.
       version:
         description: Version is the collector version (semver) the schema describes.
         type: string
@@ -1322,6 +1376,13 @@ definitions:
     x-enum-varnames:
     - ServerConditionTypeRegistered
     - ServerConditionTypeAlive
+  SignalPair:
+    properties:
+      from:
+        type: string
+      to:
+        type: string
+    type: object
   SignalThroughput:
     properties:
       measured:

@@ -26,7 +26,7 @@ func TestRemoteConfigSchemaService_CRUD(t *testing.T) {
 	schema := agentmodel.NewRemoteConfigSchema("default", "contrib-0.100", nil, time.Now(), "tester")
 	schema.Spec.Binary = "otelcol-contrib"
 	schema.Spec.Version = "0.100.0"
-	schema.Spec.Components = agentmodel.ComponentCatalog{"receivers": {"otlp"}}
+	schema.Spec.Components = catalogOf(map[string][]string{"receivers": {"otlp"}})
 
 	created, err := svc.CreateRemoteConfigSchema(ctx, schema, "tester")
 	require.NoError(t, err)
@@ -35,7 +35,7 @@ func TestRemoteConfigSchemaService_CRUD(t *testing.T) {
 	got, err := svc.GetRemoteConfigSchema(ctx, "default", "contrib-0.100", nil)
 	require.NoError(t, err)
 	assert.Equal(t, "0.100.0", got.Spec.Version)
-	assert.Equal(t, []string{"otlp"}, got.Spec.Components["receivers"])
+	assert.Contains(t, got.Spec.Components["receivers"], "otlp")
 
 	list, err := svc.ListRemoteConfigSchemas(ctx, "default", nil)
 	require.NoError(t, err)

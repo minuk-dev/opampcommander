@@ -235,8 +235,8 @@ func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.T
 // componentCount returns the total number of components across all classes.
 func componentCount(catalog v1.ComponentCatalog) int {
 	total := 0
-	for _, names := range catalog {
-		total += len(names)
+	for _, components := range catalog {
+		total += len(components)
 	}
 
 	return total

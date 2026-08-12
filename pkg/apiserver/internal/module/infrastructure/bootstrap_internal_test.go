@@ -83,6 +83,7 @@ func newTestDeps() (bootstrapDeps, *inmemory.RoleRepository, *inmemory.Permissio
 		fs:                        afero.NewMemMapFs(),
 		namespaceUsecase:          nsService,
 		endpointUsecase:           agentservice.NewEndpointService(inmemory.NewEndpointRepository()),
+		schemaUsecase:             agentservice.NewRemoteConfigSchemaService(inmemory.NewRemoteConfigSchemaRepository()),
 		rolePersistencePort:       roleRepo,
 		permissionPersistencePort: permRepo,
 		userPersistencePort:       userRepo,
