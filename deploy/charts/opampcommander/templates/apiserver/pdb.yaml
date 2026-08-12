@@ -1,0 +1,23 @@
+{{- if and .Values.apiserver.enabled .Values.apiserver.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "opampcommander.apiserver.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.apiserver.labels" . | nindent 4 }}
+  {{- with (include "opampcommander.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.apiserver.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ . }}
+  {{- end }}
+  {{- with .Values.apiserver.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ . }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "opampcommander.apiserver.selectorLabels" . | nindent 6 }}
+{{- end }}

@@ -1,0 +1,204 @@
+{{- include "opampcommander.validateValues" . }}
+{{- if .Values.apiserver.enabled }}
+{{- $apiserver := .Values.apiserver }}
+{{- $eventType := include "opampcommander.apiserver.eventType" . }}
+{{- $directPort := include "opampcommander.apiserver.directPort" . }}
+{{- $config := $apiserver.config | default dict }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opampcommander.apiserver.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.apiserver.labels" . | nindent 4 }}
+  {{- with (include "opampcommander.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $apiserver.autoscaling.enabled }}
+  replicas: {{ $apiserver.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "opampcommander.apiserver.selectorLabels" . | nindent 6 }}
+  {{- with $apiserver.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "opampcommander.apiserver.labels" . | nindent 8 }}
+        {{- with $apiserver.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if not $apiserver.existingConfigMap }}
+        checksum/config: {{ include (print $.Template.BasePath "/apiserver/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and $apiserver.secrets.create (not $apiserver.secrets.existingSecret) }}
+        checksum/secret: {{ include (print $.Template.BasePath "/apiserver/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with (include "opampcommander.annotations" .) }}
+        {{- . | nindent 8 }}
+        {{- end }}
+        {{- with $apiserver.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "opampcommander.apiserver.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $apiserver.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $apiserver.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $apiserver.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with $apiserver.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- if $apiserver.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $apiserver.terminationGracePeriodSeconds }}
+      {{- with $apiserver.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: apiserver
+          image: {{ include "opampcommander.image" (dict "image" $apiserver.image "context" $) }}
+          imagePullPolicy: {{ $apiserver.image.pullPolicy }}
+          {{- with $apiserver.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          args:
+            {{- if $apiserver.args }}
+            {{- toYaml $apiserver.args | nindent 12 }}
+            {{- else }}
+            - --config=/etc/opampcommander/config/config.yaml
+            {{- end }}
+          {{- with $apiserver.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ include "opampcommander.apiserver.httpPort" . }}
+              protocol: TCP
+            - name: management
+              containerPort: {{ include "opampcommander.apiserver.managementPort" . }}
+              protocol: TCP
+            {{- if eq $eventType "direct" }}
+            - name: direct
+              containerPort: {{ $directPort }}
+              protocol: TCP
+            {{- end }}
+          env:
+            {{- if eq $eventType "direct" }}
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            {{- if not (dig "event" "direct" "listenAddress" "" $config) }}
+            - name: EVENT_DIRECT_LISTENADDRESS
+              value: ":{{ $directPort }}"
+            {{- end }}
+            {{- if not (dig "event" "direct" "advertiseAddress" "" $config) }}
+            # Peers dial this address to deliver a targeted message to this pod.
+            - name: EVENT_DIRECT_ADVERTISEADDRESS
+              value: "$(POD_IP):{{ $directPort }}"
+            {{- end }}
+            {{- end }}
+            {{- if include "opampcommander.apiserver.hasSecret" . }}
+            {{- $secretName := include "opampcommander.apiserver.secretName" . }}
+            # Credentials. Environment variables outrank the config file, and
+            # each key is optional so a partially populated existing Secret and
+            # an unset value both fall back to the config file.
+            {{- range $env, $key := dict
+                  "AUTH_ADMIN_USERNAME" "adminUsername"
+                  "AUTH_ADMIN_PASSWORD" "adminPassword"
+                  "AUTH_JWT_SECRET" "jwtSecret"
+                  "AUTH_BASIC_PEPPER" "basicPepper"
+                  "AUTH_OAUTH2_CLIENTID" "oauth2ClientId"
+                  "AUTH_OAUTH2_CLIENTSECRET" "oauth2ClientSecret"
+                  "AUTH_OAUTH2_STATE_JWT_SECRET" "oauth2StateJwtSecret"
+                  "EVENT_DIRECT_AUTHTOKEN" "directAuthToken" }}
+            - name: {{ $env }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: {{ $key }}
+                  optional: true
+            {{- end }}
+            {{- end }}
+            {{- with $apiserver.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with $apiserver.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $apiserver.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $apiserver.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $apiserver.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $apiserver.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/opampcommander/config
+              readOnly: true
+            # Writable scratch space so the container can run with a read-only
+            # root filesystem.
+            - name: tmp
+              mountPath: /tmp
+            {{- with $apiserver.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with $apiserver.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "opampcommander.apiserver.configMapName" . }}
+        - name: tmp
+          emptyDir: {}
+        {{- with $apiserver.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $apiserver.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $apiserver.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $apiserver.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $apiserver.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

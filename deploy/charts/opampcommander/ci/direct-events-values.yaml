@@ -1,0 +1,20 @@
+# Multi-replica install without a broker: peers deliver targeted events to each
+# other directly, resolved through the server registry.
+apiserver:
+  replicaCount: 3
+  config:
+    database:
+      type: mongodb
+      endpoints:
+        - "mongodb://mongodb-0.mongodb:27017/?replicaSet=rs0"
+    event:
+      type: direct
+      direct:
+        subProtocol: grpc
+  secrets:
+    directAuthToken: "shared-token-between-peers"
+  autoscaling:
+    enabled: false
+
+web:
+  enabled: false

@@ -1,0 +1,57 @@
+# Multi-replica install: MongoDB persistence, Kafka coordination, ingress,
+# ServiceMonitor and an externally managed Secret.
+apiserver:
+  replicaCount: 3
+  config:
+    database:
+      type: mongodb
+      endpoints:
+        - "mongodb://mongodb-0.mongodb:27017,mongodb-1.mongodb:27017/?replicaSet=rs0"
+      databaseName: opampcommander
+      ddlAuto: true
+    event:
+      type: kafka
+      kafka:
+        brokers:
+          - "kafka-0.kafka:9092"
+        topic: "prod.opampcommander.events"
+    auth:
+      oauth2:
+        redirectUri: "https://opampcommander.example.com/auth/callback"
+        allowedRedirectHosts:
+          - opampcommander.example.com
+  secrets:
+    create: false
+    existingSecret: opampcommander-credentials
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    hosts:
+      - host: api.opampcommander.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: opampcommander-api-tls
+        hosts:
+          - api.opampcommander.example.com
+  serviceMonitor:
+    enabled: true
+  podDisruptionBudget:
+    enabled: true
+
+web:
+  replicaCount: 2
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: opampcommander.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+  podDisruptionBudget:
+    enabled: true

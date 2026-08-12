@@ -1,0 +1,46 @@
+{{- if .Values.tests.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "opampcommander.fullname" . }}-test-connection
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    {{- with (include "opampcommander.annotations" .) }}
+    {{- . | nindent 4 }}
+    {{- end }}
+spec:
+  restartPolicy: Never
+  {{- with .Values.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  containers:
+    - name: test
+      image: {{ printf "%s:%s" .Values.tests.image.repository .Values.tests.image.tag }}
+      imagePullPolicy: {{ .Values.tests.image.pullPolicy }}
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          {{- if .Values.apiserver.enabled }}
+          echo "checking apiserver readiness"
+          curl -sSf "http://{{ include "opampcommander.apiserver.fullname" . }}:{{ .Values.apiserver.service.managementPort }}/readyz"
+          echo "checking apiserver API"
+          curl -sSf "http://{{ include "opampcommander.apiserver.fullname" . }}:{{ .Values.apiserver.service.port }}/api/v1/ping"
+          {{- end }}
+          {{- if .Values.web.enabled }}
+          echo "checking web dashboard"
+          curl -sSf -o /dev/null "http://{{ include "opampcommander.web.fullname" . }}:{{ .Values.web.service.port }}/"
+          {{- end }}
+          echo "ok"
+      {{- with .Values.tests.resources }}
+      resources:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

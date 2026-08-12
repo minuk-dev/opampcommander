@@ -1,0 +1,13 @@
+# Dashboard only, pointed at an apiserver managed outside this release.
+apiserver:
+  enabled: false
+
+web:
+  apiUrl: "http://opampcommander-apiserver.opampcommander.svc.cluster.local:8080"
+  ingress:
+    enabled: true
+    hosts:
+      - host: opampcommander.example.com
+        paths:
+          - path: /
+            pathType: Prefix
