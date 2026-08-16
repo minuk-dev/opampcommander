@@ -1,13 +1,15 @@
 name: helm-release
 
+# No path filter, matching release.yaml and web-release.yaml. A path filter is
+# evaluated against the commits a push carries, and a tag pointing at a commit
+# already on main carries none — the release tag would silently publish no
+# chart.
 on:
   push:
     branches:
       - main
     tags:
       - 'v*'
-    paths-ignore:
-      - 'docs/**'
 
 permissions:
   packages: write

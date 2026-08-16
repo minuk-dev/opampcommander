@@ -232,6 +232,20 @@ Validation. Rendered from the apiserver Deployment so a bad combination fails
 {{- if and .Values.apiserver.enabled (eq $databaseType "mongodb") (not (dig "database" "endpoints" list (.Values.apiserver.config | default dict))) -}}
 {{- $messages = append $messages "  - apiserver.config.database.type is \"mongodb\" but apiserver.config.database.endpoints is empty." -}}
 {{- end -}}
+{{/*
+With no Secret and no other credential source, the server falls back to its
+built-in flag defaults: admin/admin, and an empty JWT signing key. Anything that
+could carry credentials instead — an existing ConfigMap, extraEnv, extraEnvFrom
+— counts, so this only fires when there is definitively nothing.
+*/}}
+{{- if and .Values.apiserver.enabled
+      (not .Values.apiserver.secrets.create)
+      (not .Values.apiserver.secrets.existingSecret)
+      (not .Values.apiserver.existingConfigMap)
+      (not .Values.apiserver.extraEnv)
+      (not .Values.apiserver.extraEnvFrom) -}}
+{{- $messages = append $messages "  - nothing supplies credentials: apiserver.secrets.create is false with no existingSecret, and no existingConfigMap, extraEnv or extraEnvFrom either. The apiserver would start with its built-in admin/admin default and an empty JWT signing key." -}}
+{{- end -}}
 {{- if and .Values.web.enabled (not .Values.apiserver.enabled) (not .Values.web.apiUrl) -}}
 {{- $messages = append $messages "  - apiserver.enabled is false, so web.apiUrl must point at an apiserver deployed elsewhere." -}}
 {{- end -}}

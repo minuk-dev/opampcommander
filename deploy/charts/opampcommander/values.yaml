@@ -139,7 +139,10 @@ apiserver:
   # `apiserver.config`.
   secrets:
     # -- Render a Secret from the values below. Set false when using
-    # `existingSecret` or an external secret manager.
+    # `existingSecret` or an external secret manager. Turning it off without
+    # some other credential source (existingSecret, existingConfigMap,
+    # extraEnv, extraEnvFrom) is refused: the server would otherwise fall back
+    # to its built-in admin/admin default and an empty JWT signing key.
     create: true
     # -- Name of an existing Secret to read credentials from. It must use the
     # key names listed below; missing keys are tolerated.
