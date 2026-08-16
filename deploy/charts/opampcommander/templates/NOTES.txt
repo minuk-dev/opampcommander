@@ -1,0 +1,85 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} has been installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+{{- if .Values.apiserver.enabled }}
+
+apiserver
+---------
+{{- if .Values.apiserver.ingress.enabled }}
+Reachable at:
+{{- range .Values.apiserver.ingress.hosts }}
+{{- $host := .host }}
+{{- $scheme := "http" }}
+{{- range $.Values.apiserver.ingress.tls }}{{ if has $host .hosts }}{{ $scheme = "https" }}{{ end }}{{ end }}
+{{- range .paths }}
+  {{ $scheme }}://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
+{{- else }}
+Port-forward to reach it:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "opampcommander.apiserver.fullname" . }} {{ .Values.apiserver.service.port }}:{{ .Values.apiserver.service.port }}
+
+  REST API + OpAMP WebSocket: http://localhost:{{ .Values.apiserver.service.port }}
+{{- end }}
+
+Point a collector's OpAMP extension at:
+
+  ws://<apiserver-host>/api/v1/opamp
+{{- end }}
+
+{{- if .Values.web.enabled }}
+
+web dashboard
+-------------
+{{- if .Values.web.ingress.enabled }}
+Reachable at:
+{{- range .Values.web.ingress.hosts }}
+{{- $host := .host }}
+{{- $scheme := "http" }}
+{{- range $.Values.web.ingress.tls }}{{ if has $host .hosts }}{{ $scheme = "https" }}{{ end }}{{ end }}
+{{- range .paths }}
+  {{ $scheme }}://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
+{{- else }}
+Port-forward to reach it:
+
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "opampcommander.web.fullname" . }} {{ .Values.web.service.port }}:{{ .Values.web.service.port }}
+
+  http://localhost:{{ .Values.web.service.port }}
+{{- end }}
+{{- end }}
+
+{{- if and .Values.apiserver.enabled .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) }}
+
+admin credentials
+-----------------
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "opampcommander.apiserver.secretName" . }} -o jsonpath='{.data.adminUsername}' | base64 -d; echo
+  kubectl --namespace {{ .Release.Namespace }} get secret {{ include "opampcommander.apiserver.secretName" . }} -o jsonpath='{.data.adminPassword}' | base64 -d; echo
+{{- end }}
+
+{{- if .Values.apiserver.enabled }}
+{{- $databaseType := include "opampcommander.apiserver.databaseType" . }}
+{{- $eventType := include "opampcommander.apiserver.eventType" . }}
+{{- if eq $databaseType "inmemory" }}
+
+WARNING: apiserver.config.database.type is "inmemory". Every agent, config and
+user is held in process memory and is lost when the pod restarts. Set it to
+"mongodb" before using this release for anything but a demo.
+{{- end }}
+{{- if and (eq $eventType "inmemory") (gt (int .Values.apiserver.replicaCount) 1) }}
+
+WARNING: apiserver.config.event.type is "inmemory" with more than one replica.
+Replicas cannot coordinate; use "kafka" or "direct".
+{{- end }}
+{{- if and .Values.apiserver.secrets.create (not .Values.apiserver.secrets.existingSecret) (not .Values.apiserver.secrets.jwtSecret) }}
+
+NOTE: the JWT signing key, basic-auth pepper and OAuth2 state key were generated
+for you and are carried forward on upgrade by reading the existing Secret. That
+lookup returns nothing under `helm template` / `--dry-run`, so a render-then-apply
+(GitOps) flow must set apiserver.secrets.* explicitly or it will rotate them —
+invalidating every issued token and stored password.
+{{- end }}
+{{- end }}
+
+Docs: https://minuk-dev.github.io/opampcommander/docs/

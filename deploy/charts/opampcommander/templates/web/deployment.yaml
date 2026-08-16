@@ -1,0 +1,146 @@
+{{- if .Values.web.enabled }}
+{{- $web := .Values.web }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opampcommander.web.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.web.labels" . | nindent 4 }}
+  {{- with (include "opampcommander.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $web.autoscaling.enabled }}
+  replicas: {{ $web.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "opampcommander.web.selectorLabels" . | nindent 6 }}
+  {{- with $web.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "opampcommander.web.labels" . | nindent 8 }}
+        {{- with $web.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- if or (include "opampcommander.annotations" .) $web.podAnnotations }}
+      annotations:
+        {{- with (include "opampcommander.annotations" .) }}
+        {{- . | nindent 8 }}
+        {{- end }}
+        {{- with $web.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "opampcommander.web.serviceAccountName" . }}
+      automountServiceAccountToken: {{ $web.serviceAccount.automountServiceAccountToken }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $web.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $web.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $web.terminationGracePeriodSeconds }}
+      {{- with $web.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: web
+          image: {{ include "opampcommander.image" (dict "image" $web.image "context" $) }}
+          imagePullPolicy: {{ $web.image.pullPolicy }}
+          {{- with $web.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $web.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $web.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $web.containerPorts.http }}
+              protocol: TCP
+          env:
+            # Read per request by the dashboard's server-side proxy route.
+            - name: OPAMP_API_URL
+              value: {{ include "opampcommander.web.apiUrl" . | quote }}
+            - name: PORT
+              value: {{ $web.containerPorts.http | quote }}
+            {{- with $web.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with $web.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $web.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $web.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $web.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $web.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            # Writable scratch space so the container can run with a read-only
+            # root filesystem: /tmp plus the directory Next.js caches into.
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+            {{- with $web.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- with $web.extraContainers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
+        {{- with $web.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $web.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $web.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $web.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

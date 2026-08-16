@@ -1,0 +1,23 @@
+apiVersion: v2
+name: opampcommander
+description: OpAMP Commander — an OpAMP server for managing OpenTelemetry collectors, with an optional web dashboard
+type: application
+# Chart version. Bumped independently of the application version; the release
+# workflow overrides both with the git tag when publishing.
+version: 0.1.0
+# Default application version. Used as the default image tag for both the
+# apiserver and the web dashboard, which are released in lockstep.
+appVersion: "0.1.41"
+kubeVersion: ">=1.23.0-0"
+home: https://minuk-dev.github.io/opampcommander
+icon: https://raw.githubusercontent.com/minuk-dev/opampcommander/main/logo.png
+sources:
+  - https://github.com/minuk-dev/opampcommander
+keywords:
+  - opamp
+  - opentelemetry
+  - observability
+  - collector
+maintainers:
+  - name: minuk-dev
+    url: https://github.com/minuk-dev

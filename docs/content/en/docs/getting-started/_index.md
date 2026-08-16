@@ -104,6 +104,7 @@ The agent's `service.namespace` resource attribute determines its namespace
 
 ## Next steps
 
+- Deploy on Kubernetes with the [Helm chart](/docs/deployment/)
 - Configure the server in the [Configuration guide](/docs/configuration/)
 - Explore the [REST API](/docs/api/)
 - Learn the [CLI commands](/docs/cli/)

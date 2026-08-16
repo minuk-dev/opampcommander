@@ -1,0 +1,435 @@
+# Default values for the opampcommander chart.
+#
+# The defaults install a self-contained demo: a single apiserver replica backed
+# by the in-memory store plus the web dashboard. Nothing outside the cluster is
+# required, but no data survives a restart. For anything real, point
+# `apiserver.config.database` at MongoDB and set the secrets explicitly — see
+# README.md.
+
+# -- Overrides the chart name used in resource names.
+nameOverride: ""
+# -- Overrides the fully qualified resource name prefix (default: "<release>-<chart>").
+fullnameOverride: ""
+
+# -- Image pull secrets applied to every pod in the chart.
+imagePullSecrets: []
+# -- Extra labels added to every object rendered by the chart.
+commonLabels: {}
+# -- Extra annotations added to every object rendered by the chart.
+commonAnnotations: {}
+
+apiserver:
+  # -- Deploy the apiserver. Disabling it only makes sense when pointing the
+  # dashboard at an apiserver managed elsewhere (see `web.apiUrl`).
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/minuk-dev/opampcommander
+    # -- Image tag. Defaults to the chart's appVersion when empty.
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # -- Contents of the apiserver's config.yaml, rendered verbatim into a
+  # ConfigMap. Every key documented at
+  # https://minuk-dev.github.io/opampcommander/docs/configuration/ is accepted here.
+  # Credentials are deliberately absent: they come from `apiserver.secrets`
+  # as environment variables, which take precedence over this file.
+  config:
+    # Must bind 0.0.0.0 (not localhost) to be reachable from outside the pod.
+    address: "0.0.0.0:8080"
+    serviceName: opampcommander
+
+    database:
+      # "inmemory" keeps everything in process memory — no external dependency,
+      # but all data is lost on restart and replicas do not share state, so it
+      # is only usable for demos with replicaCount 1. Production installs must
+      # use "mongodb" with a replica set (transactions are required).
+      type: inmemory
+      # endpoints:
+      #   - "mongodb://mongodb-0.mongodb:27017/?replicaSet=rs0"
+      # connectTimeout: 10s
+      # databaseName: opampcommander
+      # ddlAuto: true
+
+    event:
+      # Inter-server coordination transport:
+      #   inmemory - single replica only
+      #   kafka    - broadcast through a broker
+      #   direct   - targeted peer-to-peer delivery, no broker
+      # With more than one replica this must be "kafka" or "direct", otherwise a
+      # management request handled by one replica cannot reach an agent
+      # connected to another.
+      type: inmemory
+      kafka:
+        brokers:
+          - "kafka:9092"
+        topic: "opampcommander.events"
+      direct:
+        subProtocol: grpc
+        # The chart binds the receiver on `apiserver.containerPorts.direct` and
+        # advertises "$(POD_IP):<port>" automatically; leave listenAddress and
+        # advertiseAddress unset unless you need to override that.
+        # authToken is set from `apiserver.secrets.directAuthToken`.
+
+    bootstrap:
+      # Initial manifests reconciled into persistence on every start. The image
+      # ships defaults here; set to "" to disable bootstrapping.
+      dir: /etc/opampcommander/initial
+      # Which pre-built RemoteConfigSchemas to seed: latest, all, or none.
+      remoteConfigSchemaLoad: latest
+      defaultNamespace: default
+      defaultRole: default
+
+    management:
+      # Health checks (/healthz, /readyz), metrics and pprof. Kept on a separate
+      # port so it can stay off the public ingress.
+      address: "0.0.0.0:9090"
+      metric:
+        enabled: true
+        type: prometheus
+        prometheus:
+          path: /metrics
+      log:
+        level: info
+        format: json
+      trace:
+        enabled: false
+        # endpoint: "otel-collector:4317"
+        # protocol: grpc
+        # insecure: true
+
+    auth:
+      enabled: true
+      # "oauth2" (GitHub) or "basic".
+      type: oauth2
+      jwt:
+        issuer: opampcommander
+        expire: 30m
+        refreshExpire: 168h
+        audience:
+          - opampcommander
+      oauth2:
+        provider: github
+        # Public callback URL registered with the OAuth2 app.
+        redirectUri: ""
+        # Hosts the authcode endpoint accepts as redirect targets, on top of the
+        # always-allowed loopback hosts. Set this to the dashboard's public host.
+        allowedRedirectHosts: []
+        state:
+          mode: jwt
+          jwt:
+            issuer: opampcommander
+            expire: 5m
+            audience:
+              - opampcommander
+
+    # metricsBackend:
+    #   type: prometheus
+    #   address: http://prometheus-server.monitoring:80
+    #   defaultWindow: 5m
+
+  # -- Use a ConfigMap you manage instead of rendering `apiserver.config`.
+  # It must hold the config under a `config.yaml` key. `apiserver.config`
+  # addresses are still read to derive container ports, so keep them in sync.
+  existingConfigMap: ""
+
+  # Credentials injected as environment variables. Viper reads them with a
+  # higher precedence than the config file, so they override anything in
+  # `apiserver.config`.
+  secrets:
+    # -- Render a Secret from the values below. Set false when using
+    # `existingSecret` or an external secret manager. Turning it off without
+    # some other credential source (existingSecret, existingConfigMap,
+    # extraEnv, extraEnvFrom) is refused: the server would otherwise fall back
+    # to its built-in admin/admin default and an empty JWT signing key.
+    create: true
+    # -- Name of an existing Secret to read credentials from. It must use the
+    # key names listed below; missing keys are tolerated.
+    existingSecret: ""
+    annotations: {}
+    # Key: adminUsername
+    adminUsername: "admin"
+    # Key: adminPassword. Generated randomly and preserved across upgrades when
+    # empty. Retrieve it with the command printed after install.
+    adminPassword: ""
+    # Key: jwtSecret. Signing key for issued access tokens. Generated when
+    # empty; changing it invalidates every outstanding token.
+    jwtSecret: ""
+    # Key: basicPepper. Server-side secret mixed into stored basic-auth password
+    # hashes. Generated when empty; changing it invalidates stored passwords.
+    basicPepper: ""
+    # Key: oauth2ClientId / oauth2ClientSecret. Required for OAuth2 login.
+    oauth2ClientId: ""
+    oauth2ClientSecret: ""
+    # Key: oauth2StateJwtSecret. Signs the OAuth2 CSRF state token. Generated
+    # when empty.
+    oauth2StateJwtSecret: ""
+    # Key: directAuthToken. Pre-shared bearer token peers present to each other
+    # in `event.type: direct`. Empty trusts the cluster network.
+    directAuthToken: ""
+
+  service:
+    # Applies to the API Service only. Health, metrics and pprof get their own
+    # Service, always ClusterIP: a NodePort or LoadBalancer Service publishes
+    # every one of its ports externally, and pprof must not be one of them.
+    type: ClusterIP
+    # REST API + OpAMP WebSocket endpoint.
+    port: 8080
+    # Health, metrics and pprof, on the "-management" Service.
+    managementPort: 9090
+    annotations: {}
+    labels: {}
+    # Only used when type is NodePort or LoadBalancer.
+    nodePorts:
+      http: ""
+
+  ingress:
+    enabled: false
+    className: ""
+    # The OpAMP endpoint (/api/v1/opamp) is a WebSocket upgrade — make sure the
+    # controller allows long-lived connections, e.g. for ingress-nginx:
+    #   nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    #   nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    annotations: {}
+    hosts:
+      - host: opampcommander.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+    #  - secretName: opampcommander-tls
+    #    hosts:
+    #      - opampcommander.local
+
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+    automountServiceAccountToken: false
+
+  # Container ports. Must match the addresses in `apiserver.config`; they are
+  # derived from those addresses when possible and only used as a fallback.
+  containerPorts:
+    http: 8080
+    management: 9090
+    # Receiver port for `event.type: direct`.
+    direct: 8081
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: management
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: management
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startupProbe: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: ""
+    behavior: {}
+
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    # maxUnavailable: ""
+
+  # Prometheus Operator ServiceMonitor for the management port.
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    labels: {}
+    interval: 30s
+    scrapeTimeout: ""
+    relabelings: []
+    metricRelabelings: []
+
+  # Agents hold long-lived WebSocket connections; give them time to drain.
+  terminationGracePeriodSeconds: 60
+  # Rolling update is safe with kafka/direct events; with a single in-memory
+  # replica a Recreate strategy avoids two instances briefly owning the same
+  # server identity.
+  strategy: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  dnsPolicy: ""
+  hostNetwork: false
+  # -- Extra environment variables, in full container env syntax.
+  extraEnv: []
+  # -- Extra envFrom sources (ConfigMap/Secret references).
+  extraEnvFrom: []
+  extraVolumes: []
+  extraVolumeMounts: []
+  initContainers: []
+  extraContainers: []
+  # -- Container command. Set explicitly because images up to 0.1.41 declare
+  # `ENTRYPOINT ["apiserver"]` while the binary lives at /apiserver, which is
+  # not on PATH; the absolute path works on every published tag.
+  command:
+    - /apiserver
+  # -- Container args. Empty passes
+  # `--config=/etc/opampcommander/config/config.yaml`.
+  args: []
+
+web:
+  # -- Deploy the Next.js dashboard.
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/minuk-dev/opampcommander-web
+    # -- Image tag. Defaults to the chart's appVersion when empty.
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  # -- Base URL the dashboard's server-side proxy uses to reach the apiserver.
+  # Empty points at the in-cluster apiserver Service of this release.
+  apiUrl: ""
+
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+    labels: {}
+    nodePorts:
+      http: ""
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: opampcommander.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+  serviceAccount:
+    create: true
+    name: ""
+    annotations: {}
+    automountServiceAccountToken: false
+
+  containerPorts:
+    http: 3000
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  startupProbe: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    # The image creates the "nextjs" user with uid/gid 1001.
+    runAsUser: 1001
+    runAsGroup: 1001
+    fsGroup: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    # The chart mounts writable emptyDirs on /tmp and Next.js' cache directory,
+    # so the rest of the filesystem can stay read-only.
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: ""
+    behavior: {}
+
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+  terminationGracePeriodSeconds: 30
+  strategy: {}
+  podAnnotations: {}
+  podLabels: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  topologySpreadConstraints: []
+  priorityClassName: ""
+  extraEnv: []
+  extraEnvFrom: []
+  extraVolumes: []
+  extraVolumeMounts: []
+  initContainers: []
+  extraContainers: []
+  command: []
+  args: []
+
+# `helm test` connectivity check.
+tests:
+  enabled: true
+  image:
+    repository: curlimages/curl
+    tag: "8.11.1"
+    pullPolicy: IfNotPresent
+  resources: {}

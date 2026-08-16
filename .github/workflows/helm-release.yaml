@@ -1,0 +1,59 @@
+name: helm-release
+
+# No path filter, matching release.yaml and web-release.yaml. A path filter is
+# evaluated against the commits a push carries, and a tag pointing at a commit
+# already on main carries none — the release tag would silently publish no
+# chart.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  packages: write
+  contents: read
+
+env:
+  CHART: ./deploy/charts/opampcommander
+
+jobs:
+  helm-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.18.4
+      # scripts/version.sh is the same version source the apiserver and web
+      # images use, so a chart pushed from a commit carries the tag of the
+      # images it defaults to. Snapshot-ness is decided off github.ref, exactly
+      # as release.yaml and web-release.yaml decide it.
+      - name: Compute version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=$(./scripts/version.sh)
+          else
+            VERSION=$(./scripts/version.sh --snapshot)
+          fi
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "Computed version: ${VERSION}"
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+      # Chart version and appVersion both track the release: the chart's default
+      # image tag is its appVersion, so a given chart version installs exactly
+      # the images built from the same commit.
+      - name: Package
+        run: |
+          helm package "${CHART}" \
+            --version "${VERSION}" \
+            --app-version "${VERSION}" \
+            --destination ./dist
+      - name: Push to GHCR
+        run: |
+          helm push "./dist/opampcommander-${VERSION}.tgz" oci://ghcr.io/minuk-dev/charts

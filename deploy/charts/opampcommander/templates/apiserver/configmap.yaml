@@ -1,0 +1,19 @@
+{{- if and .Values.apiserver.enabled (not .Values.apiserver.existingConfigMap) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "opampcommander.apiserver.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.apiserver.labels" . | nindent 4 }}
+  {{- with (include "opampcommander.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+data:
+  config.yaml: |
+    # Rendered by the opampcommander Helm chart from `apiserver.config`.
+    # Credentials are injected as environment variables from the release Secret
+    # and take precedence over anything set here.
+    {{- toYaml (.Values.apiserver.config | default dict) | nindent 4 }}
+{{- end }}

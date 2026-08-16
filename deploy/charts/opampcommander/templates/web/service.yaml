@@ -1,0 +1,29 @@
+{{- if .Values.web.enabled }}
+{{- $service := .Values.web.service }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opampcommander.web.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.web.labels" . | nindent 4 }}
+    {{- with $service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with (merge (dict) $service.annotations (.Values.commonAnnotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $service.type }}
+  ports:
+    - name: http
+      port: {{ $service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (has $service.type (list "NodePort" "LoadBalancer")) $service.nodePorts.http }}
+      nodePort: {{ $service.nodePorts.http }}
+      {{- end }}
+  selector:
+    {{- include "opampcommander.web.selectorLabels" . | nindent 4 }}
+{{- end }}

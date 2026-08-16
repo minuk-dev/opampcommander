@@ -115,6 +115,20 @@ OPAMP_API_URL=http://localhost:8080 npm run dev
 
 Open <http://localhost:3000>. See [`web/README.md`](web/README.md) for details.
 
+### Deploy on Kubernetes
+
+The Helm chart in [`deploy/charts/opampcommander`](deploy/charts/opampcommander)
+installs the apiserver and the dashboard:
+
+```sh
+helm install opampcommander ./deploy/charts/opampcommander \
+  --namespace opampcommander --create-namespace
+```
+
+The defaults are a self-contained demo (in-memory store, no external
+dependencies). See the [chart README](deploy/charts/opampcommander/README.md)
+for a production configuration.
+
 ## Development
 
 ### Infrastructure

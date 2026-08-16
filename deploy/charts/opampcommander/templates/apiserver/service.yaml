@@ -1,0 +1,60 @@
+{{- if .Values.apiserver.enabled }}
+{{- $service := .Values.apiserver.service }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opampcommander.apiserver.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.apiserver.labels" . | nindent 4 }}
+    {{- with $service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with (merge (dict) $service.annotations (.Values.commonAnnotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $service.type }}
+  ports:
+    - name: http
+      port: {{ $service.port }}
+      targetPort: http
+      protocol: TCP
+      {{- if and (has $service.type (list "NodePort" "LoadBalancer")) $service.nodePorts.http }}
+      nodePort: {{ $service.nodePorts.http }}
+      {{- end }}
+  selector:
+    {{- include "opampcommander.apiserver.selectorLabels" . | nindent 4 }}
+---
+{{/*
+The management port lives on its own Service, always ClusterIP. Sharing the
+Service above would publish health, metrics AND pprof on a node port or a load
+balancer whenever the main Service is not ClusterIP — Kubernetes assigns an
+external port to every port of such a Service, whether or not the chart asks
+for one.
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opampcommander.apiserver.managementServiceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opampcommander.apiserver.managementLabels" . | nindent 4 }}
+    {{- with $service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with (merge (dict) $service.annotations (.Values.commonAnnotations | default dict)) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: management
+      port: {{ $service.managementPort }}
+      targetPort: management
+      protocol: TCP
+  selector:
+    {{- include "opampcommander.apiserver.selectorLabels" . | nindent 4 }}
+{{- end }}
