@@ -168,8 +168,11 @@ apiserver:
         allowedRedirectHosts: ["opampcommander.example.com"]
 ```
 
-The management port (health, metrics, pprof) is deliberately kept off the
-ingress. Scrape it with the Prometheus Operator instead:
+Health, metrics and pprof are served on a second port, which the chart puts on
+its own `<release>-apiserver-management` Service, always ClusterIP — separate
+from the API Service so that switching `apiserver.service.type` to NodePort or
+LoadBalancer cannot publish pprof externally. Scrape it with the Prometheus
+Operator instead:
 
 ```yaml
 apiserver:

@@ -85,6 +85,27 @@ app.kubernetes.io/component: apiserver
 {{- end }}
 {{- end }}
 
+{{/*
+The management endpoint (health, metrics, pprof) is a separate, always-ClusterIP
+Service. Its metadata carries component "apiserver-management" so a
+ServiceMonitor can select it alone, while its spec.selector still targets the
+apiserver pods.
+*/}}
+{{- define "opampcommander.apiserver.managementServiceName" -}}
+{{- printf "%s-management" (include "opampcommander.apiserver.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{- define "opampcommander.apiserver.managementSelectorLabels" -}}
+app.kubernetes.io/name: {{ include "opampcommander.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: apiserver-management
+{{- end }}
+
+{{- define "opampcommander.apiserver.managementLabels" -}}
+{{ include "opampcommander.labels" . }}
+app.kubernetes.io/component: apiserver-management
+{{- end }}
+
 {{- define "opampcommander.apiserver.configMapName" -}}
 {{- default (printf "%s-config" (include "opampcommander.apiserver.fullname" .)) .Values.apiserver.existingConfigMap }}
 {{- end }}

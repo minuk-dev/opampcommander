@@ -30,7 +30,7 @@ spec:
           set -eu
           {{- if .Values.apiserver.enabled }}
           echo "checking apiserver readiness"
-          curl -sSf "http://{{ include "opampcommander.apiserver.fullname" . }}:{{ .Values.apiserver.service.managementPort }}/readyz"
+          curl -sSf "http://{{ include "opampcommander.apiserver.managementServiceName" . }}:{{ .Values.apiserver.service.managementPort }}/readyz"
           echo "checking apiserver API"
           curl -sSf "http://{{ include "opampcommander.apiserver.fullname" . }}:{{ .Values.apiserver.service.port }}/api/v1/ping"
           {{- end }}

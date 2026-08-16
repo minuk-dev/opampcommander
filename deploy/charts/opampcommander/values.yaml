@@ -167,10 +167,13 @@ apiserver:
     directAuthToken: ""
 
   service:
+    # Applies to the API Service only. Health, metrics and pprof get their own
+    # Service, always ClusterIP: a NodePort or LoadBalancer Service publishes
+    # every one of its ports externally, and pprof must not be one of them.
     type: ClusterIP
     # REST API + OpAMP WebSocket endpoint.
     port: 8080
-    # Health, metrics and pprof.
+    # Health, metrics and pprof, on the "-management" Service.
     managementPort: 9090
     annotations: {}
     labels: {}

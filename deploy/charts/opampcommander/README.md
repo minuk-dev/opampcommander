@@ -149,10 +149,16 @@ other through the server registry with no extra configuration. Set
 
 ## Monitoring
 
+Health, metrics and pprof are served on a second port, which the chart puts on
+its own `<release>-apiserver-management` Service, **always ClusterIP**. It is
+separate from the API Service on purpose: Kubernetes publishes every port of a
+NodePort or LoadBalancer Service externally, so sharing one Service would expose
+pprof on a node port — or on the internet — the moment `apiserver.service.type`
+changed.
+
 `apiserver.serviceMonitor.enabled` creates a Prometheus Operator ServiceMonitor
-against the management port, using the path from
-`apiserver.config.management.metric.prometheus.path`. The management port is
-deliberately kept off the ingress — it also serves pprof.
+against that Service, using the path from
+`apiserver.config.management.metric.prometheus.path`.
 
 ## Values
 

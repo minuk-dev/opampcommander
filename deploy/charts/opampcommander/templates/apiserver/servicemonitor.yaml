@@ -15,9 +15,11 @@ metadata:
     {{- . | nindent 4 }}
   {{- end }}
 spec:
+  # Selects the management Service, not the API Service — only the former
+  # carries the metrics port.
   selector:
     matchLabels:
-      {{- include "opampcommander.apiserver.selectorLabels" . | nindent 6 }}
+      {{- include "opampcommander.apiserver.managementSelectorLabels" . | nindent 6 }}
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}
