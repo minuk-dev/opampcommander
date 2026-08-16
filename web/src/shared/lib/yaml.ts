@@ -22,11 +22,9 @@ export function toYAML(value: unknown): string {
 
 export function fromYAML(text: string): unknown {
   return yaml.load(text, {
-    // Default schema; throw on duplicates / merge collisions for safety.
-    schema: yaml.DEFAULT_SCHEMA,
-    onWarning: (e) => {
-      // Surface warnings as exceptions so the editor flags them.
-      throw e;
-    },
+    // YAML 1.1 types and merge keys — collector configs use both, and the
+    // stricter CORE_SCHEMA js-yaml defaults to since v5 rejects them.
+    // Duplicate keys throw, since `json` stays off.
+    schema: yaml.YAML11_SCHEMA,
   });
 }
