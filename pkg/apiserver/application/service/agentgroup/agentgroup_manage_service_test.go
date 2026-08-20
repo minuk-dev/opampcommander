@@ -205,6 +205,11 @@ func (m *mockAgentUsecase) ForgetAgentLiveness(_ context.Context, _ uuid.UUID) e
 	return nil
 }
 
+// PersistAgentLiveness is unused by these tests.
+func (m *mockAgentUsecase) PersistAgentLiveness(_ context.Context, _ *agentmodel.AgentLiveness) error {
+	return nil
+}
+
 func newSvc(t *testing.T, group *mockAgentGroupUsecase, agent *mockAgentUsecase) *agentgroupsvc.ManageService {
 	t.Helper()
 

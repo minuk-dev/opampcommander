@@ -99,15 +99,17 @@ func NewAgentService(
 	cacheConfig AgentCacheConfig,
 	livenessConfig AgentLivenessConfig,
 	defaultNamespace string,
+	passiveClock clock.PassiveClock,
 ) *AgentService {
+	if passiveClock == nil {
+		passiveClock = clock.RealClock{}
+	}
+
 	if defaultNamespace == "" {
 		defaultNamespace = agentmodel.DefaultNamespaceName
 	}
 
-	persistThrottle := livenessConfig.PersistThrottle
-	if persistThrottle <= 0 {
-		persistThrottle = DefaultLivenessPersistThrottle
-	}
+	persistThrottle := clampPersistThrottle(livenessConfig.PersistThrottle, logger)
 
 	if !cacheConfig.Enabled {
 		logger.Info("agent cache disabled")
@@ -119,7 +121,7 @@ func NewAgentService(
 			agentCache:              nil,
 			cacheEnabled:            false,
 			defaultNamespace:        defaultNamespace,
-			clock:                   clock.RealClock{},
+			clock:                   passiveClock,
 			livenessPersistThrottle: persistThrottle,
 		}
 	}
@@ -133,9 +135,35 @@ func NewAgentService(
 		agentCache:              agentCache,
 		cacheEnabled:            true,
 		defaultNamespace:        defaultNamespace,
-		clock:                   clock.RealClock{},
+		clock:                   passiveClock,
 		livenessPersistThrottle: persistThrottle,
 	}
+}
+
+// clampPersistThrottle keeps the message-path write-through throttle inside the
+// staleness budget.
+//
+// The throttle is how long an agent may keep heartbeating without its stored
+// document being refreshed. Let it exceed the budget and the datastore's own
+// connected-agent filter — and the agent-group connected counts, which no read-side
+// overlay can reach — start reporting live agents as disconnected.
+func clampPersistThrottle(throttle time.Duration, logger *slog.Logger) time.Duration {
+	if throttle <= 0 {
+		throttle = DefaultLivenessPersistThrottle
+	}
+
+	budget := MaxLivenessStalenessBudget()
+	if throttle > budget {
+		logger.Warn("liveness persist throttle clamped to fit the connection staleness window",
+			slog.Duration("requested", throttle),
+			slog.Duration("applied", budget),
+			slog.Duration("staleness", agentmodel.DefaultConnectionStaleness),
+		)
+
+		return budget
+	}
+
+	return throttle
 }
 
 // newAgentCache builds the read cache, falling back to the package defaults for
@@ -247,7 +275,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
-	s.markLivenessPersisted(ctx, agent.Metadata.InstanceUID)
+	s.markLivenessPersisted(ctx, agent.Metadata.InstanceUID, agent.Status.LastReportedAt)
 
 	return nil
 }

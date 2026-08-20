@@ -117,6 +117,24 @@ func (s *store[K, V]) put(key K, value V) {
 	s.nextSeq++
 }
 
+// update applies mutate to the stored value in place, without cloning or versioning.
+// It is for narrow field writes that carry no optimistic-concurrency meaning (see
+// UpdateAgentLiveness); everything else goes through casPut. It returns
+// [model.ErrResourceNotExist] when the key is absent.
+func (s *store[K, V]) update(key K, mutate func(V)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, found := s.items[key]
+	if !found {
+		return fmt.Errorf("%w: key %v", model.ErrResourceNotExist, key)
+	}
+
+	mutate(existing.value)
+
+	return nil
+}
+
 // casPut is an optimistic-concurrency variant of put: it stores value only if the
 // currently stored value's version (as reported by versionOf) equals expected. An
 // expected of 0 means the key must not already exist (a create). On a version

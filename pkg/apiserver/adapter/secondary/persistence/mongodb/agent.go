@@ -169,6 +169,38 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent)
 	return nil
 }
 
+// UpdateAgentLiveness implements agentport.AgentPersistencePort.
+//
+// A targeted $set of the four liveness fields, with no resource-version filter and
+// no version bump: liveness carries no optimistic-concurrency meaning, and bumping
+// the version on this cadence would make routine heartbeats invalidate concurrent
+// API writes. Last write wins, which is the right semantic for a timestamp whose
+// only job is to be recent.
+func (a *AgentRepository) UpdateAgentLiveness(
+	ctx context.Context,
+	liveness *agentmodel.AgentLiveness,
+) error {
+	filter := bson.M{entity.AgentKeyFieldName: a.common.KeyQueryFunc(liveness.InstanceUID)}
+	update := bson.M{"$set": bson.M{
+		"status.connected":          liveness.Connected,
+		"status.connectionType":     liveness.ConnectionType.String(),
+		"status.sequenceNum":        liveness.SequenceNum,
+		"status.lastCommunicatedAt": bson.NewDateTimeFromTime(liveness.LastReportedAt),
+		"status.lastCommunicatedTo": liveness.LastReportedTo,
+	}}
+
+	result, err := a.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return fmt.Errorf("failed to update agent liveness in persistence: %w", err)
+	}
+
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("%w: agent %s", model.ErrResourceNotExist, liveness.InstanceUID)
+	}
+
+	return nil
+}
+
 // DeleteAgent implements agentport.AgentPersistencePort.
 func (a *AgentRepository) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
 	err := a.common.deleteOne(ctx, instanceUID)

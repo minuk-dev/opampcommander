@@ -38,7 +38,7 @@ func TestNewAgentLivenessFromAgent(t *testing.T) {
 	assert.Equal(t, uint64(42), liveness.SequenceNum)
 	assert.Equal(t, now, liveness.LastReportedAt)
 	assert.Equal(t, serverA, liveness.LastReportedTo)
-	assert.True(t, liveness.LastPersistedAt.IsZero())
+	assert.True(t, liveness.DurableReportedAt.IsZero())
 }
 
 func TestNewAgentLivenessFromAgent_Nil(t *testing.T) {
@@ -51,13 +51,13 @@ func TestAgentLivenessClone(t *testing.T) {
 	t.Parallel()
 
 	original := &agentmodel.AgentLiveness{
-		InstanceUID:     uuid.New(),
-		Connected:       true,
-		ConnectionType:  agentmodel.ConnectionTypeWebSocket,
-		SequenceNum:     7,
-		LastReportedAt:  time.Now(),
-		LastReportedTo:  serverA,
-		LastPersistedAt: time.Time{},
+		InstanceUID:       uuid.New(),
+		Connected:         true,
+		ConnectionType:    agentmodel.ConnectionTypeWebSocket,
+		SequenceNum:       7,
+		LastReportedAt:    time.Now(),
+		LastReportedTo:    serverA,
+		DurableReportedAt: time.Time{},
 	}
 
 	cloned := original.Clone()
@@ -122,13 +122,13 @@ func TestAgentLivenessApplyTo(t *testing.T) {
 			agent.Status.LastReportedTo = serverA
 
 			liveness := &agentmodel.AgentLiveness{
-				InstanceUID:     agent.Metadata.InstanceUID,
-				Connected:       true,
-				ConnectionType:  agentmodel.ConnectionTypeWebSocket,
-				SequenceNum:     99,
-				LastReportedAt:  testCase.livenessReportedAt,
-				LastReportedTo:  serverB,
-				LastPersistedAt: time.Time{},
+				InstanceUID:       agent.Metadata.InstanceUID,
+				Connected:         true,
+				ConnectionType:    agentmodel.ConnectionTypeWebSocket,
+				SequenceNum:       99,
+				LastReportedAt:    testCase.livenessReportedAt,
+				LastReportedTo:    serverB,
+				DurableReportedAt: time.Time{},
 			}
 
 			liveness.ApplyTo(agent)
@@ -160,13 +160,13 @@ func TestAgentLivenessApplyTo_KeepsServerWhenUnknown(t *testing.T) {
 	agent.Status.LastReportedTo = serverA
 
 	liveness := &agentmodel.AgentLiveness{
-		InstanceUID:     agent.Metadata.InstanceUID,
-		Connected:       true,
-		ConnectionType:  agentmodel.ConnectionTypeHTTP,
-		SequenceNum:     2,
-		LastReportedAt:  base.Add(time.Second),
-		LastReportedTo:  "",
-		LastPersistedAt: time.Time{},
+		InstanceUID:       agent.Metadata.InstanceUID,
+		Connected:         true,
+		ConnectionType:    agentmodel.ConnectionTypeHTTP,
+		SequenceNum:       2,
+		LastReportedAt:    base.Add(time.Second),
+		LastReportedTo:    "",
+		DurableReportedAt: time.Time{},
 	}
 
 	liveness.ApplyTo(agent)
@@ -186,12 +186,12 @@ func TestAgentLivenessNeedsPersist(t *testing.T) {
 
 	fresh := &agentmodel.AgentLiveness{
 		InstanceUID: uuid.New(), Connected: true, ConnectionType: agentmodel.ConnectionTypeWebSocket,
-		SequenceNum: 1, LastReportedAt: base, LastReportedTo: "", LastPersistedAt: base,
+		SequenceNum: 1, LastReportedAt: base, LastReportedTo: "", DurableReportedAt: base,
 	}
 	assert.False(t, fresh.NeedsPersist(base.Add(throttle-time.Nanosecond), throttle))
 	assert.True(t, fresh.NeedsPersist(base.Add(throttle), throttle))
 
-	fresh.LastPersistedAt = time.Time{}
+	fresh.DurableReportedAt = time.Time{}
 	assert.True(t, fresh.NeedsPersist(base, throttle))
 }
 
@@ -206,13 +206,13 @@ func TestAgentLivenessIsExpiredAt(t *testing.T) {
 
 	zero := &agentmodel.AgentLiveness{
 		InstanceUID: uuid.New(), Connected: false, ConnectionType: agentmodel.ConnectionTypeUnknown,
-		SequenceNum: 0, LastReportedAt: time.Time{}, LastReportedTo: "", LastPersistedAt: time.Time{},
+		SequenceNum: 0, LastReportedAt: time.Time{}, LastReportedTo: "", DurableReportedAt: time.Time{},
 	}
 	assert.True(t, zero.IsExpiredAt(base, ttl))
 
 	touched := &agentmodel.AgentLiveness{
 		InstanceUID: uuid.New(), Connected: true, ConnectionType: agentmodel.ConnectionTypeWebSocket,
-		SequenceNum: 1, LastReportedAt: base, LastReportedTo: "", LastPersistedAt: time.Time{},
+		SequenceNum: 1, LastReportedAt: base, LastReportedTo: "", DurableReportedAt: time.Time{},
 	}
 	assert.False(t, touched.IsExpiredAt(base.Add(ttl-time.Nanosecond), ttl))
 	assert.True(t, touched.IsExpiredAt(base.Add(ttl), ttl))
@@ -220,7 +220,7 @@ func TestAgentLivenessIsExpiredAt(t *testing.T) {
 	// A write-through with no newer heartbeat still counts as activity.
 	persisted := &agentmodel.AgentLiveness{
 		InstanceUID: uuid.New(), Connected: true, ConnectionType: agentmodel.ConnectionTypeWebSocket,
-		SequenceNum: 1, LastReportedAt: base, LastReportedTo: "", LastPersistedAt: base.Add(ttl),
+		SequenceNum: 1, LastReportedAt: base, LastReportedTo: "", DurableReportedAt: base.Add(ttl),
 	}
 	assert.False(t, persisted.IsExpiredAt(base.Add(ttl), ttl))
 }

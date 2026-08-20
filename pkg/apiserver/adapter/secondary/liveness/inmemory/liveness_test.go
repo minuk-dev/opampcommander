@@ -20,13 +20,13 @@ func (c *movableClock) Since(t time.Time) time.Duration { return c.now.Sub(t) }
 
 func newLiveness(instanceUID uuid.UUID, at time.Time) *agentmodel.AgentLiveness {
 	return &agentmodel.AgentLiveness{
-		InstanceUID:     instanceUID,
-		Connected:       true,
-		ConnectionType:  agentmodel.ConnectionTypeWebSocket,
-		SequenceNum:     1,
-		LastReportedAt:  at,
-		LastReportedTo:  "server-a",
-		LastPersistedAt: time.Time{},
+		InstanceUID:       instanceUID,
+		Connected:         true,
+		ConnectionType:    agentmodel.ConnectionTypeWebSocket,
+		SequenceNum:       1,
+		LastReportedAt:    at,
+		LastReportedTo:    "server-a",
+		DurableReportedAt: time.Time{},
 	}
 }
 
@@ -211,7 +211,7 @@ func TestStoreTouchReturnsThePreservedAnchor(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, stored)
 	assert.Equal(t, now, stored.LastReportedAt)
-	assert.Equal(t, persistedAt, stored.LastPersistedAt)
+	assert.Equal(t, persistedAt, stored.DurableReportedAt)
 }
 
 func TestStoreTouchIgnoresACallerSuppliedAnchor(t *testing.T) {
@@ -227,11 +227,11 @@ func TestStoreTouchIgnoresACallerSuppliedAnchor(t *testing.T) {
 	// Only MarkPersisted moves the anchor. An observation claiming otherwise must
 	// not be able to reset the throttle window.
 	observation := newLiveness(instanceUID, now)
-	observation.LastPersistedAt = now
+	observation.DurableReportedAt = now
 
 	stored, err := store.Touch(t.Context(), observation)
 	require.NoError(t, err)
-	assert.Equal(t, now.Add(-time.Minute), stored.LastPersistedAt)
+	assert.Equal(t, now.Add(-time.Minute), stored.DurableReportedAt)
 }
 
 func TestStoreMarkPersistedCreatesAnAbsentRecord(t *testing.T) {
@@ -246,7 +246,78 @@ func TestStoreMarkPersistedCreatesAnAbsentRecord(t *testing.T) {
 	got, err := store.Get(t.Context(), instanceUID)
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	assert.Equal(t, now, got.LastPersistedAt)
+	assert.Equal(t, now, got.DurableReportedAt)
 	assert.True(t, got.LastReportedAt.IsZero(),
 		"MarkPersisted records only the anchor; it must not invent an observation")
+}
+
+// persistedAt records an observation and then anchors its write-through, which is
+// the only way an anchor is set — Touch never takes one from the caller.
+func persistedAt(t *testing.T, store *inmemory.Store, instanceUID uuid.UUID, observed, persisted time.Time) {
+	t.Helper()
+
+	mustTouch(t, store, newLiveness(instanceUID, observed))
+	require.NoError(t, store.MarkPersisted(t.Context(), instanceUID, persisted))
+	mustTouch(t, store, newLiveness(instanceUID, observed))
+}
+
+func TestStoreListPendingWriteThrough(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 20, 10, 0, 0, 0, time.UTC)
+	testClock := &movableClock{now: now}
+	store := inmemory.New(inmemory.Config{TTL: time.Hour, GCInterval: time.Hour}, testClock)
+
+	neverPersisted := uuid.New()
+	longOverdue := uuid.New()
+	justWritten := uuid.New()
+	upToDate := uuid.New()
+
+	mustTouch(t, store, newLiveness(neverPersisted, now))
+	persistedAt(t, store, longOverdue, now, now.Add(-10*time.Minute))
+	persistedAt(t, store, justWritten, now, now.Add(-time.Second))
+
+	// Anchored after its observation: nothing left to write through.
+	mustTouch(t, store, newLiveness(upToDate, now))
+	require.NoError(t, store.MarkPersisted(t.Context(), upToDate, now))
+
+	// Cutoff at 1 minute ago: the never-persisted and long-overdue records qualify,
+	// the one written a second ago does not, and the up-to-date one is not pending
+	// at all.
+	pending, err := store.ListPendingWriteThrough(t.Context(), now.Add(-time.Minute), 0)
+	require.NoError(t, err)
+	require.Len(t, pending, 2)
+	assert.Equal(t, neverPersisted, pending[0].InstanceUID, "never-written-through records come first")
+	assert.Equal(t, longOverdue, pending[1].InstanceUID)
+}
+
+func TestStoreListPendingWriteThroughRespectsTheLimit(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 20, 10, 0, 0, 0, time.UTC)
+	store := inmemory.New(inmemory.Config{TTL: time.Hour, GCInterval: time.Hour}, &movableClock{now: now})
+
+	for range 5 {
+		mustTouch(t, store, newLiveness(uuid.New(), now))
+	}
+
+	pending, err := store.ListPendingWriteThrough(t.Context(), now, 3)
+	require.NoError(t, err)
+	assert.Len(t, pending, 3)
+}
+
+func TestStoreListPendingWriteThroughSkipsExpiredRecords(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, time.August, 20, 10, 0, 0, 0, time.UTC)
+	testClock := &movableClock{now: now}
+	store := inmemory.New(inmemory.Config{TTL: time.Minute, GCInterval: time.Hour}, testClock)
+
+	mustTouch(t, store, newLiveness(uuid.New(), now))
+
+	testClock.now = now.Add(time.Minute)
+
+	pending, err := store.ListPendingWriteThrough(t.Context(), testClock.now, 0)
+	require.NoError(t, err)
+	assert.Empty(t, pending, "an expired record is gone, not pending")
 }

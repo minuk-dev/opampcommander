@@ -34,6 +34,22 @@ type AgentPersistencePort interface {
 	GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error)
 	// PutAgent saves or updates an agent.
 	PutAgent(ctx context.Context, agent *agentmodel.Agent) error
+	// UpdateAgentLiveness writes only the agent's liveness fields, leaving the rest
+	// of the stored document — and its resource version — untouched.
+	//
+	// It exists because those fields have to stay current for the store's own sake:
+	// the connected-agent list filter and the agent-group connected counts are
+	// evaluated inside the datastore, against the stored timestamp, where no
+	// read-side overlay can reach them. A full document write on that cadence is
+	// what this whole mechanism is trying to avoid, so the write-behind flush uses
+	// this narrow one instead.
+	//
+	// Leaving the resource version alone is deliberate: liveness carries no
+	// optimistic-concurrency meaning, and bumping it would make routine heartbeats
+	// invalidate concurrent API writes.
+	//
+	// It returns [model.ErrResourceNotExist] when no such agent is stored.
+	UpdateAgentLiveness(ctx context.Context, liveness *agentmodel.AgentLiveness) error
 	// DeleteAgent permanently removes an agent by its instance UID.
 	DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error
 	// ListAgents retrieves a list of agents filtered by namespace with pagination options.
@@ -68,12 +84,16 @@ type AgentLivenessPort interface {
 	// also removes the read-modify-write window in which two servers observing the
 	// same agent could lose each other's update.
 	//
-	// The caller does not own [agentmodel.AgentLiveness.LastPersistedAt] here —
+	// The caller does not own [agentmodel.AgentLiveness.DurableReportedAt] here —
 	// whatever it passes is ignored, and only MarkPersisted moves it.
 	Touch(ctx context.Context, liveness *agentmodel.AgentLiveness) (*agentmodel.AgentLiveness, error)
-	// MarkPersisted anchors the write-through throttle: it records that the agent
-	// reached the durable store at persistedAt, leaving every observation field untouched.
-	MarkPersisted(ctx context.Context, instanceUID uuid.UUID, persistedAt time.Time) error
+	// MarkPersisted anchors the write-through throttle: it records reportedAt as the
+	// observation the durable store now holds, leaving every field of the live
+	// observation untouched.
+	//
+	// The caller passes the observation timestamp it wrote, not the wall clock —
+	// staleness is measured from what the store holds, not from when it was told.
+	MarkPersisted(ctx context.Context, instanceUID uuid.UUID, reportedAt time.Time) error
 	// Get returns the record held for instanceUID, or nil (with a nil error) when
 	// none is held. A missing record is a normal outcome, not an error.
 	Get(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.AgentLiveness, error)
@@ -83,6 +103,24 @@ type AgentLivenessPort interface {
 	// Delete drops the record held for instanceUID. Deleting an absent record
 	// succeeds.
 	Delete(ctx context.Context, instanceUID uuid.UUID) error
+	// ListPendingWriteThrough returns the records that hold an observation newer
+	// than their last write-through AND were last written through before
+	// notPersistedSince — the agents whose durable document has fallen behind by
+	// more than the caller is willing to tolerate. limit bounds the batch; a limit
+	// of zero or less means unbounded.
+	//
+	// The cutoff is a parameter rather than a fixed "anything pending" rule so the
+	// write-behind flush does not duplicate writes the per-message throttle is about
+	// to make anyway: pass a cutoff at least as old as that throttle window and the
+	// flush stays a safety net until the throttle stops firing.
+	//
+	// Records come back oldest-write-through-first, so a saturated batch drains the
+	// agents closest to falling outside the staleness window before the rest.
+	ListPendingWriteThrough(
+		ctx context.Context,
+		notPersistedSince time.Time,
+		limit int,
+	) ([]*agentmodel.AgentLiveness, error)
 }
 
 // ServerEventSenderPort is an interface that defines the methods for sending events to servers.
