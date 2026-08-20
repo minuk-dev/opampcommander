@@ -28,7 +28,15 @@ type Readiness struct {
 type Health struct {
 	// Healthy indicates if the service is healthy.
 	Healthy bool
-	// Reason provides additional information if the service is not healthy.
+	// Degraded indicates the service is working but not at full capability — an
+	// optional dependency is unavailable and the server is running without it.
+	//
+	// It is reported in the response body while the status code stays 200: a
+	// degraded optional dependency must be visible to an operator without failing
+	// the probe that would restart the process over it.
+	Degraded bool
+	// Reason provides additional information when the service is not healthy, or
+	// what it is degraded by.
 	Reason string
 }
 
@@ -73,8 +81,13 @@ func (h *HealthHelper) Health(ctx context.Context) (bool, map[string]string) {
 
 	for _, indicator := range h.indicators {
 		indicatorHealth := indicator.Health(ctx)
-		if !indicatorHealth.Healthy {
+
+		switch {
+		case !indicatorHealth.Healthy:
 			healthy = false
+			reasons[indicator.Name()] = indicatorHealth.Reason
+		case indicatorHealth.Degraded:
+			// Reported, but not fatal: the server is serving.
 			reasons[indicator.Name()] = indicatorHealth.Reason
 		}
 	}
