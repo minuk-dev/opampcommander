@@ -130,6 +130,25 @@ type CommandOption struct {
 		DefaultWindow time.Duration `mapstructure:"defaultWindow"`
 	} `mapstructure:"metricsBackend"`
 
+	Liveness struct {
+		FlushInterval   time.Duration `mapstructure:"flushInterval"`
+		FlushStaleAfter time.Duration `mapstructure:"flushStaleAfter"`
+		FlushBatchSize  int           `mapstructure:"flushBatchSize"`
+		PersistThrottle time.Duration `mapstructure:"persistThrottle"`
+		Redis           struct {
+			Enabled        bool          `mapstructure:"enabled"`
+			Endpoints      []string      `mapstructure:"endpoints"`
+			MasterName     string        `mapstructure:"masterName"`
+			Username       string        `mapstructure:"username"`
+			Password       string        `mapstructure:"password"`
+			DB             int           `mapstructure:"db"`
+			TLS            bool          `mapstructure:"tls"`
+			DialTimeout    time.Duration `mapstructure:"dialTimeout"`
+			CommandTimeout time.Duration `mapstructure:"commandTimeout"`
+			TTL            time.Duration `mapstructure:"ttl"`
+		} `mapstructure:"redis"`
+	} `mapstructure:"liveness"`
+
 	// viper
 	viper *viper.Viper
 
@@ -260,6 +279,33 @@ func NewCommand(opt CommandOption) *cobra.Command {
 		"base URL of the Prometheus-compatible HTTP API (required when metricsBackend.type=prometheus)")
 	cmd.Flags().Duration("metricsBackend.defaultWindow", 5*time.Minute,
 		"default rate window for endpoint-throughput queries")
+	cmd.Flags().Duration("liveness.flushInterval", 30*time.Second,
+		"how often agent liveness absorbed by the fast tier is written through to the database")
+	cmd.Flags().Duration("liveness.flushStaleAfter", 30*time.Second,
+		"how far behind a stored agent document must fall before the write-behind flush claims it; "+
+			"flushInterval + flushStaleAfter must stay inside the 60s staleness budget")
+	cmd.Flags().Int("liveness.flushBatchSize", 2000,
+		"maximum agents written by one liveness flush cycle")
+	cmd.Flags().Duration("liveness.persistThrottle", 0,
+		"minimum interval between database writes for an agent whose only change is that it is still alive "+
+			"(0 = 10s without a shared fast tier, the 60s staleness budget with one)")
+	cmd.Flags().Bool("liveness.redis.enabled", false,
+		"use Redis as a shared agent-liveness fast tier; optional accelerator, "+
+			"the server falls back to node-local state and the database when it is unavailable")
+	cmd.Flags().StringSlice("liveness.redis.endpoints", nil,
+		"Redis addresses; one for a single server, several for a cluster")
+	cmd.Flags().String("liveness.redis.masterName", "",
+		"Redis Sentinel master name (selects Sentinel mode)")
+	cmd.Flags().String("liveness.redis.username", "", "Redis username")
+	cmd.Flags().String("liveness.redis.password", "", "Redis password")
+	cmd.Flags().Int("liveness.redis.db", 0, "Redis logical database index (ignored in cluster mode)")
+	cmd.Flags().Bool("liveness.redis.tls", false, "connect to Redis over TLS")
+	cmd.Flags().Duration("liveness.redis.dialTimeout", 2*time.Second, "Redis connection timeout")
+	cmd.Flags().Duration("liveness.redis.commandTimeout", 200*time.Millisecond,
+		"per-command Redis timeout; kept short so a slow Redis degrades to the database "+
+			"instead of holding up agent messages")
+	cmd.Flags().Duration("liveness.redis.ttl", 120*time.Second,
+		"how long a Redis liveness record survives unrefreshed; must exceed the 90s staleness window")
 
 	return cmd
 }
@@ -325,6 +371,16 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 //
 //nolint:funlen // Configuration parsing requires many steps
 func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
+	livenessSettings := opt.livenessSettings()
+
+	// Fail at startup rather than in a degraded state nobody notices: a flush
+	// interval too close to the staleness window, or a Redis fast tier that cannot
+	// be reached as configured, are both silently harmful at runtime.
+	err := livenessSettings.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid liveness configuration: %w", err)
+	}
+
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address:  opt.Address,
 		ServerID: agentmodel.ServerID(opt.ServerID),
@@ -413,7 +469,8 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 				},
 			},
 		},
-		CacheSettings: appconfig.DefaultCacheSettings(),
+		CacheSettings:    appconfig.DefaultCacheSettings(),
+		LivenessSettings: livenessSettings,
 		BootstrapSettings: appconfig.BootstrapSettings{
 			Dir:                    opt.Bootstrap.Dir,
 			RemoteConfigSchemaDir:  opt.Bootstrap.RemoteConfigSchemaDir,
@@ -473,4 +530,47 @@ func toSlogLevel(level string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+// livenessSettings maps the parsed liveness options onto the server settings,
+// falling back to the defaults for anything left unset.
+func (opt *CommandOption) livenessSettings() appconfig.LivenessSettings {
+	settings := appconfig.DefaultLivenessSettings()
+
+	if opt.Liveness.FlushInterval > 0 {
+		settings.FlushInterval = opt.Liveness.FlushInterval
+	}
+
+	if opt.Liveness.FlushStaleAfter > 0 {
+		settings.FlushStaleAfter = opt.Liveness.FlushStaleAfter
+	}
+
+	if opt.Liveness.FlushBatchSize > 0 {
+		settings.FlushBatchSize = opt.Liveness.FlushBatchSize
+	}
+
+	settings.PersistThrottle = opt.Liveness.PersistThrottle
+
+	redis := opt.Liveness.Redis
+	settings.Redis.Enabled = redis.Enabled
+	settings.Redis.Endpoints = redis.Endpoints
+	settings.Redis.MasterName = redis.MasterName
+	settings.Redis.Username = redis.Username
+	settings.Redis.Password = redis.Password
+	settings.Redis.DB = redis.DB
+	settings.Redis.TLS = redis.TLS
+
+	if redis.DialTimeout > 0 {
+		settings.Redis.DialTimeout = redis.DialTimeout
+	}
+
+	if redis.CommandTimeout > 0 {
+		settings.Redis.CommandTimeout = redis.CommandTimeout
+	}
+
+	if redis.TTL > 0 {
+		settings.Redis.TTL = redis.TTL
+	}
+
+	return settings
 }
