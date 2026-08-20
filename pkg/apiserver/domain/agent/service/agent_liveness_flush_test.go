@@ -31,7 +31,7 @@ func newFlushFixture(t *testing.T, staleAfter time.Duration) *flushFixture {
 	liveness := newFakeLivenessPort()
 
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		// A long throttle so the per-message path never writes on its own and the
 		// flusher is unambiguously the thing under test.
@@ -164,7 +164,7 @@ func TestFlush_ReportsAFastTierFailure(t *testing.T) {
 
 	persistence := new(MockAgentPersistencePort)
 	service := agentservice.NewAgentService(
-		persistence, brokenLivenessPort{}, slog.Default(),
+		persistence, brokenLivenessPort{}, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
