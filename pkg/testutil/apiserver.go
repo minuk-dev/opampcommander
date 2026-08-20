@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -73,6 +74,30 @@ func (a *APIServer) WaitForReady() {
 
 		return err == nil
 	}, apiServerStartTimeout, apiServerPollInterval, "API server should start")
+}
+
+// IsReady reports whether the management readiness probe currently passes.
+//
+// Distinct from WaitForReady, which blocks until the server comes up: this is a
+// single point-in-time check, for asserting that readiness survives something.
+func (a *APIServer) IsReady() bool {
+	a.t.Helper()
+
+	url := fmt.Sprintf("http://127.0.0.1:%d/readyz", a.ManagementPort)
+
+	request, err := http.NewRequestWithContext(a.t.Context(), http.MethodGet, url, nil)
+	if err != nil {
+		return false
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return false
+	}
+
+	defer func() { _ = response.Body.Close() }()
+
+	return response.StatusCode == http.StatusOK
 }
 
 // Stop signals the API server to shut down by cancelling its running context.
@@ -266,6 +291,33 @@ func (b *Base) StartStandaloneAPIServer() *APIServer {
 	}
 
 	return b.launchAPIServer(settings, serverID, serverPort, managementPort, "")
+}
+
+// StartAPIServerWithRedisLiveness starts an API server backed by MongoDB that uses
+// Redis as its shared agent-liveness fast tier.
+//
+// The write-behind cadence is dialled down from the production default so a test can
+// watch the database converge without waiting out a full cycle.
+func (b *Base) StartAPIServerWithRedisLiveness(
+	mongoURI, redisEndpoint, databaseName string,
+	flushInterval time.Duration,
+) *APIServer {
+	b.t.Helper()
+
+	serverID := b.nextServerID()
+	serverPort := b.GetFreeTCPPort()
+	managementPort := b.GetFreeTCPPort()
+
+	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
+
+	livenessSettings := config.DefaultLivenessSettings()
+	livenessSettings.FlushInterval = flushInterval
+	livenessSettings.FlushStaleAfter = flushInterval
+	livenessSettings.Redis.Enabled = true
+	livenessSettings.Redis.Endpoints = []string{redisEndpoint}
+	settings.LivenessSettings = livenessSettings
+
+	return b.launchAPIServer(settings, serverID, serverPort, managementPort, mongoURI)
 }
 
 // launchAPIServer constructs and starts an API server from the given settings,
