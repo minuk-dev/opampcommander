@@ -189,6 +189,21 @@ func (m *mockAgentUsecase) SearchAgents(
 	return nil, errNotImplemented
 }
 
+// TouchAgentLiveness is unused by these tests: the liveness fast tier is exercised
+// in the agent service's own tests.
+func (m *mockAgentUsecase) TouchAgentLiveness(
+	_ context.Context,
+	_ *agentmodel.Agent,
+	_ time.Time,
+) bool {
+	return false
+}
+
+// ForgetAgentLiveness is unused by these tests.
+func (m *mockAgentUsecase) ForgetAgentLiveness(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 type mockAgentNotificationUsecase struct {
 	notificationCalled bool
 }

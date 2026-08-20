@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,13 +21,101 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
-// newTestAgentService builds an AgentService with the default cache config and
-// the built-in default namespace, the configuration these tests assume.
+// newTestAgentService builds an AgentService with the default cache/liveness config
+// and the built-in default namespace, the configuration these tests assume.
 func newTestAgentService(
 	persistence agentport.AgentPersistencePort,
 	logger *slog.Logger,
 ) *agentservice.AgentService {
-	return agentservice.NewAgentService(persistence, logger, agentservice.DefaultAgentCacheConfig(), "")
+	return agentservice.NewAgentService(
+		persistence,
+		newFakeLivenessPort(),
+		logger,
+		agentservice.DefaultAgentCacheConfig(),
+		agentservice.DefaultAgentLivenessConfig(),
+		"",
+	)
+}
+
+// fakeLivenessPort is a minimal, always-succeeding liveness fast tier. The service's
+// behaviour when the tier fails is covered separately in agent_liveness_test.go.
+type fakeLivenessPort struct {
+	mu      sync.Mutex
+	records map[uuid.UUID]*agentmodel.AgentLiveness
+}
+
+func newFakeLivenessPort() *fakeLivenessPort {
+	return &fakeLivenessPort{
+		mu:      sync.Mutex{},
+		records: make(map[uuid.UUID]*agentmodel.AgentLiveness),
+	}
+}
+
+func (f *fakeLivenessPort) Touch(
+	_ context.Context,
+	liveness *agentmodel.AgentLiveness,
+) (*agentmodel.AgentLiveness, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	stored := liveness.Clone()
+	if previous, found := f.records[liveness.InstanceUID]; found {
+		stored.LastPersistedAt = previous.LastPersistedAt
+	}
+
+	f.records[liveness.InstanceUID] = stored
+
+	return stored.Clone(), nil
+}
+
+func (f *fakeLivenessPort) MarkPersisted(_ context.Context, instanceUID uuid.UUID, at time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	record, found := f.records[instanceUID]
+	if !found {
+		//exhaustruct:ignore
+		record = &agentmodel.AgentLiveness{InstanceUID: instanceUID}
+	}
+
+	record.LastPersistedAt = at
+	f.records[instanceUID] = record
+
+	return nil
+}
+
+func (f *fakeLivenessPort) Get(_ context.Context, instanceUID uuid.UUID) (*agentmodel.AgentLiveness, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.records[instanceUID].Clone(), nil
+}
+
+func (f *fakeLivenessPort) GetMany(
+	_ context.Context,
+	instanceUIDs []uuid.UUID,
+) (map[uuid.UUID]*agentmodel.AgentLiveness, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	result := make(map[uuid.UUID]*agentmodel.AgentLiveness, len(instanceUIDs))
+
+	for _, instanceUID := range instanceUIDs {
+		if record, found := f.records[instanceUID]; found {
+			result[instanceUID] = record.Clone()
+		}
+	}
+
+	return result, nil
+}
+
+func (f *fakeLivenessPort) Delete(_ context.Context, instanceUID uuid.UUID) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	delete(f.records, instanceUID)
+
+	return nil
 }
 
 var (

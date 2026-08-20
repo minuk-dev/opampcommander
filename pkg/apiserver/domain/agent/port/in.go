@@ -54,6 +54,19 @@ type AgentUsecase interface {
 	// SearchAgents searches agents by instance UID prefix filtered by namespace.
 	SearchAgents(ctx context.Context, namespace string, query string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
+	// TouchAgentLiveness records the agent's liveness in the fast tier and reports
+	// whether the agent is due for a write-through to the durable store. Callers on
+	// the message hot path use it to decide whether SaveAgent is worth its cost for
+	// an observation that changed nothing durable.
+	//
+	// It cannot fail: the fast tier is an accelerator, and a store that cannot
+	// answer reports the agent as due rather than surfacing an error the caller
+	// could do nothing about.
+	TouchAgentLiveness(ctx context.Context, agent *agentmodel.Agent, observedAt time.Time) bool
+	// ForgetAgentLiveness drops the agent's liveness record, so the first message
+	// after a reconnect is written through immediately rather than waiting out the
+	// throttle window left by the previous session.
+	ForgetAgentLiveness(ctx context.Context, instanceUID uuid.UUID) error
 }
 
 // AgentNotificationUsecase is an interface for notifying servers about agent changes.
