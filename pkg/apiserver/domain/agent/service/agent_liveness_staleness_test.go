@@ -105,7 +105,7 @@ func simulateFleet(t *testing.T, heartbeat time.Duration) (time.Duration, *store
 	testClock := &fixedClock{}
 
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.New(slog.DiscardHandler),
+		persistence, liveness, newFakeLivenessMetrics(), slog.New(slog.DiscardHandler),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		// Deliberately oversized: the service must clamp it into the budget rather
 		// than honour a throttle that would push the document past the window.

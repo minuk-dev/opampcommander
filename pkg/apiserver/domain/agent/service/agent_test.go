@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
 	"slices"
 	"sync"
 	"testing"
@@ -31,6 +32,7 @@ func newTestAgentService(
 	return agentservice.NewAgentService(
 		persistence,
 		newFakeLivenessPort(),
+		newFakeLivenessMetrics(),
 		logger,
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.DefaultAgentLivenessConfig(),
@@ -922,4 +924,41 @@ func TestAgentService_Shutdown(t *testing.T) {
 
 	mockPersistence.AssertExpectations(t)
 	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
+}
+
+// fakeLivenessMetrics counts what the service reports about the fast tier.
+type fakeLivenessMetrics struct {
+	mu       sync.Mutex
+	absorbed int
+	written  map[agentport.LivenessWriteShape]int
+}
+
+func newFakeLivenessMetrics() *fakeLivenessMetrics {
+	//exhaustruct:ignore
+	return &fakeLivenessMetrics{written: make(map[agentport.LivenessWriteShape]int)}
+}
+
+func (m *fakeLivenessMetrics) RecordHeartbeatAbsorbed() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.absorbed++
+}
+
+func (m *fakeLivenessMetrics) RecordWriteThrough(shape agentport.LivenessWriteShape) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.written[shape]++
+}
+
+func (m *fakeLivenessMetrics) RecordFallback(string)     {}
+func (m *fakeLivenessMetrics) RecordBreakerState(string) {}
+
+// counts returns absorbed observations and durable writes by shape.
+func (m *fakeLivenessMetrics) counts() (int, map[agentport.LivenessWriteShape]int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.absorbed, maps.Clone(m.written)
 }

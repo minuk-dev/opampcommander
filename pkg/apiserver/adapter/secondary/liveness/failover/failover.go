@@ -43,6 +43,7 @@ type Store struct {
 	fallback agentport.AgentLivenessPort
 
 	breaker *breaker
+	metrics agentport.AgentLivenessMetricsPort
 	logger  *slog.Logger
 
 	// onTrip runs once each time the breaker opens. It is how the write-behind
@@ -58,6 +59,7 @@ type Store struct {
 func New(
 	primary agentport.AgentLivenessPort,
 	fallback agentport.AgentLivenessPort,
+	metrics agentport.AgentLivenessMetricsPort,
 	config Config,
 	passiveClock clock.PassiveClock,
 	logger *slog.Logger,
@@ -66,14 +68,21 @@ func New(
 		passiveClock = clock.NewRealClock()
 	}
 
-	return &Store{
+	store := &Store{
 		primary:  primary,
 		fallback: fallback,
 		breaker:  newBreaker(passiveClock, config.FailureThreshold, config.ProbeInterval),
+		metrics:  metrics,
 		logger:   logger,
 		onTrip:   nil,
 		flushes:  sync.WaitGroup{},
 	}
+
+	// Publish the starting state so the gauge reads "closed" from boot rather than
+	// only after the first transition.
+	metrics.RecordBreakerState(store.State().String())
+
+	return store
 }
 
 // OnTrip registers a callback run once each time the breaker opens.
@@ -232,10 +241,19 @@ func (s *Store) record(ctx context.Context, operation string, err error) bool {
 			s.logger.Info("agent liveness primary tier recovered; routing back to it")
 		}
 
+		s.metrics.RecordBreakerState(s.breaker.State().String())
+
 		return false
 	}
 
-	if s.breaker.recordFailure() {
+	// Counted per operation, not per outage: this is the volume the shared tier is
+	// no longer carrying, which is what an operator watches during a degradation.
+	s.metrics.RecordFallback(operation)
+
+	tripped := s.breaker.recordFailure()
+	s.metrics.RecordBreakerState(s.breaker.State().String())
+
+	if tripped {
 		s.logger.Error("agent liveness primary tier is failing; falling back to node-local state "+
 			"and the database until it recovers",
 			slog.String("operation", operation),

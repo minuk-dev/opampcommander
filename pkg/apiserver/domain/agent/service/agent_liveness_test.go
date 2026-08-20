@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
@@ -71,7 +72,7 @@ func TestTouchAgentLiveness_FirstObservationIsDue(t *testing.T) {
 	persistence := new(MockAgentPersistencePort)
 	liveness := newFakeLivenessPort()
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
@@ -93,7 +94,7 @@ func TestTouchAgentLiveness_ThrottlesAfterSave(t *testing.T) {
 
 	liveness := newFakeLivenessPort()
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
@@ -119,7 +120,7 @@ func TestTouchAgentLiveness_PreservesTheWriteThroughAnchor(t *testing.T) {
 
 	liveness := newFakeLivenessPort()
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
@@ -145,7 +146,7 @@ func TestForgetAgentLiveness_MakesTheNextObservationDue(t *testing.T) {
 
 	liveness := newFakeLivenessPort()
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
@@ -167,7 +168,7 @@ func TestTouchAgentLiveness_FastTierFailureDegradesToADurableWrite(t *testing.T)
 
 	persistence := new(MockAgentPersistencePort)
 	service := agentservice.NewAgentService(
-		persistence, brokenLivenessPort{}, slog.Default(),
+		persistence, brokenLivenessPort{}, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
@@ -187,7 +188,7 @@ func TestSaveAgent_SurvivesAFastTierFailure(t *testing.T) {
 	persistence.On("PutAgent", mock.Anything, mock.Anything).Return(nil)
 
 	service := agentservice.NewAgentService(
-		persistence, brokenLivenessPort{}, slog.Default(),
+		persistence, brokenLivenessPort{}, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
@@ -199,7 +200,7 @@ func TestTouchAgentLiveness_NilAgent(t *testing.T) {
 	t.Parallel()
 
 	service := agentservice.NewAgentService(
-		new(MockAgentPersistencePort), newFakeLivenessPort(), slog.Default(),
+		new(MockAgentPersistencePort), newFakeLivenessPort(), newFakeLivenessMetrics(), slog.Default(),
 		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
@@ -254,7 +255,7 @@ func TestTouchAgentLivenessCostsOneRoundTrip(t *testing.T) {
 
 	liveness := newCountingLivenessPort()
 	service := agentservice.NewAgentService(
-		new(MockAgentPersistencePort), liveness, slog.Default(),
+		new(MockAgentPersistencePort), liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
@@ -281,7 +282,7 @@ func TestSaveAgentAnchorsWithoutReading(t *testing.T) {
 
 	liveness := newCountingLivenessPort()
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
@@ -323,7 +324,7 @@ func newMergeService(
 	liveness *fakeLivenessPort,
 ) *agentservice.AgentService {
 	return agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(),
 		"",
@@ -385,7 +386,7 @@ func TestGetAgent_SurvivesAFastTierFailure(t *testing.T) {
 		Return(staleStoredAgent(instanceUID, stored), nil)
 
 	service := agentservice.NewAgentService(
-		persistence, brokenLivenessPort{}, slog.Default(),
+		persistence, brokenLivenessPort{}, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
@@ -446,7 +447,7 @@ func TestListAgents_SurvivesAFastTierFailure(t *testing.T) {
 	persistence.On("ListAgents", mock.Anything, mock.Anything, mock.Anything).Return(page, nil)
 
 	service := agentservice.NewAgentService(
-		persistence, brokenLivenessPort{}, slog.Default(),
+		persistence, brokenLivenessPort{}, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
@@ -488,7 +489,7 @@ func TestGetOrCreateAgentSkipsTheMerge(t *testing.T) {
 
 	liveness := newCountingLivenessPort()
 	service := agentservice.NewAgentService(
-		persistence, liveness, slog.Default(),
+		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
@@ -506,4 +507,44 @@ func TestGetOrCreateAgentSkipsTheMerge(t *testing.T) {
 	_, err = service.GetAgent(t.Context(), instanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), liveness.gets.Load())
+}
+
+func TestLivenessMetricsCountTheSavedWrites(t *testing.T) {
+	t.Parallel()
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("PutAgent", mock.Anything, mock.Anything).Return(nil)
+	persistence.On("UpdateAgentLiveness", mock.Anything, mock.Anything).Return(nil)
+
+	metrics := newFakeLivenessMetrics()
+	service := agentservice.NewAgentService(
+		persistence, newFakeLivenessPort(), metrics, slog.Default(),
+		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
+		"",
+		nil,
+	)
+
+	agent := agentmodel.NewAgent(uuid.New())
+	agent.Status.LastReportedAt = time.Now()
+
+	// One full document write anchors the throttle window.
+	require.NoError(t, service.SaveAgent(t.Context(), agent))
+
+	// Every heartbeat inside the window is absorbed instead of written.
+	const heartbeats = 5
+
+	for range heartbeats {
+		require.False(t, service.TouchAgentLiveness(t.Context(), agent, time.Now()))
+	}
+
+	// The write-behind flush writes narrowly.
+	require.NoError(t, service.PersistAgentLiveness(t.Context(),
+		agentmodel.NewAgentLivenessFromAgent(agent)))
+
+	absorbed, written := metrics.counts()
+	assert.Equal(t, heartbeats, absorbed, "absorbed observations are the database writes the tier saved")
+	assert.Equal(t, 1, written[agentport.LivenessWriteShapeDocument])
+	assert.Equal(t, 1, written[agentport.LivenessWriteShapeLiveness],
+		"the flush must be visible as a liveness-shaped write, not lumped in with document rewrites")
 }
