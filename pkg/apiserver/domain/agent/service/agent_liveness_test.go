@@ -15,6 +15,7 @@ import (
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 var errLivenessTierDown = errors.New("liveness tier down")
@@ -46,6 +47,14 @@ func (brokenLivenessPort) GetMany(
 
 func (brokenLivenessPort) Delete(context.Context, uuid.UUID) error {
 	return errLivenessTierDown
+}
+
+// mustTouchLiveness records an observation into a fake tier for test setup.
+func mustTouchLiveness(t *testing.T, port *fakeLivenessPort, liveness *agentmodel.AgentLiveness) {
+	t.Helper()
+
+	_, err := port.Touch(t.Context(), liveness)
+	require.NoError(t, err)
 }
 
 func TestTouchAgentLiveness_FirstObservationIsDue(t *testing.T) {
@@ -266,4 +275,218 @@ func TestSaveAgentAnchorsWithoutReading(t *testing.T) {
 	assert.Equal(t, int64(1), liveness.markPersisted.Load())
 	assert.Equal(t, int64(0), liveness.gets.Load(),
 		"anchoring writes one field; reading the record first would only invite a lost update")
+}
+
+// newLivenessRecord builds a fast-tier record that reports the agent as connected at `at`.
+func newLivenessRecord(instanceUID uuid.UUID, at time.Time, sequenceNum uint64) *agentmodel.AgentLiveness {
+	return &agentmodel.AgentLiveness{
+		InstanceUID:     instanceUID,
+		Connected:       true,
+		ConnectionType:  agentmodel.ConnectionTypeWebSocket,
+		SequenceNum:     sequenceNum,
+		LastReportedAt:  at,
+		LastReportedTo:  "server-b",
+		LastPersistedAt: time.Time{},
+	}
+}
+
+// staleStoredAgent is an agent whose durable document has not been written through
+// since `at` — the state a heartbeat-throttled agent is in between write-throughs.
+func staleStoredAgent(instanceUID uuid.UUID, at time.Time) *agentmodel.Agent {
+	agent := agentmodel.NewAgent(instanceUID)
+	agent.Status.Connected = true
+	agent.Status.SequenceNum = 1
+	agent.Status.LastReportedAt = at
+	agent.Status.LastReportedTo = "server-a"
+
+	return agent
+}
+
+func newMergeService(
+	persistence *MockAgentPersistencePort,
+	liveness *fakeLivenessPort,
+) *agentservice.AgentService {
+	return agentservice.NewAgentService(
+		persistence, liveness, slog.Default(),
+		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		agentservice.DefaultAgentLivenessConfig(),
+		"",
+	)
+}
+
+func TestGetAgent_MergesLivenessOverTheStoredDocument(t *testing.T) {
+	t.Parallel()
+
+	instanceUID := uuid.New()
+	stored := time.Now().Add(-5 * time.Minute)
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("GetAgent", mock.Anything, instanceUID).
+		Return(staleStoredAgent(instanceUID, stored), nil)
+
+	liveness := newFakeLivenessPort()
+	fresh := time.Now()
+	mustTouchLiveness(t, liveness, newLivenessRecord(instanceUID, fresh, 99))
+
+	agent, err := newMergeService(persistence, liveness).GetAgent(t.Context(), instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, fresh, agent.Status.LastReportedAt)
+	assert.Equal(t, uint64(99), agent.Status.SequenceNum)
+	assert.Equal(t, "server-b", agent.Status.LastReportedTo)
+	assert.True(t, agent.IsConnectedAt(time.Now(), agentmodel.DefaultConnectionStaleness),
+		"an agent whose write-through is overdue must still read as connected")
+}
+
+func TestGetAgent_KeepsTheStoredDocumentWhenTheFastTierIsBehind(t *testing.T) {
+	t.Parallel()
+
+	instanceUID := uuid.New()
+	fresh := time.Now()
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("GetAgent", mock.Anything, instanceUID).
+		Return(staleStoredAgent(instanceUID, fresh), nil)
+
+	liveness := newFakeLivenessPort()
+	stale := fresh.Add(-time.Hour)
+	mustTouchLiveness(t, liveness, newLivenessRecord(instanceUID, stale, 1))
+
+	agent, err := newMergeService(persistence, liveness).GetAgent(t.Context(), instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, fresh, agent.Status.LastReportedAt, "a record left by a crashed node must not win")
+	assert.Equal(t, "server-a", agent.Status.LastReportedTo)
+}
+
+func TestGetAgent_SurvivesAFastTierFailure(t *testing.T) {
+	t.Parallel()
+
+	instanceUID := uuid.New()
+	stored := time.Now()
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("GetAgent", mock.Anything, instanceUID).
+		Return(staleStoredAgent(instanceUID, stored), nil)
+
+	service := agentservice.NewAgentService(
+		persistence, brokenLivenessPort{}, slog.Default(),
+		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		agentservice.DefaultAgentLivenessConfig(), "",
+	)
+
+	agent, err := service.GetAgent(t.Context(), instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, stored, agent.Status.LastReportedAt, "the durable document is still a valid answer")
+}
+
+func TestListAgents_MergesLivenessAcrossThePage(t *testing.T) {
+	t.Parallel()
+
+	merged := uuid.New()
+	untouched := uuid.New()
+	stored := time.Now().Add(-5 * time.Minute)
+
+	page := &model.ListResponse[*agentmodel.Agent]{
+		Items: []*agentmodel.Agent{
+			staleStoredAgent(merged, stored),
+			staleStoredAgent(untouched, stored),
+		},
+		RemainingItemCount: 0,
+		Continue:           "",
+	}
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("ListAgents", mock.Anything, mock.Anything, mock.Anything).Return(page, nil)
+
+	liveness := newFakeLivenessPort()
+	fresh := time.Now()
+	mustTouchLiveness(t, liveness, newLivenessRecord(merged, fresh, 42))
+
+	//exhaustruct:ignore
+	result, err := newMergeService(persistence, liveness).
+		ListAgents(t.Context(), agentmodel.DefaultNamespaceName, &model.ListOptions{Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+
+	assert.Equal(t, fresh, result.Items[0].Status.LastReportedAt)
+	assert.Equal(t, uint64(42), result.Items[0].Status.SequenceNum)
+	assert.Equal(t, stored, result.Items[1].Status.LastReportedAt,
+		"an agent with no fast-tier record keeps its stored state")
+}
+
+func TestListAgents_SurvivesAFastTierFailure(t *testing.T) {
+	t.Parallel()
+
+	instanceUID := uuid.New()
+	stored := time.Now()
+
+	page := &model.ListResponse[*agentmodel.Agent]{
+		Items:              []*agentmodel.Agent{staleStoredAgent(instanceUID, stored)},
+		RemainingItemCount: 0,
+		Continue:           "",
+	}
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("ListAgents", mock.Anything, mock.Anything, mock.Anything).Return(page, nil)
+
+	service := agentservice.NewAgentService(
+		persistence, brokenLivenessPort{}, slog.Default(),
+		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		agentservice.DefaultAgentLivenessConfig(), "",
+	)
+
+	//exhaustruct:ignore
+	result, err := service.ListAgents(t.Context(), agentmodel.DefaultNamespaceName, &model.ListOptions{Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, stored, result.Items[0].Status.LastReportedAt)
+}
+
+func TestDeleteAgent_RefusesAnAgentThatIsOnlyLiveInTheFastTier(t *testing.T) {
+	t.Parallel()
+
+	instanceUID := uuid.New()
+
+	// The durable document is stale enough to read as disconnected on its own.
+	stale := staleStoredAgent(instanceUID, time.Now().Add(-2*agentmodel.DefaultConnectionStaleness))
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("GetAgent", mock.Anything, instanceUID).Return(stale, nil)
+
+	liveness := newFakeLivenessPort()
+	mustTouchLiveness(t, liveness, newLivenessRecord(instanceUID, time.Now(), 7))
+
+	err := newMergeService(persistence, liveness).DeleteAgent(t.Context(), instanceUID)
+	require.Error(t, err, "a live agent must not be deleted just because its write-through is overdue")
+	persistence.AssertNotCalled(t, "DeleteAgent", mock.Anything, mock.Anything)
+}
+
+func TestGetOrCreateAgentSkipsTheMerge(t *testing.T) {
+	t.Parallel()
+
+	instanceUID := uuid.New()
+
+	persistence := new(MockAgentPersistencePort)
+	persistence.On("GetAgent", mock.Anything, instanceUID).
+		Return(staleStoredAgent(instanceUID, time.Now()), nil)
+
+	liveness := newCountingLivenessPort()
+	service := agentservice.NewAgentService(
+		persistence, liveness, slog.Default(),
+		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		agentservice.DefaultAgentLivenessConfig(), "",
+	)
+
+	_, err := service.GetOrCreateAgent(t.Context(), instanceUID)
+	require.NoError(t, err)
+
+	// The OpAMP message path overwrites every liveness field from the message it is
+	// handling, so a merge here would be a fast-tier round trip per agent message
+	// spent on values that are discarded microseconds later.
+	assert.Equal(t, int64(0), liveness.gets.Load(),
+		"the message path must not pay for a merge it immediately overwrites")
+
+	// The API read path still merges.
+	_, err = service.GetAgent(t.Context(), instanceUID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), liveness.gets.Load())
 }

@@ -84,3 +84,68 @@ func (s *AgentService) markLivenessPersisted(ctx context.Context, instanceUID uu
 		)
 	}
 }
+
+// mergeLiveness overlays the agent's fast-tier liveness onto the document read from
+// the durable store, so a read reflects the agent's current state rather than the
+// last write-through.
+//
+// The overlay is one-directional and only applies when the record is genuinely
+// fresher than the document (see [agentmodel.AgentLiveness.ApplyTo]).
+func (s *AgentService) mergeLiveness(ctx context.Context, agent *agentmodel.Agent) {
+	if agent == nil {
+		return
+	}
+
+	s.loadLiveness(ctx, agent.Metadata.InstanceUID).ApplyTo(agent)
+}
+
+// mergeLivenessInto overlays fast-tier liveness onto a whole page of agents with a
+// single batched read.
+//
+// Note on filtered listings: options such as ConnectedOnly are evaluated by the
+// durable store, before this overlay runs. That stays correct only because the
+// write-through interval is bounded well below [agentmodel.DefaultConnectionStaleness]
+// — the durable document can lag the fast tier, but never by enough to flip the
+// filter's verdict. Post-filtering here instead would break cursor pagination, since
+// the page size is decided by the store.
+func (s *AgentService) mergeLivenessInto(ctx context.Context, agents []*agentmodel.Agent) {
+	if len(agents) == 0 {
+		return
+	}
+
+	instanceUIDs := make([]uuid.UUID, 0, len(agents))
+	for _, agent := range agents {
+		instanceUIDs = append(instanceUIDs, agent.Metadata.InstanceUID)
+	}
+
+	records, err := s.agentLivenessPort.GetMany(ctx, instanceUIDs)
+	if err != nil {
+		s.logger.Warn("failed to read agent liveness for listing",
+			slog.Int("agents", len(agents)),
+			slog.String("error", err.Error()),
+		)
+
+		return
+	}
+
+	for _, agent := range agents {
+		records[agent.Metadata.InstanceUID].ApplyTo(agent)
+	}
+}
+
+// loadLiveness reads a record from the fast tier, returning nil both when no record
+// is held and when the read failed — callers cannot act on the difference, and an
+// accelerator's failure must never surface.
+func (s *AgentService) loadLiveness(ctx context.Context, instanceUID uuid.UUID) *agentmodel.AgentLiveness {
+	liveness, err := s.agentLivenessPort.Get(ctx, instanceUID)
+	if err != nil {
+		s.logger.Warn("failed to read agent liveness",
+			slog.String("instanceUID", instanceUID.String()),
+			slog.String("error", err.Error()),
+		)
+
+		return nil
+	}
+
+	return liveness
+}
