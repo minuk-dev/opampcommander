@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -152,6 +153,21 @@ func (m *mockAgentUsecase) SearchAgents(
 	}
 
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+// TouchAgentLiveness is unused by these tests: the liveness fast tier is exercised
+// in the agent service's own tests.
+func (m *mockAgentUsecase) TouchAgentLiveness(
+	_ context.Context,
+	_ *agentmodel.Agent,
+	_ time.Time,
+) bool {
+	return false
+}
+
+// ForgetAgentLiveness is unused by these tests.
+func (m *mockAgentUsecase) ForgetAgentLiveness(_ context.Context, _ uuid.UUID) error {
+	return nil
 }
 
 func newSvc(t *testing.T, container *mockContainerUsecase, agent *mockAgentUsecase) *containersvc.Service {

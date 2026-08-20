@@ -179,6 +179,21 @@ func (m *mockAgentUsecase) SearchAgents(
 	return result, args.Error(1) //nolint:wrapcheck
 }
 
+// TouchAgentLiveness is unused by these tests: the liveness fast tier is exercised
+// in the agent service's own tests.
+func (m *mockAgentUsecase) TouchAgentLiveness(
+	_ context.Context,
+	_ *agentmodel.Agent,
+	_ time.Time,
+) bool {
+	return false
+}
+
+// ForgetAgentLiveness is unused by these tests.
+func (m *mockAgentUsecase) ForgetAgentLiveness(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 // mockRemoteConfigPersistence is a mock for AgentRemoteConfigPersistencePort.
 type mockRemoteConfigPersistence struct {
 	mock.Mock

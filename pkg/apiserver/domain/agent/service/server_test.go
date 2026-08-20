@@ -345,6 +345,21 @@ func (m *MockAgentUsecase) SearchAgents(
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
 }
 
+// TouchAgentLiveness is unused by these tests: the liveness fast tier is exercised
+// in the agent service's own tests.
+func (m *MockAgentUsecase) TouchAgentLiveness(
+	_ context.Context,
+	_ *agentmodel.Agent,
+	_ time.Time,
+) bool {
+	return false
+}
+
+// ForgetAgentLiveness is unused by these tests.
+func (m *MockAgentUsecase) ForgetAgentLiveness(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 func TestServerService_GetServer_CacheHit(t *testing.T) {
 	t.Parallel()
 

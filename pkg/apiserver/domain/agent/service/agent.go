@@ -26,13 +26,37 @@ const (
 	DefaultAgentCacheTTL = 30 * time.Second
 	// DefaultAgentCacheCapacity is the default maximum number of agent cache entries.
 	DefaultAgentCacheCapacity int64 = 1000
+	// DefaultLivenessPersistThrottle is the minimum interval between write-throughs of
+	// an agent whose only change is that it is still alive. Bursts of heartbeats in the
+	// same window share a single durable write; anything that changed durable state is
+	// written immediately by its own call to SaveAgent.
+	//
+	// Kept short (10s) so the API surface still reflects per-agent SequenceNum and
+	// LastReportedAt within an order of magnitude of the OpAMP heartbeat interval even
+	// with no shared liveness tier configured.
+	DefaultLivenessPersistThrottle = 10 * time.Second
 )
+
+// AgentLivenessConfig holds the configuration of the liveness fast tier.
+type AgentLivenessConfig struct {
+	// PersistThrottle is the minimum interval between write-throughs of an agent
+	// whose only change is its liveness. Zero selects [DefaultLivenessPersistThrottle].
+	PersistThrottle time.Duration
+}
 
 // AgentCacheConfig holds the configuration for agent caching.
 type AgentCacheConfig struct {
 	Enabled     bool
 	TTL         time.Duration
 	MaxCapacity int64
+}
+
+// DefaultAgentLivenessConfig returns the liveness configuration used when no
+// explicit configuration is supplied.
+func DefaultAgentLivenessConfig() AgentLivenessConfig {
+	return AgentLivenessConfig{
+		PersistThrottle: DefaultLivenessPersistThrottle,
+	}
 }
 
 // AgentService is a struct that implements the AgentUsecase interface.
@@ -44,8 +68,15 @@ type AgentService struct {
 	// defaultNamespace is the namespace assigned to a newly-seen agent that has
 	// not reported a service.namespace. Sourced from configuration.
 	defaultNamespace string
-	// clock is consulted only for the delete connection-guard (staleness evaluation).
+	// clock is consulted for the delete connection-guard (staleness evaluation) and
+	// for the liveness write-through throttle.
 	clock clock.PassiveClock
+
+	// agentLivenessPort is the fast tier for liveness state. It is a pure
+	// accelerator: every error from it is logged and swallowed, and the service
+	// behaves as if the record were simply absent.
+	agentLivenessPort       agentport.AgentLivenessPort
+	livenessPersistThrottle time.Duration
 }
 
 // DefaultAgentCacheConfig returns the cache configuration used when no explicit
@@ -63,27 +94,56 @@ func DefaultAgentCacheConfig() AgentCacheConfig {
 // an empty value falls back to agentmodel.DefaultNamespaceName.
 func NewAgentService(
 	agentPersistencePort agentport.AgentPersistencePort,
+	agentLivenessPort agentport.AgentLivenessPort,
 	logger *slog.Logger,
 	cacheConfig AgentCacheConfig,
+	livenessConfig AgentLivenessConfig,
 	defaultNamespace string,
 ) *AgentService {
 	if defaultNamespace == "" {
 		defaultNamespace = agentmodel.DefaultNamespaceName
 	}
 
+	persistThrottle := livenessConfig.PersistThrottle
+	if persistThrottle <= 0 {
+		persistThrottle = DefaultLivenessPersistThrottle
+	}
+
 	if !cacheConfig.Enabled {
 		logger.Info("agent cache disabled")
 
 		return &AgentService{
-			agentPersistencePort: agentPersistencePort,
-			logger:               logger,
-			agentCache:           nil,
-			cacheEnabled:         false,
-			defaultNamespace:     defaultNamespace,
-			clock:                clock.RealClock{},
+			agentPersistencePort:    agentPersistencePort,
+			agentLivenessPort:       agentLivenessPort,
+			logger:                  logger,
+			agentCache:              nil,
+			cacheEnabled:            false,
+			defaultNamespace:        defaultNamespace,
+			clock:                   clock.RealClock{},
+			livenessPersistThrottle: persistThrottle,
 		}
 	}
 
+	agentCache := newAgentCache(cacheConfig, logger)
+
+	return &AgentService{
+		agentPersistencePort:    agentPersistencePort,
+		agentLivenessPort:       agentLivenessPort,
+		logger:                  logger,
+		agentCache:              agentCache,
+		cacheEnabled:            true,
+		defaultNamespace:        defaultNamespace,
+		clock:                   clock.RealClock{},
+		livenessPersistThrottle: persistThrottle,
+	}
+}
+
+// newAgentCache builds the read cache, falling back to the package defaults for
+// unset or nonsensical bounds.
+func newAgentCache(
+	cacheConfig AgentCacheConfig,
+	logger *slog.Logger,
+) *ttlcache.Cache[uuid.UUID, *agentmodel.Agent] {
 	ttl := cacheConfig.TTL
 	if ttl <= 0 {
 		ttl = DefaultAgentCacheTTL
@@ -94,24 +154,15 @@ func NewAgentService(
 		capacity = DefaultAgentCacheCapacity
 	}
 
-	agentCache := ttlcache.New[uuid.UUID, *agentmodel.Agent](
-		ttlcache.WithTTL[uuid.UUID, *agentmodel.Agent](ttl),
-		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(capacity)),
-	)
-
 	logger.Info("agent cache initialized",
 		slog.Duration("ttl", ttl),
 		slog.Int64("maxCapacity", capacity),
 	)
 
-	return &AgentService{
-		agentPersistencePort: agentPersistencePort,
-		logger:               logger,
-		agentCache:           agentCache,
-		cacheEnabled:         true,
-		defaultNamespace:     defaultNamespace,
-		clock:                clock.RealClock{},
-	}
+	return ttlcache.New[uuid.UUID, *agentmodel.Agent](
+		ttlcache.WithTTL[uuid.UUID, *agentmodel.Agent](ttl),
+		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(capacity)),
+	)
 }
 
 // Shutdown releases resources held by the service.
@@ -201,6 +252,8 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
+	s.markLivenessPersisted(ctx, agent.Metadata.InstanceUID)
+
 	return nil
 }
 
@@ -227,6 +280,10 @@ func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) e
 	if err != nil {
 		return fmt.Errorf("failed to delete agent from persistence: %w", err)
 	}
+
+	// Drop the fast-tier record too, or a read path merging liveness over the
+	// durable store would resurrect the deleted agent's connection state.
+	_ = s.ForgetAgentLiveness(ctx, instanceUID)
 
 	s.InvalidateCache(instanceUID)
 

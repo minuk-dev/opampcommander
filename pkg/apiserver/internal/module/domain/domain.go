@@ -110,6 +110,7 @@ func New() fx.Option {
 
 func provideAgentService(
 	agentPersistencePort agentport.AgentPersistencePort,
+	agentLivenessPort agentport.AgentLivenessPort,
 	logger *slog.Logger,
 	settings *config.ServerSettings,
 ) *agentservice.AgentService {
@@ -124,11 +125,15 @@ func provideAgentService(
 
 	return agentservice.NewAgentService(
 		agentPersistencePort,
+		agentLivenessPort,
 		logger,
 		agentservice.AgentCacheConfig{
 			Enabled:     agentCacheSettings.Enabled,
 			TTL:         agentCacheSettings.TTL,
 			MaxCapacity: agentCacheSettings.MaxCapacity,
+		},
+		agentservice.AgentLivenessConfig{
+			PersistThrottle: 0,
 		},
 		settings.BootstrapSettings.DefaultNamespace,
 	)
