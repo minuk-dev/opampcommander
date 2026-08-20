@@ -49,6 +49,34 @@ func (s *AgentService) TouchAgentLiveness(
 	return stored.NeedsPersist(s.clock.Now(), s.livenessPersistThrottle)
 }
 
+// PersistAgentLiveness writes an observation held by the fast tier through to the
+// durable store, touching only the liveness fields.
+//
+// This is the write-behind path. It is deliberately not SaveAgent: rewriting the
+// whole document on this cadence is the cost the fast tier exists to remove, and it
+// would bump the resource version on every heartbeat, so routine liveness would keep
+// invalidating concurrent API writes.
+//
+// It returns [model.ErrResourceNotExist] when the agent is gone, so the caller can
+// drop the record instead of chasing it forever.
+func (s *AgentService) PersistAgentLiveness(ctx context.Context, liveness *agentmodel.AgentLiveness) error {
+	if liveness == nil {
+		return nil
+	}
+
+	err := s.agentPersistencePort.UpdateAgentLiveness(ctx, liveness)
+	if err != nil {
+		return fmt.Errorf("failed to persist agent liveness: %w", err)
+	}
+
+	// The cached document keeps its now-slightly-stale liveness fields on purpose:
+	// reads overlay the fast tier anyway, and invalidating every flushed agent would
+	// empty the read cache once per flush cycle.
+	s.markLivenessPersisted(ctx, liveness.InstanceUID, liveness.LastReportedAt)
+
+	return nil
+}
+
 // ForgetAgentLiveness drops the agent's liveness record.
 //
 // Called on a genuine disconnect so the first message after a reconnect is written
@@ -68,15 +96,22 @@ func (s *AgentService) ForgetAgentLiveness(ctx context.Context, instanceUID uuid
 	return nil
 }
 
-// markLivenessPersisted anchors the write-through throttle at now, after the agent
-// has been written to the durable store. Every durable write resets the window,
-// not just the heartbeat-driven ones, so an agent whose description just changed
-// does not immediately pay for a second write on its next heartbeat.
+// markLivenessPersisted records the observation the durable store now holds.
 //
-// It writes only the anchor, so it cannot clobber an observation another server
+// It takes the observation timestamp that was written rather than reading the clock:
+// staleness is measured from what the store holds, and anchoring on write time would
+// understate it by however old the observation was when it was written.
+//
+// Every durable write anchors, not just heartbeat-driven ones, so an agent whose
+// description just changed does not pay for a second write on its next heartbeat.
+// Only the anchor is written, so this cannot clobber an observation another server
 // recorded in between.
-func (s *AgentService) markLivenessPersisted(ctx context.Context, instanceUID uuid.UUID) {
-	err := s.agentLivenessPort.MarkPersisted(ctx, instanceUID, s.clock.Now())
+func (s *AgentService) markLivenessPersisted(
+	ctx context.Context,
+	instanceUID uuid.UUID,
+	reportedAt time.Time,
+) {
+	err := s.agentLivenessPort.MarkPersisted(ctx, instanceUID, reportedAt)
 	if err != nil {
 		s.logger.Warn("failed to anchor agent liveness write-through",
 			slog.String("instanceUID", instanceUID.String()),

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/fx"
 	"k8s.io/utils/clock"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
@@ -89,6 +90,10 @@ func New() fx.Option {
 		helper.AsRunner(Identity[*agentservice.ServerIdentityService]),
 		helper.AsRunner(Identity[*agentservice.AgentNotificationService]),
 
+		// Write-behind flush of the agent liveness fast tier.
+		provideAgentLivenessFlusher,
+		helper.AsRunner(Identity[*agentservice.AgentLivenessFlusher]),
+
 		// Generic reconcile registry: each Reconciler is collected into the "reconcilers"
 		// group and indexed by reconcile.NewService. A new reconcilable kind plugs in by
 		// adding one AsReconciler line here.
@@ -136,6 +141,36 @@ func provideAgentService(
 			PersistThrottle: 0,
 		},
 		settings.BootstrapSettings.DefaultNamespace,
+		clock.RealClock{},
+	)
+}
+
+// Runners are bound into the "runners" group by interface at wiring time, which
+// would only fail when the app starts. Assert them here so dropping a Name or Run
+// method is a build error instead.
+var (
+	_ scheduler.Scheduler = (*agentservice.AgentLivenessFlusher)(nil)
+	_ scheduler.Scheduler = (*agentservice.Service)(nil)
+	_ scheduler.Scheduler = (*agentservice.AgentGroupService)(nil)
+	_ scheduler.Scheduler = (*agentservice.ServerService)(nil)
+	_ scheduler.Scheduler = (*agentservice.ServerIdentityService)(nil)
+	_ scheduler.Scheduler = (*agentservice.AgentNotificationService)(nil)
+)
+
+// provideAgentLivenessFlusher builds the write-behind flusher that keeps the durable
+// store from falling further behind the liveness fast tier than the staleness window
+// tolerates.
+func provideAgentLivenessFlusher(
+	agentUsecase agentport.AgentUsecase,
+	agentLivenessPort agentport.AgentLivenessPort,
+	logger *slog.Logger,
+) *agentservice.AgentLivenessFlusher {
+	return agentservice.NewAgentLivenessFlusher(
+		agentUsecase,
+		agentLivenessPort,
+		agentservice.DefaultAgentLivenessFlushConfig(),
+		logger,
+		clock.RealClock{},
 	)
 }
 

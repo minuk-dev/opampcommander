@@ -194,6 +194,11 @@ func (m *mockAgentUsecase) ForgetAgentLiveness(_ context.Context, _ uuid.UUID) e
 	return nil
 }
 
+// PersistAgentLiveness is unused by these tests.
+func (m *mockAgentUsecase) PersistAgentLiveness(_ context.Context, _ *agentmodel.AgentLiveness) error {
+	return nil
+}
+
 // mockRemoteConfigPersistence is a mock for AgentRemoteConfigPersistencePort.
 type mockRemoteConfigPersistence struct {
 	mock.Mock

@@ -67,6 +67,24 @@ func (r *AgentRepository) PutAgent(_ context.Context, agent *agentmodel.Agent) e
 	return nil
 }
 
+// UpdateAgentLiveness implements agentport.AgentPersistencePort.
+//
+// Like the MongoDB adapter, this writes only the liveness fields and leaves the
+// resource version alone: liveness carries no optimistic-concurrency meaning, so
+// last write wins.
+func (r *AgentRepository) UpdateAgentLiveness(
+	_ context.Context,
+	liveness *agentmodel.AgentLiveness,
+) error {
+	return r.store.update(liveness.InstanceUID, func(agent *agentmodel.Agent) {
+		agent.Status.Connected = liveness.Connected
+		agent.Status.ConnectionType = liveness.ConnectionType
+		agent.Status.SequenceNum = liveness.SequenceNum
+		agent.Status.LastReportedAt = liveness.LastReportedAt
+		agent.Status.LastReportedTo = liveness.LastReportedTo
+	})
+}
+
 // DeleteAgent implements agentport.AgentPersistencePort.
 func (r *AgentRepository) DeleteAgent(_ context.Context, instanceUID uuid.UUID) error {
 	return r.store.delete(instanceUID)
