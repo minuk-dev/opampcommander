@@ -17,12 +17,16 @@ import (
 )
 
 // NewAdapterModules creates the adapter layer module. The database type selects
-// the secondary persistence backend (MongoDB or in-memory standalone).
-func NewAdapterModules(databaseType config.DatabaseType) fx.Option {
+// the secondary persistence backend (MongoDB or in-memory standalone), and the
+// liveness settings select the agent liveness fast tier.
+func NewAdapterModules(
+	databaseType config.DatabaseType,
+	livenessSettings config.LivenessSettings,
+) fx.Option {
 	return fx.Module(
 		"adapter",
 		primary.New(),
-		secondary.New(databaseType),
+		secondary.New(databaseType, livenessSettings),
 		common.New(),
 	)
 }

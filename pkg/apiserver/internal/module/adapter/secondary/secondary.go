@@ -12,7 +12,7 @@ import (
 // from the configured database type. Only the explicit "mongodb" wires the
 // MongoDB client, database, and repositories; any other value (including the
 // default/empty) wires the in-memory store (standalone mode).
-func New(databaseType config.DatabaseType) fx.Option {
+func New(databaseType config.DatabaseType, livenessSettings config.LivenessSettings) fx.Option {
 	persistence := NewInMemory()
 	if databaseType == config.DatabaseTypeMongoDB {
 		persistence = NewMongoDB()
@@ -21,7 +21,7 @@ func New(databaseType config.DatabaseType) fx.Option {
 	return fx.Options(
 		persistence,
 		// Agent liveness fast tier (node-local by default).
-		NewLiveness(),
+		NewLiveness(databaseType, livenessSettings),
 		// Outbound messaging: server-event sender.
 		fx.Provide(newEventSender),
 		// Outbound metrics: endpoint-throughput query port (Prometheus or no-op).
