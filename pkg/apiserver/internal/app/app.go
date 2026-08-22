@@ -57,8 +57,9 @@ func New(settings config.ServerSettings) *Server {
 func appOptions(settings *config.ServerSettings) []fx.Option {
 	return []fx.Option{
 		// Hexagonal architecture layers
-		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type), // Adapters: HTTP, DB, messaging, scheduler
-		infrastructuremodule.New(settings.DatabaseSettings.Type),        // Bootstrap: Casbin RBAC + default seed hooks
+		// Adapters: HTTP, DB, messaging, scheduler, liveness fast tier
+		adaptermodule.NewAdapterModules(settings.DatabaseSettings.Type, settings.LivenessSettings),
+		infrastructuremodule.New(settings.DatabaseSettings.Type), // Bootstrap: Casbin RBAC + default seed hooks
 		applicationmodule.New(),   // Application services
 		domainmodule.New(),        // Domain services
 		NewConfigModule(settings), // Configuration

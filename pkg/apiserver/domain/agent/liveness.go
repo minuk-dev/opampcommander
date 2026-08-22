@@ -101,14 +101,23 @@ func (l *AgentLiveness) ApplyTo(agent *Agent) {
 	}
 }
 
+// HasUnwrittenObservation reports whether the record holds an observation that has
+// not reached the durable store yet.
+func (l *AgentLiveness) HasUnwrittenObservation() bool {
+	if l == nil || l.LastReportedAt.IsZero() {
+		return false
+	}
+
+	return l.LastReportedAt.After(l.DurableReportedAt)
+}
+
 // IsPendingWriteThroughSince reports whether the record holds an observation that
 // has not reached the durable store yet AND was last written through before the
 // given cutoff.
 //
-// The cutoff is what keeps the write-behind flush from duplicating writes the
-// per-message throttle is about to make anyway: while the throttle keeps firing it
-// refreshes DurableReportedAt often enough that nothing ever crosses the cutoff, and
-// the flush only takes over once the throttle stops.
+// The cutoff is how much staleness the caller tolerates in the durable store: pass
+// now minus that tolerance and the result is the set of agents whose stored document
+// has fallen further behind than it should.
 //
 // A record that has never been written through is always pending.
 func (l *AgentLiveness) IsPendingWriteThroughSince(cutoff time.Time) bool {
@@ -116,7 +125,7 @@ func (l *AgentLiveness) IsPendingWriteThroughSince(cutoff time.Time) bool {
 		return false
 	}
 
-	if !l.LastReportedAt.After(l.DurableReportedAt) {
+	if !l.HasUnwrittenObservation() {
 		return false
 	}
 
