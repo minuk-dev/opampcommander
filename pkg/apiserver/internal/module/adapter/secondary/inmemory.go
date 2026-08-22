@@ -100,7 +100,8 @@ func (*InMemoryHealthIndicator) Readiness(context.Context) healthcheck.Readiness
 // Health always reports healthy.
 func (*InMemoryHealthIndicator) Health(context.Context) healthcheck.Health {
 	return healthcheck.Health{
-		Healthy: true,
-		Reason:  "in-memory store is always healthy",
+		Healthy:  true,
+		Degraded: false,
+		Reason:   "in-memory store is always healthy",
 	}
 }

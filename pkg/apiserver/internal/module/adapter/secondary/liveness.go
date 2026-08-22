@@ -7,10 +7,12 @@ import (
 
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/failover"
 	livenessinmemory "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/inmemory"
 	livenessredis "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/redis"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -33,8 +35,10 @@ func NewLiveness(databaseType config.DatabaseType, livenessSettings config.Liven
 	if livenessSettings.Redis.Enabled && databaseType == config.DatabaseTypeMongoDB {
 		options = append(options, fx.Provide(
 			newRedisLivenessStore,
-			fx.Annotate(identity[*livenessredis.Store], fx.As(new(agentport.AgentLivenessPort))),
-		))
+			newFailoverLivenessStore,
+			fx.Annotate(identity[*failover.Store], fx.As(new(agentport.AgentLivenessPort))),
+			helper.AsHealthIndicator(NewAgentLivenessHealthIndicator),
+		), fx.Invoke(bindForcedFlush))
 
 		return fx.Options(options...)
 	}
@@ -122,4 +126,52 @@ func newRedisLivenessStore(
 	})
 
 	return store, nil
+}
+
+// newFailoverLivenessStore puts the circuit breaker between the shared tier and the
+// node-local one, so an unreachable Redis costs database writes rather than failed
+// requests.
+func newFailoverLivenessStore(
+	primary *livenessredis.Store,
+	fallback *livenessinmemory.Store,
+	logger *slog.Logger,
+) *failover.Store {
+	//exhaustruct:ignore // zero fields select the breaker's defaults
+	return failover.New(primary, fallback, failover.Config{}, clock.NewRealClock(), logger)
+}
+
+// bindForcedFlush makes a tripping breaker force a write-behind flush.
+//
+// The wiring is a separate step because the two halves depend on each other: the
+// flusher reads through the liveness port, so it cannot be a constructor argument
+// of the store that provides it.
+func bindForcedFlush(
+	store *failover.Store,
+	flusher *agentservice.AgentLivenessFlusher,
+	logger *slog.Logger,
+	lifecycle fx.Lifecycle,
+) {
+	// A forced flush outlives the call that tripped the breaker, so shutdown waits
+	// for it rather than exiting mid-write.
+	lifecycle.Append(fx.Hook{
+		OnStart: func(context.Context) error { return nil },
+		OnStop: func(context.Context) error {
+			store.Wait()
+
+			return nil
+		},
+	})
+
+	store.OnTrip(func(ctx context.Context) {
+		written, err := flusher.Flush(ctx)
+		if err != nil {
+			logger.Warn("forced agent liveness flush failed after the circuit breaker tripped",
+				slog.String("error", err.Error()))
+
+			return
+		}
+
+		logger.Info("forced agent liveness flush after the circuit breaker tripped",
+			slog.Int("agents", written))
+	})
 }
