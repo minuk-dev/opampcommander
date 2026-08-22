@@ -123,6 +123,48 @@ type AgentLivenessPort interface {
 	) ([]*agentmodel.AgentLiveness, error)
 }
 
+// AgentLivenessMetricsPort records what the liveness fast tier is buying.
+//
+// The point of the tier is a number an operator cannot otherwise see: how many
+// database writes the fleet's heartbeats are no longer costing. Absorbed
+// observations minus write-throughs is that number, and it is only visible from
+// inside the decision, so the domain emits it and an adapter records it.
+//
+// Implementations must be cheap and non-blocking — this runs on every agent
+// message — and must never fail: there is no no-op default, so a nil-safe no-op
+// implementation is wired when metrics are disabled.
+type AgentLivenessMetricsPort interface {
+	// RecordHeartbeatAbsorbed counts an observation the fast tier took without a
+	// database write. This is the saved write.
+	RecordHeartbeatAbsorbed()
+	// RecordWriteThrough counts an observation written to the durable store, by the
+	// shape of the write. The two shapes cost very differently — a full document
+	// rewrite bumps the resource version and carries the whole agent, a liveness
+	// write touches four fields — so an operator watching the tier's effect needs
+	// them apart.
+	RecordWriteThrough(shape LivenessWriteShape)
+	// RecordFallback counts one operation served by the fallback tier because the
+	// shared one could not answer.
+	RecordFallback(operation string)
+	// RecordBreakerState records the circuit breaker's current state, as a name
+	// suitable for a metric label.
+	RecordBreakerState(state string)
+}
+
+// LivenessWriteShape distinguishes the two ways an observation reaches the durable
+// store.
+type LivenessWriteShape string
+
+// Liveness write shapes.
+const (
+	// LivenessWriteShapeDocument is a full agent document write, made when a message
+	// changed durable state or when the message-path throttle window elapsed.
+	LivenessWriteShapeDocument LivenessWriteShape = "document"
+	// LivenessWriteShapeLiveness is a liveness-only write made by the write-behind
+	// flush. Steady-state heartbeat traffic should land almost entirely here.
+	LivenessWriteShapeLiveness LivenessWriteShape = "liveness"
+)
+
 // ServerEventSenderPort is an interface that defines the methods for sending events to servers.
 type ServerEventSenderPort interface {
 	// SendMessageToServer sends a message to the specified server. The caller passes the

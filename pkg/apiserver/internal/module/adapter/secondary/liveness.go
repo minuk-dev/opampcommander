@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/failover"
 	livenessinmemory "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/inmemory"
 	livenessredis "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/redis"
+	livenessmetrics "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/metrics/liveness"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
@@ -29,6 +31,7 @@ func NewLiveness(databaseType config.DatabaseType, livenessSettings config.Liven
 		fx.Provide(
 			newInMemoryLivenessStore,
 			helper.AsRunner(identity[*livenessinmemory.Store]),
+			newLivenessMetricsRecorder,
 		),
 	}
 
@@ -134,10 +137,36 @@ func newRedisLivenessStore(
 func newFailoverLivenessStore(
 	primary *livenessredis.Store,
 	fallback *livenessinmemory.Store,
+	metrics agentport.AgentLivenessMetricsPort,
 	logger *slog.Logger,
 ) *failover.Store {
 	//exhaustruct:ignore // zero fields select the breaker's defaults
-	return failover.New(primary, fallback, failover.Config{}, clock.NewRealClock(), logger)
+	return failover.New(primary, fallback, metrics, failover.Config{}, clock.NewRealClock(), logger)
+}
+
+// newLivenessMetricsRecorder reports what the fast tier is buying — chiefly the
+// database writes it is saving.
+//
+// A failure to build the instruments is not worth failing startup over, and neither
+// is a disabled meter provider: both fall back to the no-op recorder so the hot path
+// can call the port unconditionally.
+func newLivenessMetricsRecorder(
+	meterProvider metric.MeterProvider,
+	logger *slog.Logger,
+) agentport.AgentLivenessMetricsPort {
+	if meterProvider == nil {
+		return livenessmetrics.NewNoopRecorder()
+	}
+
+	recorder, err := livenessmetrics.NewOTelRecorder(meterProvider)
+	if err != nil {
+		logger.Warn("failed to build agent liveness metrics; continuing without them",
+			slog.String("error", err.Error()))
+
+		return livenessmetrics.NewNoopRecorder()
+	}
+
+	return recorder
 }
 
 // bindForcedFlush makes a tripping breaker force a write-behind flush.

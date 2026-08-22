@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
 
 // TouchAgentLiveness records the agent's liveness in the fast tier and reports
@@ -46,7 +47,14 @@ func (s *AgentService) TouchAgentLiveness(
 		return true
 	}
 
-	return stored.NeedsPersist(s.clock.Now(), s.livenessPersistThrottle)
+	due := stored.NeedsPersist(s.clock.Now(), s.livenessPersistThrottle)
+	if !due {
+		// The observation stopped here instead of reaching the database. This is the
+		// saved write the whole fast tier exists to produce.
+		s.livenessMetricsPort.RecordHeartbeatAbsorbed()
+	}
+
+	return due
 }
 
 // PersistAgentLiveness writes an observation held by the fast tier through to the
@@ -72,7 +80,7 @@ func (s *AgentService) PersistAgentLiveness(ctx context.Context, liveness *agent
 	// The cached document keeps its now-slightly-stale liveness fields on purpose:
 	// reads overlay the fast tier anyway, and invalidating every flushed agent would
 	// empty the read cache once per flush cycle.
-	s.markLivenessPersisted(ctx, liveness.InstanceUID, liveness.LastReportedAt)
+	s.markLivenessPersisted(ctx, liveness.InstanceUID, liveness.LastReportedAt, agentport.LivenessWriteShapeLiveness)
 
 	return nil
 }
@@ -110,7 +118,10 @@ func (s *AgentService) markLivenessPersisted(
 	ctx context.Context,
 	instanceUID uuid.UUID,
 	reportedAt time.Time,
+	shape agentport.LivenessWriteShape,
 ) {
+	s.livenessMetricsPort.RecordWriteThrough(shape)
+
 	err := s.agentLivenessPort.MarkPersisted(ctx, instanceUID, reportedAt)
 	if err != nil {
 		s.logger.Warn("failed to anchor agent liveness write-through",

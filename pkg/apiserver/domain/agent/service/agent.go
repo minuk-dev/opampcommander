@@ -76,6 +76,7 @@ type AgentService struct {
 	// accelerator: every error from it is logged and swallowed, and the service
 	// behaves as if the record were simply absent.
 	agentLivenessPort       agentport.AgentLivenessPort
+	livenessMetricsPort     agentport.AgentLivenessMetricsPort
 	livenessPersistThrottle time.Duration
 }
 
@@ -95,6 +96,7 @@ func DefaultAgentCacheConfig() AgentCacheConfig {
 func NewAgentService(
 	agentPersistencePort agentport.AgentPersistencePort,
 	agentLivenessPort agentport.AgentLivenessPort,
+	livenessMetricsPort agentport.AgentLivenessMetricsPort,
 	logger *slog.Logger,
 	cacheConfig AgentCacheConfig,
 	livenessConfig AgentLivenessConfig,
@@ -117,6 +119,7 @@ func NewAgentService(
 		return &AgentService{
 			agentPersistencePort:    agentPersistencePort,
 			agentLivenessPort:       agentLivenessPort,
+			livenessMetricsPort:     livenessMetricsPort,
 			logger:                  logger,
 			agentCache:              nil,
 			cacheEnabled:            false,
@@ -131,6 +134,7 @@ func NewAgentService(
 	return &AgentService{
 		agentPersistencePort:    agentPersistencePort,
 		agentLivenessPort:       agentLivenessPort,
+		livenessMetricsPort:     livenessMetricsPort,
 		logger:                  logger,
 		agentCache:              agentCache,
 		cacheEnabled:            true,
@@ -275,7 +279,8 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
-	s.markLivenessPersisted(ctx, agent.Metadata.InstanceUID, agent.Status.LastReportedAt)
+	s.markLivenessPersisted(ctx, agent.Metadata.InstanceUID, agent.Status.LastReportedAt,
+		agentport.LivenessWriteShapeDocument)
 
 	return nil
 }
