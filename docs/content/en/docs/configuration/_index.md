@@ -99,6 +99,114 @@ When running multiple apiserver instances, set `enabled: true` and `type: kafka`
 management request received by one instance can be delivered to an agent connected to
 another. See the protocol overview for the coordination flow.
 
+## Agent liveness
+
+Agent liveness — `connected`, `lastReportedAt`, `sequenceNum` — churns on every heartbeat
+but is worthless once stale: the next message from the agent rebuilds it. The server
+absorbs those updates in a fast tier and writes them through to the database on a slow
+cadence, so a large fleet stops paying a database write per agent per heartbeat.
+
+```yaml
+liveness:
+  flushInterval: 30s       # write-behind cadence
+  flushStaleAfter: 30s     # how far behind a document must fall to be claimed
+  flushBatchSize: 2000
+  # persistThrottle: 10s   # leave unset unless you have a reason
+  redis:
+    enabled: false         # opt-in; absent or false is the default behaviour
+    endpoints:
+      - "redis:6379"
+    dialTimeout: 2s
+    commandTimeout: 200ms
+    ttl: 120s
+```
+
+### What the settings mean
+
+`flushInterval` and `flushStaleAfter` bound how stale the stored agent document may
+get, and it is their **sum** that matters: a document ages by up to
+`flushInterval + flushStaleAfter`, because the flush only claims documents already
+`flushStaleAfter` behind and only looks every `flushInterval`. That sum has to stay
+inside the **60s budget** the 90s connection-staleness window allows, and the server
+refuses to start otherwise.
+
+This is not just about surviving an outage. "Connected" is evaluated *inside the
+database* in two places no read-side overlay can reach — the connected-agent list
+filter and the agent-group connected counts — and both read the stored timestamp.
+Let the document drift past the window and both start reporting live agents as
+disconnected while their WebSockets are fine.
+
+`persistThrottle` is the minimum interval between database writes on the *message*
+path for an agent whose only change is that it is still alive. Leave it unset: 10s
+with no shared fast tier (where it is the only thing keeping the document current),
+and the 60s budget with one (where the write-behind flush owns the routine write
+path). It is capped at the budget either way, for the same reason.
+
+`ttl` must exceed the 90s staleness window, or a live agent's record would expire
+while the agent is still considered connected. The server refuses to start otherwise.
+
+`commandTimeout` is short on purpose. This is a fast path: a slow Redis must degrade
+to the database rather than hold up agent message processing.
+
+### Redis is optional, always
+
+Redis is an accelerator and never a requirement. Absent, misconfigured, or down, the
+server keeps working on node-local state and the database — just with more database
+writes.
+
+- A Redis that is **unreachable at startup** does not stop the server from starting.
+- A Redis that **fails while running** trips a circuit breaker after a few consecutive
+  failures. Calls route to node-local state, the server forces a write-behind flush so
+  the database is current before reads start relying on it, and a probe every 30s
+  routes back automatically once Redis returns. **No restart, no config change.**
+- The outage shows up as **degraded** in `/healthz`, with the status code left at
+  `200`: losing an optional accelerator must never be the reason a process is
+  restarted. `/readyz` is unaffected.
+- Redis is **ignored entirely in standalone mode** (`database.type: inmemory`), with a
+  warning in the log. A standalone server keeps its whole state in process, so a shared
+  tier would only add a network hop to reach data it already holds.
+
+One endpoint addresses a single server, several address a cluster, and adding
+`masterName` selects Sentinel.
+
+### What it actually saves
+
+The saving is not primarily *fewer* writes — the staleness window puts a floor under
+how rarely the stored document can be refreshed. It is **much cheaper writes**: a
+four-field `$set` instead of a full document rewrite, with no resource-version bump
+and so no optimistic-concurrency churn against the reconcile loop and API writes.
+
+Measured with `make bench-liveness`, per heartbeat per agent:
+
+| Heartbeat | Path | Document rewrites | Liveness-only writes |
+|---|---|---|---|
+| 30s | every heartbeat (before this existed) | 1.00 | — |
+| 30s | message-path throttle only | 0.50 | — |
+| 30s | **write-behind** | **~0** | 1.00 |
+| 5s | every heartbeat (before this existed) | 1.00 | — |
+| 5s | message-path throttle only | 0.08 | — |
+| 5s | **write-behind** | **~0** | 0.17 |
+
+At the standard 30s OpAMP heartbeat, every full document rewrite becomes a narrow
+`$set` — the same write *rate*, at a fraction of the cost, and with the version churn
+gone. A chattier fleet wins on rate too: at a 5s heartbeat the write rate drops about
+six-fold on top of that.
+
+Note the middle rows: a throttle **shorter than the heartbeat interval buys nothing**,
+because it has always elapsed by the time the next heartbeat lands. That is why the
+throttle alone was never the answer.
+
+### Metrics
+
+| Metric | Meaning |
+|---|---|
+| `opampcommander_agent_liveness_absorbed` | Observations the fast tier took without a database write. |
+| `opampcommander_agent_liveness_written` | Observations that reached the database, labelled `shape`: `document` (full rewrite) or `liveness` (narrow `$set`). |
+| `opampcommander_agent_liveness_fallback` | Operations served by node-local state, by operation. |
+| `opampcommander_agent_liveness_breaker_state` | 0 closed, 1 half-open, 2 open. |
+
+`absorbed` minus `written` is the database writes the fast tier saved.
+
 ## Bootstrap (initial manifests)
 
 On startup the server reconciles a directory of manifest YAML files into persistence
