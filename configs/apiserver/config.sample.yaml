@@ -85,3 +85,53 @@ event:
     brokers:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
+
+# Agent liveness fast tier.
+#
+# Agent liveness — connected, lastReportedAt, sequenceNum — churns on every
+# heartbeat but is worthless once stale: the next message from the agent rebuilds
+# it. The server absorbs those updates in a fast tier and writes them through to
+# the database on a slow cadence, so a large fleet stops costing one database
+# write per agent per throttle window.
+liveness:
+  # How often absorbed liveness is written through to the database, and how far
+  # behind a stored agent document must fall before that flush claims it.
+  #
+  # Their SUM is what matters: a stored document goes stale by up to
+  # flushInterval + flushStaleAfter, and that has to stay inside the 60s budget
+  # the 90s connection-staleness window allows. The server refuses to start
+  # otherwise. The flush writes only the liveness fields, so a short cadence is
+  # cheap — it is not a full document rewrite.
+  flushInterval: 30s
+  flushStaleAfter: 30s
+  # Maximum agents written by one flush cycle.
+  flushBatchSize: 2000
+  # Minimum interval between database writes on the message path for an agent
+  # whose only change is that it is still alive. Leave unset: 10s without a
+  # shared fast tier (where it is the only thing keeping the document current),
+  # and the 60s budget with one (where the flush owns the routine write path).
+  # Capped at the budget either way.
+  # persistThrottle: 10s
+
+  # Redis is an optional accelerator and never required. Absent, misconfigured,
+  # or down, the server keeps working on node-local state and the database — just
+  # with more database writes. Ignored entirely in standalone mode
+  # (database.type: inmemory).
+  redis:
+    enabled: false
+    # One address is a single server; several address a cluster. Combine with
+    # masterName to address a Sentinel set.
+    endpoints:
+      - "localhost:6379"
+    # masterName: "mymaster"
+    # username: ""
+    # password: ""
+    db: 0
+    tls: false
+    dialTimeout: 2s
+    # Kept short deliberately: this is a fast path, and a slow Redis must degrade
+    # to the database rather than hold up agent message processing.
+    commandTimeout: 200ms
+    # Must exceed the 90s staleness window, or a live agent's record would expire
+    # while the agent is still considered connected.
+    ttl: 120s

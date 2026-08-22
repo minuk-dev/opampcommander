@@ -181,7 +181,8 @@ func buildServerSettings(
 				},
 			},
 		},
-		CacheSettings: config.DefaultCacheSettings(),
+		CacheSettings:    config.DefaultCacheSettings(),
+		LivenessSettings: config.DefaultLivenessSettings(),
 		// Seed from the repository's default manifest directory so tests exercise the
 		// same built-in resources a stock deployment ships.
 		BootstrapSettings: config.BootstrapSettings{
