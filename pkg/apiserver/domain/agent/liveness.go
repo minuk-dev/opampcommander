@@ -30,27 +30,31 @@ type AgentLiveness struct {
 	// LastReportedTo mirrors [AgentStatus.LastReportedTo]: the ID of the server
 	// the agent last reported to.
 	LastReportedTo string
-	// LastPersistedAt is the time of the most recent write-through of this agent
-	// to the durable store. It anchors the heartbeat save throttle, replacing the
-	// node-local timestamp the OpAMP service used to keep.
-	LastPersistedAt time.Time
+	// DurableReportedAt is the LastReportedAt value the durable store currently
+	// holds — what was written, not when it was written.
+	//
+	// That distinction is the whole point. Staleness is measured from the observation
+	// the store holds, so recording the write time instead would understate how far
+	// behind the document is by however old the observation was when it was flushed,
+	// and the write-behind cadence would silently overshoot the staleness window.
+	DurableReportedAt time.Time
 }
 
 // NewAgentLivenessFromAgent snapshots the liveness fields of an agent.
-// LastPersistedAt is left zero; the caller sets it when it writes through.
+// DurableReportedAt is left zero; only a write-through moves it.
 func NewAgentLivenessFromAgent(agent *Agent) *AgentLiveness {
 	if agent == nil {
 		return nil
 	}
 
 	return &AgentLiveness{
-		InstanceUID:     agent.Metadata.InstanceUID,
-		Connected:       agent.Status.Connected,
-		ConnectionType:  agent.Status.ConnectionType,
-		SequenceNum:     agent.Status.SequenceNum,
-		LastReportedAt:  agent.Status.LastReportedAt,
-		LastReportedTo:  agent.Status.LastReportedTo,
-		LastPersistedAt: time.Time{},
+		InstanceUID:       agent.Metadata.InstanceUID,
+		Connected:         agent.Status.Connected,
+		ConnectionType:    agent.Status.ConnectionType,
+		SequenceNum:       agent.Status.SequenceNum,
+		LastReportedAt:    agent.Status.LastReportedAt,
+		LastReportedTo:    agent.Status.LastReportedTo,
+		DurableReportedAt: time.Time{},
 	}
 }
 
@@ -97,15 +101,39 @@ func (l *AgentLiveness) ApplyTo(agent *Agent) {
 	}
 }
 
+// IsPendingWriteThroughSince reports whether the record holds an observation that
+// has not reached the durable store yet AND was last written through before the
+// given cutoff.
+//
+// The cutoff is what keeps the write-behind flush from duplicating writes the
+// per-message throttle is about to make anyway: while the throttle keeps firing it
+// refreshes DurableReportedAt often enough that nothing ever crosses the cutoff, and
+// the flush only takes over once the throttle stops.
+//
+// A record that has never been written through is always pending.
+func (l *AgentLiveness) IsPendingWriteThroughSince(cutoff time.Time) bool {
+	if l == nil || l.LastReportedAt.IsZero() {
+		return false
+	}
+
+	if !l.LastReportedAt.After(l.DurableReportedAt) {
+		return false
+	}
+
+	// Inclusive at the boundary: a record exactly at the cutoff is already as stale
+	// as the caller tolerates, and skipping it would cost a whole extra cycle.
+	return l.DurableReportedAt.IsZero() || !l.DurableReportedAt.After(cutoff)
+}
+
 // NeedsPersist reports whether the agent should be written through to the durable
 // store, given the minimum interval between write-throughs. A record that has
 // never been persisted always needs one.
 func (l *AgentLiveness) NeedsPersist(now time.Time, throttle time.Duration) bool {
-	if l == nil || l.LastPersistedAt.IsZero() {
+	if l == nil || l.DurableReportedAt.IsZero() {
 		return true
 	}
 
-	return now.Sub(l.LastPersistedAt) >= throttle
+	return now.Sub(l.DurableReportedAt) >= throttle
 }
 
 // IsExpiredAt reports whether the record has gone untouched for longer than ttl
@@ -117,8 +145,8 @@ func (l *AgentLiveness) IsExpiredAt(now time.Time, ttl time.Duration) bool {
 	}
 
 	anchor := l.LastReportedAt
-	if l.LastPersistedAt.After(anchor) {
-		anchor = l.LastPersistedAt
+	if l.DurableReportedAt.After(anchor) {
+		anchor = l.DurableReportedAt
 	}
 
 	if anchor.IsZero() {

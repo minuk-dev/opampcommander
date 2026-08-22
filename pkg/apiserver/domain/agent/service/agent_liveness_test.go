@@ -49,6 +49,14 @@ func (brokenLivenessPort) Delete(context.Context, uuid.UUID) error {
 	return errLivenessTierDown
 }
 
+func (brokenLivenessPort) ListPendingWriteThrough(
+	context.Context,
+	time.Time,
+	int,
+) ([]*agentmodel.AgentLiveness, error) {
+	return nil, errLivenessTierDown
+}
+
 // mustTouchLiveness records an observation into a fake tier for test setup.
 func mustTouchLiveness(t *testing.T, port *fakeLivenessPort, liveness *agentmodel.AgentLiveness) {
 	t.Helper()
@@ -64,7 +72,7 @@ func TestTouchAgentLiveness_FirstObservationIsDue(t *testing.T) {
 	liveness := newFakeLivenessPort()
 	service := agentservice.NewAgentService(
 		persistence, liveness, slog.Default(),
-		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	agent := agentmodel.NewAgent(uuid.New())
@@ -89,11 +97,14 @@ func TestTouchAgentLiveness_ThrottlesAfterSave(t *testing.T) {
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
+		nil,
 	)
 
 	agent := agentmodel.NewAgent(uuid.New())
+	agent.Status.LastReportedAt = time.Now()
 
-	// SaveAgent anchors the throttle window, so the next observation is not due.
+	// SaveAgent anchors the throttle window with the observation it wrote, so the
+	// next one is not due.
 	require.NoError(t, service.SaveAgent(t.Context(), agent))
 
 	assert.False(t, service.TouchAgentLiveness(t.Context(), agent, time.Now()),
@@ -112,9 +123,11 @@ func TestTouchAgentLiveness_PreservesTheWriteThroughAnchor(t *testing.T) {
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
+		nil,
 	)
 
 	agent := agentmodel.NewAgent(uuid.New())
+	agent.Status.LastReportedAt = time.Now()
 	require.NoError(t, service.SaveAgent(t.Context(), agent))
 
 	// Repeated observations must not reset the anchor — that would restart the
@@ -136,9 +149,11 @@ func TestForgetAgentLiveness_MakesTheNextObservationDue(t *testing.T) {
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
+		nil,
 	)
 
 	agent := agentmodel.NewAgent(uuid.New())
+	agent.Status.LastReportedAt = time.Now()
 	require.NoError(t, service.SaveAgent(t.Context(), agent))
 
 	require.NoError(t, service.ForgetAgentLiveness(t.Context(), agent.Metadata.InstanceUID))
@@ -156,6 +171,7 @@ func TestTouchAgentLiveness_FastTierFailureDegradesToADurableWrite(t *testing.T)
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
 		"",
+		nil,
 	)
 
 	agent := agentmodel.NewAgent(uuid.New())
@@ -172,7 +188,7 @@ func TestSaveAgent_SurvivesAFastTierFailure(t *testing.T) {
 
 	service := agentservice.NewAgentService(
 		persistence, brokenLivenessPort{}, slog.Default(),
-		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	require.NoError(t, service.SaveAgent(t.Context(), agentmodel.NewAgent(uuid.New())))
@@ -184,7 +200,7 @@ func TestTouchAgentLiveness_NilAgent(t *testing.T) {
 
 	service := agentservice.NewAgentService(
 		new(MockAgentPersistencePort), newFakeLivenessPort(), slog.Default(),
-		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentCacheConfig(), agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	assert.False(t, service.TouchAgentLiveness(t.Context(), nil, time.Now()))
@@ -240,7 +256,7 @@ func TestTouchAgentLivenessCostsOneRoundTrip(t *testing.T) {
 	service := agentservice.NewAgentService(
 		new(MockAgentPersistencePort), liveness, slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
-		agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	agent := agentmodel.NewAgent(uuid.New())
@@ -267,7 +283,7 @@ func TestSaveAgentAnchorsWithoutReading(t *testing.T) {
 	service := agentservice.NewAgentService(
 		persistence, liveness, slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
-		agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	require.NoError(t, service.SaveAgent(t.Context(), agentmodel.NewAgent(uuid.New())))
@@ -280,13 +296,13 @@ func TestSaveAgentAnchorsWithoutReading(t *testing.T) {
 // newLivenessRecord builds a fast-tier record that reports the agent as connected at `at`.
 func newLivenessRecord(instanceUID uuid.UUID, at time.Time, sequenceNum uint64) *agentmodel.AgentLiveness {
 	return &agentmodel.AgentLiveness{
-		InstanceUID:     instanceUID,
-		Connected:       true,
-		ConnectionType:  agentmodel.ConnectionTypeWebSocket,
-		SequenceNum:     sequenceNum,
-		LastReportedAt:  at,
-		LastReportedTo:  "server-b",
-		LastPersistedAt: time.Time{},
+		InstanceUID:       instanceUID,
+		Connected:         true,
+		ConnectionType:    agentmodel.ConnectionTypeWebSocket,
+		SequenceNum:       sequenceNum,
+		LastReportedAt:    at,
+		LastReportedTo:    "server-b",
+		DurableReportedAt: time.Time{},
 	}
 }
 
@@ -311,6 +327,7 @@ func newMergeService(
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
 		agentservice.DefaultAgentLivenessConfig(),
 		"",
+		nil,
 	)
 }
 
@@ -370,7 +387,7 @@ func TestGetAgent_SurvivesAFastTierFailure(t *testing.T) {
 	service := agentservice.NewAgentService(
 		persistence, brokenLivenessPort{}, slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
-		agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	agent, err := service.GetAgent(t.Context(), instanceUID)
@@ -431,7 +448,7 @@ func TestListAgents_SurvivesAFastTierFailure(t *testing.T) {
 	service := agentservice.NewAgentService(
 		persistence, brokenLivenessPort{}, slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
-		agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	//exhaustruct:ignore
@@ -473,7 +490,7 @@ func TestGetOrCreateAgentSkipsTheMerge(t *testing.T) {
 	service := agentservice.NewAgentService(
 		persistence, liveness, slog.Default(),
 		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
-		agentservice.DefaultAgentLivenessConfig(), "",
+		agentservice.DefaultAgentLivenessConfig(), "", nil,
 	)
 
 	_, err := service.GetOrCreateAgent(t.Context(), instanceUID)

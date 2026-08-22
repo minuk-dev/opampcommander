@@ -15,6 +15,7 @@ package inmemory
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -103,7 +104,7 @@ func (s *Store) Touch(
 
 	stored := liveness.Clone()
 	if previous, found := s.records[liveness.InstanceUID]; found {
-		stored.LastPersistedAt = previous.LastPersistedAt
+		stored.DurableReportedAt = previous.DurableReportedAt
 	}
 
 	s.records[liveness.InstanceUID] = stored
@@ -116,7 +117,7 @@ func (s *Store) Touch(
 // A record that is not held is created from the anchor alone: the agent reached
 // the durable store, which is worth remembering even if its observation has since
 // expired here.
-func (s *Store) MarkPersisted(_ context.Context, instanceUID uuid.UUID, persistedAt time.Time) error {
+func (s *Store) MarkPersisted(_ context.Context, instanceUID uuid.UUID, reportedAt time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -126,7 +127,7 @@ func (s *Store) MarkPersisted(_ context.Context, instanceUID uuid.UUID, persiste
 		record = &agentmodel.AgentLiveness{InstanceUID: instanceUID}
 	}
 
-	record.LastPersistedAt = persistedAt
+	record.DurableReportedAt = reportedAt
 	s.records[instanceUID] = record
 
 	return nil
@@ -168,6 +169,41 @@ func (s *Store) Delete(_ context.Context, instanceUID uuid.UUID) error {
 	delete(s.records, instanceUID)
 
 	return nil
+}
+
+// ListPendingWriteThrough implements [agentport.AgentLivenessPort].
+func (s *Store) ListPendingWriteThrough(
+	_ context.Context,
+	notPersistedSince time.Time,
+	limit int,
+) ([]*agentmodel.AgentLiveness, error) {
+	now := s.clock.Now()
+
+	s.mu.RLock()
+
+	pending := make([]*agentmodel.AgentLiveness, 0, len(s.records))
+
+	for _, record := range s.records {
+		if record.IsExpiredAt(now, s.ttl) || !record.IsPendingWriteThroughSince(notPersistedSince) {
+			continue
+		}
+
+		pending = append(pending, record.Clone())
+	}
+
+	s.mu.RUnlock()
+
+	// Oldest write-through first, so a saturated batch drains the agents closest to
+	// falling outside the staleness window before the ones just written.
+	slices.SortFunc(pending, func(a, b *agentmodel.AgentLiveness) int {
+		return a.DurableReportedAt.Compare(b.DurableReportedAt)
+	})
+
+	if limit > 0 && len(pending) > limit {
+		pending = pending[:limit]
+	}
+
+	return pending, nil
 }
 
 // Name implements the background-runner contract used by the apiserver's

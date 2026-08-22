@@ -63,6 +63,10 @@ type AgentUsecase interface {
 	// answer reports the agent as due rather than surfacing an error the caller
 	// could do nothing about.
 	TouchAgentLiveness(ctx context.Context, agent *agentmodel.Agent, observedAt time.Time) bool
+	// PersistAgentLiveness writes an observation held by the fast tier through to
+	// the durable store, touching only the liveness fields. It returns
+	// [model.ErrResourceNotExist] when the agent no longer exists.
+	PersistAgentLiveness(ctx context.Context, liveness *agentmodel.AgentLiveness) error
 	// ForgetAgentLiveness drops the agent's liveness record, so the first message
 	// after a reconnect is written through immediately rather than waiting out the
 	// throttle window left by the previous session.
