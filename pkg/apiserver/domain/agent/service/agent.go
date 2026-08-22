@@ -186,34 +186,29 @@ func (s *AgentService) InvalidateCache(instanceUID uuid.UUID) {
 	s.agentCache.Delete(instanceUID)
 }
 
-// GetAgent retrieves an agent by its instance UID.
+// GetAgent retrieves an agent by its instance UID, with its liveness fields
+// resolved from the fast tier.
 func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
-	// Try cache first
-	if s.cacheEnabled {
-		item := s.agentCache.Get(instanceUID)
-		if item != nil {
-			// Return a clone to prevent callers from mutating cached data
-			return item.Value().Clone(), nil
-		}
-	}
-
-	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
+	agent, err := s.getStoredAgent(ctx, instanceUID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
+		return nil, err
 	}
 
-	// Cache a clone to prevent external mutations from affecting cache
-	if s.cacheEnabled {
-		s.agentCache.Set(instanceUID, agent.Clone(), ttlcache.DefaultTTL)
-	}
+	s.mergeLiveness(ctx, agent)
 
 	return agent, nil
 }
 
 // GetOrCreateAgent retrieves an agent by its instance UID.
 // If the agent doesn't exist, it creates a new one with default values.
+//
+// It deliberately does not merge fast-tier liveness. Its only caller is the OpAMP
+// message path, which overwrites every liveness field from the message it is
+// handling before doing anything with the agent — so merging here would spend a
+// fast-tier round trip per agent message on values that are discarded microseconds
+// later.
 func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
-	agent, err := s.GetAgent(ctx, instanceUID)
+	agent, err := s.getStoredAgent(ctx, instanceUID)
 	if err != nil {
 		if errors.Is(err, model.ErrResourceNotExist) {
 			agent = agentmodel.NewAgent(instanceUID, agentmodel.WithNamespace(s.defaultNamespace))
@@ -272,6 +267,11 @@ func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) e
 		return fmt.Errorf("failed to get agent for deletion: %w", err)
 	}
 
+	// The durable document lags the fast tier by up to one write-through interval,
+	// so consult the fast tier before declaring the agent disconnected — otherwise
+	// a live agent could be deleted out from under its own WebSocket.
+	s.mergeLiveness(ctx, agent)
+
 	if agent.IsConnectedAt(s.clock.Now(), agentmodel.DefaultConnectionStaleness) {
 		return fmt.Errorf("failed to delete agent: %w", agentport.ErrAgentConnected)
 	}
@@ -301,6 +301,8 @@ func (s *AgentService) ListAgents(
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
 
+	s.mergeLivenessInto(ctx, res.Items)
+
 	return res, nil
 }
 
@@ -314,6 +316,8 @@ func (s *AgentService) ListAgentsBySelector(
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by selector: %w", err)
 	}
+
+	s.mergeLivenessInto(ctx, resp.Items)
 
 	return resp, nil
 }
@@ -330,5 +334,34 @@ func (s *AgentService) SearchAgents(
 		return nil, fmt.Errorf("failed to search agents: %w", err)
 	}
 
+	s.mergeLivenessInto(ctx, resp.Items)
+
 	return resp, nil
+}
+
+// getStoredAgent returns the agent as the durable store holds it, reading through
+// the local cache. Liveness is deliberately not merged here: the cache holds the
+// durable document, so the fast tier is consulted per read rather than frozen into
+// a cache entry for the whole TTL.
+func (s *AgentService) getStoredAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
+	// Try cache first
+	if s.cacheEnabled {
+		item := s.agentCache.Get(instanceUID)
+		if item != nil {
+			// Return a clone to prevent callers from mutating cached data
+			return item.Value().Clone(), nil
+		}
+	}
+
+	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
+	}
+
+	// Cache a clone to prevent external mutations from affecting cache
+	if s.cacheEnabled {
+		s.agentCache.Set(instanceUID, agent.Clone(), ttlcache.DefaultTTL)
+	}
+
+	return agent, nil
 }
