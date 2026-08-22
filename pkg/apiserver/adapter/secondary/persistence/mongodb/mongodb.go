@@ -91,8 +91,19 @@ var (
 			shardKey:       bson.D{{Key: "uid", Value: "hashed"}},
 		},
 	}
+)
 
-	indexes = []collectionAndIndexes{
+// managedIndexes returns the index plan for every managed collection.
+//
+// It is built fresh on each call rather than held in a package-level variable:
+// the driver mutates the option builders it is handed (CreateMany names any index
+// that does not carry one), so a shared plan is a data race between two
+// concurrent EnsureSchema calls — which is exactly what a test run that spins up
+// several databases at once does.
+//
+//nolint:funlen // one declarative table; splitting it would scatter the schema
+func managedIndexes() []collectionAndIndexes {
+	return []collectionAndIndexes{
 		{
 			collectionName: agentCollectionName,
 			indexes: []mongo.IndexModel{
@@ -310,7 +321,7 @@ var (
 			},
 		},
 	}
-)
+}
 
 // EnsureSchema ensures that the necessary collections and indexes exist in the MongoDB database.
 // This function should be called during application startup.
@@ -329,7 +340,7 @@ func EnsureSchema(
 		return fmt.Errorf("failed to create non-existing collections: %w", err)
 	}
 
-	err = createIndexes(ctx, database, indexes)
+	err = createIndexes(ctx, database, managedIndexes())
 	if err != nil {
 		return fmt.Errorf("failed to create indexes: %w", err)
 	}

@@ -52,7 +52,7 @@ func TestUniqueIndexPrefixedByShardKey(t *testing.T) {
 			continue
 		}
 
-		for _, ci := range indexes {
+		for _, ci := range managedIndexes() {
 			if ci.collectionName != spec.collectionName {
 				continue
 			}
@@ -131,7 +131,7 @@ func hashedShardKeyField(key bson.D) (string, bool) {
 }
 
 func hasIndex(collectionName string, keys bson.D) bool {
-	for _, ci := range indexes {
+	for _, ci := range managedIndexes() {
 		if ci.collectionName != collectionName {
 			continue
 		}
