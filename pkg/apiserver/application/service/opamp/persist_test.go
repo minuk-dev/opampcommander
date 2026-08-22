@@ -2,6 +2,7 @@
 package opamp
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/stretchr/testify/assert"
 
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -112,74 +115,67 @@ func TestIsHeartbeatOnly(t *testing.T) {
 	}
 }
 
-// shouldPersistAgentFixture wires up a Service with a stoppable clock and the
-// fields shouldPersistAgent reads. The real constructor pulls in too many
-// dependencies for a unit test focused on this one decision.
-func shouldPersistAgentFixture(now time.Time, throttle time.Duration) *Service {
+// stubLivenessUsecase answers only the liveness call recordLiveness makes; the
+// embedded nil interface panics on anything else, which keeps the fake honest
+// about what this test actually exercises.
+type stubLivenessUsecase struct {
+	agentport.AgentUsecase
+
+	due bool
+}
+
+func (s *stubLivenessUsecase) TouchAgentLiveness(
+	_ context.Context,
+	_ *agentmodel.Agent,
+	_ time.Time,
+) bool {
+	return s.due
+}
+
+// recordLivenessFixture wires up a Service with a stopped clock and a liveness
+// usecase that answers with the given verdict. The real constructor pulls in too
+// many dependencies for a unit test focused on this one decision.
+func recordLivenessFixture(now time.Time, usecase agentport.AgentUsecase) *Service {
 	return &Service{
-		clock:                 &persistTestClock{now: now},
-		logger:                slog.Default(),
-		heartbeatSaveThrottle: throttle,
+		clock:        &persistTestClock{now: now},
+		logger:       slog.Default(),
+		agentUsecase: usecase,
 	}
 }
 
-func TestShouldPersistAgent(t *testing.T) {
+func TestRecordLiveness(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, time.May, 26, 12, 0, 0, 0, time.UTC)
-	throttle := 60 * time.Second
+	agent := agentmodel.NewAgent(uuid.New())
 
 	heartbeat := &protobufs.AgentToServer{}
 	nonHeartbeat := &protobufs.AgentToServer{
 		Health: &protobufs.ComponentHealth{Healthy: true},
 	}
 
-	t.Run("non-heartbeat always persists regardless of lastSaveAt", func(t *testing.T) {
+	t.Run("non-heartbeat always persists even inside the throttle window", func(t *testing.T) {
 		t.Parallel()
 
-		svc := shouldPersistAgentFixture(now, throttle)
-		uid := uuid.New()
-		svc.lastSaveAt.Store(uid.String(), now) // freshly saved
+		svc := recordLivenessFixture(now, &stubLivenessUsecase{due: false})
 
-		assert.True(t, svc.shouldPersistAgent(uid, nonHeartbeat))
+		assert.True(t, svc.recordLiveness(t.Context(), agent, nonHeartbeat, now))
 	})
 
-	t.Run("heartbeat with no prior save persists", func(t *testing.T) {
+	t.Run("heartbeat persists when the fast tier says the agent is due", func(t *testing.T) {
 		t.Parallel()
 
-		svc := shouldPersistAgentFixture(now, throttle)
+		svc := recordLivenessFixture(now, &stubLivenessUsecase{due: true})
 
-		assert.True(t, svc.shouldPersistAgent(uuid.New(), heartbeat))
+		assert.True(t, svc.recordLiveness(t.Context(), agent, heartbeat, now))
 	})
 
-	t.Run("heartbeat throttled within the window", func(t *testing.T) {
+	t.Run("heartbeat is throttled when the fast tier says it is not due", func(t *testing.T) {
 		t.Parallel()
 
-		svc := shouldPersistAgentFixture(now, throttle)
-		uid := uuid.New()
-		svc.lastSaveAt.Store(uid.String(), now.Add(-30*time.Second))
+		svc := recordLivenessFixture(now, &stubLivenessUsecase{due: false})
 
-		assert.False(t, svc.shouldPersistAgent(uid, heartbeat))
-	})
-
-	t.Run("heartbeat persists once the throttle window has elapsed", func(t *testing.T) {
-		t.Parallel()
-
-		svc := shouldPersistAgentFixture(now, throttle)
-		uid := uuid.New()
-		svc.lastSaveAt.Store(uid.String(), now.Add(-throttle))
-
-		assert.True(t, svc.shouldPersistAgent(uid, heartbeat))
-	})
-
-	t.Run("corrupt cache entry forces a save", func(t *testing.T) {
-		t.Parallel()
-
-		svc := shouldPersistAgentFixture(now, throttle)
-		uid := uuid.New()
-		svc.lastSaveAt.Store(uid.String(), "not-a-time") // wrong type
-
-		assert.True(t, svc.shouldPersistAgent(uid, heartbeat))
+		assert.False(t, svc.recordLiveness(t.Context(), agent, heartbeat, now))
 	})
 }
 
