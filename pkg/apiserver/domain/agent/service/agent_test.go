@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -34,6 +35,7 @@ func newTestAgentService(
 		agentservice.DefaultAgentCacheConfig(),
 		agentservice.DefaultAgentLivenessConfig(),
 		"",
+		nil,
 	)
 }
 
@@ -60,7 +62,7 @@ func (f *fakeLivenessPort) Touch(
 
 	stored := liveness.Clone()
 	if previous, found := f.records[liveness.InstanceUID]; found {
-		stored.LastPersistedAt = previous.LastPersistedAt
+		stored.DurableReportedAt = previous.DurableReportedAt
 	}
 
 	f.records[liveness.InstanceUID] = stored
@@ -78,7 +80,7 @@ func (f *fakeLivenessPort) MarkPersisted(_ context.Context, instanceUID uuid.UUI
 		record = &agentmodel.AgentLiveness{InstanceUID: instanceUID}
 	}
 
-	record.LastPersistedAt = at
+	record.DurableReportedAt = at
 	f.records[instanceUID] = record
 
 	return nil
@@ -107,6 +109,33 @@ func (f *fakeLivenessPort) GetMany(
 	}
 
 	return result, nil
+}
+
+func (f *fakeLivenessPort) ListPendingWriteThrough(
+	_ context.Context,
+	notPersistedSince time.Time,
+	limit int,
+) ([]*agentmodel.AgentLiveness, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	pending := make([]*agentmodel.AgentLiveness, 0, len(f.records))
+
+	for _, record := range f.records {
+		if record.IsPendingWriteThroughSince(notPersistedSince) {
+			pending = append(pending, record.Clone())
+		}
+	}
+
+	slices.SortFunc(pending, func(a, b *agentmodel.AgentLiveness) int {
+		return a.DurableReportedAt.Compare(b.DurableReportedAt)
+	})
+
+	if limit > 0 && len(pending) > limit {
+		pending = pending[:limit]
+	}
+
+	return pending, nil
 }
 
 func (f *fakeLivenessPort) Delete(_ context.Context, instanceUID uuid.UUID) error {
@@ -143,6 +172,15 @@ func (m *MockAgentPersistencePort) GetAgent(ctx context.Context, instanceUID uui
 
 func (m *MockAgentPersistencePort) PutAgent(ctx context.Context, agnt *agentmodel.Agent) error {
 	args := m.Called(ctx, agnt)
+
+	return args.Error(0) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentPersistencePort) UpdateAgentLiveness(
+	ctx context.Context,
+	liveness *agentmodel.AgentLiveness,
+) error {
+	args := m.Called(ctx, liveness)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
 }
