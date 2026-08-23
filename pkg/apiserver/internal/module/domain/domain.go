@@ -138,7 +138,7 @@ func provideAgentService(
 			MaxCapacity: agentCacheSettings.MaxCapacity,
 		},
 		agentservice.AgentLivenessConfig{
-			PersistThrottle: 0,
+			PersistThrottle: settings.LivenessSettings.EffectivePersistThrottle(),
 		},
 		settings.BootstrapSettings.DefaultNamespace,
 		clock.RealClock{},
@@ -163,12 +163,19 @@ var (
 func provideAgentLivenessFlusher(
 	agentUsecase agentport.AgentUsecase,
 	agentLivenessPort agentport.AgentLivenessPort,
+	settings *config.ServerSettings,
 	logger *slog.Logger,
 ) *agentservice.AgentLivenessFlusher {
+	livenessSettings := settings.LivenessSettings
+
 	return agentservice.NewAgentLivenessFlusher(
 		agentUsecase,
 		agentLivenessPort,
-		agentservice.DefaultAgentLivenessFlushConfig(),
+		agentservice.AgentLivenessFlushConfig{
+			Interval:   livenessSettings.EffectiveFlushInterval(),
+			StaleAfter: livenessSettings.EffectiveFlushStaleAfter(),
+			BatchSize:  livenessSettings.FlushBatchSize,
+		},
 		logger,
 		clock.RealClock{},
 	)
