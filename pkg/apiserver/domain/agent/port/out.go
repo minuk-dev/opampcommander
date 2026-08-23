@@ -50,6 +50,41 @@ type AgentPersistencePort interface {
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error)
 }
 
+// AgentLivenessPort is the driven port for the fast tier of agent state: the
+// liveness fields a heartbeat refreshes every few seconds (see
+// [agentmodel.AgentLiveness]).
+//
+// It is a performance accelerator, never a source of truth. Implementations are
+// expected to be cheap and may lose data — the durable record of an agent still
+// lives behind [AgentPersistencePort], and the next heartbeat rebuilds anything
+// dropped here. Callers therefore treat its errors as non-fatal.
+type AgentLivenessPort interface {
+	// Touch records the agent's current observation and returns the record as the
+	// store now holds it, including the write-through anchor the store preserved.
+	//
+	// It returns the record rather than nothing so the caller can decide whether a
+	// durable write is due without a second read: this runs on every agent message,
+	// where a read-then-write would double both the latency and the op count. It
+	// also removes the read-modify-write window in which two servers observing the
+	// same agent could lose each other's update.
+	//
+	// The caller does not own [agentmodel.AgentLiveness.LastPersistedAt] here —
+	// whatever it passes is ignored, and only MarkPersisted moves it.
+	Touch(ctx context.Context, liveness *agentmodel.AgentLiveness) (*agentmodel.AgentLiveness, error)
+	// MarkPersisted anchors the write-through throttle: it records that the agent
+	// reached the durable store at persistedAt, leaving every observation field untouched.
+	MarkPersisted(ctx context.Context, instanceUID uuid.UUID, persistedAt time.Time) error
+	// Get returns the record held for instanceUID, or nil (with a nil error) when
+	// none is held. A missing record is a normal outcome, not an error.
+	Get(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.AgentLiveness, error)
+	// GetMany returns the records held for the given instance UIDs, keyed by UID.
+	// UIDs with no record are omitted from the result rather than reported.
+	GetMany(ctx context.Context, instanceUIDs []uuid.UUID) (map[uuid.UUID]*agentmodel.AgentLiveness, error)
+	// Delete drops the record held for instanceUID. Deleting an absent record
+	// succeeds.
+	Delete(ctx context.Context, instanceUID uuid.UUID) error
+}
+
 // ServerEventSenderPort is an interface that defines the methods for sending events to servers.
 type ServerEventSenderPort interface {
 	// SendMessageToServer sends a message to the specified server. The caller passes the

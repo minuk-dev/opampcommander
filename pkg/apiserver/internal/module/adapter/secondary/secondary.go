@@ -20,6 +20,8 @@ func New(databaseType config.DatabaseType) fx.Option {
 
 	return fx.Options(
 		persistence,
+		// Agent liveness fast tier (node-local by default).
+		NewLiveness(),
 		// Outbound messaging: server-event sender.
 		fx.Provide(newEventSender),
 		// Outbound metrics: endpoint-throughput query port (Prometheus or no-op).
