@@ -383,8 +383,8 @@ github.com/testcontainers/testcontainers-go v0.44.0 h1:/Fwh6HY1mIikhnm9e7HwoxGyc
 github.com/testcontainers/testcontainers-go v0.44.0/go.mod h1:IcnwQrYTO86xHXu5bvMaBH7ATlbS3Qn1M1QWW3c66rE=
 github.com/testcontainers/testcontainers-go/modules/kafka v0.44.0 h1:KOyj22XaB0X2RsyQKQKthzcWObKtni0kLrV1HqFVeec=
 github.com/testcontainers/testcontainers-go/modules/kafka v0.44.0/go.mod h1:OP4szEj4BpOH/UZhbtNER1ERRSj4YJ6hu2x+FIBdo5o=
-github.com/testcontainers/testcontainers-go/modules/mongodb v0.43.0 h1:RJlAAz8dv61icyHvFmrr1xZHJEWZdvBfVBAU6wnmGPM=
-github.com/testcontainers/testcontainers-go/modules/mongodb v0.43.0/go.mod h1:1zaDEZyV1SK+mpz83tmB2KthF6DHaS4Y+lRvy3d2XiE=
+github.com/testcontainers/testcontainers-go/modules/mongodb v0.44.0 h1:VSPDFiumAtt0CkZEVbmAkEmYVRvsJpKJy9oF3exRKYg=
+github.com/testcontainers/testcontainers-go/modules/mongodb v0.44.0/go.mod h1:kHfzrY1cYP/zr9H4TdqAxbP836A1C2fyUojlHidhFGI=
 github.com/tidwall/gjson v1.19.0 h1:xwxm7n691Uf3u5OFjzngavjGTh55KX5q/9w9xHW88JU=
 github.com/tidwall/gjson v1.19.0/go.mod h1:V37/opeE/JbLUOfH0QTXiNez2l0RUjYUhpT4szFQAfc=
 github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
