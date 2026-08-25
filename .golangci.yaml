@@ -88,6 +88,7 @@ linters:
             - github.com/open-telemetry/opamp-go/protobufs
             - github.com/open-telemetry/opamp-go/server
             # Database
+            - github.com/redis/go-redis/v9
             - go.mongodb.org/mongo-driver/v2/mongo
             - go.mongodb.org/mongo-driver/v2/bson
             - go.mongodb.org/mongo-driver/v2/event
@@ -189,6 +190,8 @@ linters:
             - github.com/open-telemetry/opamp-go/protobufs
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/mongodb
+            - github.com/testcontainers/testcontainers-go/modules/redis
+            - github.com/redis/go-redis/v9
             - github.com/testcontainers/testcontainers-go/wait
             - github.com/google/go-github/v72/github
             - github.com/golang-jwt/jwt/v5
