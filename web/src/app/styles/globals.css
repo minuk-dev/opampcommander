@@ -1,8 +1,41 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Dark mode is driven by a `dark` class on <html> (see shared/preferences),
+   not by prefers-color-scheme alone, so the user's explicit choice wins. */
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.5rem;
+
+  /* Neutral ramp is slate-tinted: cool greys read as "console" rather than
+     "document", and the blue primary sits on them without clashing. */
+  --background: oklch(0.995 0 0);
+  --foreground: oklch(0.21 0.02 258);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.53 0.18 258);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.005 258);
+  --secondary-foreground: oklch(0.28 0.02 258);
+  --muted: oklch(0.97 0.004 258);
+  --muted-foreground: oklch(0.53 0.02 258);
+  --accent: oklch(0.955 0.012 258);
+  --accent-foreground: oklch(0.28 0.02 258);
+  --destructive: oklch(0.58 0.21 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.58 0.14 155);
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.72 0.16 70);
+  --warning-foreground: oklch(0.21 0.02 258);
+
+  --border: oklch(0.91 0.008 258);
+  --input: oklch(0.89 0.01 258);
+  --ring: oklch(0.53 0.18 258);
+
   /* Font families loaded from the Google Fonts CDN (see app/layout.tsx).
      System fallbacks keep text readable until the webfont arrives. */
   --font-geist-sans:
@@ -10,22 +43,96 @@
   --font-geist-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
 }
 
+.dark {
+  --background: oklch(0.17 0.014 258);
+  --foreground: oklch(0.93 0.008 258);
+  --card: oklch(0.21 0.016 258);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.22 0.016 258);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.68 0.15 253);
+  --primary-foreground: oklch(0.17 0.014 258);
+  --secondary: oklch(0.26 0.018 258);
+  --secondary-foreground: oklch(0.93 0.008 258);
+  --muted: oklch(0.25 0.016 258);
+  --muted-foreground: oklch(0.68 0.016 258);
+  --accent: oklch(0.28 0.02 258);
+  --accent-foreground: oklch(0.95 0.008 258);
+  --destructive: oklch(0.63 0.19 25);
+  --destructive-foreground: oklch(0.16 0.014 258);
+  --success: oklch(0.68 0.14 158);
+  --success-foreground: oklch(0.16 0.014 258);
+  --warning: oklch(0.78 0.15 74);
+  --warning-foreground: oklch(0.18 0.014 258);
+
+  --border: oklch(0.3 0.018 258);
+  --input: oklch(0.34 0.02 258);
+  --ring: oklch(0.68 0.15 253);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* The console is information-dense: 15px root keeps more rows on screen
+       while staying above the comfortable-reading floor. */
+    font-size: 15px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Focus is always visible and always the ring colour — never removed. */
+  :focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+
+  ::selection {
+    @apply bg-primary/25;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Tabular figures keep numeric table columns from jittering as they refresh. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
 }

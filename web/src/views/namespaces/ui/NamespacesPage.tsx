@@ -1,28 +1,31 @@
 'use client';
 
+import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
-  Box,
   Button,
-  CircularProgress,
+  ConfirmDialog,
   Dialog,
-  DialogActions,
+  DialogBody,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  IconButton,
-  Paper,
-  Stack,
+  Field,
+  Input,
+  PageHeader,
+  Spinner,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeaderCell,
   TableRow,
-  TextField,
-} from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Refresh as RefreshIcon } from '@mui/icons-material';
-import { useCallback, useEffect, useState } from 'react';
-import { PageHeader, ConfirmDialog } from '@shared/ui';
+  TableWrap,
+  Textarea,
+} from '@shared/ui';
+import { cn } from '@shared/lib';
 import { TimeDisplay } from '@shared/preferences';
 import { useNamespace, type Namespace } from '@entities/namespace';
 import { api, type ListResponse } from '@shared/api';
@@ -91,15 +94,21 @@ export default function NamespacesPage() {
   };
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Namespaces"
         actions={
           <>
-            <IconButton color="primary" onClick={fetchItems}>
-              <RefreshIcon />
-            </IconButton>
-            <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={() => void fetchItems()}
+            >
+              <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+            </Button>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus aria-hidden />
               New namespace
             </Button>
           </>
@@ -107,40 +116,40 @@ export default function NamespacesPage() {
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" className="mb-3">
           {error}
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
+      <TableWrap>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>Name</TableCell>
-              <TableCell>Labels</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Deleted</TableCell>
-              <TableCell align="right">Actions</TableCell>
+            <TableRow className="hover:bg-transparent">
+              <TableHeaderCell>Name</TableHeaderCell>
+              <TableHeaderCell>Labels</TableHeaderCell>
+              <TableHeaderCell>Created</TableHeaderCell>
+              <TableHeaderCell>Deleted</TableHeaderCell>
+              <TableHeaderCell className="w-10 text-right">Actions</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <CircularProgress size={24} />
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5} className="py-8">
+                  <Spinner className="mx-auto size-5" />
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                   No namespaces
                 </TableCell>
               </TableRow>
             ) : (
               items.map((ns) => (
-                <TableRow key={ns.metadata.name} hover>
-                  <TableCell>{ns.metadata.name}</TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace', fontSize: 12 }}>
+                <TableRow key={ns.metadata.name}>
+                  <TableCell className="font-medium">{ns.metadata.name}</TableCell>
+                  <TableCell className="font-mono text-xs">
                     {ns.metadata.labels ? JSON.stringify(ns.metadata.labels) : '-'}
                   </TableCell>
                   <TableCell>
@@ -149,48 +158,60 @@ export default function NamespacesPage() {
                   <TableCell>
                     <TimeDisplay value={ns.metadata.deletedAt} />
                   </TableCell>
-                  <TableCell align="right">
-                    <IconButton size="small" onClick={() => setDeleting(ns)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Delete ${ns.metadata.name}`}
+                      onClick={() => setDeleting(ns)}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </TableWrap>
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create namespace</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} mt={1}>
-            <TextField
-              label="Name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              required
-              fullWidth
-              autoFocus
-            />
-            <TextField
-              label="Labels (JSON)"
-              value={labelsText}
-              onChange={(e) => setLabelsText(e.target.value)}
-              multiline
-              minRows={3}
-              slotProps={{
-                input: { sx: { fontFamily: 'var(--font-geist-mono), monospace', fontSize: 13 } },
-              }}
-            />
-          </Stack>
+      <Dialog open={createOpen} onOpenChange={(next) => !next && setCreateOpen(false)}>
+        <DialogContent size="sm">
+          <DialogHeader>
+            <DialogTitle>Create namespace</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            <Field label="Name" required>
+              {(field) => (
+                <Input
+                  {...field}
+                  autoFocus
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              )}
+            </Field>
+            <Field label="Labels (JSON)">
+              {(field) => (
+                <Textarea
+                  {...field}
+                  mono
+                  rows={3}
+                  value={labelsText}
+                  onChange={(e) => setLabelsText(e.target.value)}
+                />
+              )}
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void onCreate()} disabled={!newName}>
+              Create
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={onCreate} disabled={!newName}>
-            Create
-          </Button>
-        </DialogActions>
       </Dialog>
       <ConfirmDialog
         open={deleting !== null}
@@ -201,6 +222,6 @@ export default function NamespacesPage() {
         onClose={() => setDeleting(null)}
         onConfirm={onDelete}
       />
-    </Box>
+    </div>
   );
 }

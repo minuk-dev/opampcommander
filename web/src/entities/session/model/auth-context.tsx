@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { CircularProgress, Box } from '@mui/material';
+import { Spinner } from '@shared/ui';
 import {
   api,
   type ApiError,
@@ -156,9 +156,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <Box display="flex" alignItems="center" justifyContent="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
+      <div className="flex min-h-dvh items-center justify-center">
+        <Spinner className="size-6" />
+      </div>
     );
   }
 

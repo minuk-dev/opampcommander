@@ -1,25 +1,24 @@
 'use client';
 
+import { RefreshCw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { api, type ListResponse } from '@shared/api';
+import { cn } from '@shared/lib';
+import { TimeDisplay } from '@shared/preferences';
 import {
   Alert,
-  Box,
-  Chip,
-  CircularProgress,
-  IconButton,
-  Paper,
-  Stack,
+  Button,
+  ConditionBadges,
+  PageHeader,
+  Spinner,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeaderCell,
   TableRow,
-} from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
-import { useCallback, useEffect, useState } from 'react';
-import { PageHeader } from '@shared/ui';
-import { TimeDisplay } from '@shared/preferences';
-import { api, type ListResponse } from '@shared/api';
+  TableWrap,
+} from '@shared/ui';
 import type { Server } from '@entities/server';
 
 export default function ServersPage() {
@@ -45,75 +44,64 @@ export default function ServersPage() {
   }, [fetchItems]);
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Servers"
         subtitle="API server cluster members"
         actions={
-          <IconButton color="primary" onClick={fetchItems}>
-            <RefreshIcon />
-          </IconButton>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Refresh"
+            onClick={() => void fetchItems()}
+          >
+            <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+          </Button>
         }
       />
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" className="mb-3">
           {error}
         </Alert>
       )}
-      <TableContainer component={Paper}>
+      <TableWrap>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>Server ID</TableCell>
-              <TableCell>Last heartbeat</TableCell>
-              <TableCell>Conditions</TableCell>
+            <TableRow className="hover:bg-transparent">
+              <TableHeaderCell>Server ID</TableHeaderCell>
+              <TableHeaderCell>Last heartbeat</TableHeaderCell>
+              <TableHeaderCell>Conditions</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center">
-                  <CircularProgress size={24} />
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={3} className="py-8">
+                  <Spinner className="mx-auto size-5" />
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} align="center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={3} className="py-8 text-center text-muted-foreground">
                   No servers
                 </TableCell>
               </TableRow>
             ) : (
               items.map((s) => (
-                <TableRow key={s.id} hover>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{s.id}</TableCell>
+                <TableRow key={s.id}>
+                  <TableCell className="font-mono text-xs">{s.id}</TableCell>
                   <TableCell>
                     <TimeDisplay value={s.lastHeartbeatAt} />
                   </TableCell>
                   <TableCell>
-                    <Stack direction="row" gap={0.5} flexWrap="wrap">
-                      {(s.conditions ?? []).map((c, i) => (
-                        <Chip
-                          key={`${c.type}-${i}`}
-                          label={`${c.type}: ${c.status}`}
-                          color={
-                            c.status === 'True'
-                              ? 'success'
-                              : c.status === 'False'
-                                ? 'warning'
-                                : 'default'
-                          }
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Stack>
+                    <ConditionBadges conditions={s.conditions} />
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </TableContainer>
-    </Box>
+      </TableWrap>
+    </div>
   );
 }

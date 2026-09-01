@@ -1,30 +1,25 @@
 'use client';
 
+import { ArrowLeft, Pencil, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Box,
+  Badge,
   Button,
   Card,
   CardContent,
-  Chip,
-  CircularProgress,
-  Divider,
-  Grid,
-  Stack,
-  Tab,
+  CardHeader,
+  CardTitle,
+  ConfirmDialog,
+  JsonBlock,
+  PageHeader,
+  Spinner,
   Tabs,
-  Typography,
-} from '@mui/material';
-import {
-  Edit as EditIcon,
-  ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
-  RestartAlt as RestartIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { PageHeader, ConfirmDialog, JsonBlock } from '@shared/ui';
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@shared/ui';
 import { TimeDisplay } from '@shared/preferences';
 import { ReconcileButton } from '@features/reconcile';
 import { useNamespace } from '@entities/namespace';
@@ -48,7 +43,6 @@ function AgentDetailInner() {
   const router = useRouter();
   const search = useSearchParams();
   const { namespace } = useNamespace();
-  const [tab, setTab] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [restartBusy, setRestartBusy] = useState(false);
   const [actionHandled, setActionHandled] = useState(false);
@@ -121,37 +115,53 @@ function AgentDetailInner() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" mt={6}>
-        <CircularProgress />
-      </Box>
+      <div className="mt-16 flex justify-center">
+        <Spinner className="size-6" />
+      </div>
     );
   }
 
   if (error || !agent) {
     return (
-      <Box>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ mb: 2 }}>
+      <div>
+        <Button variant="ghost" size="sm" className="mb-3" onClick={() => router.back()}>
+          <ArrowLeft aria-hidden />
           Back
         </Button>
         <Alert severity="error">{error || 'Agent not found'}</Alert>
-      </Box>
+      </div>
     );
   }
 
+  const health = agent.status.componentHealth;
+  const effectiveConfig = Object.entries(agent.status.effectiveConfig?.configMap.configMap ?? {});
+
   return (
-    <Box>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/agents')} sx={{ mb: 2 }}>
+    <div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="mb-2 -ml-2"
+        onClick={() => router.push('/agents')}
+      >
+        <ArrowLeft aria-hidden />
         Back to agents
       </Button>
       <PageHeader
         title={agent.metadata.instanceUid}
-        subtitle={`Namespace: ${agent.metadata.namespace}`}
+        subtitle={`Namespace: ${agent.metadata.namespace} · ${agentTypeLabel(agent.metadata.type)}`}
         actions={
           <>
-            <Button startIcon={<RefreshIcon />} onClick={fetchAgent}>
-              Refresh
+            <Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={fetchAgent}>
+              <RefreshCw aria-hidden />
             </Button>
-            <Button startIcon={<RestartIcon />} onClick={requestRestart} disabled={restartBusy}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void requestRestart()}
+              disabled={restartBusy}
+            >
+              <RotateCcw aria-hidden />
               Request restart
             </Button>
             <ReconcileButton
@@ -161,114 +171,90 @@ function AgentDetailInner() {
               onReconciled={fetchAgent}
             />
             {!agent.status.connected && (
-              <Button startIcon={<DeleteIcon />} color="error" onClick={() => setDeleteOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
+                <Trash2 aria-hidden />
                 Delete
               </Button>
             )}
-            <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditOpen(true)}>
+            <Button size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil aria-hidden />
               Edit spec
             </Button>
           </>
         }
       />
 
-      <Stack direction="row" gap={1} alignItems="center" sx={{ mb: 2 }} flexWrap="wrap">
-        <Typography variant="overline" color="text.secondary">
-          Type
-        </Typography>
-        <Chip
-          label={agentTypeLabel(agent.metadata.type)}
-          color={isOtelCollector(agent.metadata.type) ? 'info' : 'default'}
-          size="small"
-          variant={isOtelCollector(agent.metadata.type) ? 'filled' : 'outlined'}
-        />
-      </Stack>
-
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">
-                Connection
-              </Typography>
-              <Stack direction="row" gap={1} mt={1}>
-                <Chip
-                  label={agent.status.connected ? 'Connected' : 'Disconnected'}
-                  color={agent.status.connected ? 'success' : 'default'}
-                  size="small"
-                />
-                {agent.status.connectionType && (
-                  <Chip label={agent.status.connectionType} size="small" />
-                )}
-              </Stack>
-              <Typography variant="body2" mt={1}>
-                Last reported: <TimeDisplay value={agent.status.lastReportedAt} />
-              </Typography>
-              <Typography variant="body2">Sequence #: {agent.status.sequenceNum ?? '—'}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">
-                Health
-              </Typography>
-              <Stack direction="row" gap={1} mt={1}>
-                <Chip
-                  label={agent.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
-                  color={agent.status.componentHealth?.healthy ? 'success' : 'warning'}
-                  size="small"
-                />
-                {agent.status.componentHealth?.status && (
-                  <Chip label={agent.status.componentHealth.status} size="small" />
-                )}
-              </Stack>
-              {agent.status.componentHealth?.lastError && (
-                <Typography variant="body2" color="error" mt={1}>
-                  {agent.status.componentHealth.lastError}
-                </Typography>
+      <div className="mb-3 grid gap-3 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Connection</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            <div className="flex flex-wrap gap-1">
+              <Badge variant={agent.status.connected ? 'success' : 'muted'}>
+                {agent.status.connected ? 'Connected' : 'Disconnected'}
+              </Badge>
+              {agent.status.connectionType && (
+                <Badge variant="outline">{agent.status.connectionType}</Badge>
               )}
-              <Typography variant="body2" mt={1}>
-                Started: {agent.status.componentHealth?.startTime || '—'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="overline" color="text.secondary">
-                Capabilities
-              </Typography>
-              <Box mt={1} display="flex" flexWrap="wrap" gap={0.5}>
-                {capabilities.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    None
-                  </Typography>
-                ) : (
-                  capabilities.map((c) => (
-                    <Chip key={c} label={c} size="small" variant="outlined" />
-                  ))
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+              <Badge variant={isOtelCollector(agent.metadata.type) ? 'primary' : 'outline'}>
+                {agentTypeLabel(agent.metadata.type)}
+              </Badge>
+            </div>
+            <p className="text-sm">
+              Last reported: <TimeDisplay value={agent.status.lastReportedAt} />
+            </p>
+            <p className="text-sm">Sequence #: {agent.status.sequenceNum ?? '—'}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Health</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            <div className="flex flex-wrap gap-1">
+              <Badge variant={health?.healthy ? 'success' : 'warning'}>
+                {health?.healthy ? 'Healthy' : 'Unhealthy'}
+              </Badge>
+              {health?.status && <Badge variant="outline">{health.status}</Badge>}
+            </div>
+            {health?.lastError && <p className="text-sm text-destructive">{health.lastError}</p>}
+            <p className="text-sm">Started: {health?.startTime || '—'}</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Capabilities</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-1">
+              {capabilities.length === 0 ? (
+                <span className="text-sm text-muted-foreground">None</span>
+              ) : (
+                capabilities.map((c) => (
+                  <Badge key={c} variant="outline">
+                    {c}
+                  </Badge>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Description" />
-          <Tab label="Effective config" />
-          <Tab label="Spec" />
-          <Tab label="Conditions" />
-          <Tab label="Raw" />
-        </Tabs>
-        <Divider />
-        <CardContent>
-          {tab === 0 && (
-            <Stack spacing={2}>
+        <Tabs defaultValue="description">
+          <TabsList className="overflow-x-auto px-2">
+            <TabsTrigger value="description">Description</TabsTrigger>
+            <TabsTrigger value="effective">Effective config</TabsTrigger>
+            <TabsTrigger value="spec">Spec</TabsTrigger>
+            <TabsTrigger value="conditions">Conditions</TabsTrigger>
+            <TabsTrigger value="raw">Raw</TabsTrigger>
+          </TabsList>
+          <CardContent className="pt-4">
+            <TabsContent value="description" className="space-y-3">
               <JsonBlock
                 title="Identifying attributes"
                 value={agent.metadata.description?.identifyingAttributes ?? {}}
@@ -281,30 +267,27 @@ function AgentDetailInner() {
                 title="Custom capabilities"
                 value={agent.metadata.customCapabilities?.capabilities ?? []}
               />
-            </Stack>
-          )}
-          {tab === 1 && (
-            <Stack spacing={2}>
-              {Object.entries(agent.status.effectiveConfig?.configMap.configMap ?? {}).length ===
-              0 ? (
-                <Typography color="text.secondary">No effective config reported.</Typography>
+            </TabsContent>
+            <TabsContent value="effective" className="space-y-3">
+              {effectiveConfig.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No effective config reported.</p>
               ) : (
-                Object.entries(agent.status.effectiveConfig?.configMap.configMap ?? {}).map(
-                  ([name, file]) => (
-                    <JsonBlock
-                      key={name}
-                      title={`${name} (${file.contentType})`}
-                      value={file.body}
-                    />
-                  ),
-                )
+                effectiveConfig.map(([name, file]) => (
+                  <JsonBlock key={name} title={`${name} (${file.contentType})`} value={file.body} />
+                ))
               )}
-            </Stack>
-          )}
-          {tab === 2 && <JsonBlock value={agent.spec ?? {}} />}
-          {tab === 3 && <JsonBlock value={agent.status.conditions ?? []} />}
-          {tab === 4 && <JsonBlock value={agent} />}
-        </CardContent>
+            </TabsContent>
+            <TabsContent value="spec">
+              <JsonBlock value={agent.spec ?? {}} />
+            </TabsContent>
+            <TabsContent value="conditions">
+              <JsonBlock value={agent.status.conditions ?? []} />
+            </TabsContent>
+            <TabsContent value="raw">
+              <JsonBlock value={agent} />
+            </TabsContent>
+          </CardContent>
+        </Tabs>
       </Card>
 
       {editOpen && (
@@ -328,7 +311,7 @@ function AgentDetailInner() {
         onClose={() => setDeleteOpen(false)}
         onConfirm={onDeleteAgent}
       />
-    </Box>
+    </div>
   );
 }
 

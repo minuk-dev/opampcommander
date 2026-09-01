@@ -1,18 +1,10 @@
 'use client';
 
-import {
-  Box,
-  IconButton,
-  Paper,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import { ContentCopy as CopyIcon } from '@mui/icons-material';
+import { Check, Copy } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { toYAML } from '@shared/lib';
+import { cn, toYAML } from '@shared/lib';
+import Button from './Button';
+import { SegmentedControl, SegmentedItem } from './SegmentedControl';
 
 export type CodeFormat = 'yaml' | 'json';
 
@@ -21,8 +13,9 @@ interface Props {
   title?: ReactNode;
   defaultFormat?: CodeFormat;
   maxHeight?: number | string;
-  // When true, treat `value` as already-serialized text and skip conversion.
+  // When set, treat the content as already-serialized text and skip conversion.
   rawText?: string;
+  className?: string;
 }
 
 function serialize(value: unknown, format: CodeFormat): string {
@@ -41,10 +34,12 @@ export default function CodeBlock({
   value,
   title,
   defaultFormat = 'yaml',
-  maxHeight = 480,
+  maxHeight = 420,
   rawText,
+  className,
 }: Props) {
   const [format, setFormat] = useState<CodeFormat>(defaultFormat);
+  const [copied, setCopied] = useState(false);
   const isRawString = typeof value === 'string';
   const text = rawText ?? (isRawString ? value : serialize(value, format));
   const showToggle = !rawText && !isRawString;
@@ -52,56 +47,40 @@ export default function CodeBlock({
   const onCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
     } catch {
       /* clipboard blocked — silently ignore */
     }
   };
 
   return (
-    <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Box>
-          {title &&
-            (typeof title === 'string' ? (
-              <Typography variant="subtitle2">{title}</Typography>
-            ) : (
-              title
-            ))}
-        </Box>
-        <Stack direction="row" gap={1} alignItems="center">
+    <div className={cn('min-w-0', className)}>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate text-xs font-medium text-muted-foreground">{title}</div>
+        <div className="flex shrink-0 items-center gap-1">
           {showToggle && (
-            <ToggleButtonGroup
-              size="small"
-              exclusive
+            <SegmentedControl
+              type="single"
               value={format}
-              onChange={(_, v: CodeFormat | null) => v && setFormat(v)}
+              onValueChange={(v: string) => v && setFormat(v as CodeFormat)}
               aria-label="format"
             >
-              <ToggleButton value="yaml">YAML</ToggleButton>
-              <ToggleButton value="json">JSON</ToggleButton>
-            </ToggleButtonGroup>
+              <SegmentedItem value="yaml">YAML</SegmentedItem>
+              <SegmentedItem value="json">JSON</SegmentedItem>
+            </SegmentedControl>
           )}
-          <Tooltip title="Copy">
-            <IconButton size="small" onClick={onCopy}>
-              <CopyIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      </Stack>
-      <Paper
-        variant="outlined"
-        sx={{
-          p: 2,
-          fontFamily: 'var(--font-geist-mono), monospace',
-          fontSize: 13,
-          whiteSpace: 'pre',
-          overflow: 'auto',
-          maxHeight,
-          bgcolor: 'background.default',
-        }}
+          <Button variant="ghost" size="icon-sm" aria-label="Copy" onClick={() => void onCopy()}>
+            {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+          </Button>
+        </div>
+      </div>
+      <pre
+        className="overflow-auto rounded-md border border-border bg-muted/40 p-3 font-mono text-[13px] leading-5"
+        style={{ maxHeight }}
       >
         {text}
-      </Paper>
-    </Box>
+      </pre>
+    </div>
   );
 }

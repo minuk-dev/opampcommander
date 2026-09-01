@@ -137,7 +137,7 @@ Generated from godoc annotations in controllers via `swag init` (`make prebuilt-
 
 ## Web (Frontend)
 
-The `web/` directory is a Next.js 16 (App Router) + MUI client, organized with
+The `web/` directory is a Next.js 16 (App Router) + Tailwind CSS v4 client, organized with
 **Feature-Sliced Design**. FSD layers live under `web/src/`
 (`shared → entities → features → widgets → views → app`, importing downward
 only); `web/app/` holds Next.js routing only (route handlers + thin `page.tsx`
@@ -147,22 +147,28 @@ internal files. See `web/ARCHITECTURE.md` for layer rules, where types/contexts
 live, and how to add an entity/feature/route. Checks: `cd web && npx tsc
 --noEmit && npm run lint && npm test && npm run build`.
 
+### Design system
+Components are shadcn/ui-style: Radix primitives styled with Tailwind, with the
+source in `web/src/shared/ui/` rather than in a dependency. Colours come from
+CSS-variable tokens (`bg-card`, `text-muted-foreground`, `border-border`), never
+raw values, so light/dark both work for free. Icons are `lucide-react`. Forms
+use the `Field` wrapper. See the "Design system" section of
+`web/ARCHITECTURE.md` before adding a component.
+
 ### Mobile / Responsive
 The UI must stay usable on phone-width viewports (≈375px). When building or
 changing any web feature, verify it at a narrow width — don't assume desktop.
 Conventions to follow:
-- **Breakpoint:** treat `< md` (`theme.breakpoints.down('md')`) as mobile. The
-  app shell (`widgets/app-layout`) already switches the sidebar to a `temporary`
-  overlay drawer below `md` and a `persistent` drawer above it; don't reintroduce
-  a fixed-width sidebar that pushes content.
-- **No fixed widths that overflow:** prefer responsive `sx` objects
-  (`minWidth: { xs: 120, sm: 200 }`, `flexDirection: { xs: 'column', sm: 'row' }`,
-  `display: { xs: 'none', sm: 'block' }`) over hardcoded `px` widths. Hide or
-  shrink secondary chrome (titles, dividers, labels) on `xs`.
-- **Wide content scrolls, not overflows:** wrap tables in MUI `TableContainer`
-  (as `widgets/resource-list-page` does) so they scroll horizontally instead of
+- **Breakpoint:** treat `< md` as mobile. The app shell (`widgets/app-layout`)
+  already switches the sidebar to an overlay `Sheet` below `md` and a persistent
+  rail above it; don't reintroduce a fixed-width sidebar that pushes content.
+- **No fixed widths that overflow:** prefer responsive utilities
+  (`w-full sm:w-52`, `flex-col sm:flex-row`, `hidden sm:block`) over hardcoded
+  widths. Hide or shrink secondary chrome (titles, dividers, labels) on `xs`.
+- **Wide content scrolls, not overflows:** wrap tables in `TableWrap` (as
+  `widgets/resource-list-page` does) so they scroll horizontally instead of
   breaking the layout.
-- **Dialogs:** use `fullWidth` with a `maxWidth`; consider `fullScreen` on `xs`
-  for large forms.
+- **Dialogs:** use `DialogContent`, which is already full-bleed below `sm` and a
+  centred card above it — don't hand-roll per-dialog responsive behaviour.
 - Reuse `shared/ui` and the `widgets/*` shells rather than hand-rolling layout —
   they already carry the responsive behavior.

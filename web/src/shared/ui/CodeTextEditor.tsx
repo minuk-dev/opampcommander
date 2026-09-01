@@ -1,8 +1,7 @@
 'use client';
 
-import { Box, Paper, useTheme } from '@mui/material';
 import { type ChangeEvent, type UIEvent, useMemo, useRef } from 'react';
-import { type HighlightLanguage, type TokenKind, tokenizeLines } from '@shared/lib';
+import { cn, type HighlightLanguage, type TokenKind, tokenizeLines } from '@shared/lib';
 
 interface Props {
   value: string;
@@ -15,20 +14,21 @@ interface Props {
   placeholder?: string;
   ariaLabel: string;
   disabled?: boolean;
+  className?: string;
 }
 
 // Shared text metrics — the highlight layer and the textarea MUST agree
 // exactly, or the caret drifts away from the rendered glyphs.
-const textSx = {
-  margin: 0,
-  fontFamily: 'var(--font-geist-mono), monospace',
-  fontSize: 13,
-  lineHeight: '20px',
-  letterSpacing: 0,
-  tabSize: 2,
-  whiteSpace: 'pre' as const,
-  padding: '8px 12px',
-  border: 0,
+const textMetrics = 'm-0 whitespace-pre px-3 py-2 font-mono text-[13px] leading-5 tracking-normal';
+
+const tokenClass: Record<TokenKind, string> = {
+  plain: 'text-foreground',
+  comment: 'text-muted-foreground',
+  key: 'text-[var(--tok-key)]',
+  string: 'text-[var(--tok-string)]',
+  number: 'text-[var(--tok-number)]',
+  literal: 'text-[var(--tok-literal)]',
+  punctuation: 'text-muted-foreground',
 };
 
 // CodeTextEditor is a plain <textarea> with a syntax-highlighted layer painted
@@ -44,27 +44,12 @@ export default function CodeTextEditor({
   placeholder,
   ariaLabel,
   disabled,
+  className,
 }: Props) {
-  const theme = useTheme();
   const highlightRef = useRef<HTMLPreElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
 
   const lines = useMemo(() => tokenizeLines(value, language), [value, language]);
-  const gutterWidth = `${Math.max(2, String(lines.length).length)}ch`;
-
-  const colors: Record<TokenKind, string> = useMemo(() => {
-    const dark = theme.palette.mode === 'dark';
-    const pick = (c: { light: string; dark: string; main: string }) => (dark ? c.light : c.dark);
-    return {
-      plain: theme.palette.text.primary,
-      comment: theme.palette.text.disabled,
-      key: pick(theme.palette.primary),
-      string: pick(theme.palette.success),
-      number: pick(theme.palette.warning),
-      literal: pick(theme.palette.secondary),
-      punctuation: theme.palette.text.secondary,
-    };
-  }, [theme]);
 
   const onScroll = (e: UIEvent<HTMLTextAreaElement>) => {
     const { scrollTop, scrollLeft } = e.currentTarget;
@@ -72,68 +57,53 @@ export default function CodeTextEditor({
       highlightRef.current.scrollTop = scrollTop;
       highlightRef.current.scrollLeft = scrollLeft;
     }
-    if (gutterRef.current) {
-      gutterRef.current.scrollTop = scrollTop;
-    }
+    if (gutterRef.current) gutterRef.current.scrollTop = scrollTop;
   };
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{ display: 'flex', height, overflow: 'hidden', bgcolor: 'background.default' }}
+    <div
+      className={cn(
+        'flex overflow-hidden rounded-md border border-input bg-card focus-within:ring-2 focus-within:ring-ring/60',
+        // Token colours live here so both themes stay in one place.
+        '[--tok-key:var(--color-primary)] [--tok-literal:oklch(0.55_0.16_300)] [--tok-number:oklch(0.55_0.15_60)] [--tok-string:oklch(0.5_0.12_155)]',
+        'dark:[--tok-literal:oklch(0.78_0.13_300)] dark:[--tok-number:oklch(0.8_0.13_75)] dark:[--tok-string:oklch(0.78_0.13_155)]',
+        className,
+      )}
+      style={{ height }}
     >
-      <Box
+      <div
         ref={gutterRef}
         aria-hidden
-        sx={{
-          ...textSx,
-          flex: '0 0 auto',
-          width: `calc(${gutterWidth} + 16px)`,
-          textAlign: 'right',
-          color: 'text.disabled',
-          bgcolor: 'action.hover',
-          overflow: 'hidden',
-          userSelect: 'none',
-        }}
+        className={cn(
+          textMetrics,
+          'shrink-0 overflow-hidden border-r border-border bg-muted/50 px-2 text-right text-muted-foreground select-none',
+        )}
+        style={{ width: `calc(${Math.max(2, String(lines.length).length)}ch + 1rem)` }}
       >
         {lines.map((_, i) => (
-          <Box
-            key={i}
-            component="div"
-            sx={
-              errorLine === i + 1 ? { color: 'error.main', fontWeight: 700 } : { color: 'inherit' }
-            }
-          >
+          <div key={i} className={cn(errorLine === i + 1 && 'font-bold text-destructive')}>
             {i + 1}
-          </Box>
+          </div>
         ))}
-      </Box>
-      <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
-        <Box
-          component="pre"
+      </div>
+      <div className="relative min-w-0 flex-1">
+        <pre
           ref={highlightRef}
           aria-hidden
-          sx={{
-            ...textSx,
-            position: 'absolute',
-            inset: 0,
-            overflow: 'hidden',
-            pointerEvents: 'none',
-          }}
+          className={cn(textMetrics, 'pointer-events-none absolute inset-0 overflow-hidden')}
         >
           {lines.map((tokens, i) => (
             <span key={i}>
               {tokens.map((t, j) => (
-                <span key={j} style={{ color: colors[t.kind] }}>
+                <span key={j} className={tokenClass[t.kind]}>
                   {t.text}
                 </span>
               ))}
               {'\n'}
             </span>
           ))}
-        </Box>
-        <Box
-          component="textarea"
+        </pre>
+        <textarea
           value={value}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value)}
           onScroll={onScroll}
@@ -143,24 +113,13 @@ export default function CodeTextEditor({
           placeholder={placeholder}
           aria-label={ariaLabel}
           disabled={disabled}
-          sx={{
-            ...textSx,
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            resize: 'none',
-            outline: 'none',
-            overflow: 'auto',
-            background: 'transparent',
-            color: 'transparent',
-            caretColor: theme.palette.text.primary,
-            // Selection must stay visible through the transparent text.
-            '&::selection': { backgroundColor: theme.palette.primary.main, color: 'transparent' },
-            '&::placeholder': { color: theme.palette.text.disabled },
-          }}
+          className={cn(
+            textMetrics,
+            'absolute inset-0 size-full resize-none overflow-auto border-0 bg-transparent text-transparent caret-foreground outline-none',
+            'selection:bg-primary/35 placeholder:text-muted-foreground',
+          )}
         />
-      </Box>
-    </Paper>
+      </div>
+    </div>
   );
 }

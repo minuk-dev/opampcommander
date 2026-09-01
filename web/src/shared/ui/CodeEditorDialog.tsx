@@ -1,25 +1,20 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
-import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { loadSamples, type SamplesPath, fromYAML, toYAML } from '@shared/lib';
+import { fromYAML, loadSamples, type SamplesPath, toYAML } from '@shared/lib';
+import Alert from './Alert';
+import Button from './Button';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './Dialog';
+import SampleMenu from './SampleMenu';
+import { SegmentedControl, SegmentedItem } from './SegmentedControl';
+import Textarea from './Textarea';
 
 export type CodeFormat = 'yaml' | 'json';
 
@@ -58,8 +53,8 @@ function parse(text: string, format: CodeFormat): unknown {
   return JSON.parse(text);
 }
 
-// CodeEditorDialog is the canonical editor for structured payloads. YAML is
-// the default surface; users can flip to JSON, and the current buffer is
+// CodeEditorDialog is the canonical editor for whole structured payloads. YAML
+// is the default surface; users can flip to JSON, and the current buffer is
 // re-serialized in the new format so they don't lose work.
 export default function CodeEditorDialog({
   open,
@@ -77,7 +72,6 @@ export default function CodeEditorDialog({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sampleAnchor, setSampleAnchor] = useState<HTMLElement | null>(null);
   const [loadedSamples, setLoadedSamples] = useState<CodeSample[] | null>(null);
   const [samplesError, setSamplesError] = useState<string | null>(null);
 
@@ -131,8 +125,6 @@ export default function CodeEditorDialog({
     };
   }, [open, samplesUrl, varsKey]);
 
-  const effectiveSamples = samples ?? loadedSamples ?? [];
-
   const switchFormat = (next: CodeFormat) => {
     if (next === format) return;
     // Re-serialize the current buffer so unsaved edits survive the toggle.
@@ -150,12 +142,6 @@ export default function CodeEditorDialog({
     }
   };
 
-  const applySample = (sample: CodeSample) => {
-    setText(serialize(sample.value, format));
-    setError(null);
-    setSampleAnchor(null);
-  };
-
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -170,86 +156,51 @@ export default function CodeEditorDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
-          <Box>{title}</Box>
-          <Stack direction="row" alignItems="center" gap={1}>
-            {(samples || samplesUrl) && (
-              <>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  endIcon={<ArrowDropDownIcon />}
-                  onClick={(e) => setSampleAnchor(e.currentTarget)}
-                  aria-label="load sample"
-                  disabled={!samples && !loadedSamples}
-                >
-                  {samples || loadedSamples ? 'Load sample' : 'Loading…'}
-                </Button>
-                <Menu
-                  anchorEl={sampleAnchor}
-                  open={Boolean(sampleAnchor)}
-                  onClose={() => setSampleAnchor(null)}
-                >
-                  {effectiveSamples.length === 0 && (
-                    <MenuItem disabled>No samples available</MenuItem>
-                  )}
-                  {effectiveSamples.map((s, i) => (
-                    <MenuItem key={`${i}-${s.label}`} onClick={() => applySample(s)}>
-                      <ListItemText primary={s.label} secondary={s.description} />
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </>
-            )}
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={format}
-              onChange={(_, v: CodeFormat | null) => v && switchFormat(v)}
-              aria-label="format"
-            >
-              <ToggleButton value="yaml">YAML</ToggleButton>
-              <ToggleButton value="json">JSON</ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
-        </Stack>
-      </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
-          {description && (
-            <Typography variant="body2" color="text.secondary">
-              {description}
-            </Typography>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle className="flex-1">{title}</DialogTitle>
+          {(samples || samplesUrl) && (
+            <SampleMenu
+              samples={samples ?? loadedSamples}
+              onPick={(sample) => {
+                setText(serialize(sample.value, format));
+                setError(null);
+              }}
+            />
           )}
+          <SegmentedControl
+            type="single"
+            value={format}
+            onValueChange={(v: string) => v && switchFormat(v as CodeFormat)}
+            aria-label="format"
+          >
+            <SegmentedItem value="yaml">YAML</SegmentedItem>
+            <SegmentedItem value="json">JSON</SegmentedItem>
+          </SegmentedControl>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          {description && <p className="text-xs text-muted-foreground">{description}</p>}
           {samplesError && <Alert severity="warning">Failed to load samples: {samplesError}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
-          <TextField
+          <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            multiline
-            minRows={18}
-            spellCheck={false}
-            slotProps={{
-              input: {
-                sx: {
-                  fontFamily: 'var(--font-geist-mono), monospace',
-                  fontSize: 13,
-                },
-              },
-            }}
+            aria-label="editor"
+            rows={18}
+            mono
+            className="min-h-[45vh]"
           />
-        </Stack>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={busy}>
+            Save
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={save} disabled={busy}>
-          Save
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

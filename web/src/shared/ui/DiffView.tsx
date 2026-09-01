@@ -1,9 +1,7 @@
 'use client';
 
-import { Box, Paper, Stack, Typography } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { useMemo } from 'react';
-import { collapseContext, diffLines, diffStat } from '@shared/lib';
+import { cn, collapseContext, diffLines, diffStat } from '@shared/lib';
 
 interface Props {
   oldText: string;
@@ -13,14 +11,10 @@ interface Props {
   maxHeight?: number | string;
   // Unchanged lines kept around each change.
   context?: number;
+  className?: string;
 }
 
-const cellSx = {
-  fontFamily: 'var(--font-geist-mono), monospace',
-  fontSize: 12,
-  lineHeight: '18px',
-  whiteSpace: 'pre' as const,
-};
+const cell = 'whitespace-pre font-mono text-xs leading-[18px]';
 
 // DiffView renders a unified line diff, collapsing long unchanged runs.
 export default function DiffView({
@@ -30,6 +24,7 @@ export default function DiffView({
   newLabel = 'new',
   maxHeight = 320,
   context = 3,
+  className,
 }: Props) {
   const { chunks, stat } = useMemo(() => {
     const rows = diffLines(oldText, newText);
@@ -37,63 +32,55 @@ export default function DiffView({
   }, [oldText, newText, context]);
 
   if (stat.added === 0 && stat.removed === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary">
-        No changes.
-      </Typography>
-    );
+    return <p className="text-sm text-muted-foreground">No changes.</p>;
   }
 
   return (
-    <Box>
-      <Stack direction="row" spacing={2} sx={{ mb: 1 }}>
-        <Typography variant="caption" color="text.secondary">
+    <div className={cn('min-w-0', className)}>
+      <div className="mb-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+        <span>
           {oldLabel} → {newLabel}
-        </Typography>
-        <Typography variant="caption" color="success.main">
-          +{stat.added}
-        </Typography>
-        <Typography variant="caption" color="error.main">
-          −{stat.removed}
-        </Typography>
-      </Stack>
-      <Paper variant="outlined" sx={{ overflow: 'auto', maxHeight, bgcolor: 'background.default' }}>
+        </span>
+        <span className="tnum text-success">+{stat.added}</span>
+        <span className="tnum text-destructive">−{stat.removed}</span>
+      </div>
+      <div
+        className="overflow-auto rounded-md border border-border bg-muted/30"
+        style={{ maxHeight }}
+      >
         {chunks.map((chunk, ci) => (
-          <Box key={ci}>
+          <div key={ci}>
             {chunk.hiddenBefore > 0 && (
-              <Box sx={{ ...cellSx, px: 1, color: 'text.disabled', bgcolor: 'action.hover' }}>
+              <div className={cn(cell, 'bg-muted px-2 text-muted-foreground')}>
                 {`⋯ ${chunk.hiddenBefore} unchanged line${chunk.hiddenBefore === 1 ? '' : 's'}`}
-              </Box>
+              </div>
             )}
             {chunk.rows.map((row, ri) => (
-              <Box
+              <div
                 key={ri}
-                sx={{
-                  ...cellSx,
-                  display: 'flex',
-                  bgcolor: (theme) =>
-                    row.kind === 'add'
-                      ? alpha(theme.palette.success.main, 0.16)
-                      : row.kind === 'remove'
-                        ? alpha(theme.palette.error.main, 0.14)
-                        : 'transparent',
-                  color: row.kind === 'equal' ? 'text.secondary' : 'text.primary',
-                }}
+                className={cn(
+                  cell,
+                  'flex',
+                  row.kind === 'add' && 'bg-success/12',
+                  row.kind === 'remove' && 'bg-destructive/12',
+                  row.kind === 'equal' && 'text-muted-foreground',
+                )}
               >
-                <Box
-                  component="span"
-                  sx={{ width: '3ch', flex: '0 0 auto', textAlign: 'center', userSelect: 'none' }}
+                <span
+                  className={cn(
+                    'w-[3ch] shrink-0 text-center select-none',
+                    row.kind === 'add' && 'text-success',
+                    row.kind === 'remove' && 'text-destructive',
+                  )}
                 >
                   {row.kind === 'add' ? '+' : row.kind === 'remove' ? '-' : ' '}
-                </Box>
-                <Box component="span" sx={{ pr: 1 }}>
-                  {row.text === '' ? ' ' : row.text}
-                </Box>
-              </Box>
+                </span>
+                <span className="pr-2">{row.text === '' ? ' ' : row.text}</span>
+              </div>
             ))}
-          </Box>
+          </div>
         ))}
-      </Paper>
-    </Box>
+      </div>
+    </div>
   );
 }

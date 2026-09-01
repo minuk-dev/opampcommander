@@ -1,9 +1,9 @@
 'use client';
 
-import { ToggleButton, ToggleButtonGroup } from '@mui/material';
-import { Schedule as RelativeIcon, Event as AbsoluteIcon } from '@mui/icons-material';
-import { usePreferences } from './PreferencesProvider';
+import { CalendarClock, Timer } from 'lucide-react';
+import { SegmentedControl, SegmentedItem } from '@shared/ui';
 import { ABSOLUTE_TIME_FORMAT, RELATIVE_TIME_FORMAT, type TimeFormat } from '@shared/preferences';
+import { usePreferences } from './PreferencesProvider';
 
 // Toggle between relative ("5 minutes ago") and absolute timestamp display.
 // Writes the selection straight through to the shared preference.
@@ -11,26 +11,22 @@ export default function TimeFormatSelector() {
   const { preferences, setTimeFormat } = usePreferences();
 
   return (
-    <ToggleButtonGroup
-      exclusive
-      color="primary"
-      size="small"
+    <SegmentedControl
+      type="single"
       value={preferences.timeFormat}
-      onChange={(_, next: TimeFormat | null) => {
-        // null arrives when the active button is clicked again — ignore it so a
-        // format is always selected.
-        if (next) setTimeFormat(next);
-      }}
+      // An empty value arrives when the active item is pressed again — ignore
+      // it so a format is always selected.
+      onValueChange={(next: string) => next && setTimeFormat(next as TimeFormat)}
       aria-label="Timestamp format"
     >
-      <ToggleButton value={RELATIVE_TIME_FORMAT}>
-        <RelativeIcon fontSize="small" sx={{ mr: 1 }} />
+      <SegmentedItem value={RELATIVE_TIME_FORMAT} className="flex items-center gap-1.5 px-2.5">
+        <Timer className="size-3.5" aria-hidden />
         Relative
-      </ToggleButton>
-      <ToggleButton value={ABSOLUTE_TIME_FORMAT}>
-        <AbsoluteIcon fontSize="small" sx={{ mr: 1 }} />
+      </SegmentedItem>
+      <SegmentedItem value={ABSOLUTE_TIME_FORMAT} className="flex items-center gap-1.5 px-2.5">
+        <CalendarClock className="size-3.5" aria-hidden />
         Absolute
-      </ToggleButton>
-    </ToggleButtonGroup>
+      </SegmentedItem>
+    </SegmentedControl>
   );
 }

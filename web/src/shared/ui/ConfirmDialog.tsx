@@ -1,16 +1,16 @@
 'use client';
 
-import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Stack,
-} from '@mui/material';
 import { useEffect, useState } from 'react';
+import Alert from './Alert';
+import Button from './Button';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './Dialog';
 
 interface Props {
   open: boolean;
@@ -56,29 +56,28 @@ export default function ConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2}>
-          <DialogContentText>{message}</DialogContentText>
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
+      <DialogContent size="sm" className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <p className="text-sm text-muted-foreground">{message}</p>
           {error && <Alert severity="error">{error}</Alert>}
-        </Stack>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant={destructive ? 'destructive' : 'default'}
+            onClick={() => void handleConfirm()}
+            disabled={busy}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button
-          onClick={() => {
-            void handleConfirm();
-          }}
-          disabled={busy}
-          color={destructive ? 'error' : 'primary'}
-          variant="contained"
-        >
-          {confirmLabel}
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

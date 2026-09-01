@@ -1,5 +1,5 @@
-// Client-side, frontend-only user preferences (timezone display, and later
-// theme / dark mode and other UI toggles). Persisted to localStorage so the
+// Client-side, frontend-only user preferences (timezone display, theme, and
+// other UI toggles). Persisted to localStorage so the
 // choice survives reloads. These are purely presentational and never sent to
 // the server, so localStorage (not a cookie/session) is the right home.
 
@@ -13,19 +13,30 @@ export const RELATIVE_TIME_FORMAT = 'relative';
 export const ABSOLUTE_TIME_FORMAT = 'absolute';
 export type TimeFormat = typeof RELATIVE_TIME_FORMAT | typeof ABSOLUTE_TIME_FORMAT;
 
+// Colour theme. 'system' (default) follows the OS setting; the other two are
+// explicit overrides that win over it.
+export const THEMES = ['system', 'light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+export const DEFAULT_THEME: Theme = 'system';
+
 export interface Preferences {
   // 'local' (browser zone) or an IANA timezone name.
   timeZone: string;
   // 'relative' (default) or 'absolute'.
   timeFormat: TimeFormat;
+  // 'system' (default), 'light' or 'dark'.
+  theme: Theme;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   timeZone: LOCAL_TIME_ZONE,
   timeFormat: RELATIVE_TIME_FORMAT,
+  theme: DEFAULT_THEME,
 };
 
-const STORAGE_KEY = 'opamp.preferences';
+// The localStorage key the pre-paint theme script in app/layout.tsx also
+// reads — keep the two in sync.
+export const PREFERENCES_STORAGE_KEY = 'opamp.preferences';
 
 // localStorage access throws in private browsing, when storage is disabled, or
 // over quota. Preferences are best-effort UI state, so every access degrades
@@ -33,7 +44,7 @@ const STORAGE_KEY = 'opamp.preferences';
 export function readPreferences(): Preferences {
   if (typeof window === 'undefined') return DEFAULT_PREFERENCES;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(PREFERENCES_STORAGE_KEY);
     if (!raw) return DEFAULT_PREFERENCES;
     const parsed = JSON.parse(raw) as Partial<Preferences>;
     return normalize(parsed);
@@ -45,7 +56,7 @@ export function readPreferences(): Preferences {
 export function writePreferences(prefs: Preferences): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    window.localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs));
   } catch {
     // Best-effort: the preference just won't persist across reloads.
   }
@@ -117,11 +128,24 @@ export function canonicalTimeFormat(value: unknown): TimeFormat {
   return value === ABSOLUTE_TIME_FORMAT ? ABSOLUTE_TIME_FORMAT : RELATIVE_TIME_FORMAT;
 }
 
+// Coerce an unknown value into a valid Theme.
+export function canonicalTheme(value: unknown): Theme {
+  return THEMES.includes(value as Theme) ? (value as Theme) : DEFAULT_THEME;
+}
+
+// Resolve 'system' against the OS setting; 'light'/'dark' pass through.
+export function resolveTheme(theme: Theme): 'light' | 'dark' {
+  if (theme !== 'system') return theme;
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 // Coerce an untrusted parsed object into a valid Preferences, canonicalising
 // the zone spelling and dropping unknown values back to their defaults.
 function normalize(parsed: Partial<Preferences>): Preferences {
   return {
     timeZone: canonicalTimeZone(parsed.timeZone),
     timeFormat: canonicalTimeFormat(parsed.timeFormat),
+    theme: canonicalTheme(parsed.theme),
   };
 }

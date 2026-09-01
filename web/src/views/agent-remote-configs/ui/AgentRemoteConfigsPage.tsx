@@ -1,17 +1,13 @@
 'use client';
 
-import { Alert, Box, Snackbar } from '@mui/material';
-import {
-  Code as CodeIcon,
-  PlaylistAddCheck as ApplyIcon,
-  Sync as SyncIcon,
-} from '@mui/icons-material';
+import { Code, ListChecks, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
 import { useNamespace } from '@entities/namespace';
 import dynamic from 'next/dynamic';
 import { ResourceListPage } from '@widgets/resource-list-page';
 import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
+import { useToast } from '@shared/ui';
 import { reconcileResource } from '@features/reconcile';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
@@ -25,8 +21,6 @@ const ApplyToGroupDialog = dynamic(
   () => import('@features/apply-remote-config/ui/ApplyToGroupDialog'),
 );
 
-type ReconcileFeedback = { severity: 'success' | 'error'; message: string };
-
 // Raw editing stays available for fields the form does not model (schemaRefs
 // today) and for pasting a whole manifest.
 interface RawTarget {
@@ -38,25 +32,25 @@ export default function AgentRemoteConfigsPage() {
   const { namespace } = useNamespace();
   const [applyTarget, setApplyTarget] = useState<AgentRemoteConfig | null>(null);
   const [rawTarget, setRawTarget] = useState<RawTarget | null>(null);
-  const [reconcileFeedback, setReconcileFeedback] = useState<ReconcileFeedback | null>(null);
+  const { toast } = useToast();
 
   const reconcileConfig = async (c: AgentRemoteConfig) => {
     try {
       await reconcileResource('agentremoteconfig', namespace, c.metadata.name);
-      setReconcileFeedback({
-        severity: 'success',
-        message: `Reconciled "${c.metadata.name}": detected endpoints and re-propagated to groups.`,
-      });
+      toast(
+        'success',
+        `Reconciled "${c.metadata.name}": detected endpoints and re-propagated to groups.`,
+      );
     } catch (err) {
-      setReconcileFeedback({
-        severity: 'error',
-        message: err instanceof Error ? err.message : `Failed to reconcile "${c.metadata.name}".`,
-      });
+      toast(
+        'error',
+        err instanceof Error ? err.message : `Failed to reconcile "${c.metadata.name}".`,
+      );
     }
   };
 
   return (
-    <Box>
+    <>
       <ResourceListPage<AgentRemoteConfig>
         title="Agent Remote Configs"
         subtitle={`Namespace: ${namespace}`}
@@ -68,17 +62,17 @@ export default function AgentRemoteConfigsPage() {
         extraActions={(c, { refresh }) => [
           {
             label: 'Edit as YAML',
-            icon: <CodeIcon fontSize="small" />,
+            icon: <Code aria-hidden />,
             onClick: () => setRawTarget({ row: c, refresh }),
           },
           {
             label: 'Apply to agent group',
-            icon: <ApplyIcon fontSize="small" />,
+            icon: <ListChecks aria-hidden />,
             onClick: () => setApplyTarget(c),
           },
           {
             label: 'Reconcile',
-            icon: <SyncIcon fontSize="small" />,
+            icon: <RefreshCcw aria-hidden />,
             onClick: () => void reconcileConfig(c),
           },
         ]}
@@ -144,22 +138,6 @@ export default function AgentRemoteConfigsPage() {
           }}
         />
       )}
-      <Snackbar
-        open={reconcileFeedback !== null}
-        autoHideDuration={4000}
-        onClose={() => setReconcileFeedback(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        {reconcileFeedback === null ? undefined : (
-          <Alert
-            severity={reconcileFeedback.severity}
-            onClose={() => setReconcileFeedback(null)}
-            variant="filled"
-          >
-            {reconcileFeedback.message}
-          </Alert>
-        )}
-      </Snackbar>
-    </Box>
+    </>
   );
 }

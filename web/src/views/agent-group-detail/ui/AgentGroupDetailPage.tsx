@@ -1,33 +1,27 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Divider,
-  Grid,
-  Stack,
-  Tab,
-  Tabs,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
-  Edit as EditIcon,
-  PeopleAlt as PeopleAltIcon,
-  CalendarToday as CalendarIcon,
-  PlaylistAddCheck as ApplyIcon,
-} from '@mui/icons-material';
+import { ArrowLeft, CalendarDays, ListChecks, Pencil, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { PageHeader, JsonBlock, ConfirmDialog } from '@shared/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  ConfirmDialog,
+  JsonBlock,
+  PageHeader,
+  Separator,
+  Spinner,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Tooltip,
+} from '@shared/ui';
+import { cn } from '@shared/lib';
 import { TimeDisplay } from '@shared/preferences';
 import { ReconcileButton } from '@features/reconcile';
 import { useNamespace } from '@entities/namespace';
@@ -51,7 +45,6 @@ function AgentGroupDetailInner() {
   const router = useRouter();
   const search = useSearchParams();
   const { namespace } = useNamespace();
-  const [tab, setTab] = useState(0);
   const [editing, setEditing] = useState(false);
   const [applyingConfig, setApplyingConfig] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -102,31 +95,41 @@ function AgentGroupDetailInner() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" mt={6}>
-        <CircularProgress />
-      </Box>
+      <div className="mt-16 flex justify-center">
+        <Spinner className="size-6" />
+      </div>
     );
   }
   if (error || !group) {
     return (
-      <Box>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} sx={{ mb: 2 }}>
+      <div>
+        <Button variant="ghost" size="sm" className="mb-3" onClick={() => router.back()}>
+          <ArrowLeft aria-hidden />
           Back
         </Button>
         <Alert severity="error">{error || 'Group not found'}</Alert>
-      </Box>
+      </div>
     );
   }
 
   const agentsHref = `/agents?agentGroup=${encodeURIComponent(group.metadata.name)}`;
+  const tiles = [
+    { label: 'Total', value: group.status.numAgents, tone: 'default' as const },
+    { label: 'Connected', value: group.status.numConnectedAgents, tone: 'success' as const },
+    { label: 'Healthy', value: group.status.numHealthyAgents, tone: 'success' as const },
+    { label: 'Unhealthy', value: group.status.numUnhealthyAgents, tone: 'warning' as const },
+    { label: 'Not connected', value: group.status.numNotConnectedAgents, tone: 'default' as const },
+  ];
 
   return (
-    <Box>
+    <div>
       <Button
-        startIcon={<ArrowBackIcon />}
+        variant="ghost"
+        size="sm"
+        className="mb-2 -ml-2"
         onClick={() => router.push('/agentgroups')}
-        sx={{ mb: 2 }}
       >
+        <ArrowLeft aria-hidden />
         Back to groups
       </Button>
       <PageHeader
@@ -134,22 +137,17 @@ function AgentGroupDetailInner() {
         subtitle={`Namespace: ${group.metadata.namespace} · priority ${group.spec.priority}`}
         actions={
           <>
-            <Button startIcon={<RefreshIcon />} onClick={fetchGroup}>
-              Refresh
+            <Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={fetchGroup}>
+              <RefreshCw aria-hidden />
             </Button>
-            <Button
-              startIcon={<PeopleAltIcon />}
-              component={Link}
-              href={agentsHref}
-              variant="outlined"
-            >
-              View agents
+            <Button variant="outline" size="sm" asChild>
+              <Link href={agentsHref}>
+                <Users aria-hidden />
+                View agents
+              </Link>
             </Button>
-            <Button
-              startIcon={<ApplyIcon />}
-              variant="outlined"
-              onClick={() => setApplyingConfig(true)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setApplyingConfig(true)}>
+              <ListChecks aria-hidden />
               Apply remote configs
             </Button>
             <ReconcileButton
@@ -158,121 +156,87 @@ function AgentGroupDetailInner() {
               name={group.metadata.name}
               onReconciled={fetchGroup}
             />
-            <Button startIcon={<EditIcon />} variant="contained" onClick={() => setEditing(true)}>
+            <Button size="sm" onClick={() => setEditing(true)}>
+              <Pencil aria-hidden />
               Edit
             </Button>
           </>
         }
       />
 
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[
-          ['Total', group.status.numAgents, 'default' as const],
-          ['Connected', group.status.numConnectedAgents, 'success' as const],
-          ['Healthy', group.status.numHealthyAgents, 'success' as const],
-          ['Unhealthy', group.status.numUnhealthyAgents, 'warning' as const],
-          ['Not connected', group.status.numNotConnectedAgents, 'default' as const],
-        ].map(([label, value, color]) => (
-          <Grid size={{ xs: 6, md: 2.4 }} key={String(label)}>
-            <Tooltip title={`View agents in ${group.metadata.name}`} placement="top">
-              <Card
-                component={Link}
-                href={agentsHref}
-                sx={{
-                  display: 'block',
-                  textDecoration: 'none',
-                  color: 'inherit',
-                  cursor: 'pointer',
-                  transition: 'transform 0.1s, box-shadow 0.1s',
-                  '&:hover': { transform: 'translateY(-1px)', boxShadow: 4 },
-                }}
-              >
-                <CardContent>
-                  <Typography variant="overline" color="text.secondary">
-                    {label}
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    color={
-                      color === 'warning' && Number(value) > 0
-                        ? 'warning.main'
-                        : color === 'success' && Number(value) > 0
-                          ? 'success.main'
-                          : 'text.primary'
-                    }
-                  >
-                    {value}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Tooltip>
-          </Grid>
-        ))}
-      </Grid>
-
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            divider={<Divider orientation="vertical" flexItem />}
-          >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <CalendarIcon fontSize="small" color="action" />
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Created
-                </Typography>
-                <Typography variant="body2" component="div">
-                  <TimeDisplay value={group.metadata.createdAt} />
-                </Typography>
-              </Box>
-            </Stack>
-            {group.metadata.deletedAt && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Deleted
-                </Typography>
-                <Typography variant="body2" component="div">
-                  <TimeDisplay value={group.metadata.deletedAt} />
-                </Typography>
-              </Box>
-            )}
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Attributes
-              </Typography>
-              <Stack direction="row" gap={0.5} flexWrap="wrap">
-                {Object.entries(group.metadata.attributes || {}).length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    none
-                  </Typography>
-                ) : (
-                  Object.entries(group.metadata.attributes).map(([k, v]) => (
-                    <Chip key={k} label={`${k}=${v}`} size="small" variant="outlined" />
-                  ))
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        {tiles.map((tile) => (
+          <Tooltip key={tile.label} content={`View agents in ${group.metadata.name}`}>
+            <Link
+              href={agentsHref}
+              className="rounded-lg border border-border bg-card px-3 py-2 transition-colors hover:border-primary/40 hover:bg-accent"
+            >
+              <p className="text-xs text-muted-foreground">{tile.label}</p>
+              <p
+                className={cn(
+                  'tnum text-xl font-semibold',
+                  tile.tone === 'warning' && tile.value > 0 && 'text-warning',
+                  tile.tone === 'success' && tile.value > 0 && 'text-success',
                 )}
-              </Stack>
-            </Box>
-          </Stack>
+              >
+                {tile.value}
+              </p>
+            </Link>
+          </Tooltip>
+        ))}
+      </div>
+
+      <Card className="mb-3">
+        <CardContent className="flex flex-col gap-3 pt-4 md:flex-row md:items-start md:gap-6">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="size-4 text-muted-foreground" aria-hidden />
+            <div>
+              <p className="text-xs text-muted-foreground">Created</p>
+              <p className="text-sm">
+                <TimeDisplay value={group.metadata.createdAt} />
+              </p>
+            </div>
+          </div>
+          {group.metadata.deletedAt && (
+            <div>
+              <p className="text-xs text-muted-foreground">Deleted</p>
+              <p className="text-sm">
+                <TimeDisplay value={group.metadata.deletedAt} />
+              </p>
+            </div>
+          )}
+          <Separator orientation="vertical" className="hidden h-10 md:block" />
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Attributes</p>
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(group.metadata.attributes || {}).length === 0 ? (
+                <span className="text-sm text-muted-foreground">none</span>
+              ) : (
+                Object.entries(group.metadata.attributes).map(([k, v]) => (
+                  <Badge key={k} variant="outline">
+                    {k}={v}
+                  </Badge>
+                ))
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       <Card>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Selector" />
-          <Tab label="Agent config" />
-          <Tab label="Conditions" />
-          <Tab label="Raw" />
-        </Tabs>
-        <Divider />
-        <CardContent>
-          {tab === 0 && (
-            <Stack spacing={2}>
-              <Typography variant="body2" color="text.secondary">
+        <Tabs defaultValue="selector">
+          <TabsList className="px-2">
+            <TabsTrigger value="selector">Selector</TabsTrigger>
+            <TabsTrigger value="config">Agent config</TabsTrigger>
+            <TabsTrigger value="conditions">Conditions</TabsTrigger>
+            <TabsTrigger value="raw">Raw</TabsTrigger>
+          </TabsList>
+          <CardContent className="pt-4">
+            <TabsContent value="selector" className="space-y-3">
+              <p className="text-sm text-muted-foreground">
                 Agents are matched to this group when their identifying / non-identifying attributes
                 contain all of the keys/values defined below.
-              </Typography>
+              </p>
               <JsonBlock
                 title="Identifying attributes"
                 value={group.spec.selector.identifyingAttributes ?? {}}
@@ -281,12 +245,18 @@ function AgentGroupDetailInner() {
                 title="Non-identifying attributes"
                 value={group.spec.selector.nonIdentifyingAttributes ?? {}}
               />
-            </Stack>
-          )}
-          {tab === 1 && <JsonBlock value={group.spec.agentConfig ?? {}} />}
-          {tab === 2 && <JsonBlock value={group.status.conditions ?? []} />}
-          {tab === 3 && <JsonBlock value={group} />}
-        </CardContent>
+            </TabsContent>
+            <TabsContent value="config">
+              <JsonBlock value={group.spec.agentConfig ?? {}} />
+            </TabsContent>
+            <TabsContent value="conditions">
+              <JsonBlock value={group.status.conditions ?? []} />
+            </TabsContent>
+            <TabsContent value="raw">
+              <JsonBlock value={group} />
+            </TabsContent>
+          </CardContent>
+        </Tabs>
       </Card>
 
       {editing && (
@@ -322,7 +292,7 @@ function AgentGroupDetailInner() {
         onClose={() => setDeleting(false)}
         onConfirm={onDelete}
       />
-    </Box>
+    </div>
   );
 }
 

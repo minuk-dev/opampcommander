@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Box, Card, CardContent, CircularProgress, Typography } from '@mui/material';
+import { Alert, Card, CardContent, Spinner } from '@shared/ui';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth } from '@entities/session';
@@ -38,20 +38,20 @@ function CallbackInner() {
   }, [applyTokens, router, search]);
 
   return (
-    <Box display="flex" minHeight="100vh" alignItems="center" justifyContent="center" p={2}>
-      <Card sx={{ maxWidth: 400, width: '100%' }}>
-        <CardContent>
+    <div className="flex min-h-dvh items-center justify-center p-4">
+      <Card className="w-full max-w-sm">
+        <CardContent className="pt-4">
           {error ? (
             <Alert severity="error">{error}</Alert>
           ) : (
-            <Box display="flex" alignItems="center" gap={2}>
-              <CircularProgress size={24} />
-              <Typography>Completing GitHub sign-in…</Typography>
-            </Box>
+            <div className="flex items-center gap-3 text-sm">
+              <Spinner className="size-5" />
+              Completing GitHub sign-in…
+            </div>
           )}
         </CardContent>
       </Card>
-    </Box>
+    </div>
   );
 }
 

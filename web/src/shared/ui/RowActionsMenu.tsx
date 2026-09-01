@@ -1,9 +1,16 @@
 'use client';
 
-import { Divider, IconButton, ListItemIcon, Menu, MenuItem, Tooltip } from '@mui/material';
-import { MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { MoreVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode } from 'react';
+import Button from './Button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from './DropdownMenu';
 
 export interface RowAction {
   label: string;
@@ -21,71 +28,46 @@ interface Props {
   tooltip?: string;
 }
 
-// Three-dot vertical "more" menu for table rows. Each menu item either
-// navigates (href) or runs onClick. Click-to-stopPropagation is applied so
-// the menu inside a clickable row doesn't trigger the row's own link.
+// Three-dot "more" menu for table rows. Each item either navigates (href) or
+// runs onClick. Clicks stop propagating so the menu inside a clickable row
+// doesn't also trigger the row's own link.
 export default function RowActionsMenu({ actions, tooltip = 'Actions' }: Props) {
   const router = useRouter();
-  const [anchor, setAnchor] = useState<null | HTMLElement>(null);
-  const open = Boolean(anchor);
 
-  // Don't render an empty action surface — a menu with no items is just
-  // a confusing flash on click.
+  // Don't render an empty action surface — a menu with no items is just a
+  // confusing flash on click.
   if (actions.length === 0) return null;
 
   return (
-    <>
-      <Tooltip title={tooltip}>
-        <IconButton
-          size="small"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label={tooltip}
-          onClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            setAnchor(e.currentTarget);
-          }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
-      <Menu
-        anchorEl={anchor}
-        open={open}
-        onClose={() => setAnchor(null)}
-        onClick={(e) => e.stopPropagation()}
-        slotProps={{
-          paper: { sx: { minWidth: 180 } },
-        }}
-      >
+          <MoreVertical aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent onClick={(e) => e.stopPropagation()}>
         {actions.flatMap((a, i) => {
           const item = (
-            <MenuItem
+            <DropdownMenuItem
               key={`m-${i}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setAnchor(null);
-                if (a.href) {
-                  router.push(a.href);
-                } else if (a.onClick) {
-                  void a.onClick();
-                }
+              destructive={a.destructive}
+              onSelect={() => {
+                if (a.href) router.push(a.href);
+                else if (a.onClick) void a.onClick();
               }}
-              sx={
-                a.destructive
-                  ? {
-                      color: 'error.main',
-                      '& .MuiListItemIcon-root': { color: 'error.main' },
-                    }
-                  : undefined
-              }
             >
-              {a.icon && <ListItemIcon>{a.icon}</ListItemIcon>}
+              {a.icon}
               {a.label}
-            </MenuItem>
+            </DropdownMenuItem>
           );
-          return a.divider ? [<Divider key={`d-${i}`} />, item] : [item];
+          return a.divider ? [<DropdownMenuSeparator key={`d-${i}`} />, item] : [item];
         })}
-      </Menu>
-    </>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

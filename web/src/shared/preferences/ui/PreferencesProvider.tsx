@@ -12,8 +12,10 @@ import {
 import {
   DEFAULT_PREFERENCES,
   type Preferences,
+  type Theme,
   type TimeFormat,
   readPreferences,
+  resolveTheme,
   writePreferences,
 } from '@shared/preferences';
 
@@ -23,6 +25,10 @@ interface PreferencesContextValue {
   setTimeZone: (timeZone: string) => void;
   // Set how timestamps render: 'relative' or 'absolute'.
   setTimeFormat: (timeFormat: TimeFormat) => void;
+  // Set the colour theme: 'system', 'light' or 'dark'.
+  setTheme: (theme: Theme) => void;
+  // The theme actually in effect, with 'system' already resolved.
+  resolvedTheme: 'light' | 'dark';
   // True once the persisted preferences have been read from localStorage on the
   // client. Components that render timezone-dependent output (which differs
   // between the server and the visitor's browser) gate on this to stay
@@ -62,9 +68,36 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setTheme = useCallback((theme: Theme) => {
+    setPreferences((prev) => {
+      const next = { ...prev, theme };
+      writePreferences(next);
+      return next;
+    });
+  }, []);
+
+  // Mirror the chosen theme onto <html class="dark">, which is what the CSS
+  // variables key off. The inline script in app/layout.tsx does this before
+  // first paint; this keeps it in sync afterwards, including when the OS
+  // setting changes while 'system' is selected.
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  useEffect(() => {
+    const apply = () => {
+      const next = resolveTheme(preferences.theme);
+      document.documentElement.classList.toggle('dark', next === 'dark');
+      document.documentElement.style.colorScheme = next;
+      setResolvedTheme(next);
+    };
+    apply();
+    if (preferences.theme !== 'system') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, [preferences.theme]);
+
   const value = useMemo<PreferencesContextValue>(
-    () => ({ preferences, setTimeZone, setTimeFormat, hydrated }),
-    [preferences, setTimeZone, setTimeFormat, hydrated],
+    () => ({ preferences, setTimeZone, setTimeFormat, setTheme, resolvedTheme, hydrated }),
+    [preferences, setTimeZone, setTimeFormat, setTheme, resolvedTheme, hydrated],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

@@ -1,36 +1,26 @@
 'use client';
 
+import { Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { api } from '@shared/api';
+import { cn, useCursorPagination } from '@shared/lib';
 import {
   Alert,
-  Box,
   Button,
-  CircularProgress,
-  IconButton,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Refresh as RefreshIcon,
-  Visibility as ViewIcon,
-} from '@mui/icons-material';
-import { type ReactNode, useState } from 'react';
-import {
-  PageHeader,
   ConfirmDialog,
+  PageHeader,
   PaginationFooter,
   RowActionsMenu,
   type RowAction,
+  Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableWrap,
 } from '@shared/ui';
-import { api } from '@shared/api';
-import { useCursorPagination } from '@shared/lib';
 
 export interface Column<T> {
   header: string;
@@ -90,7 +80,6 @@ export default function ResourceListPage<T>({
 
   const pagination = useCursorPagination<T>(listPath, { query });
   const { items, isLoading, isValidating, error: fetchError, refresh } = pagination;
-  const loading = isLoading;
   const error =
     actionError ??
     (fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to fetch' : null);
@@ -113,26 +102,16 @@ export default function ResourceListPage<T>({
   const buildActions = (row: T): RowAction[] => {
     const out: RowAction[] = [];
     if (detailHref) {
-      out.push({
-        label: 'View detail',
-        icon: <ViewIcon fontSize="small" />,
-        href: detailHref(row),
-      });
+      out.push({ label: 'View detail', icon: <Eye aria-hidden />, href: detailHref(row) });
     }
     if (canEdit && renderEdit) {
-      out.push({
-        label: 'Edit',
-        icon: <EditIcon fontSize="small" />,
-        onClick: () => setEditing(row),
-      });
+      out.push({ label: 'Edit', icon: <Pencil aria-hidden />, onClick: () => setEditing(row) });
     }
-    if (extraActions) {
-      out.push(...extraActions(row, { refresh }));
-    }
+    if (extraActions) out.push(...extraActions(row, { refresh }));
     if (canDelete) {
       out.push({
         label: 'Delete',
-        icon: <DeleteIcon fontSize="small" />,
+        icon: <Trash2 aria-hidden />,
         destructive: true,
         divider: out.length > 0,
         onClick: () => setDeleting(row),
@@ -142,21 +121,24 @@ export default function ResourceListPage<T>({
   };
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title={title}
         subtitle={subtitle}
         actions={
           <>
-            <IconButton color="primary" onClick={() => refresh()} disabled={isValidating}>
-              <RefreshIcon />
-            </IconButton>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={() => refresh()}
+              disabled={isValidating}
+            >
+              <RefreshCw className={cn(isValidating && 'animate-spin')} aria-hidden />
+            </Button>
             {renderCreate && (
-              <Button
-                startIcon={<AddIcon />}
-                variant="contained"
-                onClick={() => setCreateOpen(true)}
-              >
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus aria-hidden />
                 New
               </Button>
             )}
@@ -165,44 +147,47 @@ export default function ResourceListPage<T>({
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" className="mb-3">
           {error}
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
+      <TableWrap>
         <Table>
           <TableHead>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               {columns.map((c) => (
-                <TableCell key={c.header} sx={c.width ? { width: c.width } : undefined}>
+                <TableHeaderCell key={c.header} style={c.width ? { width: c.width } : undefined}>
                   {c.header}
-                </TableCell>
+                </TableHeaderCell>
               ))}
-              {hasActions && <TableCell align="right">Actions</TableCell>}
+              {hasActions && <TableHeaderCell className="w-10 text-right">Actions</TableHeaderCell>}
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={columnCount} align="center">
-                  <CircularProgress size={24} />
+            {isLoading ? (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columnCount} className="py-8">
+                  <Spinner className="mx-auto size-5" />
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columnCount} align="center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell
+                  colSpan={columnCount}
+                  className="py-8 text-center text-sm text-muted-foreground"
+                >
                   {emptyMessage}
                 </TableCell>
               </TableRow>
             ) : (
               items.map((row) => (
-                <TableRow key={itemName(row)} hover>
+                <TableRow key={itemName(row)}>
                   {columns.map((c) => (
                     <TableCell key={c.header}>{c.render(row)}</TableCell>
                   ))}
                   {hasActions && (
-                    <TableCell align="right">
+                    <TableCell className="text-right">
                       <RowActionsMenu actions={buildActions(row)} />
                     </TableCell>
                   )}
@@ -211,7 +196,7 @@ export default function ResourceListPage<T>({
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </TableWrap>
 
       <PaginationFooter pagination={pagination} />
 
@@ -243,6 +228,6 @@ export default function ResourceListPage<T>({
         onClose={() => setDeleting(null)}
         onConfirm={onDelete}
       />
-    </Box>
+    </div>
   );
 }

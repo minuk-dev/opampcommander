@@ -1,30 +1,32 @@
 'use client';
 
 import { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import Link from 'next/link';
 import {
   Alert,
-  Box,
-  Chip,
-  CircularProgress,
-  FormControl,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
+  Badge,
+  Button,
+  Field,
+  PageHeader,
+  PaginationFooter,
   Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Spinner,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeaderCell,
   TableRow,
-} from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
-import Link from 'next/link';
-import { PageHeader, PaginationFooter } from '@shared/ui';
+  TableWrap,
+} from '@shared/ui';
 import { useNamespace } from '@entities/namespace';
 import { TimeDisplay } from '@shared/preferences';
-import { useCursorPagination } from '@shared/lib';
+import { cn, useCursorPagination } from '@shared/lib';
 import { useApi, type ListResponse } from '@shared/api';
 import type { Connection } from '@entities/connection';
 import type { Server } from '@entities/server';
@@ -69,82 +71,86 @@ export default function ConnectionsPage() {
   const columnCount = isCluster ? 6 : 5;
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Connections"
         subtitle={`Namespace: ${namespace}`}
         actions={
-          <IconButton color="primary" onClick={() => refresh()}>
-            <RefreshIcon />
-          </IconButton>
+          <Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={() => refresh()}>
+            <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+          </Button>
         }
       />
 
-      <FormControl size="small" sx={{ mb: 2, minWidth: { xs: 160, sm: 240 } }}>
-        <InputLabel id="connection-server-label">Server</InputLabel>
-        <Select
-          labelId="connection-server-label"
-          label="Server"
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          <MenuItem value={ALL_SERVERS}>All servers</MenuItem>
-          <MenuItem value={LOCAL_NODE}>This node</MenuItem>
-          {servers.map((s) => (
-            <MenuItem key={s.id} value={s.id} sx={{ fontFamily: 'monospace' }}>
-              {s.id}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Field label="Server" className="mb-3 max-w-60">
+        {(field) => (
+          <Select value={selected} onValueChange={setSelected}>
+            <SelectTrigger {...field}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_SERVERS}>All servers</SelectItem>
+              <SelectItem value={LOCAL_NODE}>This node</SelectItem>
+              {servers.map((s) => (
+                <SelectItem key={s.id} value={s.id} className="font-mono text-xs">
+                  {s.id}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </Field>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" className="mb-3">
           {error}
         </Alert>
       )}
-      <TableContainer component={Paper}>
+      <TableWrap>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>Connection ID</TableCell>
-              <TableCell>Instance UID</TableCell>
-              {isCluster && <TableCell>Server</TableCell>}
-              <TableCell>Type</TableCell>
-              <TableCell>Alive</TableCell>
-              <TableCell>Last communicated</TableCell>
+            <TableRow className="hover:bg-transparent">
+              <TableHeaderCell>Connection ID</TableHeaderCell>
+              <TableHeaderCell>Instance UID</TableHeaderCell>
+              {isCluster && <TableHeaderCell>Server</TableHeaderCell>}
+              <TableHeaderCell>Type</TableHeaderCell>
+              <TableHeaderCell>Alive</TableHeaderCell>
+              <TableHeaderCell>Last communicated</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={columnCount} align="center">
-                  <CircularProgress size={24} />
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columnCount} className="py-8">
+                  <Spinner className="mx-auto size-5" />
                 </TableCell>
               </TableRow>
             ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columnCount} align="center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columnCount} className="py-8 text-center text-muted-foreground">
                   No connections
                 </TableCell>
               </TableRow>
             ) : (
               items.map((c) => (
-                <TableRow key={isCluster ? `${c.serverId ?? ''}/${c.id}` : c.id} hover>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{c.id}</TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>
-                    <Link href={`/agents/${c.instanceUid}`}>{c.instanceUid}</Link>
+                <TableRow key={isCluster ? `${c.serverId ?? ''}/${c.id}` : c.id}>
+                  <TableCell className="font-mono text-xs">{c.id}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <Link
+                      href={`/agents/${c.instanceUid}`}
+                      className="text-primary hover:underline"
+                    >
+                      {c.instanceUid}
+                    </Link>
                   </TableCell>
                   {isCluster && (
-                    <TableCell sx={{ fontFamily: 'monospace' }}>{c.serverId || '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">{c.serverId || '—'}</TableCell>
                   )}
                   <TableCell>{c.type}</TableCell>
                   <TableCell>
-                    <Chip
-                      label={c.alive ? 'Alive' : 'Dead'}
-                      color={c.alive ? 'success' : 'default'}
-                      size="small"
-                    />
+                    <Badge variant={c.alive ? 'success' : 'muted'}>
+                      {c.alive ? 'Alive' : 'Dead'}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <TimeDisplay value={c.lastCommunicatedAt} />
@@ -154,9 +160,9 @@ export default function ConnectionsPage() {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </TableWrap>
 
       <PaginationFooter pagination={pagination} />
-    </Box>
+    </div>
   );
 }

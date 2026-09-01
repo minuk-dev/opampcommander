@@ -1,9 +1,10 @@
 'use client';
 
-import { IconButton, Tooltip } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
+import { cn } from '@shared/lib';
+import { Button } from '@shared/ui';
 
 // Client island for the dashboard's refresh control. router.refresh() re-runs
 // the Server Component data fetch; useTransition gives us a pending state
@@ -12,15 +13,14 @@ export default function DashboardRefresh() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   return (
-    <Tooltip title="Refresh">
-      <IconButton
-        color="primary"
-        aria-label="refresh"
-        disabled={pending}
-        onClick={() => startTransition(() => router.refresh())}
-      >
-        <RefreshIcon />
-      </IconButton>
-    </Tooltip>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="refresh"
+      disabled={pending}
+      onClick={() => startTransition(() => router.refresh())}
+    >
+      <RefreshCw className={cn(pending && 'animate-spin')} aria-hidden />
+    </Button>
   );
 }
