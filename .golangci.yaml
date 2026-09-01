@@ -62,6 +62,7 @@ linters:
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.ServerEventSenderPort" # cannot handle without interface
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.ServerEventReceiverPort" # cannot handle without interface
         - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.EndpointMetricsQueryPort" # conditional impl (prometheus | noop)
+        - "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port.AgentLivenessMetricsPort" # conditional impl (otel | noop)
         - "k8s.io/utils/clock.Timer"
         - "github.com/minuk-dev/opampcommander/pkg/utils/clock.Timer"
         # test

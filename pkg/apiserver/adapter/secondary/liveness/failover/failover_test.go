@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"maps"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/failover"
 	livenessinmemory "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
 
 var errPrimaryDown = errors.New("primary tier unavailable")
@@ -110,11 +113,48 @@ func (p *flakyPrimary) ListPendingWriteThrough(
 	return p.Store.ListPendingWriteThrough(ctx, notPersistedSince, limit) //nolint:wrapcheck // delegating fake
 }
 
+// recordingMetrics captures what the store reports, so the tests can assert on the
+// signal an operator would actually see during a degradation.
+type recordingMetrics struct {
+	mu        sync.Mutex
+	fallbacks map[string]int
+	lastState string
+}
+
+func (m *recordingMetrics) RecordHeartbeatAbsorbed()                        {}
+func (m *recordingMetrics) RecordWriteThrough(agentport.LivenessWriteShape) {}
+
+func (m *recordingMetrics) RecordFallback(operation string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.fallbacks == nil {
+		m.fallbacks = make(map[string]int)
+	}
+
+	m.fallbacks[operation]++
+}
+
+func (m *recordingMetrics) RecordBreakerState(state string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.lastState = state
+}
+
+func (m *recordingMetrics) snapshot() (string, map[string]int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	return m.lastState, maps.Clone(m.fallbacks)
+}
+
 type fixture struct {
 	primary  *flakyPrimary
 	fallback *livenessinmemory.Store
 	store    *failover.Store
 	clock    *movableClock
+	metrics  *recordingMetrics
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -125,11 +165,12 @@ func newFixture(t *testing.T) *fixture {
 	fallback := livenessinmemory.New(
 		livenessinmemory.Config{TTL: time.Hour, GCInterval: time.Hour}, testClock)
 
-	store := failover.New(primary, fallback,
+	metrics := &recordingMetrics{}
+	store := failover.New(primary, fallback, metrics,
 		failover.Config{FailureThreshold: 2, ProbeInterval: time.Minute},
 		testClock, slog.Default())
 
-	return &fixture{primary: primary, fallback: fallback, store: store, clock: testClock}
+	return &fixture{primary: primary, fallback: fallback, store: store, clock: testClock, metrics: metrics}
 }
 
 // mustTouch records an observation and fails the test if the store reports an error.
@@ -416,4 +457,34 @@ func TestWaitCollectsForcedFlushes(t *testing.T) {
 	// collect it rather than exit mid-write.
 	fixture.store.Wait()
 	assert.True(t, finished.Load())
+}
+
+func TestReportsBreakerStateAndFallbacks(t *testing.T) {
+	t.Parallel()
+
+	fixture := newFixture(t)
+	instanceUID := uuid.New()
+
+	state, _ := fixture.metrics.snapshot()
+	assert.Equal(t, "closed", state, "the gauge must read closed from boot, not only after a transition")
+
+	fixture.primary.down.Store(true)
+
+	for range 2 {
+		_, err := fixture.store.Get(t.Context(), instanceUID)
+		require.NoError(t, err)
+	}
+
+	state, fallbacks := fixture.metrics.snapshot()
+	assert.Equal(t, "open", state)
+	assert.Equal(t, 2, fallbacks["get"], "fallbacks are counted per operation, not per outage")
+
+	fixture.primary.down.Store(false)
+	fixture.clock.now = fixture.clock.now.Add(2 * time.Minute)
+
+	_, err := fixture.store.Get(t.Context(), instanceUID)
+	require.NoError(t, err)
+
+	state, _ = fixture.metrics.snapshot()
+	assert.Equal(t, "closed", state)
 }
