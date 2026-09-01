@@ -1,35 +1,33 @@
 'use client';
 
 import { Box } from '@mui/material';
+import { Code as CodeIcon } from '@mui/icons-material';
+import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useNamespace } from '@entities/namespace';
 import { ResourceListPage } from '@widgets/resource-list-page';
-import dynamic from 'next/dynamic';
 import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
 import type { AgentPackage } from '@entities/agent-package';
 
-// Lazy-loaded: the JSON editor pulls in js-yaml, only needed once a
-// create/edit dialog opens — keep it out of the initial route bundle.
+// Lazy-loaded: neither dialog is needed to render the list, so they stay out
+// of the initial route bundle.
+const AgentPackageEditDialog = dynamic(
+  () => import('@features/agent-package-edit/ui/AgentPackageEditDialog'),
+);
 const JsonEditorDialog = dynamic(() => import('@shared/ui/JsonEditorDialog'));
 
-function emptyPackage(namespace: string, name: string): AgentPackage {
-  return {
-    metadata: {
-      name,
-      namespace,
-      attributes: {},
-      createdAt: new Date().toISOString(),
-    },
-    spec: {
-      packageType: '',
-      version: '',
-      downloadUrl: '',
-    },
-  };
+// Raw editing stays available for fields the form does not model (and for
+// anyone who prefers pasting a manifest); it is one menu entry away.
+interface RawTarget {
+  row: AgentPackage;
+  refresh: () => void;
 }
 
 export default function AgentPackagesPage() {
   const { namespace } = useNamespace();
+  const [rawTarget, setRawTarget] = useState<RawTarget | null>(null);
+
   return (
     <Box>
       <ResourceListPage<AgentPackage>
@@ -38,9 +36,15 @@ export default function AgentPackagesPage() {
         listPath={`/api/v1/namespaces/${namespace}/agentpackages`}
         itemPath={(p) => `/api/v1/namespaces/${namespace}/agentpackages/${p.metadata.name}`}
         itemName={(p) => p.metadata.name}
-        deps={[namespace]}
         canEdit
         canDelete
+        extraActions={(row, { refresh }) => [
+          {
+            label: 'Edit as YAML',
+            icon: <CodeIcon fontSize="small" />,
+            onClick: () => setRawTarget({ row, refresh }),
+          },
+        ]}
         columns={[
           { header: 'Name', render: (p) => p.metadata.name },
           { header: 'Type', render: (p) => p.spec.packageType || '-' },
@@ -56,48 +60,44 @@ export default function AgentPackagesPage() {
           { header: 'Created', render: (p) => <TimeDisplay value={p.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
-          <JsonEditorDialog
+          <AgentPackageEditDialog
             open={open}
-            title="Create agent package"
-            description={
-              <>
-                Define metadata (<code>name</code>, <code>attributes</code>) and spec (
-                <code>packageType</code>, <code>version</code>, <code>downloadUrl</code>, optional{' '}
-                <code>contentHash</code>, <code>signature</code>, <code>headers</code>,{' '}
-                <code>hash</code>).
-              </>
-            }
-            initialValue={emptyPackage(namespace, '')}
-            samplesUrl="/samples/agentpackages.yaml"
-            samplesVars={{ namespace }}
+            mode="create"
+            namespace={namespace}
             onClose={onClose}
-            onSave={async (parsed) => {
-              const body = parsed as AgentPackage;
-              await api.post(`/api/v1/namespaces/${namespace}/agentpackages`, body);
-              onSaved();
-            }}
+            onSaved={onSaved}
           />
         )}
         renderEdit={({ open, row, onClose, onSaved }) => (
-          <JsonEditorDialog
+          <AgentPackageEditDialog
             open={open}
-            title={`Edit ${row.metadata.name}`}
-            description="Edit the package as JSON."
-            initialValue={row}
-            samplesUrl="/samples/agentpackages.yaml"
-            samplesVars={{ namespace }}
+            mode="edit"
+            namespace={namespace}
+            initial={row}
             onClose={onClose}
-            onSave={async (parsed) => {
-              const body = parsed as AgentPackage;
-              await api.put(
-                `/api/v1/namespaces/${namespace}/agentpackages/${row.metadata.name}`,
-                body,
-              );
-              onSaved();
-            }}
+            onSaved={onSaved}
           />
         )}
       />
+      {rawTarget !== null && (
+        <JsonEditorDialog
+          open
+          title={`Edit ${rawTarget.row.metadata.name} (raw)`}
+          description="Edit the whole package manifest."
+          initialValue={rawTarget.row}
+          samplesUrl="/samples/agentpackages.yaml"
+          samplesVars={{ namespace }}
+          onClose={() => setRawTarget(null)}
+          onSave={async (parsed) => {
+            await api.put(
+              `/api/v1/namespaces/${namespace}/agentpackages/${rawTarget.row.metadata.name}`,
+              parsed as AgentPackage,
+            );
+            rawTarget.refresh();
+            setRawTarget(null);
+          }}
+        />
+      )}
     </Box>
   );
 }

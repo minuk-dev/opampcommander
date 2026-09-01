@@ -16,7 +16,7 @@ may use).
 | app      | `src/app/`      | Composition root: providers, theme, app shell, global styles                                                                 |
 | views    | `src/views/`    | Route page bodies (the "pages" layer; named `views` to avoid clashing with Next's `app/`)                                    |
 | widgets  | `src/widgets/`  | Self-contained composite blocks (app layout, dashboard, resource list scaffold, version footer)                              |
-| features | `src/features/` | User interactions (edit agent, edit agent group, apply remote config, select namespace)                                      |
+| features | `src/features/` | User interactions (edit agent / group / remote config / package, apply remote config, select namespace)                      |
 | entities | `src/entities/` | Domain models: types, data helpers, and domain React contexts                                                                |
 | shared   | `src/shared/`   | Reusable infra with no domain knowledge: `api`, `lib` (pure utils), `ui` (generic kit), `preferences` (cross-cutting config) |
 

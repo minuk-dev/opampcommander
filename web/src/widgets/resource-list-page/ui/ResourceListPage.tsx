@@ -58,7 +58,8 @@ interface Props<T> {
   // navigates to detailHref(row).
   detailHref?: (row: T) => string;
   // Extra actions added to the row menu (e.g. domain-specific operations).
-  extraActions?: (row: T) => RowAction[];
+  // `refresh` re-fetches the list, for actions that mutate the row themselves.
+  extraActions?: (row: T, ctx: { refresh: () => void }) => RowAction[];
   query?: Record<string, string | number | boolean | undefined>;
   // Deprecated: SWR keys off listPath + query, so re-fetching when the
   // namespace changes is automatic. Kept so existing callers still type-check.
@@ -126,7 +127,7 @@ export default function ResourceListPage<T>({
       });
     }
     if (extraActions) {
-      out.push(...extraActions(row));
+      out.push(...extraActions(row, { refresh }));
     }
     if (canDelete) {
       out.push({

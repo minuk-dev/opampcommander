@@ -166,6 +166,30 @@ async function doFetch<T>(path: string, opts: RequestOptions): Promise<T> {
   return (await res.text()) as unknown as T;
 }
 
+// describeApiError unpacks an RFC 9457 problem detail into what a dialog should
+// show: a one-line message plus the longer explanation when the server sent
+// both a title and a detail.
+export function describeApiError(err: unknown): { message: string; hint?: string } {
+  const fallback = err instanceof Error ? err.message : String(err);
+  if (!(err instanceof Error) || !('status' in err)) return { message: fallback };
+
+  const { body, status } = err as ApiError;
+  const field = (key: string): string | undefined => {
+    if (!body || typeof body !== 'object') return undefined;
+    const v = (body as Record<string, unknown>)[key];
+    return typeof v === 'string' && v !== '' ? v : undefined;
+  };
+  const title = field('title');
+  const detail = field('detail');
+  const message = detail ?? title ?? fallback;
+  const parts = [
+    title && title !== message ? title : undefined,
+    status ? `HTTP ${status}` : undefined,
+  ];
+  const hint = parts.filter(Boolean).join(' · ');
+  return hint ? { message, hint } : { message };
+}
+
 export const api = {
   get: <T>(path: string, opts: Omit<RequestOptions, 'method' | 'body'> = {}) =>
     doFetch<T>(path, { ...opts, method: 'GET' }),
