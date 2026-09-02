@@ -1,16 +1,51 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for more information:
+# Dependabot version updates.
+#
+# Routine minor/patch bumps are grouped into a single PR per ecosystem so the
+# review queue and commit log stay readable; major bumps stay ungrouped so they
+# get individual review. Security updates are unaffected by these groups and
+# keep opening on their own.
+#
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 # https://containers.dev/guide/dependabot
 
 version: 2
 updates:
- - package-ecosystem: "devcontainers"
-   directory: "/"
-   schedule:
-     interval: weekly
- - package-ecosystem: "gomod"
-   directory: "/"
-   schedule:
-     interval: weekly
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      devcontainers:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      go-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directories:
+      - "/web"
+      - "/docs"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
