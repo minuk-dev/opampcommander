@@ -11,9 +11,20 @@ permissions:
   packages: write
   contents: write
 
+env:
+  IMAGE: ghcr.io/minuk-dev/opampcommander-web
+
 jobs:
-  web-release:
+  # Version is computed once and fanned out to every job so the per-arch
+  # images, the manifest and the deploy commit all agree on one tag (and one
+  # BUILD_DATE).
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      git_commit: ${{ steps.compute.outputs.git_commit }}
+      git_tree_state: ${{ steps.compute.outputs.git_tree_state }}
+      build_date: ${{ steps.compute.outputs.build_date }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,24 +37,47 @@ jobs:
       # to goreleaser); a git-state check would mis-tag commits that happen to
       # sit at a released tag on main.
       - name: Compute version
+        id: compute
         run: |
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION=$(./scripts/version.sh)
           else
             VERSION=$(./scripts/version.sh --snapshot)
           fi
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Computed version: ${VERSION}"
           # Build metadata mirroring the apiserver's version payload. The web
           # Docker build context is ./web (no .git), so compute here and pass
           # as build-args.
-          echo "GIT_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "git_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           if [[ -z "$(git status --porcelain)" ]]; then
-            echo "GIT_TREE_STATE=clean" >> "$GITHUB_ENV"
+            echo "git_tree_state=clean" >> "$GITHUB_OUTPUT"
           else
-            echo "GIT_TREE_STATE=dirty" >> "$GITHUB_ENV"
+            echo "git_tree_state=dirty" >> "$GITHUB_OUTPUT"
           fi
-          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+  # One job per architecture, each on a runner of that architecture. `next
+  # build` MUST NOT run under QEMU: its native worker takes an illegal
+  # instruction there and the build dies with SIGILL part-way through static
+  # page generation. Building each arch natively also drops the arm64 leg from
+  # ~4min of emulation to normal build time.
+  build:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -52,31 +86,58 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build and push web image (multi-arch)
+      - name: Build and push web image (${{ matrix.arch }})
         uses: docker/build-push-action@v6
         with:
           context: ./web
           file: ./web/Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/minuk-dev/opampcommander-web:${{ env.VERSION }}
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.IMAGE }}:${{ needs.version.outputs.version }}-${{ matrix.arch }}
           build-args: |
-            VERSION=${{ env.VERSION }}
-            GIT_COMMIT=${{ env.GIT_COMMIT }}
-            GIT_TREE_STATE=${{ env.GIT_TREE_STATE }}
-            BUILD_DATE=${{ env.BUILD_DATE }}
+            VERSION=${{ needs.version.outputs.version }}
+            GIT_COMMIT=${{ needs.version.outputs.git_commit }}
+            GIT_TREE_STATE=${{ needs.version.outputs.git_tree_state }}
+            BUILD_DATE=${{ needs.version.outputs.build_date }}
           provenance: false
-          cache-from: type=gha,scope=opampcommander-web
-          cache-to: type=gha,mode=max,scope=opampcommander-web
+          cache-from: type=gha,scope=opampcommander-web-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=opampcommander-web-${{ matrix.arch }}
 
+  # Join the per-arch tags under the plain version tag, the same way
+  # release.yaml does for the apiserver image.
+  manifest:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Create multi-arch manifest
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          docker buildx imagetools create -t "${IMAGE}:${VERSION}" \
+            "${IMAGE}:${VERSION}-amd64" \
+            "${IMAGE}:${VERSION}-arm64"
+
+  deploy:
+    needs: [version, manifest]
+    if: startsWith(github.ref, 'refs/heads/')
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
       - name: Setup SSH agent for minuk-cluster deploy
-        if: startsWith(github.ref, 'refs/heads/')
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.MINUK_CLUSTER_DEPLOY_KEY }}
 
       - name: Deploy alpha, alpha-ha and alpha-standalone to minuk-cluster
-        if: startsWith(github.ref, 'refs/heads/')
         run: |
           git clone git@github.com:minuk-cluster/minuk-cluster.git /tmp/minuk-cluster
           cd /tmp/minuk-cluster
