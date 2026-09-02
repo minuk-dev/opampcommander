@@ -1,28 +1,38 @@
 'use client';
 
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import { useApi } from '@shared/api';
+import { cn } from '@shared/lib';
+import { TimeDisplay } from '@shared/preferences';
 import {
   Alert,
-  Box,
+  Badge,
   Card,
   CardContent,
-  Chip,
-  CircularProgress,
-  Divider,
-  Paper,
-  Stack,
+  PageHeader,
+  Separator,
+  Spinner,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeaderCell,
   TableRow,
-  Typography,
-} from '@mui/material';
-import Link from 'next/link';
-import { PageHeader } from '@shared/ui';
-import { TimeDisplay } from '@shared/preferences';
-import { useApi } from '@shared/api';
+  TableWrap,
+} from '@shared/ui';
 import type { UserProfileResponse } from '@entities/user';
+
+function Detail({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+        {label}
+      </p>
+      <div className={cn('text-sm', mono && 'font-mono')}>{value}</div>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   // Shares the /api/v1/users/me request with PermissionsProvider via SWR's
@@ -37,18 +47,18 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" mt={6}>
-        <CircularProgress />
-      </Box>
+      <div className="mt-16 flex justify-center">
+        <Spinner className="size-6" />
+      </div>
     );
   }
 
   if (error || !profile?.user) {
     return (
-      <Box>
+      <div>
         <PageHeader title="My profile" />
         <Alert severity="error">{error ?? 'No profile data returned'}</Alert>
-      </Box>
+      </div>
     );
   }
 
@@ -56,62 +66,60 @@ export default function ProfilePage() {
   const labelEntries = Object.entries(user.metadata.labels ?? {});
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="My profile"
         subtitle="The account you are currently signed in as, and the roles applied to you."
       />
 
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack direction={{ xs: 'column', md: 'row' }} gap={4} flexWrap="wrap">
-            <Field label="Email" value={user.spec.email || '-'} mono />
-            <Field label="Username" value={user.spec.username || '-'} />
-            <Field
+      <Card className="mb-4">
+        <CardContent className="pt-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <Detail label="Email" value={user.spec.email || '-'} mono />
+            <Detail label="Username" value={user.spec.username || '-'} />
+            <Detail
               label="Status"
               value={
-                <Chip
-                  size="small"
-                  label={user.spec.isActive ? 'active' : 'inactive'}
-                  color={user.spec.isActive ? 'success' : 'default'}
-                />
+                <Badge variant={user.spec.isActive ? 'success' : 'muted'}>
+                  {user.spec.isActive ? 'active' : 'inactive'}
+                </Badge>
               }
             />
-            <Field label="UID" value={user.metadata.uid || '(no DB record yet)'} mono />
-            <Field label="Created" value={<TimeDisplay value={user.metadata.createdAt} />} />
-          </Stack>
+            <Detail label="UID" value={user.metadata.uid || '(no DB record yet)'} mono />
+            <Detail label="Created" value={<TimeDisplay value={user.metadata.createdAt} />} />
+          </div>
           {labelEntries.length > 0 && (
             <>
-              <Divider sx={{ my: 2 }} />
-              <Typography variant="overline" color="text.secondary">
+              <Separator className="my-3" />
+              <p className="mb-1 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                 Labels
-              </Typography>
-              <Stack direction="row" gap={0.5} flexWrap="wrap" mt={0.5}>
+              </p>
+              <div className="flex flex-wrap gap-1">
                 {labelEntries.map(([k, v]) => (
-                  <Chip key={k} label={`${k}: ${v}`} size="small" variant="outlined" />
+                  <Badge key={k} variant="outline">
+                    {k}: {v}
+                  </Badge>
                 ))}
-              </Stack>
+              </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      <Typography variant="h6" gutterBottom>
-        Roles applied to you
-      </Typography>
+      <h2 className="mb-2 text-sm font-semibold">Roles applied to you</h2>
       {(!roles || roles.length === 0) && (
         <Alert severity="info">
           No roles are currently applied. Ask an administrator to create a role binding for you.
         </Alert>
       )}
       {roles && roles.length > 0 && (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
+        <TableWrap>
+          <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Role</TableCell>
-                <TableCell>Source</TableCell>
-                <TableCell>Permissions</TableCell>
+              <TableRow className="hover:bg-transparent">
+                <TableHeaderCell>Role</TableHeaderCell>
+                <TableHeaderCell>Source</TableHeaderCell>
+                <TableHeaderCell>Permissions</TableHeaderCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -122,53 +130,44 @@ export default function ProfilePage() {
                 return (
                   <TableRow key={`${role.metadata.uid}-${i}`}>
                     <TableCell>
-                      <Stack direction="row" alignItems="center" gap={1}>
-                        <Link
-                          href="/roles"
-                          style={{ color: 'inherit', textDecoration: 'underline' }}
-                        >
+                      <div className="flex items-center gap-2">
+                        <Link href="/roles" className="font-medium hover:underline">
                           {role.spec.displayName || role.metadata.uid}
                         </Link>
-                        {role.spec.isBuiltIn && (
-                          <Chip label="built-in" size="small" color="info" variant="outlined" />
-                        )}
-                      </Stack>
+                        {role.spec.isBuiltIn && <Badge variant="primary">built-in</Badge>}
+                      </div>
                       {role.spec.description && (
-                        <Typography variant="caption" color="text.secondary">
-                          {role.spec.description}
-                        </Typography>
+                        <p className="text-xs text-muted-foreground">{role.spec.description}</p>
                       )}
                     </TableCell>
                     <TableCell>
                       {rb ? (
-                        <Stack>
-                          <Link href="/rolebindings" style={{ color: 'inherit' }}>
+                        <>
+                          <Link href="/rolebindings" className="hover:underline">
                             {rb.metadata.namespace}/{rb.metadata.name}
                           </Link>
-                          <Typography variant="caption" color="text.secondary">
-                            RoleBinding
-                          </Typography>
-                        </Stack>
+                          <p className="text-xs text-muted-foreground">RoleBinding</p>
+                        </>
                       ) : (
-                        <Typography variant="body2" color="text.secondary">
+                        <span className="text-muted-foreground">
                           Auto-assigned (built-in default)
-                        </Typography>
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
                       {perms.length === 0 ? (
-                        <Typography variant="caption" color="text.secondary">
-                          (no permissions)
-                        </Typography>
+                        <span className="text-xs text-muted-foreground">(no permissions)</span>
                       ) : (
-                        <Stack direction="row" gap={0.5} flexWrap="wrap">
+                        <div className="flex flex-wrap gap-1">
                           {perms.slice(0, 30).map((p) => (
-                            <Chip key={p} label={p} size="small" variant="outlined" />
+                            <Badge key={p} variant="outline">
+                              {p}
+                            </Badge>
                           ))}
                           {perms.length > 30 && (
-                            <Chip label={`+${perms.length - 30} more`} size="small" />
+                            <Badge variant="muted">+{perms.length - 30} more</Badge>
                           )}
-                        </Stack>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -176,25 +175,8 @@ export default function ProfilePage() {
               })}
             </TableBody>
           </Table>
-        </TableContainer>
+        </TableWrap>
       )}
-    </Box>
-  );
-}
-
-function Field({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
-  return (
-    <Box>
-      <Typography variant="overline" color="text.secondary">
-        {label}
-      </Typography>
-      <Typography
-        variant="body1"
-        component="div"
-        sx={mono ? { fontFamily: 'var(--font-geist-mono), monospace', fontSize: 14 } : undefined}
-      >
-        {value}
-      </Typography>
-    </Box>
+    </div>
   );
 }

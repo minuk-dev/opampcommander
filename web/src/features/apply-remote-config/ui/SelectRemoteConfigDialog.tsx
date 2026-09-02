@@ -1,26 +1,20 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  ListItemText,
-  MenuItem,
-  Select,
-  Stack,
-  Typography,
-} from '@mui/material';
 import { useEffect, useRef, useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  Spinner,
+} from '@shared/ui';
 import {
   describeRemoteConfigSources,
   remoteConfigRefs,
@@ -123,77 +117,71 @@ export default function SelectRemoteConfigDialog({
     }
   };
 
+  const toggle = (name: string) =>
+    setRefs((prev) => (prev.includes(name) ? prev.filter((r) => r !== name) : [...prev, name]));
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Apply remote configs</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
-          <DialogContentText>
-            Choose the remote configs applied to agent group <code>{group?.metadata.name}</code>.
-            The group&apos;s matching agents receive every selected config. Toggle configs on or
-            off, then Apply.
-          </DialogContentText>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>Apply remote configs</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Choose the remote configs applied to agent group{' '}
+            <code className="font-mono">{group?.metadata.name}</code>. The group&apos;s matching
+            agents receive every selected config.
+          </p>
           {group && (
-            <Typography variant="body2" color="text.secondary">
-              Current: <code>{describeRemoteConfigSources(group)}</code> · {group.status.numAgents}{' '}
-              agent(s) matched
-            </Typography>
+            <p className="text-xs text-muted-foreground">
+              Current: <code className="font-mono">{describeRemoteConfigSources(group)}</code> ·{' '}
+              {group.status.numAgents} agent(s) matched
+            </p>
           )}
           {error && <Alert severity="error">{error}</Alert>}
-          <FormControl fullWidth disabled={loading || busy}>
-            <InputLabel id="select-remote-config-label">Remote configs</InputLabel>
-            <Select
-              labelId="select-remote-config-label"
-              label="Remote configs"
-              multiple
-              value={refs}
-              onChange={(e) =>
-                setRefs(
-                  typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value,
-                )
-              }
-              renderValue={(selected) =>
-                selected.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    None selected
-                  </Typography>
-                ) : (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selected.map((name) => (
-                      <Chip key={name} label={name} size="small" />
-                    ))}
-                  </Box>
-                )
-              }
-            >
-              {options.length === 0 && (
-                <MenuItem value="" disabled>
-                  {loading ? 'Loading…' : 'No remote configs in this namespace'}
-                </MenuItem>
+          <div>
+            <Label className="mb-1 block">Remote configs</Label>
+            <div className="max-h-64 overflow-y-auto rounded-md border border-border">
+              {loading ? (
+                <div className="p-4">
+                  <Spinner className="mx-auto" />
+                </div>
+              ) : options.length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground">
+                  No remote configs in this namespace.
+                </p>
+              ) : (
+                options.map((name) => (
+                  <label
+                    key={name}
+                    className="flex cursor-pointer items-center gap-2 border-b border-border px-3 py-1.5 text-sm last:border-0 hover:bg-accent"
+                  >
+                    <Checkbox
+                      checked={refs.includes(name)}
+                      disabled={busy}
+                      onCheckedChange={() => toggle(name)}
+                    />
+                    <span className="truncate">{name}</span>
+                  </label>
+                ))
               )}
-              {options.map((name) => (
-                <MenuItem key={name} value={name}>
-                  <Checkbox checked={refs.includes(name)} />
-                  <ListItemText primary={name} />
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {refs.length === 0 && options.length > 0 && (
-            <Typography variant="body2" color="text.secondary">
-              No remote configs selected. Matching agents will receive none.
-            </Typography>
-          )}
-        </Stack>
+            </div>
+            {refs.length === 0 && options.length > 0 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Nothing selected — matching agents will receive no remote config.
+              </p>
+            )}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={busy}>
+            Apply
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={save} disabled={busy}>
-          Apply
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

@@ -1,45 +1,33 @@
 'use client';
 
+import { Eye, ListChecks, Pencil, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
 import {
   Alert,
-  Box,
+  Badge,
   Button,
-  Chip,
-  CircularProgress,
-  FormControlLabel,
-  IconButton,
-  Paper,
+  ColumnPicker,
+  ConfirmDialog,
+  Label,
+  PageHeader,
+  PaginationFooter,
+  RowActionsMenu,
+  Spinner,
   Switch,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeaderCell,
   TableRow,
-} from '@mui/material';
-import {
-  Refresh as RefreshIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  PeopleAlt as PeopleAltIcon,
-  PlaylistAddCheck as ApplyIcon,
-  Visibility as ViewIcon,
-} from '@mui/icons-material';
-import Link from 'next/link';
-import { Tooltip } from '@mui/material';
-import { useState } from 'react';
-import {
-  PageHeader,
-  ConfirmDialog,
-  PaginationFooter,
-  RowActionsMenu,
-  ColumnPicker,
+  TableWrap,
+  Tooltip,
 } from '@shared/ui';
 import { TimeDisplay } from '@shared/preferences';
 import { useNamespace } from '@entities/namespace';
 import { api } from '@shared/api';
-import { type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
+import { cn, type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
 import dynamic from 'next/dynamic';
 import type { AgentGroup } from '@entities/agent-group';
 
@@ -100,27 +88,27 @@ export default function AgentGroupsPage() {
   };
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Agent Groups"
         subtitle={`Namespace: ${namespace}`}
         actions={
           <>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={showDisconnected}
-                  onChange={(e) => setShowDisconnected(e.target.checked)}
-                />
-              }
-              label="Show disconnected"
-              sx={{ color: 'text.secondary', mr: 1 }}
-            />
-            <IconButton color="primary" onClick={fetchGroups}>
-              <RefreshIcon />
-            </IconButton>
-            <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
+            <Label className="flex cursor-pointer items-center gap-1.5">
+              <Switch checked={showDisconnected} onCheckedChange={setShowDisconnected} />
+              Show disconnected
+            </Label>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={() => void fetchGroups()}
+            >
+              <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+            </Button>
+            <ColumnPicker columns={AGENT_GROUP_COLUMNS} visible={visible} onToggle={toggle} />
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus aria-hidden />
               New group
             </Button>
           </>
@@ -128,97 +116,87 @@ export default function AgentGroupsPage() {
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" className="mb-3">
           {error}
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <ColumnPicker columns={AGENT_GROUP_COLUMNS} visible={visible} onToggle={toggle} />
-      </Box>
-
-      <TableContainer component={Paper}>
+      <TableWrap>
         <Table>
           <TableHead>
-            <TableRow>
-              {isVisible('name') && <TableCell>Name</TableCell>}
-              {isVisible('priority') && <TableCell>Priority</TableCell>}
-              {isVisible('agents') && <TableCell>Agents</TableCell>}
-              {isVisible('connected') && <TableCell>Connected</TableCell>}
-              {isVisible('healthy') && <TableCell>Healthy</TableCell>}
-              {isVisible('created') && <TableCell>Created</TableCell>}
-              <TableCell align="right">Actions</TableCell>
+            <TableRow className="hover:bg-transparent">
+              {isVisible('name') && <TableHeaderCell>Name</TableHeaderCell>}
+              {isVisible('priority') && <TableHeaderCell>Priority</TableHeaderCell>}
+              {isVisible('agents') && <TableHeaderCell>Agents</TableHeaderCell>}
+              {isVisible('connected') && <TableHeaderCell>Connected</TableHeaderCell>}
+              {isVisible('healthy') && <TableHeaderCell>Healthy</TableHeaderCell>}
+              {isVisible('created') && <TableHeaderCell>Created</TableHeaderCell>}
+              <TableHeaderCell className="w-10 text-right">Actions</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={colSpan} align="center">
-                  <CircularProgress size={24} />
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={colSpan} className="py-8">
+                  <Spinner className="mx-auto size-5" />
                 </TableCell>
               </TableRow>
             ) : groups.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={colSpan} align="center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={colSpan} className="py-8 text-center text-muted-foreground">
                   No agent groups
                 </TableCell>
               </TableRow>
             ) : (
               groups.map((g) => (
-                <TableRow key={g.metadata.name} hover>
+                <TableRow key={g.metadata.name}>
                   {isVisible('name') && (
                     <TableCell>
-                      <Tooltip title="View agents in this group" placement="right">
+                      <Tooltip content="View agents in this group" side="right">
                         <Link
                           href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
-                          style={{ fontWeight: 500 }}
+                          className="font-medium text-primary hover:underline"
                         >
                           {g.metadata.name}
                         </Link>
                       </Tooltip>
                     </TableCell>
                   )}
-                  {isVisible('priority') && <TableCell>{g.spec.priority}</TableCell>}
+                  {isVisible('priority') && (
+                    <TableCell className="tnum">{g.spec.priority}</TableCell>
+                  )}
                   {isVisible('agents') && (
                     <TableCell>
                       <Tooltip
-                        title={
+                        content={
                           showDisconnected
                             ? 'All agents in this group (connected + disconnected)'
                             : 'Connected agents in this group'
                         }
-                        placement="top"
                       >
-                        <Chip
-                          component={Link}
-                          href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}
-                          label={
-                            showDisconnected ? g.status.numAgents : g.status.numConnectedAgents
-                          }
-                          size="small"
-                          clickable
-                        />
+                        <Link href={`/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`}>
+                          <Badge className="tnum hover:bg-accent">
+                            {showDisconnected ? g.status.numAgents : g.status.numConnectedAgents}
+                          </Badge>
+                        </Link>
                       </Tooltip>
                     </TableCell>
                   )}
                   {isVisible('connected') && (
                     <TableCell>
-                      <Chip
-                        label={`${g.status.numConnectedAgents}/${g.status.numAgents}`}
-                        color="success"
-                        size="small"
-                        variant="outlined"
-                      />
+                      <Badge variant="success" className="tnum">
+                        {g.status.numConnectedAgents}/{g.status.numAgents}
+                      </Badge>
                     </TableCell>
                   )}
                   {isVisible('healthy') && (
                     <TableCell>
-                      <Chip
-                        label={`${g.status.numHealthyAgents}/${g.status.numAgents}`}
-                        color={g.status.numUnhealthyAgents ? 'warning' : 'success'}
-                        size="small"
-                        variant="outlined"
-                      />
+                      <Badge
+                        variant={g.status.numUnhealthyAgents ? 'warning' : 'success'}
+                        className="tnum"
+                      >
+                        {g.status.numHealthyAgents}/{g.status.numAgents}
+                      </Badge>
                     </TableCell>
                   )}
                   {isVisible('created') && (
@@ -226,32 +204,32 @@ export default function AgentGroupsPage() {
                       <TimeDisplay value={g.metadata.createdAt} />
                     </TableCell>
                   )}
-                  <TableCell align="right">
+                  <TableCell className="text-right">
                     <RowActionsMenu
                       actions={[
                         {
                           label: 'View detail',
-                          icon: <ViewIcon fontSize="small" />,
+                          icon: <Eye aria-hidden />,
                           href: `/agentgroups/${g.metadata.name}`,
                         },
                         {
                           label: 'View agents',
-                          icon: <PeopleAltIcon fontSize="small" />,
+                          icon: <Users aria-hidden />,
                           href: `/agents?agentGroup=${encodeURIComponent(g.metadata.name)}`,
                         },
                         {
                           label: 'Edit',
-                          icon: <EditIcon fontSize="small" />,
+                          icon: <Pencil aria-hidden />,
                           href: `/agentgroups/${g.metadata.name}?action=edit`,
                         },
                         {
                           label: 'Apply remote config',
-                          icon: <ApplyIcon fontSize="small" />,
+                          icon: <ListChecks aria-hidden />,
                           href: `/agentgroups/${g.metadata.name}?action=apply`,
                         },
                         {
                           label: 'Delete',
-                          icon: <DeleteIcon fontSize="small" />,
+                          icon: <Trash2 aria-hidden />,
                           destructive: true,
                           divider: true,
                           onClick: () => setDeleting(g),
@@ -264,7 +242,7 @@ export default function AgentGroupsPage() {
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </TableWrap>
 
       <PaginationFooter pagination={pagination} />
 
@@ -300,6 +278,6 @@ export default function AgentGroupsPage() {
         onClose={() => setDeleting(null)}
         onConfirm={onDelete}
       />
-    </Box>
+    </div>
   );
 }

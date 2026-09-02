@@ -1,18 +1,19 @@
 'use client';
 
-import { AccessTime as ClockIcon } from '@mui/icons-material';
-import { Box, Button, Divider, Popover, Tooltip, Typography } from '@mui/material';
+import { Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import * as PopoverPrimitive from '@radix-ui/react-popover';
+import { Button, Separator } from '@shared/ui';
+import { LOCAL_TIME_ZONE } from '@shared/preferences';
 import { usePreferences } from './PreferencesProvider';
 import TimezoneSelector from './TimezoneSelector';
-import { LOCAL_TIME_ZONE } from '@shared/preferences';
 
 // Top-bar control showing the active display timezone and opening a quick
 // picker. Mirrors the setting on the Preferences page (same shared state).
 export default function TimezoneButton() {
   const { preferences, hydrated } = usePreferences();
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [open, setOpen] = useState(false);
   const [localZone, setLocalZone] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,43 +34,31 @@ export default function TimezoneButton() {
       : preferences.timeZone;
 
   return (
-    <>
-      <Tooltip title="Display timezone">
-        <Button
-          color="inherit"
-          startIcon={<ClockIcon />}
-          onClick={(e) => setAnchor(e.currentTarget)}
-          sx={{ textTransform: 'none', maxWidth: 220, minWidth: 0 }}
-        >
-          <Box
-            component="span"
-            sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          >
-            {label}
-          </Box>
+    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+      <PopoverPrimitive.Trigger asChild>
+        <Button variant="ghost" size="sm" className="max-w-44" aria-label="Display timezone">
+          <Clock aria-hidden />
+          <span className="truncate">{label}</span>
         </Button>
-      </Tooltip>
-      <Popover
-        open={Boolean(anchor)}
-        anchorEl={anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { sx: { p: 2, width: 340 } } }}
-      >
-        <Typography variant="subtitle2" gutterBottom>
-          Display timezone
-        </Typography>
-        <TimezoneSelector localZone={localZone} autoFocus size="small" />
-        <Divider sx={{ my: 1.5 }} />
-        <Typography variant="caption" color="text.secondary">
-          Applies to all timestamps in this browser. More in{' '}
-          <Link href="/preferences" onClick={() => setAnchor(null)} style={{ color: 'inherit' }}>
-            Preferences
-          </Link>
-          .
-        </Typography>
-      </Popover>
-    </>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          align="end"
+          sideOffset={6}
+          className="z-50 w-80 rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0"
+        >
+          <p className="mb-2 text-xs font-medium">Display timezone</p>
+          <TimezoneSelector localZone={localZone} />
+          <Separator className="my-2.5" />
+          <p className="text-xs text-muted-foreground">
+            Applies to all timestamps in this browser. More in{' '}
+            <Link href="/preferences" onClick={() => setOpen(false)} className="underline">
+              Preferences
+            </Link>
+            .
+          </p>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   );
 }

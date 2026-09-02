@@ -1,39 +1,28 @@
 'use client';
 
-import { Box, Typography } from '@mui/material';
 import { type ReactNode } from 'react';
+import { cn } from '@shared/lib';
 
 interface Props {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
+  className?: string;
 }
 
-export default function PageHeader({ title, subtitle, actions }: Props) {
+export default function PageHeader({ title, subtitle, actions, className }: Props) {
   return (
-    <Box
-      display="flex"
-      alignItems={{ xs: 'flex-start', sm: 'center' }}
-      justifyContent="space-between"
-      flexDirection={{ xs: 'column', sm: 'row' }}
-      gap={2}
-      mb={3}
-    >
-      <Box>
-        <Typography variant="h4" component="h1">
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="body2" color="text.secondary">
-            {subtitle}
-          </Typography>
-        )}
-      </Box>
-      {actions && (
-        <Box display="flex" gap={1} flexWrap="wrap">
-          {actions}
-        </Box>
+    <div
+      className={cn(
+        'mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between',
+        className,
       )}
-    </Box>
+    >
+      <div className="min-w-0">
+        <h1 className="truncate text-lg font-semibold tracking-tight">{title}</h1>
+        {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-1.5">{actions}</div>}
+    </div>
   );
 }

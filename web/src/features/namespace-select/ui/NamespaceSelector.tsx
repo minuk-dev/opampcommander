@@ -1,23 +1,29 @@
 'use client';
 
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select,
-  TextField,
-} from '@mui/material';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Divider } from '@mui/material';
 import { useNamespace, type Namespace } from '@entities/namespace';
 import { api } from '@shared/api';
+import {
+  Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Field,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@shared/ui';
+
+// Sentinels that turn menu entries into actions rather than selections.
+const CREATE = '__create__';
+const MANAGE = '__manage__';
 
 export default function NamespaceSelector() {
   const router = useRouter();
@@ -28,14 +34,8 @@ export default function NamespaceSelector() {
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (val: string) => {
-    if (val === '__create__') {
-      setCreateOpen(true);
-      return;
-    }
-    if (val === '__manage__') {
-      router.push('/namespaces');
-      return;
-    }
+    if (val === CREATE) return setCreateOpen(true);
+    if (val === MANAGE) return router.push('/namespaces');
     setNamespace(val);
   };
 
@@ -44,9 +44,7 @@ export default function NamespaceSelector() {
     setBusy(true);
     setError(null);
     try {
-      await api.post<Namespace>('/api/v1/namespaces', {
-        metadata: { name: newName },
-      });
+      await api.post<Namespace>('/api/v1/namespaces', { metadata: { name: newName } });
       await refresh();
       setNamespace(newName);
       setCreateOpen(false);
@@ -60,64 +58,55 @@ export default function NamespaceSelector() {
 
   return (
     <>
-      <FormControl size="small" sx={{ minWidth: { xs: 120, sm: 200 } }}>
-        <InputLabel
-          id="namespace-label"
-          sx={{ color: 'inherit', '&.Mui-focused': { color: 'inherit' } }}
-        >
-          Namespace
-        </InputLabel>
-        <Select
-          labelId="namespace-label"
-          label="Namespace"
-          value={namespace}
-          onChange={(e) => handleChange(e.target.value)}
-          sx={{
-            color: 'inherit',
-            '.MuiOutlinedInput-notchedOutline': {
-              borderColor: 'rgba(255,255,255,0.4)',
-            },
-            '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'rgba(255,255,255,0.7)',
-            },
-            '.MuiSvgIcon-root': { color: 'inherit' },
-          }}
-        >
-          {namespaces.length === 0 && <MenuItem value={namespace}>{namespace}</MenuItem>}
+      <Select value={namespace} onValueChange={handleChange}>
+        <SelectTrigger className="w-36 sm:w-56" aria-label="Namespace">
+          {/* Group the prefix with the value so justify-between only pushes the
+              chevron to the far edge. */}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="hidden shrink-0 text-xs text-muted-foreground sm:inline">ns</span>
+            <SelectValue />
+          </span>
+        </SelectTrigger>
+        <SelectContent>
+          {namespaces.length === 0 && <SelectItem value={namespace}>{namespace}</SelectItem>}
           {namespaces.map((n) => (
-            <MenuItem key={n.metadata.name} value={n.metadata.name}>
+            <SelectItem key={n.metadata.name} value={n.metadata.name}>
               {n.metadata.name}
-            </MenuItem>
+            </SelectItem>
           ))}
-          <Divider />
-          <MenuItem value="__create__">+ Create namespace…</MenuItem>
-          <MenuItem value="__manage__">Manage namespaces…</MenuItem>
-        </Select>
-      </FormControl>
+          <div className="my-1 h-px bg-border" />
+          <SelectItem value={CREATE}>+ Create namespace…</SelectItem>
+          <SelectItem value={MANAGE}>Manage namespaces…</SelectItem>
+        </SelectContent>
+      </Select>
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Create namespace</DialogTitle>
-        <DialogContent>
-          <Box pt={1}>
-            <TextField
-              autoFocus
-              fullWidth
-              label="Name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              error={Boolean(error)}
-              helperText={error}
-            />
-          </Box>
+      <Dialog open={createOpen} onOpenChange={(next) => !next && setCreateOpen(false)}>
+        <DialogContent size="sm" className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Create namespace</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <Field label="Name" error={error}>
+              {(field) => (
+                <Input
+                  {...field}
+                  autoFocus
+                  value={newName}
+                  invalid={Boolean(error)}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              )}
+            </Field>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={() => void create()} disabled={busy || !newName}>
+              Create
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)} disabled={busy}>
-            Cancel
-          </Button>
-          <Button onClick={create} variant="contained" disabled={busy || !newName}>
-            Create
-          </Button>
-        </DialogActions>
       </Dialog>
     </>
   );

@@ -1,22 +1,17 @@
-import { Alert, Box, Card, CardContent, Stack, Typography } from '@mui/material';
-import { PageHeader, JsonBlock } from '@shared/ui';
+import { Alert, Card, CardContent, CardHeader, CardTitle, JsonBlock, PageHeader } from '@shared/ui';
 import { serverGet } from '@shared/api/server';
 import { getWebVersionInfo } from '@shared/lib/web-version';
 
 function InfoRows({ entries }: { entries: Array<[string, unknown]> }) {
   return (
-    <Stack spacing={1}>
+    <dl className="space-y-1 text-sm">
       {entries.map(([k, v]) => (
-        <Stack key={k} direction="row" justifyContent="space-between">
-          <Typography variant="body2" color="text.secondary">
-            {k}
-          </Typography>
-          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-            {typeof v === 'string' ? v : JSON.stringify(v)}
-          </Typography>
-        </Stack>
+        <div key={k} className="flex justify-between gap-4">
+          <dt className="text-muted-foreground">{k}</dt>
+          <dd className="truncate font-mono">{typeof v === 'string' ? v : JSON.stringify(v)}</dd>
+        </div>
       ))}
-    </Stack>
+    </dl>
   );
 }
 
@@ -35,40 +30,36 @@ export default async function VersionPage() {
   }
 
   return (
-    <Box>
+    <div>
       <PageHeader title="Version" />
-      <Stack spacing={2}>
+      <div className="space-y-3">
         <Card>
+          <CardHeader>
+            <CardTitle>Web</CardTitle>
+          </CardHeader>
           <CardContent>
-            <Typography variant="overline" color="text.secondary">
-              Web
-            </Typography>
-            <Box mt={1}>
-              <InfoRows entries={Object.entries(webInfo)} />
-            </Box>
+            <InfoRows entries={Object.entries(webInfo)} />
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent>
-            <Typography variant="overline" color="text.secondary">
-              API server
-            </Typography>
-            {error && (
-              <Box mt={1}>
-                <Alert severity="error">{error}</Alert>
-              </Box>
-            )}
-            {apiInfo && (
-              <Box mt={1}>
-                <InfoRows entries={Object.entries(apiInfo)} />
-              </Box>
-            )}
+          <CardHeader>
+            <CardTitle>API server</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {error && <Alert severity="error">{error}</Alert>}
+            {apiInfo && <InfoRows entries={Object.entries(apiInfo)} />}
           </CardContent>
         </Card>
 
-        {apiInfo && <JsonBlock title="Raw" value={{ web: webInfo, apiserver: apiInfo }} />}
-      </Stack>
-    </Box>
+        {apiInfo && (
+          <Card>
+            <CardContent className="pt-4">
+              <JsonBlock title="Raw" value={{ web: webInfo, apiserver: apiInfo }} />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
   );
 }

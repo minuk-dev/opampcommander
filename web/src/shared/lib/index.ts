@@ -1,3 +1,4 @@
+export * from './cn';
 export * from './format-time';
 export * from './pagination';
 export * from './column-visibility';

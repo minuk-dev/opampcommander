@@ -1,49 +1,38 @@
 'use client';
 
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  FormControl,
-  FormControlLabel,
-  IconButton,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
-  Stack,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TextField,
-  Tooltip,
-} from '@mui/material';
-import {
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  Group as GroupIcon,
-  Visibility as ViewIcon,
-  Edit as EditIcon,
-  RestartAlt as RestartIcon,
-  Delete as DeleteIcon,
-} from '@mui/icons-material';
+import { Eye, Pencil, RefreshCw, RotateCcw, Search, Trash2, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  ColumnPicker,
+  ConfirmDialog,
+  Field,
+  Input,
+  Label,
   PageHeader,
   PaginationFooter,
   RowActionsMenu,
   type RowAction,
-  ConfirmDialog,
-  ColumnPicker,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Spinner,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeaderCell,
+  TableRow,
+  TableWrap,
+  Tooltip,
 } from '@shared/ui';
 import { TimeDisplay } from '@shared/preferences';
 import { useNamespace } from '@entities/namespace';
@@ -55,7 +44,7 @@ import {
   isOtelCollector,
   type Agent,
 } from '@entities/agent';
-import { type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
+import { cn, type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
 import { useApi, type ListResponse } from '@shared/api';
 import type { AgentGroup } from '@entities/agent-group';
 
@@ -100,10 +89,10 @@ const AGENT_COLUMNS: ColumnConfig[] = [
   },
 ];
 
-// Render an attribute map as compact key=value chips for a table cell. When
-// `onSelect` is provided the chips become clickable and trigger a search by that
-// exact identifying attribute; clicks are kept from bubbling up to the row link.
-function AttrChips({
+// Render an attribute map as compact key=value badges for a table cell. When
+// `onSelect` is provided the badges become buttons that search by that exact
+// attribute; clicks are kept from bubbling up to the row's navigation.
+function AttrBadges({
   attrs,
   onSelect,
 }: {
@@ -113,27 +102,46 @@ function AttrChips({
   const entries = Object.entries(attrs ?? {});
   if (entries.length === 0) return <>-</>;
   return (
-    <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ maxWidth: 320 }}>
-      {entries.map(([k, v]) => (
-        <Chip
-          key={k}
-          label={`${k}=${v}`}
-          size="small"
-          variant="outlined"
-          clickable={Boolean(onSelect)}
-          onClick={
-            onSelect
-              ? (e) => {
-                  // Prevent the enclosing row's Link from navigating to the agent.
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSelect(k, v);
-                }
-              : undefined
-          }
-        />
-      ))}
-    </Stack>
+    <div className="flex max-w-80 flex-wrap gap-1">
+      {entries.map(([k, v]) =>
+        onSelect ? (
+          <button
+            key={k}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onSelect(k, v);
+            }}
+          >
+            <Badge variant="outline" className="hover:border-primary/50 hover:bg-accent">
+              {k}={v}
+            </Badge>
+          </button>
+        ) : (
+          <Badge key={k} variant="outline">
+            {k}={v}
+          </Badge>
+        ),
+      )}
+    </div>
+  );
+}
+
+// A removable filter pill for the active search criteria.
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <Badge variant="primary" className="gap-1 pr-1">
+      {label}
+      <button
+        type="button"
+        onClick={onClear}
+        aria-label={`Clear ${label}`}
+        className="rounded-full p-0.5 hover:bg-primary/20"
+      >
+        <X className="size-3" aria-hidden />
+      </button>
+    </Badge>
   );
 }
 
@@ -369,359 +377,310 @@ function AgentsInner() {
     ? agents.filter((a) => attrMatchesDescription(a, lcDesc))
     : agents;
 
+  const searchPlaceholder =
+    mode === 'uid'
+      ? 'Instance UID contains… (server-side)'
+      : mode === 'attribute'
+        ? 'key=value identifying attribute (exact, server-side)'
+        : mode === 'nattribute'
+          ? 'key=value non-identifying attribute (exact, server-side)'
+          : 'Attribute key/value contains… (client-side, current page)';
+
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Agents"
         subtitle={`Namespace: ${namespace}`}
         actions={
-          <IconButton color="primary" onClick={() => pagination.refresh()}>
-            <RefreshIcon />
-          </IconButton>
+          <>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={() => pagination.refresh()}
+            >
+              <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+            </Button>
+            <ColumnPicker columns={AGENT_COLUMNS} visible={visible} onToggle={toggle} />
+          </>
         }
       />
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack spacing={1.5}>
-          <form onSubmit={onSearch}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} gap={1}>
-              <FormControl size="small" sx={{ minWidth: 180 }}>
-                <InputLabel id="search-mode-label">Search by</InputLabel>
-                <Select
-                  labelId="search-mode-label"
-                  label="Search by"
-                  value={mode}
-                  onChange={(e) => setSearchMode(e.target.value as SearchMode)}
-                >
-                  <MenuItem value="group">Agent Group</MenuItem>
-                  <MenuItem value="uid">Instance UID</MenuItem>
-                  <MenuItem value="attribute">Identifying Attribute</MenuItem>
-                  <MenuItem value="nattribute">Non-identifying Attribute</MenuItem>
-                  <MenuItem value="description">Description</MenuItem>
-                </Select>
-              </FormControl>
+      <Card className="mb-3 p-3">
+        <form onSubmit={onSearch} className="flex flex-col gap-2 sm:flex-row">
+          <Field label="Search by" className="sm:w-52">
+            {(field) => (
+              <Select value={mode} onValueChange={(v) => setSearchMode(v as SearchMode)}>
+                <SelectTrigger {...field}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="group">Agent Group</SelectItem>
+                  <SelectItem value="uid">Instance UID</SelectItem>
+                  <SelectItem value="attribute">Identifying Attribute</SelectItem>
+                  <SelectItem value="nattribute">Non-identifying Attribute</SelectItem>
+                  <SelectItem value="description">Description</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
 
-              {mode === 'group' ? (
-                <Autocomplete
-                  size="small"
-                  fullWidth
-                  freeSolo
-                  options={groupOptions.map((g) => g.metadata.name)}
-                  value={query}
-                  onInputChange={(_, v) => setQuery(v)}
-                  onChange={(_, v) =>
-                    updateUrl({
-                      agentGroup: v ?? '',
-                      q: '',
-                      desc: '',
-                      mode: 'group',
-                    })
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Select or type an agent group name…"
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <>
-                            <GroupIcon sx={{ ml: 1, mr: 0.5, color: 'text.secondary' }} />
-                            {params.InputProps.startAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                />
+          <Field label={mode === 'group' ? 'Agent group' : 'Query'} className="flex-1">
+            {(field) =>
+              mode === 'group' ? (
+                <>
+                  {/* Native datalist keeps the free-text + suggestions behaviour
+                      of the old free-solo autocomplete without a popup widget. */}
+                  <Input
+                    {...field}
+                    list="agent-group-options"
+                    startSlot={<Users aria-hidden />}
+                    placeholder="Select or type an agent group name…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <datalist id="agent-group-options">
+                    {groupOptions.map((g) => (
+                      <option key={g.metadata.name} value={g.metadata.name} />
+                    ))}
+                  </datalist>
+                </>
               ) : (
-                <TextField
-                  size="small"
-                  fullWidth
-                  placeholder={
-                    mode === 'uid'
-                      ? 'Instance UID contains… (server-side)'
-                      : mode === 'attribute'
-                        ? 'key=value identifying attribute (exact, server-side)'
-                        : mode === 'nattribute'
-                          ? 'key=value non-identifying attribute (exact, server-side)'
-                          : 'Attribute key/value contains… (client-side, current page)'
-                  }
+                <Input
+                  {...field}
+                  startSlot={<Search aria-hidden />}
+                  placeholder={searchPlaceholder}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  InputProps={{
-                    startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                  }}
                 />
-              )}
-
-              <Button type="submit" variant="contained">
-                Search
-              </Button>
-            </Stack>
-          </form>
-
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={showDisconnected}
-                onChange={(e) => setShowDisconnected(e.target.checked)}
-              />
+              )
             }
-            label="Show disconnected agents"
-            sx={{ color: 'text.secondary' }}
-          />
+          </Field>
 
-          {mode === 'description' && (
-            <Box sx={{ color: 'text.secondary', fontSize: 12 }}>
-              Description search filters the current page on the client. Combine with a smaller
-              namespace or refine via UID / group for large deployments.
-            </Box>
-          )}
+          <Button type="submit" className="self-end">
+            Search
+          </Button>
+        </form>
 
-          {filterActive && (
-            <Stack direction="row" gap={1} flexWrap="wrap" alignItems="center">
-              <Box sx={{ color: 'text.secondary', fontSize: 13 }}>Filters:</Box>
-              {agentGroupParam && (
-                <Tooltip title="Open agent group">
-                  <Chip
-                    icon={<GroupIcon />}
-                    label={`Group: ${agentGroupParam}`}
-                    onClick={() => router.push(`/agentgroups/${agentGroupParam}`)}
-                    onDelete={clearGroup}
-                    color="primary"
-                    variant="outlined"
-                    size="small"
-                  />
-                </Tooltip>
-              )}
-              {qParam && (
-                <Chip
-                  icon={<SearchIcon />}
-                  label={`UID contains: ${qParam}`}
-                  onDelete={clearSearch}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                />
-              )}
-              {descParam && (
-                <Chip
-                  icon={<SearchIcon />}
-                  label={`Description: ${descParam}`}
-                  onDelete={() => {
-                    setQuery('');
-                    updateUrl({ desc: '' });
-                  }}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                />
-              )}
-              {selectorParam && (
-                <Chip
-                  icon={<SearchIcon />}
-                  label={`Attribute: ${selectorParam}`}
-                  onDelete={() => {
-                    setQuery('');
-                    updateUrl({ selector: '' });
-                  }}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                />
-              )}
-              {nonIdentifyingSelectorParam && (
-                <Chip
-                  icon={<SearchIcon />}
-                  label={`Non-identifying: ${nonIdentifyingSelectorParam}`}
-                  onDelete={() => {
-                    setQuery('');
-                    updateUrl({ nonIdentifyingSelector: '' });
-                  }}
-                  color="primary"
-                  variant="outlined"
-                  size="small"
-                />
-              )}
-            </Stack>
-          )}
-        </Stack>
-      </Paper>
+        <Label className="mt-2 flex w-fit cursor-pointer items-center gap-1.5">
+          <Switch checked={showDisconnected} onCheckedChange={setShowDisconnected} />
+          Show disconnected agents
+        </Label>
+
+        {mode === 'description' && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Description search filters the current page on the client. Combine with a smaller
+            namespace or refine via UID / group for large deployments.
+          </p>
+        )}
+
+        {filterActive && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Filters:</span>
+            {agentGroupParam && (
+              <Tooltip content="Open agent group">
+                <span>
+                  <FilterChip label={`Group: ${agentGroupParam}`} onClear={clearGroup} />
+                </span>
+              </Tooltip>
+            )}
+            {qParam && <FilterChip label={`UID contains: ${qParam}`} onClear={clearSearch} />}
+            {descParam && (
+              <FilterChip
+                label={`Description: ${descParam}`}
+                onClear={() => {
+                  setQuery('');
+                  updateUrl({ desc: '' });
+                }}
+              />
+            )}
+            {selectorParam && (
+              <FilterChip
+                label={`Attribute: ${selectorParam}`}
+                onClear={() => {
+                  setQuery('');
+                  updateUrl({ selector: '' });
+                }}
+              />
+            )}
+            {nonIdentifyingSelectorParam && (
+              <FilterChip
+                label={`Non-identifying: ${nonIdentifyingSelectorParam}`}
+                onClear={() => {
+                  setQuery('');
+                  updateUrl({ nonIdentifyingSelector: '' });
+                }}
+              />
+            )}
+          </div>
+        )}
+      </Card>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" className="mb-3">
           {error}
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-        <ColumnPicker columns={AGENT_COLUMNS} visible={visible} onToggle={toggle} />
-      </Box>
-
-      <TableContainer component={Paper}>
+      <TableWrap>
         <Table>
           <TableHead>
-            <TableRow>
-              {isVisible('instanceUid') && <TableCell>Instance UID</TableCell>}
-              {isVisible('connected') && <TableCell>Connected</TableCell>}
-              {isVisible('healthy') && <TableCell>Healthy</TableCell>}
-              {isVisible('agentType') && <TableCell>Type</TableCell>}
-              {isVisible('type') && <TableCell>Connection</TableCell>}
-              {isVisible('lastReported') && <TableCell>Last Reported</TableCell>}
-              {isVisible('sequence') && <TableCell>Sequence</TableCell>}
-              {isVisible('capabilities') && <TableCell>Capabilities</TableCell>}
+            <TableRow className="hover:bg-transparent">
+              {isVisible('instanceUid') && <TableHeaderCell>Instance UID</TableHeaderCell>}
+              {isVisible('connected') && <TableHeaderCell>Connected</TableHeaderCell>}
+              {isVisible('healthy') && <TableHeaderCell>Healthy</TableHeaderCell>}
+              {isVisible('agentType') && <TableHeaderCell>Type</TableHeaderCell>}
+              {isVisible('type') && <TableHeaderCell>Connection</TableHeaderCell>}
+              {isVisible('lastReported') && <TableHeaderCell>Last Reported</TableHeaderCell>}
+              {isVisible('sequence') && <TableHeaderCell>Sequence</TableHeaderCell>}
+              {isVisible('capabilities') && <TableHeaderCell>Capabilities</TableHeaderCell>}
               {isVisible('identifyingAttributes') && (
-                <TableCell>Description (identifying attributes)</TableCell>
+                <TableHeaderCell>Description (identifying attributes)</TableHeaderCell>
               )}
               {isVisible('nonIdentifyingAttributes') && (
-                <TableCell>Description (non-identifying attributes)</TableCell>
+                <TableHeaderCell>Description (non-identifying attributes)</TableHeaderCell>
               )}
-              <TableCell align="right">Actions</TableCell>
+              <TableHeaderCell className="w-10 text-right">Actions</TableHeaderCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={colSpan} align="center">
-                  <CircularProgress size={24} />
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={colSpan} className="py-8">
+                  <Spinner className="mx-auto size-5" />
                 </TableCell>
               </TableRow>
             ) : visibleAgents.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={colSpan} align="center">
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={colSpan} className="py-8 text-center text-muted-foreground">
                   {descParam
                     ? `No agents on this page match description "${descParam}"`
                     : 'No agents found'}
                 </TableCell>
               </TableRow>
             ) : (
-              visibleAgents.map((agent) => (
-                <TableRow
-                  key={agent.metadata.instanceUid}
-                  hover
-                  component={Link}
-                  href={`/agents/${agent.metadata.instanceUid}`}
-                  sx={{
-                    textDecoration: 'none',
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
-                  {isVisible('instanceUid') && (
-                    <TableCell sx={{ fontFamily: 'monospace' }}>
-                      {agent.metadata.instanceUid}
-                    </TableCell>
-                  )}
-                  {isVisible('connected') && (
-                    <TableCell>
-                      <Chip
-                        label={agent.status.connected ? 'Connected' : 'Disconnected'}
-                        color={agent.status.connected ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                  )}
-                  {isVisible('healthy') && (
-                    <TableCell>
-                      <Chip
-                        label={agent.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
-                        color={agent.status.componentHealth?.healthy ? 'success' : 'warning'}
-                        size="small"
-                      />
-                    </TableCell>
-                  )}
-                  {isVisible('agentType') && (
-                    <TableCell>
-                      <Chip
-                        label={agentTypeLabel(agent.metadata.type)}
-                        color={isOtelCollector(agent.metadata.type) ? 'info' : 'default'}
-                        size="small"
-                        variant={isOtelCollector(agent.metadata.type) ? 'filled' : 'outlined'}
-                      />
-                    </TableCell>
-                  )}
-                  {isVisible('type') && <TableCell>{agent.status.connectionType || '-'}</TableCell>}
-                  {isVisible('lastReported') && (
-                    <TableCell>
-                      <TimeDisplay value={agent.status.lastReportedAt} />
-                    </TableCell>
-                  )}
-                  {isVisible('sequence') && (
-                    <TableCell>{agent.status.sequenceNum ?? '-'}</TableCell>
-                  )}
-                  {isVisible('capabilities') && (
-                    <TableCell>
-                      {(() => {
-                        const caps = capabilityNames(agent.metadata.capabilities);
-                        return caps.length === 0 ? (
+              visibleAgents.map((agent) => {
+                const href = `/agents/${agent.metadata.instanceUid}`;
+                const caps = capabilityNames(agent.metadata.capabilities);
+                return (
+                  <TableRow
+                    key={agent.metadata.instanceUid}
+                    // The whole row navigates, but the UID cell still holds a
+                    // real link so keyboard and middle-click work.
+                    onClick={() => router.push(href)}
+                    className="cursor-pointer"
+                  >
+                    {isVisible('instanceUid') && (
+                      <TableCell className="font-mono text-xs">
+                        <Link href={href} className="hover:underline">
+                          {agent.metadata.instanceUid}
+                        </Link>
+                      </TableCell>
+                    )}
+                    {isVisible('connected') && (
+                      <TableCell>
+                        <Badge variant={agent.status.connected ? 'success' : 'muted'}>
+                          {agent.status.connected ? 'Connected' : 'Disconnected'}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {isVisible('healthy') && (
+                      <TableCell>
+                        <Badge
+                          variant={agent.status.componentHealth?.healthy ? 'success' : 'warning'}
+                        >
+                          {agent.status.componentHealth?.healthy ? 'Healthy' : 'Unhealthy'}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {isVisible('agentType') && (
+                      <TableCell>
+                        <Badge
+                          variant={isOtelCollector(agent.metadata.type) ? 'primary' : 'outline'}
+                        >
+                          {agentTypeLabel(agent.metadata.type)}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {isVisible('type') && (
+                      <TableCell>{agent.status.connectionType || '-'}</TableCell>
+                    )}
+                    {isVisible('lastReported') && (
+                      <TableCell>
+                        <TimeDisplay value={agent.status.lastReportedAt} />
+                      </TableCell>
+                    )}
+                    {isVisible('sequence') && (
+                      <TableCell className="tnum">{agent.status.sequenceNum ?? '-'}</TableCell>
+                    )}
+                    {isVisible('capabilities') && (
+                      <TableCell>
+                        {caps.length === 0 ? (
                           '-'
                         ) : (
-                          <Stack direction="row" gap={0.5} flexWrap="wrap" sx={{ maxWidth: 320 }}>
+                          <div className="flex max-w-80 flex-wrap gap-1">
                             {caps.map((c) => (
-                              <Chip key={c} label={c} size="small" variant="outlined" />
+                              <Badge key={c} variant="outline">
+                                {c}
+                              </Badge>
                             ))}
-                          </Stack>
-                        );
-                      })()}
-                    </TableCell>
-                  )}
-                  {isVisible('identifyingAttributes') && (
-                    <TableCell>
-                      <AttrChips
-                        attrs={agent.metadata.description?.identifyingAttributes}
-                        onSelect={searchByAttribute}
+                          </div>
+                        )}
+                      </TableCell>
+                    )}
+                    {isVisible('identifyingAttributes') && (
+                      <TableCell>
+                        <AttrBadges
+                          attrs={agent.metadata.description?.identifyingAttributes}
+                          onSelect={searchByAttribute}
+                        />
+                      </TableCell>
+                    )}
+                    {isVisible('nonIdentifyingAttributes') && (
+                      <TableCell>
+                        <AttrBadges
+                          attrs={agent.metadata.description?.nonIdentifyingAttributes}
+                          onSelect={searchByNonIdentifyingAttribute}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right">
+                      <RowActionsMenu
+                        actions={[
+                          { label: 'View detail', icon: <Eye aria-hidden />, href },
+                          {
+                            label: 'Edit spec',
+                            icon: <Pencil aria-hidden />,
+                            href: `${href}?action=edit`,
+                          },
+                          {
+                            label: 'Request restart',
+                            icon: <RotateCcw aria-hidden />,
+                            href: `${href}?action=restart`,
+                          },
+                          // Deleting a connected agent is pointless (it reappears),
+                          // so only surface it for disconnected ones.
+                          ...(!agent.status.connected
+                            ? [
+                                {
+                                  label: 'Delete agent',
+                                  icon: <Trash2 aria-hidden />,
+                                  onClick: () => setDeleting(agent),
+                                  destructive: true,
+                                  divider: true,
+                                } satisfies RowAction,
+                              ]
+                            : []),
+                        ]}
                       />
                     </TableCell>
-                  )}
-                  {isVisible('nonIdentifyingAttributes') && (
-                    <TableCell>
-                      <AttrChips
-                        attrs={agent.metadata.description?.nonIdentifyingAttributes}
-                        onSelect={searchByNonIdentifyingAttribute}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell align="right">
-                    <RowActionsMenu
-                      actions={[
-                        {
-                          label: 'View detail',
-                          icon: <ViewIcon fontSize="small" />,
-                          href: `/agents/${agent.metadata.instanceUid}`,
-                        },
-                        {
-                          label: 'Edit spec',
-                          icon: <EditIcon fontSize="small" />,
-                          href: `/agents/${agent.metadata.instanceUid}?action=edit`,
-                        },
-                        {
-                          label: 'Request restart',
-                          icon: <RestartIcon fontSize="small" />,
-                          href: `/agents/${agent.metadata.instanceUid}?action=restart`,
-                        },
-                        // Deleting a connected agent is pointless (it reappears),
-                        // so only surface it for disconnected ones.
-                        ...(!agent.status.connected
-                          ? [
-                              {
-                                label: 'Delete agent',
-                                icon: <DeleteIcon fontSize="small" />,
-                                onClick: () => setDeleting(agent),
-                                destructive: true,
-                                divider: true,
-                              } satisfies RowAction,
-                            ]
-                          : []),
-                      ]}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
-      </TableContainer>
+      </TableWrap>
 
       <PaginationFooter pagination={pagination} />
 
@@ -734,7 +693,7 @@ function AgentsInner() {
         onClose={() => setDeleting(null)}
         onConfirm={onDelete}
       />
-    </Box>
+    </div>
   );
 }
 

@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import '@app/styles/globals.css';
-import ThemeRegistry from '@app/providers/ThemeRegistry';
 import AppShell from '@app/app-shell';
-import { PreferencesProvider } from '@shared/preferences';
+import { ToastProvider, TooltipProvider } from '@shared/ui';
+import { PreferencesProvider, ThemeScript } from '@shared/preferences';
 
 export const metadata: Metadata = {
   title: 'OpAMP Commander',
@@ -16,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Fonts served from the Google Fonts CDN. preconnect warms up the
             TCP+TLS connection to the font hosts before the stylesheet request. */}
@@ -30,17 +29,17 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
         />
+        {/* Applies the stored theme before first paint (no white flash). */}
+        <ThemeScript />
       </head>
-      <body className="antialiased">
-        {/* Emotion cache + useServerInsertedHTML so MUI styles render correctly
-            during SSR/RSC and don't cause hydration mismatches. */}
-        <AppRouterCacheProvider>
-          <PreferencesProvider>
-            <ThemeRegistry>
+      <body>
+        <PreferencesProvider>
+          <TooltipProvider delayDuration={300}>
+            <ToastProvider>
               <AppShell>{children}</AppShell>
-            </ThemeRegistry>
-          </PreferencesProvider>
-        </AppRouterCacheProvider>
+            </ToastProvider>
+          </TooltipProvider>
+        </PreferencesProvider>
       </body>
     </html>
   );

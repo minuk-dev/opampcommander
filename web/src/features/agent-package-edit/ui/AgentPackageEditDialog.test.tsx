@@ -17,8 +17,6 @@ const put = vi.mocked(api.put);
 beforeEach(() => {
   post.mockReset().mockResolvedValue(undefined as never);
   put.mockReset().mockResolvedValue(undefined as never);
-  // Drop any matchMedia stub a previous test installed.
-  vi.unstubAllGlobals();
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({
@@ -46,25 +44,6 @@ const stored: AgentPackage = {
     contentHash: HASH,
   },
 };
-
-// MUI decides `fullScreen` through window.matchMedia; jsdom always answers
-// "false", so stub a phone-width viewport to exercise the mobile branch.
-function stubNarrowViewport() {
-  vi.stubGlobal(
-    'matchMedia',
-    (query: string) =>
-      ({
-        matches: query.includes('max-width'),
-        media: query,
-        onchange: null,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        addListener: () => {},
-        removeListener: () => {},
-        dispatchEvent: () => false,
-      }) as unknown as MediaQueryList,
-  );
-}
 
 describe('AgentPackageEditDialog', () => {
   it('creates a package from the form fields', async () => {
@@ -207,8 +186,7 @@ describe('AgentPackageEditDialog', () => {
     });
   });
 
-  it('goes full screen on a phone-width viewport', () => {
-    stubNarrowViewport();
+  it('renders a full-bleed panel on phones and a close control', () => {
     render(
       <AgentPackageEditDialog
         open
@@ -219,7 +197,12 @@ describe('AgentPackageEditDialog', () => {
       />,
     );
 
-    expect(document.querySelector('.MuiDialog-paperFullScreen')).not.toBeNull();
+    // Below `sm` the dialog covers the viewport; from `sm` up it becomes a
+    // centred card. That switch is pure CSS now, so assert the contract on the
+    // panel rather than stubbing a viewport jsdom cannot lay out anyway.
+    const panel = screen.getByRole('dialog');
+    expect(panel.className).toContain('inset-0');
+    expect(panel.className).toContain('sm:inset-auto');
     expect(screen.getByLabelText('close')).toBeInTheDocument();
   });
 

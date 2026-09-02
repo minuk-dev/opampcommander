@@ -5,3 +5,6 @@ export { default as TimeDisplay } from './ui/TimeDisplay';
 export { default as TimezoneSelector } from './ui/TimezoneSelector';
 export { default as TimeFormatSelector } from './ui/TimeFormatSelector';
 export { default as TimezoneButton } from './ui/TimezoneButton';
+export { default as ThemeSelector } from './ui/ThemeSelector';
+export { default as ThemeToggle } from './ui/ThemeToggle';
+export { default as ThemeScript } from './ui/ThemeScript';

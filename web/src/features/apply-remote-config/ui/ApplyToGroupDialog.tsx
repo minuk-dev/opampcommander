@@ -1,22 +1,23 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { api, useApi, type ListResponse } from '@shared/api';
 import {
   Alert,
   Button,
   Dialog,
-  DialogActions,
+  DialogBody,
   DialogContent,
-  DialogContentText,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
+  Field,
   Select,
-  Stack,
-  Typography,
-} from '@mui/material';
-import { useEffect, useState } from 'react';
-import { api, useApi, type ListResponse } from '@shared/api';
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@shared/ui';
 import {
   describeRemoteConfigSources,
   remoteConfigRefs,
@@ -96,51 +97,57 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
   const selectedGroup = groups.find((g) => g.metadata.name === selected);
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Apply remote config to agent group</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
-          <DialogContentText>
-            Add <code>{config?.metadata.name}</code> to an agent group&apos;s remote configs. The
-            group&apos;s matching agents will receive this config alongside any already applied.
-          </DialogContentText>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>Apply remote config to agent group</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Add <code className="font-mono">{config?.metadata.name}</code> to an agent group&apos;s
+            remote configs. The group&apos;s matching agents will receive this config alongside any
+            already applied.
+          </p>
           {error && <Alert severity="error">{error}</Alert>}
-          <FormControl fullWidth disabled={loading || busy}>
-            <InputLabel id="apply-group-label">Agent group</InputLabel>
-            <Select
-              labelId="apply-group-label"
-              label="Agent group"
-              value={selected}
-              onChange={(e) => setSelected(e.target.value)}
-            >
-              {groups.length === 0 && (
-                <MenuItem value="" disabled>
-                  {loading ? 'Loading…' : 'No agent groups in this namespace'}
-                </MenuItem>
-              )}
-              {groups.map((g) => (
-                <MenuItem key={g.metadata.name} value={g.metadata.name}>
-                  {g.metadata.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {selectedGroup && (
-            <Typography variant="body2" color="text.secondary">
-              Current remote config: <code>{describeRemoteConfigSources(selectedGroup)}</code> ·{' '}
-              {selectedGroup.status.numAgents} agent(s) matched
-            </Typography>
-          )}
-        </Stack>
+          <Field
+            label="Agent group"
+            hint={
+              selectedGroup
+                ? `Current remote config: ${describeRemoteConfigSources(selectedGroup)} · ${selectedGroup.status.numAgents} agent(s) matched`
+                : undefined
+            }
+          >
+            {(field) => (
+              <Select
+                value={selected}
+                onValueChange={setSelected}
+                disabled={loading || busy || groups.length === 0}
+              >
+                <SelectTrigger {...field}>
+                  <SelectValue
+                    placeholder={loading ? 'Loading…' : 'No agent groups in this namespace'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {groups.map((g) => (
+                    <SelectItem key={g.metadata.name} value={g.metadata.name}>
+                      {g.metadata.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void apply()} disabled={busy || !selected}>
+            Apply
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={apply} disabled={busy || !selected}>
-          Apply
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

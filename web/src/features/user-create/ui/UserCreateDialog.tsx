@@ -1,23 +1,20 @@
 'use client';
 
+import { Eye, EyeOff } from 'lucide-react';
+import { useState } from 'react';
+import { api } from '@shared/api';
 import {
   Alert,
   Button,
   Dialog,
-  DialogActions,
+  DialogBody,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
-  IconButton,
-  InputAdornment,
-  Stack,
-  TextField,
-} from '@mui/material';
-import {
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-} from '@mui/icons-material';
-import { useState } from 'react';
-import { api } from '@shared/api';
+  Field,
+  Input,
+} from '@shared/ui';
 import type { User } from '@entities/user';
 
 interface Props {
@@ -64,60 +61,62 @@ export default function UserCreateDialog({ open, onClose, onSaved }: Props) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Create user</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>Create user</DialogTitle>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
           {error && <Alert severity="error">{error}</Alert>}
-          <TextField
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            fullWidth
-            required
-          />
-          <TextField
-            label="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            fullWidth
-            required
-          />
-          <TextField
+          <Field label="Email" required>
+            {(field) => (
+              <Input
+                {...field}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label="Username" required>
+            {(field) => (
+              <Input {...field} value={username} onChange={(e) => setUsername(e.target.value)} />
+            )}
+          </Field>
+          <Field
             label="Password"
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            autoComplete="new-password"
-            helperText="Optional. Set it to enable basic (username/password) login. Stored only as a one-way hash and never returned."
-            slotProps={{
-              input: {
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      onClick={() => setShowPassword((v) => !v)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-        </Stack>
+            hint="Optional. Set it to enable basic (username/password) login. Stored only as a one-way hash and never returned."
+          >
+            {(field) => (
+              <Input
+                {...field}
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                endSlot={
+                  <button
+                    type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="rounded p-1 hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff aria-hidden /> : <Eye aria-hidden />}
+                  </button>
+                }
+              />
+            )}
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={busy || !email || !username}>
+            Create
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={save} disabled={busy || !email || !username}>
-          Create
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

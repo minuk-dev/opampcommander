@@ -11,14 +11,14 @@ Dependencies flow **top → bottom only**. A layer may import from layers below
 it, never above or sideways at the same level (except `shared`, which anything
 may use).
 
-| Layer    | Path            | Responsibility                                                                                                               |
-| -------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| app      | `src/app/`      | Composition root: providers, theme, app shell, global styles                                                                 |
-| views    | `src/views/`    | Route page bodies (the "pages" layer; named `views` to avoid clashing with Next's `app/`)                                    |
-| widgets  | `src/widgets/`  | Self-contained composite blocks (app layout, dashboard, resource list scaffold, version footer)                              |
-| features | `src/features/` | User interactions (edit agent / group / remote config / package, apply remote config, select namespace)                      |
-| entities | `src/entities/` | Domain models: types, data helpers, and domain React contexts                                                                |
-| shared   | `src/shared/`   | Reusable infra with no domain knowledge: `api`, `lib` (pure utils), `ui` (generic kit), `preferences` (cross-cutting config) |
+| Layer    | Path            | Responsibility                                                                                                                         |
+| -------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| app      | `src/app/`      | Composition root: providers, theme, app shell, global styles                                                                           |
+| views    | `src/views/`    | Route page bodies (the "pages" layer; named `views` to avoid clashing with Next's `app/`)                                              |
+| widgets  | `src/widgets/`  | Self-contained composite blocks (app layout, dashboard, resource list scaffold, version footer)                                        |
+| features | `src/features/` | User interactions (edit agent / group / remote config / package, apply remote config, select namespace)                                |
+| entities | `src/entities/` | Domain models: types, data helpers, and domain React contexts                                                                          |
+| shared   | `src/shared/`   | Reusable infra with no domain knowledge: `api`, `lib` (pure utils), `ui` (the design-system kit), `preferences` (cross-cutting config) |
 
 `web/app/` is reserved for **Next.js routing only** — route handlers
 (`api/proxy`, `api/session`), `layout.tsx`, the dashboard RSC loader
@@ -98,6 +98,30 @@ src/entities/agent/
   May import entities and shared.
 - **New route**: add `src/views/<name>/ui/<Name>Page.tsx` + `index.ts`, then a
   thin `web/app/<route>/page.tsx` that re-exports the view's default.
+
+## Design system
+
+The UI is **Tailwind CSS v4 + Radix primitives**, in the shadcn/ui style: the
+component source lives in this repo (`src/shared/ui/`) rather than in a
+component library, so every element is ours to restyle.
+
+- **Tokens** are CSS variables in `src/app/styles/globals.css` — `--background`,
+  `--foreground`, `--primary`, `--muted`, `--border`, … each mapped into
+  Tailwind through `@theme inline`. Components reference the token utilities
+  (`bg-card`, `text-muted-foreground`), never raw colours, so a palette change
+  is a one-file edit.
+- **Dark mode** is a `dark` class on `<html>`. `shared/preferences` owns the
+  `system | light | dark` setting; `ThemeScript` (inlined in `<head>`) applies
+  the stored choice before first paint so there is no white flash.
+- **Primitives** (`Button`, `Input`, `Dialog`, `Select`, `Table`, `Tabs`,
+  `DropdownMenu`, …) come from `@shared/ui`. Radix supplies the behaviour —
+  focus traps, keyboard nav, ARIA — and the styling is Tailwind classes with
+  `cva` variants. Compose with `cn()` and pass `className` to override.
+- **Forms** use `Field`, which owns the label / control / message layout and
+  wires `htmlFor` + `aria-describedby`.
+- **Icons** are `lucide-react`.
+- **Dialogs** are full-bleed below `sm` and centred cards above it — that comes
+  from `DialogContent`, so no dialog needs its own responsive handling.
 
 ## Verify
 

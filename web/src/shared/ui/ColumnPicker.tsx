@@ -1,17 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import {
-  Checkbox,
-  IconButton,
-  ListItemIcon,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Tooltip,
-} from '@mui/material';
-import { ViewColumn as ViewColumnIcon } from '@mui/icons-material';
+import { Columns3 } from 'lucide-react';
 import type { ColumnConfig, ColumnVisibility } from '@shared/lib';
+import Button from './Button';
+import Checkbox from './Checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './DropdownMenu';
 
 interface Props {
   columns: ColumnConfig[];
@@ -23,28 +16,32 @@ interface Props {
 // which ones are shown. Locked columns appear checked and disabled so the full
 // set stays discoverable. Pair with `useColumnVisibility` to persist the choice.
 export default function ColumnPicker({ columns, visible, onToggle }: Props) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-
   return (
-    <>
-      <Tooltip title="Choose columns">
-        <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)} aria-label="Columns">
-          <ViewColumnIcon />
-        </IconButton>
-      </Tooltip>
-      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Columns">
+          <Columns3 aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="max-h-80 overflow-y-auto">
         {columns.map((c) => {
           const checked = c.locked ? true : (visible[c.id] ?? true);
           return (
-            <MenuItem key={c.id} dense disabled={c.locked} onClick={() => onToggle(c.id)}>
-              <ListItemIcon sx={{ minWidth: 0 }}>
-                <Checkbox edge="start" size="small" checked={checked} tabIndex={-1} disableRipple />
-              </ListItemIcon>
-              <ListItemText primary={c.label} />
-            </MenuItem>
+            <label
+              key={c.id}
+              className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent data-disabled:cursor-default data-disabled:opacity-50"
+              data-disabled={c.locked ? '' : undefined}
+            >
+              <Checkbox
+                checked={checked}
+                disabled={c.locked}
+                onCheckedChange={() => onToggle(c.id)}
+              />
+              {c.label}
+            </label>
           );
         })}
-      </Menu>
-    </>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -1,27 +1,26 @@
 'use client';
 
-import {
-  Alert,
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Stack,
-  TextField,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-} from '@mui/material';
-import { ArrowDropDown as ArrowDropDownIcon } from '@mui/icons-material';
 import { useEffect, useRef, useState } from 'react';
 import { useNamespace } from '@entities/namespace';
 import { api } from '@shared/api';
 import { loadAgentGroupSamples, type AgentGroupSample } from '../model/samples';
 import { fromYAML, toYAML } from '@shared/lib';
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Field,
+  Input,
+  SampleMenu,
+  SegmentedControl,
+  SegmentedItem,
+  Textarea,
+} from '@shared/ui';
 import type { AgentGroup, AgentGroupSpec } from '@entities/agent-group';
 
 type Format = 'yaml' | 'json';
@@ -63,7 +62,6 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   const [attributesText, setAttributesText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sampleAnchor, setSampleAnchor] = useState<HTMLElement | null>(null);
   const [samples, setSamples] = useState<AgentGroupSample[] | null>(null);
   const [samplesError, setSamplesError] = useState<string | null>(null);
 
@@ -96,7 +94,6 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
     setAttributesText(serialize(s.attributes, format));
     setSpecText(serialize(s.spec, format));
     setError(null);
-    setSampleAnchor(null);
   };
 
   // Reset on the closed→open transition only. Parents may pass a freshly
@@ -177,99 +174,68 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" gap={1}>
-          {mode === 'create' ? 'Create agent group' : 'Edit agent group'}
-          <Stack direction="row" alignItems="center" gap={1}>
-            <Button
-              size="small"
-              variant="outlined"
-              endIcon={<ArrowDropDownIcon />}
-              onClick={(e) => setSampleAnchor(e.currentTarget)}
-              aria-label="load sample"
-              disabled={!samples}
-            >
-              {samples ? 'Load sample' : 'Loading…'}
-            </Button>
-            <Menu
-              anchorEl={sampleAnchor}
-              open={Boolean(sampleAnchor)}
-              onClose={() => setSampleAnchor(null)}
-            >
-              {(samples ?? []).length === 0 && <MenuItem disabled>No samples available</MenuItem>}
-              {(samples ?? []).map((s, i) => (
-                <MenuItem key={`${i}-${s.label}`} onClick={() => applySample(s)}>
-                  <ListItemText primary={s.label} secondary={s.description} />
-                </MenuItem>
-              ))}
-            </Menu>
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={format}
-              onChange={(_, v: Format | null) => v && switchFormat(v)}
-              aria-label="format"
-            >
-              <ToggleButton value="yaml">YAML</ToggleButton>
-              <ToggleButton value="json">JSON</ToggleButton>
-            </ToggleButtonGroup>
-          </Stack>
-        </Stack>
-      </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent size="md">
+        <DialogHeader>
+          <DialogTitle className="flex-1">
+            {mode === 'create' ? 'Create agent group' : 'Edit agent group'}
+          </DialogTitle>
+          <SampleMenu samples={samples} onPick={applySample} />
+          <SegmentedControl
+            type="single"
+            value={format}
+            onValueChange={(v: string) => v && switchFormat(v as Format)}
+            aria-label="format"
+          >
+            <SegmentedItem value="yaml">YAML</SegmentedItem>
+            <SegmentedItem value="json">JSON</SegmentedItem>
+          </SegmentedControl>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
           {samplesError && <Alert severity="warning">Failed to load samples: {samplesError}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={mode === 'edit'}
-            fullWidth
-            required
-          />
-          <Typography variant="body2" color="text.secondary">
-            Attributes ({format.toUpperCase()}, key/value pairs)
-          </Typography>
-          <TextField
-            value={attributesText}
-            onChange={(e) => setAttributesText(e.target.value)}
-            multiline
-            minRows={3}
-            spellCheck={false}
-            slotProps={{
-              input: {
-                sx: { fontFamily: 'var(--font-geist-mono), monospace', fontSize: 13 },
-              },
-            }}
-          />
-          <Typography variant="body2" color="text.secondary">
-            Spec ({format.toUpperCase()}) — <code>priority</code>, <code>selector</code>,{' '}
-            <code>agentConfig</code>.
-          </Typography>
-          <TextField
-            value={specText}
-            onChange={(e) => setSpecText(e.target.value)}
-            multiline
-            minRows={14}
-            spellCheck={false}
-            slotProps={{
-              input: {
-                sx: { fontFamily: 'var(--font-geist-mono), monospace', fontSize: 13 },
-              },
-            }}
-          />
-        </Stack>
+          <Field label="Name" required>
+            {(field) => (
+              <Input
+                {...field}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={mode === 'edit'}
+              />
+            )}
+          </Field>
+          <Field label={`Attributes (${format.toUpperCase()}, key/value pairs)`}>
+            {(field) => (
+              <Textarea
+                {...field}
+                mono
+                rows={3}
+                value={attributesText}
+                onChange={(e) => setAttributesText(e.target.value)}
+              />
+            )}
+          </Field>
+          <Field label={`Spec (${format.toUpperCase()})`} hint="priority, selector, agentConfig.">
+            {(field) => (
+              <Textarea
+                {...field}
+                mono
+                rows={14}
+                value={specText}
+                onChange={(e) => setSpecText(e.target.value)}
+              />
+            )}
+          </Field>
+        </DialogBody>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button onClick={() => void save()} disabled={busy || (mode === 'create' && !name)}>
+            Save
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={busy}>
-          Cancel
-        </Button>
-        <Button variant="contained" onClick={save} disabled={busy || (mode === 'create' && !name)}>
-          Save
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

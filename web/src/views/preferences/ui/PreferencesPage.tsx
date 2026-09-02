@@ -1,14 +1,14 @@
 'use client';
 
-import { Alert, Box, Card, CardContent, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { PageHeader } from '@shared/ui';
 import {
+  ThemeSelector,
   TimeDisplay,
   TimeFormatSelector,
   TimezoneSelector,
   usePreferences,
 } from '@shared/preferences';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, PageHeader } from '@shared/ui';
 
 export default function PreferencesPage() {
   const { hydrated } = usePreferences();
@@ -32,54 +32,59 @@ export default function PreferencesPage() {
   }, []);
 
   return (
-    <Box>
+    <div>
       <PageHeader
         title="Preferences"
         subtitle="Display settings stored in this browser. They apply only to you and are never sent to the server."
       />
 
-      <Card variant="outlined" sx={{ mb: 3, maxWidth: 640 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Time format
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Show timestamps as a relative time (&ldquo;5 minutes ago&rdquo;) with the absolute time
-            on hover, or always as the full absolute timestamp.
-          </Typography>
+      <div className="max-w-2xl space-y-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Theme</CardTitle>
+            <CardDescription>
+              Follow your operating system, or pin the interface to light or dark.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemeSelector />
+          </CardContent>
+        </Card>
 
-          <TimeFormatSelector />
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Time format</CardTitle>
+            <CardDescription>
+              Show timestamps as a relative time (&ldquo;5 minutes ago&rdquo;) with the absolute
+              time on hover, or always as the full absolute timestamp.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TimeFormatSelector />
+          </CardContent>
+        </Card>
 
-      <Card variant="outlined" sx={{ mb: 3, maxWidth: 640 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Timezone
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            How timestamps are displayed throughout the app. Choose your browser&apos;s local time,
-            UTC, or any specific timezone.
-          </Typography>
-
-          <Box sx={{ maxWidth: 360 }}>
-            <TimezoneSelector localZone={localZone} />
-          </Box>
-
-          <Alert severity="info" icon={false} sx={{ mt: 2 }}>
-            <Typography variant="body2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Timezone</CardTitle>
+            <CardDescription>
+              How timestamps are displayed throughout the app. Choose your browser&apos;s local
+              time, UTC, or any specific timezone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="max-w-sm">
+              <TimezoneSelector localZone={localZone} />
+            </div>
+            <p className="text-sm text-muted-foreground">
               Preview:{' '}
-              <Box component="span" sx={{ fontFamily: 'var(--font-geist-mono), monospace' }}>
+              <span className="font-mono text-foreground">
                 {hydrated && now ? <TimeDisplay value={now} /> : '…'}
-              </Box>
-            </Typography>
-          </Alert>
-        </CardContent>
-      </Card>
-
-      <Typography variant="caption" color="text.disabled">
-        More settings (theme, dark mode) will appear here.
-      </Typography>
-    </Box>
+              </span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }

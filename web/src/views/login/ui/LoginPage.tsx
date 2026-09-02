@@ -1,22 +1,21 @@
 'use client';
 
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Divider,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import { GitHub as GitHubIcon, Login as LoginIcon } from '@mui/icons-material';
+import { LogIn } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { useAuth, type OAuth2AuthCodeURLResponse } from '@entities/session';
 import { api } from '@shared/api';
+import { Alert, Button, Card, CardContent, Field, Input } from '@shared/ui';
+
+// lucide dropped brand marks, so the GitHub logo lives here as inline SVG.
+function GithubMark() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className="size-4">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+    </svg>
+  );
+}
 
 // Ask the browser's password manager to save these credentials. Uses the
 // Credential Management API, which only exists in Chromium-based browsers; it's
@@ -102,89 +101,91 @@ function LoginInner() {
   };
 
   return (
-    <Box
-      display="flex"
-      minHeight="100vh"
-      alignItems="center"
-      justifyContent="center"
-      sx={{
-        background: 'linear-gradient(135deg, #1a237e 0%, #283593 60%, #1976d2 100%)',
-        p: 2,
-      }}
-    >
-      <Card sx={{ maxWidth: 420, width: '100%' }}>
-        <CardContent>
-          <Stack spacing={2}>
-            <Box textAlign="center">
-              <Image
-                src="/logo.png"
-                alt="OpAMP Commander"
-                width={72}
-                height={72}
-                priority
-                style={{ marginBottom: 8 }}
-              />
-              <Typography variant="h5" component="h1" gutterBottom>
-                OpAMP Commander
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Sign in to continue
-              </Typography>
-            </Box>
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background p-4">
+      {/* A soft brand wash rather than a flat slab of colour — it reads as depth
+          without fighting the card in either theme. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            'radial-gradient(55rem 35rem at 50% -15%, color-mix(in oklch, var(--primary) 30%, transparent), transparent 70%)',
+        }}
+      />
+      <Card className="relative w-full max-w-sm shadow-xl">
+        <CardContent className="space-y-4 pt-6">
+          <div className="text-center">
+            <Image
+              src="/logo.png"
+              alt="OpAMP Commander"
+              width={56}
+              height={56}
+              priority
+              className="mx-auto mb-2"
+            />
+            <h1 className="text-lg font-semibold tracking-tight">OpAMP Commander</h1>
+            <p className="text-sm text-muted-foreground">Sign in to continue</p>
+          </div>
 
-            {error && <Alert severity="error">{error}</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
 
-            <form onSubmit={onBasicSubmit}>
-              <Stack spacing={2}>
-                <TextField
-                  label="Username or email"
+          <form onSubmit={onBasicSubmit} className="space-y-3">
+            <Field label="Username or email" required>
+              {(field) => (
+                <Input
+                  {...field}
                   name="username"
-                  id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
                   autoFocus
-                  fullWidth
                   required
                 />
-                <TextField
-                  label="Password"
+              )}
+            </Field>
+            <Field label="Password" required>
+              {(field) => (
+                <Input
+                  {...field}
                   type="password"
                   name="password"
-                  id="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  fullWidth
                   required
                 />
-                <Button
-                  type="submit"
-                  variant="contained"
-                  startIcon={<LoginIcon />}
-                  disabled={submitting || !username || !password}
-                  size="large"
-                >
-                  {submitting ? 'Signing in…' : 'Sign in'}
-                </Button>
-              </Stack>
-            </form>
-
-            <Divider>or</Divider>
-
+              )}
+            </Field>
             <Button
-              variant="outlined"
-              startIcon={<GitHubIcon />}
-              size="large"
-              onClick={onGithubClick}
-              disabled={githubBusy}
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={submitting || !username || !password}
             >
-              {githubBusy ? 'Redirecting…' : 'Continue with GitHub'}
+              <LogIn aria-hidden />
+              {submitting ? 'Signing in…' : 'Sign in'}
             </Button>
-          </Stack>
+          </form>
+
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            or
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full"
+            onClick={() => void onGithubClick()}
+            disabled={githubBusy}
+          >
+            <GithubMark />
+            {githubBusy ? 'Redirecting…' : 'Continue with GitHub'}
+          </Button>
         </CardContent>
       </Card>
-    </Box>
+    </div>
   );
 }
 

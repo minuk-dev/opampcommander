@@ -1,7 +1,6 @@
 'use client';
 
-import { Box } from '@mui/material';
-import { Code as CodeIcon } from '@mui/icons-material';
+import { Code } from 'lucide-react';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useNamespace } from '@entities/namespace';
@@ -29,7 +28,7 @@ export default function AgentPackagesPage() {
   const [rawTarget, setRawTarget] = useState<RawTarget | null>(null);
 
   return (
-    <Box>
+    <>
       <ResourceListPage<AgentPackage>
         title="Agent Packages"
         subtitle={`Namespace: ${namespace}`}
@@ -41,7 +40,7 @@ export default function AgentPackagesPage() {
         extraActions={(row, { refresh }) => [
           {
             label: 'Edit as YAML',
-            icon: <CodeIcon fontSize="small" />,
+            icon: <Code aria-hidden />,
             onClick: () => setRawTarget({ row, refresh }),
           },
         ]}
@@ -98,6 +97,6 @@ export default function AgentPackagesPage() {
           }}
         />
       )}
-    </Box>
+    </>
   );
 }
