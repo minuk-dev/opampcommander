@@ -1,7 +1,11 @@
 'use client';
 
 import { Alert, Box, Snackbar } from '@mui/material';
-import { PlaylistAddCheck as ApplyIcon, Sync as SyncIcon } from '@mui/icons-material';
+import {
+  Code as CodeIcon,
+  PlaylistAddCheck as ApplyIcon,
+  Sync as SyncIcon,
+} from '@mui/icons-material';
 import { useState } from 'react';
 import { useNamespace } from '@entities/namespace';
 import dynamic from 'next/dynamic';
@@ -11,30 +15,29 @@ import { api } from '@shared/api';
 import { reconcileResource } from '@features/reconcile';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
-// Lazy-loaded: heavy dialogs (JSON editor pulls in js-yaml, ApplyToGroup pulls
-// in group pickers) — load only when opened, not in the initial route bundle.
+// Lazy-loaded: none of these dialogs is needed to render the list, and the
+// config editor pulls in the highlighter and diff chunks on top.
+const AgentRemoteConfigEditDialog = dynamic(
+  () => import('@features/agent-remote-config-edit/ui/AgentRemoteConfigEditDialog'),
+);
 const JsonEditorDialog = dynamic(() => import('@shared/ui/JsonEditorDialog'));
 const ApplyToGroupDialog = dynamic(
   () => import('@features/apply-remote-config/ui/ApplyToGroupDialog'),
 );
 
-function emptyConfig(namespace: string): AgentRemoteConfig {
-  return {
-    metadata: {
-      name: '',
-      namespace,
-      attributes: {},
-      createdAt: new Date().toISOString(),
-    },
-    spec: { value: '', contentType: 'text/yaml' },
-  };
-}
-
 type ReconcileFeedback = { severity: 'success' | 'error'; message: string };
+
+// Raw editing stays available for fields the form does not model (schemaRefs
+// today) and for pasting a whole manifest.
+interface RawTarget {
+  row: AgentRemoteConfig;
+  refresh: () => void;
+}
 
 export default function AgentRemoteConfigsPage() {
   const { namespace } = useNamespace();
   const [applyTarget, setApplyTarget] = useState<AgentRemoteConfig | null>(null);
+  const [rawTarget, setRawTarget] = useState<RawTarget | null>(null);
   const [reconcileFeedback, setReconcileFeedback] = useState<ReconcileFeedback | null>(null);
 
   const reconcileConfig = async (c: AgentRemoteConfig) => {
@@ -60,10 +63,14 @@ export default function AgentRemoteConfigsPage() {
         listPath={`/api/v1/namespaces/${namespace}/agentremoteconfigs`}
         itemPath={(c) => `/api/v1/namespaces/${namespace}/agentremoteconfigs/${c.metadata.name}`}
         itemName={(c) => c.metadata.name}
-        deps={[namespace]}
         canEdit
         canDelete
-        extraActions={(c) => [
+        extraActions={(c, { refresh }) => [
+          {
+            label: 'Edit as YAML',
+            icon: <CodeIcon fontSize="small" />,
+            onClick: () => setRawTarget({ row: c, refresh }),
+          },
           {
             label: 'Apply to agent group',
             icon: <ApplyIcon fontSize="small" />,
@@ -90,38 +97,22 @@ export default function AgentRemoteConfigsPage() {
           { header: 'Created', render: (c) => <TimeDisplay value={c.metadata.createdAt} /> },
         ]}
         renderCreate={({ open, onClose, onSaved }) => (
-          <JsonEditorDialog
+          <AgentRemoteConfigEditDialog
             open={open}
-            title="Create remote config"
-            description="metadata.name + spec.value (config body) + spec.contentType (e.g. text/yaml)."
-            initialValue={emptyConfig(namespace)}
-            samplesUrl="/samples/agentremoteconfigs.yaml"
-            samplesVars={{ namespace }}
+            mode="create"
+            namespace={namespace}
             onClose={onClose}
-            onSave={async (parsed) => {
-              await api.post(
-                `/api/v1/namespaces/${namespace}/agentremoteconfigs`,
-                parsed as AgentRemoteConfig,
-              );
-              onSaved();
-            }}
+            onSaved={onSaved}
           />
         )}
         renderEdit={({ open, row, onClose, onSaved }) => (
-          <JsonEditorDialog
+          <AgentRemoteConfigEditDialog
             open={open}
-            title={`Edit ${row.metadata.name}`}
-            initialValue={row}
-            samplesUrl="/samples/agentremoteconfigs.yaml"
-            samplesVars={{ namespace }}
+            mode="edit"
+            namespace={namespace}
+            initial={row}
             onClose={onClose}
-            onSave={async (parsed) => {
-              await api.put(
-                `/api/v1/namespaces/${namespace}/agentremoteconfigs/${row.metadata.name}`,
-                parsed as AgentRemoteConfig,
-              );
-              onSaved();
-            }}
+            onSaved={onSaved}
           />
         )}
       />
@@ -132,6 +123,25 @@ export default function AgentRemoteConfigsPage() {
           config={applyTarget}
           onClose={() => setApplyTarget(null)}
           onApplied={() => setApplyTarget(null)}
+        />
+      )}
+      {rawTarget !== null && (
+        <JsonEditorDialog
+          open
+          title={`Edit ${rawTarget.row.metadata.name} (raw)`}
+          description="Edit the whole resource, including fields the form does not expose."
+          initialValue={rawTarget.row}
+          samplesUrl="/samples/agentremoteconfigs.yaml"
+          samplesVars={{ namespace }}
+          onClose={() => setRawTarget(null)}
+          onSave={async (parsed) => {
+            await api.put(
+              `/api/v1/namespaces/${namespace}/agentremoteconfigs/${rawTarget.row.metadata.name}`,
+              parsed as AgentRemoteConfig,
+            );
+            rawTarget.refresh();
+            setRawTarget(null);
+          }}
         />
       )}
       <Snackbar

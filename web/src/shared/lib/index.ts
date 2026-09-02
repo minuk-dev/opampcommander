@@ -4,3 +4,6 @@ export * from './column-visibility';
 export * from './yaml';
 export * from './web-version';
 export * from './samples';
+export * from './diff';
+export * from './highlight';
+export * from './resource-form';

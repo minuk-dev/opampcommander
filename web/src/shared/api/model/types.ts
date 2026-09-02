@@ -56,6 +56,9 @@ export interface ConnectionSettings {
 export interface AgentRemoteConfigSpec {
   value: string;
   contentType: string;
+  // Optional references to RemoteConfigSchemas in the same namespace. Not
+  // edited by the UI yet (see #576) — editors must round-trip it untouched.
+  schemaRefs?: string[];
 }
 
 // Telemetry signals an Endpoint (or one of its tenants) supports.
