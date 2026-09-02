@@ -26,9 +26,14 @@ jobs:
         with:
           go-version: 1.25
       - name: Set flags based on ref type
+        # github.ref goes through env rather than being interpolated into the
+        # script: it keeps the ref out of the shell source (and keeps
+        # shellcheck able to read the comparison).
+        env:
+          REF: ${{ github.ref }}
         run: |
-          if [[ "${{ github.ref }}" != refs/tags/v* ]]; then
-            echo "flags=--snapshot" >> $GITHUB_ENV
+          if [[ "${REF}" != refs/tags/v* ]]; then
+            echo "flags=--snapshot" >> "$GITHUB_ENV"
           fi
       # More assembly might be required: Docker logins, GPG, etc.
       # It all depends on your needs.
@@ -53,7 +58,7 @@ jobs:
           path: |
             dist/*
       - name: Extract version
-        run: echo "VERSION=$(jq -r '.version' dist/metadata.json)" >> $GITHUB_ENV
+        run: echo "VERSION=$(jq -r '.version' dist/metadata.json)" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         if: startsWith(github.ref, 'refs/heads/')
