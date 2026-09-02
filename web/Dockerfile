@@ -14,6 +14,13 @@ COPY package.json package-lock.json ./
 RUN apk add --no-cache libc6-compat && npm ci --no-audit --no-fund
 
 # --- builder: produce .next/standalone ---------------------------------------
+# NOTE: this stage must be built on a runner of the target architecture, never
+# under QEMU emulation. `next build` spawns a native worker that takes an
+# illegal instruction there and dies with SIGILL mid static-page generation
+# (see .github/workflows/web-release.yaml, which fans the build out over one
+# runner per arch). Cross-building the JS on the build platform and copying it
+# into a target-arch runtime is not an option either: `.next/standalone`
+# carries traced native deps (e.g. @img/sharp-linux-*) for the build platform.
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 # VERSION is the tag this image will be pushed under (computed by
