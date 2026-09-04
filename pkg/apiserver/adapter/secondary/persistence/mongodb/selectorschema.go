@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -91,6 +92,14 @@ func (s selectorSchema) conditions(options *model.ListOptions) ([]bson.M, error)
 		}
 
 		conditions = append(conditions, prefixCondition(s.namePath, options.NamePrefix))
+	}
+
+	if options.NameContains != "" {
+		if s.namePath == "" {
+			return nil, fmt.Errorf("%w: this resource cannot be searched by name", model.ErrInvalidArgument)
+		}
+
+		conditions = append(conditions, containsCondition(s.namePath, options.NameContains))
 	}
 
 	for _, requirement := range options.LabelSelector {
@@ -299,6 +308,16 @@ func prefixCondition(path string, prefix string) bson.M {
 	}
 
 	return bson.M{path: bounds}
+}
+
+// containsCondition is a case-insensitive substring match.
+//
+// No ordered index can answer "contains", so unlike prefixCondition this is a
+// scan; the caller opts into that by asking for a substring rather than a prefix.
+// The needle is quoted, so client input is matched literally and can never build
+// a pattern — the other half of why prefixCondition avoids $regex.
+func containsCondition(path string, needle string) bson.M {
+	return bson.M{path: bson.Regex{Pattern: regexp.QuoteMeta(needle), Options: "i"}}
 }
 
 func unsupportedOperator(operator selector.Operator) error {
