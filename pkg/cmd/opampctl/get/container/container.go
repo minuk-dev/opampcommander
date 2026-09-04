@@ -50,7 +50,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		"Output format (short, text, json, yaml)",
 	)
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.Labels)
 
 	return cmd
 }

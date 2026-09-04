@@ -73,7 +73,7 @@ Examples:
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted role bindings")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the role binding")
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.NoMetadata)
 
 	return cmd
 }

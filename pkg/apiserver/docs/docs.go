@@ -1434,7 +1434,7 @@ const docTemplate = `{
                             "type": "string"
                         },
                         "collectionFormat": "multi",
-                        "description": "Identifying attribute filter (key=value, repeatable)",
+                        "description": "Deprecated: use attributeSelector",
                         "name": "selector",
                         "in": "query"
                     },
@@ -1444,14 +1444,14 @@ const docTemplate = `{
                             "type": "string"
                         },
                         "collectionFormat": "multi",
-                        "description": "Non-identifying attribute (key=value)",
+                        "description": "Deprecated: use attributeSelector",
                         "name": "nonIdentifyingSelector",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Selector over the identifying attributes, e.g. service.namespace=payments",
-                        "name": "labelSelector",
+                        "description": "Selector over the reported agent description, e.g. os.type=linux",
+                        "name": "attributeSelector",
                         "in": "query"
                     },
                     {

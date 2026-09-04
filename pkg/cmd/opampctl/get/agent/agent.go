@@ -85,10 +85,10 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	)
 	cmd.Flags().StringToStringVar(
 		&options.nonIdentifyingSelector, "non-identifying-selector", nil,
-		"Filter agents by non-identifying attributes (exact match), e.g. --non-identifying-selector os.type=linux",
+		"Deprecated: use -l/--selector, which reaches non-identifying attributes too",
 	)
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.Attributes)
 
 	return cmd
 }
@@ -258,6 +258,8 @@ func (opt *CommandOptions) listOptions() ([]client.ListOption, error) {
 	}
 
 	opts := slices.Clone(selectorOpts)
+	// --non-identifying-selector is deprecated but still forwarded.
+	//nolint:staticcheck // deprecated flag, honoured until it is removed
 	opts = append(opts, client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector))
 
 	return append(opts, opt.connectionOptions()...), nil
@@ -321,6 +323,7 @@ func (opt *CommandOptions) listAgentGroupMembers(
 		return filter.Matches(
 			agent.Metadata.InstanceUID.String(),
 			agent.Metadata.Description.IdentifyingAttributes,
+			agent.Metadata.Description.NonIdentifyingAttributes,
 		) && attributesMatch(agent.Metadata.Description.NonIdentifyingAttributes, opt.nonIdentifyingSelector)
 	}), nil
 }

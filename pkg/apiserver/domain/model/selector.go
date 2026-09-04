@@ -22,6 +22,16 @@ type SelectorValues struct {
 	// one, metadata.attributes where it calls the same thing attributes, and the
 	// identifying attributes for agents, whose identity *is* their attribute set.
 	Labels map[string]string
+	// AdditionalLabels is a second label map filtered in union with Labels: a
+	// requirement is satisfied when either map satisfies its positive form, and a
+	// negative operator is the negation of that (see LabelSelector.MatchesAny
+	// in pkg/selector).
+	//
+	// Only agents carry one — their non-identifying attributes. The split into
+	// identifying and non-identifying is an OpAMP statement about which attributes
+	// form the agent's identity, not about what an operator may filter on, so one
+	// label selector reaches both. nil for every other aggregate.
+	AdditionalLabels map[string]string
 	// Fields is the allowlisted field projection a field selector filters on,
 	// keyed by the same dotted paths a client writes, with booleans rendered by
 	// strconv.FormatBool so every adapter compares the same text. Its key set is
@@ -47,5 +57,6 @@ func (v SelectorValues) Matches(options *ListOptions) bool {
 		return false
 	}
 
-	return options.LabelSelector.Matches(v.Labels) && options.FieldSelector.Matches(v.Fields)
+	return options.LabelSelector.MatchesAny(v.Labels, v.AdditionalLabels) &&
+		options.FieldSelector.Matches(v.Fields)
 }
