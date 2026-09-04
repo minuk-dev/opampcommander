@@ -51,19 +51,31 @@ type store[K comparable, V any] struct {
 	// has no soft-delete concept. A non-nil, non-zero timestamp marks the value
 	// as deleted and hides it from reads that do not opt into IncludeDeleted.
 	deletedAt func(V) *time.Time
+
+	// selectorValues projects a value into the name, labels and fields that
+	// server-side selectors are evaluated against, or is nil for a type that
+	// supports no selectors. A list that carries a selector a nil projection
+	// cannot answer fails rather than returning an unfiltered page.
+	selectorValues func(V) model.SelectorValues
 }
 
 // newStore creates an empty store. clone must deep-copy a value (it is applied on
 // every read and write to isolate the store from callers). Pass a deletedAt
 // accessor for soft-deletable types, or nil for types that are hard-deleted
-// (e.g. agents, servers).
-func newStore[K comparable, V any](clone func(V) V, deletedAt func(V) *time.Time) *store[K, V] {
+// (e.g. agents, servers), and a selectorValues projection for types that support
+// label/field selectors, or nil for those that do not.
+func newStore[K comparable, V any](
+	clone func(V) V,
+	deletedAt func(V) *time.Time,
+	selectorValues func(V) model.SelectorValues,
+) *store[K, V] {
 	return &store[K, V]{
-		mu:        sync.RWMutex{},
-		items:     make(map[K]*item[V]),
-		nextSeq:   1,
-		clone:     clone,
-		deletedAt: deletedAt,
+		mu:             sync.RWMutex{},
+		items:          make(map[K]*item[V]),
+		nextSeq:        1,
+		clone:          clone,
+		deletedAt:      deletedAt,
+		selectorValues: selectorValues,
 	}
 }
 
@@ -259,12 +271,17 @@ func (s *store[K, V]) list(options *model.ListOptions, filter func(V) bool) (*mo
 		options = &model.ListOptions{}
 	}
 
+	filter, err := s.withSelectors(options, filter)
+	if err != nil {
+		return nil, err
+	}
+
 	var afterSeq uint64
 
 	if options.Continue != "" {
-		parsed, err := strconv.ParseUint(options.Continue, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid continue token %q: %w", options.Continue, err)
+		parsed, parseErr := strconv.ParseUint(options.Continue, 10, 64)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid continue token %q: %w", options.Continue, parseErr)
 		}
 
 		afterSeq = parsed
@@ -297,5 +314,35 @@ func (s *store[K, V]) list(options *model.ListOptions, filter func(V) bool) (*mo
 		Items:              items,
 		Continue:           continueToken,
 		RemainingItemCount: total - int64(len(page)),
+	}, nil
+}
+
+// withSelectors composes filter with the name prefix and the label and field
+// selectors carried by options, so selector filtering happens inside the
+// paginated scan rather than over an already-cut page — which is what keeps
+// RemainingItemCount honest.
+//
+// A store with no projection cannot evaluate a selector, so a non-empty one is
+// an error rather than a silently unfiltered list. In practice the API boundary
+// rejects such a request first; this is the backstop for a resource wired up
+// without a projection.
+func (s *store[K, V]) withSelectors(
+	options *model.ListOptions,
+	filter func(V) bool,
+) (func(V) bool, error) {
+	if options.NamePrefix == "" && options.LabelSelector.Empty() && options.FieldSelector.Empty() {
+		return filter, nil
+	}
+
+	if s.selectorValues == nil {
+		return nil, ErrSelectorUnsupported
+	}
+
+	return func(value V) bool {
+		if filter != nil && !filter(value) {
+			return false
+		}
+
+		return s.selectorValues(value).Matches(options)
 	}, nil
 }

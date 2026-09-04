@@ -44,6 +44,7 @@ func NewNamespaceRepository(
 			entity.NamespaceKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			namespaceSelectorSchema,
 		),
 	}
 }

@@ -22,7 +22,7 @@ func NewAgentPackageRepository() *AgentPackageRepository {
 	return &AgentPackageRepository{
 		store: newStore[namespacedName](cloneAgentPackage, func(ap *agentmodel.AgentPackage) *time.Time {
 			return ap.Metadata.DeletedAt
-		}),
+		}, (*agentmodel.AgentPackage).SelectorValues),
 	}
 }
 

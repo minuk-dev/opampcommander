@@ -55,6 +55,7 @@ func NewAgentRemoteConfigRepository(
 			entity.AgentRemoteConfigNameFieldName,
 			keyFunc,
 			keyQueryFunc,
+			agentRemoteConfigSelectorSchema,
 		),
 	}
 }

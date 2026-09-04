@@ -53,6 +53,7 @@ func NewAgentPackageRepository(
 			entity.AgentPackageNameFieldName,
 			keyFunc,
 			keyQueryFunc,
+			agentPackageSelectorSchema,
 		),
 	}
 }

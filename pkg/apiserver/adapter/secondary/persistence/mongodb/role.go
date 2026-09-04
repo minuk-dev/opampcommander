@@ -51,6 +51,7 @@ func NewRoleRepository(
 			entity.RoleKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			noSelectorSchema,
 		),
 	}
 }

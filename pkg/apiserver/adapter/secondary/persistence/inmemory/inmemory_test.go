@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/selector"
 )
 
 // errSentinel is a static error used to assert transaction error propagation.
@@ -777,4 +778,36 @@ func TestEndpointRepository_PutOptimisticConcurrency(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "https://a.example.com", stored.Spec.URL, "the losing writer must not overwrite the winner")
 	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
+}
+
+// TestRoleRepository_RejectsSelectorItCannotEvaluate is the backstop for the
+// silent-unfiltered-list failure mode: a resource wired up without a selector
+// projection must fail the listing rather than answer a narrowing request with
+// the whole collection. Roles carry no labels, so they are that resource today.
+func TestRoleRepository_RejectsSelectorItCannotEvaluate(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewRoleRepository()
+
+	//exhaustruct:ignore
+	_, err := repo.ListRoles(ctx, &model.ListOptions{
+		LabelSelector: selector.LabelSelector{
+			{Key: "env", Operator: selector.OpEquals, Values: []string{"prod"}},
+		},
+	})
+
+	require.ErrorIs(t, err, inmemory.ErrSelectorUnsupported)
+}
+
+// A resource with no projection still lists normally when no selector is asked
+// for, so the guard above cannot regress into breaking plain listings.
+func TestRoleRepository_ListsNormallyWithoutASelector(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewRoleRepository()
+
+	_, err := repo.ListRoles(ctx, nil)
+	require.NoError(t, err)
 }

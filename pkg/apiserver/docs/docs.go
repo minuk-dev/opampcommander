@@ -310,6 +310,24 @@ const docTemplate = `{
                         "description": "Token to continue listing containers",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: spec.platform",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -471,6 +489,24 @@ const docTemplate = `{
                         "description": "Token to continue listing hosts",
                         "name": "continue",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: spec.platform",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -607,6 +643,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces": {
+            "get": {
+                "description": "Retrieve a list of namespaces.",
+                "tags": [
+                    "namespace"
+                ],
+                "summary": "List Namespaces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of namespaces to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing namespaces",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted namespaces",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector (this resource exposes no selectable fields)",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-Namespace"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/agentgroups": {
             "get": {
                 "description": "Retrieves a list of agent groups with pagination options.",
@@ -631,6 +736,24 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include soft-deleted agent groups",
                         "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: metadata.namespace",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
                         "in": "query"
                     }
                 ],
@@ -917,6 +1040,24 @@ const docTemplate = `{
                         "description": "Include soft-deleted agent packages",
                         "name": "includeDeleted",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields: metadata.namespace, spec.packageType, spec.version",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1172,6 +1313,82 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}/agentremoteconfigs": {
+            "get": {
+                "description": "Retrieve a list of agent remote configs in a namespace.",
+                "tags": [
+                    "agentremoteconfig"
+                ],
+                "summary": "List Agent Remote Configs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of agent remote configs to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agent remote configs",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent remote configs",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: metadata.namespace",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListResponse-AgentRemoteConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/agents": {
             "get": {
                 "description": "Retrieve a list of agents in a namespace.",
@@ -1207,7 +1424,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "When true, return only currently-connected agents",
+                        "description": "Alias for fieldSelector=status.connected=true",
                         "name": "connected",
                         "in": "query"
                     },
@@ -1229,6 +1446,24 @@ const docTemplate = `{
                         "collectionFormat": "multi",
                         "description": "Non-identifying attribute (key=value)",
                         "name": "nonIdentifyingSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Selector over the identifying attributes, e.g. service.namespace=payments",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields: metadata.namespace, status.connected, status.healthy",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive instance-UID prefix filter",
+                        "name": "name",
                         "in": "query"
                     }
                 ],
@@ -1648,6 +1883,24 @@ const docTemplate = `{
                         "description": "Include soft-deleted certificates",
                         "name": "includeDeleted",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: metadata.namespace",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2043,6 +2296,24 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include soft-deleted endpoints",
                         "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: metadata.namespace, spec.protocol",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
                         "in": "query"
                     }
                 ],
@@ -2458,6 +2729,24 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include soft-deleted schemas",
                         "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields: metadata.namespace, spec.binary, spec.version",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
                         "in": "query"
                     }
                 ],
@@ -3372,6 +3661,24 @@ const docTemplate = `{
                         "description": "Include soft-deleted users",
                         "name": "includeDeleted",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: spec.isActive",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4102,6 +4409,54 @@ const docTemplate = `{
                 },
                 "serverProvidedAllPackagesHash": {
                     "type": "string"
+                }
+            }
+        },
+        "AgentRemoteConfig": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/AgentRemoteConfigMetadata"
+                },
+                "spec": {
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentRemoteConfigSpec"
+                },
+                "status": {
+                    "$ref": "#/definitions/AgentRemoteConfigStatus"
+                }
+            }
+        },
+        "AgentRemoteConfigMetadata": {
+            "type": "object",
+            "properties": {
+                "attributes": {
+                    "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "AgentRemoteConfigStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
                 }
             }
         },
@@ -5084,6 +5439,26 @@ const docTemplate = `{
                 }
             }
         },
+        "ListResponse-AgentRemoteConfig": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AgentRemoteConfig"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "ListResponse-Certificate": {
             "type": "object",
             "properties": {
@@ -5204,6 +5579,26 @@ const docTemplate = `{
                 }
             }
         },
+        "ListResponse-Namespace": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Namespace"
+                    }
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
         "ListResponse-RemoteConfigSchema": {
             "type": "object",
             "properties": {
@@ -5301,6 +5696,60 @@ const docTemplate = `{
                 },
                 "metadata": {
                     "$ref": "#/definitions/ListMeta"
+                }
+            }
+        },
+        "Namespace": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/NamespaceMetadata"
+                },
+                "status": {
+                    "$ref": "#/definitions/NamespaceStatus"
+                }
+            }
+        },
+        "NamespaceMetadata": {
+            "type": "object",
+            "properties": {
+                "annotations": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "NamespaceStatus": {
+            "type": "object",
+            "properties": {
+                "conditions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Condition"
+                    }
                 }
             }
         },

@@ -52,6 +52,7 @@ func NewRoleBindingRepository(
 			entity.RoleBindingKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			noSelectorSchema,
 		),
 		logger: logger,
 	}

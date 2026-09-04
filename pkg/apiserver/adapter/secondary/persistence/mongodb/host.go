@@ -48,6 +48,7 @@ func NewHostRepository(
 			entity.HostKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			hostSelectorSchema,
 		),
 	}
 }

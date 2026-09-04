@@ -47,6 +47,7 @@ func NewPermissionRepository(
 			entity.PermissionKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			noSelectorSchema,
 		),
 	}
 }

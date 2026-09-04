@@ -1,10 +1,31 @@
 package model
 
+import (
+	"github.com/minuk-dev/opampcommander/pkg/selector"
+)
+
 // ListOptions is a struct that holds options for listing resources.
 type ListOptions struct {
 	Limit          int64
 	Continue       string
 	IncludeDeleted bool
+
+	// LabelSelector, when non-empty, restricts the listing to resources whose
+	// user-supplied metadata map satisfies every requirement. Which field backs
+	// that map is per-aggregate; see [SelectorValues.Labels]. It is a no-op for
+	// resources that carry no such map.
+	LabelSelector selector.LabelSelector
+
+	// FieldSelector, when non-empty, restricts the listing to resources whose own
+	// fields satisfy every requirement. Only the fields an aggregate documents as
+	// selectable may appear; the API boundary rejects anything else with a 400, so
+	// a client never silently receives an unfiltered list.
+	FieldSelector selector.FieldSelector
+
+	// NamePrefix, when non-empty, restricts the listing to resources whose name
+	// starts with it. The match is case-sensitive so it can be served by an index
+	// range scan rather than a collection-wide regex.
+	NamePrefix string
 
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
 	// currently considered connected. "Connected" here mirrors the per-agent

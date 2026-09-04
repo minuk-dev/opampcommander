@@ -24,7 +24,7 @@ func NewPermissionRepository() *PermissionRepository {
 	return &PermissionRepository{
 		store: newStore[uuid.UUID](clonePermission, func(permission *usermodel.Permission) *time.Time {
 			return permission.Metadata.DeletedAt
-		}),
+		}, nil),
 	}
 }
 

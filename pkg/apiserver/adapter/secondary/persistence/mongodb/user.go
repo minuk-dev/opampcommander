@@ -60,6 +60,7 @@ func NewUserRepository(
 			entity.UserKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			userSelectorSchema,
 		),
 	}
 }

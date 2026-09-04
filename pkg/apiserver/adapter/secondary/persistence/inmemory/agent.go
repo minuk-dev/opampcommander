@@ -31,10 +31,16 @@ type AgentRepository struct {
 
 // NewAgentRepository creates a new in-memory AgentRepository.
 func NewAgentRepository() *AgentRepository {
-	return &AgentRepository{
-		store: newStore[uuid.UUID]((*agentmodel.Agent).Clone, nil),
+	//exhaustruct:ignore
+	repo := &AgentRepository{
 		clock: clock.NewRealClock(),
 	}
+	// The projection reads the repository's clock rather than capturing it, so
+	// connectedness is evaluated at list time against whichever clock the
+	// repository holds.
+	repo.store = newStore[uuid.UUID]((*agentmodel.Agent).Clone, nil, repo.selectorValues)
+
+	return repo
 }
 
 // GetAgent implements agentport.AgentPersistencePort.
@@ -176,6 +182,12 @@ func (r *AgentRepository) SearchAgents(
 
 // isConnected mirrors the MongoDB connected filter: the explicit Connected flag
 // plus heartbeat staleness, evaluated against the repository clock.
+// selectorValues projects an agent for server-side selectors, evaluating
+// connectedness at the repository's current time exactly as isConnected does.
+func (r *AgentRepository) selectorValues(agent *agentmodel.Agent) model.SelectorValues {
+	return agent.SelectorValuesAt(r.clock.Now())
+}
+
 func (r *AgentRepository) isConnected(agent *agentmodel.Agent) bool {
 	return agent.IsConnectedAt(r.clock.Now(), agentmodel.DefaultConnectionStaleness)
 }

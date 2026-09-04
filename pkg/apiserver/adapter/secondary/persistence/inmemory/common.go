@@ -1,6 +1,8 @@
 package inmemory
 
 import (
+	"fmt"
+
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
@@ -58,3 +60,10 @@ func matchesAttributes(stored, selector map[string]string) bool {
 
 	return true
 }
+
+// ErrSelectorUnsupported is returned when a listing carries a label or field
+// selector for a resource this adapter holds no selector projection for. It
+// wraps model.ErrInvalidArgument so it surfaces as a 400, exactly as the same
+// situation does on the MongoDB side.
+var ErrSelectorUnsupported = fmt.Errorf(
+	"%w: this resource does not support selector filtering", model.ErrInvalidArgument)

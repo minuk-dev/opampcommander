@@ -79,6 +79,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of agent packages to return"
 // @Param continue query string false "Token to continue listing agent packages"
 // @Param includeDeleted query bool false "Include soft-deleted agent packages"
+// @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
+// @Param fieldSelector query string false "Fields: metadata.namespace, spec.packageType, spec.version"
+// @Param name query string false "Case-sensitive name prefix filter"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentpackages [get].
@@ -99,7 +102,15 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	selectors, ok := ginutil.ParseSelectors(ctx, port.AgentPackageSelectableFields)
+	if !ok {
+		return
+	}
+
 	response, err := c.agentpackageUsecase.ListAgentPackages(ctx.Request.Context(), &port.ListOptions{
+		LabelSelector:  selectors.Label,
+		FieldSelector:  selectors.Field,
+		NamePrefix:     selectors.NamePrefix,
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
