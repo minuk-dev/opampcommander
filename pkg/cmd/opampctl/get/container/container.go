@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -24,7 +25,9 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	formatType string
-	client     *client.Client
+	selectors  selectorflags.Flags
+
+	client *client.Client
 }
 
 // NewCommand creates a new container command.
@@ -46,6 +49,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		&options.formatType, "output", "o", "short",
 		"Output format (short, text, json, yaml)",
 	)
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -94,7 +99,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of containers.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	resp, err := opt.client.ContainerService.ListContainers(cmd.Context())
+	listOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	resp, err := opt.client.ContainerService.ListContainers(cmd.Context(), listOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to list containers: %w", err)
 	}
