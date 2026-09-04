@@ -234,7 +234,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	t.Log("Failover test completed successfully")
 }
 
-
 func createAgentGroup(t *testing.T, c *client.Client, name string, selector map[string]string) {
 	t.Helper()
 

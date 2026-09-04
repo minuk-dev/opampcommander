@@ -22,7 +22,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
-
 // testCertificates holds dynamically generated test certificates.
 type testCertificates struct {
 	CertPEM   string
