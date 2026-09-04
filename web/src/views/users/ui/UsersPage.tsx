@@ -19,6 +19,9 @@ export default function UsersPage() {
       listPath="/api/v1/users"
       itemPath={(u) => `/api/v1/users/${u.metadata.uid}`}
       itemName={(u) => u.spec.email || u.spec.username || u.metadata.uid}
+      filterable
+      nameLabel="Email"
+      namePlaceholder="Email starts with…"
       canDelete
       columns={[
         { header: 'Email', render: (u) => u.spec.email || '-' },
