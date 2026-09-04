@@ -63,6 +63,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Success 200 {object} v1.ListResponse[v1.Host]
 // @Param limit query int false "Maximum number of hosts to return"
 // @Param continue query string false "Token to continue listing hosts"
+// @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
+// @Param fieldSelector query string false "Field selector over the supported fields: spec.platform"
+// @Param name query string false "Case-sensitive name prefix filter"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/hosts [get].
@@ -74,11 +77,19 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	selectors, ok := ginutil.ParseSelectors(ctx, applicationport.HostSelectableFields)
+	if !ok {
+		return
+	}
+
 	var response *v1.ListResponse[v1.Host]
 
 	response, err = c.hostUsecase.ListHosts(
 		ctx.Request.Context(),
 		&applicationport.ListOptions{
+			LabelSelector:            selectors.Label,
+			FieldSelector:            selectors.Field,
+			NamePrefix:               selectors.NamePrefix,
 			Limit:                    limit,
 			Continue:                 ctx.Query("continue"),
 			IncludeDeleted:           false,

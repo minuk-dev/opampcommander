@@ -77,6 +77,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of schemas to return"
 // @Param continue query string false "Token to continue listing schemas"
 // @Param includeDeleted query bool false "Include soft-deleted schemas"
+// @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
+// @Param fieldSelector query string false "Fields: metadata.namespace, spec.binary, spec.version"
+// @Param name query string false "Case-sensitive name prefix filter"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/remoteconfigschemas [get].
@@ -104,8 +107,16 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	selectors, ok := ginutil.ParseSelectors(ctx, port.RemoteConfigSchemaSelectableFields)
+	if !ok {
+		return
+	}
+
 	response, err := c.schemaUsecase.ListRemoteConfigSchemas(
 		ctx.Request.Context(), namespace, &port.ListOptions{
+			LabelSelector:  selectors.Label,
+			FieldSelector:  selectors.Field,
+			NamePrefix:     selectors.NamePrefix,
 			Limit:          limit,
 			Continue:       continueToken,
 			IncludeDeleted: includeDeleted,

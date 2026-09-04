@@ -48,6 +48,7 @@ func NewContainerRepository(
 			entity.ContainerKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			containerSelectorSchema,
 		),
 	}
 }

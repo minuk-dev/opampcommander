@@ -2,6 +2,7 @@ package port
 
 import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/selector"
 )
 
 // ListOptions holds options for listing resources at the application boundary.
@@ -14,6 +15,20 @@ type ListOptions struct {
 	Limit          int64
 	Continue       string
 	IncludeDeleted bool
+
+	// LabelSelector, when non-empty, restricts the listing to resources whose
+	// user-supplied metadata map (metadata.labels, metadata.attributes, or an
+	// agent's identifying attributes) satisfies every requirement.
+	LabelSelector selector.LabelSelector
+
+	// FieldSelector, when non-empty, restricts the listing to resources whose own
+	// fields satisfy every requirement. Callers must have validated it against the
+	// listed resource's supported fields (see [SelectableFields]) first.
+	FieldSelector selector.FieldSelector
+
+	// NamePrefix, when non-empty, restricts the listing to resources whose name
+	// starts with it, case-sensitively.
+	NamePrefix string
 
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
 	// currently considered connected. It is a no-op for resources that have no
@@ -44,6 +59,9 @@ func (o *ListOptions) ToDomain() *model.ListOptions {
 		Limit:                    o.Limit,
 		Continue:                 o.Continue,
 		IncludeDeleted:           o.IncludeDeleted,
+		LabelSelector:            o.LabelSelector,
+		FieldSelector:            o.FieldSelector,
+		NamePrefix:               o.NamePrefix,
 		ConnectedOnly:            o.ConnectedOnly,
 		IdentifyingAttributes:    o.IdentifyingAttributes,
 		NonIdentifyingAttributes: o.NonIdentifyingAttributes,

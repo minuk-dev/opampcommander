@@ -63,6 +63,7 @@ var (
 		hostCollectionName,
 		containerCollectionName,
 		namespaceCollectionName,
+		remoteConfigSchemaCollectionName,
 		serverCollectionName,
 		serverConnectionCollectionName,
 		serverHeartbeatCollectionName,
@@ -168,17 +169,18 @@ func managedIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "namespace", Value: 1},
-						{Key: "name", Value: 1},
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
 					},
 					Options: nil,
 				},
 				{
 					Keys: bson.D{
-						{Key: "namespace", Value: 1},
+						{Key: "metadata.namespace", Value: 1},
 					},
 					Options: nil,
 				},
+				nameSearchIndex(),
 			},
 		},
 		{
@@ -197,6 +199,7 @@ func managedIndexes() []collectionAndIndexes {
 					},
 					Options: nil,
 				},
+				nameSearchIndex(),
 			},
 		},
 		{
@@ -213,6 +216,15 @@ func managedIndexes() []collectionAndIndexes {
 					Keys: bson.D{
 						{Key: "metadata.namespace", Value: 1},
 					},
+					Options: nil,
+				},
+				nameSearchIndex(),
+				{
+					Keys:    bson.D{{Key: "spec.packageType", Value: 1}},
+					Options: nil,
+				},
+				{
+					Keys:    bson.D{{Key: "spec.version", Value: 1}},
 					Options: nil,
 				},
 			},
@@ -233,6 +245,7 @@ func managedIndexes() []collectionAndIndexes {
 					},
 					Options: nil,
 				},
+				nameSearchIndex(),
 			},
 		},
 		{
@@ -245,6 +258,52 @@ func managedIndexes() []collectionAndIndexes {
 					Options: nil,
 				},
 			},
+		},
+		{
+			collectionName: remoteConfigSchemaCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				nameSearchIndex(),
+				{
+					Keys:    bson.D{{Key: "spec.binary", Value: 1}},
+					Options: nil,
+				},
+				{
+					Keys:    bson.D{{Key: "spec.version", Value: 1}},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: endpointCollectionName,
+			indexes: []mongo.IndexModel{
+				{
+					Keys: bson.D{
+						{Key: "metadata.namespace", Value: 1},
+						{Key: "metadata.name", Value: 1},
+					},
+					Options: nil,
+				},
+				nameSearchIndex(),
+				{
+					Keys:    bson.D{{Key: "spec.protocol", Value: 1}},
+					Options: nil,
+				},
+			},
+		},
+		{
+			collectionName: hostCollectionName,
+			indexes:        platformScopedIndexes(),
+		},
+		{
+			collectionName: containerCollectionName,
+			indexes:        platformScopedIndexes(),
 		},
 		{
 			collectionName: serverCollectionName,
@@ -319,6 +378,44 @@ func managedIndexes() []collectionAndIndexes {
 					Options: nil,
 				},
 			},
+		},
+	}
+}
+
+// nameSearchIndex backs the "?name=" prefix range scan, which every selector-aware
+// listing of a named resource issues. It is a plain ascending index on the name:
+// a prefix search is a [prefix, prefixUpperBound) range, so an index on the field
+// alone serves it without the namespace having to be pinned.
+//
+// Label selectors have no matching entry here on purpose. A label key is chosen by
+// the client, so only a wildcard index could serve arbitrary keys, and the
+// collections whose labels live in a map are all config-scale — an operator has
+// tens of endpoints or packages, not millions. The one fleet-scale label-filtered
+// collection is agents, whose identifying attributes are already covered by the
+// compound {key, value} index above.
+//
+// It is a function, not a variable, for the same reason managedIndexes is: the
+// driver mutates the models it is handed, so a shared instance would be a data
+// race between two concurrent EnsureSchema calls.
+func nameSearchIndex() mongo.IndexModel {
+	return mongo.IndexModel{
+		Keys:    bson.D{{Key: "metadata.name", Value: 1}},
+		Options: nil,
+	}
+}
+
+// platformScopedIndexes is the index plan shared by hosts and containers: both are
+// keyed by metadata.id, searched by metadata.name, and filtered on spec.platform.
+func platformScopedIndexes() []mongo.IndexModel {
+	return []mongo.IndexModel{
+		{
+			Keys:    bson.D{{Key: "metadata.id", Value: 1}},
+			Options: nil,
+		},
+		nameSearchIndex(),
+		{
+			Keys:    bson.D{{Key: "spec.platform", Value: 1}},
+			Options: nil,
 		},
 	}
 }

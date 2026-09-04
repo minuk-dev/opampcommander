@@ -96,9 +96,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
-// @Param connected query bool false "When true, return only currently-connected agents"
+// @Param connected query bool false "Alias for fieldSelector=status.connected=true"
 // @Param selector query []string false "Identifying attribute filter (key=value, repeatable)" collectionFormat(multi)
 // @Param nonIdentifyingSelector query []string false "Non-identifying attribute (key=value)" collectionFormat(multi)
+// @Param labelSelector query string false "Selector over the identifying attributes, e.g. service.namespace=payments"
+// @Param fieldSelector query string false "Fields: metadata.namespace, status.connected, status.healthy"
+// @Param name query string false "Case-sensitive instance-UID prefix filter"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/namespaces/{namespace}/agents [get].
@@ -124,18 +127,13 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	identifyingAttributes, err := parseSelector(ctx.QueryArray("selector"))
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "selector", strings.Join(ctx.QueryArray("selector"), ","), err, false)
-
+	identifyingAttributes, nonIdentifyingAttributes, attributesValid := parseAttributeSelectors(ctx)
+	if !attributesValid {
 		return
 	}
 
-	nonIdentifyingAttributes, err := parseSelector(ctx.QueryArray("nonIdentifyingSelector"))
-	if err != nil {
-		ginutil.HandleValidationError(ctx, "nonIdentifyingSelector",
-			strings.Join(ctx.QueryArray("nonIdentifyingSelector"), ","), err, false)
-
+	selectors, ok := ginutil.ParseSelectors(ctx, applicationport.AgentSelectableFields)
+	if !ok {
 		return
 	}
 
@@ -147,6 +145,9 @@ func (c *Controller) List(ctx *gin.Context) {
 		ConnectedOnly:            connectedOnly,
 		IdentifyingAttributes:    identifyingAttributes,
 		NonIdentifyingAttributes: nonIdentifyingAttributes,
+		LabelSelector:            selectors.Label,
+		FieldSelector:            selectors.Field,
+		NamePrefix:               selectors.NamePrefix,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())
@@ -401,6 +402,30 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// parseAttributeSelectors reads the legacy exact-match attribute filters —
+// "?selector=" over identifying attributes and "?nonIdentifyingSelector=" over
+// non-identifying ones — writing the 400 itself and returning false when either
+// is malformed. They predate (and are subsumed by) "?labelSelector=", which
+// reaches the same identifying attributes with the full operator set.
+func parseAttributeSelectors(ctx *gin.Context) (map[string]string, map[string]string, bool) {
+	identifying, err := parseSelector(ctx.QueryArray("selector"))
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "selector", strings.Join(ctx.QueryArray("selector"), ","), err, false)
+
+		return nil, nil, false
+	}
+
+	nonIdentifying, err := parseSelector(ctx.QueryArray("nonIdentifyingSelector"))
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "nonIdentifyingSelector",
+			strings.Join(ctx.QueryArray("nonIdentifyingSelector"), ","), err, false)
+
+		return nil, nil, false
+	}
+
+	return identifying, nonIdentifying, true
 }
 
 // parseSelector parses identifying-attribute selector values into an exact-match

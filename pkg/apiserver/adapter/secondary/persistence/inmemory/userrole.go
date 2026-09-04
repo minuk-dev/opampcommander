@@ -27,7 +27,7 @@ func NewUserRoleRepository(roleRepo *RoleRepository, userRepo *UserRepository) *
 	return &UserRoleRepository{
 		store: newStore[uuid.UUID](cloneUserRole, func(ur *usermodel.UserRole) *time.Time {
 			return ur.Metadata.DeletedAt
-		}),
+		}, nil),
 		roleRepo: roleRepo,
 		userRepo: userRepo,
 	}

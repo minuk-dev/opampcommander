@@ -31,14 +31,20 @@ type commonEntityAdapter[Entity any, KeyType any] struct {
 	KeyQueryFunc       func(key KeyType) any
 	keyFieldName       string
 	deletedAtFieldName string
+	selectors          selectorSchema
 }
 
+// newCommonAdapter wires the shared get/list/put behaviour for one collection.
+// selectors is that collection's server-side filtering schema; pass
+// noSelectorSchema for a collection that supports none, which makes a request
+// carrying a selector fail rather than come back unfiltered.
 func newCommonAdapter[Entity any, KeyType any](
 	logger *slog.Logger,
 	collection *mongo.Collection,
 	keyFieldName string,
 	keyFunc KeyFunc[Entity, KeyType],
 	keyQueryFunc func(key KeyType) any,
+	selectors selectorSchema,
 ) commonEntityAdapter[Entity, KeyType] {
 	return commonEntityAdapter[Entity, KeyType]{
 		logger:             logger,
@@ -47,6 +53,7 @@ func newCommonAdapter[Entity any, KeyType any](
 		KeyFunc:            keyFunc,
 		KeyQueryFunc:       keyQueryFunc,
 		deletedAtFieldName: "metadata.deletedAt",
+		selectors:          selectors,
 	}
 }
 
@@ -87,14 +94,23 @@ func (a *commonEntityAdapter[Entity, KeyType]) list(
 	ctx context.Context,
 	options *model.ListOptions,
 ) (*model.ListResponse[*Entity], error) {
-	return a.listWithFilter(ctx, options, nil)
+	return a.listWithConditions(ctx, options)
 }
 
-// listWithFilter lists entities matching the soft-delete filter combined with extraFilter.
-func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
+// listWithConditions lists the entities matching the soft-delete filter, the
+// collection's selector schema applied to options, and the caller's own extra
+// conditions — all AND-ed together.
+//
+// The conditions are AND-ed as a list rather than merged into one map because a
+// selector can produce several conditions on the same field ($elemMatch, $nor),
+// which a map merge would silently collapse to the last one.
+//
+// Every filter goes into the query the page is cut from, so RemainingItemCount
+// counts the same set the page was drawn from.
+func (a *commonEntityAdapter[Entity, KeyType]) listWithConditions(
 	ctx context.Context,
 	options *model.ListOptions,
-	extraFilter bson.M,
+	extraConditions ...bson.M,
 ) (*model.ListResponse[*Entity], error) {
 	if options == nil {
 		//exhaustruct:ignore
@@ -106,18 +122,22 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithFilter(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	var baseFilter bson.M
-	if options.IncludeDeleted {
-		baseFilter = extraFilter
-	} else {
-		baseFilter = combineFilters(a.excludeDeletedFilter(), extraFilter)
+	conditions := slices.Clone(extraConditions)
+
+	if !options.IncludeDeleted {
+		if excludeDeleted := a.excludeDeletedFilter(); excludeDeleted != nil {
+			conditions = append(conditions, excludeDeleted)
+		}
 	}
 
-	if baseFilter == nil {
-		baseFilter = bson.M{}
+	selectorConditions, err := a.selectors.conditions(options)
+	if err != nil {
+		return nil, err
 	}
 
-	prefix := mongo.Pipeline{bson.D{{Key: "$match", Value: baseFilter}}}
+	conditions = append(conditions, selectorConditions...)
+
+	prefix := mongo.Pipeline{bson.D{{Key: "$match", Value: buildFilter(conditions)}}}
 
 	entities, continueToken, remaining, err := aggregateListPage[Entity](
 		ctx, a.logger, a.collection, prefix, continueTokenObjectID, options.Limit,

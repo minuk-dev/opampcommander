@@ -20,7 +20,7 @@ type ContainerRepository struct {
 // NewContainerRepository creates a new in-memory ContainerRepository.
 func NewContainerRepository() *ContainerRepository {
 	return &ContainerRepository{
-		store: newStore[string](cloneContainer, nil),
+		store: newStore[string](cloneContainer, nil, (*agentmodel.Container).SelectorValues),
 	}
 }
 

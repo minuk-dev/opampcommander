@@ -54,6 +54,7 @@ func NewRemoteConfigSchemaRepository(
 			entity.RemoteConfigSchemaNameFieldName,
 			keyFunc,
 			keyQueryFunc,
+			remoteConfigSchemaSelectorSchema,
 		),
 	}
 }
@@ -94,7 +95,7 @@ func (a *RemoteConfigSchemaMongoAdapter) GetRemoteConfigSchema(
 func (a *RemoteConfigSchemaMongoAdapter) ListRemoteConfigSchemas(
 	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.RemoteConfigSchema], error) {
-	resp, err := a.common.listWithFilter(ctx, options, bson.M{
+	resp, err := a.common.listWithConditions(ctx, options, bson.M{
 		remoteConfigSchemaNamespaceFieldName: sanitizeResourceName(namespace),
 	})
 	if err != nil {

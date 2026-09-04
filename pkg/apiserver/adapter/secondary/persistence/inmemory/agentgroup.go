@@ -28,7 +28,7 @@ func NewAgentGroupRepository(agentRepo *AgentRepository) *AgentGroupRepository {
 	return &AgentGroupRepository{
 		store: newStore[namespacedName](cloneAgentGroup, func(ag *agentmodel.AgentGroup) *time.Time {
 			return &ag.Metadata.DeletedAt
-		}),
+		}, (*agentmodel.AgentGroup).SelectorValues),
 		agentRepo: agentRepo,
 	}
 }

@@ -70,6 +70,21 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 }
 
 // List retrieves a list of agent remote configs.
+//
+// @Summary  List Agent Remote Configs
+// @Tags agentremoteconfig
+// @Description Retrieve a list of agent remote configs in a namespace.
+// @Success 200 {object} v1.ListResponse[v1.AgentRemoteConfig]
+// @Param namespace path string true "Namespace"
+// @Param limit query int false "Maximum number of agent remote configs to return"
+// @Param continue query string false "Token to continue listing agent remote configs"
+// @Param includeDeleted query bool false "Include soft-deleted agent remote configs"
+// @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
+// @Param fieldSelector query string false "Field selector over the supported fields: metadata.namespace"
+// @Param name query string false "Case-sensitive name prefix filter"
+// @Failure 400 {object} map[string]any
+// @Failure 500 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/agentremoteconfigs [get].
 func (c *Controller) List(ctx *gin.Context) {
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
@@ -91,8 +106,16 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	selectors, ok := ginutil.ParseSelectors(ctx, port.AgentRemoteConfigSelectableFields)
+	if !ok {
+		return
+	}
+
 	response, err := c.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
 		ctx.Request.Context(), &port.ListOptions{
+			LabelSelector:  selectors.Label,
+			FieldSelector:  selectors.Field,
+			NamePrefix:     selectors.NamePrefix,
 			Limit:          limit,
 			Continue:       continueToken,
 			IncludeDeleted: includeDeleted,

@@ -41,6 +41,7 @@ func NewServerAdapter(logger *slog.Logger, database *mongo.Database) *ServerAdap
 			"serverId",
 			func(e *entity.Server) string { return e.ServerID },
 			func(key string) any { return key },
+			noSelectorSchema,
 		),
 	}
 }

@@ -254,6 +254,37 @@ definitions:
       serverProvidedAllPackagesHash:
         type: string
     type: object
+  AgentRemoteConfig:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/AgentRemoteConfigMetadata'
+      spec:
+        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.AgentRemoteConfigSpec'
+      status:
+        $ref: '#/definitions/AgentRemoteConfigStatus'
+    type: object
+  AgentRemoteConfigMetadata:
+    properties:
+      attributes:
+        $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.Attributes'
+      createdAt:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+    type: object
+  AgentRemoteConfigStatus:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
   AgentSpec:
     properties:
       connectionSettings:
@@ -946,6 +977,19 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
+  ListResponse-AgentRemoteConfig:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/AgentRemoteConfig'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   ListResponse-Certificate:
     properties:
       apiVersion:
@@ -1024,6 +1068,19 @@ definitions:
       metadata:
         $ref: '#/definitions/ListMeta'
     type: object
+  ListResponse-Namespace:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Namespace'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
   ListResponse-RemoteConfigSchema:
     properties:
       apiVersion:
@@ -1088,6 +1145,41 @@ definitions:
         type: string
       metadata:
         $ref: '#/definitions/ListMeta'
+    type: object
+  Namespace:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/NamespaceMetadata'
+      status:
+        $ref: '#/definitions/NamespaceStatus'
+    type: object
+  NamespaceMetadata:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      createdAt:
+        type: string
+      deletedAt:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        type: string
+    type: object
+  NamespaceStatus:
+    properties:
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
     type: object
   OAuth2AuthCodeURLResponse:
     properties:
@@ -1831,6 +1923,18 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: spec.platform'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:
@@ -1937,6 +2041,18 @@ paths:
         in: query
         name: continue
         type: string
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: spec.platform'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:
@@ -2029,6 +2145,52 @@ paths:
       summary: List Host Agents
       tags:
       - host
+  /api/v1/namespaces:
+    get:
+      description: Retrieve a list of namespaces.
+      parameters:
+      - description: Maximum number of namespaces to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing namespaces
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted namespaces
+        in: query
+        name: includeDeleted
+        type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: Field selector (this resource exposes no selectable fields)
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Namespace'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Namespaces
+      tags:
+      - namespace
   /api/v1/namespaces/{namespace}/agentgroups:
     get:
       description: Retrieves a list of agent groups with pagination options.
@@ -2045,6 +2207,18 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       responses:
         "200":
           description: OK
@@ -2237,6 +2411,19 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace,
+          spec.packageType, spec.version'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       responses:
         "200":
           description: OK
@@ -2412,6 +2599,57 @@ paths:
       summary: Update Agent Package
       tags:
       - agentpackage
+  /api/v1/namespaces/{namespace}/agentremoteconfigs:
+    get:
+      description: Retrieve a list of agent remote configs in a namespace.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Maximum number of agent remote configs to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agent remote configs
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted agent remote configs
+        in: query
+        name: includeDeleted
+        type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-AgentRemoteConfig'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: List Agent Remote Configs
+      tags:
+      - agentremoteconfig
   /api/v1/namespaces/{namespace}/agents:
     get:
       consumes:
@@ -2431,7 +2669,8 @@ paths:
         in: query
         name: continue
         type: string
-      - description: When true, return only currently-connected agents
+      - description: When true, return only currently-connected agents (alias for
+          fieldSelector=status.connected=true)
         in: query
         name: connected
         type: boolean
@@ -2449,6 +2688,20 @@ paths:
           type: string
         name: nonIdentifyingSelector
         type: array
+      - description: Selector over the agent identifying attributes, e.g. service.namespace=payments,deployment.environment
+          notin (dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace,
+          status.connected, status.healthy'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive instance-UID prefix filter
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:
@@ -2734,6 +2987,18 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       responses:
         "200":
           description: OK
@@ -3012,6 +3277,19 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace,
+          spec.protocol'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       responses:
         "200":
           description: OK
@@ -3298,6 +3576,19 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace,
+          spec.binary, spec.version'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       responses:
         "200":
           description: OK
@@ -3912,6 +4203,18 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: spec.isActive'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:

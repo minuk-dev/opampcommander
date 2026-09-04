@@ -54,6 +54,7 @@ func NewEndpointRepository(
 			entity.EndpointNameFieldName,
 			keyFunc,
 			keyQueryFunc,
+			endpointSelectorSchema,
 		),
 	}
 }
@@ -94,7 +95,7 @@ func (a *EndpointMongoAdapter) GetEndpoint(
 func (a *EndpointMongoAdapter) ListEndpoints(
 	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Endpoint], error) {
-	resp, err := a.common.listWithFilter(ctx, options, bson.M{
+	resp, err := a.common.listWithConditions(ctx, options, bson.M{
 		endpointNamespaceFieldName: sanitizeResourceName(namespace),
 	})
 	if err != nil {

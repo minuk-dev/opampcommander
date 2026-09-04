@@ -51,6 +51,7 @@ func NewUserRoleRepository(
 			entity.UserRoleKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			noSelectorSchema,
 		),
 		roleCollection: mongoDatabase.Collection(roleCollectionName),
 		userCollection: mongoDatabase.Collection(userCollectionName),

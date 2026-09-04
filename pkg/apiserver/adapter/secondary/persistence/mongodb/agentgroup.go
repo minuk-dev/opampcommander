@@ -57,6 +57,7 @@ func NewAgentGroupRepository(
 			entity.AgentGroupKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			agentGroupSelectorSchema,
 		),
 	}
 }

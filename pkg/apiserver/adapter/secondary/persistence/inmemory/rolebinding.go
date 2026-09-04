@@ -22,7 +22,7 @@ func NewRoleBindingRepository() *RoleBindingRepository {
 	return &RoleBindingRepository{
 		store: newStore[namespacedName](cloneRoleBinding, func(rb *usermodel.RoleBinding) *time.Time {
 			return rb.Metadata.DeletedAt
-		}),
+		}, nil),
 	}
 }
 

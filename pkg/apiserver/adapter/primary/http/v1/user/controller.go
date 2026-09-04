@@ -80,6 +80,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of users to return"
 // @Param continue query string false "Token to continue listing users"
 // @Param includeDeleted query bool false "Include soft-deleted users"
+// @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
+// @Param fieldSelector query string false "Field selector over the supported fields: spec.isActive"
+// @Param name query string false "Case-sensitive name prefix filter"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/users [get].
@@ -100,7 +103,15 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	selectors, ok := ginutil.ParseSelectors(ctx, applicationport.UserSelectableFields)
+	if !ok {
+		return
+	}
+
 	response, err := c.userUsecase.ListUsers(ctx.Request.Context(), &applicationport.ListOptions{
+		LabelSelector:  selectors.Label,
+		FieldSelector:  selectors.Field,
+		NamePrefix:     selectors.NamePrefix,
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,

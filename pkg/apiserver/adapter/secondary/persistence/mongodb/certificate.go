@@ -55,6 +55,7 @@ func NewCertificateRepository(
 			entity.CertificateNameFieldName,
 			keyFunc,
 			keyQueryFunc,
+			certificateSelectorSchema,
 		),
 	}
 }

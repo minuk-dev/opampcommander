@@ -68,6 +68,7 @@ func NewAgentRepository(
 			entity.AgentKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
+			agentSelectorSchema,
 		),
 	}
 
@@ -108,7 +109,7 @@ func (a *AgentRepository) ListAgents(
 			NonIdentifyingAttributesSelectorToMatchConditions(options.NonIdentifyingAttributes)...)
 	}
 
-	resp, err := a.common.listWithFilter(ctx, options, buildFilter(conditions))
+	resp, err := a.common.listWithConditions(ctx, options, conditions...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents from persistence: %w", err)
 	}
@@ -232,6 +233,17 @@ func (a *AgentRepository) ListAgentsBySelector(
 		conditions = append(conditions, connectedMatchFilter())
 	}
 
+	// This path builds its own pipeline rather than going through
+	// listWithConditions, so it has to apply the list options' own selectors
+	// itself — silently dropping them would answer a narrowing request with a
+	// wider list.
+	selectorConditions, err := a.common.selectors.conditions(options)
+	if err != nil {
+		return nil, err
+	}
+
+	conditions = append(conditions, selectorConditions...)
+
 	prefix := mongo.Pipeline{bson.D{{Key: "$match", Value: buildFilter(conditions)}}}
 
 	entities, continueToken, remaining, err := aggregateListPage[entity.Agent](
@@ -302,9 +314,12 @@ func (a *AgentRepository) SearchAgents(
 		return nil, fmt.Errorf("invalid continue token: %w", err)
 	}
 
-	prefix := mongo.Pipeline{
-		bson.D{{Key: "$match", Value: buildFilter(a.buildSearchConditions(namespace, query, options))}},
+	conditions, err := a.buildSearchConditions(namespace, query, options)
+	if err != nil {
+		return nil, err
 	}
+
+	prefix := mongo.Pipeline{bson.D{{Key: "$match", Value: buildFilter(conditions)}}}
 
 	entities, continueToken, remaining, err := aggregateListPage[entity.Agent](
 		ctx, a.logger, a.collection, prefix, continueTokenObjectID, options.Limit,
@@ -349,7 +364,7 @@ func (a *AgentRepository) buildSearchConditions(
 	namespace string,
 	query string,
 	options *model.ListOptions,
-) []bson.M {
+) ([]bson.M, error) {
 	// Prefix-match instanceUidString with a parameterized range scan instead of a
 	// user-built $regex: instanceUidString is always a lower-cased UUID, so we
 	// lower-case the query (preserving the previous case-insensitive behaviour) and
@@ -372,7 +387,14 @@ func (a *AgentRepository) buildSearchConditions(
 		conditions = append(conditions, connectedMatchFilter())
 	}
 
-	return conditions
+	// A search still honours any label/field selector the caller passed, for the
+	// same reason ListAgentsBySelector does.
+	selectorConditions, err := a.common.selectors.conditions(options)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(conditions, selectorConditions...), nil
 }
 
 // ensureIndexes creates necessary indexes for the agent collection.
