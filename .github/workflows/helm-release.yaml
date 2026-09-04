@@ -33,8 +33,13 @@ jobs:
       # images it defaults to. Snapshot-ness is decided off github.ref, exactly
       # as release.yaml and web-release.yaml decide it.
       - name: Compute version
+        # github.ref goes through env rather than being interpolated into the
+        # script: it keeps the ref out of the shell source (and keeps
+        # shellcheck able to read the comparison).
+        env:
+          REF: ${{ github.ref }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          if [[ "${REF}" == refs/tags/v* ]]; then
             VERSION=$(./scripts/version.sh)
           else
             VERSION=$(./scripts/version.sh --snapshot)

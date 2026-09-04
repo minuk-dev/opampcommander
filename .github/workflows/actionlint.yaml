@@ -1,0 +1,31 @@
+name: actionlint
+
+# Workflow files have no other check: a typo in a runner label, a bad
+# `needs:`/`matrix:` reference or an unquoted variable in a `run:` script only
+# shows up as a failed release run. actionlint (with shellcheck for the `run:`
+# scripts) catches those on the PR instead.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The image bundles the matching shellcheck, so `run:` scripts are linted
+      # too. Pinned by tag for reproducibility — bump deliberately.
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color

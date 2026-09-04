@@ -38,8 +38,13 @@ jobs:
       # sit at a released tag on main.
       - name: Compute version
         id: compute
+        # github.ref goes through env rather than being interpolated into the
+        # script: it keeps the ref out of the shell source (and keeps
+        # shellcheck able to read the comparison).
+        env:
+          REF: ${{ github.ref }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          if [[ "${REF}" == refs/tags/v* ]]; then
             VERSION=$(./scripts/version.sh)
           else
             VERSION=$(./scripts/version.sh --snapshot)
