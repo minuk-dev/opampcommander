@@ -2415,8 +2415,7 @@ paths:
         in: query
         name: labelSelector
         type: string
-      - description: 'Field selector over the supported fields: metadata.namespace,
-          spec.packageType, spec.version'
+      - description: 'Fields: metadata.namespace, spec.packageType, spec.version'
         in: query
         name: fieldSelector
         type: string
@@ -2669,8 +2668,7 @@ paths:
         in: query
         name: continue
         type: string
-      - description: When true, return only currently-connected agents (alias for
-          fieldSelector=status.connected=true)
+      - description: Alias for fieldSelector=status.connected=true
         in: query
         name: connected
         type: boolean
@@ -2688,13 +2686,11 @@ paths:
           type: string
         name: nonIdentifyingSelector
         type: array
-      - description: Selector over the agent identifying attributes, e.g. service.namespace=payments,deployment.environment
-          notin (dev)
+      - description: Selector over the identifying attributes, e.g. service.namespace=payments
         in: query
         name: labelSelector
         type: string
-      - description: 'Field selector over the supported fields: metadata.namespace,
-          status.connected, status.healthy'
+      - description: 'Fields: metadata.namespace, status.connected, status.healthy'
         in: query
         name: fieldSelector
         type: string
@@ -3580,8 +3576,7 @@ paths:
         in: query
         name: labelSelector
         type: string
-      - description: 'Field selector over the supported fields: metadata.namespace,
-          spec.binary, spec.version'
+      - description: 'Fields: metadata.namespace, spec.binary, spec.version'
         in: query
         name: fieldSelector
         type: string

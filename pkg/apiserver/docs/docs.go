@@ -1049,7 +1049,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Field selector over the supported fields: metadata.namespace, spec.packageType, spec.version",
+                        "description": "Fields: metadata.namespace, spec.packageType, spec.version",
                         "name": "fieldSelector",
                         "in": "query"
                     },
@@ -1424,7 +1424,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "When true, return only currently-connected agents (alias for fieldSelector=status.connected=true)",
+                        "description": "Alias for fieldSelector=status.connected=true",
                         "name": "connected",
                         "in": "query"
                     },
@@ -1450,13 +1450,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Selector over the agent identifying attributes, e.g. service.namespace=payments,deployment.environment notin (dev)",
+                        "description": "Selector over the identifying attributes, e.g. service.namespace=payments",
                         "name": "labelSelector",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Field selector over the supported fields: metadata.namespace, status.connected, status.healthy",
+                        "description": "Fields: metadata.namespace, status.connected, status.healthy",
                         "name": "fieldSelector",
                         "in": "query"
                     },
@@ -2739,7 +2739,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Field selector over the supported fields: metadata.namespace, spec.binary, spec.version",
+                        "description": "Fields: metadata.namespace, spec.binary, spec.version",
                         "name": "fieldSelector",
                         "in": "query"
                     },
