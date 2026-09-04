@@ -59,7 +59,7 @@ func TestRoleBindingController_List(t *testing.T) {
 				},
 			},
 		}
-		usecase.EXPECT().ListRoleBindings(mock.Anything, mock.Anything).Return(&v1.ListResponse[v1.RoleBinding]{
+		usecase.EXPECT().ListRoleBindings(mock.Anything, "production", mock.Anything).Return(&v1.ListResponse[v1.RoleBinding]{
 			Kind:       v1.RoleBindingKind,
 			APIVersion: v1.APIVersion,
 			Metadata: v1.ListMeta{
@@ -119,7 +119,7 @@ func TestRoleBindingController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		usecase.EXPECT().ListRoleBindings(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+		usecase.EXPECT().ListRoleBindings(mock.Anything, "production", mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(

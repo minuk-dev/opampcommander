@@ -38,7 +38,7 @@ func NewAgentRepository() *AgentRepository {
 	// The projection reads the repository's clock rather than capturing it, so
 	// connectedness is evaluated at list time against whichever clock the
 	// repository holds.
-	repo.store = newStore[uuid.UUID]((*agentmodel.Agent).Clone, nil, repo.selectorValues)
+	repo.store = newStore[uuid.UUID]((*agentmodel.Agent).Clone, nil, repo.selectorValues, hasLabels)
 
 	return repo
 }

@@ -28,6 +28,11 @@ type RBACService struct {
 	defaultNamespace string
 }
 
+// allNamespaces is the empty namespace the persistence port reads as "every
+// namespace". RBAC evaluation is cluster-wide: a user's effective permissions
+// come from their bindings wherever those live, not from one namespace's.
+const allNamespaces = ""
+
 // NewRBACService creates a new instance of RBACService. An empty defaultRole or
 // defaultNamespace falls back to usermodel.RoleDefault / usermodel.DefaultNamespace.
 func NewRBACService(
@@ -86,7 +91,7 @@ func (s *RBACService) GetUserPermissions(
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
+	allBindings, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, allNamespaces, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}
@@ -248,7 +253,7 @@ func (s *RBACService) collectGroupingPolicies(
 	ctx context.Context,
 	roleByName map[string]*usermodel.Role,
 ) ([]groupingPolicy, error) {
-	bindingsResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, nil)
+	bindingsResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, allNamespaces, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings from persistence: %w", err)
 	}

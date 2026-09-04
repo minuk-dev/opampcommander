@@ -22,7 +22,7 @@ func NewCertificateRepository() *CertificateRepository {
 	return &CertificateRepository{
 		store: newStore[namespacedName](cloneCertificate, func(cert *agentmodel.Certificate) *time.Time {
 			return &cert.Metadata.DeletedAt
-		}, (*agentmodel.Certificate).SelectorValues),
+		}, (*agentmodel.Certificate).SelectorValues, hasLabels),
 	}
 }
 

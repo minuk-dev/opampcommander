@@ -69,15 +69,25 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 //
 // @Summary List RoleBindings
 // @Tags rolebinding
-// @Description Retrieves a list of role bindings with pagination options.
+// @Description Retrieves the role bindings in a namespace, with pagination options.
 // @Success 200 {object} v1.ListResponse[v1.RoleBinding]
+// @Param namespace path string true "Namespace"
 // @Param limit query int false "Maximum number of role bindings to return"
 // @Param continue query string false "Token to continue listing"
 // @Param includeDeleted query bool false "Include soft-deleted role bindings"
+// @Param fieldSelector query string false "Fields: spec.roleRef.name"
+// @Param name query string false "Case-sensitive name prefix filter"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/rolebindings [get].
 func (c *Controller) List(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
@@ -94,10 +104,19 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.usecase.ListRoleBindings(ctx.Request.Context(), &applicationport.ListOptions{
+	// A role binding carries no label map, so a labelSelector is rejected rather
+	// than answered with an empty page.
+	selectors, ok := ginutil.ParseSelectorsWithoutLabels(ctx, applicationport.RoleBindingSelectableFields)
+	if !ok {
+		return
+	}
+
+	response, err := c.usecase.ListRoleBindings(ctx.Request.Context(), namespace, &applicationport.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
+		FieldSelector:  selectors.Field,
+		NamePrefix:     selectors.NamePrefix,
 	})
 	if err != nil {
 		c.logger.Error("failed to list role bindings", "error", err.Error())

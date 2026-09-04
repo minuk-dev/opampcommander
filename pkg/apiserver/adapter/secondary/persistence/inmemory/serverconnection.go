@@ -30,7 +30,7 @@ type ServerConnectionRepository struct {
 // NewServerConnectionRepository creates a new in-memory ServerConnectionRepository.
 func NewServerConnectionRepository() *ServerConnectionRepository {
 	return &ServerConnectionRepository{
-		store:       newStore[uuid.UUID](cloneServerConnection, nil, nil),
+		store:       newStore[uuid.UUID](cloneServerConnection, nil, nil, hasNoLabels),
 		heartbeatMu: sync.RWMutex{},
 		heartbeats:  make(map[string]time.Time),
 	}

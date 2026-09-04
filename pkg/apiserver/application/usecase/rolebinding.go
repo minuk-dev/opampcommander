@@ -15,8 +15,9 @@ type RoleBindingManageUsecase interface {
 	// model.ErrResourceNotExist if absent.
 	GetRoleBinding(ctx context.Context, namespace, name string,
 		options *port.GetOptions) (*v1.RoleBinding, error)
-	// ListRoleBindings returns a paged list of bindings across namespaces.
-	ListRoleBindings(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.RoleBinding], error)
+	// ListRoleBindings returns a paged list of the bindings in namespace.
+	ListRoleBindings(ctx context.Context, namespace string,
+		options *port.ListOptions) (*v1.ListResponse[v1.RoleBinding], error)
 	// CreateRoleBinding persists a new binding.
 	CreateRoleBinding(ctx context.Context, rb *v1.RoleBinding) (*v1.RoleBinding, error)
 	// UpdateRoleBinding replaces the named binding.

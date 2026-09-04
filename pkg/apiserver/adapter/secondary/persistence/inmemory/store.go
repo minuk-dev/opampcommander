@@ -57,17 +57,38 @@ type store[K comparable, V any] struct {
 	// supports no selectors. A list that carries a selector a nil projection
 	// cannot answer fails rather than returning an unfiltered page.
 	selectorValues func(V) model.SelectorValues
+
+	// labels says whether the aggregate carries a label map at all. An aggregate
+	// that carries none — a role, say — answers a label selector with an error
+	// rather than with an empty page, which is both what the MongoDB adapter does
+	// and what the API boundary does. A projection cannot express the difference:
+	// its Labels are nil both for a resource that has no labels set and for one
+	// whose type has no label map.
+	labels labelSupport
 }
+
+// labelSupport says whether an aggregate carries a label map.
+type labelSupport bool
+
+const (
+	// hasLabels marks an aggregate with a user-supplied label map — metadata.labels,
+	// metadata.attributes, or an agent's identifying attributes.
+	hasLabels labelSupport = true
+	// hasNoLabels marks an aggregate with no label map of any kind.
+	hasNoLabels labelSupport = false
+)
 
 // newStore creates an empty store. clone must deep-copy a value (it is applied on
 // every read and write to isolate the store from callers). Pass a deletedAt
 // accessor for soft-deletable types, or nil for types that are hard-deleted
-// (e.g. agents, servers), and a selectorValues projection for types that support
-// label/field selectors, or nil for those that do not.
+// (e.g. agents, servers); a selectorValues projection for types that support
+// label/field selectors, or nil for those that do not; and hasLabels only for
+// types that carry a label map.
 func newStore[K comparable, V any](
 	clone func(V) V,
 	deletedAt func(V) *time.Time,
 	selectorValues func(V) model.SelectorValues,
+	labels labelSupport,
 ) *store[K, V] {
 	return &store[K, V]{
 		mu:             sync.RWMutex{},
@@ -76,6 +97,7 @@ func newStore[K comparable, V any](
 		clone:          clone,
 		deletedAt:      deletedAt,
 		selectorValues: selectorValues,
+		labels:         labels,
 	}
 }
 
@@ -336,6 +358,10 @@ func (s *store[K, V]) withSelectors(
 
 	if s.selectorValues == nil {
 		return nil, ErrSelectorUnsupported
+	}
+
+	if !options.LabelSelector.Empty() && s.labels == hasNoLabels {
+		return nil, ErrLabelsUnsupported
 	}
 
 	return func(value V) bool {
