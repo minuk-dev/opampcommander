@@ -48,7 +48,7 @@ import { cn, type ColumnConfig, useColumnVisibility, useCursorPagination } from 
 import { useApi, type ListResponse } from '@shared/api';
 import type { AgentGroup } from '@entities/agent-group';
 
-type SearchMode = 'uid' | 'group' | 'description' | 'attribute' | 'nattribute';
+type SearchMode = 'uid' | 'group' | 'description' | 'labels' | 'nattribute';
 
 // `lcNeedle` is expected to be pre-lowercased by the caller so we don't redo
 // it for every agent in a filter pass.
@@ -153,7 +153,10 @@ function AgentsInner() {
   const agentGroupParam = search.get('agentGroup') || '';
   const qParam = search.get('q') || '';
   const descParam = search.get('desc') || '';
-  const selectorParam = search.get('selector') || '';
+  // `selector` is the parameter this page used before the server understood
+  // label selectors. Its `key=value` form is a valid label selector, so old
+  // bookmarks keep working by being read as one.
+  const labelSelectorParam = search.get('labelSelector') || search.get('selector') || '';
   const nonIdentifyingSelectorParam = search.get('nonIdentifyingSelector') || '';
   const modeParam =
     (search.get('mode') as SearchMode | null) ||
@@ -161,8 +164,8 @@ function AgentsInner() {
       ? 'group'
       : descParam
         ? 'description'
-        : selectorParam
-          ? 'attribute'
+        : labelSelectorParam
+          ? 'labels'
           : nonIdentifyingSelectorParam
             ? 'nattribute'
             : 'uid');
@@ -180,9 +183,10 @@ function AgentsInner() {
   const colSpan = AGENT_COLUMNS.filter((c) => isVisible(c.id)).length + 1;
 
   // The search modes hit different endpoints: group lists a group's agents, UID
-  // hits the search endpoint, attribute filters the plain list server-side via a
-  // `selector`, and description reuses the plain list but filters client-side
-  // (see visibleAgents below).
+  // hits the search endpoint, labels and non-identifying attributes filter the
+  // plain list in the datastore, and description reuses the plain list but
+  // filters client-side (see visibleAgents below) — the API has no substring
+  // search over attribute values.
   let listPath: string;
   const listQuery: Record<string, string> = {};
   if (agentGroupParam) {
@@ -192,8 +196,8 @@ function AgentsInner() {
     listQuery.q = qParam;
   } else {
     listPath = `/api/v1/namespaces/${namespace}/agents`;
-    if (selectorParam) {
-      listQuery.selector = selectorParam;
+    if (labelSelectorParam) {
+      listQuery.labelSelector = labelSelectorParam;
     }
     if (nonIdentifyingSelectorParam) {
       listQuery.nonIdentifyingSelector = nonIdentifyingSelectorParam;
@@ -221,9 +225,9 @@ function AgentsInner() {
     if (mode === 'uid') setQuery(qParam);
     else if (mode === 'description') setQuery(descParam);
     else if (mode === 'group') setQuery(agentGroupParam);
-    else if (mode === 'attribute') setQuery(selectorParam);
+    else if (mode === 'labels') setQuery(labelSelectorParam);
     else if (mode === 'nattribute') setQuery(nonIdentifyingSelectorParam);
-  }, [mode, qParam, descParam, agentGroupParam, selectorParam, nonIdentifyingSelectorParam]);
+  }, [mode, qParam, descParam, agentGroupParam, labelSelectorParam, nonIdentifyingSelectorParam]);
 
   // Sync mode state if URL changes externally
   useEffect(() => {
@@ -234,7 +238,7 @@ function AgentsInner() {
     q?: string;
     agentGroup?: string;
     desc?: string;
-    selector?: string;
+    labelSelector?: string;
     nonIdentifyingSelector?: string;
     mode?: SearchMode;
   }) => {
@@ -243,13 +247,13 @@ function AgentsInner() {
     const q = next.q ?? (m === 'uid' ? qParam : '');
     const g = next.agentGroup ?? (m === 'group' ? agentGroupParam : '');
     const d = next.desc ?? (m === 'description' ? descParam : '');
-    const s = next.selector ?? (m === 'attribute' ? selectorParam : '');
+    const s = next.labelSelector ?? (m === 'labels' ? labelSelectorParam : '');
     const ns =
       next.nonIdentifyingSelector ?? (m === 'nattribute' ? nonIdentifyingSelectorParam : '');
     if (q) params.set('q', q);
     if (g) params.set('agentGroup', g);
     if (d) params.set('desc', d);
-    if (s) params.set('selector', s);
+    if (s) params.set('labelSelector', s);
     if (ns) params.set('nonIdentifyingSelector', ns);
     if (m !== 'uid' || !q) params.set('mode', m);
     const qs = params.toString();
@@ -264,7 +268,7 @@ function AgentsInner() {
         q: value,
         agentGroup: '',
         desc: '',
-        selector: '',
+        labelSelector: '',
         nonIdentifyingSelector: '',
         mode: 'uid',
       });
@@ -273,18 +277,18 @@ function AgentsInner() {
         agentGroup: value,
         q: '',
         desc: '',
-        selector: '',
+        labelSelector: '',
         nonIdentifyingSelector: '',
         mode: 'group',
       });
-    } else if (mode === 'attribute') {
+    } else if (mode === 'labels') {
       updateUrl({
-        selector: value,
+        labelSelector: value,
         q: '',
         agentGroup: '',
         desc: '',
         nonIdentifyingSelector: '',
-        mode: 'attribute',
+        mode: 'labels',
       });
     } else if (mode === 'nattribute') {
       updateUrl({
@@ -292,7 +296,7 @@ function AgentsInner() {
         q: '',
         agentGroup: '',
         desc: '',
-        selector: '',
+        labelSelector: '',
         mode: 'nattribute',
       });
     } else {
@@ -300,7 +304,7 @@ function AgentsInner() {
         desc: value,
         q: '',
         agentGroup: '',
-        selector: '',
+        labelSelector: '',
         nonIdentifyingSelector: '',
         mode: 'description',
       });
@@ -314,25 +318,25 @@ function AgentsInner() {
       q: '',
       agentGroup: '',
       desc: '',
-      selector: '',
+      labelSelector: '',
       nonIdentifyingSelector: '',
       mode: next,
     });
   };
 
   // Triggered by clicking an identifying-attribute chip: jump to an exact,
-  // server-side search for that attribute.
+  // server-side label selector for that attribute.
   const searchByAttribute = (key: string, value: string) => {
-    const selector = `${key}=${value}`;
-    setMode('attribute');
-    setQuery(selector);
+    const labelSelector = `${key}=${value}`;
+    setMode('labels');
+    setQuery(labelSelector);
     updateUrl({
-      selector,
+      labelSelector,
       q: '',
       agentGroup: '',
       desc: '',
       nonIdentifyingSelector: '',
-      mode: 'attribute',
+      mode: 'labels',
     });
   };
 
@@ -347,7 +351,7 @@ function AgentsInner() {
       q: '',
       agentGroup: '',
       desc: '',
-      selector: '',
+      labelSelector: '',
       mode: 'nattribute',
     });
   };
@@ -370,7 +374,7 @@ function AgentsInner() {
   };
 
   const filterActive = Boolean(
-    agentGroupParam || qParam || descParam || selectorParam || nonIdentifyingSelectorParam,
+    agentGroupParam || qParam || descParam || labelSelectorParam || nonIdentifyingSelectorParam,
   );
   const lcDesc = descParam.toLowerCase();
   const visibleAgents = descParam
@@ -380,8 +384,8 @@ function AgentsInner() {
   const searchPlaceholder =
     mode === 'uid'
       ? 'Instance UID contains… (server-side)'
-      : mode === 'attribute'
-        ? 'key=value identifying attribute (exact, server-side)'
+      : mode === 'labels'
+        ? 'env=prod, tier notin (canary,dev), !deprecated (server-side)'
         : mode === 'nattribute'
           ? 'key=value non-identifying attribute (exact, server-side)'
           : 'Attribute key/value contains… (client-side, current page)';
@@ -417,7 +421,7 @@ function AgentsInner() {
                 <SelectContent>
                   <SelectItem value="group">Agent Group</SelectItem>
                   <SelectItem value="uid">Instance UID</SelectItem>
-                  <SelectItem value="attribute">Identifying Attribute</SelectItem>
+                  <SelectItem value="labels">Labels (identifying attributes)</SelectItem>
                   <SelectItem value="nattribute">Non-identifying Attribute</SelectItem>
                   <SelectItem value="description">Description</SelectItem>
                 </SelectContent>
@@ -494,12 +498,12 @@ function AgentsInner() {
                 }}
               />
             )}
-            {selectorParam && (
+            {labelSelectorParam && (
               <FilterChip
-                label={`Attribute: ${selectorParam}`}
+                label={`Labels: ${labelSelectorParam}`}
                 onClear={() => {
                   setQuery('');
-                  updateUrl({ selector: '' });
+                  updateUrl({ labelSelector: '' });
                 }}
               />
             )}
