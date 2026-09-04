@@ -14,6 +14,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -32,6 +33,7 @@ type CommandOptions struct {
 	includeDeleted bool
 	namespace      string
 	allNamespaces  bool
+	selectors      selectorflags.Flags
 
 	// internal
 	client *client.Client
@@ -61,6 +63,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted agent remote configs")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -102,12 +106,14 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agent remote configs.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list agent remote configs: %w", err)
+	}
 
-	var (
-		agentRemoteConfigs []v1.AgentRemoteConfig
-		err                error
-	)
+	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
+
+	var agentRemoteConfigs []v1.AgentRemoteConfig
 
 	if opt.allNamespaces {
 		agentRemoteConfigs, err = opt.listAllNamespaces(cmd, listOpts...)
