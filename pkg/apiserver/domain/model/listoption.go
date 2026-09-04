@@ -29,6 +29,24 @@ type ListOptions struct {
 	// range scan rather than a collection-wide regex.
 	NamePrefix string
 
+	// NameContains, when non-empty, restricts the listing to resources whose name
+	// contains it, case-insensitively.
+	//
+	// Unlike NamePrefix this cannot be an index range scan — no ordered index can
+	// answer "contains" — so it is evaluated against every candidate document.
+	//
+	// The page limit does not bound that. An exact RemainingItemCount comes from
+	// counting the whole matched set, so the match runs over the collection on
+	// every request, not only on the pages that fill slowly. Combining it with
+	// NamePrefix is what bounds the scan, to that prefix's indexed range.
+	//
+	// It is a separate option rather than a mode of NamePrefix precisely so that
+	// the fast path stays the one a caller reaches for by default, and the scan is
+	// something they ask for.
+	//
+	// The needle is matched literally: it is never interpreted as a pattern.
+	NameContains string
+
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
 	// currently considered connected. It is the alias for FieldSelector
 	// "status.connected=true" and means exactly the same thing.

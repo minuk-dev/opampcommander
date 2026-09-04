@@ -57,6 +57,11 @@ func (v SelectorValues) Matches(options *ListOptions) bool {
 		return false
 	}
 
+	if options.NameContains != "" &&
+		!strings.Contains(strings.ToLower(v.Name), strings.ToLower(options.NameContains)) {
+		return false
+	}
+
 	return options.LabelSelector.MatchesAny(v.Labels, v.AdditionalLabels) &&
 		options.FieldSelector.Matches(v.Fields)
 }
