@@ -64,7 +64,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent package")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.Labels)
 
 	return cmd
 }

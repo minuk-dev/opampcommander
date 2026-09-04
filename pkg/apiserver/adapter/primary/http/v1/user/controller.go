@@ -103,13 +103,13 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, applicationport.UserSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, applicationport.UserSelectableFields)
 	if !ok {
 		return
 	}
 
 	response, err := c.userUsecase.ListUsers(ctx.Request.Context(), &applicationport.ListOptions{
-		LabelSelector:  selectors.Label,
+		LabelSelector:  selectors.Metadata,
 		FieldSelector:  selectors.Field,
 		NamePrefix:     selectors.NamePrefix,
 		Limit:          limit,

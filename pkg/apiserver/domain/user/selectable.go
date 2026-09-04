@@ -32,8 +32,9 @@ var (
 // A user's name, for prefix search, is the email they are identified by.
 func (u *User) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   u.Spec.Email,
-		Labels: u.Metadata.Labels,
+		Name:             u.Spec.Email,
+		Labels:           u.Metadata.Labels,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"spec.isActive": strconv.FormatBool(u.Spec.IsActive),
 		},
@@ -47,8 +48,9 @@ func (u *User) SelectorValues() model.SelectorValues {
 // rather than answered with an empty page.
 func (r *Role) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   r.Spec.DisplayName,
-		Labels: nil,
+		Name:             r.Spec.DisplayName,
+		Labels:           nil,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"spec.isBuiltIn": strconv.FormatBool(r.Spec.IsBuiltIn),
 		},
@@ -59,8 +61,9 @@ func (r *Role) SelectorValues() model.SelectorValues {
 // bindings on. Like roles, they carry no label map.
 func (r *RoleBinding) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   r.Metadata.Name,
-		Labels: nil,
+		Name:             r.Metadata.Name,
+		Labels:           nil,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"spec.roleRef.name": r.Spec.RoleRef.Name,
 		},
