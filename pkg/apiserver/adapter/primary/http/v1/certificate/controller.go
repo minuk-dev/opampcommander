@@ -117,7 +117,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	})
 	if err != nil {
 		c.logger.Error("failed to list certificates", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving the list of certificates.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of certificates.")
 
 		return
 	}

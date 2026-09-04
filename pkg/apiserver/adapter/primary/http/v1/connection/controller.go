@@ -104,7 +104,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	if err != nil {
 		c.logger.Error("failed to list connections", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while listing connections.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while listing connections.")
 
 		return
 	}

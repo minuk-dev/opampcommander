@@ -117,7 +117,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	})
 	if err != nil {
 		c.logger.Error("failed to list agent packages", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving the list of agent packages.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving the list of agent packages.")
 
 		return
 	}
