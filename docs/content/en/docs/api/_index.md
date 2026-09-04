@@ -71,7 +71,112 @@ GET  /api/v1/namespaces/{namespace}/agents/{id}
 POST /api/v1/namespaces/{namespace}/agents/search
 ```
 
-List endpoints accept `limit` and `continue` query parameters for pagination.
+List endpoints accept `limit` and `continue` query parameters for pagination, plus
+the filtering parameters described in [Filtering and searching](#filtering-and-searching).
+
+## Filtering and searching
+
+Every list endpoint accepts three filtering parameters. They are answered by the
+datastore, not by the server fetching a page and discarding rows from it, so
+`remainingItemCount` always describes the same set the page was drawn from.
+
+```http
+GET /api/v1/namespaces/prod/agents?attributeSelector=service.name%3Dotel-collector&fieldSelector=status.connected%3Dtrue
+GET /api/v1/namespaces/prod/endpoints?labelSelector=env%3Dprod
+```
+
+### `labelSelector` and `attributeSelector`
+
+Two parameters, one grammar. They are separate because they read different
+metadata, and the difference is **who sets it**:
+
+- **`labelSelector`** reads metadata *an operator set* through this API and can
+  change.
+- **`attributeSelector`** reads metadata *the resource reported about itself*. Only
+  agents have any: their OpAMP `AgentDescription`, which arrives over the protocol
+  and cannot be set here.
+
+Sending the one a resource does not have is a `400` naming what it does have — not
+an ignored parameter, which would hand back the whole collection with a `200`.
+
+The expression syntax below is identical for both. Multiple requirements are
+comma-separated and combined with AND.
+
+| Form | Example | Matches |
+|---|---|---|
+| `key=value`, `key==value` | `env=prod` | the label is present and equal |
+| `key!=value` | `tier!=canary` | the label differs **or is absent** |
+| `key in (a,b)` | `env in (prod,stg)` | the label is one of the listed values |
+| `key notin (a,b)` | `tier notin (canary,dev)` | the label is none of them, **or is absent** |
+| `key` | `deprecated` | the label is present, whatever its value |
+| `!key` | `!deprecated` | the label is absent |
+
+The negative operators deliberately match a resource that carries no such label at
+all, exactly as Kubernetes label selectors do.
+
+Which parameter a resource answers, and what backs it:
+
+| Resource | Parameter | Backed by |
+|---|---|---|
+| namespaces, hosts, containers, users | `labelSelector` | `metadata.labels` |
+| agent groups, packages, remote configs, certificates, endpoints, schemas | `labelSelector` | `metadata.attributes` |
+| agents | `attributeSelector` | the reported agent description |
+| roles, role bindings | neither | — |
+
+An agent's description is one attribute domain. The split into identifying and
+non-identifying attributes says which attributes form the agent's *identity*, not
+which an operator may *filter* on, so `attributeSelector=os.type%3Dlinux` finds an
+agent whichever half reports it.
+
+Roles and role bindings carry neither kind. Either parameter against them is
+answered with `400 Bad Request` saying so, rather than with an empty list.
+
+### `fieldSelector`
+
+An expression over the resource's own fields, using `=`, `==` and `!=` only —
+there are no set-based or existence forms. Only the fields a resource documents as
+selectable may be referenced; anything else is a `400` naming the field and listing
+the supported ones, so a filter is never silently dropped.
+
+| Resource | Selectable fields |
+|---|---|
+| agents | `metadata.namespace`, `status.connected`, `status.healthy` |
+| agent groups, remote configs, certificates | `metadata.namespace` |
+| agent packages | `metadata.namespace`, `spec.packageType`, `spec.version` |
+| remote config schemas | `metadata.namespace`, `spec.binary`, `spec.version` |
+| endpoints | `metadata.namespace`, `spec.protocol` |
+| hosts, containers | `spec.platform` |
+| namespaces | `metadata.name` |
+| users | `spec.isActive` |
+| roles | `spec.isBuiltIn` |
+| role bindings | `spec.roleRef.name` |
+
+`status.connected` uses the same staleness-aware predicate as the connected badge,
+so a filtered list and the badge cannot disagree. The `connected=true` parameter on
+the agents endpoint is a shorthand for `fieldSelector=status.connected=true`.
+
+### `name` and `nameContains`
+
+```http
+GET /api/v1/namespaces/prod/endpoints?name=tempo-
+GET /api/v1/namespaces/prod/endpoints?nameContains=tempo
+```
+
+`name` is a **case-sensitive prefix**, served by an index range scan. `nameContains`
+is a **case-insensitive substring**; no ordered index can answer "contains", so it is
+a scan — prefer `name` where a prefix will do. Both are matched literally: neither is
+interpreted as a pattern. They combine, which lets you anchor a scan to an indexed
+prefix.
+
+For agents, the name is the instance UID; for roles, the display name; for users,
+the email.
+
+### Deprecated parameters
+
+The agents endpoint still accepts `selector` and `nonIdentifyingSelector`, repeated
+`key=value` parameters that predate `attributeSelector`. They are deprecated:
+`attributeSelector` expresses the same equality form and adds `!=`, `in`, `notin`
+and existence, and reaches both halves of the agent description.
 
 ## Agent groups
 
