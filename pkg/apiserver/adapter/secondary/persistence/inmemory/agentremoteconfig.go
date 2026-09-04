@@ -22,7 +22,7 @@ func NewAgentRemoteConfigRepository() *AgentRemoteConfigRepository {
 	return &AgentRemoteConfigRepository{
 		store: newStore[namespacedName](cloneAgentRemoteConfig, func(arc *agentmodel.AgentRemoteConfig) *time.Time {
 			return arc.Metadata.DeletedAt
-		}, (*agentmodel.AgentRemoteConfig).SelectorValues),
+		}, (*agentmodel.AgentRemoteConfig).SelectorValues, hasLabels),
 	}
 }
 

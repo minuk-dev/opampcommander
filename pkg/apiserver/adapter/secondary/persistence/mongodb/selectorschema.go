@@ -360,7 +360,9 @@ var (
 		labelPath:    "metadata.labels",
 		labelStorage: labelsMap,
 		namePath:     entity.NamespaceKeyFieldName,
-		fields:       map[string]fieldSpec{},
+		fields: map[string]fieldSpec{
+			"metadata.name": {path: entity.NamespaceKeyFieldName, kind: fieldString},
+		},
 	}
 	remoteConfigSchemaSelectorSchema = selectorSchema{
 		labelPath:    "metadata.attributes",
@@ -370,6 +372,24 @@ var (
 			"metadata.namespace": {path: remoteConfigSchemaNamespaceFieldName, kind: fieldString},
 			"spec.binary":        {path: "spec.binary", kind: fieldString},
 			"spec.version":       {path: "spec.version", kind: fieldString},
+		},
+	}
+	// Roles and role bindings carry no label map, so a label selector against
+	// either is rejected rather than silently answered with an empty page.
+	roleSelectorSchema = selectorSchema{
+		labelPath:    "",
+		labelStorage: labelsUnsupported,
+		namePath:     "spec.displayName",
+		fields: map[string]fieldSpec{
+			"spec.isBuiltIn": {path: "spec.isBuiltIn", kind: fieldBool},
+		},
+	}
+	roleBindingSelectorSchema = selectorSchema{
+		labelPath:    "",
+		labelStorage: labelsUnsupported,
+		namePath:     roleBindingNameFieldName,
+		fields: map[string]fieldSpec{
+			"spec.roleRef.name": {path: "spec.roleRef.name", kind: fieldString},
 		},
 	}
 	userSelectorSchema = selectorSchema{

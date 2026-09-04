@@ -124,7 +124,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	)
 	if err != nil {
 		c.logger.Error("failed to list remote config schemas", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving remote config schemas.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving remote config schemas.")
 
 		return
 	}

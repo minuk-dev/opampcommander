@@ -47,9 +47,10 @@ func (s *RoleBindingService) GetRoleBinding(
 // ListRoleBindings implements [userport.RoleBindingUsecase].
 func (s *RoleBindingService) ListRoleBindings(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	resp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, options)
+	resp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings from persistence: %w", err)
 	}

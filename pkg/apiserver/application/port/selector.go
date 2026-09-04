@@ -36,4 +36,8 @@ var (
 	RemoteConfigSchemaSelectableFields = agentmodel.RemoteConfigSchemaSelectableFields
 	// UserSelectableFields are the fields a user listing can be filtered on.
 	UserSelectableFields = usermodel.UserSelectableFields
+	// RoleSelectableFields are the fields a role listing can be filtered on.
+	RoleSelectableFields = usermodel.RoleSelectableFields
+	// RoleBindingSelectableFields are the fields a role-binding listing can be filtered on.
+	RoleBindingSelectableFields = usermodel.RoleBindingSelectableFields
 )

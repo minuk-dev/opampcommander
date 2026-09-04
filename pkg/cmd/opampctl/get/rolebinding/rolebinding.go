@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -29,6 +30,7 @@ type CommandOptions struct {
 	formatType     string
 	includeDeleted bool
 	namespace      string
+	selectors      selectorflags.Flags
 
 	// internal
 	client *client.Client
@@ -71,6 +73,8 @@ Examples:
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted role bindings")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the role binding")
 
+	options.selectors.Register(cmd)
+
 	return cmd
 }
 
@@ -96,7 +100,12 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (opt *CommandOptions) list(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list role bindings: %w", err)
+	}
+
+	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
 
 	resp, err := opt.client.RoleBindingService.ListRoleBindings(cmd.Context(), opt.namespace, listOpts...)
 	if err != nil {

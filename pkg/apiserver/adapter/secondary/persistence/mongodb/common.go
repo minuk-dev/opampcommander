@@ -119,7 +119,10 @@ func (a *commonEntityAdapter[Entity, KeyType]) listWithConditions(
 
 	continueTokenObjectID, err := bson.ObjectIDFromHex(options.Continue)
 	if err != nil && options.Continue != "" {
-		return nil, fmt.Errorf("invalid continue token: %w", err)
+		// A continue token comes from the client, so a malformed one is bad input
+		// rather than a server fault: wrapping ErrInvalidArgument is what makes it
+		// a 400 instead of a 500.
+		return nil, fmt.Errorf("%w: invalid continue token %q", model.ErrInvalidArgument, options.Continue)
 	}
 
 	conditions := slices.Clone(extraConditions)

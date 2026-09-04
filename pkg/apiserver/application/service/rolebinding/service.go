@@ -61,9 +61,10 @@ func (s *Service) GetRoleBinding(
 // ListRoleBindings implements [usecase.RoleBindingManageUsecase].
 func (s *Service) ListRoleBindings(
 	ctx context.Context,
+	namespace string,
 	options *applicationport.ListOptions,
 ) (*v1.ListResponse[v1.RoleBinding], error) {
-	domainResp, err := s.roleBindingUsecase.ListRoleBindings(ctx, options.ToDomain())
+	domainResp, err := s.roleBindingUsecase.ListRoleBindings(ctx, namespace, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list role bindings: %w", err)
 	}
