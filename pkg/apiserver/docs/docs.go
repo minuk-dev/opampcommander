@@ -328,6 +328,12 @@ const docTemplate = `{
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -506,6 +512,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],
@@ -686,6 +698,12 @@ const docTemplate = `{
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -754,6 +772,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],
@@ -1057,6 +1081,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],
@@ -1363,6 +1393,12 @@ const docTemplate = `{
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1464,6 +1500,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive instance-UID prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive instance UID substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],
@@ -1901,6 +1943,12 @@ const docTemplate = `{
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2314,6 +2362,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],
@@ -2748,6 +2802,12 @@ const docTemplate = `{
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3053,6 +3113,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],
@@ -3411,6 +3477,12 @@ const docTemplate = `{
                         "description": "Case-sensitive display-name prefix filter",
                         "name": "name",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive display name substring filter (scan, not indexed)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3709,6 +3781,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Case-sensitive name prefix filter",
                         "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan, not indexed)",
+                        "name": "nameContains",
                         "in": "query"
                     }
                 ],

@@ -19,6 +19,9 @@ const (
 	FieldSelectorParam = "fieldSelector"
 	// NameParam filters on a case-sensitive prefix of the resource's name.
 	NameParam = "name"
+	// NameContainsParam filters on a case-insensitive substring of the resource's
+	// name. It is a scan rather than an index range scan; see [Selectors].
+	NameContainsParam = "nameContains"
 )
 
 // MetadataSelector names which of the two metadata selectors a resource answers.
@@ -77,8 +80,13 @@ type Selectors struct {
 	// Field is the parsed fieldSelector, already validated against the listed
 	// resource's supported fields.
 	Field selector.FieldSelector
-	// NamePrefix is the raw name query, empty when the client sent none.
+	// NamePrefix is the raw name query, empty when the client sent none. It is
+	// served by an index range scan.
 	NamePrefix string
+	// NameContains is the raw nameContains query, empty when the client sent none.
+	// No ordered index can answer "contains", so it is a scan; it is a separate
+	// parameter so the prefix search stays the default fast path.
+	NameContains string
 }
 
 // ParseSelectors reads the metadata, field and name query parameters, validating
@@ -149,8 +157,9 @@ func ParseSelectors(ctx *gin.Context, metadata MetadataSelector, allowedFields [
 	}
 
 	return Selectors{
-		Metadata:   metadataSelector,
-		Field:      fieldSelector,
-		NamePrefix: ctx.Query(NameParam),
+		Metadata:     metadataSelector,
+		Field:        fieldSelector,
+		NamePrefix:   ctx.Query(NameParam),
+		NameContains: ctx.Query(NameContainsParam),
 	}, true
 }

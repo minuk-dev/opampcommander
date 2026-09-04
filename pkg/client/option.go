@@ -99,6 +99,9 @@ type ListSettings struct {
 	// namePrefix restricts the listing to resources whose name starts with it;
 	// empty means no name filter.
 	namePrefix string
+	// nameContains restricts the listing to resources whose name contains it,
+	// case-insensitively; empty means no name filter.
+	nameContains string
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -210,10 +213,23 @@ func WithFieldSelector(expression string) ListOption {
 }
 
 // WithName restricts a listing to resources whose name starts with the given
-// prefix. The match is case-sensitive. An empty prefix applies no filter.
+// prefix. The match is case-sensitive, and served by an index range scan. An
+// empty prefix applies no filter.
 func WithName(prefix string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.namePrefix = prefix
+	})
+}
+
+// WithNameContains restricts a listing to resources whose name contains the
+// given substring, case-insensitively. The needle is matched literally, never as
+// a pattern. An empty needle applies no filter.
+//
+// No ordered index can answer "contains", so the server answers this by scanning
+// rather than by a range scan; prefer WithName where a prefix will do.
+func WithNameContains(needle string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.nameContains = needle
 	})
 }
 
@@ -275,6 +291,10 @@ func (s ListSettings) applyTo(req *resty.Request) {
 
 	if s.namePrefix != "" {
 		req.SetQueryParam("name", s.namePrefix)
+	}
+
+	if s.nameContains != "" {
+		req.SetQueryParam("nameContains", s.nameContains)
 	}
 
 	values := url.Values{}

@@ -29,6 +29,18 @@ type ListOptions struct {
 	// range scan rather than a collection-wide regex.
 	NamePrefix string
 
+	// NameContains, when non-empty, restricts the listing to resources whose name
+	// contains it, case-insensitively.
+	//
+	// Unlike NamePrefix this cannot be an index range scan — no ordered index can
+	// answer "contains" — so it is a scan of the candidate set, bounded in the
+	// usual case by the page limit. It is a separate option rather than a mode of
+	// NamePrefix precisely so that the fast path stays the one a caller reaches
+	// for by default, and the scan is something they ask for.
+	//
+	// The needle is matched literally: it is never interpreted as a pattern.
+	NameContains string
+
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
 	// currently considered connected. It is the alias for FieldSelector
 	// "status.connected=true" and means exactly the same thing.

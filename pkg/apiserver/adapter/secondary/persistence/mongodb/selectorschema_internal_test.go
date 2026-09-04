@@ -319,3 +319,30 @@ func listOptionsFor(t *testing.T, labels string, fields string) *model.ListOptio
 		FieldSelector: fieldSelector,
 	}
 }
+
+// A substring search cannot be a range scan, so it is a regex — which makes
+// quoting the needle the thing that has to be right: a client must never be able
+// to hand the datastore an expression to evaluate.
+func TestSelectorSchema_NameContainsIsQuoted(t *testing.T) {
+	t.Parallel()
+
+	//exhaustruct:ignore
+	conditions, err := endpointSelectorSchema.conditions(&model.ListOptions{NameContains: "a.*b"})
+	require.NoError(t, err)
+	require.Len(t, conditions, 1)
+
+	assert.Equal(t, bson.M{"metadata.name": bson.Regex{Pattern: `a\.\*b`, Options: "i"}}, conditions[0])
+}
+
+// The prefix search keeps its index-servable range form; adding a substring
+// search must not quietly turn every name filter into a scan.
+func TestSelectorSchema_NamePrefixStaysARangeScan(t *testing.T) {
+	t.Parallel()
+
+	//exhaustruct:ignore
+	conditions, err := endpointSelectorSchema.conditions(&model.ListOptions{NamePrefix: "prod-"})
+	require.NoError(t, err)
+	require.Len(t, conditions, 1)
+
+	assert.Equal(t, bson.M{"metadata.name": bson.M{"$gte": "prod-", "$lt": "prod."}}, conditions[0])
+}
