@@ -2673,22 +2673,22 @@ paths:
         name: connected
         type: boolean
       - collectionFormat: multi
-        description: Identifying attribute filter (key=value, repeatable)
+        description: 'Deprecated: use attributeSelector'
         in: query
         items:
           type: string
         name: selector
         type: array
       - collectionFormat: multi
-        description: Non-identifying attribute (key=value)
+        description: 'Deprecated: use attributeSelector'
         in: query
         items:
           type: string
         name: nonIdentifyingSelector
         type: array
-      - description: Selector over the identifying attributes, e.g. service.namespace=payments
+      - description: Selector over the reported agent description, e.g. os.type=linux
         in: query
-        name: labelSelector
+        name: attributeSelector
         type: string
       - description: 'Fields: metadata.namespace, status.connected, status.healthy'
         in: query

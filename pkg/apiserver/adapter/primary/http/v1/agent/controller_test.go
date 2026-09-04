@@ -96,6 +96,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// ListOptions.IdentifyingAttributes as exact key=value pairs.
 		agentUsecase.EXPECT().
 			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *applicationport.ListOptions) bool {
+				//nolint:staticcheck // asserts the deprecated alias still works
 				return opts != nil &&
 					opts.IdentifyingAttributes["service.name"] == "otel-collector" &&
 					opts.IdentifyingAttributes["service.namespace"] == "prod"
@@ -136,6 +137,7 @@ func TestAgentControllerListAgent(t *testing.T) {
 		// "=" only and never on commas, so the value is preserved verbatim.
 		agentUsecase.EXPECT().
 			ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *applicationport.ListOptions) bool {
+				//nolint:staticcheck // asserts the deprecated alias still works
 				return opts != nil &&
 					opts.IdentifyingAttributes["service.instance.id"] == "a,b=c"
 			})).
@@ -290,6 +292,7 @@ func TestAgentControllerListAgentSelectorThreading(t *testing.T) {
 	// given: selector and nonIdentifyingSelector map to their own attribute sets.
 	agentUsecase.EXPECT().
 		ListAgents(mock.Anything, "default", mock.MatchedBy(func(opts *applicationport.ListOptions) bool {
+			//nolint:staticcheck // asserts the deprecated aliases still work
 			return opts != nil &&
 				opts.IdentifyingAttributes["service.name"] == "otel-collector" &&
 				opts.NonIdentifyingAttributes["os.type"] == "linux"

@@ -97,9 +97,9 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of agents to return"
 // @Param continue query string false "Token to continue listing agents"
 // @Param connected query bool false "Alias for fieldSelector=status.connected=true"
-// @Param selector query []string false "Identifying attribute filter (key=value, repeatable)" collectionFormat(multi)
-// @Param nonIdentifyingSelector query []string false "Non-identifying attribute (key=value)" collectionFormat(multi)
-// @Param labelSelector query string false "Selector over the identifying attributes, e.g. service.namespace=payments"
+// @Param selector query []string false "Deprecated: use attributeSelector" collectionFormat(multi)
+// @Param nonIdentifyingSelector query []string false "Deprecated: use attributeSelector" collectionFormat(multi)
+// @Param attributeSelector query string false "Selector over the reported agent description, e.g. os.type=linux"
 // @Param fieldSelector query string false "Fields: metadata.namespace, status.connected, status.healthy"
 // @Param name query string false "Case-sensitive instance-UID prefix filter"
 // @Failure 400 {object} ErrorModel
@@ -132,7 +132,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, applicationport.AgentSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.AttributeMetadataSelector, applicationport.AgentSelectableFields)
 	if !ok {
 		return
 	}
@@ -145,7 +145,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		ConnectedOnly:            connectedOnly,
 		IdentifyingAttributes:    identifyingAttributes,
 		NonIdentifyingAttributes: nonIdentifyingAttributes,
-		LabelSelector:            selectors.Label,
+		LabelSelector:            selectors.Metadata,
 		FieldSelector:            selectors.Field,
 		NamePrefix:               selectors.NamePrefix,
 	})

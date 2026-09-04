@@ -22,11 +22,33 @@ import (
 // listing path that filters in the process rather than in the datastore.
 var ErrUnsupportedLocally = errors.New("filter not supported by this listing")
 
+// Metadata names which metadata selector a resource answers.
+//
+// The API keeps them apart because they are not the same thing: a label is
+// something an operator attaches and can change, an attribute is something the
+// resource reported about itself. The CLI keeps one -l/--selector flag, because a
+// command already names its resource, and sends whichever parameter that resource
+// has.
+type Metadata int
+
+const (
+	// Labels is a resource whose metadata an operator sets.
+	Labels Metadata = iota
+	// Attributes is a resource whose metadata it reports itself — agents.
+	Attributes
+	// NoMetadata is a resource with neither, such as a role. Such a command gets
+	// no -l/--selector flag at all, so the mistake is an unknown flag locally
+	// rather than a round-tripped 400.
+	NoMetadata
+)
+
 // Flags holds the parsed values of the shared filtering flags.
 //
 // The zero value registers and applies nothing, so a command that embeds it
 // without calling Register still works.
 type Flags struct {
+	// metadata is which selector the resource being listed answers.
+	metadata Metadata
 	// label is the raw -l/--selector expression.
 	label string
 	// field is the raw --field-selector expression.
@@ -35,14 +57,25 @@ type Flags struct {
 	name string
 }
 
-// Register adds -l/--selector, --field-selector and --name to cmd.
+// Register adds -l/--selector, --field-selector and --name to cmd, for a resource
+// whose metadata is of the given kind. A resource with neither kind gets no
+// -l/--selector at all.
 //
 // Which fields a resource supports is deliberately not repeated here: the server
 // owns that list and rejects an unsupported field with an error naming it and
 // listing the supported ones, so the help text cannot go stale.
-func (f *Flags) Register(cmd *cobra.Command) {
-	cmd.Flags().StringVarP(&f.label, "selector", "l", "",
-		"Filter by labels, e.g. -l 'env=prod,tier notin (canary,dev),!deprecated'")
+func (f *Flags) Register(cmd *cobra.Command, metadata Metadata) {
+	f.metadata = metadata
+
+	if metadata != NoMetadata {
+		usage := "Filter by labels, e.g. -l 'env=prod,tier notin (canary,dev),!deprecated'"
+		if metadata == Attributes {
+			usage = "Filter by reported attributes, e.g. -l 'service.name=otel-collector,os.type=linux'"
+		}
+
+		cmd.Flags().StringVarP(&f.label, "selector", "l", "", usage)
+	}
+
 	cmd.Flags().StringVar(&f.field, "field-selector", "",
 		"Filter by resource fields, e.g. --field-selector metadata.namespace=prod")
 	cmd.Flags().StringVar(&f.name, "name", "", "Filter by a case-sensitive name prefix")
@@ -78,7 +111,11 @@ func (f *Flags) ListOptions() ([]client.ListOption, error) {
 	var opts []client.ListOption
 
 	if f.label != "" {
-		opts = append(opts, client.WithLabelSelector(f.label))
+		if f.metadata == Attributes {
+			opts = append(opts, client.WithAttributeSelector(f.label))
+		} else {
+			opts = append(opts, client.WithLabelSelector(f.label))
+		}
 	}
 
 	if f.field != "" {
@@ -135,12 +172,16 @@ func (f *Flags) LocalFilter() (LocalFilter, error) {
 	return LocalFilter{labels: labels, name: f.name}, nil
 }
 
-// Matches reports whether a resource with the given name and labels satisfies
-// the filter.
-func (lf LocalFilter) Matches(name string, labels map[string]string) bool {
+// Matches reports whether a resource with the given name and label maps
+// satisfies the filter.
+//
+// More than one label map may be passed, for a resource that carries its labels
+// in several — an agent's description is split into identifying and
+// non-identifying attributes, and one selector reaches both.
+func (lf LocalFilter) Matches(name string, labelSets ...map[string]string) bool {
 	if lf.name != "" && !strings.HasPrefix(name, lf.name) {
 		return false
 	}
 
-	return lf.labels.Matches(labels)
+	return lf.labels.MatchesAny(labelSets...)
 }

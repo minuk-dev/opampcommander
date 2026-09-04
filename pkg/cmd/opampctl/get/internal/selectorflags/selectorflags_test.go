@@ -1,12 +1,16 @@
 package selectorflags_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 )
 
@@ -19,7 +23,7 @@ func newFlags(t *testing.T, argv ...string) *selectorflags.Flags {
 
 	//exhaustruct:ignore
 	cmd := &cobra.Command{Use: "test"}
-	flags.Register(cmd)
+	flags.Register(cmd, selectorflags.Labels)
 
 	require.NoError(t, cmd.ParseFlags(argv))
 
@@ -111,4 +115,80 @@ func TestLocalFilter_RejectsFieldSelector(t *testing.T) {
 
 	_, err := newFlags(t, "--field-selector", "metadata.namespace=prod").LocalFilter()
 	require.ErrorIs(t, err, selectorflags.ErrUnsupportedLocally)
+}
+
+// One -l/--selector flag, two parameters. A command already names its resource,
+// so the flag sends whichever metadata selector that resource answers — a label
+// selector for what an operator set, an attribute selector for what an agent
+// reported.
+func TestListOptions_SelectorFlagFollowsTheResourceMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		metadata selectorflags.Metadata
+		want     string
+	}{
+		"labels":     {selectorflags.Labels, "labelSelector"},
+		"attributes": {selectorflags.Attributes, "attributeSelector"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			flags := &selectorflags.Flags{}
+
+			//exhaustruct:ignore
+			cmd := &cobra.Command{Use: "test"}
+			flags.Register(cmd, test.metadata)
+			require.NoError(t, cmd.ParseFlags([]string{"-l", "env=prod"}))
+
+			opts, err := flags.ListOptions()
+			require.NoError(t, err)
+			require.Len(t, opts, 1)
+
+			assert.Equal(t, test.want, sentQueryParam(t, opts[0]))
+		})
+	}
+}
+
+// A resource with neither kind of metadata gets no -l/--selector at all, so the
+// mistake is an unknown flag here rather than a round-tripped 400.
+func TestRegister_NoMetadataResourceHasNoSelectorFlag(t *testing.T) {
+	t.Parallel()
+
+	flags := &selectorflags.Flags{}
+
+	//exhaustruct:ignore
+	cmd := &cobra.Command{Use: "test"}
+	flags.Register(cmd, selectorflags.NoMetadata)
+
+	require.Error(t, cmd.ParseFlags([]string{"-l", "env=prod"}))
+	require.NoError(t, cmd.ParseFlags([]string{"--name", "admin"}))
+}
+
+// sentQueryParam applies one list option and reports which query parameter it set.
+func sentQueryParam(t *testing.T, option client.ListOption) string {
+	t.Helper()
+
+	var recorded url.Values
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		recorded = r.URL.Query()
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[],"continue":"","remainingItemCount":0}`))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := client.New(server.URL).AgentService.ListAgents(t.Context(), "default", option)
+	require.NoError(t, err)
+
+	for _, param := range []string{"labelSelector", "attributeSelector"} {
+		if recorded.Has(param) {
+			return param
+		}
+	}
+
+	return ""
 }
