@@ -296,7 +296,6 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 
 // Helper functions
 
-
 func hasRemoteConfig(agent v1.Agent, configName string) bool {
 	// Check RemoteConfigNames list
 	for _, name := range agent.Spec.RemoteConfig.RemoteConfigNames {
@@ -314,7 +313,6 @@ func hasRemoteConfig(agent v1.Agent, configName string) bool {
 
 	return false
 }
-
 
 func getEffectiveConfigKeys(agent v1.Agent) []string {
 	keys := make([]string, 0)
