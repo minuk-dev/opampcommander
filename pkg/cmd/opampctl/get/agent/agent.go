@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -41,7 +43,7 @@ type CommandOptions struct {
 	allNamespaces          bool
 	decodeCapabilities     bool
 	includeDisconnected    bool
-	selector               map[string]string
+	selectors              selectorflags.Flags
 	nonIdentifyingSelector map[string]string
 
 	// internal
@@ -81,14 +83,12 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		&options.includeDisconnected, "include-disconnected", false,
 		"Include disconnected agents in the listing (by default only connected agents are shown)",
 	)
-	cmd.Flags().StringToStringVarP(
-		&options.selector, "selector", "l", nil,
-		"Filter agents by identifying attributes (exact match), e.g. -l service.name=otel-collector,service.namespace=prod",
-	)
 	cmd.Flags().StringToStringVar(
 		&options.nonIdentifyingSelector, "non-identifying-selector", nil,
 		"Filter agents by non-identifying attributes (exact match), e.g. --non-identifying-selector os.type=linux",
 	)
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -157,29 +157,7 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 		return err
 	}
 
-	// The agent-group endpoint does not understand the selectors, so apply the
-	// attribute filters client-side here. For the plain list paths the server has
-	// already filtered, making this a harmless no-op.
-	agents = filterAgentsBySelectors(agents, opt.selector, opt.nonIdentifyingSelector)
-
 	return opt.formatAgents(cmd, agents)
-}
-
-// filterAgentsBySelectors keeps only agents whose identifying and non-identifying
-// attributes each match every key=value pair in the respective selector. Empty
-// selectors return the input unchanged.
-func filterAgentsBySelectors(
-	agents []v1.Agent,
-	identifying, nonIdentifying map[string]string,
-) []v1.Agent {
-	if len(identifying) == 0 && len(nonIdentifying) == 0 {
-		return agents
-	}
-
-	return lo.Filter(agents, func(agent v1.Agent, _ int) bool {
-		return attributesMatch(agent.Metadata.Description.IdentifyingAttributes, identifying) &&
-			attributesMatch(agent.Metadata.Description.NonIdentifyingAttributes, nonIdentifying)
-	})
 }
 
 // attributesMatch reports whether stored contains every key=value pair in selector.
@@ -271,11 +249,26 @@ func (opt *CommandOptions) ValidArgsFunction(
 	return instanceUIDs, cobra.ShellCompDirectiveNoFileComp
 }
 
-// listOptions builds the per-page list options shared by every list path. By
+// listOptions renders every filtering flag the plain list endpoint understands,
+// failing before the first request when an expression is malformed.
+func (opt *CommandOptions) listOptions() ([]client.ListOption, error) {
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build the agent list options: %w", err)
+	}
+
+	opts := slices.Clone(selectorOpts)
+	opts = append(opts, client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector))
+
+	return append(opts, opt.connectionOptions()...), nil
+}
+
+// connectionOptions builds the connection filter shared by every list path. By
 // default it asks the server for connected agents only; --include-disconnected
-// drops that filter so disconnected agents are returned as well.
-func (opt *CommandOptions) listOptions() []client.ListOption {
-	if opt.includeDisconnected {
+// drops that filter, and so does an explicit status.connected field selector,
+// which would otherwise be ANDed with it and silently return nothing.
+func (opt *CommandOptions) connectionOptions() []client.ListOption {
+	if opt.includeDisconnected || opt.selectors.ConstrainsField("status.connected") {
 		return nil
 	}
 
@@ -283,45 +276,61 @@ func (opt *CommandOptions) listOptions() []client.ListOption {
 }
 
 func (opt *CommandOptions) listSingleNamespace(cmd *cobra.Command) ([]v1.Agent, error) {
-	if opt.byAgentGroup == "" {
-		opts := append([]client.ListOption{
-			client.WithSelector(opt.selector),
-			client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector),
-		}, opt.listOptions()...)
+	if opt.byAgentGroup != "" {
+		return opt.listByAgentGroup(cmd.Context(), opt.namespace)
+	}
 
-		agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client, opt.namespace, opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list agents: %w", err)
-		}
+	opts, err := opt.listOptions()
+	if err != nil {
+		return nil, err
+	}
 
-		return agents, nil
+	agents, err := clientutil.ListAgentFully(cmd.Context(), opt.client, opt.namespace, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	return agents, nil
+}
+
+// listByAgentGroup lists a group's member agents. That endpoint takes no
+// selectors, so the filtering flags are evaluated here rather than dropped —
+// a caller must never mistake the whole membership for a narrowed one.
+func (opt *CommandOptions) listByAgentGroup(ctx context.Context, namespace string) ([]v1.Agent, error) {
+	filter, err := opt.selectors.LocalFilter()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
 	}
 
 	agents, err := clientutil.ListAgentFullyByAgentGroup(
-		cmd.Context(), opt.client, opt.namespace, opt.byAgentGroup, opt.listOptions()...,
+		ctx, opt.client, namespace, opt.byAgentGroup, opt.connectionOptions()...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
 	}
 
-	return agents, nil
+	return lo.Filter(agents, func(agent v1.Agent, _ int) bool {
+		return filter.Matches(
+			agent.Metadata.InstanceUID.String(),
+			agent.Metadata.Description.IdentifyingAttributes,
+		) && attributesMatch(agent.Metadata.Description.NonIdentifyingAttributes, opt.nonIdentifyingSelector)
+	}), nil
 }
 
 func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Agent, error) {
 	agents, err := clientutil.ListAcrossNamespaces(
 		cmd.Context(), opt.client,
 		func(ctx context.Context, namespace string) ([]v1.Agent, error) {
-			if opt.byAgentGroup == "" {
-				opts := append([]client.ListOption{
-					client.WithSelector(opt.selector),
-					client.WithNonIdentifyingSelector(opt.nonIdentifyingSelector),
-				}, opt.listOptions()...)
-
-				return clientutil.ListAgentFully(ctx, opt.client, namespace, opts...)
+			if opt.byAgentGroup != "" {
+				return opt.listByAgentGroup(ctx, namespace)
 			}
 
-			return clientutil.ListAgentFullyByAgentGroup(ctx, opt.client, namespace, opt.byAgentGroup,
-				opt.listOptions()...)
+			opts, err := opt.listOptions()
+			if err != nil {
+				return nil, err
+			}
+
+			return clientutil.ListAgentFully(ctx, opt.client, namespace, opts...)
 		},
 	)
 	if err != nil {
