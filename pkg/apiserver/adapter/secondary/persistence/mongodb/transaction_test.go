@@ -137,7 +137,7 @@ func TestTransactionRunner_ListInsideTransaction(t *testing.T) {
 			return putErr //nolint:wrapcheck // test
 		}
 
-		resp, listErr := repo.ListAgentGroups(txCtx, &model.ListOptions{})
+		resp, listErr := repo.ListAgentGroups(txCtx, "", &model.ListOptions{})
 		if listErr != nil {
 			return listErr //nolint:wrapcheck // test
 		}

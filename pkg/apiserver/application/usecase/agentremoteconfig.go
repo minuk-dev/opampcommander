@@ -15,8 +15,8 @@ type AgentRemoteConfigManageUsecase interface {
 	// model.ErrResourceNotExist if absent.
 	GetAgentRemoteConfig(ctx context.Context, namespace string,
 		name string, options *port.GetOptions) (*v1.AgentRemoteConfig, error)
-	// ListAgentRemoteConfigs returns a paged list across namespaces.
-	ListAgentRemoteConfigs(ctx context.Context,
+	// ListAgentRemoteConfigs returns a paged list of the remote configs in namespace.
+	ListAgentRemoteConfigs(ctx context.Context, namespace string,
 		options *port.ListOptions) (*v1.ListResponse[v1.AgentRemoteConfig], error)
 	// CreateAgentRemoteConfig persists a new remote config, returning
 	// model.ErrResourceAlreadyExist on a duplicate.

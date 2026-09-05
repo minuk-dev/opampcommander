@@ -52,9 +52,10 @@ func (s *AgentPackageService) GetAgentPackage(
 // ListAgentPackages implements [agentport.AgentPackageUsecase].
 func (s *AgentPackageService) ListAgentPackages(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentPackage], error) {
-	resp, err := s.persistence.ListAgentPackages(ctx, options)
+	resp, err := s.persistence.ListAgentPackages(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agent packages: %w", err)
 	}

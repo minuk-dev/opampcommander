@@ -82,7 +82,7 @@ func TestAgentGroupController_List(t *testing.T) {
 				},
 			},
 		}
-		usecase.EXPECT().ListAgentGroups(mock.Anything, mock.Anything).Return(&v1.ListResponse[v1.AgentGroup]{
+		usecase.EXPECT().ListAgentGroups(mock.Anything, "default", mock.Anything).Return(&v1.ListResponse[v1.AgentGroup]{
 			Kind:       "AgentGroup",
 			APIVersion: "v1",
 			Metadata: v1.ListMeta{
@@ -139,7 +139,7 @@ func TestAgentGroupController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		usecase.EXPECT().ListAgentGroups(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+		usecase.EXPECT().ListAgentGroups(mock.Anything, "default", mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/namespaces/default/agentgroups", nil)

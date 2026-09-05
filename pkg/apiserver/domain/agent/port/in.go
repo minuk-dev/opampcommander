@@ -135,8 +135,9 @@ type AgentPackageUsecase interface {
 	// GetAgentPackage retrieves an agent package by its namespace and name.
 	GetAgentPackage(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*agentmodel.AgentPackage, error)
-	// ListAgentPackages lists all agent packages.
-	ListAgentPackages(ctx context.Context,
+	// ListAgentPackages lists the agent packages in namespace. An empty namespace
+	// lists across every namespace.
+	ListAgentPackages(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentPackage], error)
 	// SaveAgentPackage persists the agent package as-is without applying lifecycle
 	// rules. Application flows should prefer CreateAgentPackage/UpdateAgentPackage.
@@ -161,9 +162,10 @@ type AgentRemoteConfigUsecase interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its namespace and name.
 	GetAgentRemoteConfig(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*agentmodel.AgentRemoteConfig, error)
-	// ListAgentRemoteConfigs lists all agent remote configs.
+	// ListAgentRemoteConfigs lists the agent remote configs in namespace. An empty
+	// namespace lists across every namespace.
 	ListAgentRemoteConfigs(
-		ctx context.Context, options *model.ListOptions,
+		ctx context.Context, namespace string, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error)
 	// SaveAgentRemoteConfig persists the agent remote config as-is without applying
 	// lifecycle rules. Application flows should prefer
@@ -300,9 +302,11 @@ type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its namespace and name.
 	GetAgentGroup(ctx context.Context, namespace string, name string,
 		options *model.GetOptions) (*agentmodel.AgentGroup, error)
-	// ListAgentGroups lists all agent groups.
+	// ListAgentGroups lists the agent groups in namespace. An empty namespace lists
+	// across every namespace, which the group-matching passes need; the API
+	// boundary always passes the namespace from the request path.
 	ListAgentGroups(
-		ctx context.Context, options *model.ListOptions,
+		ctx context.Context, namespace string, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentGroup], error)
 	// SaveAgentGroup saves the agent group.
 	SaveAgentGroup(ctx context.Context, namespace string, name string,
@@ -385,7 +389,9 @@ type CertificateUsecase interface {
 	// state, stamps the update, and persists the result.
 	UpdateCertificate(ctx context.Context, namespace string, name string,
 		certificate *agentmodel.Certificate, actor string) (*agentmodel.Certificate, error)
-	ListCertificate(ctx context.Context,
+	// ListCertificate lists the certificates in namespace. An empty namespace lists
+	// across every namespace.
+	ListCertificate(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Certificate], error)
 	DeleteCertificate(ctx context.Context, namespace string, name string,
 		deletedAt time.Time, deletedBy string) (*agentmodel.Certificate, error)

@@ -48,7 +48,7 @@ func (f *fakeAgentPackageUsecase) GetAgentPackage(
 }
 
 func (f *fakeAgentPackageUsecase) ListAgentPackages(
-	_ context.Context, _ *model.ListOptions,
+	_ context.Context, _ string, _ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentPackage], error) {
 	return nil, errPkgUsecaseNotImplemented
 }

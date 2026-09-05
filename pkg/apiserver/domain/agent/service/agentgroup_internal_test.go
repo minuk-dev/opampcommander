@@ -64,9 +64,10 @@ func (m *mockAgentGroupPersistence) PutAgentGroup(
 
 func (m *mockAgentGroupPersistence) ListAgentGroups(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -242,9 +243,10 @@ func (m *mockRemoteConfigPersistence) PutAgentRemoteConfig(
 
 func (m *mockRemoteConfigPersistence) ListAgentRemoteConfigs(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -300,9 +302,10 @@ func (m *mockCertPersistence) PutCertificate(
 
 func (m *mockCertPersistence) ListCertificate(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck
 	}
@@ -1025,7 +1028,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 			Return(agentsResponse, nil)
 		// updateAgentsByAgentGroup now applies the union of all matching groups per agent
 		// (ApplyMatchingAgentGroupsToAgent), which calls GetAgentGroupsForAgent → ListAgentGroups.
-		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+		mockPersistence.On("ListAgentGroups", mock.Anything, mock.Anything, (*model.ListOptions)(nil)).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", mock.Anything, "default", refName, (*model.GetOptions)(nil)).
 			Return(referencedConfig, nil)
@@ -1097,7 +1100,7 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, mock.Anything).
 			Return(agentsResponse, nil)
 		// updateAgentsByAgentGroup → ApplyMatchingAgentGroupsToAgent → GetAgentGroupsForAgent.
-		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+		mockPersistence.On("ListAgentGroups", mock.Anything, mock.Anything, (*model.ListOptions)(nil)).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{agentGroup}}, nil)
 		// updateAgentsByAgentGroup records the RemoteConfigApplied condition on the group;
 		// recordRemoteConfigCondition re-reads it first, then persists.
@@ -1166,7 +1169,7 @@ func TestReconcileAllAgents(t *testing.T) {
 
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentmodel.AgentSelector{}, mock.Anything).
 			Return(&model.ListResponse[*agentmodel.Agent]{Items: []*agentmodel.Agent{orphan}}, nil)
-		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+		mockPersistence.On("ListAgentGroups", mock.Anything, mock.Anything, (*model.ListOptions)(nil)).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{group}}, nil)
 		// The agent drifted (config -> none), so it must be persisted with the config dropped.
 		mockAgentUC.On("SaveAgent", ctx, mock.MatchedBy(func(a *agentmodel.Agent) bool {
@@ -1191,7 +1194,7 @@ func TestReconcileAllAgents(t *testing.T) {
 
 		mockAgentUC.On("ListAgentsBySelector", ctx, agentmodel.AgentSelector{}, mock.Anything).
 			Return(&model.ListResponse[*agentmodel.Agent]{Items: []*agentmodel.Agent{a}}, nil)
-		mockPersistence.On("ListAgentGroups", mock.Anything, (*model.ListOptions)(nil)).
+		mockPersistence.On("ListAgentGroups", mock.Anything, mock.Anything, (*model.ListOptions)(nil)).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
 
 		svc.reconcileAllAgents(ctx)
@@ -1219,6 +1222,8 @@ var errBoomLeader = errors.New("leader election boom")
 func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 	t.Parallel()
 
+	// The reconcile scan is cluster-wide by nature, so it lists every namespace —
+	// the "" argument in the expectations below is what pins that.
 	listOpts := (*model.ListOptions)(nil)
 
 	// noAgents lets the agent-centric reconcile pass (reconcileAllAgents) run to a clean
@@ -1249,7 +1254,7 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 		t.Parallel()
 		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
-		mockPersistence.On("ListAgentGroups", mock.Anything, listOpts).
+		mockPersistence.On("ListAgentGroups", mock.Anything, "", listOpts).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
 
 		mockAgentUC := noAgents(new(mockAgentUsecase))
@@ -1259,7 +1264,7 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 
 		svc.reconcileAllIfLeader(ctx)
 
-		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, listOpts)
+		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, "", listOpts)
 		mockAgentUC.AssertCalled(t, "ListAgentsBySelector", mock.Anything, agentmodel.AgentSelector{}, mock.Anything)
 	})
 
@@ -1267,7 +1272,7 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 		t.Parallel()
 		ctx := t.Context()
 		mockPersistence := new(mockAgentGroupPersistence)
-		mockPersistence.On("ListAgentGroups", mock.Anything, listOpts).
+		mockPersistence.On("ListAgentGroups", mock.Anything, "", listOpts).
 			Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: nil}, nil)
 
 		mockAgentUC := noAgents(new(mockAgentUsecase))
@@ -1277,7 +1282,7 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 
 		svc.reconcileAllIfLeader(ctx)
 
-		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, listOpts)
+		mockPersistence.AssertCalled(t, "ListAgentGroups", mock.Anything, "", listOpts)
 		mockAgentUC.AssertCalled(t, "ListAgentsBySelector", mock.Anything, agentmodel.AgentSelector{}, mock.Anything)
 	})
 }

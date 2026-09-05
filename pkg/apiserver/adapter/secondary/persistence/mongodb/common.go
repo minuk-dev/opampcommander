@@ -359,3 +359,17 @@ func withContinueToken(continueToken bson.ObjectID) bson.M {
 
 	return bson.M{"_id": bson.M{"$gt": continueToken}}
 }
+
+// namespaceFieldName is where every namespaced collection nests its namespace.
+const namespaceFieldName = "metadata.namespace"
+
+// namespaceCondition scopes a listing to one namespace, or to every namespace
+// when it is empty. It returns a slice so it can be spread straight into
+// listWithConditions' variadic conditions.
+func namespaceCondition(namespace string) []bson.M {
+	if namespace == "" {
+		return nil
+	}
+
+	return []bson.M{{namespaceFieldName: sanitizeResourceName(namespace)}}
+}

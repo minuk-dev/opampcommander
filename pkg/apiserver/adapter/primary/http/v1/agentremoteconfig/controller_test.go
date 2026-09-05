@@ -56,9 +56,9 @@ func (m *mockUsecase) GetAgentRemoteConfig(
 }
 
 func (m *mockUsecase) ListAgentRemoteConfigs(
-	ctx context.Context, options *port.ListOptions,
+	ctx context.Context, namespace string, options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentRemoteConfig], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 
 	res, _ := args.Get(0).(*v1.ListResponse[v1.AgentRemoteConfig])
 
@@ -164,7 +164,7 @@ func TestController_List(t *testing.T) {
 
 		ctrlBase, usecase := setup(t)
 		//exhaustruct:ignore
-		usecase.On("ListAgentRemoteConfigs", mock.Anything, mock.Anything).
+		usecase.On("ListAgentRemoteConfigs", mock.Anything, "default", mock.Anything).
 			Return(&v1.ListResponse[v1.AgentRemoteConfig]{Items: []v1.AgentRemoteConfig{*newConfig()}}, nil)
 
 		recorder := doReq(t, ctrlBase.Router, http.MethodGet, base+"?limit=10&includeDeleted=true", "")
@@ -197,7 +197,7 @@ func TestController_List(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase, usecase := setup(t)
-		usecase.On("ListAgentRemoteConfigs", mock.Anything, mock.Anything).Return(nil, errBoom)
+		usecase.On("ListAgentRemoteConfigs", mock.Anything, "default", mock.Anything).Return(nil, errBoom)
 
 		recorder := doReq(t, ctrlBase.Router, http.MethodGet, base, "")
 

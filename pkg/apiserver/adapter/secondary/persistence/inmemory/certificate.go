@@ -47,7 +47,8 @@ func (r *CertificateRepository) PutCertificate(
 
 // ListCertificate implements agentport.CertificatePersistencePort.
 func (r *CertificateRepository) ListCertificate(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
-	return r.store.list(options, nil)
+	return r.store.list(options, namespaceFilter(namespace,
+		func(certificate *agentmodel.Certificate) string { return certificate.Metadata.Namespace }))
 }

@@ -49,9 +49,10 @@ func (r *AgentGroupRepository) GetAgentGroup(
 
 // ListAgentGroups implements agentport.AgentGroupPersistencePort.
 func (r *AgentGroupRepository) ListAgentGroups(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	resp, err := r.store.list(options, nil)
+	resp, err := r.store.list(options, namespaceFilter(namespace,
+		func(group *agentmodel.AgentGroup) string { return group.Metadata.Namespace }))
 	if err != nil {
 		return nil, err
 	}

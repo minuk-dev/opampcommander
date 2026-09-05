@@ -15,8 +15,9 @@ type CertificateManageUsecase interface {
 	// model.ErrResourceNotExist if absent.
 	GetCertificate(ctx context.Context, namespace string, name string,
 		options *port.GetOptions) (*v1.Certificate, error)
-	// ListCertificates returns a paged list of certificates across namespaces.
-	ListCertificates(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.Certificate], error)
+	// ListCertificates returns a paged list of the certificates in namespace.
+	ListCertificates(ctx context.Context, namespace string,
+		options *port.ListOptions) (*v1.ListResponse[v1.Certificate], error)
 	// CreateCertificate persists a new certificate, returning
 	// model.ErrResourceAlreadyExist on a duplicate.
 	CreateCertificate(ctx context.Context, certificate *v1.Certificate) (*v1.Certificate, error)

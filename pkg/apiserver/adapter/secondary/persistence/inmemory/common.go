@@ -74,3 +74,16 @@ var ErrSelectorUnsupported = fmt.Errorf(
 // boundary's, and so a client is told why nothing came back.
 var ErrLabelsUnsupported = fmt.Errorf(
 	"%w: this resource has no labels to select on", model.ErrInvalidArgument)
+
+// namespaceFilter restricts a listing to one namespace, or to every namespace
+// when it is empty. It is the in-memory counterpart of the MongoDB adapters'
+// namespace match condition.
+func namespaceFilter[T any](namespace string, namespaceOf func(T) string) func(T) bool {
+	if namespace == "" {
+		return nil
+	}
+
+	return func(value T) bool {
+		return namespaceOf(value) == namespace
+	}
+}
