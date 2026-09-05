@@ -44,6 +44,9 @@ import type { Container } from '@entities/container';
 // server, so a narrowed view is a smaller query rather than a larger fetch.
 const PAGE_LIMIT = 200;
 
+// See the note on the filter state below for why these listings match by prefix.
+const PLATFORM_FILTERS: ListFilters = { ...EMPTY_LIST_FILTERS, nameMatch: 'prefix' };
+
 // The platform values a host or container can report, mirroring the domain's
 // Platform type. This is what the filter offers, kept separate from the styling
 // table below on purpose: a value with no badge tone degrades to muted, but a
@@ -136,8 +139,14 @@ export default function PlatformPage() {
   const [error, setError] = useState<string | null>(null);
   // Each tab filters its own collection; the two are fetched together, so a
   // change to either set of filters refetches both.
-  const [hostFilters, setHostFilters] = useState<ListFilters>(EMPTY_LIST_FILTERS);
-  const [containerFilters, setContainerFilters] = useState<ListFilters>(EMPTY_LIST_FILTERS);
+  //
+  // Both match the name by prefix rather than substring. Hosts and containers are
+  // discovered from agent attributes, so they grow with the fleet rather than with
+  // what an operator wrote, and they are cluster-scoped — no namespace narrows the
+  // query first. A substring there is an unindexed scan of the whole collection on
+  // every submission, twice over, since a change to either filter refetches both.
+  const [hostFilters, setHostFilters] = useState<ListFilters>(PLATFORM_FILTERS);
+  const [containerFilters, setContainerFilters] = useState<ListFilters>(PLATFORM_FILTERS);
 
   // Memoised on the filter state, whose identity only changes when a filter is
   // applied, so fetchAll is stable between renders and the effect below runs

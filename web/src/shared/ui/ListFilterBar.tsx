@@ -17,6 +17,8 @@ interface Props {
   // Overrides the name field's label/placeholder for resources whose name is not
   // called "name" (an agent's instance UID, a user's email).
   nameLabel?: string;
+  // Overrides the placeholder. The default follows value.nameMatch, so it cannot
+  // promise a substring search on a listing that sends a prefix.
   namePlaceholder?: string;
   // Extra controls rendered after the inputs (a status toggle, for instance).
   children?: ReactNode;
@@ -40,9 +42,9 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 // ListFilterBar is the filter row shared by the list pages. Both fields are
-// answered by the server: the name prefix by an index range scan, the label
-// selector by the datastore query. Nothing here filters the fetched page, so the
-// paginated total always describes the set the rows were drawn from.
+// answered by the server: the name by whichever match its listing asked for, the
+// label selector by the datastore query. Nothing here filters the fetched page,
+// so the paginated total always describes the set the rows were drawn from.
 //
 // Filters apply on submit rather than on every keystroke: each change is a new
 // request and a reset to page 0, so typing into a live filter would fetch once
@@ -51,9 +53,11 @@ export default function ListFilterBar({
   value,
   onChange,
   nameLabel = 'Name',
-  namePlaceholder = 'Name starts with…',
+  namePlaceholder,
   children,
 }: Props) {
+  const placeholder =
+    namePlaceholder ?? (value.nameMatch === 'prefix' ? 'Name starts with…' : 'Name contains…');
   const [name, setName] = useState(value.name);
   const [labelSelector, setLabelSelector] = useState(value.labelSelector);
 
@@ -96,7 +100,7 @@ export default function ListFilterBar({
             <Input
               {...field}
               startSlot={<Search aria-hidden />}
-              placeholder={namePlaceholder}
+              placeholder={placeholder}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -136,7 +140,9 @@ export default function ListFilterBar({
             variant="ghost"
             size="sm"
             className="h-6 px-2 text-xs"
-            onClick={() => onChange(EMPTY_LIST_FILTERS)}
+            // nameMatch is the listing's choice, not the user's, so clearing the
+            // filters must not reset it to the default.
+            onClick={() => onChange({ ...EMPTY_LIST_FILTERS, nameMatch: value.nameMatch })}
           >
             Clear all
           </Button>

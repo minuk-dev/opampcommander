@@ -14,14 +14,31 @@ describe('listFilterQuery', () => {
   it('maps each filter onto the query parameter the API answers', () => {
     const filters: ListFilters = {
       name: 'otel-',
+      nameMatch: 'contains',
       labelSelector: 'env=prod,!deprecated',
       fieldSelector: 'spec.platform=kubernetes',
     };
     expect(listFilterQuery(filters)).toEqual({
-      name: 'otel-',
+      nameContains: 'otel-',
       labelSelector: 'env=prod,!deprecated',
       fieldSelector: 'spec.platform=kubernetes',
     });
+  });
+
+  // A filter box reads as "contains" to anyone typing in it, so that is the
+  // default — otherwise "tempo" would not match "otel-tempo".
+  it('sends the name as a substring by default', () => {
+    const query = listFilterQuery({ ...EMPTY_LIST_FILTERS, name: 'tempo' });
+    expect(query).toEqual({ nameContains: 'tempo' });
+    expect(query.name).toBeUndefined();
+  });
+
+  // A substring is an unindexed scan the page limit does not bound, so listings
+  // that grow with the fleet ask for the indexed prefix instead.
+  it('sends the indexed prefix parameter when the listing asks for prefix match', () => {
+    const query = listFilterQuery({ ...EMPTY_LIST_FILTERS, name: 'ip-10-', nameMatch: 'prefix' });
+    expect(query).toEqual({ name: 'ip-10-' });
+    expect(query.nameContains).toBeUndefined();
   });
 
   it('sends the selector verbatim, so the server sees what the user typed', () => {

@@ -6,8 +6,8 @@ import ListFilterBar from './ListFilterBar';
 
 function setup(value: ListFilters = EMPTY_LIST_FILTERS) {
   const onChange = vi.fn();
-  render(<ListFilterBar value={value} onChange={onChange} />);
-  return { onChange, user: userEvent.setup() };
+  const { unmount } = render(<ListFilterBar value={value} onChange={onChange} />);
+  return { onChange, unmount, user: userEvent.setup() };
 }
 
 describe('ListFilterBar', () => {
@@ -47,6 +47,7 @@ describe('ListFilterBar', () => {
   it('shows a chip per applied filter and clears just that one', async () => {
     const { onChange, user } = setup({
       name: 'otel-',
+      nameMatch: 'contains',
       labelSelector: 'env=prod',
       fieldSelector: '',
     });
@@ -57,6 +58,7 @@ describe('ListFilterBar', () => {
     await user.click(screen.getByRole('button', { name: 'Clear Labels: env=prod' }));
     expect(onChange).toHaveBeenCalledWith({
       name: 'otel-',
+      nameMatch: 'contains',
       labelSelector: '',
       fieldSelector: '',
     });
@@ -65,12 +67,25 @@ describe('ListFilterBar', () => {
   it('clears everything at once', async () => {
     const { onChange, user } = setup({
       name: 'otel-',
+      nameMatch: 'prefix',
       labelSelector: 'env=prod',
       fieldSelector: 'spec.platform=vm',
     });
 
     await user.click(screen.getByRole('button', { name: 'Clear all' }));
-    expect(onChange).toHaveBeenCalledWith(EMPTY_LIST_FILTERS);
+
+    // nameMatch is the listing's choice, not the user's: clearing must not
+    // silently turn a prefix listing into a collection scan.
+    expect(onChange).toHaveBeenCalledWith({ ...EMPTY_LIST_FILTERS, nameMatch: 'prefix' });
+  });
+
+  it('describes the match its listing actually performs', () => {
+    const { unmount } = setup();
+    expect(screen.getByPlaceholderText('Name contains…')).toBeInTheDocument();
+    unmount();
+
+    setup({ ...EMPTY_LIST_FILTERS, nameMatch: 'prefix' });
+    expect(screen.getByPlaceholderText('Name starts with…')).toBeInTheDocument();
   });
 
   it('renders no chips when nothing is applied', () => {
