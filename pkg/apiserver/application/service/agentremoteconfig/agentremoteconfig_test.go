@@ -42,9 +42,9 @@ func (m *mockAgentRemoteConfigUsecase) GetAgentRemoteConfig(
 }
 
 func (m *mockAgentRemoteConfigUsecase) ListAgentRemoteConfigs(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -143,7 +143,7 @@ func (*stubAgentGroupUsecase) GetAgentGroup(
 }
 
 func (*stubAgentGroupUsecase) ListAgentGroups(
-	context.Context, *model.ListOptions,
+	context.Context, string, *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
 	return nil, nil //nolint:nilnil // stub
 }
@@ -283,9 +283,9 @@ func TestService_ListAgentRemoteConfigs(t *testing.T) {
 			Items:    []*agentmodel.AgentRemoteConfig{newARC()},
 			Continue: "next",
 		}
-		mockARC.On("ListAgentRemoteConfigs", ctx, opts.ToDomain()).Return(resp, nil)
+		mockARC.On("ListAgentRemoteConfigs", ctx, "production", opts.ToDomain()).Return(resp, nil)
 
-		result, err := svc.ListAgentRemoteConfigs(ctx, opts)
+		result, err := svc.ListAgentRemoteConfigs(ctx, "production", opts)
 
 		require.NoError(t, err)
 		assert.Equal(t, v1.AgentRemoteConfigKind, result.Kind)
@@ -302,9 +302,9 @@ func TestService_ListAgentRemoteConfigs(t *testing.T) {
 		svc := newSvc(t, mockARC, &stubAgentGroupUsecase{}, &stubEndpointDetectionUsecase{})
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockARC.On("ListAgentRemoteConfigs", ctx, opts.ToDomain()).Return(nil, errMock)
+		mockARC.On("ListAgentRemoteConfigs", ctx, "production", opts.ToDomain()).Return(nil, errMock)
 
-		result, err := svc.ListAgentRemoteConfigs(ctx, opts)
+		result, err := svc.ListAgentRemoteConfigs(ctx, "production", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

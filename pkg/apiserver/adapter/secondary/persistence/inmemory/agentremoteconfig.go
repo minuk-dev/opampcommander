@@ -47,7 +47,13 @@ func (r *AgentRemoteConfigRepository) PutAgentRemoteConfig(
 
 // ListAgentRemoteConfigs implements agentport.AgentRemoteConfigPersistencePort.
 func (r *AgentRemoteConfigRepository) ListAgentRemoteConfigs(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
-	return r.store.list(options, nil)
+	filter, err := namespaceFilter(namespace,
+		func(config *agentmodel.AgentRemoteConfig) string { return config.Metadata.Namespace })
+	if err != nil {
+		return nil, err
+	}
+
+	return r.store.list(options, filter)
 }

@@ -73,9 +73,10 @@ func (s *ManageService) GetAgentGroup(
 // ListAgentGroups returns a paginated list of agent groups.
 func (s *ManageService) ListAgentGroups(
 	ctx context.Context,
+	namespace string,
 	options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentGroup], error) {
-	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, options.ToDomain())
+	domainResp, err := s.agentgroupUsecase.ListAgentGroups(ctx, namespace, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list agent groups: %w", err)
 	}

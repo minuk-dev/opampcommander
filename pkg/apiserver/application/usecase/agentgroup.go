@@ -17,8 +17,9 @@ type AgentGroupManageUsecase interface {
 	// model.ErrResourceNotExist if absent.
 	GetAgentGroup(ctx context.Context, namespace string, name string,
 		options *port.GetOptions) (*v1.AgentGroup, error)
-	// ListAgentGroups returns a paged list of groups across namespaces.
-	ListAgentGroups(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.AgentGroup], error)
+	// ListAgentGroups returns a paged list of the groups in namespace.
+	ListAgentGroups(ctx context.Context, namespace string,
+		options *port.ListOptions) (*v1.ListResponse[v1.AgentGroup], error)
 	// ListAgentsByAgentGroup returns the agents whose attributes match the
 	// named group's selector.
 	ListAgentsByAgentGroup(

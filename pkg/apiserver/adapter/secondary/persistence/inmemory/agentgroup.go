@@ -49,18 +49,22 @@ func (r *AgentGroupRepository) GetAgentGroup(
 
 // ListAgentGroups implements agentport.AgentGroupPersistencePort.
 func (r *AgentGroupRepository) ListAgentGroups(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	resp, err := r.store.list(options, nil)
+	filter, err := namespaceFilter(namespace,
+		func(group *agentmodel.AgentGroup) string { return group.Metadata.Namespace })
 	if err != nil {
 		return nil, err
 	}
 
-	for _, agentGroup := range resp.Items {
-		r.applyStatistics(agentGroup)
-	}
+	return r.listWithFilter(options, filter)
+}
 
-	return resp, nil
+// ListAllAgentGroups implements agentport.AgentGroupPersistencePort.
+func (r *AgentGroupRepository) ListAllAgentGroups(
+	_ context.Context, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	return r.listWithFilter(options, nil)
 }
 
 // PutAgentGroup implements agentport.AgentGroupPersistencePort.
@@ -105,4 +109,20 @@ func (r *AgentGroupRepository) applyStatistics(agentGroup *agentmodel.AgentGroup
 	}
 
 	agentGroup.Status = stats
+}
+
+// listWithFilter lists agent groups and attaches each one's statistics.
+func (r *AgentGroupRepository) listWithFilter(
+	options *model.ListOptions, filter func(*agentmodel.AgentGroup) bool,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	resp, err := r.store.list(options, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, agentGroup := range resp.Items {
+		r.applyStatistics(agentGroup)
+	}
+
+	return resp, nil
 }

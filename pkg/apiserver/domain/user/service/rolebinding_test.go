@@ -82,6 +82,23 @@ func (m *mockRoleBindingPersistencePort) ListRoleBindings(
 	return resp, args.Error(1) //nolint:wrapcheck // mock error
 }
 
+func (m *mockRoleBindingPersistencePort) ListAllRoleBindings(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*usermodel.RoleBinding], error) {
+	args := m.Called(ctx, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, ok := args.Get(0).(*model.ListResponse[*usermodel.RoleBinding])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
 func (m *mockRoleBindingPersistencePort) DeleteRoleBinding(
 	ctx context.Context,
 	namespace, name string,
