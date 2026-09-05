@@ -68,6 +68,24 @@ func (m *MockAgentGroupPersistencePort) PutAgentGroup(
 
 func (m *MockAgentGroupPersistencePort) ListAgentGroups(
 	ctx context.Context,
+	namespace string,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	args := m.Called(ctx, namespace, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	result, ok := args.Get(0).(*model.ListResponse[*agentmodel.AgentGroup])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func (m *MockAgentGroupPersistencePort) ListAllAgentGroups(
+	ctx context.Context,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
 	args := m.Called(ctx, options)
@@ -252,6 +270,7 @@ func (m *MockAgentRemoteConfigPersistencePort) PutAgentRemoteConfig(
 
 func (m *MockAgentRemoteConfigPersistencePort) ListAgentRemoteConfigs(
 	ctx context.Context,
+	_ string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
 	args := m.Called(ctx, options)
@@ -310,6 +329,7 @@ func (m *MockCertificatePersistencePortForGroup) PutCertificate(
 
 func (m *MockCertificatePersistencePortForGroup) ListCertificate(
 	ctx context.Context,
+	_ string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
 	args := m.Called(ctx, options)
@@ -408,9 +428,9 @@ func TestAgentGroupService_ListAgentGroups(t *testing.T) {
 		}
 
 		options := &model.ListOptions{Limit: 10}
-		mockPersistence.On("ListAgentGroups", ctx, options).Return(expectedResponse, nil)
+		mockPersistence.On("ListAgentGroups", ctx, "default", options).Return(expectedResponse, nil)
 
-		result, err := svc.ListAgentGroups(ctx, options)
+		result, err := svc.ListAgentGroups(ctx, "default", options)
 
 		require.NoError(t, err)
 		assert.Len(t, result.Items, 2)
@@ -524,29 +544,16 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 			},
 		}
 
-		// Selector matches the agent, but the group lives in a different namespace,
-		// so it must NOT be returned: an agent group only governs agents in its own namespace.
-		otherNamespaceGroup := &agentmodel.AgentGroup{
-			Metadata: agentmodel.AgentGroupMetadata{
-				Namespace: "other",
-				Name:      "other-namespace-group",
-			},
-			Spec: agentmodel.AgentGroupSpec{
-				Selector: agentmodel.AgentSelector{
-					IdentifyingAttributes: map[string]string{
-						"service.name": "my-service",
-					},
-				},
-			},
-		}
-
+		// A group in another namespace never reaches the service: an agent group only
+		// governs agents in its own namespace, so the listing is scoped to the
+		// agent's — which is what the "default" argument in the expectation pins.
 		allGroups := &model.ListResponse[*agentmodel.AgentGroup]{
-			Items:              []*agentmodel.AgentGroup{matchingGroup, nonMatchingGroup, otherNamespaceGroup},
+			Items:              []*agentmodel.AgentGroup{matchingGroup, nonMatchingGroup},
 			Continue:           "",
 			RemainingItemCount: 0,
 		}
 
-		mockPersistence.On("ListAgentGroups", ctx, (*model.ListOptions)(nil)).Return(allGroups, nil)
+		mockPersistence.On("ListAgentGroups", ctx, "default", (*model.ListOptions)(nil)).Return(allGroups, nil)
 
 		result, err := svc.GetAgentGroupsForAgent(ctx, testAgent)
 
@@ -594,7 +601,7 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 			RemainingItemCount: 0,
 		}
 
-		mockPersistence.On("ListAgentGroups", ctx, (*model.ListOptions)(nil)).Return(allGroups, nil)
+		mockPersistence.On("ListAgentGroups", ctx, "default", (*model.ListOptions)(nil)).Return(allGroups, nil)
 
 		result, err := svc.GetAgentGroupsForAgent(ctx, testAgent)
 
@@ -639,7 +646,8 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 		// No groups match, but reconcile must still persist the (re-applied) agent — this is
 		// the regression guard against ReconcileAgent forgetting to save.
 		emptyGroups := &model.ListResponse[*agentmodel.AgentGroup]{Items: nil, Continue: "", RemainingItemCount: 0}
-		mockPersistence.On("ListAgentGroups", ctx, (*model.ListOptions)(nil)).Return(emptyGroups, nil)
+		mockPersistence.On("ListAgentGroups", ctx, agent.Metadata.Namespace,
+			(*model.ListOptions)(nil)).Return(emptyGroups, nil)
 		mockAgentUsecase.On("SaveAgent", ctx, agent).Return(nil)
 
 		err := svc.ReconcileAgent(ctx, agent)

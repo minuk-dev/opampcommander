@@ -251,8 +251,8 @@ func (_c *MockUsecase_GetAgentPackage_Call) RunAndReturn(run func(ctx context.Co
 }
 
 // ListAgentPackages provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) ListAgentPackages(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error) {
-	ret := _mock.Called(ctx, options)
+func (_mock *MockUsecase) ListAgentPackages(ctx context.Context, namespace string, options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error) {
+	ret := _mock.Called(ctx, namespace, options)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListAgentPackages")
@@ -260,18 +260,18 @@ func (_mock *MockUsecase) ListAgentPackages(ctx context.Context, options *port.L
 
 	var r0 *v1.ListResponse[v1.AgentPackage]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)); ok {
-		return returnFunc(ctx, options)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)); ok {
+		return returnFunc(ctx, namespace, options)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *port.ListOptions) *v1.ListResponse[v1.AgentPackage]); ok {
-		r0 = returnFunc(ctx, options)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *port.ListOptions) *v1.ListResponse[v1.AgentPackage]); ok {
+		r0 = returnFunc(ctx, namespace, options)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.ListResponse[v1.AgentPackage])
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, *port.ListOptions) error); ok {
-		r1 = returnFunc(ctx, options)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *port.ListOptions) error); ok {
+		r1 = returnFunc(ctx, namespace, options)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -285,24 +285,30 @@ type MockUsecase_ListAgentPackages_Call struct {
 
 // ListAgentPackages is a helper method to define mock.On call
 //   - ctx context.Context
+//   - namespace string
 //   - options *port.ListOptions
-func (_e *MockUsecase_Expecter) ListAgentPackages(ctx interface{}, options interface{}) *MockUsecase_ListAgentPackages_Call {
-	return &MockUsecase_ListAgentPackages_Call{Call: _e.mock.On("ListAgentPackages", ctx, options)}
+func (_e *MockUsecase_Expecter) ListAgentPackages(ctx interface{}, namespace interface{}, options interface{}) *MockUsecase_ListAgentPackages_Call {
+	return &MockUsecase_ListAgentPackages_Call{Call: _e.mock.On("ListAgentPackages", ctx, namespace, options)}
 }
 
-func (_c *MockUsecase_ListAgentPackages_Call) Run(run func(ctx context.Context, options *port.ListOptions)) *MockUsecase_ListAgentPackages_Call {
+func (_c *MockUsecase_ListAgentPackages_Call) Run(run func(ctx context.Context, namespace string, options *port.ListOptions)) *MockUsecase_ListAgentPackages_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 *port.ListOptions
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(*port.ListOptions)
+			arg1 = args[1].(string)
+		}
+		var arg2 *port.ListOptions
+		if args[2] != nil {
+			arg2 = args[2].(*port.ListOptions)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -313,7 +319,7 @@ func (_c *MockUsecase_ListAgentPackages_Call) Return(listResponse *v1.ListRespon
 	return _c
 }
 
-func (_c *MockUsecase_ListAgentPackages_Call) RunAndReturn(run func(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)) *MockUsecase_ListAgentPackages_Call {
+func (_c *MockUsecase_ListAgentPackages_Call) RunAndReturn(run func(ctx context.Context, namespace string, options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)) *MockUsecase_ListAgentPackages_Call {
 	_c.Call.Return(run)
 	return _c
 }

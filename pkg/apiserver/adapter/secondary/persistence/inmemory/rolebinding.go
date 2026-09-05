@@ -42,19 +42,24 @@ func (r *RoleBindingRepository) PutRoleBinding(
 	return rb, nil
 }
 
-// ListRoleBindings implements userport.RoleBindingPersistencePort. An empty
-// namespace lists across every namespace, which is what RBAC policy loading
-// needs; the API boundary always passes the namespace from the request path.
+// ListRoleBindings implements userport.RoleBindingPersistencePort.
 func (r *RoleBindingRepository) ListRoleBindings(
 	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	if namespace == "" {
-		return r.store.list(options, nil)
+	filter, err := namespaceFilter(namespace,
+		func(rb *usermodel.RoleBinding) string { return rb.Metadata.Namespace })
+	if err != nil {
+		return nil, err
 	}
 
-	return r.store.list(options, func(rb *usermodel.RoleBinding) bool {
-		return rb.Metadata.Namespace == namespace
-	})
+	return r.store.list(options, filter)
+}
+
+// ListAllRoleBindings implements userport.RoleBindingPersistencePort.
+func (r *RoleBindingRepository) ListAllRoleBindings(
+	_ context.Context, options *model.ListOptions,
+) (*model.ListResponse[*usermodel.RoleBinding], error) {
+	return r.store.list(options, nil)
 }
 
 // DeleteRoleBinding implements userport.RoleBindingPersistencePort. Bindings are soft-deleted.

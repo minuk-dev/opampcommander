@@ -97,6 +97,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentgroups [get].
 func (c *Controller) List(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
@@ -118,7 +125,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	response, err := c.agentGroupUsecase.ListAgentGroups(ctx.Request.Context(), &applicationport.ListOptions{
+	response, err := c.agentGroupUsecase.ListAgentGroups(ctx.Request.Context(), namespace, &applicationport.ListOptions{
 		LabelSelector:  selectors.Metadata,
 		FieldSelector:  selectors.Field,
 		NamePrefix:     selectors.NamePrefix,

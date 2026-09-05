@@ -58,9 +58,10 @@ func (c *CertificateService) GetCertificate(
 // ListCertificate implements [agentport.CertificateUsecase].
 func (c *CertificateService) ListCertificate(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
-	resp, err := c.certificatePersistencePort.ListCertificate(ctx, options)
+	resp, err := c.certificatePersistencePort.ListCertificate(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list certificates from persistence: %w", err)
 	}

@@ -73,9 +73,10 @@ func (s *AgentRemoteConfigService) GetAgentRemoteConfig(
 // ListAgentRemoteConfigs implements [agentport.AgentRemoteConfigUsecase].
 func (s *AgentRemoteConfigService) ListAgentRemoteConfigs(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
-	resourceResp, err := s.persistence.ListAgentRemoteConfigs(ctx, options)
+	resourceResp, err := s.persistence.ListAgentRemoteConfigs(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agent remote configs: %w", err)
 	}

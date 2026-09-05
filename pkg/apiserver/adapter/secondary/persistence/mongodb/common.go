@@ -362,3 +362,21 @@ func withContinueToken(continueToken bson.ObjectID) bson.M {
 
 	return bson.M{"_id": bson.M{"$gt": continueToken}}
 }
+
+// namespaceFieldName is where every namespaced collection nests its namespace.
+const namespaceFieldName = "metadata.namespace"
+
+// namespaceCondition scopes a listing to one namespace. It returns a slice so it
+// can be spread straight into listWithConditions' variadic conditions.
+//
+// An empty namespace is an error rather than a cluster-wide listing. A namespace
+// often comes from data — an agent's own metadata, say — and a value that widens
+// the scope when it happens to be empty fails open. Cluster-wide listings ask for
+// themselves, through the ListAll* port methods.
+func namespaceCondition(namespace string) ([]bson.M, error) {
+	if namespace == "" {
+		return nil, fmt.Errorf("%w: a namespaced listing requires a namespace", model.ErrInvalidArgument)
+	}
+
+	return []bson.M{{namespaceFieldName: sanitizeResourceName(namespace)}}, nil
+}

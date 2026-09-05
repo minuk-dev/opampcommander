@@ -77,3 +77,24 @@ var ErrSelectorUnsupported = fmt.Errorf(
 // handler routes through HandleDomainError to a 400.
 var ErrLabelsUnsupported = fmt.Errorf(
 	"%w: this resource has no labels to select on", model.ErrInvalidArgument)
+
+// namespaceFilter restricts a listing to one namespace. It is the in-memory
+// counterpart of the MongoDB adapters' namespace match condition, including its
+// refusal of an empty namespace: a value read from data must not widen the scope
+// by being empty. Cluster-wide listings ask for themselves, through the ListAll*
+// port methods.
+func namespaceFilter[T any](namespace string, namespaceOf func(T) string) (func(T) bool, error) {
+	if namespace == "" {
+		return nil, ErrNamespaceRequired
+	}
+
+	return func(value T) bool {
+		return namespaceOf(value) == namespace
+	}, nil
+}
+
+// ErrNamespaceRequired is returned when a namespaced listing is asked for
+// without a namespace. It wraps model.ErrInvalidArgument, which every list
+// handler maps to a 400.
+var ErrNamespaceRequired = fmt.Errorf(
+	"%w: a namespaced listing requires a namespace", model.ErrInvalidArgument)

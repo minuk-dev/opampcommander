@@ -36,6 +36,10 @@ type roleBindingBackend struct {
 	name string
 	put  func(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
 	list roleBindingLister
+	// listAll is the cluster-wide listing RBAC policy loading uses. It is a
+	// separate method rather than an empty namespace, so "every namespace" cannot
+	// be asked for by accident.
+	listAll func(ctx context.Context, options *model.ListOptions) ([]string, error)
 }
 
 func TestParity_RoleBindingSelectors(t *testing.T) {
@@ -141,15 +145,23 @@ func runRoleBindingContract(t *testing.T, backend roleBindingBackend) {
 		require.ErrorIs(t, err, model.ErrInvalidArgument)
 	})
 
-	t.Run(backend.name+"/every_namespace", func(t *testing.T) {
+	t.Run(backend.name+"/every_namespace_is_its_own_method", func(t *testing.T) {
 		t.Parallel()
 
-		// The empty namespace is what RBAC policy loading passes: it needs every
-		// binding, wherever it lives, to compute a user's effective permissions.
+		// RBAC policy loading needs every binding, wherever it lives, to compute a
+		// user's effective permissions — and asks for that explicitly.
 		//exhaustruct:ignore
-		names, err := backend.list(ctx, "", &model.ListOptions{NamePrefix: "prod-admins"})
+		names, err := backend.listAll(ctx, &model.ListOptions{NamePrefix: "prod-admins"})
 		require.NoError(t, err)
 		assert.Len(t, names, 2, "one binding of this name in each seeded namespace")
+	})
+
+	t.Run(backend.name+"/an_empty_namespace_is_refused", func(t *testing.T) {
+		t.Parallel()
+
+		// A namespace read from data must not widen the scope by being empty.
+		_, err := backend.list(ctx, "", nil)
+		require.ErrorIs(t, err, model.ErrInvalidArgument)
 	})
 }
 
@@ -172,13 +184,33 @@ func roleBindingListerFor(
 	}
 }
 
+func roleBindingAllListerFor(
+	list func(ctx context.Context, options *model.ListOptions) (
+		*model.ListResponse[*usermodel.RoleBinding], error),
+) func(ctx context.Context, options *model.ListOptions) ([]string, error) {
+	return func(ctx context.Context, options *model.ListOptions) ([]string, error) {
+		resp, err := list(ctx, options)
+		if err != nil {
+			return nil, fmt.Errorf("parity list: %w", err)
+		}
+
+		names := make([]string, 0, len(resp.Items))
+		for _, item := range resp.Items {
+			names = append(names, item.Metadata.Name)
+		}
+
+		return names, nil
+	}
+}
+
 func inmemoryRoleBindingBackend() roleBindingBackend {
 	repo := inmemory.NewRoleBindingRepository()
 
 	return roleBindingBackend{
-		name: "rolebinding/inmemory",
-		put:  repo.PutRoleBinding,
-		list: roleBindingListerFor(repo.ListRoleBindings),
+		name:    "rolebinding/inmemory",
+		put:     repo.PutRoleBinding,
+		list:    roleBindingListerFor(repo.ListRoleBindings),
+		listAll: roleBindingAllListerFor(repo.ListAllRoleBindings),
 	}
 }
 
@@ -186,8 +218,9 @@ func mongoRoleBindingBackend(database *mongo.Database) roleBindingBackend {
 	repo := mongodb.NewRoleBindingRepository(database, slog.Default())
 
 	return roleBindingBackend{
-		name: "rolebinding/mongodb",
-		put:  repo.PutRoleBinding,
-		list: roleBindingListerFor(repo.ListRoleBindings),
+		name:    "rolebinding/mongodb",
+		put:     repo.PutRoleBinding,
+		list:    roleBindingListerFor(repo.ListRoleBindings),
+		listAll: roleBindingAllListerFor(repo.ListAllRoleBindings),
 	}
 }

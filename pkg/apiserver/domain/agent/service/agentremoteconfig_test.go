@@ -43,7 +43,7 @@ func (f *arcFakePersistence) PutAgentRemoteConfig(
 }
 
 func (f *arcFakePersistence) ListAgentRemoteConfigs(
-	_ context.Context, _ *model.ListOptions,
+	_ context.Context, _ string, _ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
 	return &model.ListResponse[*agentmodel.AgentRemoteConfig]{}, nil
 }
