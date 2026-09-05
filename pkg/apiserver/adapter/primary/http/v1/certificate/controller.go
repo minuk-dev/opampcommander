@@ -102,13 +102,13 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, port.CertificateSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, port.CertificateSelectableFields)
 	if !ok {
 		return
 	}
 
 	response, err := c.certificateUsecase.ListCertificates(ctx.Request.Context(), &port.ListOptions{
-		LabelSelector:  selectors.Label,
+		LabelSelector:  selectors.Metadata,
 		FieldSelector:  selectors.Field,
 		NamePrefix:     selectors.NamePrefix,
 		Limit:          limit,

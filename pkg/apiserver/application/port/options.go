@@ -17,8 +17,8 @@ type ListOptions struct {
 	IncludeDeleted bool
 
 	// LabelSelector, when non-empty, restricts the listing to resources whose
-	// user-supplied metadata map (metadata.labels, metadata.attributes, or an
-	// agent's identifying attributes) satisfies every requirement.
+	// user-supplied metadata (metadata.labels, metadata.attributes, or an agent's
+	// identifying and non-identifying attributes) satisfies every requirement.
 	LabelSelector selector.LabelSelector
 
 	// FieldSelector, when non-empty, restricts the listing to resources whose own
@@ -32,19 +32,24 @@ type ListOptions struct {
 
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
 	// currently considered connected. It is a no-op for resources that have no
-	// connection state.
+	// connection state. It is the alias for FieldSelector
+	// "status.connected=true" and means exactly the same thing.
 	ConnectedOnly bool
 
 	// IdentifyingAttributes, when non-empty, restricts an agent listing to agents
 	// whose identifying attributes match every key=value pair exactly (an AND of
 	// equality conditions). It is a no-op for resources that have no identifying
 	// attributes.
+	//
+	// Deprecated: LabelSelector expresses the same conditions and more.
 	IdentifyingAttributes map[string]string
 
 	// NonIdentifyingAttributes, when non-empty, restricts an agent listing to
 	// agents whose non-identifying attributes match every key=value pair exactly.
 	// It is combined with IdentifyingAttributes via AND, and is a no-op for
 	// resources that have no non-identifying attributes.
+	//
+	// Deprecated: LabelSelector reaches the non-identifying attributes too.
 	NonIdentifyingAttributes map[string]string
 }
 

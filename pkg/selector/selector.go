@@ -111,8 +111,23 @@ func (s LabelSelector) Empty() bool {
 
 // Matches reports whether the given label map satisfies every requirement.
 func (s LabelSelector) Matches(labels map[string]string) bool {
+	return s.MatchesAny(labels)
+}
+
+// MatchesAny reports whether the given label maps, taken together, satisfy every
+// requirement.
+//
+// An aggregate may carry its labels in more than one map — an agent's
+// description is split into identifying and non-identifying attributes, and an
+// operator selects across both. A requirement is satisfied when any map
+// satisfies its positive form, and a negative operator is the negation of that:
+// "os.type!=linux" holds only when no map says linux, including for an agent
+// that reports no os.type at all.
+//
+// With a single map it is exactly [LabelSelector.Matches].
+func (s LabelSelector) MatchesAny(labelSets ...map[string]string) bool {
 	for _, requirement := range s {
-		if !requirement.Matches(labels) {
+		if !requirement.MatchesAny(labelSets...) {
 			return false
 		}
 	}
@@ -152,6 +167,38 @@ func (r Requirement) Matches(labels map[string]string) bool {
 		return !present
 	default:
 		return false
+	}
+}
+
+// MatchesAny reports whether the given label maps, taken together, satisfy the
+// requirement. See [LabelSelector.MatchesAny] for why more than one map exists.
+func (r Requirement) MatchesAny(labelSets ...map[string]string) bool {
+	positive, negated := r.Positive()
+
+	return slices.ContainsFunc(labelSets, positive.Matches) != negated
+}
+
+// Positive returns the requirement's positive counterpart and whether the
+// original used a negative operator.
+//
+// Every negative operator is exactly the negation of its positive twin —
+// "k!=v" is "not k=v", which is why it also selects a resource carrying no k at
+// all — so a backend only has to translate the three positive forms and negate
+// the result. It is what keeps the MongoDB translation and the in-memory
+// evaluation from drifting apart on the case that is easy to get wrong in one
+// and right in the other.
+func (r Requirement) Positive() (Requirement, bool) {
+	switch r.Operator {
+	case OpNotEquals:
+		return Requirement{Key: r.Key, Operator: OpEquals, Values: r.Values}, true
+	case OpNotIn:
+		return Requirement{Key: r.Key, Operator: OpIn, Values: r.Values}, true
+	case OpNotExists:
+		return Requirement{Key: r.Key, Operator: OpExists, Values: r.Values}, true
+	case OpEquals, OpIn, OpExists:
+		return r, false
+	default:
+		return r, false
 	}
 }
 

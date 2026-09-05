@@ -115,14 +115,14 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, port.EndpointSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, port.EndpointSelectableFields)
 	if !ok {
 		return
 	}
 
 	response, err := c.endpointUsecase.ListEndpoints(
 		ctx.Request.Context(), namespace, &port.ListOptions{
-			LabelSelector:  selectors.Label,
+			LabelSelector:  selectors.Metadata,
 			FieldSelector:  selectors.Field,
 			NamePrefix:     selectors.NamePrefix,
 			Limit:          limit,

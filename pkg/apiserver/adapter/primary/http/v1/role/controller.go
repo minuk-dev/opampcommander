@@ -102,7 +102,7 @@ func (c *Controller) List(ctx *gin.Context) {
 
 	// A role carries no label map, so a labelSelector is rejected rather than
 	// answered with an empty page.
-	selectors, ok := ginutil.ParseSelectorsWithoutLabels(ctx, applicationport.RoleSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.NoMetadataSelector, applicationport.RoleSelectableFields)
 	if !ok {
 		return
 	}

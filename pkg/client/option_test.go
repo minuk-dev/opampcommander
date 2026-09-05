@@ -47,6 +47,22 @@ func TestListOptions_SelectorsAreSentAsQueryParams(t *testing.T) {
 	assert.Equal(t, "otel-", recorded.Get("name"))
 }
 
+// The two metadata selectors are separate parameters, because they read different
+// metadata: one an operator set, one the resource reported. Sending the wrong one
+// is the server's 400, not something the client papers over.
+func TestListOptions_AttributeSelectorIsItsOwnParameter(t *testing.T) {
+	t.Parallel()
+
+	cli, recorded := newQueryRecorder(t)
+
+	_, err := cli.AgentService.ListAgents(t.Context(), "default",
+		client.WithAttributeSelector("service.name=otel-collector,os.type=linux"))
+	require.NoError(t, err)
+
+	assert.Equal(t, "service.name=otel-collector,os.type=linux", recorded.Get("attributeSelector"))
+	assert.False(t, recorded.Has("labelSelector"))
+}
+
 func TestListOptions_EmptySelectorsAreOmitted(t *testing.T) {
 	t.Parallel()
 
@@ -54,12 +70,14 @@ func TestListOptions_EmptySelectorsAreOmitted(t *testing.T) {
 
 	_, err := cli.AgentService.ListAgents(t.Context(), "default",
 		client.WithLabelSelector(""),
+		client.WithAttributeSelector(""),
 		client.WithFieldSelector(""),
 		client.WithName(""),
 	)
 	require.NoError(t, err)
 
 	assert.False(t, recorded.Has("labelSelector"))
+	assert.False(t, recorded.Has("attributeSelector"))
 	assert.False(t, recorded.Has("fieldSelector"))
 	assert.False(t, recorded.Has("name"))
 }

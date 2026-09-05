@@ -106,14 +106,14 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, port.AgentRemoteConfigSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, port.AgentRemoteConfigSelectableFields)
 	if !ok {
 		return
 	}
 
 	response, err := c.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
 		ctx.Request.Context(), &port.ListOptions{
-			LabelSelector:  selectors.Label,
+			LabelSelector:  selectors.Metadata,
 			FieldSelector:  selectors.Field,
 			NamePrefix:     selectors.NamePrefix,
 			Limit:          limit,

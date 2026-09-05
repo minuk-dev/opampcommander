@@ -249,3 +249,93 @@ func TestLabelSelector_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, parsed.Empty())
 }
+
+// An aggregate may carry its labels in more than one map — an agent's
+// description is split into identifying and non-identifying attributes — and one
+// selector has to reach all of them.
+func TestMatchesAny_UnionAcrossLabelMaps(t *testing.T) {
+	t.Parallel()
+
+	identifying := map[string]string{"service.name": "otel-collector"}
+	nonIdentifying := map[string]string{"os.type": "linux"}
+
+	tests := map[string]struct {
+		expression string
+		want       bool
+	}{
+		"first map satisfies it":                 {"service.name=otel-collector", true},
+		"second map satisfies it":                {"os.type=linux", true},
+		"a conjunction spanning both":            {"service.name=otel-collector,os.type=linux", true},
+		"neither map satisfies it":               {"os.type=windows", false},
+		"negation holds when neither says so":    {"os.type!=windows", true},
+		"negation fails when one map says so":    {"os.type!=linux", false},
+		"negation holds for a key in neither":    {"cloud.provider!=aws", true},
+		"existence holds for a key in either":    {"os.type", true},
+		"non-existence fails for a key in one":   {"!os.type", false},
+		"non-existence holds for a key in none":  {"!cloud.provider", true},
+		"in holds when either map has the value": {"os.type in (linux,darwin)", true},
+		"notin fails when one map has it":        {"os.type notin (linux)", false},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			parsed, err := selector.ParseLabels(test.expression)
+			require.NoError(t, err)
+			assert.Equal(t, test.want, parsed.MatchesAny(identifying, nonIdentifying))
+		})
+	}
+}
+
+// With a single map MatchesAny must be indistinguishable from Matches, or the
+// aggregates that carry one map would quietly change behaviour.
+func TestMatchesAny_SingleMapAgreesWithMatches(t *testing.T) {
+	t.Parallel()
+
+	labels := map[string]string{"env": "prod", "tier": "web"}
+
+	for _, expression := range []string{
+		"env=prod", "env!=prod", "env in (prod,stg)", "env notin (prod)",
+		"tier", "!tier", "missing!=x", "!missing", "env=prod,tier!=canary",
+	} {
+		parsed, err := selector.ParseLabels(expression)
+		require.NoError(t, err)
+		assert.Equal(t, parsed.Matches(labels), parsed.MatchesAny(labels), expression)
+	}
+}
+
+// Every negative operator is exactly the negation of its positive twin. Both
+// adapters rely on that to translate three forms instead of six.
+func TestPositive(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		expression   string
+		wantOperator selector.Operator
+		wantNegated  bool
+	}{
+		"equals":     {"env=prod", selector.OpEquals, false},
+		"not equals": {"env!=prod", selector.OpEquals, true},
+		"in":         {"env in (prod)", selector.OpIn, false},
+		"notin":      {"env notin (prod)", selector.OpIn, true},
+		"exists":     {"env", selector.OpExists, false},
+		"not exists": {"!env", selector.OpExists, true},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			parsed, err := selector.ParseLabels(test.expression)
+			require.NoError(t, err)
+			require.Len(t, parsed, 1)
+
+			positive, negated := parsed[0].Positive()
+			assert.Equal(t, test.wantOperator, positive.Operator)
+			assert.Equal(t, test.wantNegated, negated)
+			assert.Equal(t, parsed[0].Key, positive.Key)
+			assert.Equal(t, parsed[0].Values, positive.Values)
+		})
+	}
+}
