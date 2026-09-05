@@ -114,6 +114,54 @@ These flags apply to every command:
 `connection` (get only), `container` (get only), `host` (get only), `namespace`,
 `user`, `role`, `rolebinding`.
 
+## Filtering
+
+`opampctl get` accepts four filtering flags on every resource whose list endpoint
+answers them. The server does the filtering, so narrowing a view is a smaller query
+rather than a larger fetch.
+
+| Flag | Filters on |
+|---|---|
+| `-l`, `--selector` | the resource's labels or reported attributes, Kubernetes-style |
+| `--field-selector` | the resource's own fields |
+| `--name` | a case-sensitive name prefix |
+| `--name-contains` | a case-insensitive name substring |
+
+`-l/--selector` sends whichever metadata parameter the resource answers —
+`labelSelector` for metadata an operator set, `attributeSelector` for what an agent
+reported about itself. A command already names its resource, so there is nothing to
+disambiguate; see the [API reference](../api/#labelselector-and-attributeselector)
+for why the server keeps them apart. Resources with neither kind (roles, role
+bindings) have no `-l` flag at all.
+
+```bash
+# agents in production that are not canaries
+opampctl get agent -l 'service.namespace=prod,tier notin (canary,dev)'
+
+# an agent's non-identifying attributes are part of the same attribute domain
+opampctl get agent -l os.type=linux
+
+# unhealthy agents
+opampctl get agent --field-selector status.healthy=false
+
+# endpoints whose name starts with tempo-
+opampctl get endpoint --name tempo-
+```
+
+Expressions are parsed before the request is made, so a typo is a local error
+naming the flag rather than a round-tripped `400`. Which fields a resource supports
+is not repeated in `--help`: the server owns that list and names it on rejection.
+See the [API reference](../api/#filtering-and-searching) for the full syntax and the
+per-resource field lists.
+
+Two listings take no selectors — `get agent --agentgroup` and
+`get agentgroup --agent`, which read a group's membership. There the label and name
+filters are applied locally rather than dropped, and `--field-selector` is rejected,
+because a caller must never mistake the whole membership for a narrowed one.
+
+`--non-identifying-selector` is deprecated: `-l/--selector` reaches an agent's
+non-identifying attributes too.
+
 ## Contexts
 
 ```bash
@@ -138,6 +186,9 @@ opampctl get agent -o yaml
 
 # filter by agent group
 opampctl get agent --agentgroup my-group -n my-namespace
+
+# filter by label, server-side (see Filtering above)
+opampctl get agent -l service.name=otel-collector
 
 # across all namespaces
 opampctl get agent -A

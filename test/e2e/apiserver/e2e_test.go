@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
-"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
@@ -21,7 +21,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
-
 
 func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	t.Parallel()
@@ -148,7 +147,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 		return foundCount == numCollectors
 	}, 30*time.Second, 1*time.Second, "All collectors should register within timeout")
 }
-
 
 func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	t.Parallel()
@@ -521,7 +519,6 @@ func listConnections(t *testing.T, c *client.Client) []v1.Connection {
 
 	return resp.Items
 }
-
 
 // TestE2E_AgentPackage_CRUD tests the CRUD operations for agent packages via the API.
 func TestE2E_AgentPackage_CRUD(t *testing.T) {
@@ -901,4 +898,3 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	_, err = opampClient.AgentGroupService.GetAgentGroup(t.Context(), "default", agentGroupName)
 	require.Error(t, err, "Get deleted AgentGroup without includeDeleted should return error")
 }
-

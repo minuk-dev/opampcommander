@@ -48,4 +48,3 @@ func findAgentByUID(agents []v1.Agent, uid uuid.UUID) *v1.Agent {
 	}
 	return &agents[idx]
 }
-
