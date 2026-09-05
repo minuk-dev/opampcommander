@@ -52,7 +52,7 @@ func NewRoleBindingRepository(
 			entity.RoleBindingKeyFieldName,
 			keyFunc,
 			keyQueryFunc,
-			noSelectorSchema,
+			roleBindingSelectorSchema,
 		),
 		logger: logger,
 	}
@@ -115,12 +115,20 @@ func (a *RoleBindingMongoAdapter) PutRoleBinding(
 	return a.GetRoleBinding(ctx, roleBinding.Metadata.Namespace, roleBinding.Metadata.Name, nil)
 }
 
-// ListRoleBindings implements userport.RoleBindingPersistencePort.
+// ListRoleBindings implements userport.RoleBindingPersistencePort. An empty
+// namespace lists across every namespace, which is what RBAC policy loading
+// needs; the API boundary always passes the namespace from the request path.
 func (a *RoleBindingMongoAdapter) ListRoleBindings(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	resp, err := a.common.list(ctx, options)
+	conditions := bson.M{}
+	if namespace != "" {
+		conditions[roleBindingNamespaceFieldName] = sanitizeResourceName(namespace)
+	}
+
+	resp, err := a.common.listWithConditions(ctx, options, conditions)
 	if err != nil {
 		return nil, err
 	}

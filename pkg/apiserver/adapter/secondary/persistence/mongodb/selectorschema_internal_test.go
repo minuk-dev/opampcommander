@@ -24,18 +24,23 @@ func TestSelectorSchemasCoverTheDomainAllowlists(t *testing.T) {
 		name    string
 		schema  selectorSchema
 		allowed []string
+		// labels is false for an aggregate that carries no label map at all, whose
+		// schema must therefore reject a label selector rather than translate one.
+		labels bool
 	}{
-		{"agent", agentSelectorSchema, agentmodel.AgentSelectableFields},
-		{"agentgroup", agentGroupSelectorSchema, agentmodel.AgentGroupSelectableFields},
-		{"agentpackage", agentPackageSelectorSchema, agentmodel.AgentPackageSelectableFields},
-		{"agentremoteconfig", agentRemoteConfigSelectorSchema, agentmodel.AgentRemoteConfigSelectableFields},
-		{"certificate", certificateSelectorSchema, agentmodel.CertificateSelectableFields},
-		{"container", containerSelectorSchema, agentmodel.ContainerSelectableFields},
-		{"endpoint", endpointSelectorSchema, agentmodel.EndpointSelectableFields},
-		{"host", hostSelectorSchema, agentmodel.HostSelectableFields},
-		{"namespace", namespaceSelectorSchema, agentmodel.NamespaceSelectableFields},
-		{"remoteconfigschema", remoteConfigSchemaSelectorSchema, agentmodel.RemoteConfigSchemaSelectableFields},
-		{"user", userSelectorSchema, usermodel.UserSelectableFields},
+		{"agent", agentSelectorSchema, agentmodel.AgentSelectableFields, true},
+		{"agentgroup", agentGroupSelectorSchema, agentmodel.AgentGroupSelectableFields, true},
+		{"agentpackage", agentPackageSelectorSchema, agentmodel.AgentPackageSelectableFields, true},
+		{"agentremoteconfig", agentRemoteConfigSelectorSchema, agentmodel.AgentRemoteConfigSelectableFields, true},
+		{"certificate", certificateSelectorSchema, agentmodel.CertificateSelectableFields, true},
+		{"container", containerSelectorSchema, agentmodel.ContainerSelectableFields, true},
+		{"endpoint", endpointSelectorSchema, agentmodel.EndpointSelectableFields, true},
+		{"host", hostSelectorSchema, agentmodel.HostSelectableFields, true},
+		{"namespace", namespaceSelectorSchema, agentmodel.NamespaceSelectableFields, true},
+		{"remoteconfigschema", remoteConfigSchemaSelectorSchema, agentmodel.RemoteConfigSchemaSelectableFields, true},
+		{"user", userSelectorSchema, usermodel.UserSelectableFields, true},
+		{"role", roleSelectorSchema, usermodel.RoleSelectableFields, false},
+		{"rolebinding", roleBindingSelectorSchema, usermodel.RoleBindingSelectableFields, false},
 	}
 
 	for _, testCase := range testCases {
@@ -49,8 +54,14 @@ func TestSelectorSchemasCoverTheDomainAllowlists(t *testing.T) {
 
 			assert.ElementsMatch(t, testCase.allowed, translated)
 
-			assert.NotEqual(t, labelsUnsupported, testCase.schema.labelStorage,
-				"every listed resource carries a label map")
+			if testCase.labels {
+				assert.NotEqual(t, labelsUnsupported, testCase.schema.labelStorage,
+					"a resource declared to carry labels must translate a label selector")
+			} else {
+				assert.Equal(t, labelsUnsupported, testCase.schema.labelStorage,
+					"a resource with no label map must reject a label selector, not translate one")
+			}
+
 			assert.NotEmpty(t, testCase.schema.namePath, "every listed resource is searchable by name")
 		})
 	}

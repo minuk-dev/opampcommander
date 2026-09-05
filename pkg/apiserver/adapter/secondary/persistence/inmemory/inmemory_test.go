@@ -14,6 +14,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	"github.com/minuk-dev/opampcommander/pkg/selector"
 )
 
@@ -780,11 +781,12 @@ func TestEndpointRepository_PutOptimisticConcurrency(t *testing.T) {
 	assert.Equal(t, int64(2), stored.Metadata.ResourceVersion)
 }
 
-// TestRoleRepository_RejectsSelectorItCannotEvaluate is the backstop for the
-// silent-unfiltered-list failure mode: a resource wired up without a selector
-// projection must fail the listing rather than answer a narrowing request with
-// the whole collection. Roles carry no labels, so they are that resource today.
-func TestRoleRepository_RejectsSelectorItCannotEvaluate(t *testing.T) {
+// TestRoleRepository_RejectsLabelSelector is the backstop for the
+// silent-empty-page failure mode: a resource that carries no label map must fail
+// a label-selected listing rather than answer it with nothing, which a client
+// would read as "no role matches" instead of "roles have no labels". It is the
+// same answer the MongoDB adapter and the API boundary give.
+func TestRoleRepository_RejectsLabelSelector(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -797,11 +799,26 @@ func TestRoleRepository_RejectsSelectorItCannotEvaluate(t *testing.T) {
 		},
 	})
 
+	require.ErrorIs(t, err, inmemory.ErrLabelsUnsupported)
+}
+
+// TestPermissionRepository_RejectsSelectorItCannotEvaluate is the backstop for
+// the silent-unfiltered-list failure mode: a resource wired up without a
+// selector projection must fail the listing rather than answer a narrowing
+// request with the whole collection.
+func TestPermissionRepository_RejectsSelectorItCannotEvaluate(t *testing.T) {
+	t.Parallel()
+
+	repo := inmemory.NewPermissionRepository()
+
+	//exhaustruct:ignore
+	_, err := repo.ListPermissions(context.Background(), &model.ListOptions{NamePrefix: "agent:"})
+
 	require.ErrorIs(t, err, inmemory.ErrSelectorUnsupported)
 }
 
-// A resource with no projection still lists normally when no selector is asked
-// for, so the guard above cannot regress into breaking plain listings.
+// A resource still lists normally when no selector is asked for, so the guards
+// above cannot regress into breaking plain listings.
 func TestRoleRepository_ListsNormallyWithoutASelector(t *testing.T) {
 	t.Parallel()
 
@@ -810,4 +827,37 @@ func TestRoleRepository_ListsNormallyWithoutASelector(t *testing.T) {
 
 	_, err := repo.ListRoles(ctx, nil)
 	require.NoError(t, err)
+}
+
+// A role listing narrows on its own fields and its display-name prefix, which is
+// what a label-less resource can support.
+func TestRoleRepository_FiltersByFieldAndNamePrefix(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	repo := inmemory.NewRoleRepository()
+
+	for _, role := range []*usermodel.Role{
+		usermodel.NewRole("Admin", true),
+		usermodel.NewRole("AdminReadOnly", false),
+		usermodel.NewRole("Viewer", false),
+	} {
+		_, err := repo.PutRole(ctx, role)
+		require.NoError(t, err)
+	}
+
+	//exhaustruct:ignore
+	builtIn, err := repo.ListRoles(ctx, &model.ListOptions{
+		FieldSelector: selector.FieldSelector{
+			{Field: "spec.isBuiltIn", Operator: selector.OpEquals, Value: "true"},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, builtIn.Items, 1)
+	assert.Equal(t, "Admin", builtIn.Items[0].Spec.DisplayName)
+
+	//exhaustruct:ignore
+	prefixed, err := repo.ListRoles(ctx, &model.ListOptions{NamePrefix: "Admin"})
+	require.NoError(t, err)
+	assert.Len(t, prefixed.Items, 2)
 }
