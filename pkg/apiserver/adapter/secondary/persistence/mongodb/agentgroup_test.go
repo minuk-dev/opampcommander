@@ -160,7 +160,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		})
 
 		// when
-		resp, err := adapter.ListAgentGroups(ctx, nil)
+		resp, err := adapter.ListAgentGroups(ctx, "", nil)
 
 		// then
 		require.NoError(t, err)
@@ -189,7 +189,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		require.NoError(t, err)
 
 		// when
-		resp, err := adapter.ListAgentGroups(ctx, nil)
+		resp, err := adapter.ListAgentGroups(ctx, "", nil)
 
 		// then
 		require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		}
 
 		// when
-		resp, err := adapter.ListAgentGroups(ctx, nil)
+		resp, err := adapter.ListAgentGroups(ctx, "", nil)
 
 		// then
 		require.NoError(t, err)
@@ -268,13 +268,13 @@ func TestAgentGroupMongoAdapter_ListAgentGroups(t *testing.T) {
 		}
 
 		// when - list with limit of 2
-		resp1, err := adapter.ListAgentGroups(ctx, &model.ListOptions{Limit: 2, Continue: ""})
+		resp1, err := adapter.ListAgentGroups(ctx, "", &model.ListOptions{Limit: 2, Continue: ""})
 		require.NoError(t, err)
 		assert.LessOrEqual(t, len(resp1.Items), 2)
 
 		// when - list next page if continue token exists
 		if resp1.Continue != "" {
-			resp2, err := adapter.ListAgentGroups(ctx, &model.ListOptions{Limit: 2, Continue: resp1.Continue})
+			resp2, err := adapter.ListAgentGroups(ctx, "", &model.ListOptions{Limit: 2, Continue: resp1.Continue})
 			require.NoError(t, err)
 			assert.LessOrEqual(t, len(resp2.Items), 2)
 

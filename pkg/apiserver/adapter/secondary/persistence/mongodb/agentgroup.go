@@ -99,11 +99,14 @@ func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	return agentGroupEntity.ToDomain(agentGroupStatistics), nil
 }
 
-// ListAgentGroups implements agentport.AgentGroupPersistencePort.
+// ListAgentGroups implements agentport.AgentGroupPersistencePort.//
+// An empty namespace lists across every namespace; the API boundary always passes
+// the namespace from the request path.
 func (a *AgentGroupMongoAdapter) ListAgentGroups(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	resp, err := a.common.list(ctx, options)
+	resp, err := a.common.listWithConditions(
+		ctx, options, namespaceCondition(namespace)...)
 	if err != nil {
 		return nil, err
 	}

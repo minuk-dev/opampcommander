@@ -364,7 +364,7 @@ func agentRemoteConfigAggregate() aggregate[*agentmodel.AgentRemoteConfig] {
 					return repo.GetAgentRemoteConfig(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.AgentRemoteConfig, error) {
-					resp, err := repo.ListAgentRemoteConfigs(ctx, nil)
+					resp, err := repo.ListAgentRemoteConfigs(ctx, "", nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}
@@ -383,7 +383,7 @@ func agentRemoteConfigAggregate() aggregate[*agentmodel.AgentRemoteConfig] {
 					return repo.GetAgentRemoteConfig(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.AgentRemoteConfig, error) {
-					resp, err := repo.ListAgentRemoteConfigs(ctx, nil)
+					resp, err := repo.ListAgentRemoteConfigs(ctx, "", nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}
@@ -434,7 +434,7 @@ func certificateAggregate() aggregate[*agentmodel.Certificate] {
 					return repo.GetCertificate(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.Certificate, error) {
-					resp, err := repo.ListCertificate(ctx, nil)
+					resp, err := repo.ListCertificate(ctx, "", nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}
@@ -453,7 +453,7 @@ func certificateAggregate() aggregate[*agentmodel.Certificate] {
 					return repo.GetCertificate(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.Certificate, error) {
-					resp, err := repo.ListCertificate(ctx, nil)
+					resp, err := repo.ListCertificate(ctx, "", nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}

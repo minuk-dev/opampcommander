@@ -84,7 +84,7 @@ func TestAgentPackageController_List(t *testing.T) {
 				},
 			},
 		}
-		usecase.EXPECT().ListAgentPackages(mock.Anything, mock.Anything).Return(&v1.ListResponse[v1.AgentPackage]{
+		usecase.EXPECT().ListAgentPackages(mock.Anything, "default", mock.Anything).Return(&v1.ListResponse[v1.AgentPackage]{
 			Kind:       "AgentPackage",
 			APIVersion: "v1",
 			Metadata: v1.ListMeta{
@@ -139,7 +139,7 @@ func TestAgentPackageController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		usecase.EXPECT().ListAgentPackages(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+		usecase.EXPECT().ListAgentPackages(mock.Anything, "default", mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBaseURL, nil)

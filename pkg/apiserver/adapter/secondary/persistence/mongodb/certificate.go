@@ -92,11 +92,14 @@ func (c *CertificateMongoAdapter) GetCertificate(
 	return certificateEntity.ToDomain(), nil
 }
 
-// ListCertificate implements agentport.CertificatePersistencePort.
+// ListCertificate implements agentport.CertificatePersistencePort.//
+// An empty namespace lists across every namespace; the API boundary always passes
+// the namespace from the request path.
 func (c *CertificateMongoAdapter) ListCertificate(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
-	resp, err := c.common.list(ctx, options)
+	resp, err := c.common.listWithConditions(
+		ctx, options, namespaceCondition(namespace)...)
 	if err != nil {
 		return nil, err
 	}

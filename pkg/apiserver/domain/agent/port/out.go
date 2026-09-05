@@ -199,8 +199,10 @@ type AgentGroupPersistencePort interface {
 	// PutAgentGroup saves the agent group.
 	PutAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error)
-	// ListAgentGroups retrieves a list of agent groups with pagination options.
-	ListAgentGroups(ctx context.Context,
+	// ListAgentGroups retrieves the agent groups in namespace, with pagination
+	// options. An empty namespace lists across every namespace; see
+	// [AgentGroupUsecase.ListAgentGroups].
+	ListAgentGroups(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentGroup], error)
 }
 
@@ -252,8 +254,9 @@ type AgentPackagePersistencePort interface {
 	// PutAgentPackage saves or updates an agent package.
 	PutAgentPackage(ctx context.Context,
 		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
-	// ListAgentPackages retrieves a list of agent packages with pagination options.
-	ListAgentPackages(ctx context.Context,
+	// ListAgentPackages retrieves the agent packages in namespace, with pagination
+	// options. An empty namespace lists across every namespace.
+	ListAgentPackages(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentPackage], error)
 }
 
@@ -267,9 +270,11 @@ type AgentRemoteConfigPersistencePort interface {
 		ctx context.Context,
 		config *agentmodel.AgentRemoteConfig,
 	) (*agentmodel.AgentRemoteConfig, error)
-	// ListAgentRemoteConfigs retrieves a list of agent remote configs with pagination options.
+	// ListAgentRemoteConfigs retrieves the agent remote configs in namespace, with
+	// pagination options. An empty namespace lists across every namespace.
 	ListAgentRemoteConfigs(
 		ctx context.Context,
+		namespace string,
 		options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error)
 }
@@ -359,6 +364,8 @@ type CertificatePersistencePort interface {
 		name string, options *model.GetOptions) (*agentmodel.Certificate, error)
 	PutCertificate(ctx context.Context,
 		certificate *agentmodel.Certificate) (*agentmodel.Certificate, error)
-	ListCertificate(ctx context.Context,
+	// ListCertificate retrieves the certificates in namespace, with pagination
+	// options. An empty namespace lists across every namespace.
+	ListCertificate(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Certificate], error)
 }

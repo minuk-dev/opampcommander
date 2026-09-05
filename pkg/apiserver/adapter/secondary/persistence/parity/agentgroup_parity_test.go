@@ -66,7 +66,7 @@ func agentGroupAggregate() aggregate[*agentmodel.AgentGroup] {
 					return repo.GetAgentGroup(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.AgentGroup, error) {
-					resp, err := repo.ListAgentGroups(ctx, nil)
+					resp, err := repo.ListAgentGroups(ctx, "", nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}
@@ -85,7 +85,7 @@ func agentGroupAggregate() aggregate[*agentmodel.AgentGroup] {
 					return repo.GetAgentGroup(ctx, ns, name, getOptions(incl))
 				},
 				listNamespace: func(ctx context.Context, ns string) ([]*agentmodel.AgentGroup, error) {
-					resp, err := repo.ListAgentGroups(ctx, nil)
+					resp, err := repo.ListAgentGroups(ctx, "", nil)
 					if err != nil {
 						return nil, fmt.Errorf("parity list: %w", err)
 					}

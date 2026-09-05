@@ -40,9 +40,9 @@ func (m *mockAgentGroupUsecase) GetAgentGroup(
 }
 
 func (m *mockAgentGroupUsecase) ListAgentGroups(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -283,9 +283,9 @@ func TestService_ListAgentGroups(t *testing.T) {
 			Items:    []*agentmodel.AgentGroup{newGroup()},
 			Continue: "next",
 		}
-		mockGroup.On("ListAgentGroups", ctx, opts.ToDomain()).Return(resp, nil)
+		mockGroup.On("ListAgentGroups", ctx, "production", opts.ToDomain()).Return(resp, nil)
 
-		result, err := svc.ListAgentGroups(ctx, opts)
+		result, err := svc.ListAgentGroups(ctx, "production", opts)
 
 		require.NoError(t, err)
 		assert.Equal(t, v1.AgentGroupKind, result.Kind)
@@ -302,9 +302,9 @@ func TestService_ListAgentGroups(t *testing.T) {
 		svc := newSvc(t, mockGroup, new(mockAgentUsecase))
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockGroup.On("ListAgentGroups", ctx, opts.ToDomain()).Return(nil, errMock)
+		mockGroup.On("ListAgentGroups", ctx, "production", opts.ToDomain()).Return(nil, errMock)
 
-		result, err := svc.ListAgentGroups(ctx, opts)
+		result, err := svc.ListAgentGroups(ctx, "production", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

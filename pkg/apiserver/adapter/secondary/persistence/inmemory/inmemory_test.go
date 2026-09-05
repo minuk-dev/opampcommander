@@ -382,7 +382,7 @@ func TestAgentGroupRepository_ConcurrentAccessNoRace(t *testing.T) {
 
 			for range 50 {
 				_, _ = groupRepo.GetAgentGroup(ctx, "default", groupName, nil)
-				_, _ = groupRepo.ListAgentGroups(ctx, nil)
+				_, _ = groupRepo.ListAgentGroups(ctx, "", nil)
 			}
 		}()
 
@@ -701,7 +701,7 @@ func TestAgentRemoteConfigRepository_PutGetListSoftDelete(t *testing.T) {
 	assert.Equal(t, "cfg", got.Metadata.Name)
 	assert.Equal(t, []byte("body"), got.Spec.Value)
 
-	list, err := repo.ListAgentRemoteConfigs(ctx, nil)
+	list, err := repo.ListAgentRemoteConfigs(ctx, "", nil)
 	require.NoError(t, err)
 	require.Len(t, list.Items, 1)
 

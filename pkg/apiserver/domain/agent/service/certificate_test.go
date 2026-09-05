@@ -64,6 +64,7 @@ func (m *MockCertificatePersistencePort) PutCertificate(
 
 func (m *MockCertificatePersistencePort) ListCertificate(
 	ctx context.Context,
+	_ string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
 	args := m.Called(ctx, options)
@@ -192,7 +193,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 		options := &model.ListOptions{Limit: 10}
 		mockPort.On("ListCertificate", ctx, options).Return(expectedResp, nil)
 
-		resp, err := certService.ListCertificate(ctx, options)
+		resp, err := certService.ListCertificate(ctx, "", options)
 
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
@@ -220,7 +221,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 		options := &model.ListOptions{Limit: 10}
 		mockPort.On("ListCertificate", ctx, options).Return(expectedResp, nil)
 
-		resp, err := certService.ListCertificate(ctx, options)
+		resp, err := certService.ListCertificate(ctx, "", options)
 
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
@@ -251,7 +252,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 		options := &model.ListOptions{Limit: 2, Continue: ""}
 		mockPort.On("ListCertificate", ctx, options).Return(expectedResp, nil)
 
-		resp, err := certService.ListCertificate(ctx, options)
+		resp, err := certService.ListCertificate(ctx, "", options)
 
 		require.NoError(t, err)
 		assert.Equal(t, "next-page-token", resp.Continue)
@@ -271,7 +272,7 @@ func TestCertificateService_ListCertificate(t *testing.T) {
 		options := &model.ListOptions{Limit: 10}
 		mockPort.On("ListCertificate", ctx, options).Return(nil, errCertificatePersistence)
 
-		resp, err := certService.ListCertificate(ctx, options)
+		resp, err := certService.ListCertificate(ctx, "", options)
 
 		require.Error(t, err)
 		assert.Nil(t, resp)

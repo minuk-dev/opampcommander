@@ -79,7 +79,7 @@ func TestCertificateController_List(t *testing.T) {
 				},
 			},
 		}
-		usecase.EXPECT().ListCertificates(mock.Anything, mock.Anything).Return(&v1.ListResponse[v1.Certificate]{
+		usecase.EXPECT().ListCertificates(mock.Anything, "default", mock.Anything).Return(&v1.ListResponse[v1.Certificate]{
 			Kind:       "Certificate",
 			APIVersion: "v1",
 			Metadata: v1.ListMeta{
@@ -133,7 +133,7 @@ func TestCertificateController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		usecase.EXPECT().ListCertificates(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+		usecase.EXPECT().ListCertificates(mock.Anything, "default", mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, testBasePath, nil)

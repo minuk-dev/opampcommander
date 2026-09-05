@@ -90,7 +90,7 @@ func (f *nsFakeAgentGroupUsecase) GetAgentGroup(
 }
 
 func (f *nsFakeAgentGroupUsecase) ListAgentGroups(
-	context.Context, *model.ListOptions,
+	context.Context, string, *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
 	return &model.ListResponse[*agentmodel.AgentGroup]{Items: f.items}, nil
 }
@@ -164,7 +164,7 @@ func (f *nsFakeCertificateUsecase) UpdateCertificate(
 }
 
 func (f *nsFakeCertificateUsecase) ListCertificate(
-	context.Context, *model.ListOptions,
+	context.Context, string, *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
 	return &model.ListResponse[*agentmodel.Certificate]{}, nil
 }
@@ -184,7 +184,7 @@ func (f *nsFakeAgentPackageUsecase) GetAgentPackage(
 }
 
 func (f *nsFakeAgentPackageUsecase) ListAgentPackages(
-	context.Context, *model.ListOptions,
+	context.Context, string, *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentPackage], error) {
 	return &model.ListResponse[*agentmodel.AgentPackage]{}, nil
 }
@@ -222,7 +222,7 @@ func (f *nsFakeAgentRemoteConfigUsecase) GetAgentRemoteConfig(
 }
 
 func (f *nsFakeAgentRemoteConfigUsecase) ListAgentRemoteConfigs(
-	context.Context, *model.ListOptions,
+	context.Context, string, *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
 	return &model.ListResponse[*agentmodel.AgentRemoteConfig]{}, nil
 }

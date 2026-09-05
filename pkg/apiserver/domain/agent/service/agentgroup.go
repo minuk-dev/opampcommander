@@ -70,6 +70,12 @@ type AgentGroupService struct {
 	logger *slog.Logger
 }
 
+// allNamespaces is the empty namespace the persistence ports read as "every
+// namespace". The reconcile pass is cluster-wide by nature; every other caller
+// scopes its listing, and the API boundary always passes the namespace from the
+// request path.
+const allNamespaces = ""
+
 // NewAgentGroupService creates a new instance of AgentGroupService.
 func NewAgentGroupService(
 	persistencePort agentport.AgentGroupPersistencePort,
@@ -182,9 +188,10 @@ func (s *AgentGroupService) SaveAgentGroup(
 // ListAgentGroups retrieves a list of agent groups with pagination options.
 func (s *AgentGroupService) ListAgentGroups(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	resp, err := s.persistencePort.ListAgentGroups(ctx, options)
+	resp, err := s.persistencePort.ListAgentGroups(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("list agent groups: %w", err)
 	}
@@ -259,24 +266,18 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 	ctx context.Context,
 	agent *agentmodel.Agent,
 ) ([]*agentmodel.AgentGroup, error) {
-	// Get all agent groups
-	allGroups, err := s.persistencePort.ListAgentGroups(ctx, nil)
+	// An agent group only governs agents in its own namespace, so the listing is
+	// scoped to the agent's — without that scoping a group in namespace "foo"
+	// would (incorrectly) apply its remote config to an agent in "default".
+	groups, err := s.persistencePort.ListAgentGroups(ctx, agent.Metadata.Namespace, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agent groups: %w", err)
 	}
 
-	// Filter groups that match the agent. An agent group only governs agents in its own
-	// namespace, so groups from other namespaces are skipped even when their selector would
-	// otherwise match — without this scoping a group in namespace "foo" would (incorrectly)
-	// apply its remote config to an agent in "default".
 	var matchingGroups []*agentmodel.AgentGroup
 
-	for _, group := range allGroups.Items {
+	for _, group := range groups.Items {
 		if group.IsDeleted() {
-			continue
-		}
-
-		if group.Metadata.Namespace != agent.Metadata.Namespace {
 			continue
 		}
 
@@ -322,13 +323,13 @@ func (s *AgentGroupService) PropagateAgentRemoteConfigChange(
 	namespace string,
 	remoteConfigName string,
 ) error {
-	groups, err := s.persistencePort.ListAgentGroups(ctx, nil)
+	groups, err := s.persistencePort.ListAgentGroups(ctx, namespace, nil)
 	if err != nil {
 		return fmt.Errorf("list agent groups for remote-config change: %w", err)
 	}
 
 	for _, group := range groups.Items {
-		if group.IsDeleted() || group.Metadata.Namespace != namespace {
+		if group.IsDeleted() {
 			continue
 		}
 
@@ -554,7 +555,7 @@ func (s *AgentGroupService) reconcileAll(ctx context.Context) {
 // are processed too (see shouldReconcileDeletedGroup) so a dropped delete event still
 // results in the deleted group's config being dropped from its former members.
 func (s *AgentGroupService) reconcileAllGroups(ctx context.Context) {
-	groups, err := s.persistencePort.ListAgentGroups(ctx, nil)
+	groups, err := s.persistencePort.ListAgentGroups(ctx, allNamespaces, nil)
 	if err != nil {
 		s.logger.Error("reconcile loop: failed to list agent groups",
 			slog.String("error", err.Error()))

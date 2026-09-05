@@ -270,9 +270,61 @@ func TestE2E_Selectors_RolesFilterWithoutLabels(t *testing.T) {
 	}
 }
 
-// A namespaced listing must honour the namespace in its own path. Authorization
-// is enforced per-namespace, so a listing that ignored it would hand a caller
-// authorized for one namespace the contents of every other.
+// Every namespaced listing must honour the namespace in its own path.
+// Authorization is enforced per-namespace, so a listing that ignored it would
+// hand a caller authorized for one namespace the contents of every other.
+func TestE2E_NamespacedListings_ScopedToTheirNamespace(t *testing.T) {
+	t.Parallel()
+
+	cli := startSelectorAPIServer(t, "opampcommander_e2e_namespace_scope")
+
+	other := "scope-other"
+
+	//exhaustruct:ignore
+	_, err := cli.NamespaceService.CreateNamespace(t.Context(), &v1.Namespace{
+		Metadata: v1.NamespaceMetadata{Name: other},
+	})
+	require.NoError(t, err)
+
+	// One resource of each kind in each namespace, sharing a name so that a
+	// listing which ignored its namespace would visibly return two.
+	const shared = "scoped"
+
+	for _, namespace := range []string{"default", other} {
+		//exhaustruct:ignore
+		_, err := cli.CertificateService.CreateCertificate(t.Context(), namespace, &v1.Certificate{
+			Metadata: v1.CertificateMetadata{Name: shared, Namespace: namespace},
+			Spec:     v1.CertificateSpec{},
+		})
+		require.NoError(t, err)
+
+		//exhaustruct:ignore
+		_, err = cli.AgentPackageService.CreateAgentPackage(t.Context(), namespace, &v1.AgentPackage{
+			Metadata: v1.AgentPackageMetadata{Name: shared, Namespace: namespace},
+			Spec:     v1.AgentPackageSpec{PackageType: "TopLevelPackageName", Version: "1.0.0"},
+		})
+		require.NoError(t, err)
+	}
+
+	for _, namespace := range []string{"default", other} {
+		certificates, err := cli.CertificateService.ListCertificates(t.Context(), namespace)
+		require.NoError(t, err)
+
+		for _, certificate := range certificates.Items {
+			assert.Equal(t, namespace, certificate.Metadata.Namespace,
+				"a namespaced listing must not return another namespace's certificates")
+		}
+
+		packages, err := cli.AgentPackageService.ListAgentPackages(t.Context(), namespace)
+		require.NoError(t, err)
+
+		for _, agentPackage := range packages.Items {
+			assert.Equal(t, namespace, agentPackage.Metadata.Namespace,
+				"a namespaced listing must not return another namespace's agent packages")
+		}
+	}
+}
+
 func TestE2E_RoleBindings_ScopedToTheirNamespace(t *testing.T) {
 	t.Parallel()
 
