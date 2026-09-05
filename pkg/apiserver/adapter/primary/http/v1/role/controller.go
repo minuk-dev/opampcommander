@@ -80,6 +80,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param includeDeleted query bool false "Include soft-deleted roles"
 // @Param fieldSelector query string false "Fields: spec.isBuiltIn"
 // @Param name query string false "Case-sensitive display-name prefix filter"
+// @Param nameContains query string false "Case-insensitive display name substring filter (scan, not indexed)"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/roles [get].
@@ -113,6 +114,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		IncludeDeleted: includeDeleted,
 		FieldSelector:  selectors.Field,
 		NamePrefix:     selectors.NamePrefix,
+		NameContains:   selectors.NameContains,
 	})
 	if err != nil {
 		c.logger.Error("failed to list roles", "error", err.Error())

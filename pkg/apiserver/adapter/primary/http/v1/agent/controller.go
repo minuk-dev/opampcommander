@@ -102,6 +102,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param attributeSelector query string false "Selector over the reported agent description, e.g. os.type=linux"
 // @Param fieldSelector query string false "Fields: metadata.namespace, status.connected, status.healthy"
 // @Param name query string false "Case-sensitive instance-UID prefix filter"
+// @Param nameContains query string false "Case-insensitive instance UID substring filter (scan, not indexed)"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/namespaces/{namespace}/agents [get].
@@ -148,6 +149,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		LabelSelector:            selectors.Metadata,
 		FieldSelector:            selectors.Field,
 		NamePrefix:               selectors.NamePrefix,
+		NameContains:             selectors.NameContains,
 	})
 	if err != nil {
 		c.logger.Error("failed to list agents", "error", err.Error())

@@ -27,8 +27,14 @@ type ListOptions struct {
 	FieldSelector selector.FieldSelector
 
 	// NamePrefix, when non-empty, restricts the listing to resources whose name
-	// starts with it, case-sensitively.
+	// starts with it, case-sensitively. It is served by an index range scan.
 	NamePrefix string
+
+	// NameContains, when non-empty, restricts the listing to resources whose name
+	// contains it, case-insensitively. No ordered index can answer "contains", so
+	// this is a scan; see [model.ListOptions] for why it is a separate option
+	// rather than a mode of NamePrefix.
+	NameContains string
 
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
 	// currently considered connected. It is a no-op for resources that have no
@@ -67,6 +73,7 @@ func (o *ListOptions) ToDomain() *model.ListOptions {
 		LabelSelector:            o.LabelSelector,
 		FieldSelector:            o.FieldSelector,
 		NamePrefix:               o.NamePrefix,
+		NameContains:             o.NameContains,
 		ConnectedOnly:            o.ConnectedOnly,
 		IdentifyingAttributes:    o.IdentifyingAttributes,
 		NonIdentifyingAttributes: o.NonIdentifyingAttributes,

@@ -82,6 +82,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
 // @Param fieldSelector query string false "Field selector over the supported fields: metadata.namespace"
 // @Param name query string false "Case-sensitive name prefix filter"
+// @Param nameContains query string false "Case-insensitive name substring filter (scan, not indexed)"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentremoteconfigs [get].
@@ -116,6 +117,7 @@ func (c *Controller) List(ctx *gin.Context) {
 			LabelSelector:  selectors.Metadata,
 			FieldSelector:  selectors.Field,
 			NamePrefix:     selectors.NamePrefix,
+			NameContains:   selectors.NameContains,
 			Limit:          limit,
 			Continue:       continueToken,
 			IncludeDeleted: includeDeleted,

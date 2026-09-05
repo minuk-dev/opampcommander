@@ -218,3 +218,26 @@ func TestParseSelectors_NoMetadataResourceStillRejectsAnUnsupportedField(t *test
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), "spec.nope")
 }
+
+func TestParseSelectors_NameContains(t *testing.T) {
+	t.Parallel()
+
+	selectors, ok, recorder := parseSelectorsFor(t, "nameContains=coll", []string{"spec.platform"})
+
+	require.True(t, ok)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "coll", selectors.NameContains)
+	assert.Empty(t, selectors.NamePrefix)
+}
+
+// The two name filters are independent and combine, so a caller can anchor a
+// scan to an indexed prefix.
+func TestParseSelectors_NamePrefixAndContainsCombine(t *testing.T) {
+	t.Parallel()
+
+	selectors, ok, _ := parseSelectorsFor(t, "name=otel-&nameContains=coll", []string{"spec.platform"})
+
+	require.True(t, ok)
+	assert.Equal(t, "otel-", selectors.NamePrefix)
+	assert.Equal(t, "coll", selectors.NameContains)
+}

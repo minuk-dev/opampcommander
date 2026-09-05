@@ -77,6 +77,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param includeDeleted query bool false "Include soft-deleted role bindings"
 // @Param fieldSelector query string false "Fields: spec.roleRef.name"
 // @Param name query string false "Case-sensitive name prefix filter"
+// @Param nameContains query string false "Case-insensitive name substring filter (scan, not indexed)"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/rolebindings [get].
@@ -117,6 +118,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		IncludeDeleted: includeDeleted,
 		FieldSelector:  selectors.Field,
 		NamePrefix:     selectors.NamePrefix,
+		NameContains:   selectors.NameContains,
 	})
 	if err != nil {
 		c.logger.Error("failed to list role bindings", "error", err.Error())

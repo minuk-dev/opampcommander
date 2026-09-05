@@ -352,7 +352,8 @@ func (s *store[K, V]) withSelectors(
 	options *model.ListOptions,
 	filter func(V) bool,
 ) (func(V) bool, error) {
-	if options.NamePrefix == "" && options.LabelSelector.Empty() && options.FieldSelector.Empty() {
+	if options.NamePrefix == "" && options.NameContains == "" &&
+		options.LabelSelector.Empty() && options.FieldSelector.Empty() {
 		return filter, nil
 	}
 
