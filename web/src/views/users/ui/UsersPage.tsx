@@ -21,7 +21,7 @@ export default function UsersPage() {
       itemName={(u) => u.spec.email || u.spec.username || u.metadata.uid}
       filterable
       nameLabel="Email"
-      namePlaceholder="Email starts with…"
+      namePlaceholder="Email contains…"
       canDelete
       columns={[
         { header: 'Email', render: (u) => u.spec.email || '-' },
