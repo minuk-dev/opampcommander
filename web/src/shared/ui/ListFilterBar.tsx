@@ -40,9 +40,9 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 // ListFilterBar is the filter row shared by the list pages. Both fields are
-// answered by the server: the name prefix by an index range scan, the label
-// selector by the datastore query. Nothing here filters the fetched page, so the
-// paginated total always describes the set the rows were drawn from.
+// answered by the server: the name substring by a scan, the label selector by the
+// datastore query. Nothing here filters the fetched page, so the paginated total
+// always describes the set the rows were drawn from.
 //
 // Filters apply on submit rather than on every keystroke: each change is a new
 // request and a reset to page 0, so typing into a live filter would fetch once
@@ -51,7 +51,7 @@ export default function ListFilterBar({
   value,
   onChange,
   nameLabel = 'Name',
-  namePlaceholder = 'Name starts with…',
+  namePlaceholder = 'Name contains…',
   children,
 }: Props) {
   const [name, setName] = useState(value.name);

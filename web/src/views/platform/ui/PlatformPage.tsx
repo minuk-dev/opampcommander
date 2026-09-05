@@ -190,7 +190,7 @@ export default function PlatformPage() {
           <ListFilterBar
             value={hostFilters}
             onChange={setHostFilters}
-            namePlaceholder="Host name starts with…"
+            namePlaceholder="Host name contains…"
           >
             <PlatformSelect value={hostFilters} onChange={setHostFilters} />
           </ListFilterBar>
@@ -200,7 +200,7 @@ export default function PlatformPage() {
           <ListFilterBar
             value={containerFilters}
             onChange={setContainerFilters}
-            namePlaceholder="Container name starts with…"
+            namePlaceholder="Container name contains…"
           >
             <PlatformSelect value={containerFilters} onChange={setContainerFilters} />
           </ListFilterBar>
