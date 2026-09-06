@@ -366,11 +366,57 @@ func agentExtraCases() []selectorCase {
 			fieldSelector: "status.connected=false",
 			expected:      []string{fixtureProdMetrics, fixtureProdTraces, fixtureStagingMetrics, fixtureUnlabelled},
 		},
+		{
+			// One label selector reaches both attribute maps: the split into
+			// identifying and non-identifying says which attributes form the agent's
+			// identity, not which an operator may filter on.
+			name:          "a non-identifying attribute is selectable through the same label selector",
+			labelSelector: "os.type=linux",
+			expected:      []string{fixtureProdMetrics, fixtureProdTraces, fixtureStagingMetrics, fixtureUnlabelled},
+		},
+		{
+			name:          "a negative operator holds only when neither attribute map says otherwise",
+			labelSelector: "os.type!=linux",
+			expected:      nil,
+		},
+		{
+			name:          "a negative operator on a key in neither map selects everything",
+			labelSelector: "os.type!=windows,cloud.provider!=aws",
+			expected:      []string{fixtureProdMetrics, fixtureProdTraces, fixtureStagingMetrics, fixtureUnlabelled},
+		},
+		{
+			name:          "identifying and non-identifying attributes combine in one expression",
+			labelSelector: "env=prod,os.type=linux,tier!=canary",
+			expected:      []string{fixtureProdMetrics},
+		},
+		{
+			// The key is in both maps. Either map satisfying the requirement is
+			// enough, so both values select every agent — a merge that let the
+			// identifying map win would select none of them for the second.
+			name:          "a key in both maps is satisfied by the identifying value",
+			labelSelector: "service.version=1.0",
+			expected:      []string{fixtureProdMetrics, fixtureProdTraces, fixtureStagingMetrics, fixtureUnlabelled},
+		},
+		{
+			name:          "a key in both maps is satisfied by the non-identifying value",
+			labelSelector: "service.version=2.0",
+			expected:      []string{fixtureProdMetrics, fixtureProdTraces, fixtureStagingMetrics, fixtureUnlabelled},
+		},
+		{
+			// The negation is where a merge would be most visibly wrong: it would
+			// call this true for every agent, because the identifying map does not
+			// say 2.0.
+			name:          "negating a key in both maps holds only when neither map says it",
+			labelSelector: "service.version!=2.0",
+			expected:      nil,
+		},
 	}
 }
 
 // agentSelectorSeeder stores the fixture's labels as the agent's identifying
 // attributes, plus a "fixture" attribute the lister reads back to identify it.
+// It also gives every agent one non-identifying attribute, so the union cases in
+// agentExtraCases have something on the other side to find.
 func agentSelectorSeeder(
 	put func(ctx context.Context, agent *agentmodel.Agent) error,
 ) func(ctx context.Context, namespace string, fixture selectorFixture) error {
@@ -379,7 +425,19 @@ func agentSelectorSeeder(
 	return func(ctx context.Context, namespace string, fixture selectorFixture) error {
 		agent := agentmodel.NewAgent(uids[fixture.name])
 		agent.Metadata.Namespace = namespace
-		agent.Metadata.Description.IdentifyingAttributes = map[string]string{"fixture": fixture.name}
+		// service.version is deliberately present in BOTH maps with different
+		// values. It is the only case that separates "either map satisfies the
+		// requirement" from "merge the maps, identifying wins" — every other case
+		// agrees under both rules, so without this the semantics the union is built
+		// on would be unpinned.
+		agent.Metadata.Description.IdentifyingAttributes = map[string]string{
+			"fixture":         fixture.name,
+			"service.version": "1.0",
+		}
+		agent.Metadata.Description.NonIdentifyingAttributes = map[string]string{
+			"os.type":         "linux",
+			"service.version": "2.0",
+		}
 
 		maps.Copy(agent.Metadata.Description.IdentifyingAttributes, fixture.labels)
 

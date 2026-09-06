@@ -102,7 +102,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, port.NamespaceSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, port.NamespaceSelectableFields)
 	if !ok {
 		return
 	}
@@ -110,7 +110,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	response, err := c.namespaceUsecase.ListNamespaces(
 		ctx.Request.Context(),
 		&port.ListOptions{
-			LabelSelector:  selectors.Label,
+			LabelSelector:  selectors.Metadata,
 			FieldSelector:  selectors.Field,
 			NamePrefix:     selectors.NamePrefix,
 			Limit:          limit,

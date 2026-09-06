@@ -11,9 +11,11 @@ type ListOptions struct {
 	IncludeDeleted bool
 
 	// LabelSelector, when non-empty, restricts the listing to resources whose
-	// user-supplied metadata map satisfies every requirement. Which field backs
-	// that map is per-aggregate; see [SelectorValues.Labels]. It is a no-op for
-	// resources that carry no such map.
+	// user-supplied metadata satisfies every requirement. Which field backs that
+	// map is per-aggregate; see [SelectorValues.Labels]. An aggregate may carry
+	// more than one map — an agent's identifying and non-identifying attributes —
+	// in which case a requirement is satisfied when either does. Listing a
+	// resource that carries no such map at all is an error, not a no-op.
 	LabelSelector selector.LabelSelector
 
 	// FieldSelector, when non-empty, restricts the listing to resources whose own
@@ -28,7 +30,10 @@ type ListOptions struct {
 	NamePrefix string
 
 	// ConnectedOnly, when true, restricts an agent listing to agents that are
-	// currently considered connected. "Connected" here mirrors the per-agent
+	// currently considered connected. It is the alias for FieldSelector
+	// "status.connected=true" and means exactly the same thing.
+	//
+	// "Connected" here mirrors the per-agent
 	// Connected field exactly (Status.Connected is set AND the agent reported
 	// within the heartbeat-staleness window), so a filtered list and the
 	// connected badge/count never disagree. It is a no-op for resources that
@@ -39,12 +44,16 @@ type ListOptions struct {
 	// whose identifying attributes match every key=value pair exactly (an AND of
 	// equality conditions, mirroring agent-group selector semantics). It is a
 	// no-op for resources that have no identifying attributes.
+	//
+	// Deprecated: LabelSelector expresses the same conditions and more.
 	IdentifyingAttributes map[string]string
 
 	// NonIdentifyingAttributes, when non-empty, restricts an agent listing to
 	// agents whose non-identifying attributes match every key=value pair exactly
 	// (an AND of equality conditions). It is combined with IdentifyingAttributes
 	// via AND, and is a no-op for resources that have no non-identifying attributes.
+	//
+	// Deprecated: LabelSelector reaches the non-identifying attributes too.
 	NonIdentifyingAttributes map[string]string
 }
 

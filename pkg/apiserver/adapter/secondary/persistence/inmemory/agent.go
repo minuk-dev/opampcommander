@@ -106,7 +106,11 @@ func (r *AgentRepository) ListAgents(
 
 	var identifyingAttributes, nonIdentifyingAttributes map[string]string
 	if options != nil {
+		// Deprecated options, still honoured for the query parameters of the same
+		// name; LabelSelector is what new callers use.
+		//nolint:staticcheck // deprecated alias, honoured until the parameters are removed
 		identifyingAttributes = options.IdentifyingAttributes
+		//nolint:staticcheck // deprecated alias, honoured until the parameters are removed
 		nonIdentifyingAttributes = options.NonIdentifyingAttributes
 	}
 

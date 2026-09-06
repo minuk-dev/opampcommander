@@ -103,8 +103,12 @@ func (a *AgentRepository) ListAgents(
 		// Each attribute condition is a separate $elemMatch on the same field, so
 		// they must be combined with $and (via buildFilter) rather than flattened
 		// into one map, which would drop all but the last.
+		// Deprecated options, still honoured for the query parameters of the same
+		// name; LabelSelector is what new callers use.
+		//nolint:staticcheck // deprecated alias, honoured until the parameters are removed
 		conditions = append(conditions,
 			IdentifyingAttributesSelectorToMatchConditions(options.IdentifyingAttributes)...)
+		//nolint:staticcheck // deprecated alias, honoured until the parameters are removed
 		conditions = append(conditions,
 			NonIdentifyingAttributesSelectorToMatchConditions(options.NonIdentifyingAttributes)...)
 	}

@@ -70,7 +70,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVar(&options.agent, "agent", "",
 		"List only the agent groups that contain the agent with this instance UID")
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.Labels)
 
 	return cmd
 }

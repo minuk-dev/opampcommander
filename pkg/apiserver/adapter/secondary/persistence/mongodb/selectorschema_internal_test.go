@@ -76,11 +76,21 @@ func TestSelectorSchema_MapLabelConditions(t *testing.T) {
 		expected bson.M
 	}{
 		{"equals", "env=prod", bson.M{"metadata.attributes.env": "prod"}},
-		{"not equals", "env!=prod", bson.M{"metadata.attributes.env": bson.M{"$ne": "prod"}}},
+		{
+			// Every negative operator is the negation of its positive twin, so it is
+			// translated as $nor over the positive form rather than by a second,
+			// separately-derived rule. An absent label satisfies it, as Kubernetes
+			// requires.
+			"not equals", "env!=prod",
+			bson.M{"$nor": bson.A{bson.M{"metadata.attributes.env": "prod"}}},
+		},
 		{"in", "env in (prod,stg)", bson.M{"metadata.attributes.env": bson.M{"$in": []string{"prod", "stg"}}}},
-		{"notin", "env notin (prod)", bson.M{"metadata.attributes.env": bson.M{"$nin": []string{"prod"}}}},
+		{
+			"notin", "env notin (prod)",
+			bson.M{"$nor": bson.A{bson.M{"metadata.attributes.env": bson.M{"$in": []string{"prod"}}}}},
+		},
 		{"exists", "env", bson.M{"metadata.attributes.env": bson.M{"$exists": true}}},
-		{"not exists", "!env", bson.M{"metadata.attributes.env": bson.M{"$exists": false}}},
+		{"not exists", "!env", bson.M{"$nor": bson.A{bson.M{"metadata.attributes.env": bson.M{"$exists": true}}}}},
 	}
 
 	for _, testCase := range testCases {
@@ -97,7 +107,17 @@ func TestSelectorSchema_MapLabelConditions(t *testing.T) {
 func TestSelectorSchema_KeyValueLabelConditions(t *testing.T) {
 	t.Parallel()
 
-	path := "metadata.description.identifyingAttributes"
+	// An agent's labels live in two arrays — its identifying and non-identifying
+	// attributes — so a positive requirement is an $or across both and a negative
+	// one is a $nor across the same pair. Selecting on os.type has to reach the
+	// non-identifying array; selecting on service.namespace has to reach the
+	// identifying one; neither the client nor this table says which.
+	identifying := "metadata.description.identifyingAttributes"
+	nonIdentifying := "metadata.description.nonIdentifyingAttributes"
+
+	elemMatch := func(path string, element bson.M) bson.M {
+		return bson.M{path: bson.M{"$elemMatch": element}}
+	}
 
 	testCases := []struct {
 		name     string
@@ -105,44 +125,60 @@ func TestSelectorSchema_KeyValueLabelConditions(t *testing.T) {
 		expected bson.M
 	}{
 		{
-			name: "equals",
+			name: "equals matches either attribute map",
 			raw:  "service.namespace=payments",
-			expected: bson.M{path: bson.M{"$elemMatch": bson.M{
-				"key": "service.namespace", "value": "payments",
-			}}},
+			expected: bson.M{"$or": bson.A{
+				elemMatch(identifying, bson.M{"key": "service.namespace", "value": "payments"}),
+				elemMatch(nonIdentifying, bson.M{"key": "service.namespace", "value": "payments"}),
+			}},
 		},
 		{
-			name: "not equals negates the whole elemMatch, so an agent without the attribute matches",
+			name: "not equals negates both elemMatches, so an agent without the attribute matches",
 			raw:  "service.namespace!=payments",
-			expected: bson.M{"$nor": bson.A{bson.M{path: bson.M{"$elemMatch": bson.M{
-				"key": "service.namespace", "value": "payments",
-			}}}}},
+			expected: bson.M{"$nor": bson.A{
+				elemMatch(identifying, bson.M{"key": "service.namespace", "value": "payments"}),
+				elemMatch(nonIdentifying, bson.M{"key": "service.namespace", "value": "payments"}),
+			}},
 		},
 		{
 			name: "in",
 			raw:  "service.namespace in (payments,billing)",
-			expected: bson.M{path: bson.M{"$elemMatch": bson.M{
-				"key": "service.namespace", "value": bson.M{"$in": []string{"payments", "billing"}},
-			}}},
+			expected: bson.M{"$or": bson.A{
+				elemMatch(identifying, bson.M{
+					"key": "service.namespace", "value": bson.M{"$in": []string{"payments", "billing"}},
+				}),
+				elemMatch(nonIdentifying, bson.M{
+					"key": "service.namespace", "value": bson.M{"$in": []string{"payments", "billing"}},
+				}),
+			}},
 		},
 		{
 			name: "notin",
 			raw:  "service.namespace notin (payments)",
-			expected: bson.M{"$nor": bson.A{bson.M{path: bson.M{"$elemMatch": bson.M{
-				"key": "service.namespace", "value": bson.M{"$in": []string{"payments"}},
-			}}}}},
+			expected: bson.M{"$nor": bson.A{
+				elemMatch(identifying, bson.M{
+					"key": "service.namespace", "value": bson.M{"$in": []string{"payments"}},
+				}),
+				elemMatch(nonIdentifying, bson.M{
+					"key": "service.namespace", "value": bson.M{"$in": []string{"payments"}},
+				}),
+			}},
 		},
 		{
-			name:     "exists",
-			raw:      "service.namespace",
-			expected: bson.M{path: bson.M{"$elemMatch": bson.M{"key": "service.namespace"}}},
+			name: "exists",
+			raw:  "service.namespace",
+			expected: bson.M{"$or": bson.A{
+				elemMatch(identifying, bson.M{"key": "service.namespace"}),
+				elemMatch(nonIdentifying, bson.M{"key": "service.namespace"}),
+			}},
 		},
 		{
 			name: "not exists",
 			raw:  "!service.namespace",
-			expected: bson.M{"$nor": bson.A{bson.M{path: bson.M{"$elemMatch": bson.M{
-				"key": "service.namespace",
-			}}}}},
+			expected: bson.M{"$nor": bson.A{
+				elemMatch(identifying, bson.M{"key": "service.namespace"}),
+				elemMatch(nonIdentifying, bson.M{"key": "service.namespace"}),
+			}},
 		},
 	}
 

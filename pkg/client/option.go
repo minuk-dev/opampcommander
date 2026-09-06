@@ -87,9 +87,12 @@ type ListSettings struct {
 	// nonIdentifyingSelector filters agents by non-identifying attributes (exact
 	// key=value match); nil or empty means no attribute filter.
 	nonIdentifyingSelector map[string]string
-	// labelSelector is a Kubernetes-style expression over the resource's
-	// user-supplied metadata map; empty means no label filter.
+	// labelSelector is a Kubernetes-style expression over metadata an operator
+	// set; empty means no filter.
 	labelSelector string
+	// attributeSelector is the same expression over metadata the resource
+	// reported about itself; empty means no filter.
+	attributeSelector string
 	// fieldSelector is a Kubernetes-style expression over the resource's own
 	// allowlisted fields; empty means no field filter.
 	fieldSelector string
@@ -133,7 +136,8 @@ func WithIncludeDeleted(includeDeleted bool) ListOption {
 
 // WithConnectedOnly restricts an agent listing to currently-connected agents
 // when set to true. False (the default) returns both connected and disconnected
-// agents.
+// agents. It is the shorthand for WithFieldSelector("status.connected=true") and
+// means exactly the same thing.
 func WithConnectedOnly(connectedOnly bool) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.connectedOnly = &connectedOnly
@@ -142,6 +146,9 @@ func WithConnectedOnly(connectedOnly bool) ListOption {
 
 // WithSelector filters an agent listing by identifying attributes, matching every
 // key=value pair exactly. An empty map applies no filter.
+//
+// Deprecated: use WithAttributeSelector, whose expression covers the same
+// equality form and adds !=, in, notin and existence.
 func WithSelector(selector map[string]string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.selector = selector
@@ -151,23 +158,43 @@ func WithSelector(selector map[string]string) ListOption {
 // WithNonIdentifyingSelector filters an agent listing by non-identifying
 // attributes, matching every key=value pair exactly. An empty map applies no
 // filter.
+//
+// Deprecated: use WithAttributeSelector. An agent's attribute domain is its whole
+// description, identifying and non-identifying attributes alike, so the same
+// expression reaches both.
 func WithNonIdentifyingSelector(selector map[string]string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.nonIdentifyingSelector = selector
 	})
 }
 
-// WithLabelSelector filters a listing by the resource's user-supplied metadata
-// map, using the Kubernetes-style expression syntax of pkg/selector, for example
-// "env=prod,tier notin (canary,dev),!deprecated". Which field backs that map is
-// per-resource; for agents it is the identifying attributes. An empty expression
-// applies no filter.
+// WithLabelSelector filters a listing by metadata an operator set —
+// metadata.labels, or metadata.attributes on the resources that call the same
+// thing attributes — using the Kubernetes-style expression syntax of
+// pkg/selector, for example "env=prod,tier notin (canary,dev),!deprecated". An
+// empty expression applies no filter.
+//
+// It does not apply to agents, whose metadata is reported rather than set; see
+// WithAttributeSelector. Sending it to a listing that has no labels is a 400
+// naming what that resource does have, never a silently unfiltered list.
 //
 // The expression is sent verbatim: the server parses it and rejects a malformed
 // one with 400 Bad Request.
 func WithLabelSelector(expression string) ListOption {
 	return ListOptionFunc(func(opt *ListSettings) {
 		opt.labelSelector = expression
+	})
+}
+
+// WithAttributeSelector filters a listing by metadata the resource reported about
+// itself, using the same expression syntax as WithLabelSelector. Only agents have
+// any: their OpAMP AgentDescription, identifying and non-identifying attributes
+// alike, which an operator cannot set through this API.
+//
+// An empty expression applies no filter.
+func WithAttributeSelector(expression string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.attributeSelector = expression
 	})
 }
 
@@ -236,6 +263,10 @@ func (s ListSettings) applyTo(req *resty.Request) {
 
 	if s.labelSelector != "" {
 		req.SetQueryParam("labelSelector", s.labelSelector)
+	}
+
+	if s.attributeSelector != "" {
+		req.SetQueryParam("attributeSelector", s.attributeSelector)
 	}
 
 	if s.fieldSelector != "" {
