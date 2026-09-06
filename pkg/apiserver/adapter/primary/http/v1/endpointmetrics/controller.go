@@ -128,7 +128,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	response, err = c.usecase.ListEndpointThroughput(ctx.Request.Context(), namespace, window)
 	if err != nil {
 		c.logger.Error("failed to list endpoint throughput", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving endpoint throughput.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving endpoint throughput.")
 
 		return
 	}

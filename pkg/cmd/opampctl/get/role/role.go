@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -27,6 +28,7 @@ type CommandOptions struct {
 	// flags
 	formatType     string
 	includeDeleted bool
+	selectors      selectorflags.Flags
 
 	// internal
 	client *client.Client
@@ -54,6 +56,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted roles")
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -89,7 +93,12 @@ type ItemForCLI struct {
 
 // List retrieves the list of roles.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list roles: %w", err)
+	}
+
+	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
 
 	roles, err := clientutil.ListRoleFully(cmd.Context(), opt.client, listOpts...)
 	if err != nil {

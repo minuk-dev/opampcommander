@@ -37,10 +37,36 @@ type Selectors struct {
 // asked to narrow a list must never be handed the whole one and mistake it for a
 // filtered result.
 func ParseSelectors(ctx *gin.Context, allowedFields []string) (Selectors, bool) {
+	return parseSelectors(ctx, allowedFields, labelsSupported)
+}
+
+// ParseSelectorsWithoutLabels is [ParseSelectors] for a resource that carries no
+// label map at all — a role, say. A labelSelector is answered with a 400 saying
+// so, rather than with an empty page the client would read as "nothing matches".
+func ParseSelectorsWithoutLabels(ctx *gin.Context, allowedFields []string) (Selectors, bool) {
+	return parseSelectors(ctx, allowedFields, labelsAbsent)
+}
+
+// labelSupport says whether the resource being listed carries a label map.
+type labelSupport bool
+
+const (
+	labelsSupported labelSupport = true
+	labelsAbsent    labelSupport = false
+)
+
+func parseSelectors(ctx *gin.Context, allowedFields []string, labels labelSupport) (Selectors, bool) {
 	//exhaustruct:ignore
 	var zero Selectors
 
 	rawLabel := ctx.Query(LabelSelectorParam)
+
+	if rawLabel != "" && labels == labelsAbsent {
+		InvalidQueryParamError(ctx, LabelSelectorParam, rawLabel,
+			"this resource has no labels to select on")
+
+		return zero, false
+	}
 
 	labelSelector, err := selector.ParseLabels(rawLabel)
 	if err != nil {

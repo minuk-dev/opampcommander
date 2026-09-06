@@ -71,9 +71,10 @@ func (m *mockRoleBindingUsecase) GetRoleBinding(
 
 func (m *mockRoleBindingUsecase) ListRoleBindings(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -297,9 +298,9 @@ func TestService_ListRoleBindings(t *testing.T) {
 		domainResp := &model.ListResponse[*usermodel.RoleBinding]{Items: []*usermodel.RoleBinding{rb}}
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockRBUsecase.On("ListRoleBindings", ctx, opts.ToDomain()).Return(domainResp, nil)
+		mockRBUsecase.On("ListRoleBindings", ctx, "production", opts.ToDomain()).Return(domainResp, nil)
 
-		result, err := svc.ListRoleBindings(ctx, opts)
+		result, err := svc.ListRoleBindings(ctx, "production", opts)
 
 		require.NoError(t, err)
 		assert.Equal(t, v1.RoleBindingKind, result.Kind)
@@ -316,9 +317,9 @@ func TestService_ListRoleBindings(t *testing.T) {
 		svc := newSvc(t, mockRBUsecase, mockRole)
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockRBUsecase.On("ListRoleBindings", ctx, opts.ToDomain()).Return(nil, errMock)
+		mockRBUsecase.On("ListRoleBindings", ctx, "production", opts.ToDomain()).Return(nil, errMock)
 
-		result, err := svc.ListRoleBindings(ctx, opts)
+		result, err := svc.ListRoleBindings(ctx, "production", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

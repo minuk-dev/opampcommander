@@ -100,7 +100,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	)
 	if err != nil {
 		c.logger.Error("failed to list containers", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while retrieving containers.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while retrieving containers.")
 
 		return
 	}

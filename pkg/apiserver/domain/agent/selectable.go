@@ -55,8 +55,12 @@ var (
 	HostSelectableFields = []string{
 		"spec.platform",
 	}
-	// NamespaceSelectableFields are the fields a namespace listing can be filtered on.
-	NamespaceSelectableFields = []string{}
+	// NamespaceSelectableFields are the fields a namespace listing can be filtered
+	// on. A namespace is little more than its name, so that is the one field —
+	// the exact-match complement to the "?name=" prefix search.
+	NamespaceSelectableFields = []string{
+		"metadata.name",
+	}
 	// RemoteConfigSchemaSelectableFields are the fields a schema listing can be filtered on.
 	RemoteConfigSchemaSelectableFields = []string{
 		"metadata.namespace",
@@ -179,7 +183,9 @@ func (n *Namespace) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
 		Name:   n.Metadata.Name,
 		Labels: n.Metadata.Labels,
-		Fields: map[string]string{},
+		Fields: map[string]string{
+			"metadata.name": n.Metadata.Name,
+		},
 	}
 }
 

@@ -134,7 +134,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		c.logger.Error(
 			"failed to list endpoints", "error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while retrieving endpoints.",
 		)

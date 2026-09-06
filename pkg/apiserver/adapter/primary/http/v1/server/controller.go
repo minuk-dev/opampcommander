@@ -59,7 +59,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	serverResponse, err := c.serverUsecase.ListServers(ctx.Request.Context())
 	if err != nil {
 		c.logger.Error("failed to list servers", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while listing servers.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while listing servers.")
 
 		return
 	}

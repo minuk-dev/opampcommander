@@ -3012,12 +3012,19 @@ const docTemplate = `{
         },
         "/api/v1/namespaces/{namespace}/rolebindings": {
             "get": {
-                "description": "Retrieves a list of role bindings with pagination options.",
+                "description": "Retrieves the role bindings in a namespace, with pagination options.",
                 "tags": [
                     "rolebinding"
                 ],
                 "summary": "List RoleBindings",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
                     {
                         "type": "integer",
                         "description": "Maximum number of role bindings to return",
@@ -3034,6 +3041,18 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include soft-deleted role bindings",
                         "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields: spec.roleRef.name",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
                         "in": "query"
                     }
                 ],
@@ -3379,6 +3398,18 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Include soft-deleted roles",
                         "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fields: spec.isBuiltIn",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive display-name prefix filter",
+                        "name": "name",
                         "in": "query"
                     }
                 ],

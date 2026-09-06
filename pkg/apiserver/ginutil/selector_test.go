@@ -92,3 +92,59 @@ func TestParseSelectors_AnyFieldIsRejectedWhenTheResourceSupportsNone(t *testing
 	require.False(t, ok)
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 }
+
+func parseSelectorsWithoutLabelsFor(
+	t *testing.T, query string, allowed []string,
+) (ginutil.Selectors, bool, *httptest.ResponseRecorder) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/roles?"+query, nil)
+
+	selectors, ok := ginutil.ParseSelectorsWithoutLabels(ctx, allowed)
+
+	return selectors, ok, recorder
+}
+
+// A resource with no label map answers a labelSelector with a 400 saying so. An
+// empty page would be indistinguishable from "no role matches", which is a
+// different and wrong answer.
+func TestParseSelectorsWithoutLabels_RejectsALabelSelector(t *testing.T) {
+	t.Parallel()
+
+	_, ok, recorder := parseSelectorsWithoutLabelsFor(
+		t, "labelSelector=env%3Dprod", []string{"spec.isBuiltIn"})
+
+	require.False(t, ok)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "labelSelector")
+	assert.Contains(t, recorder.Body.String(), "no labels")
+}
+
+// The other two filters still work: a label-less resource is still named and
+// still has fields.
+func TestParseSelectorsWithoutLabels_AcceptsNameAndFields(t *testing.T) {
+	t.Parallel()
+
+	selectors, ok, recorder := parseSelectorsWithoutLabelsFor(
+		t, "name=Admin&fieldSelector=spec.isBuiltIn%3Dtrue", []string{"spec.isBuiltIn"})
+
+	require.True(t, ok)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Equal(t, "Admin", selectors.NamePrefix)
+	assert.Equal(t, []string{"spec.isBuiltIn"}, selectors.Field.Fields())
+	assert.True(t, selectors.Label.Empty())
+}
+
+func TestParseSelectorsWithoutLabels_StillRejectsAnUnsupportedField(t *testing.T) {
+	t.Parallel()
+
+	_, ok, recorder := parseSelectorsWithoutLabelsFor(
+		t, "fieldSelector=spec.nope%3Dtrue", []string{"spec.isBuiltIn"})
+
+	require.False(t, ok)
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "spec.nope")
+}

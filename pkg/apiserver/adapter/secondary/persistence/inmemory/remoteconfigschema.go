@@ -23,7 +23,7 @@ func NewRemoteConfigSchemaRepository() *RemoteConfigSchemaRepository {
 	return &RemoteConfigSchemaRepository{
 		store: newStore[namespacedName](cloneRemoteConfigSchema, func(s *agentmodel.RemoteConfigSchema) *time.Time {
 			return s.Metadata.DeletedAt
-		}, (*agentmodel.RemoteConfigSchema).SelectorValues),
+		}, (*agentmodel.RemoteConfigSchema).SelectorValues, hasLabels),
 	}
 }
 
