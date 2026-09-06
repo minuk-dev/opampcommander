@@ -4,7 +4,7 @@ GOARCH := $(shell go env GOARCH)
 HELM_CHART := ./deploy/charts/opampcommander
 HELM_CI_VALUES := $(wildcard $(HELM_CHART)/ci/*-values.yaml)
 
-.PHONY: lint lint-fix prebuilt-doc prebuilt-proto build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic test-e2e-liveness bench-liveness release docker docker-image helm-lint helm-template helm-package
+.PHONY: lint lint-fix prebuilt-doc prebuilt-proto build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic test-e2e-selectors test-e2e-liveness bench-liveness release docker docker-image helm-lint helm-template helm-package
 
 all: prebuilt-doc build
 
@@ -125,6 +125,10 @@ test-e2e-kafka:
 test-e2e-basic:
 	@echo "Running basic E2E tests only..."
 	go test -tags=e2e ./test/e2e/apiserver -run "TestE2E_APIServer_WithOTelCollector|TestE2E_APIServer_MultipleCollectors" -v -timeout=10m
+
+test-e2e-selectors:
+	@echo "Running the server-side selector E2E tests only..."
+	go test -tags=e2e ./test/e2e/apiserver -run "TestE2E_Selectors|TestE2E_RoleBindings_ScopedToTheirNamespace" -v -timeout=10m
 
 test-e2e-liveness:
 	@echo "Running the agent-liveness Redis outage E2E test only..."
