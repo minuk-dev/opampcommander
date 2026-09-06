@@ -55,6 +55,8 @@ type Flags struct {
 	field string
 	// name is the raw --name prefix.
 	name string
+	// contains is the raw --name-contains substring.
+	contains string
 }
 
 // Register adds -l/--selector, --field-selector and --name to cmd, for a resource
@@ -79,6 +81,8 @@ func (f *Flags) Register(cmd *cobra.Command, metadata Metadata) {
 	cmd.Flags().Var(conjunction{&f.field}, "field-selector",
 		"Filter by resource fields, e.g. --field-selector metadata.namespace=prod")
 	cmd.Flags().StringVar(&f.name, "name", "", "Filter by a case-sensitive name prefix")
+	cmd.Flags().StringVar(&f.contains, "name-contains", "",
+		"Filter by a case-insensitive name substring (a scan; pass --name too to bound it)")
 }
 
 // conjunction is the flag value behind the two selector flags, whose grammars are
@@ -168,6 +172,10 @@ func (f *Flags) ListOptions() ([]client.ListOption, error) {
 		opts = append(opts, client.WithName(f.name))
 	}
 
+	if f.contains != "" {
+		opts = append(opts, client.WithNameContains(f.contains))
+	}
+
 	return opts, nil
 }
 
@@ -189,8 +197,9 @@ func (f *Flags) ConstrainsField(field string) bool {
 // paths that have no server-side equivalent — a group's member agents, for
 // instance.
 type LocalFilter struct {
-	labels selector.LabelSelector
-	name   string
+	labels   selector.LabelSelector
+	name     string
+	contains string
 }
 
 // LocalFilter parses the flags for local evaluation.
@@ -211,7 +220,7 @@ func (f *Flags) LocalFilter() (LocalFilter, error) {
 		return zero, err
 	}
 
-	return LocalFilter{labels: labels, name: f.name}, nil
+	return LocalFilter{labels: labels, name: f.name, contains: f.contains}, nil
 }
 
 // Matches reports whether a resource with the given name and label maps
@@ -222,6 +231,10 @@ func (f *Flags) LocalFilter() (LocalFilter, error) {
 // non-identifying attributes, and one selector reaches both.
 func (lf LocalFilter) Matches(name string, labelSets ...map[string]string) bool {
 	if lf.name != "" && !strings.HasPrefix(name, lf.name) {
+		return false
+	}
+
+	if lf.contains != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(lf.contains)) {
 		return false
 	}
 
