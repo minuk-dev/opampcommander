@@ -128,7 +128,7 @@ test-e2e-basic:
 
 test-e2e-selectors:
 	@echo "Running the server-side selector E2E tests only..."
-	go test -tags=e2e ./test/e2e/apiserver -run "TestE2E_Selectors|TestE2E_RoleBindings_ScopedToTheirNamespace" -v -timeout=10m
+	go test -tags=e2e ./test/e2e/apiserver -run "TestE2E_Selectors|TestE2E_NamespacedListings_ScopedToTheirNamespace|TestE2E_RoleBindings_ScopedToTheirNamespace" -v -timeout=10m
 
 test-e2e-liveness:
 	@echo "Running the agent-liveness Redis outage E2E test only..."

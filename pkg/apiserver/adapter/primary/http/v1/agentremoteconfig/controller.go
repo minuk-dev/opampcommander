@@ -87,6 +87,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Failure 500 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentremoteconfigs [get].
 func (c *Controller) List(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
 	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
 	if err != nil {
 		ginutil.HandleValidationError(
@@ -113,7 +120,8 @@ func (c *Controller) List(ctx *gin.Context) {
 	}
 
 	response, err := c.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
-		ctx.Request.Context(), &port.ListOptions{
+		ctx.Request.Context(),
+		namespace, &port.ListOptions{
 			LabelSelector:  selectors.Metadata,
 			FieldSelector:  selectors.Field,
 			NamePrefix:     selectors.NamePrefix,

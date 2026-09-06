@@ -90,9 +90,9 @@ func (m *mockCertificateUsecase) UpdateCertificate(
 }
 
 func (m *mockCertificateUsecase) ListCertificate(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Certificate], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -198,9 +198,9 @@ func TestService_ListCertificates(t *testing.T) {
 			Items:    []*agentmodel.Certificate{newCert()},
 			Continue: "next",
 		}
-		mockCert.On("ListCertificate", ctx, opts.ToDomain()).Return(resp, nil)
+		mockCert.On("ListCertificate", ctx, "production", opts.ToDomain()).Return(resp, nil)
 
-		result, err := svc.ListCertificates(ctx, opts)
+		result, err := svc.ListCertificates(ctx, "production", opts)
 
 		require.NoError(t, err)
 		assert.Equal(t, v1.CertificateKind, result.Kind)
@@ -217,9 +217,9 @@ func TestService_ListCertificates(t *testing.T) {
 		svc := newSvc(t, mockCert)
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockCert.On("ListCertificate", ctx, opts.ToDomain()).Return(nil, errMock)
+		mockCert.On("ListCertificate", ctx, "production", opts.ToDomain()).Return(nil, errMock)
 
-		result, err := svc.ListCertificates(ctx, opts)
+		result, err := svc.ListCertificates(ctx, "production", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

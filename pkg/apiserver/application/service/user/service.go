@@ -37,10 +37,6 @@ type Service struct {
 	logger                     *slog.Logger
 }
 
-// allNamespaces is the empty namespace the persistence port reads as "every
-// namespace". A user's roles are drawn from their bindings wherever those live.
-const allNamespaces = ""
-
 // New creates a new instance of the Service struct.
 func New(
 	userUsecase userport.UserUsecase,
@@ -185,7 +181,7 @@ func (s *Service) buildRoleEntries(ctx context.Context, user *usermodel.User) ([
 		return nil, fmt.Errorf("failed to get role assignments from enforcer: %w", err)
 	}
 
-	bindingsResp, err := s.roleBindingPersistencePort.ListRoleBindings(ctx, allNamespaces, nil)
+	bindingsResp, err := s.roleBindingPersistencePort.ListAllRoleBindings(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list role bindings: %w", err)
 	}

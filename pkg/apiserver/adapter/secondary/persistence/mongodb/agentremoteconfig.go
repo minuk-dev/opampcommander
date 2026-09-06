@@ -92,11 +92,18 @@ func (a *AgentRemoteConfigMongoAdapter) GetAgentRemoteConfig(
 	return agentRemoteConfigEntity.ToDomain(), nil
 }
 
-// ListAgentRemoteConfigs implements agentport.AgentRemoteConfigPersistencePort.
+// ListAgentRemoteConfigs implements agentport.AgentRemoteConfigPersistencePort.//
+// An empty namespace lists across every namespace; the API boundary always passes
+// the namespace from the request path.
 func (a *AgentRemoteConfigMongoAdapter) ListAgentRemoteConfigs(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
-	resp, err := a.common.list(ctx, options)
+	conditions, err := namespaceCondition(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := a.common.listWithConditions(ctx, options, conditions...)
 	if err != nil {
 		return nil, err
 	}
