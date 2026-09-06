@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -24,7 +25,9 @@ type CommandOptions struct {
 
 	formatType     string
 	includeDeleted bool
-	client         *client.Client
+	selectors      selectorflags.Flags
+
+	client *client.Client
 }
 
 // NewCommand creates a new namespace command.
@@ -50,6 +53,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		&options.includeDeleted, "include-deleted", false,
 		"Include soft-deleted namespaces",
 	)
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -89,7 +94,12 @@ func (opt *CommandOptions) Run(
 
 // List retrieves the list of namespaces.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list namespaces: %w", err)
+	}
+
+	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
 
 	resp, err := opt.client.NamespaceService.ListNamespaces(
 		cmd.Context(), listOpts...,
