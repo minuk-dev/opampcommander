@@ -57,6 +57,7 @@ export default function AgentRemoteConfigsPage() {
         listPath={`/api/v1/namespaces/${namespace}/agentremoteconfigs`}
         itemPath={(c) => `/api/v1/namespaces/${namespace}/agentremoteconfigs/${c.metadata.name}`}
         itemName={(c) => c.metadata.name}
+        filterable
         canEdit
         canDelete
         extraActions={(c, { refresh }) => [

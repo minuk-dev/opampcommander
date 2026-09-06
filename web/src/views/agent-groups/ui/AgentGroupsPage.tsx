@@ -10,6 +10,7 @@ import {
   ColumnPicker,
   ConfirmDialog,
   Label,
+  ListFilterBar,
   PageHeader,
   PaginationFooter,
   RowActionsMenu,
@@ -27,7 +28,16 @@ import {
 import { TimeDisplay } from '@shared/preferences';
 import { useNamespace } from '@entities/namespace';
 import { api } from '@shared/api';
-import { cn, type ColumnConfig, useColumnVisibility, useCursorPagination } from '@shared/lib';
+import {
+  cn,
+  EMPTY_LIST_FILTERS,
+  hasListFilters,
+  listFilterQuery,
+  useColumnVisibility,
+  useCursorPagination,
+  type ColumnConfig,
+  type ListFilters,
+} from '@shared/lib';
 import dynamic from 'next/dynamic';
 import type { AgentGroup } from '@entities/agent-group';
 
@@ -58,12 +68,19 @@ export default function AgentGroupsPage() {
   // the agents list (which also hides disconnected by default); the toggle
   // switches it to the full membership count.
   const [showDisconnected, setShowDisconnected] = useState(false);
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_LIST_FILTERS);
 
   const { visible, isVisible, toggle } = useColumnVisibility('agentgroups', AGENT_GROUP_COLUMNS);
   // +1 for the always-present Actions column.
   const colSpan = AGENT_GROUP_COLUMNS.filter((c) => isVisible(c.id)).length + 1;
 
-  const pagination = useCursorPagination<AgentGroup>(`/api/v1/namespaces/${namespace}/agentgroups`);
+  // A group's labels are its metadata.attributes, and its name is filtered by
+  // prefix — both answered by the datastore, so the paginated total stays in
+  // step with the rows.
+  const pagination = useCursorPagination<AgentGroup>(
+    `/api/v1/namespaces/${namespace}/agentgroups`,
+    { query: listFilterQuery(filters) },
+  );
   const { items: groups, isLoading: loading, error: fetchError, refresh } = pagination;
   const error =
     actionError ??
@@ -115,6 +132,8 @@ export default function AgentGroupsPage() {
         }
       />
 
+      <ListFilterBar value={filters} onChange={setFilters} />
+
       {error && (
         <Alert severity="error" className="mb-3">
           {error}
@@ -144,7 +163,9 @@ export default function AgentGroupsPage() {
             ) : groups.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={colSpan} className="py-8 text-center text-muted-foreground">
-                  No agent groups
+                  {hasListFilters(filters)
+                    ? 'No agent groups match the filters'
+                    : 'No agent groups'}
                 </TableCell>
               </TableRow>
             ) : (

@@ -49,6 +49,7 @@ export default function EndpointsPage() {
       listPath={basePath}
       itemPath={(e) => `${basePath}/${e.metadata.name}`}
       itemName={(e) => e.metadata.name}
+      filterable
       deps={[namespace]}
       canEdit
       canDelete

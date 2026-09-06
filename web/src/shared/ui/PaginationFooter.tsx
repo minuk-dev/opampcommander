@@ -21,6 +21,11 @@ interface Props {
     | 'isLoading'
   >;
   rowsPerPageOptions?: number[];
+  // clientFilteredCount, when set, is how many of the fetched rows a client-side
+  // pass left on screen. The server never applied that filter, so no total is
+  // knowable — the label drops the "of N" claim rather than reporting a number
+  // that counts a different set than the rows above it.
+  clientFilteredCount?: number;
 }
 
 const DEFAULT_OPTIONS = [25, 50, 100, 200];
@@ -32,16 +37,22 @@ const DEFAULT_OPTIONS = [25, 50, 100, 200];
 export default function PaginationFooter({
   pagination,
   rowsPerPageOptions = DEFAULT_OPTIONS,
+  clientFilteredCount,
 }: Props) {
   const { pageSize, range, canPrev, canNext, next, prev, setPageSize, isLoading } = pagination;
+
+  // How many rows this page fetched, which is what a client-side filter narrowed.
+  const fetchedOnPage = range.start === 0 ? 0 : range.end - range.start + 1;
 
   // While a fresh page is loading, `range` is derived from an empty result and
   // its numbers are meaningless — show an ellipsis instead.
   const label = isLoading
     ? '…'
-    : range.total === 0
-      ? '0 of 0'
-      : `${range.start}–${range.end} of ${range.total}`;
+    : clientFilteredCount !== undefined
+      ? `${clientFilteredCount} of ${fetchedOnPage} on this page`
+      : range.total === 0
+        ? '0 of 0'
+        : `${range.start}–${range.end} of ${range.total}`;
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 px-1 py-2 text-xs text-muted-foreground">
