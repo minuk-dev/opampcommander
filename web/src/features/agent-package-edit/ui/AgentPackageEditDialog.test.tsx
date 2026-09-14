@@ -15,8 +15,8 @@ const post = vi.mocked(api.post);
 const put = vi.mocked(api.put);
 
 beforeEach(() => {
-  post.mockReset().mockResolvedValue(undefined as never);
-  put.mockReset().mockResolvedValue(undefined as never);
+  post.mockReset().mockResolvedValue(undefined);
+  put.mockReset().mockResolvedValue(undefined);
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({

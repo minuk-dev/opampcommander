@@ -73,7 +73,7 @@ export default function RolesPage() {
           samplesUrl="/samples/roles.yaml"
           onClose={onClose}
           onSave={async (parsed) => {
-            await api.post('/api/v1/roles', parsed as Role);
+            await api.post('/api/v1/roles', parsed);
             onSaved();
           }}
         />
@@ -86,7 +86,7 @@ export default function RolesPage() {
           samplesUrl="/samples/roles.yaml"
           onClose={onClose}
           onSave={async (parsed) => {
-            await api.put(`/api/v1/roles/${row.metadata.uid}`, parsed as Role);
+            await api.put(`/api/v1/roles/${row.metadata.uid}`, parsed);
             onSaved();
           }}
         />

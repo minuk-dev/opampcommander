@@ -71,7 +71,7 @@ export default function EndpointsPage() {
           samplesVars={{ namespace }}
           onClose={onClose}
           onSave={async (parsed) => {
-            await api.post(basePath, parsed as Endpoint);
+            await api.post(basePath, parsed);
             onSaved();
           }}
         />
@@ -85,7 +85,7 @@ export default function EndpointsPage() {
           samplesVars={{ namespace }}
           onClose={onClose}
           onSave={async (parsed) => {
-            await api.put(`${basePath}/${row.metadata.name}`, parsed as Endpoint);
+            await api.put(`${basePath}/${row.metadata.name}`, parsed);
             onSaved();
           }}
         />

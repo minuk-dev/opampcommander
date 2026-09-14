@@ -13,7 +13,7 @@ const post = vi.mocked(api.post);
 describe('UserCreateDialog', () => {
   beforeEach(() => {
     post.mockReset();
-    post.mockResolvedValue(undefined as never);
+    post.mockResolvedValue(undefined);
   });
 
   it('posts the entered password in spec.password when creating a basic-auth user', async () => {

@@ -91,7 +91,7 @@ export default function AgentPackagesPage() {
           onSave={async (parsed) => {
             await api.put(
               `/api/v1/namespaces/${namespace}/agentpackages/${rawTarget.row.metadata.name}`,
-              parsed as AgentPackage,
+              parsed,
             );
             rawTarget.refresh();
             setRawTarget(null);

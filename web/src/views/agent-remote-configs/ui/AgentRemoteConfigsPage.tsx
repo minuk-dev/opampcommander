@@ -132,7 +132,7 @@ export default function AgentRemoteConfigsPage() {
           onSave={async (parsed) => {
             await api.put(
               `/api/v1/namespaces/${namespace}/agentremoteconfigs/${rawTarget.row.metadata.name}`,
-              parsed as AgentRemoteConfig,
+              parsed,
             );
             rawTarget.refresh();
             setRawTarget(null);
