@@ -117,7 +117,7 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 		}
 
 		slice = v
-	case reflect.Struct, reflect.Ptr:
+	case reflect.Struct, reflect.Pointer:
 		slice = reflect.MakeSlice(reflect.SliceOf(v.Type()), 1, 1)
 		slice.Index(0).Set(v)
 	default:
@@ -125,7 +125,7 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 	}
 
 	firstElem := slice.Index(0)
-	if firstElem.Kind() == reflect.Ptr {
+	if firstElem.Kind() == reflect.Pointer {
 		firstElem = firstElem.Elem()
 	}
 
@@ -169,7 +169,7 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 	// Rows
 	for i := 0; i < slice.Len(); i++ {
 		row := slice.Index(i)
-		if row.Kind() == reflect.Ptr {
+		if row.Kind() == reflect.Pointer {
 			row = row.Elem()
 		}
 

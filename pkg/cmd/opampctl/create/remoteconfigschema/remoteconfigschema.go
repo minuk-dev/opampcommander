@@ -126,6 +126,7 @@ func (opt *CommandOptions) buildRequest() (*v1.RemoteConfigSchema, string, error
 
 	//exhaustruct:ignore
 	return &v1.RemoteConfigSchema{
+		//exhaustruct:ignore
 		Metadata: v1.RemoteConfigSchemaMetadata{
 			Name:       opt.name,
 			Namespace:  opt.namespace,

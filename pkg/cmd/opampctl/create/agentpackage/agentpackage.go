@@ -133,11 +133,13 @@ func (opt *CommandOptions) buildRequest() (*v1.AgentPackage, string, error) {
 
 	//exhaustruct:ignore
 	return &v1.AgentPackage{
+		//exhaustruct:ignore
 		Metadata: v1.AgentPackageMetadata{
 			Name:       opt.name,
 			Namespace:  opt.namespace,
 			Attributes: opt.attributes,
 		},
+		//exhaustruct:ignore
 		Spec: v1.AgentPackageSpec{
 			PackageType: opt.packageType,
 			Version:     opt.version,

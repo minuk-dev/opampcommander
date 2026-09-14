@@ -68,15 +68,17 @@ func (o *ListOptions) ToDomain() *model.ListOptions {
 	}
 
 	return &model.ListOptions{
-		Limit:                    o.Limit,
-		Continue:                 o.Continue,
-		IncludeDeleted:           o.IncludeDeleted,
-		LabelSelector:            o.LabelSelector,
-		FieldSelector:            o.FieldSelector,
-		NamePrefix:               o.NamePrefix,
-		NameContains:             o.NameContains,
-		ConnectedOnly:            o.ConnectedOnly,
-		IdentifyingAttributes:    o.IdentifyingAttributes,
+		Limit:          o.Limit,
+		Continue:       o.Continue,
+		IncludeDeleted: o.IncludeDeleted,
+		LabelSelector:  o.LabelSelector,
+		FieldSelector:  o.FieldSelector,
+		NamePrefix:     o.NamePrefix,
+		NameContains:   o.NameContains,
+		ConnectedOnly:  o.ConnectedOnly,
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
+		IdentifyingAttributes: o.IdentifyingAttributes,
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		NonIdentifyingAttributes: o.NonIdentifyingAttributes,
 	}
 }

@@ -140,8 +140,8 @@ type AgentPackageUsecase interface {
 	// GetAgentPackage retrieves an agent package by its namespace and name.
 	GetAgentPackage(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*agentmodel.AgentPackage, error)
-	// ListAgentPackages lists the agent packages in namespace. An empty namespace
-	// lists across every namespace.
+	// ListAgentPackages lists the agent packages in namespace. The namespace is
+	// required; the persistence port refuses an empty one.
 	ListAgentPackages(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentPackage], error)
 	// SaveAgentPackage persists the agent package as-is without applying lifecycle
@@ -167,8 +167,8 @@ type AgentRemoteConfigUsecase interface {
 	// GetAgentRemoteConfig retrieves an agent remote config by its namespace and name.
 	GetAgentRemoteConfig(ctx context.Context, namespace string,
 		name string, options *model.GetOptions) (*agentmodel.AgentRemoteConfig, error)
-	// ListAgentRemoteConfigs lists the agent remote configs in namespace. An empty
-	// namespace lists across every namespace.
+	// ListAgentRemoteConfigs lists the agent remote configs in namespace. The
+	// namespace is required; the persistence port refuses an empty one.
 	ListAgentRemoteConfigs(
 		ctx context.Context, namespace string, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error)
@@ -307,9 +307,9 @@ type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its namespace and name.
 	GetAgentGroup(ctx context.Context, namespace string, name string,
 		options *model.GetOptions) (*agentmodel.AgentGroup, error)
-	// ListAgentGroups lists the agent groups in namespace. An empty namespace lists
-	// across every namespace, which the group-matching passes need; the API
-	// boundary always passes the namespace from the request path.
+	// ListAgentGroups lists the agent groups in namespace. The namespace is
+	// required; cluster-wide listing is ListAllAgentGroups on the persistence
+	// port, so it cannot be asked for by a namespace that happens to be empty.
 	ListAgentGroups(
 		ctx context.Context, namespace string, options *model.ListOptions,
 	) (*model.ListResponse[*agentmodel.AgentGroup], error)
@@ -394,8 +394,8 @@ type CertificateUsecase interface {
 	// state, stamps the update, and persists the result.
 	UpdateCertificate(ctx context.Context, namespace string, name string,
 		certificate *agentmodel.Certificate, actor string) (*agentmodel.Certificate, error)
-	// ListCertificate lists the certificates in namespace. An empty namespace lists
-	// across every namespace.
+	// ListCertificate lists the certificates in namespace. The namespace is
+	// required; the persistence port refuses an empty one.
 	ListCertificate(ctx context.Context, namespace string,
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Certificate], error)
 	DeleteCertificate(ctx context.Context, namespace string, name string,

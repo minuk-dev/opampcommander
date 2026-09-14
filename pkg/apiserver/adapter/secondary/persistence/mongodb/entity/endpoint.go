@@ -136,7 +136,7 @@ func (t EndpointResourceTenant) toDomain() agentmodel.EndpointTenant {
 func EndpointResourceEntityFromDomain(
 	endpoint *agentmodel.Endpoint,
 ) *EndpointResourceEntity {
-	//nolint:exhaustruct // ID is set by MongoDB
+	//nolint:exhaustruct_v5 // ID is set by MongoDB
 	return &EndpointResourceEntity{
 		Metadata: EndpointResourceMetadata{
 			Name:            endpoint.Metadata.Name,

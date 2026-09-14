@@ -13,6 +13,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
+// remoteConfigSchemaByNamePath is the per-item route, repeated by the read, update and delete
+// entries below so a rename happens in one place.
+const remoteConfigSchemaByNamePath = "/api/v1/namespaces/:namespace/remoteconfigschemas/:name"
+
 // Controller implements the remote config schema controller.
 type Controller struct {
 	logger *slog.Logger
@@ -42,7 +46,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/namespaces/:namespace/remoteconfigschemas/:name",
+			Path:        remoteConfigSchemaByNamePath,
 			Handler:     "http.v1.remoteconfigschema.Get",
 			HandlerFunc: c.Get,
 		},
@@ -54,13 +58,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/namespaces/:namespace/remoteconfigschemas/:name",
+			Path:        remoteConfigSchemaByNamePath,
 			Handler:     "http.v1.remoteconfigschema.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/namespaces/:namespace/remoteconfigschemas/:name",
+			Path:        remoteConfigSchemaByNamePath,
 			Handler:     "http.v1.remoteconfigschema.Delete",
 			HandlerFunc: c.Delete,
 		},

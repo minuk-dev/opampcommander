@@ -78,6 +78,7 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *agentmod
 
 	//exhaustruct:ignore
 	return &agentmodel.AgentGroup{
+		//exhaustruct:ignore
 		Metadata: agentmodel.AgentGroupMetadata{
 			Namespace:  apiAgentGroup.Metadata.Namespace,
 			Name:       apiAgentGroup.Metadata.Name,
@@ -137,6 +138,7 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *agentmodel.AgentGroup
 func (mapper *Mapper) MapAPIToAgent(apiAgent *v1.Agent) *agentmodel.Agent {
 	//exhaustruct:ignore
 	return &agentmodel.Agent{
+		//exhaustruct:ignore
 		Metadata: agentmodel.AgentMetadata{
 			InstanceUID: apiAgent.Metadata.InstanceUID,
 			Namespace:   apiAgent.Metadata.Namespace,

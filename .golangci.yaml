@@ -3,17 +3,32 @@ linters:
   default: all
   disable:
     - wsl
+    # exhaustruct is the pre-v5 name for exhaustruct_v5 and is deprecated. With
+    # `default: all` both would run, and only the settings below reach the v5 one,
+    # so the old one would report the exclusions again under a different name.
+    - exhaustruct
   exclusions:
     paths:
       - "pkg/apiserver/docs/docs.go" # Generated file for Swagger documentation
       - "web/*" # web is not managed go directory
     rules:
+      # The MongoDB adapter is written in MongoDB's own vocabulary — "$match",
+      # "metadata.deletedAt", "hashed". Hoisting those into Go constants names
+      # nothing the reader did not already know and moves each term away from the
+      # query it belongs to.
+      - path: pkg/apiserver/adapter/secondary/persistence/mongodb/
+        linters:
+          - goconst
       - path: _test\.go
         linters:
           - funlen
           - varnamelen
-          - exhaustruct
+          - exhaustruct_v5
           - dupl
+          # Test fixtures repeat a namespace or a resource name across cases by
+          # nature; hoisting each into a constant makes the case harder to read,
+          # not easier.
+          - goconst
   settings:
     gosec:
       excludes:
@@ -30,8 +45,13 @@ linters:
       ignore-names:
         - wg # sync.WaitGroup
         - id # common abbreviation
-    exhaustruct:
-      exclude:
+    exhaustruct_v5:
+      # An empty literal is a deliberate "zero value of this type", which the
+      # pre-v5 linter did not flag. Keeping that means `Foo{}` stays a legible way
+      # to say so, and only partially-filled literals have to justify themselves.
+      allow-empty: true
+      # `exclude` in the pre-v5 settings.
+      ignore-patterns:
         - '.+/cobra\.Command$'
         - "go.mongodb.org/mongo-driver/v2/bson.Binary"
         # Protobuf-generated messages carry unexported state/sizeCache/unknownFields and are

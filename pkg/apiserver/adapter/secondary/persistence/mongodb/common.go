@@ -321,7 +321,7 @@ func getContinueTokenFromEntities[Entity any](entities []*Entity) (string, error
 	lastEntity := entities[len(entities)-1]
 	idField := reflect.ValueOf(lastEntity).Elem().FieldByName("ID")
 
-	idFieldValue, ok := idField.Interface().(*bson.ObjectID)
+	idFieldValue, ok := reflect.TypeAssert[*bson.ObjectID](idField)
 	if !ok {
 		return "", ErrIDFieldNotExist
 	}

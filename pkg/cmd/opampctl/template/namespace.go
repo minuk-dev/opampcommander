@@ -14,7 +14,7 @@ var namespaceWithLabels string
 
 //nolint:gochecknoglobals // example registry for the namespace template command
 var namespaceExamples = map[string]string{
-	"basic":       namespaceBasic,
+	basicExample:  namespaceBasic,
 	"with-labels": namespaceWithLabels,
 }
 

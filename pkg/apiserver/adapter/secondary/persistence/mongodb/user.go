@@ -33,6 +33,7 @@ const (
 // on every login. The matching index in mongodb.go declares the same collation so lookups stay indexed.
 //
 //nolint:gochecknoglobals,exhaustruct // shared, immutable collation; only Locale/Strength apply.
+//exhaustruct:ignore
 var emailCollation = &options.Collation{Locale: "en", Strength: collationStrengthCaseInsensitive}
 
 // UserMongoAdapter is a struct that implements the UserPersistencePort interface.

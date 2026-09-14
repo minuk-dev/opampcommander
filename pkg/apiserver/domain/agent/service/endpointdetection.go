@@ -199,6 +199,7 @@ func (s *EndpointDetectionService) ExtractEndpointsFromAgent(
 func extractedEndpoint(namespace, source string, exporter *detectedExporter) *agentmodel.Endpoint {
 	//exhaustruct:ignore
 	return &agentmodel.Endpoint{
+		//exhaustruct:ignore
 		Metadata: agentmodel.EndpointMetadata{
 			Name:      sanitizeName(exporter.key),
 			Namespace: namespace,
@@ -207,6 +208,7 @@ func extractedEndpoint(namespace, source string, exporter *detectedExporter) *ag
 				EndpointExporterAttribute:      exporter.key,
 			},
 		},
+		//exhaustruct:ignore
 		Spec: agentmodel.EndpointSpec{
 			URL:      exporter.url,
 			Protocol: exporter.protocol,

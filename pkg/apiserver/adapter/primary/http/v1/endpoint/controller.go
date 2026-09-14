@@ -13,6 +13,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
+// endpointByNamePath is the per-item route, repeated by the read, update and delete
+// entries below so a rename happens in one place.
+const endpointByNamePath = "/api/v1/namespaces/:namespace/endpoints/:name"
+
 // Controller is a struct that implements the endpoint controller.
 type Controller struct {
 	logger *slog.Logger
@@ -44,7 +48,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/namespaces/:namespace/endpoints/:name",
+			Path:        endpointByNamePath,
 			Handler:     "http.v1.endpoint.Get",
 			HandlerFunc: c.Get,
 		},
@@ -56,13 +60,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/namespaces/:namespace/endpoints/:name",
+			Path:        endpointByNamePath,
 			Handler:     "http.v1.endpoint.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/namespaces/:namespace/endpoints/:name",
+			Path:        endpointByNamePath,
 			Handler:     "http.v1.endpoint.Delete",
 			HandlerFunc: c.Delete,
 		},

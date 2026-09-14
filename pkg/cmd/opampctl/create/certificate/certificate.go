@@ -149,6 +149,7 @@ func (opt *CommandOptions) buildRequest() (*v1.Certificate, string, error) {
 
 	//exhaustruct:ignore
 	return &v1.Certificate{
+		//exhaustruct:ignore
 		Metadata: v1.CertificateMetadata{
 			Name:       opt.name,
 			Namespace:  opt.namespace,

@@ -108,11 +108,13 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 
 	//exhaustruct:ignore
 	createRequest := &v1.AgentRemoteConfig{
+		//exhaustruct:ignore
 		Metadata: v1.AgentRemoteConfigMetadata{
 			Name:       opt.name,
 			Namespace:  opt.namespace,
 			Attributes: opt.attributes,
 		},
+		//exhaustruct:ignore
 		Spec: v1.AgentRemoteConfigSpec{
 			Value:       valueContent,
 			ContentType: contentType,

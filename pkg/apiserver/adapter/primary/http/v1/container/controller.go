@@ -88,16 +88,14 @@ func (c *Controller) List(ctx *gin.Context) {
 	response, err = c.containerUsecase.ListContainers(
 		ctx.Request.Context(),
 		&applicationport.ListOptions{
-			LabelSelector:            selectors.Metadata,
-			FieldSelector:            selectors.Field,
-			NamePrefix:               selectors.NamePrefix,
-			NameContains:             selectors.NameContains,
-			Limit:                    limit,
-			Continue:                 ctx.Query("continue"),
-			IncludeDeleted:           false,
-			ConnectedOnly:            false,
-			IdentifyingAttributes:    nil,
-			NonIdentifyingAttributes: nil,
+			LabelSelector:  selectors.Metadata,
+			FieldSelector:  selectors.Field,
+			NamePrefix:     selectors.NamePrefix,
+			NameContains:   selectors.NameContains,
+			Limit:          limit,
+			Continue:       ctx.Query("continue"),
+			IncludeDeleted: false,
+			ConnectedOnly:  false,
 		},
 	)
 	if err != nil {
@@ -180,12 +178,10 @@ func (c *Controller) ListAgents(ctx *gin.Context) {
 		ctx.Request.Context(),
 		id,
 		&applicationport.ListOptions{
-			Limit:                    limit,
-			Continue:                 ctx.Query("continue"),
-			IncludeDeleted:           false,
-			ConnectedOnly:            false,
-			IdentifyingAttributes:    nil,
-			NonIdentifyingAttributes: nil,
+			Limit:          limit,
+			Continue:       ctx.Query("continue"),
+			IncludeDeleted: false,
+			ConnectedOnly:  false,
 		},
 	)
 	if err != nil {

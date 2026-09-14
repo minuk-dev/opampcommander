@@ -1,4 +1,3 @@
-//nolint:goconst
 package filecache_test
 
 import (

@@ -97,7 +97,7 @@ func NewAuthJWTMiddleware(
 			claims, err := service.ValidateToken(tokenString)
 			if err != nil {
 				ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-					"error": "unauthorized",
+					errorKey: unauthorizedMessage,
 				})
 
 				return
@@ -111,7 +111,7 @@ func NewAuthJWTMiddleware(
 
 		if !user.Authenticated && hasAnyPrefix(ctx.Request.URL.Path, []string{"/api/v1"}) {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				errorKey: unauthorizedMessage,
 			})
 
 			return
