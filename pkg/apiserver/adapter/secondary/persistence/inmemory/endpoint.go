@@ -23,7 +23,7 @@ func NewEndpointRepository() *EndpointRepository {
 	return &EndpointRepository{
 		store: newStore[namespacedName](cloneEndpoint, func(e *agentmodel.Endpoint) *time.Time {
 			return e.Metadata.DeletedAt
-		}, (*agentmodel.Endpoint).SelectorValues),
+		}, (*agentmodel.Endpoint).SelectorValues, hasLabels),
 	}
 }
 

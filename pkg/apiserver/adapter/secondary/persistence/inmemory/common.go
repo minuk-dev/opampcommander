@@ -67,3 +67,13 @@ func matchesAttributes(stored, selector map[string]string) bool {
 // situation does on the MongoDB side.
 var ErrSelectorUnsupported = fmt.Errorf(
 	"%w: this resource does not support selector filtering", model.ErrInvalidArgument)
+
+// ErrLabelsUnsupported is returned when a listing carries a label selector for a
+// resource that has no label map at all — a role, say. It is an error rather than
+// an empty page so the answer matches the MongoDB adapter's and the API
+// boundary's, and so a client is told why nothing came back.
+//
+// Like ErrSelectorUnsupported it wraps model.ErrInvalidArgument, which every list
+// handler routes through HandleDomainError to a 400.
+var ErrLabelsUnsupported = fmt.Errorf(
+	"%w: this resource has no labels to select on", model.ErrInvalidArgument)

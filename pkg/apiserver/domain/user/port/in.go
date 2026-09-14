@@ -99,8 +99,10 @@ type RoleBindingUsecase interface {
 	// GetRoleBinding retrieves a role binding by namespace and name.
 	GetRoleBinding(ctx context.Context, namespace, name string,
 		options *model.GetOptions) (*usermodel.RoleBinding, error)
-	// ListRoleBindings lists all role bindings.
-	ListRoleBindings(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
+	// ListRoleBindings lists the role bindings in namespace. An empty namespace
+	// lists across every namespace.
+	ListRoleBindings(ctx context.Context, namespace string,
+		options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
 	// CreateRoleBinding creates a new role binding.
 	CreateRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
 	// UpdateRoleBinding updates an existing role binding.

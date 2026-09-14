@@ -3766,8 +3766,13 @@ paths:
       - remoteconfigschema
   /api/v1/namespaces/{namespace}/rolebindings:
     get:
-      description: Retrieves a list of role bindings with pagination options.
+      description: Retrieves the role bindings in a namespace, with pagination options.
       parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
       - description: Maximum number of role bindings to return
         in: query
         name: limit
@@ -3780,6 +3785,14 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: 'Fields: spec.roleRef.name'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
       responses:
         "200":
           description: OK
@@ -4012,6 +4025,14 @@ paths:
         in: query
         name: includeDeleted
         type: boolean
+      - description: 'Fields: spec.isBuiltIn'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive display-name prefix filter
+        in: query
+        name: name
+        type: string
       produces:
       - application/json
       responses:

@@ -66,9 +66,10 @@ func (m *mockRoleBindingPersistencePort) PutRoleBinding(
 
 func (m *mockRoleBindingPersistencePort) ListRoleBindings(
 	ctx context.Context,
+	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -159,9 +160,9 @@ func TestRoleBindingService_ListRoleBindings(t *testing.T) {
 		}
 
 		opts := &model.ListOptions{Limit: 10}
-		mockPort.On("ListRoleBindings", ctx, opts).Return(resp, nil)
+		mockPort.On("ListRoleBindings", ctx, "production", opts).Return(resp, nil)
 
-		result, err := svc.ListRoleBindings(ctx, opts)
+		result, err := svc.ListRoleBindings(ctx, "production", opts)
 
 		require.NoError(t, err)
 		assert.Len(t, result.Items, 1)
@@ -177,9 +178,9 @@ func TestRoleBindingService_ListRoleBindings(t *testing.T) {
 		svc := userservice.NewRoleBindingService(mockPort, base.Logger)
 
 		opts := &model.ListOptions{Limit: 10}
-		mockPort.On("ListRoleBindings", ctx, opts).Return(nil, errRoleBindingPersistence)
+		mockPort.On("ListRoleBindings", ctx, "production", opts).Return(nil, errRoleBindingPersistence)
 
-		result, err := svc.ListRoleBindings(ctx, opts)
+		result, err := svc.ListRoleBindings(ctx, "production", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

@@ -78,6 +78,8 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of roles to return"
 // @Param continue query string false "Token to continue listing roles"
 // @Param includeDeleted query bool false "Include soft-deleted roles"
+// @Param fieldSelector query string false "Fields: spec.isBuiltIn"
+// @Param name query string false "Case-sensitive display-name prefix filter"
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
 // @Router /api/v1/roles [get].
@@ -98,10 +100,19 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
+	// A role carries no label map, so a labelSelector is rejected rather than
+	// answered with an empty page.
+	selectors, ok := ginutil.ParseSelectorsWithoutLabels(ctx, applicationport.RoleSelectableFields)
+	if !ok {
+		return
+	}
+
 	response, err := c.roleUsecase.ListRoles(ctx.Request.Context(), &applicationport.ListOptions{
 		Limit:          limit,
 		Continue:       continueToken,
 		IncludeDeleted: includeDeleted,
+		FieldSelector:  selectors.Field,
+		NamePrefix:     selectors.NamePrefix,
 	})
 	if err != nil {
 		c.logger.Error("failed to list roles", "error", err.Error())

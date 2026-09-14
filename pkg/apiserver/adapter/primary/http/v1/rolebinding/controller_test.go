@@ -2,6 +2,7 @@ package rolebinding_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,7 +60,7 @@ func TestRoleBindingController_List(t *testing.T) {
 				},
 			},
 		}
-		usecase.EXPECT().ListRoleBindings(mock.Anything, mock.Anything).Return(&v1.ListResponse[v1.RoleBinding]{
+		usecase.EXPECT().ListRoleBindings(mock.Anything, "production", mock.Anything).Return(&v1.ListResponse[v1.RoleBinding]{
 			Kind:       v1.RoleBindingKind,
 			APIVersion: v1.APIVersion,
 			Metadata: v1.ListMeta{
@@ -119,7 +120,7 @@ func TestRoleBindingController_List(t *testing.T) {
 		ctrlBase.SetupRouter(controller)
 		router := ctrlBase.Router
 
-		usecase.EXPECT().ListRoleBindings(mock.Anything, mock.Anything).Return(nil, assert.AnError)
+		usecase.EXPECT().ListRoleBindings(mock.Anything, "production", mock.Anything).Return(nil, assert.AnError)
 
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(
@@ -129,6 +130,31 @@ func TestRoleBindingController_List(t *testing.T) {
 		require.NoError(t, err)
 		router.ServeHTTP(recorder, req)
 		assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	})
+
+	// Bad client input reaching the handler as a domain error — a malformed
+	// continue token, or a selector an adapter cannot answer — is a 400, not a
+	// 500. The handler routes through HandleDomainError to get that; an
+	// unrecognised error still falls back to 500, as the case above asserts.
+	t.Run("bad input from the domain is a 400", func(t *testing.T) {
+		t.Parallel()
+		ctrlBase := testutil.NewBase(t).ForController()
+		usecase := usecasemock.NewMockUsecase(t)
+		controller := rolebinding.NewController(usecase, ctrlBase.Logger)
+		ctrlBase.SetupRouter(controller)
+		router := ctrlBase.Router
+
+		usecase.EXPECT().ListRoleBindings(mock.Anything, "production", mock.Anything).
+			Return(nil, fmt.Errorf("%w: invalid continue token", model.ErrInvalidArgument))
+
+		recorder := httptest.NewRecorder()
+		req, err := http.NewRequestWithContext(
+			t.Context(), http.MethodGet,
+			"/api/v1/namespaces/production/rolebindings?continue=garbage", nil,
+		)
+		require.NoError(t, err)
+		router.ServeHTTP(recorder, req)
+		assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 }
 

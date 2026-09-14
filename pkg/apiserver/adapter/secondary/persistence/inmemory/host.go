@@ -20,7 +20,7 @@ type HostRepository struct {
 // NewHostRepository creates a new in-memory HostRepository.
 func NewHostRepository() *HostRepository {
 	return &HostRepository{
-		store: newStore[string](cloneHost, nil, (*agentmodel.Host).SelectorValues),
+		store: newStore[string](cloneHost, nil, (*agentmodel.Host).SelectorValues, hasLabels),
 	}
 }
 

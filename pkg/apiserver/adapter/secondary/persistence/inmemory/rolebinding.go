@@ -22,7 +22,7 @@ func NewRoleBindingRepository() *RoleBindingRepository {
 	return &RoleBindingRepository{
 		store: newStore[namespacedName](cloneRoleBinding, func(rb *usermodel.RoleBinding) *time.Time {
 			return rb.Metadata.DeletedAt
-		}, nil),
+		}, (*usermodel.RoleBinding).SelectorValues, hasNoLabels),
 	}
 }
 
@@ -42,11 +42,19 @@ func (r *RoleBindingRepository) PutRoleBinding(
 	return rb, nil
 }
 
-// ListRoleBindings implements userport.RoleBindingPersistencePort.
+// ListRoleBindings implements userport.RoleBindingPersistencePort. An empty
+// namespace lists across every namespace, which is what RBAC policy loading
+// needs; the API boundary always passes the namespace from the request path.
 func (r *RoleBindingRepository) ListRoleBindings(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	return r.store.list(options, nil)
+	if namespace == "" {
+		return r.store.list(options, nil)
+	}
+
+	return r.store.list(options, func(rb *usermodel.RoleBinding) bool {
+		return rb.Metadata.Namespace == namespace
+	})
 }
 
 // DeleteRoleBinding implements userport.RoleBindingPersistencePort. Bindings are soft-deleted.

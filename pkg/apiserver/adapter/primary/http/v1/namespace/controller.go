@@ -123,7 +123,7 @@ func (c *Controller) List(ctx *gin.Context) {
 			"failed to list namespaces",
 			"error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while retrieving namespaces.",
 		)

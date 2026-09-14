@@ -23,7 +23,7 @@ func NewUserRepository() *UserRepository {
 	return &UserRepository{
 		store: newStore[uuid.UUID](cloneUser, func(user *usermodel.User) *time.Time {
 			return user.Metadata.DeletedAt
-		}, (*usermodel.User).SelectorValues),
+		}, (*usermodel.User).SelectorValues, hasLabels),
 	}
 }
 

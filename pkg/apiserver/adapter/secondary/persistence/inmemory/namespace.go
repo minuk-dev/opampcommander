@@ -22,7 +22,7 @@ func NewNamespaceRepository() *NamespaceRepository {
 	return &NamespaceRepository{
 		store: newStore[string](cloneNamespace, func(ns *agentmodel.Namespace) *time.Time {
 			return ns.Metadata.DeletedAt
-		}, (*agentmodel.Namespace).SelectorValues),
+		}, (*agentmodel.Namespace).SelectorValues, hasLabels),
 	}
 }
 

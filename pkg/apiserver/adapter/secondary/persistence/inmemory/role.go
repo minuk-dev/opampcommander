@@ -23,7 +23,7 @@ func NewRoleRepository() *RoleRepository {
 	return &RoleRepository{
 		store: newStore[uuid.UUID](cloneRole, func(role *usermodel.Role) *time.Time {
 			return role.Metadata.DeletedAt
-		}, nil),
+		}, (*usermodel.Role).SelectorValues, hasNoLabels),
 	}
 }
 
