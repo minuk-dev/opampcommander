@@ -3,11 +3,19 @@
 import { Eye, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { api } from '@shared/api';
-import { cn, useCursorPagination } from '@shared/lib';
+import {
+  cn,
+  EMPTY_LIST_FILTERS,
+  hasListFilters,
+  listFilterQuery,
+  useCursorPagination,
+  type ListFilters,
+} from '@shared/lib';
 import {
   Alert,
   Button,
   ConfirmDialog,
+  ListFilterBar,
   PageHeader,
   PaginationFooter,
   RowActionsMenu,
@@ -51,6 +59,14 @@ interface Props<T> {
   // `refresh` re-fetches the list, for actions that mutate the row themselves.
   extraActions?: (row: T, ctx: { refresh: () => void }) => RowAction[];
   query?: Record<string, string | number | boolean | undefined>;
+  // Shows the server-side filter bar (name prefix + label selector). Opt-in
+  // because it must only appear where the list endpoint answers the filters —
+  // a bar whose input is ignored would be worse than none at all.
+  filterable?: boolean;
+  // Overrides the filter bar's name field for resources whose name is not
+  // called "name" (a user's email, for instance).
+  nameLabel?: string;
+  namePlaceholder?: string;
   // Deprecated: SWR keys off listPath + query, so re-fetching when the
   // namespace changes is automatic. Kept so existing callers still type-check.
   deps?: ReadonlyArray<unknown>;
@@ -71,14 +87,22 @@ export default function ResourceListPage<T>({
   detailHref,
   extraActions,
   query,
+  filterable,
+  nameLabel,
+  namePlaceholder,
   emptyMessage = 'No items',
 }: Props<T>) {
   const [createOpen, setCreateOpen] = useState(false);
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_LIST_FILTERS);
   const [editing, setEditing] = useState<T | null>(null);
   const [deleting, setDeleting] = useState<T | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const pagination = useCursorPagination<T>(listPath, { query });
+  // The filters go into the request, not into a pass over the fetched page, so
+  // the paginated total keeps describing the set the rows were drawn from.
+  const pagination = useCursorPagination<T>(listPath, {
+    query: { ...query, ...listFilterQuery(filters) },
+  });
   const { items, isLoading, isValidating, error: fetchError, refresh } = pagination;
   const error =
     actionError ??
@@ -146,6 +170,15 @@ export default function ResourceListPage<T>({
         }
       />
 
+      {filterable && (
+        <ListFilterBar
+          value={filters}
+          onChange={setFilters}
+          nameLabel={nameLabel}
+          namePlaceholder={namePlaceholder}
+        />
+      )}
+
       {error && (
         <Alert severity="error" className="mb-3">
           {error}
@@ -177,7 +210,7 @@ export default function ResourceListPage<T>({
                   colSpan={columnCount}
                   className="py-8 text-center text-sm text-muted-foreground"
                 >
-                  {emptyMessage}
+                  {hasListFilters(filters) ? 'No items match the filters' : emptyMessage}
                 </TableCell>
               </TableRow>
             ) : (

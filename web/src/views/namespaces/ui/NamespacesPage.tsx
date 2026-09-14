@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -14,6 +14,7 @@ import {
   DialogTitle,
   Field,
   Input,
+  ListFilterBar,
   PageHeader,
   Spinner,
   Table,
@@ -25,10 +26,20 @@ import {
   TableWrap,
   Textarea,
 } from '@shared/ui';
-import { cn } from '@shared/lib';
+import {
+  cn,
+  EMPTY_LIST_FILTERS,
+  hasListFilters,
+  listFilterQuery,
+  type ListFilters,
+} from '@shared/lib';
 import { TimeDisplay } from '@shared/preferences';
 import { useNamespace, type Namespace } from '@entities/namespace';
 import { api, type ListResponse } from '@shared/api';
+
+// The page size the listing requests. Filters are answered by the server, so
+// narrowing the view shrinks the query rather than growing the fetch.
+const PAGE_LIMIT = 200;
 
 export default function NamespacesPage() {
   const { namespaces: ctxNamespaces, refresh: refreshCtx } = useNamespace();
@@ -39,13 +50,18 @@ export default function NamespacesPage() {
   const [newName, setNewName] = useState('');
   const [labelsText, setLabelsText] = useState('{}');
   const [deleting, setDeleting] = useState<Namespace | null>(null);
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_LIST_FILTERS);
+
+  const filtered = hasListFilters(filters);
+  // Memoised on the filter state so fetchItems is stable between renders.
+  const filterQuery = useMemo(() => listFilterQuery(filters), [filters]);
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await api.get<ListResponse<Namespace>>('/api/v1/namespaces', {
-        query: { limit: 200 },
+        query: { limit: PAGE_LIMIT, ...filterQuery },
       });
       setItems(res.items ?? []);
     } catch (err) {
@@ -53,16 +69,19 @@ export default function NamespacesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterQuery]);
 
   useEffect(() => {
-    if (ctxNamespaces.length > 0) {
+    // The namespace switcher already holds the unfiltered list, so reuse it
+    // rather than fetching it twice. A filter has to go to the server, so it
+    // always fetches.
+    if (!filtered && ctxNamespaces.length > 0) {
       setItems(ctxNamespaces);
       setLoading(false);
     } else {
       void fetchItems();
     }
-  }, [ctxNamespaces, fetchItems]);
+  }, [ctxNamespaces, fetchItems, filtered]);
 
   const onCreate = async () => {
     setError(null);
@@ -115,6 +134,8 @@ export default function NamespacesPage() {
         }
       />
 
+      <ListFilterBar value={filters} onChange={setFilters} />
+
       {error && (
         <Alert severity="error" className="mb-3">
           {error}
@@ -142,7 +163,7 @@ export default function NamespacesPage() {
             ) : items.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  No namespaces
+                  {filtered ? 'No namespaces match the filters' : 'No namespaces'}
                 </TableCell>
               </TableRow>
             ) : (

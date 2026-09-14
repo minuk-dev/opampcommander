@@ -35,6 +35,7 @@ export default function AgentPackagesPage() {
         listPath={`/api/v1/namespaces/${namespace}/agentpackages`}
         itemPath={(p) => `/api/v1/namespaces/${namespace}/agentpackages/${p.metadata.name}`}
         itemName={(p) => p.metadata.name}
+        filterable
         canEdit
         canDelete
         extraActions={(row, { refresh }) => [

@@ -39,6 +39,7 @@ export default function CertificatesPage() {
       listPath={`/api/v1/namespaces/${namespace}/certificates`}
       itemPath={(c) => `/api/v1/namespaces/${namespace}/certificates/${c.metadata.name}`}
       itemName={(c) => c.metadata.name}
+      filterable
       deps={[namespace]}
       canEdit
       canDelete
