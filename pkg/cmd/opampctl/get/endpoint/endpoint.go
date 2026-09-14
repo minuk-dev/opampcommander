@@ -14,6 +14,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -32,6 +33,7 @@ type CommandOptions struct {
 	includeDeleted bool
 	namespace      string
 	allNamespaces  bool
+	selectors      selectorflags.Flags
 
 	// internal
 	client *client.Client
@@ -61,6 +63,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted endpoints")
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace")
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -102,12 +106,14 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of endpoints.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list endpoints: %w", err)
+	}
 
-	var (
-		endpoints []v1.Endpoint
-		err       error
-	)
+	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
+
+	var endpoints []v1.Endpoint
 
 	if opt.allNamespaces {
 		endpoints, err = opt.listAllNamespaces(cmd, listOpts...)

@@ -14,6 +14,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -35,6 +36,7 @@ type CommandOptions struct {
 	includeDeleted bool
 	namespace      string
 	allNamespaces  bool
+	selectors      selectorflags.Flags
 	agent          string
 
 	// internal
@@ -67,6 +69,8 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().BoolVarP(&options.allNamespaces, "all-namespaces", "A", false, "List resources across all namespaces")
 	cmd.Flags().StringVar(&options.agent, "agent", "",
 		"List only the agent groups that contain the agent with this instance UID")
+
+	options.selectors.Register(cmd)
 
 	return cmd
 }
@@ -121,12 +125,14 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 
 // List retrieves the list of agents.
 func (opt *CommandOptions) List(cmd *cobra.Command) error {
-	listOpts := []client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}
+	selectorOpts, err := opt.selectors.ListOptions()
+	if err != nil {
+		return fmt.Errorf("failed to list agent groups: %w", err)
+	}
 
-	var (
-		agentgroups []v1.AgentGroup
-		err         error
-	)
+	listOpts := append([]client.ListOption{client.WithIncludeDeleted(opt.includeDeleted)}, selectorOpts...)
+
+	var agentgroups []v1.AgentGroup
 
 	if opt.allNamespaces {
 		agentgroups, err = opt.listAllNamespaces(cmd, listOpts...)
@@ -152,7 +158,16 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // ListByAgent retrieves the agent groups that contain the agent given by the --agent flag.
+//
+// That endpoint takes no selectors, so the filtering flags are evaluated here
+// rather than dropped — a caller must never mistake the whole membership for a
+// narrowed one.
 func (opt *CommandOptions) ListByAgent(cmd *cobra.Command) error {
+	filter, err := opt.selectors.LocalFilter()
+	if err != nil {
+		return fmt.Errorf("failed to list agent groups for agent %q: %w", opt.agent, err)
+	}
+
 	resp, err := opt.client.AgentGroupService.ListAgentGroupsByAgent(cmd.Context(), opt.namespace, opt.agent)
 	if err != nil {
 		// The lookup is scoped to --namespace; surface it so a 404 caused by the agent
@@ -161,8 +176,12 @@ func (opt *CommandOptions) ListByAgent(cmd *cobra.Command) error {
 			opt.agent, opt.namespace, err)
 	}
 
-	displayedAgentGroups := make([]formattedAgentGroup, len(resp.Items))
-	for idx, agentgroup := range resp.Items {
+	matched := lo.Filter(resp.Items, func(agentgroup v1.AgentGroup, _ int) bool {
+		return filter.Matches(agentgroup.Metadata.Name, agentgroup.Metadata.Attributes)
+	})
+
+	displayedAgentGroups := make([]formattedAgentGroup, len(matched))
+	for idx, agentgroup := range matched {
 		displayedAgentGroups[idx] = opt.toFormattedAgentGroup(agentgroup)
 	}
 

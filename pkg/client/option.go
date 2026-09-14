@@ -87,6 +87,15 @@ type ListSettings struct {
 	// nonIdentifyingSelector filters agents by non-identifying attributes (exact
 	// key=value match); nil or empty means no attribute filter.
 	nonIdentifyingSelector map[string]string
+	// labelSelector is a Kubernetes-style expression over the resource's
+	// user-supplied metadata map; empty means no label filter.
+	labelSelector string
+	// fieldSelector is a Kubernetes-style expression over the resource's own
+	// allowlisted fields; empty means no field filter.
+	fieldSelector string
+	// namePrefix restricts the listing to resources whose name starts with it;
+	// empty means no name filter.
+	namePrefix string
 }
 
 // ListOptionFunc is a function type that implements the ListOption interface.
@@ -148,6 +157,39 @@ func WithNonIdentifyingSelector(selector map[string]string) ListOption {
 	})
 }
 
+// WithLabelSelector filters a listing by the resource's user-supplied metadata
+// map, using the Kubernetes-style expression syntax of pkg/selector, for example
+// "env=prod,tier notin (canary,dev),!deprecated". Which field backs that map is
+// per-resource; for agents it is the identifying attributes. An empty expression
+// applies no filter.
+//
+// The expression is sent verbatim: the server parses it and rejects a malformed
+// one with 400 Bad Request.
+func WithLabelSelector(expression string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.labelSelector = expression
+	})
+}
+
+// WithFieldSelector filters a listing by the resource's own fields, using the
+// field-expression syntax of pkg/selector, for example "status.connected=true".
+// Only the fields a resource documents as selectable may be referenced; the
+// server answers anything else with a 400 that names the field and lists the
+// supported ones. An empty expression applies no filter.
+func WithFieldSelector(expression string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.fieldSelector = expression
+	})
+}
+
+// WithName restricts a listing to resources whose name starts with the given
+// prefix. The match is case-sensitive. An empty prefix applies no filter.
+func WithName(prefix string) ListOption {
+	return ListOptionFunc(func(opt *ListSettings) {
+		opt.namePrefix = prefix
+	})
+}
+
 // GetOption is an interface for options that can be applied to get operations.
 type GetOption interface {
 	Apply(settings *GetSettings)
@@ -190,6 +232,18 @@ func (s ListSettings) applyTo(req *resty.Request) {
 
 	if mo.PointerToOption(s.connectedOnly).OrElse(false) {
 		req.SetQueryParam("connected", "true")
+	}
+
+	if s.labelSelector != "" {
+		req.SetQueryParam("labelSelector", s.labelSelector)
+	}
+
+	if s.fieldSelector != "" {
+		req.SetQueryParam("fieldSelector", s.fieldSelector)
+	}
+
+	if s.namePrefix != "" {
+		req.SetQueryParam("name", s.namePrefix)
 	}
 
 	values := url.Values{}
