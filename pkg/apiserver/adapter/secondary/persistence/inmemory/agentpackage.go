@@ -66,7 +66,13 @@ func (r *AgentPackageRepository) PutAgentPackage(
 
 // ListAgentPackages implements agentport.AgentPackagePersistencePort.
 func (r *AgentPackageRepository) ListAgentPackages(
-	_ context.Context, options *model.ListOptions,
+	_ context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentPackage], error) {
-	return r.store.list(options, nil)
+	filter, err := namespaceFilter(namespace,
+		func(agentPackage *agentmodel.AgentPackage) string { return agentPackage.Metadata.Namespace })
+	if err != nil {
+		return nil, err
+	}
+
+	return r.store.list(options, filter)
 }

@@ -99,33 +99,25 @@ func (a *AgentGroupMongoAdapter) GetAgentGroup(
 	return agentGroupEntity.ToDomain(agentGroupStatistics), nil
 }
 
-// ListAgentGroups implements agentport.AgentGroupPersistencePort.
+// ListAgentGroups implements agentport.AgentGroupPersistencePort.//
+// An empty namespace lists across every namespace; the API boundary always passes
+// the namespace from the request path.
 func (a *AgentGroupMongoAdapter) ListAgentGroups(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentGroup], error) {
-	resp, err := a.common.list(ctx, options)
+	conditions, err := namespaceCondition(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert entities to domain models with statistics
-	items := make([]*agentmodel.AgentGroup, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
-		if err != nil {
-			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Metadata.Name, err)
-		}
+	return a.listWithConditions(ctx, options, conditions...)
+}
 
-		// Convert entity to domain model
-		domainModel := item.ToDomain(agentGroupStatistics)
-		items = append(items, domainModel)
-	}
-
-	return &model.ListResponse[*agentmodel.AgentGroup]{
-		Items:              items,
-		Continue:           resp.Continue,
-		RemainingItemCount: resp.RemainingItemCount,
-	}, nil
+// ListAllAgentGroups implements agentport.AgentGroupPersistencePort.
+func (a *AgentGroupMongoAdapter) ListAllAgentGroups(
+	ctx context.Context, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	return a.listWithConditions(ctx, options)
 }
 
 // PutAgentGroup implements agentport.AgentGroupPersistencePort.
@@ -272,5 +264,34 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 		NumHealthyAgents:      result.NumHealthyAgents,
 		NumUnhealthyAgents:    result.NumUnhealthyAgents,
 		NumNotConnectedAgents: result.NumNotConnectedAgents,
+	}, nil
+}
+
+// listWithConditions lists agent groups and attaches each one's statistics.
+func (a *AgentGroupMongoAdapter) listWithConditions(
+	ctx context.Context, options *model.ListOptions, conditions ...bson.M,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	resp, err := a.common.listWithConditions(ctx, options, conditions...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert entities to domain models with statistics
+	items := make([]*agentmodel.AgentGroup, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		agentGroupStatistics, err := a.getAgentGroupStatistics(ctx, item)
+		if err != nil {
+			return nil, fmt.Errorf("get agent group statistics for %s: %w", item.Metadata.Name, err)
+		}
+
+		// Convert entity to domain model
+		domainModel := item.ToDomain(agentGroupStatistics)
+		items = append(items, domainModel)
+	}
+
+	return &model.ListResponse[*agentmodel.AgentGroup]{
+		Items:              items,
+		Continue:           resp.Continue,
+		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
 }

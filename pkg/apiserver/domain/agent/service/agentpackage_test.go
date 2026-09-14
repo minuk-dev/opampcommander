@@ -47,7 +47,7 @@ func (f *apFakePersistence) PutAgentPackage(
 }
 
 func (f *apFakePersistence) ListAgentPackages(
-	_ context.Context, _ *model.ListOptions,
+	_ context.Context, _ string, _ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentPackage], error) {
 	return &model.ListResponse[*agentmodel.AgentPackage]{}, nil
 }
@@ -129,7 +129,7 @@ func TestAgentPackageService_GetListSaveDelete(t *testing.T) {
 
 		svc := agentservice.NewAgentPackageService(&apFakePersistence{})
 
-		resp, err := svc.ListAgentPackages(t.Context(), nil)
+		resp, err := svc.ListAgentPackages(t.Context(), "", nil)
 		require.NoError(t, err)
 		assert.Empty(t, resp.Items)
 	})

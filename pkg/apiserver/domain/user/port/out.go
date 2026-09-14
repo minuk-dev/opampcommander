@@ -90,10 +90,16 @@ type RoleBindingPersistencePort interface {
 	// PutRoleBinding saves or updates a role binding.
 	PutRoleBinding(ctx context.Context, rb *usermodel.RoleBinding) (*usermodel.RoleBinding, error)
 	// ListRoleBindings retrieves the bindings in namespace, with pagination
-	// options. An empty namespace lists across every namespace, which is what RBAC
-	// policy loading needs; the API boundary always passes the namespace from the
-	// request path.
+	// options. The namespace is required: an empty one is
+	// [model.ErrInvalidArgument], not a cluster-wide listing, so a namespace read
+	// from data cannot silently widen the scope. Ask for that with
+	// ListAllRoleBindings.
 	ListRoleBindings(ctx context.Context, namespace string,
+		options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
+	// ListAllRoleBindings retrieves the bindings in every namespace. RBAC
+	// evaluation needs it: a user's effective permissions come from their bindings
+	// wherever those live.
+	ListAllRoleBindings(ctx context.Context,
 		options *model.ListOptions) (*model.ListResponse[*usermodel.RoleBinding], error)
 	// DeleteRoleBinding deletes a role binding by namespace and name.
 	DeleteRoleBinding(ctx context.Context, namespace, name string) error

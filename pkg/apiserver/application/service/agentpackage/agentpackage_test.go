@@ -42,9 +42,9 @@ func (m *mockAgentPackageUsecase) GetAgentPackage(
 }
 
 func (m *mockAgentPackageUsecase) ListAgentPackages(
-	ctx context.Context, options *model.ListOptions,
+	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentPackage], error) {
-	args := m.Called(ctx, options)
+	args := m.Called(ctx, namespace, options)
 	if args.Get(0) == nil {
 		return nil, args.Error(1) //nolint:wrapcheck // mock error
 	}
@@ -189,9 +189,9 @@ func TestService_ListAgentPackages(t *testing.T) {
 			Items:    []*agentmodel.AgentPackage{newPkg()},
 			Continue: "next",
 		}
-		mockPkg.On("ListAgentPackages", ctx, opts.ToDomain()).Return(resp, nil)
+		mockPkg.On("ListAgentPackages", ctx, "production", opts.ToDomain()).Return(resp, nil)
 
-		result, err := svc.ListAgentPackages(ctx, opts)
+		result, err := svc.ListAgentPackages(ctx, "production", opts)
 
 		require.NoError(t, err)
 		assert.Equal(t, v1.AgentPackageKind, result.Kind)
@@ -208,9 +208,9 @@ func TestService_ListAgentPackages(t *testing.T) {
 		svc := newSvc(t, mockPkg)
 
 		opts := &applicationport.ListOptions{Limit: 10}
-		mockPkg.On("ListAgentPackages", ctx, opts.ToDomain()).Return(nil, errMock)
+		mockPkg.On("ListAgentPackages", ctx, "production", opts.ToDomain()).Return(nil, errMock)
 
-		result, err := svc.ListAgentPackages(ctx, opts)
+		result, err := svc.ListAgentPackages(ctx, "production", opts)
 
 		require.Error(t, err)
 		assert.Nil(t, result)

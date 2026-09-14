@@ -15,8 +15,9 @@ type AgentPackageManageUsecase interface {
 	// model.ErrResourceNotExist if absent.
 	GetAgentPackage(ctx context.Context, namespace string, name string,
 		options *port.GetOptions) (*v1.AgentPackage, error)
-	// ListAgentPackages returns a paged list of packages across namespaces.
-	ListAgentPackages(ctx context.Context, options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)
+	// ListAgentPackages returns a paged list of the packages in namespace.
+	ListAgentPackages(ctx context.Context, namespace string,
+		options *port.ListOptions) (*v1.ListResponse[v1.AgentPackage], error)
 	// CreateAgentPackage persists a new package, returning
 	// model.ErrResourceAlreadyExist on a duplicate.
 	CreateAgentPackage(ctx context.Context, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)

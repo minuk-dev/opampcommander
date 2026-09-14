@@ -39,7 +39,7 @@ func (f *fakeARCPersistence) PutAgentRemoteConfig(
 }
 
 func (f *fakeARCPersistence) ListAgentRemoteConfigs(
-	_ context.Context, _ *model.ListOptions,
+	_ context.Context, _ string, _ *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.AgentRemoteConfig], error) {
 	return &model.ListResponse[*agentmodel.AgentRemoteConfig]{Items: nil, Continue: "", RemainingItemCount: 0}, nil
 }

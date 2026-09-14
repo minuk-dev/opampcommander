@@ -63,9 +63,10 @@ func (a *Service) GetAgentPackage(
 // ListAgentPackages implements [usecase.AgentPackageManageUsecase].
 func (a *Service) ListAgentPackages(
 	ctx context.Context,
+	namespace string,
 	options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentPackage], error) {
-	agentPackages, err := a.agentpackageUsecase.ListAgentPackages(ctx, options.ToDomain())
+	agentPackages, err := a.agentpackageUsecase.ListAgentPackages(ctx, namespace, options.ToDomain())
 	if err != nil {
 		return nil, fmt.Errorf("list agent packages: %w", err)
 	}

@@ -115,34 +115,26 @@ func (a *RoleBindingMongoAdapter) PutRoleBinding(
 	return a.GetRoleBinding(ctx, roleBinding.Metadata.Namespace, roleBinding.Metadata.Name, nil)
 }
 
-// ListRoleBindings implements userport.RoleBindingPersistencePort. An empty
-// namespace lists across every namespace, which is what RBAC policy loading
-// needs; the API boundary always passes the namespace from the request path.
+// ListRoleBindings implements userport.RoleBindingPersistencePort.
 func (a *RoleBindingMongoAdapter) ListRoleBindings(
 	ctx context.Context,
 	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*usermodel.RoleBinding], error) {
-	conditions := bson.M{}
-	if namespace != "" {
-		conditions[roleBindingNamespaceFieldName] = sanitizeResourceName(namespace)
-	}
-
-	resp, err := a.common.listWithConditions(ctx, options, conditions)
+	conditions, err := namespaceCondition(namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]*usermodel.RoleBinding, 0, len(resp.Items))
-	for _, item := range resp.Items {
-		items = append(items, item.ToDomain())
-	}
+	return a.listWithConditions(ctx, options, conditions...)
+}
 
-	return &model.ListResponse[*usermodel.RoleBinding]{
-		Items:              items,
-		Continue:           resp.Continue,
-		RemainingItemCount: resp.RemainingItemCount,
-	}, nil
+// ListAllRoleBindings implements userport.RoleBindingPersistencePort.
+func (a *RoleBindingMongoAdapter) ListAllRoleBindings(
+	ctx context.Context,
+	options *model.ListOptions,
+) (*model.ListResponse[*usermodel.RoleBinding], error) {
+	return a.listWithConditions(ctx, options)
 }
 
 // DeleteRoleBinding implements userport.RoleBindingPersistencePort.
@@ -178,4 +170,24 @@ func (a *RoleBindingMongoAdapter) filterByNamespaceAndNameExcludingDeleted(names
 	filter[roleBindingDeletedAtFieldName] = nil
 
 	return filter
+}
+
+func (a *RoleBindingMongoAdapter) listWithConditions(
+	ctx context.Context, options *model.ListOptions, conditions ...bson.M,
+) (*model.ListResponse[*usermodel.RoleBinding], error) {
+	resp, err := a.common.listWithConditions(ctx, options, conditions...)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]*usermodel.RoleBinding, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		items = append(items, item.ToDomain())
+	}
+
+	return &model.ListResponse[*usermodel.RoleBinding]{
+		Items:              items,
+		Continue:           resp.Continue,
+		RemainingItemCount: resp.RemainingItemCount,
+	}, nil
 }

@@ -224,7 +224,7 @@ func (s *NamespaceService) deleteAgentGroupsInNamespace(
 	deletedBy string,
 ) error {
 	agentGroups, err := s.agentGroupUsecase.ListAgentGroups(
-		ctx, &model.ListOptions{
+		ctx, name, &model.ListOptions{
 			Limit:          0,
 			Continue:       "",
 			IncludeDeleted: false,
@@ -235,10 +235,6 @@ func (s *NamespaceService) deleteAgentGroupsInNamespace(
 	}
 
 	for _, agentGroup := range agentGroups.Items {
-		if agentGroup.Metadata.Namespace != name {
-			continue
-		}
-
 		err = s.agentGroupUsecase.DeleteAgentGroup(
 			ctx, name, agentGroup.Metadata.Name, now, deletedBy,
 		)
@@ -260,7 +256,7 @@ func (s *NamespaceService) deleteCertificatesInNamespace(
 	deletedBy string,
 ) error {
 	certificates, err := s.certificateUsecase.ListCertificate(
-		ctx, &model.ListOptions{
+		ctx, name, &model.ListOptions{
 			Limit:          0,
 			Continue:       "",
 			IncludeDeleted: false,
@@ -271,10 +267,6 @@ func (s *NamespaceService) deleteCertificatesInNamespace(
 	}
 
 	for _, certificate := range certificates.Items {
-		if certificate.Metadata.Namespace != name {
-			continue
-		}
-
 		_, err = s.certificateUsecase.DeleteCertificate(
 			ctx, name, certificate.Metadata.Name, now, deletedBy,
 		)
@@ -296,7 +288,7 @@ func (s *NamespaceService) deleteAgentPackagesInNamespace(
 	deletedBy string,
 ) error {
 	agentPackages, err := s.agentPackageUsecase.ListAgentPackages(
-		ctx, &model.ListOptions{
+		ctx, name, &model.ListOptions{
 			Limit:          0,
 			Continue:       "",
 			IncludeDeleted: false,
@@ -307,10 +299,6 @@ func (s *NamespaceService) deleteAgentPackagesInNamespace(
 	}
 
 	for _, agentPackage := range agentPackages.Items {
-		if agentPackage.Metadata.Namespace != name {
-			continue
-		}
-
 		err = s.agentPackageUsecase.DeleteAgentPackage(
 			ctx, name, agentPackage.Metadata.Name, now, deletedBy,
 		)
@@ -332,7 +320,7 @@ func (s *NamespaceService) deleteAgentRemoteConfigsInNamespace(
 	deletedBy string,
 ) error {
 	agentRemoteConfigs, err := s.agentRemoteConfigUsecase.ListAgentRemoteConfigs(
-		ctx, &model.ListOptions{
+		ctx, name, &model.ListOptions{
 			Limit:          0,
 			Continue:       "",
 			IncludeDeleted: false,
@@ -343,10 +331,6 @@ func (s *NamespaceService) deleteAgentRemoteConfigsInNamespace(
 	}
 
 	for _, arc := range agentRemoteConfigs.Items {
-		if arc.Metadata.Namespace != name {
-			continue
-		}
-
 		err = s.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
 			ctx, name, arc.Metadata.Name, now, deletedBy,
 		)
