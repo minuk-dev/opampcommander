@@ -54,7 +54,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		"Include soft-deleted namespaces",
 	)
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.Labels)
 
 	return cmd
 }

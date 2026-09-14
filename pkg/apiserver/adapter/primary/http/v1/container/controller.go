@@ -77,7 +77,7 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, applicationport.ContainerSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, applicationport.ContainerSelectableFields)
 	if !ok {
 		return
 	}
@@ -87,7 +87,7 @@ func (c *Controller) List(ctx *gin.Context) {
 	response, err = c.containerUsecase.ListContainers(
 		ctx.Request.Context(),
 		&applicationport.ListOptions{
-			LabelSelector:            selectors.Label,
+			LabelSelector:            selectors.Metadata,
 			FieldSelector:            selectors.Field,
 			NamePrefix:               selectors.NamePrefix,
 			Limit:                    limit,

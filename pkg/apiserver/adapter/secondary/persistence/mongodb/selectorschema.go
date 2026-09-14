@@ -57,6 +57,10 @@ type fieldSpec struct {
 type selectorSchema struct {
 	// labelPath is the document path of the label map, empty when there is none.
 	labelPath string
+	// additionalLabelPath is a second label map filtered in union with labelPath,
+	// empty when there is only one. Only agents have one — their non-identifying
+	// attributes; see [model.SelectorValues].
+	additionalLabelPath string
 	// labelStorage is the shape stored at labelPath.
 	labelStorage labelStorage
 	// namePath is the document path a "?name=" prefix search scans, empty when the
@@ -110,12 +114,59 @@ func (s selectorSchema) conditions(options *model.ListOptions) ([]bson.M, error)
 	return conditions, nil
 }
 
+// labelCondition translates one requirement against every label map the
+// aggregate carries.
+//
+// With two maps the requirement is satisfied when either satisfies its positive
+// form, and a negative operator is the negation of that — the semantics
+// [selector.LabelSelector.MatchesAny] gives the in-memory adapter, expressed here
+// as $or over the positive translations and $nor over the same ones.
 func (s selectorSchema) labelCondition(requirement selector.Requirement) (bson.M, error) {
+	if s.labelStorage == labelsUnsupported {
+		return nil, fmt.Errorf("%w: this resource has no labels to select on", model.ErrInvalidArgument)
+	}
+
+	positive, negated := requirement.Positive()
+
+	paths := []string{s.labelPath}
+	if s.additionalLabelPath != "" {
+		paths = append(paths, s.additionalLabelPath)
+	}
+
+	alternatives := make(bson.A, 0, len(paths))
+
+	for _, path := range paths {
+		condition, err := s.positiveLabelCondition(path, positive)
+		if err != nil {
+			return nil, err
+		}
+
+		alternatives = append(alternatives, condition)
+	}
+
+	if negated {
+		return bson.M{"$nor": alternatives}, nil
+	}
+
+	if len(alternatives) == 1 {
+		condition, _ := alternatives[0].(bson.M)
+
+		return condition, nil
+	}
+
+	return bson.M{"$or": alternatives}, nil
+}
+
+// positiveLabelCondition translates one positive requirement against a single
+// label map, in whichever shape that map is stored.
+func (s selectorSchema) positiveLabelCondition(
+	path string, requirement selector.Requirement,
+) (bson.M, error) {
 	switch s.labelStorage {
 	case labelsMap:
-		return mapLabelCondition(s.labelPath, requirement)
+		return mapLabelCondition(path, requirement)
 	case labelsKeyValueArray:
-		return keyValueLabelCondition(s.labelPath, requirement)
+		return keyValueLabelCondition(path, requirement)
 	case labelsUnsupported:
 		return nil, fmt.Errorf("%w: this resource has no labels to select on", model.ErrInvalidArgument)
 	default:
@@ -125,66 +176,50 @@ func (s selectorSchema) labelCondition(requirement selector.Requirement) (bson.M
 
 // mapLabelCondition queries a label map by dotted path.
 //
-// The negative operators deliberately match a document that has no such label at
-// all, which is what the $ne/$nin/$exists forms already do and what Kubernetes
-// selector semantics require.
+// It is only ever handed a positive requirement: labelCondition negates through
+// $nor, so an absent key satisfies the negative operators — what Kubernetes
+// selector semantics require — without this function knowing about them.
 //
 // A key containing a dot addresses a nested path that a string-valued label map
-// can never have, so such a requirement matches nothing (or, negated,
-// everything) — which is the correct answer, because MongoDB 4.4 cannot store a
-// dotted field name in the first place.
+// can never have, so such a requirement matches nothing — which is the correct
+// answer, because MongoDB 4.4 cannot store a dotted field name in the first
+// place.
 func mapLabelCondition(labelPath string, requirement selector.Requirement) (bson.M, error) {
 	path := labelPath + "." + requirement.Key
 
 	switch requirement.Operator {
 	case selector.OpEquals:
 		return bson.M{path: firstValue(requirement.Values)}, nil
-	case selector.OpNotEquals:
-		return bson.M{path: bson.M{"$ne": firstValue(requirement.Values)}}, nil
 	case selector.OpIn:
 		return bson.M{path: bson.M{"$in": requirement.Values}}, nil
-	case selector.OpNotIn:
-		return bson.M{path: bson.M{"$nin": requirement.Values}}, nil
 	case selector.OpExists:
 		return bson.M{path: bson.M{"$exists": true}}, nil
-	case selector.OpNotExists:
-		return bson.M{path: bson.M{"$exists": false}}, nil
+	case selector.OpNotEquals, selector.OpNotIn, selector.OpNotExists:
+		return nil, unsupportedOperator(requirement.Operator)
 	default:
 		return nil, unsupportedOperator(requirement.Operator)
 	}
 }
 
 // keyValueLabelCondition queries an array of {key, value} documents with
-// $elemMatch, negating through $nor so an absent key satisfies the negative
-// operators — the same semantics mapLabelCondition gets from $ne/$nin.
+// $elemMatch. Like mapLabelCondition it only ever sees a positive requirement;
+// labelCondition negates through $nor.
 func keyValueLabelCondition(labelPath string, requirement selector.Requirement) (bson.M, error) {
 	element := bson.M{"key": requirement.Key}
-	negated := false
 
 	switch requirement.Operator {
 	case selector.OpEquals:
 		element["value"] = firstValue(requirement.Values)
-	case selector.OpNotEquals:
-		element["value"] = firstValue(requirement.Values)
-		negated = true
 	case selector.OpIn:
 		element["value"] = bson.M{"$in": requirement.Values}
-	case selector.OpNotIn:
-		element["value"] = bson.M{"$in": requirement.Values}
-		negated = true
 	case selector.OpExists:
-	case selector.OpNotExists:
-		negated = true
+	case selector.OpNotEquals, selector.OpNotIn, selector.OpNotExists:
+		return nil, unsupportedOperator(requirement.Operator)
 	default:
 		return nil, unsupportedOperator(requirement.Operator)
 	}
 
-	condition := bson.M{labelPath: bson.M{"$elemMatch": element}}
-	if negated {
-		return bson.M{"$nor": bson.A{condition}}, nil
-	}
-
-	return condition, nil
+	return bson.M{labelPath: bson.M{"$elemMatch": element}}, nil
 }
 
 func (s selectorSchema) fieldCondition(requirement selector.FieldRequirement) (bson.M, error) {
@@ -288,9 +323,10 @@ func firstValue(values []string) string {
 //nolint:gochecknoglobals // declarative schema table, read-only after init
 var (
 	agentSelectorSchema = selectorSchema{
-		labelPath:    entity.IdentifyingAttributesFieldName,
-		labelStorage: labelsKeyValueArray,
-		namePath:     "metadata.instanceUidString",
+		labelPath:           entity.IdentifyingAttributesFieldName,
+		additionalLabelPath: entity.NonIdentifyingAttributesFieldName,
+		labelStorage:        labelsKeyValueArray,
+		namePath:            "metadata.instanceUidString",
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: "metadata.namespace", kind: fieldString},
 			"status.connected":   {path: "status.connected", kind: fieldConnected},
@@ -298,17 +334,19 @@ var (
 		},
 	}
 	agentGroupSelectorSchema = selectorSchema{
-		labelPath:    "metadata.attributes",
-		labelStorage: labelsMap,
-		namePath:     agentGroupNameFieldName,
+		labelPath:           "metadata.attributes",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            agentGroupNameFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: agentGroupNamespaceFieldName, kind: fieldString},
 		},
 	}
 	agentPackageSelectorSchema = selectorSchema{
-		labelPath:    "metadata.attributes",
-		labelStorage: labelsMap,
-		namePath:     agentPackageNameFieldName,
+		labelPath:           "metadata.attributes",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            agentPackageNameFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: agentPackageNamespaceFieldName, kind: fieldString},
 			"spec.packageType":   {path: "spec.packageType", kind: fieldString},
@@ -316,58 +354,65 @@ var (
 		},
 	}
 	agentRemoteConfigSelectorSchema = selectorSchema{
-		labelPath:    "metadata.attributes",
-		labelStorage: labelsMap,
-		namePath:     agentRemoteConfigNameFieldName,
+		labelPath:           "metadata.attributes",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            agentRemoteConfigNameFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: agentRemoteConfigNamespaceFieldName, kind: fieldString},
 		},
 	}
 	certificateSelectorSchema = selectorSchema{
-		labelPath:    "metadata.attributes",
-		labelStorage: labelsMap,
-		namePath:     certificateNameFieldName,
+		labelPath:           "metadata.attributes",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            certificateNameFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: certificateNamespaceFieldName, kind: fieldString},
 		},
 	}
 	containerSelectorSchema = selectorSchema{
-		labelPath:    "metadata.labels",
-		labelStorage: labelsMap,
-		namePath:     "metadata.name",
+		labelPath:           "metadata.labels",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            "metadata.name",
 		fields: map[string]fieldSpec{
 			"spec.platform": {path: "spec.platform", kind: fieldString},
 		},
 	}
 	endpointSelectorSchema = selectorSchema{
-		labelPath:    "metadata.attributes",
-		labelStorage: labelsMap,
-		namePath:     endpointNameFieldName,
+		labelPath:           "metadata.attributes",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            endpointNameFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: endpointNamespaceFieldName, kind: fieldString},
 			"spec.protocol":      {path: "spec.protocol", kind: fieldString},
 		},
 	}
 	hostSelectorSchema = selectorSchema{
-		labelPath:    "metadata.labels",
-		labelStorage: labelsMap,
-		namePath:     "metadata.name",
+		labelPath:           "metadata.labels",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            "metadata.name",
 		fields: map[string]fieldSpec{
 			"spec.platform": {path: "spec.platform", kind: fieldString},
 		},
 	}
 	namespaceSelectorSchema = selectorSchema{
-		labelPath:    "metadata.labels",
-		labelStorage: labelsMap,
-		namePath:     entity.NamespaceKeyFieldName,
+		labelPath:           "metadata.labels",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            entity.NamespaceKeyFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.name": {path: entity.NamespaceKeyFieldName, kind: fieldString},
 		},
 	}
 	remoteConfigSchemaSelectorSchema = selectorSchema{
-		labelPath:    "metadata.attributes",
-		labelStorage: labelsMap,
-		namePath:     remoteConfigSchemaNameFieldName,
+		labelPath:           "metadata.attributes",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            remoteConfigSchemaNameFieldName,
 		fields: map[string]fieldSpec{
 			"metadata.namespace": {path: remoteConfigSchemaNamespaceFieldName, kind: fieldString},
 			"spec.binary":        {path: "spec.binary", kind: fieldString},
@@ -377,25 +422,28 @@ var (
 	// Roles and role bindings carry no label map, so a label selector against
 	// either is rejected rather than silently answered with an empty page.
 	roleSelectorSchema = selectorSchema{
-		labelPath:    "",
-		labelStorage: labelsUnsupported,
-		namePath:     "spec.displayName",
+		labelPath:           "",
+		additionalLabelPath: "",
+		labelStorage:        labelsUnsupported,
+		namePath:            "spec.displayName",
 		fields: map[string]fieldSpec{
 			"spec.isBuiltIn": {path: "spec.isBuiltIn", kind: fieldBool},
 		},
 	}
 	roleBindingSelectorSchema = selectorSchema{
-		labelPath:    "",
-		labelStorage: labelsUnsupported,
-		namePath:     roleBindingNameFieldName,
+		labelPath:           "",
+		additionalLabelPath: "",
+		labelStorage:        labelsUnsupported,
+		namePath:            roleBindingNameFieldName,
 		fields: map[string]fieldSpec{
 			"spec.roleRef.name": {path: "spec.roleRef.name", kind: fieldString},
 		},
 	}
 	userSelectorSchema = selectorSchema{
-		labelPath:    "metadata.labels",
-		labelStorage: labelsMap,
-		namePath:     "spec.email",
+		labelPath:           "metadata.labels",
+		additionalLabelPath: "",
+		labelStorage:        labelsMap,
+		namePath:            "spec.email",
 		fields: map[string]fieldSpec{
 			"spec.isActive": {path: "spec.isActive", kind: fieldBool},
 		},

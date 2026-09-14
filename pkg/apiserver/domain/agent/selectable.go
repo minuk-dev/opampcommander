@@ -81,8 +81,9 @@ var (
 // what a label selector reads.
 func (a *Agent) SelectorValuesAt(now time.Time) model.SelectorValues {
 	return model.SelectorValues{
-		Name:   a.Metadata.InstanceUID.String(),
-		Labels: a.Metadata.Description.IdentifyingAttributes,
+		Name:             a.Metadata.InstanceUID.String(),
+		Labels:           a.Metadata.Description.IdentifyingAttributes,
+		AdditionalLabels: a.Metadata.Description.NonIdentifyingAttributes,
 		Fields: map[string]string{
 			"metadata.namespace": a.Metadata.Namespace,
 			"status.connected":   strconv.FormatBool(a.IsConnectedAt(now, DefaultConnectionStaleness)),
@@ -95,8 +96,9 @@ func (a *Agent) SelectorValuesAt(now time.Time) model.SelectorValues {
 // groups on.
 func (a *AgentGroup) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   a.Metadata.Name,
-		Labels: a.Metadata.Attributes,
+		Name:             a.Metadata.Name,
+		Labels:           a.Metadata.Attributes,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.namespace": a.Metadata.Namespace,
 		},
@@ -107,8 +109,9 @@ func (a *AgentGroup) SelectorValues() model.SelectorValues {
 // packages on.
 func (a *AgentPackage) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   a.Metadata.Name,
-		Labels: a.Metadata.Attributes,
+		Name:             a.Metadata.Name,
+		Labels:           a.Metadata.Attributes,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.namespace": a.Metadata.Namespace,
 			"spec.packageType":   a.Spec.PackageType,
@@ -121,8 +124,9 @@ func (a *AgentPackage) SelectorValues() model.SelectorValues {
 // remote configs on.
 func (a *AgentRemoteConfig) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   a.Metadata.Name,
-		Labels: a.Metadata.Attributes,
+		Name:             a.Metadata.Name,
+		Labels:           a.Metadata.Attributes,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.namespace": a.Metadata.Namespace,
 		},
@@ -133,8 +137,9 @@ func (a *AgentRemoteConfig) SelectorValues() model.SelectorValues {
 // certificates on.
 func (c *Certificate) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   c.Metadata.Name,
-		Labels: c.Metadata.Attributes,
+		Name:             c.Metadata.Name,
+		Labels:           c.Metadata.Attributes,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.namespace": c.Metadata.Namespace,
 		},
@@ -145,8 +150,9 @@ func (c *Certificate) SelectorValues() model.SelectorValues {
 // on.
 func (c *Container) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   c.Metadata.Name,
-		Labels: c.Metadata.Labels,
+		Name:             c.Metadata.Name,
+		Labels:           c.Metadata.Labels,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"spec.platform": string(c.Spec.Platform),
 		},
@@ -157,8 +163,9 @@ func (c *Container) SelectorValues() model.SelectorValues {
 // on.
 func (e *Endpoint) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   e.Metadata.Name,
-		Labels: e.Metadata.Attributes,
+		Name:             e.Metadata.Name,
+		Labels:           e.Metadata.Attributes,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.namespace": e.Metadata.Namespace,
 			"spec.protocol":      e.Spec.Protocol,
@@ -169,8 +176,9 @@ func (e *Endpoint) SelectorValues() model.SelectorValues {
 // SelectorValues returns the projection server-side selectors filter hosts on.
 func (h *Host) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   h.Metadata.Name,
-		Labels: h.Metadata.Labels,
+		Name:             h.Metadata.Name,
+		Labels:           h.Metadata.Labels,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"spec.platform": string(h.Spec.Platform),
 		},
@@ -181,8 +189,9 @@ func (h *Host) SelectorValues() model.SelectorValues {
 // on.
 func (n *Namespace) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   n.Metadata.Name,
-		Labels: n.Metadata.Labels,
+		Name:             n.Metadata.Name,
+		Labels:           n.Metadata.Labels,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.name": n.Metadata.Name,
 		},
@@ -193,8 +202,9 @@ func (n *Namespace) SelectorValues() model.SelectorValues {
 // config schemas on.
 func (r *RemoteConfigSchema) SelectorValues() model.SelectorValues {
 	return model.SelectorValues{
-		Name:   r.Metadata.Name,
-		Labels: r.Metadata.Attributes,
+		Name:             r.Metadata.Name,
+		Labels:           r.Metadata.Attributes,
+		AdditionalLabels: nil,
 		Fields: map[string]string{
 			"metadata.namespace": r.Metadata.Namespace,
 			"spec.binary":        r.Spec.Binary,

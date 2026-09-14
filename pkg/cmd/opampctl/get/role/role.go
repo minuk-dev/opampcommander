@@ -57,7 +57,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "short", "Output format (short, text, json, yaml)")
 	cmd.Flags().BoolVar(&options.includeDeleted, "include-deleted", false, "Include soft-deleted roles")
 
-	options.selectors.Register(cmd)
+	options.selectors.Register(cmd, selectorflags.NoMetadata)
 
 	return cmd
 }
