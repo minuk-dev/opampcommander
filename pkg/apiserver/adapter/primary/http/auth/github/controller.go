@@ -19,6 +19,16 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
+// Keys of the JSON error payloads this controller writes.
+const (
+	errorKey   = "error"
+	detailsKey = "details"
+
+	// stateGenerationFailed is the message every OAuth entry point returns when
+	// the anti-CSRF state cannot be produced.
+	stateGenerationFailed = "failed to generate state"
+)
+
 // Controller is a struct that implements the GitHub OAuth2 authentication controller.
 type Controller struct {
 	logger              *slog.Logger
@@ -43,37 +53,37 @@ func NewController(
 func (c *Controller) RoutesInfo() gin.RoutesInfo {
 	return gin.RoutesInfo{
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/auth/github",
 			Handler:     "http.github.HTTPAuth",
 			HandlerFunc: c.HTTPAuth,
 		},
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/auth/github/callback",
 			Handler:     "http.github.Callback",
 			HandlerFunc: c.Callback,
 		},
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/api/v1/auth/github",
 			Handler:     "http.github.APIAuth",
 			HandlerFunc: c.APIAuth,
 		},
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/api/v1/auth/github/authcode",
 			Handler:     "http.github.AuthCodeURL",
 			HandlerFunc: c.AuthCodeURL,
 		},
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/api/v1/auth/github/device",
 			Handler:     "http.github.GetDeviceAuth",
 			HandlerFunc: c.GetDeviceAuth,
 		},
 		{
-			Method:      "GET",
+			Method:      http.MethodGet,
 			Path:        "/api/v1/auth/github/device/exchange",
 			Handler:     "http.github.ExchangeDeviceAuth",
 			HandlerFunc: c.ExchangeDeviceAuth,
@@ -95,8 +105,8 @@ func (c *Controller) HTTPAuth(ctx *gin.Context) {
 	authcodeURL, err := c.service.AuthCodeURL("")
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to generate state",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   stateGenerationFailed,
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -119,8 +129,8 @@ func (c *Controller) APIAuth(ctx *gin.Context) {
 	authcodeURL, err := c.service.AuthCodeURL("")
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to generate state",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   stateGenerationFailed,
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -150,7 +160,7 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 	redirectURI := ctx.Query("redirect_uri")
 	if redirectURI == "" {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": "redirect_uri is required",
+			errorKey: "redirect_uri is required",
 		})
 
 		return
@@ -159,8 +169,8 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 	err := ValidateRedirect(redirectURI, c.service.AllowedRedirectHosts())
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid redirect_uri",
-			"details": err.Error(),
+			errorKey:   "invalid redirect_uri",
+			detailsKey: err.Error(),
 		})
 
 		return
@@ -169,8 +179,8 @@ func (c *Controller) AuthCodeURL(ctx *gin.Context) {
 	authcodeURL, err := c.service.AuthCodeURL(redirectURI)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to generate state",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   stateGenerationFailed,
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -256,8 +266,8 @@ func (c *Controller) Callback(ctx *gin.Context) {
 	cliRedirect, err := c.service.CLIRedirectFromState(state)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to generate state",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   stateGenerationFailed,
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -304,8 +314,8 @@ func (c *Controller) GetDeviceAuth(ctx *gin.Context) {
 	dar, err := c.service.DeviceAuth(ctx.Request.Context())
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to initiate device authorization",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   "failed to initiate device authorization",
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -346,8 +356,8 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 		expiryTime, err = time.Parse(time.RFC3339, expiry)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, gin.H{
-				"error":   "invalid expiry format",
-				"details": fmt.Sprintf("error: %v", err),
+				errorKey:   "invalid expiry format",
+				detailsKey: fmt.Sprintf("error: %v", err),
 			})
 
 			return
@@ -361,8 +371,8 @@ func (c *Controller) ExchangeDeviceAuth(ctx *gin.Context) {
 	)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to exchange device code for token",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   "failed to exchange device code for token",
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -388,8 +398,8 @@ func (c *Controller) redirectToLoopback(ctx *gin.Context, cliRedirect string, re
 	target, err := url.Parse(cliRedirect)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "invalid cliRedirect URI",
-			"details": err.Error(),
+			errorKey:   "invalid cliRedirect URI",
+			detailsKey: err.Error(),
 		})
 
 		return
@@ -416,8 +426,8 @@ func (c *Controller) redirectToLoopback(ctx *gin.Context, cliRedirect string, re
 func (c *Controller) handleCallbackError(ctx *gin.Context, cliRedirect, message string, err error) {
 	if cliRedirect == "" {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   message,
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   message,
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -426,8 +436,8 @@ func (c *Controller) handleCallbackError(ctx *gin.Context, cliRedirect, message 
 	target, parseErr := url.Parse(cliRedirect)
 	if parseErr != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   message,
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   message,
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return

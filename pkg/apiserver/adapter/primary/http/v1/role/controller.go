@@ -12,6 +12,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
+// roleByIDPath is the per-item route, repeated by the read, update and delete
+// entries below so a rename happens in one place.
+const roleByIDPath = "/api/v1/roles/:id"
+
 // Controller is a struct that implements the role controller.
 type Controller struct {
 	logger *slog.Logger
@@ -42,7 +46,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/roles/:id",
+			Path:        roleByIDPath,
 			Handler:     "http.v1.role.Get",
 			HandlerFunc: c.Get,
 		},
@@ -54,13 +58,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/roles/:id",
+			Path:        roleByIDPath,
 			Handler:     "http.v1.role.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/roles/:id",
+			Path:        roleByIDPath,
 			Handler:     "http.v1.role.Delete",
 			HandlerFunc: c.Delete,
 		},

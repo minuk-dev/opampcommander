@@ -44,6 +44,7 @@ func parse(str string, semver bool) (*Version, error) {
 		return nil, fmt.Errorf("illegal version string %q", str)
 	}
 
+	//exhaustruct:ignore
 	v := &Version{
 		components: make([]uint, len(components)),
 		semver:     semver,

@@ -6,6 +6,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// basicExample is the name every resource's minimal template is registered
+// under, so `template examples <resource> basic` means the same thing for all
+// of them.
+const basicExample = "basic"
+
 //go:embed examples/agentgroup/basic.yaml
 var agentGroupBasic string
 
@@ -17,7 +22,7 @@ var agentGroupWithConfigRef string
 
 //nolint:gochecknoglobals // example registry for the agentgroup template command
 var agentGroupExamples = map[string]string{
-	"basic":              agentGroupBasic,
+	basicExample:         agentGroupBasic,
 	"with-remote-config": agentGroupWithRemoteConfig,
 	"with-config-ref":    agentGroupWithConfigRef,
 }

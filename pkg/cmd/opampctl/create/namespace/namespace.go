@@ -129,6 +129,7 @@ func (opt *CommandOptions) buildRequest(args []string) (*v1.Namespace, error) {
 
 	//exhaustruct:ignore
 	return &v1.Namespace{
+		//exhaustruct:ignore
 		Metadata: v1.NamespaceMetadata{
 			Name: args[0],
 		},

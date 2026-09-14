@@ -133,6 +133,7 @@ func TestAgentRepository_ListByIdentifyingAttributesSelector(t *testing.T) {
 
 	//exhaustruct:ignore
 	resp, err := repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		IdentifyingAttributes: map[string]string{"service.name": "otel-collector"},
 	})
 	require.NoError(t, err)
@@ -142,6 +143,7 @@ func TestAgentRepository_ListByIdentifyingAttributesSelector(t *testing.T) {
 	// Every pair must match (AND semantics).
 	//exhaustruct:ignore
 	resp, err = repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		IdentifyingAttributes: map[string]string{"service.name": "otel-collector", "service.namespace": "staging"},
 	})
 	require.NoError(t, err)
@@ -170,6 +172,7 @@ func TestAgentRepository_ListByNonIdentifyingAttributesSelector(t *testing.T) {
 
 	//exhaustruct:ignore
 	resp, err := repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		NonIdentifyingAttributes: map[string]string{"os.type": "linux"},
 	})
 	require.NoError(t, err)
@@ -179,7 +182,9 @@ func TestAgentRepository_ListByNonIdentifyingAttributesSelector(t *testing.T) {
 	// Identifying and non-identifying selectors are AND-combined.
 	//exhaustruct:ignore
 	resp, err = repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
-		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
+		IdentifyingAttributes: map[string]string{"service.name": "otel-collector"},
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		NonIdentifyingAttributes: map[string]string{"os.type": "linux"},
 	})
 	require.NoError(t, err)
@@ -187,6 +192,7 @@ func TestAgentRepository_ListByNonIdentifyingAttributesSelector(t *testing.T) {
 	assert.Equal(t, match.Metadata.InstanceUID, resp.Items[0].Metadata.InstanceUID)
 
 	// A non-identifying mismatch excludes the agent even when identifying matches.
+	//nolint:staticcheck // deprecated alias, exercised until it is removed
 	//exhaustruct:ignore
 	resp, err = repo.ListAgents(ctx, selectorNamespace, &model.ListOptions{
 		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},

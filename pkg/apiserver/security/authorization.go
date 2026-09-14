@@ -12,6 +12,13 @@ import (
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 )
 
+// Shape of the JSON error payloads the authorization middleware writes.
+const (
+	errorKey            = "error"
+	forbiddenMessage    = "forbidden"
+	unauthorizedMessage = "unauthorized"
+)
+
 const (
 	namespaceScopedPrefix = "/api/v1/namespaces/"
 	globalAPIPrefix       = "/api/v1/"
@@ -40,7 +47,7 @@ func NewAuthorizationMiddleware(
 		user, err := GetUser(ctx)
 		if err != nil || !user.Authenticated || user.Email == nil {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
+				errorKey: unauthorizedMessage,
 			})
 
 			return
@@ -117,7 +124,7 @@ func resolveNamespacedTarget(ctx *gin.Context, fullPath string) (string, string,
 
 	if resource == "" || action == "" {
 		if hasNamespaceResourceSegment(fullPath) {
-			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{errorKey: forbiddenMessage})
 		} else {
 			ctx.Next()
 		}
@@ -142,7 +149,7 @@ func enforcePermission(
 			slog.Any("error", err),
 		)
 		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			"error": "forbidden",
+			errorKey: forbiddenMessage,
 		})
 
 		return
@@ -159,7 +166,7 @@ func enforcePermission(
 			slog.Any("error", err),
 		)
 		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			"error": "forbidden",
+			errorKey: forbiddenMessage,
 		})
 
 		return
@@ -173,7 +180,7 @@ func enforcePermission(
 			slog.String("action", action),
 		)
 		ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-			"error":   "forbidden",
+			errorKey:  forbiddenMessage,
 			"message": "insufficient permissions",
 		})
 

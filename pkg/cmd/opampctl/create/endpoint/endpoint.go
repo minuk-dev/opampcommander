@@ -132,11 +132,13 @@ func (opt *CommandOptions) buildRequest() (*v1.Endpoint, string, error) {
 
 	//exhaustruct:ignore
 	return &v1.Endpoint{
+		//exhaustruct:ignore
 		Metadata: v1.EndpointMetadata{
 			Name:       opt.name,
 			Namespace:  opt.namespace,
 			Attributes: opt.attributes,
 		},
+		//exhaustruct:ignore
 		Spec: v1.EndpointSpec{
 			URL:      opt.url,
 			Protocol: opt.protocol,

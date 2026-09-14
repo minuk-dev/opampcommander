@@ -201,7 +201,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteCo
 func AgentRemoteConfigResourceEntityFromDomain(
 	arc *agentmodel.AgentRemoteConfig,
 ) *AgentRemoteConfigResourceEntity {
-	//nolint:exhaustruct // ID is set by MongoDB
+	//nolint:exhaustruct_v5 // ID is set by MongoDB
 	return &AgentRemoteConfigResourceEntity{
 		Metadata: AgentRemoteConfigResourceMetadata{
 			Name:       arc.Metadata.Name,

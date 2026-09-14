@@ -16,6 +16,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
+// agentByIDPath is the per-item route, repeated by the read, update and delete
+// entries below so a rename happens in one place.
+const agentByIDPath = "/api/v1/namespaces/:namespace/agents/:id"
+
 // ErrInvalidSelector is returned when a selector query parameter is malformed
 // (an entry without a "key=value" shape, or with an empty key). It wraps
 // ginutil.ErrInvalidFormat so the HTTP layer maps it to a 400 Bad Request.
@@ -60,7 +64,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Path:        agentByIDPath,
 			Handler:     "http.v1.agent.Get",
 			HandlerFunc: c.Get,
 		},
@@ -72,13 +76,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Path:        agentByIDPath,
 			Handler:     "http.v1.agent.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/namespaces/:namespace/agents/:id",
+			Path:        agentByIDPath,
 			Handler:     "http.v1.agent.Delete",
 			HandlerFunc: c.Delete,
 		},
@@ -141,10 +145,12 @@ func (c *Controller) List(ctx *gin.Context) {
 	continueToken := ctx.Query("continue")
 
 	response, err := c.agentUsecase.ListAgents(ctx.Request.Context(), namespace, &applicationport.ListOptions{
-		Limit:                    limit,
-		Continue:                 continueToken,
-		ConnectedOnly:            connectedOnly,
-		IdentifyingAttributes:    identifyingAttributes,
+		Limit:         limit,
+		Continue:      continueToken,
+		ConnectedOnly: connectedOnly,
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
+		IdentifyingAttributes: identifyingAttributes,
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		NonIdentifyingAttributes: nonIdentifyingAttributes,
 		LabelSelector:            selectors.Metadata,
 		FieldSelector:            selectors.Field,

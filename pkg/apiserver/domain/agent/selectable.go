@@ -16,7 +16,11 @@ import (
 // both directions, so adding a field here without indexing and translating it
 // fails the build rather than silently degrading into a collection scan.
 //
-//nolint:gochecknoglobals // declarative per-aggregate schema, read-only after init
+// Each aggregate repeats the field paths it supports rather than sharing
+// constants with the others: the lists are independent schemas, and one
+// aggregate dropping a field must not be able to change another's.
+//
+//nolint:gochecknoglobals,goconst // declarative per-aggregate schema, read-only after init
 var (
 	// AgentSelectableFields are the fields an agent listing can be filtered on.
 	AgentSelectableFields = []string{

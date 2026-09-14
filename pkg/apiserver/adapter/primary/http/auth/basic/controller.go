@@ -16,6 +16,12 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
 
+// Keys of the JSON error payloads this controller writes.
+const (
+	errorKey   = "error"
+	detailsKey = "details"
+)
+
 // Controller is a struct that implements the basic authentication controller for the opampcommander API client.
 type Controller struct {
 	logger              *slog.Logger
@@ -75,7 +81,7 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 	username, password, ok := ctx.Request.BasicAuth()
 	if !ok {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "missing basic auth credentials",
+			errorKey: "missing basic auth credentials",
 		})
 
 		return
@@ -85,15 +91,15 @@ func (c *Controller) BasicAuth(ctx *gin.Context) {
 	if err != nil {
 		if errors.Is(err, security.ErrInvalidUsernameOrPassword) {
 			ctx.JSON(http.StatusUnauthorized, gin.H{
-				"error": "invalid username or password",
+				errorKey: "invalid username or password",
 			})
 
 			return
 		}
 
 		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error":   "failed to authenticate",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   "failed to authenticate",
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -131,8 +137,8 @@ func (c *Controller) Refresh(ctx *gin.Context) {
 	err := ctx.ShouldBindJSON(&req)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error":   "invalid request body",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   "invalid request body",
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -141,8 +147,8 @@ func (c *Controller) Refresh(ctx *gin.Context) {
 	result, err := c.service.Refresh(req.RefreshToken)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error":   "invalid or expired refresh token",
-			"details": fmt.Sprintf("error: %v", err),
+			errorKey:   "invalid or expired refresh token",
+			detailsKey: fmt.Sprintf("error: %v", err),
 		})
 
 		return
@@ -172,7 +178,7 @@ func (c *Controller) Info(ctx *gin.Context) {
 			slog.String("error", err.Error()),
 		)
 		ctx.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
+			errorKey: "unauthorized",
 		})
 
 		return

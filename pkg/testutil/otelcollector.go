@@ -216,6 +216,7 @@ func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
+		//exhaustruct:ignore
 		b.t.Context(), testcontainers.GenericContainerRequest{
 			ContainerRequest: buildCollectorContainerRequest(configPath),
 			Started:          true,
@@ -242,6 +243,7 @@ func (b *Base) StartOTelCollectorHTTP(opampPort int) *OTelCollector {
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
+		//exhaustruct:ignore
 		b.t.Context(), testcontainers.GenericContainerRequest{
 			ContainerRequest: buildCollectorContainerRequest(configPath),
 			Started:          true,
@@ -347,6 +349,7 @@ func (b *Base) StartOTelCollectorWithDescription(
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
+		//exhaustruct:ignore
 		b.t.Context(), testcontainers.GenericContainerRequest{
 			ContainerRequest: buildCollectorContainerRequest(configPath),
 			Started:          true,
@@ -374,6 +377,7 @@ func (b *Base) StartOTelCollectorWithAttributes(opampPort int, resourceAttrs map
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
+		//exhaustruct:ignore
 		b.t.Context(), testcontainers.GenericContainerRequest{
 			ContainerRequest: buildCollectorContainerRequest(configPath),
 			Started:          true,

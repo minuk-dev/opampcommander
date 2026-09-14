@@ -144,6 +144,7 @@ func (opt *CommandOptions) buildRequest() (*v1.AgentGroup, string, error) {
 
 	//exhaustruct:ignore
 	return &v1.AgentGroup{
+		//exhaustruct:ignore
 		Metadata: v1.Metadata{
 			Name:       opt.name,
 			Attributes: opt.attributes,
@@ -181,8 +182,10 @@ func (opt *CommandOptions) buildInlineAgentConfig() (*v1.AgentConfig, error) {
 	//exhaustruct:ignore
 	return &v1.AgentConfig{
 		AgentRemoteConfigs: []v1.AgentGroupRemoteConfig{
+			//exhaustruct:ignore
 			{
 				AgentRemoteConfigName: &configName,
+				//exhaustruct:ignore
 				AgentRemoteConfigSpec: &v1.AgentRemoteConfigSpec{
 					Value:       string(data),
 					ContentType: "text/yaml",

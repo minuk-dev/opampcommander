@@ -11,7 +11,7 @@ var certificateBasic string
 
 //nolint:gochecknoglobals // example registry for the certificate template command
 var certificateExamples = map[string]string{
-	"basic": certificateBasic,
+	basicExample: certificateBasic,
 }
 
 func newCertificateCommand() *cobra.Command {

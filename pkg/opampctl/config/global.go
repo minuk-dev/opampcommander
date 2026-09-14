@@ -7,6 +7,10 @@ import (
 	"path/filepath"
 )
 
+// DefaultContextName is the context a freshly initialised config selects, and
+// the name of the cluster and user it points at.
+const DefaultContextName = "default"
+
 // GlobalConfig contains the global configuration for opampctl.
 type GlobalConfig struct {
 	// Debugging Configuration
@@ -44,18 +48,18 @@ type Log struct {
 // NewDefaultGlobalConfig creates a new GlobalConfig with default values.
 func NewDefaultGlobalConfig(homedir string) *GlobalConfig {
 	return &GlobalConfig{
-		CurrentContext: "default",
+		CurrentContext: DefaultContextName,
 		CacheDir:       filepath.Join(homedir, ".opampcommander", "opampctl", "cache"),
 		Contexts: []Context{
 			{
-				Name:    "default",
-				Cluster: "default",
-				User:    "default",
+				Name:    DefaultContextName,
+				Cluster: DefaultContextName,
+				User:    DefaultContextName,
 			},
 		},
 		Users: []User{
 			{
-				Name: "default",
+				Name: DefaultContextName,
 				Auth:
 				//exhaustruct:ignore
 				Auth{
@@ -69,7 +73,7 @@ func NewDefaultGlobalConfig(homedir string) *GlobalConfig {
 		},
 		Clusters: []Cluster{
 			{
-				Name: "default",
+				Name: DefaultContextName,
 				OpAMPCommander: OpAMPCommander{
 					Endpoint: "http://localhost:8080",
 				},

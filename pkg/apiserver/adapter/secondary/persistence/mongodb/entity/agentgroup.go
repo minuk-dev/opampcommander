@@ -160,7 +160,7 @@ func (s *AgentGroupMetadata) toDomain() agentmodel.AgentGroupMetadata {
 }
 
 func (s *AgentGroupSpec) toDomain() agentmodel.AgentGroupSpec {
-	//nolint:exhaustruct // Fields are set conditionally below
+	//nolint:exhaustruct_v5 // Fields are set conditionally below
 	spec := agentmodel.AgentGroupSpec{
 		Priority: s.Priority,
 		Selector: agentmodel.AgentSelector{
@@ -210,7 +210,7 @@ func (s *AgentGroupSpec) toDomain() agentmodel.AgentGroupSpec {
 }
 
 func (s *AgentGroupStatus) toDomain() agentmodel.AgentGroupStatus {
-	//nolint:exhaustruct // Statistics fields are set by the caller
+	//nolint:exhaustruct_v5 // Statistics fields are set by the caller
 	return agentmodel.AgentGroupStatus{
 		Conditions: lo.Map(s.Conditions, func(c Condition, _ int) model.Condition {
 			return c.ToDomain()
@@ -247,7 +247,7 @@ func agentGroupMetadataFromDomain(metadata agentmodel.AgentGroupMetadata) AgentG
 }
 
 func agentGroupSpecFromDomain(spec agentmodel.AgentGroupSpec) AgentGroupSpec {
-	//nolint:exhaustruct // Fields are set conditionally below
+	//nolint:exhaustruct_v5 // Fields are set conditionally below
 	result := AgentGroupSpec{
 		Priority: spec.Priority,
 		Selector: AgentSelector{

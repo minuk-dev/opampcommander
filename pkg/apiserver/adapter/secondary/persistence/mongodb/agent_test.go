@@ -294,6 +294,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		// when: exact match on a single identifying attribute.
 		//exhaustruct:ignore
 		listResponse, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+			//nolint:staticcheck // deprecated alias, exercised until it is removed
 			IdentifyingAttributes: map[string]string{"service.name": "otel-collector"},
 		})
 
@@ -305,6 +306,7 @@ func TestAgentMongoAdapter_ListAgents(t *testing.T) {
 		// when: every pair must match (AND semantics) -> no result.
 		//exhaustruct:ignore
 		none, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+			//nolint:staticcheck // deprecated alias, exercised until it is removed
 			IdentifyingAttributes: map[string]string{
 				"service.name":      "otel-collector",
 				"service.namespace": "staging",
@@ -354,6 +356,7 @@ func TestAgentMongoAdapter_ListAgentsByNonIdentifyingSelector(t *testing.T) {
 	// when: filter by a non-identifying attribute.
 	//exhaustruct:ignore
 	listResponse, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
+		//nolint:staticcheck // deprecated alias, exercised until it is removed
 		NonIdentifyingAttributes: map[string]string{"os.type": "linux"},
 	})
 
@@ -364,6 +367,7 @@ func TestAgentMongoAdapter_ListAgentsByNonIdentifyingSelector(t *testing.T) {
 
 	// when: identifying and non-identifying selectors are AND-combined; a
 	// non-identifying mismatch excludes the agent even when identifying matches.
+	//nolint:staticcheck // deprecated alias, exercised until it is removed
 	//exhaustruct:ignore
 	none, err := agentRepository.ListAgents(ctx, "default", &model.ListOptions{
 		IdentifyingAttributes:    map[string]string{"service.name": "otel-collector"},

@@ -74,7 +74,7 @@ func (e *RemoteConfigSchemaResourceEntity) ToDomain() *agentmodel.RemoteConfigSc
 func RemoteConfigSchemaResourceEntityFromDomain(
 	schema *agentmodel.RemoteConfigSchema,
 ) *RemoteConfigSchemaResourceEntity {
-	//nolint:exhaustruct // ID is set by MongoDB
+	//nolint:exhaustruct_v5 // ID is set by MongoDB
 	return &RemoteConfigSchemaResourceEntity{
 		Metadata: RemoteConfigSchemaResourceMetadata{
 			Name:            schema.Metadata.Name,

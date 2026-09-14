@@ -12,6 +12,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
 
+// roleBindingByNamePath is the per-item route, repeated by the read, update and delete
+// entries below so a rename happens in one place.
+const roleBindingByNamePath = "/api/v1/namespaces/:namespace/rolebindings/:name"
+
 // Controller is a struct that implements the role binding controller.
 type Controller struct {
 	logger  *slog.Logger
@@ -40,7 +44,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodGet,
-			Path:        "/api/v1/namespaces/:namespace/rolebindings/:name",
+			Path:        roleBindingByNamePath,
 			Handler:     "http.v1.rolebinding.Get",
 			HandlerFunc: c.Get,
 		},
@@ -52,13 +56,13 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 		},
 		{
 			Method:      http.MethodPut,
-			Path:        "/api/v1/namespaces/:namespace/rolebindings/:name",
+			Path:        roleBindingByNamePath,
 			Handler:     "http.v1.rolebinding.Update",
 			HandlerFunc: c.Update,
 		},
 		{
 			Method:      http.MethodDelete,
-			Path:        "/api/v1/namespaces/:namespace/rolebindings/:name",
+			Path:        roleBindingByNamePath,
 			Handler:     "http.v1.rolebinding.Delete",
 			HandlerFunc: c.Delete,
 		},

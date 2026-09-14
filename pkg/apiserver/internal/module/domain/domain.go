@@ -122,7 +122,6 @@ func provideAgentService(
 ) *agentservice.AgentService {
 	// Apply default cache settings if not explicitly configured
 	cacheSettings := settings.CacheSettings
-	//nolint:exhaustruct // Intentionally comparing with zero value to check if not configured
 	if cacheSettings == (config.CacheSettings{}) {
 		cacheSettings = config.DefaultCacheSettings()
 	}

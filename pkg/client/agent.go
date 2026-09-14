@@ -205,6 +205,7 @@ func (s *AgentService) SetAgentNewInstanceUID(
 ) (*v1.Agent, error) {
 	//exhaustruct:ignore
 	agent := &v1.Agent{
+		//exhaustruct:ignore
 		Spec: v1.AgentSpec{
 			NewInstanceUID: request.NewInstanceUID.String(),
 		},
@@ -222,6 +223,7 @@ func (s *AgentService) RestartAgent(
 	now := v1.NewTime(time.Now())
 	//exhaustruct:ignore
 	agent := &v1.Agent{
+		//exhaustruct:ignore
 		Spec: v1.AgentSpec{
 			RestartRequiredAt: &now,
 		},

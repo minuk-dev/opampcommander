@@ -140,7 +140,7 @@ func (opt *CommandOptions) get(cmd *cobra.Command, names []string) error {
 
 	items := lo.FilterMap(results, func(r result, _ int) (formattedRoleBinding, bool) {
 		if r.err != nil {
-			return formattedRoleBinding{}, false //nolint:exhaustruct
+			return formattedRoleBinding{}, false
 		}
 
 		return toFormatted(*r.rb), true

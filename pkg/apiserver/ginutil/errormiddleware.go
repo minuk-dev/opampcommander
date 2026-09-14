@@ -12,6 +12,12 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
+// Repeated fields of the RFC 9457 payloads below.
+const (
+	titleNotFound  = "Not Found"
+	locationServer = "server"
+)
+
 // ErrorType represents common error types.
 type ErrorType int
 
@@ -72,14 +78,14 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	if errors.Is(err, model.ErrResourceNotExist) {
 		ctx.JSON(http.StatusNotFound, &api.ErrorModel{
 			Type:     baseURL,
-			Title:    "Not Found",
+			Title:    titleNotFound,
 			Status:   http.StatusNotFound,
 			Detail:   "The requested resource does not exist.",
 			Instance: ctx.Request.URL.String(),
 			Errors: []*api.ErrorDetail{
 				{
 					Message:  "resource not found",
-					Location: "server",
+					Location: locationServer,
 					Value:    nil,
 				},
 			},
@@ -110,7 +116,7 @@ func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 			Errors: []*api.ErrorDetail{
 				{
 					Message:  err.Error(),
-					Location: "server",
+					Location: locationServer,
 					Value:    nil,
 				},
 			},
@@ -169,7 +175,7 @@ func InternalServerError(ctx *gin.Context, err error, detail string) {
 		Errors: []*api.ErrorDetail{
 			{
 				Message:  err.Error(),
-				Location: "server",
+				Location: locationServer,
 				Value:    nil,
 			},
 		},
@@ -189,7 +195,7 @@ func ConflictError(ctx *gin.Context, err error, detail string) {
 		Errors: []*api.ErrorDetail{
 			{
 				Message:  err.Error(),
-				Location: "server",
+				Location: locationServer,
 				Value:    nil,
 			},
 		},
@@ -202,7 +208,7 @@ func ResourceNotFoundError(ctx *gin.Context, resourceType, identifier string) {
 
 	ctx.JSON(http.StatusNotFound, &api.ErrorModel{
 		Type:     baseURL,
-		Title:    "Not Found",
+		Title:    titleNotFound,
 		Status:   http.StatusNotFound,
 		Detail:   fmt.Sprintf("The requested %s does not exist.", resourceType),
 		Instance: ctx.Request.URL.String(),

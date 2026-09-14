@@ -9,10 +9,8 @@ import (
 )
 
 var (
-	//nolint:exhaustruct
 	_ json.Marshaler   = Time{}
 	_ json.Unmarshaler = (*Time)(nil)
-	//nolint:exhaustruct
 	_ yaml.Marshaler   = Time{}
 	_ yaml.Unmarshaler = (*Time)(nil)
 )
