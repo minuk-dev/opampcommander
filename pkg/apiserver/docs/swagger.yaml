@@ -1935,6 +1935,11 @@ paths:
         in: query
         name: name
         type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
+        type: string
       produces:
       - application/json
       responses:
@@ -2052,6 +2057,11 @@ paths:
       - description: Case-sensitive name prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       produces:
       - application/json
@@ -2173,6 +2183,11 @@ paths:
         in: query
         name: name
         type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
+        type: string
       responses:
         "200":
           description: OK
@@ -2218,6 +2233,11 @@ paths:
       - description: Case-sensitive name prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       responses:
         "200":
@@ -2422,6 +2442,11 @@ paths:
       - description: Case-sensitive name prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       responses:
         "200":
@@ -2631,6 +2656,11 @@ paths:
         in: query
         name: name
         type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
+        type: string
       responses:
         "200":
           description: OK
@@ -2697,6 +2727,10 @@ paths:
       - description: Case-sensitive instance-UID prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive UID substring (scan; pass name= to bound it)
+        in: query
+        name: nameContains
         type: string
       produces:
       - application/json
@@ -2995,6 +3029,11 @@ paths:
         in: query
         name: name
         type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
+        type: string
       responses:
         "200":
           description: OK
@@ -3285,6 +3324,11 @@ paths:
       - description: Case-sensitive name prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       responses:
         "200":
@@ -3584,6 +3628,11 @@ paths:
         in: query
         name: name
         type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
+        type: string
       responses:
         "200":
           description: OK
@@ -3792,6 +3841,11 @@ paths:
       - description: Case-sensitive name prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       responses:
         "200":
@@ -4033,6 +4087,11 @@ paths:
         in: query
         name: name
         type: string
+      - description: Case-insensitive display-name substring (scan; pass name= to
+          bound)
+        in: query
+        name: nameContains
+        type: string
       produces:
       - application/json
       responses:
@@ -4230,6 +4289,11 @@ paths:
       - description: Case-sensitive name prefix filter
         in: query
         name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       produces:
       - application/json

@@ -67,6 +67,7 @@ type selectorCase struct {
 	labelSelector string
 	fieldSelector string
 	namePrefix    string
+	nameContains  string
 	expected      []string
 }
 
@@ -186,6 +187,7 @@ func runSelectorContract(t *testing.T, backend selectorBackend) {
 				LabelSelector: parseLabels(t, testCase.labelSelector),
 				FieldSelector: parseFields(t, testCase.fieldSelector),
 				NamePrefix:    testCase.namePrefix,
+				NameContains:  testCase.nameContains,
 			}
 
 			names, remaining, err := backend.list(ctx, namespace, options)
@@ -255,6 +257,30 @@ func endpointExtraCases() []selectorCase {
 			name:       "name prefix matching nothing",
 			namePrefix: "zz-",
 			expected:   nil,
+		},
+		{
+			// A prefix cannot find "metrics" in the middle of a name; a substring can.
+			name:         "name substring matches inside the name",
+			nameContains: "metrics",
+			expected:     []string{fixtureProdMetrics, fixtureStagingMetrics},
+		},
+		{
+			name:         "name substring is case-insensitive, unlike the prefix",
+			nameContains: "METRICS",
+			expected:     []string{fixtureProdMetrics, fixtureStagingMetrics},
+		},
+		{
+			// The needle is matched literally, never compiled as a pattern, or a
+			// client could hand the datastore an expression to evaluate.
+			name:         "name substring treats regex metacharacters literally",
+			nameContains: "prod-.*",
+			expected:     nil,
+		},
+		{
+			name:          "name substring combined with a label selector",
+			nameContains:  "metrics",
+			labelSelector: "env=prod",
+			expected:      []string{fixtureProdMetrics},
 		},
 		{
 			name:          "field selector",
