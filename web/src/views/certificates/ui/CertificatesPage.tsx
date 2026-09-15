@@ -79,7 +79,7 @@ export default function CertificatesPage() {
           samplesVars={{ namespace }}
           onClose={onClose}
           onSave={async (parsed) => {
-            await api.post(`/api/v1/namespaces/${namespace}/certificates`, parsed as Certificate);
+            await api.post(`/api/v1/namespaces/${namespace}/certificates`, parsed);
             onSaved();
           }}
         />
@@ -95,7 +95,7 @@ export default function CertificatesPage() {
           onSave={async (parsed) => {
             await api.put(
               `/api/v1/namespaces/${namespace}/certificates/${row.metadata.name}`,
-              parsed as Certificate,
+              parsed,
             );
             onSaved();
           }}

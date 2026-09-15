@@ -35,7 +35,7 @@ export default function AgentEditDialog({ open, agent, onClose, onSaved }: Props
           const got = Array.isArray(parsed) ? 'array' : typeof parsed;
           throw new Error(`spec must be an object (got ${got})`);
         }
-        const next: Agent = { ...agent, spec: parsed as Agent['spec'] };
+        const next: Agent = { ...agent, spec: parsed };
         const updated = await api.put<Agent>(
           `/api/v1/namespaces/${namespace}/agents/${agent.metadata.instanceUid}`,
           next,

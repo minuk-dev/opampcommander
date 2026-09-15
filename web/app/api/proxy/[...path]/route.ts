@@ -80,7 +80,7 @@ async function forward(request: NextRequest, segments: string[]): Promise<NextRe
   if (upstream.status >= 300 && upstream.status < 400) {
     const location = upstream.headers.get('location');
     if (location) {
-      return NextResponse.redirect(location, upstream.status as 301 | 302 | 307 | 308);
+      return NextResponse.redirect(location, upstream.status);
     }
   }
 

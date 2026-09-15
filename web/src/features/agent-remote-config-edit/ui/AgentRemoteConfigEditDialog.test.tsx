@@ -16,8 +16,8 @@ const put = vi.mocked(api.put);
 
 // The dialog loads its sample menu over fetch; an empty list keeps it quiet.
 beforeEach(() => {
-  post.mockReset().mockResolvedValue(undefined as never);
-  put.mockReset().mockResolvedValue(undefined as never);
+  post.mockReset().mockResolvedValue(undefined);
+  put.mockReset().mockResolvedValue(undefined);
   vi.stubGlobal(
     'fetch',
     vi.fn().mockResolvedValue({

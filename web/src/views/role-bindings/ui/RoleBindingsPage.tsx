@@ -69,7 +69,7 @@ export default function RoleBindingsPage() {
           samplesVars={{ namespace }}
           onClose={onClose}
           onSave={async (parsed) => {
-            await api.post(`/api/v1/namespaces/${namespace}/rolebindings`, parsed as RoleBinding);
+            await api.post(`/api/v1/namespaces/${namespace}/rolebindings`, parsed);
             onSaved();
           }}
         />
@@ -85,7 +85,7 @@ export default function RoleBindingsPage() {
           onSave={async (parsed) => {
             await api.put(
               `/api/v1/namespaces/${namespace}/rolebindings/${row.metadata.name}`,
-              parsed as RoleBinding,
+              parsed,
             );
             onSaved();
           }}

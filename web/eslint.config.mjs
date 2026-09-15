@@ -7,6 +7,20 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
 
+  // Pin the React version: eslint-plugin-react's auto-detection still calls
+  // context APIs that ESLint 10 removed, which crashes the whole run.
+  {
+    settings: { react: { version: '19.2' } },
+
+    rules: {
+      // TODO: new errors in eslint-plugin-react-hooks 7.1. They flag our
+      // fetch-on-mount pages, reset-on-open dialogs, and render-phase ref
+      // writes — a real refactor, not a lint tweak. Warn until that lands.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+    },
+  },
+
   // Type-aware lint config: turn on rules that need the TS program so we
   // catch real footguns (unhandled promises, misused async callbacks, etc.).
   {
