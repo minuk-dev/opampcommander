@@ -1,8 +1,8 @@
 'use client';
 
 import { RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api, type ListResponse } from '@shared/api';
+import { useMemo, useState } from 'react';
+import { useApi, type ListResponse } from '@shared/api';
 import {
   cn,
   EMPTY_LIST_FILTERS,
@@ -133,10 +133,6 @@ function TableState({
 }
 
 export default function PlatformPage() {
-  const [hosts, setHosts] = useState<Host[]>([]);
-  const [containers, setContainers] = useState<Container[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   // Each tab filters its own collection; the two are fetched together, so a
   // change to either set of filters refetches both.
   //
@@ -149,35 +145,34 @@ export default function PlatformPage() {
   const [containerFilters, setContainerFilters] = useState<ListFilters>(PLATFORM_FILTERS);
 
   // Memoised on the filter state, whose identity only changes when a filter is
-  // applied, so fetchAll is stable between renders and the effect below runs
-  // once per filter change rather than once per render.
+  // applied, so each SWR key stays stable between renders.
   const hostQuery = useMemo(() => listFilterQuery(hostFilters), [hostFilters]);
   const containerQuery = useMemo(() => listFilterQuery(containerFilters), [containerFilters]);
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [hostsRes, containersRes] = await Promise.all([
-        api.get<ListResponse<Host>>('/api/v1/hosts', {
-          query: { limit: PAGE_LIMIT, ...hostQuery },
-        }),
-        api.get<ListResponse<Container>>('/api/v1/containers', {
-          query: { limit: PAGE_LIMIT, ...containerQuery },
-        }),
-      ]);
-      setHosts(hostsRes.items ?? []);
-      setContainers(containersRes.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch platform inventory');
-    } finally {
-      setLoading(false);
-    }
-  }, [hostQuery, containerQuery]);
+  const hostsRes = useApi<ListResponse<Host>>([
+    '/api/v1/hosts',
+    { limit: PAGE_LIMIT, ...hostQuery },
+  ]);
+  const containersRes = useApi<ListResponse<Container>>([
+    '/api/v1/containers',
+    { limit: PAGE_LIMIT, ...containerQuery },
+  ]);
 
-  useEffect(() => {
-    void fetchAll();
-  }, [fetchAll]);
+  const hosts = hostsRes.data?.items ?? [];
+  const containers = containersRes.data?.items ?? [];
+  const loading = hostsRes.isLoading || containersRes.isLoading;
+  const validating = hostsRes.isValidating || containersRes.isValidating;
+  const fetchError = hostsRes.error ?? containersRes.error;
+  const error =
+    fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch platform inventory'
+        : null;
+
+  const refresh = async () => {
+    await Promise.all([hostsRes.mutate(), containersRes.mutate()]);
+  };
 
   return (
     <div>
@@ -189,9 +184,9 @@ export default function PlatformPage() {
             variant="ghost"
             size="icon-sm"
             aria-label="Refresh"
-            onClick={() => void fetchAll()}
+            onClick={() => void refresh()}
           >
-            <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+            <RefreshCw className={cn(validating && 'animate-spin')} aria-hidden />
           </Button>
         }
       />

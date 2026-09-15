@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
 import {
   Alert,
@@ -56,12 +56,15 @@ export default function ApplyToGroupDialog({ open, namespace, config, onClose, o
         ? 'Failed to fetch agent groups'
         : null);
 
-  useEffect(() => {
+  // Clear the selection when the dialog closes so the next open starts fresh.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (!open) {
       setSelected('');
       setApplyError(null);
     }
-  }, [open]);
+  }
 
   const apply = async () => {
     if (!config || !selected) return;

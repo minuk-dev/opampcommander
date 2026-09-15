@@ -1,8 +1,7 @@
 'use client';
 
 import { RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { api, type ListResponse } from '@shared/api';
+import { useApi, type ListResponse } from '@shared/api';
 import { cn } from '@shared/lib';
 import { TimeDisplay } from '@shared/preferences';
 import {
@@ -22,26 +21,17 @@ import {
 import type { Server } from '@entities/server';
 
 export default function ServersPage() {
-  const [items, setItems] = useState<Server[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data,
+    error: fetchError,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useApi<ListResponse<Server>>('/api/v1/servers');
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<ListResponse<Server>>('/api/v1/servers');
-      setItems(res.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchItems();
-  }, [fetchItems]);
+  const items = data?.items ?? [];
+  const error =
+    fetchError instanceof Error ? fetchError.message : fetchError ? 'Failed to fetch' : null;
 
   return (
     <div>
@@ -49,13 +39,8 @@ export default function ServersPage() {
         title="Servers"
         subtitle="API server cluster members"
         actions={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Refresh"
-            onClick={() => void fetchItems()}
-          >
-            <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+          <Button variant="ghost" size="icon-sm" aria-label="Refresh" onClick={() => void mutate()}>
+            <RefreshCw className={cn(isValidating && 'animate-spin')} aria-hidden />
           </Button>
         }
       />
@@ -74,7 +59,7 @@ export default function ServersPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading ? (
+            {isLoading ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={3} className="py-8">
                   <Spinner className="mx-auto size-5" />

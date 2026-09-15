@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -35,7 +35,7 @@ import {
 } from '@shared/lib';
 import { TimeDisplay } from '@shared/preferences';
 import { useNamespace, type Namespace } from '@entities/namespace';
-import { api, type ListResponse } from '@shared/api';
+import { api, useApi, type ListResponse } from '@shared/api';
 
 // The page size the listing requests. Filters are answered by the server, so
 // narrowing the view shrinks the query rather than growing the fetch.
@@ -43,9 +43,7 @@ const PAGE_LIMIT = 200;
 
 export default function NamespacesPage() {
   const { namespaces: ctxNamespaces, refresh: refreshCtx } = useNamespace();
-  const [items, setItems] = useState<Namespace[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [labelsText, setLabelsText] = useState('{}');
@@ -53,38 +51,39 @@ export default function NamespacesPage() {
   const [filters, setFilters] = useState<ListFilters>(EMPTY_LIST_FILTERS);
 
   const filtered = hasListFilters(filters);
-  // Memoised on the filter state so fetchItems is stable between renders.
+  // Memoised on the filter state so the SWR key stays stable between renders.
   const filterQuery = useMemo(() => listFilterQuery(filters), [filters]);
 
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.get<ListResponse<Namespace>>('/api/v1/namespaces', {
-        query: { limit: PAGE_LIMIT, ...filterQuery },
-      });
-      setItems(res.items ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch namespaces');
-    } finally {
-      setLoading(false);
-    }
-  }, [filterQuery]);
+  // The namespace switcher already holds the unfiltered list, so reuse it
+  // rather than fetching it twice — a null key leaves SWR idle. A filter has
+  // to go to the server, so it always fetches.
+  const fromContext = !filtered && ctxNamespaces.length > 0;
+  const {
+    data,
+    error: fetchError,
+    isLoading,
+    isValidating,
+    mutate,
+  } = useApi<ListResponse<Namespace>>(
+    fromContext ? null : ['/api/v1/namespaces', { limit: PAGE_LIMIT, ...filterQuery }],
+  );
 
-  useEffect(() => {
-    // The namespace switcher already holds the unfiltered list, so reuse it
-    // rather than fetching it twice. A filter has to go to the server, so it
-    // always fetches.
-    if (!filtered && ctxNamespaces.length > 0) {
-      setItems(ctxNamespaces);
-      setLoading(false);
-    } else {
-      void fetchItems();
-    }
-  }, [ctxNamespaces, fetchItems, filtered]);
+  const items = fromContext ? ctxNamespaces : (data?.items ?? []);
+  const loading = !fromContext && isLoading;
+  const error =
+    actionError ??
+    (fetchError instanceof Error
+      ? fetchError.message
+      : fetchError
+        ? 'Failed to fetch namespaces'
+        : null);
+
+  const refresh = async () => {
+    await Promise.all([mutate(), refreshCtx()]);
+  };
 
   const onCreate = async () => {
-    setError(null);
+    setActionError(null);
     try {
       const labels = labelsText.trim() ? JSON.parse(labelsText) : undefined;
       await api.post('/api/v1/namespaces', {
@@ -93,10 +92,9 @@ export default function NamespacesPage() {
       setCreateOpen(false);
       setNewName('');
       setLabelsText('{}');
-      await fetchItems();
-      await refreshCtx();
+      await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create');
+      setActionError(err instanceof Error ? err.message : 'Failed to create');
     }
   };
 
@@ -105,10 +103,9 @@ export default function NamespacesPage() {
     try {
       await api.delete(`/api/v1/namespaces/${deleting.metadata.name}`);
       setDeleting(null);
-      await fetchItems();
-      await refreshCtx();
+      await refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete');
+      setActionError(err instanceof Error ? err.message : 'Failed to delete');
     }
   };
 
@@ -122,9 +119,9 @@ export default function NamespacesPage() {
               variant="ghost"
               size="icon-sm"
               aria-label="Refresh"
-              onClick={() => void fetchItems()}
+              onClick={() => void refresh()}
             >
-              <RefreshCw className={cn(loading && 'animate-spin')} aria-hidden />
+              <RefreshCw className={cn(isValidating && 'animate-spin')} aria-hidden />
             </Button>
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus aria-hidden />

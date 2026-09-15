@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Pencil, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -45,16 +45,34 @@ function AgentDetailInner() {
   const { namespace } = useNamespace();
   const [editOpen, setEditOpen] = useState(false);
   const [restartBusy, setRestartBusy] = useState(false);
-  const [actionHandled, setActionHandled] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // ?action= is a one-shot command from the list page ("open this agent and
+  // start editing"). Consuming it when the agent arrives — rather than in an
+  // effect watching the loaded data — keeps it out of the render cycle, and
+  // rewriting the URL stops a refresh or a shared link from replaying it.
+  const actionConsumed = useRef(false);
 
   const {
     data: agent,
     error: fetchError,
     isLoading: loading,
     mutate,
-  } = useApi<Agent>(`/api/v1/namespaces/${namespace}/agents/${params.id}`);
+  } = useApi<Agent>(`/api/v1/namespaces/${namespace}/agents/${params.id}`, {
+    onSuccess: (loaded) => {
+      if (actionConsumed.current) return;
+      const action = search.get('action');
+      if (!action) return;
+      actionConsumed.current = true;
+      if (action === 'edit') {
+        setEditOpen(true);
+      } else if (action === 'restart') {
+        void requestRestart(loaded);
+      }
+      router.replace(`/agents/${params.id}`);
+    },
+  });
   const fetchAgent = () => mutate();
   const error =
     actionError ??
@@ -64,49 +82,37 @@ function AgentDetailInner() {
         ? 'Failed to fetch agent'
         : null);
 
-  const requestRestart = useCallback(async () => {
-    if (!agent) return;
-    setRestartBusy(true);
-    try {
-      const next: Agent = {
-        ...agent,
-        spec: {
-          ...(agent.spec ?? {}),
-          restartRequiredAt: new Date().toISOString(),
-        },
-      };
-      const updated = await api.put<Agent>(
-        `/api/v1/namespaces/${namespace}/agents/${params.id}`,
-        next,
-      );
-      // Seed the cache with the server response; no need to refetch.
-      await mutate(updated, { revalidate: false });
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Failed to set restart');
-    } finally {
-      setRestartBusy(false);
-    }
-  }, [agent, namespace, params.id, mutate]);
+  const requestRestart = useCallback(
+    async (target: Agent) => {
+      setRestartBusy(true);
+      try {
+        const next: Agent = {
+          ...target,
+          spec: {
+            ...(target.spec ?? {}),
+            restartRequiredAt: new Date().toISOString(),
+          },
+        };
+        const updated = await api.put<Agent>(
+          `/api/v1/namespaces/${namespace}/agents/${params.id}`,
+          next,
+        );
+        // Seed the cache with the server response; no need to refetch.
+        await mutate(updated, { revalidate: false });
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Failed to set restart');
+      } finally {
+        setRestartBusy(false);
+      }
+    },
+    [namespace, params.id, mutate],
+  );
 
   const onDeleteAgent = useCallback(async () => {
     await deleteAgent(namespace, params.id);
     setDeleteOpen(false);
     router.push('/agents');
   }, [namespace, params.id, router]);
-
-  // Honor ?action= once after the agent loads.
-  useEffect(() => {
-    if (!agent || actionHandled) return;
-    const action = search.get('action');
-    if (!action) return;
-    setActionHandled(true);
-    if (action === 'edit') {
-      setEditOpen(true);
-    } else if (action === 'restart') {
-      void requestRestart();
-    }
-    router.replace(`/agents/${params.id}`);
-  }, [agent, actionHandled, search, router, params.id, requestRestart]);
 
   const capabilities = useMemo(
     () => capabilityNames(agent?.metadata.capabilities),
@@ -158,7 +164,7 @@ function AgentDetailInner() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void requestRestart()}
+              onClick={() => void requestRestart(agent)}
               disabled={restartBusy}
             >
               <RotateCcw aria-hidden />

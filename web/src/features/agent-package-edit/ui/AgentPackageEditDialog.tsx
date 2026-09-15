@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, describeApiError } from '@shared/api';
 import { loadSamples, parseAttributes, toYAML, validateResourceName } from '@shared/lib';
 import {
@@ -57,37 +57,35 @@ export default function AgentPackageEditDialog({
   const [saveError, setSaveError] = useState<{ message: string; hint?: string } | null>(null);
   const [samples, setSamples] = useState<CodeSample[] | null>(null);
 
-  // Reset only on the closed→open transition — the list behind the dialog
-  // refreshes and would otherwise replace `initial` mid-edit.
-  const initialRef = useRef(initial);
-  initialRef.current = initial;
-  const wasOpen = useRef(false);
-  useEffect(() => {
-    if (open && !wasOpen.current) {
-      const i = initialRef.current;
-      setName(i?.metadata.name ?? '');
-      setPackageType(i?.spec.packageType || PACKAGE_TYPES[0]);
-      setVersion(i?.spec.version ?? '');
-      setDownloadUrl(i?.spec.downloadUrl ?? '');
-      setContentHash(i?.spec.contentHash ?? '');
-      setSignature(i?.spec.signature ?? '');
-      setHash(i?.spec.hash ?? '');
-      setHeadersText(i?.spec.headers ? toYAML(i.spec.headers) : '');
+  // Reset only on the closed→open transition, reading `initial` as it is at
+  // that moment — the list behind the dialog refreshes and would otherwise
+  // replace `initial` mid-edit.
+  // Starts false so a dialog mounted already-open still counts as a transition.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setName(initial?.metadata.name ?? '');
+      setPackageType(initial?.spec.packageType || PACKAGE_TYPES[0]);
+      setVersion(initial?.spec.version ?? '');
+      setDownloadUrl(initial?.spec.downloadUrl ?? '');
+      setContentHash(initial?.spec.contentHash ?? '');
+      setSignature(initial?.spec.signature ?? '');
+      setHash(initial?.spec.hash ?? '');
+      setHeadersText(initial?.spec.headers ? toYAML(initial.spec.headers) : '');
       setAttributesText(
-        i?.metadata.attributes && Object.keys(i.metadata.attributes).length > 0
-          ? toYAML(i.metadata.attributes)
+        initial?.metadata.attributes && Object.keys(initial.metadata.attributes).length > 0
+          ? toYAML(initial.metadata.attributes)
           : '',
       );
       setSaveError(null);
+      // Reload the sample menu for this open instead of showing the last one.
+      setSamples(null);
     }
-    wasOpen.current = open;
-  }, [open]);
+  }
 
   useEffect(() => {
-    if (!open) {
-      setSamples(null);
-      return;
-    }
+    if (!open) return;
     let cancelled = false;
     loadSamples('/samples/agentpackages.yaml', { namespace })
       .then((list) => !cancelled && setSamples(list))

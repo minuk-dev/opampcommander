@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNamespace } from '@entities/namespace';
 import { api } from '@shared/api';
 import { loadAgentGroupSamples, type AgentGroupSample } from '../model/samples';
@@ -66,11 +66,7 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   const [samplesError, setSamplesError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) {
-      setSamples(null);
-      setSamplesError(null);
-      return;
-    }
+    if (!open) return;
     let cancelled = false;
     loadAgentGroupSamples()
       .then((list) => {
@@ -96,23 +92,25 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
     setError(null);
   };
 
-  // Reset on the closed→open transition only. Parents may pass a freshly
-  // fetched `initial` reference for the same logical row mid-edit (e.g. list
-  // refresh), which must not stomp the user's in-progress buffers.
-  const wasOpen = useRef(false);
-  const initialRef = useRef(initial);
-  initialRef.current = initial;
-  useEffect(() => {
-    if (open && !wasOpen.current) {
-      const i = initialRef.current;
+  // Reset on the closed→open transition only, reading `initial` as it is at
+  // that moment. Parents may pass a freshly fetched `initial` reference for the
+  // same logical row mid-edit (e.g. list refresh), which must not stomp the
+  // user's in-progress buffers.
+  // Starts false so a dialog mounted already-open still counts as a transition.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       setError(null);
       setFormat('yaml');
-      setName(i?.metadata.name ?? '');
-      setSpecText(serialize(i?.spec ?? defaultSpec(), 'yaml'));
-      setAttributesText(serialize(i?.metadata.attributes ?? {}, 'yaml'));
+      setName(initial?.metadata.name ?? '');
+      setSpecText(serialize(initial?.spec ?? defaultSpec(), 'yaml'));
+      setAttributesText(serialize(initial?.metadata.attributes ?? {}, 'yaml'));
+      // Reload the sample menu for this open instead of showing the last one.
+      setSamples(null);
+      setSamplesError(null);
     }
-    wasOpen.current = open;
-  }, [open]);
+  }
 
   const switchFormat = (next: Format) => {
     if (next === format) return;

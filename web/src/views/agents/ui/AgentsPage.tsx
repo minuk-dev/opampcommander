@@ -3,7 +3,7 @@
 import { Eye, Pencil, RefreshCw, RotateCcw, Search, Trash2, Users, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -225,26 +225,33 @@ function AgentsInner() {
   ]);
   const groupOptions = groupData?.items ?? [];
 
-  // Keep the local input synced when URL drives the value (mode change etc.)
-  useEffect(() => {
-    if (mode === 'uid') setQuery(qParam);
-    else if (mode === 'description') setQuery(descParam);
-    else if (mode === 'group') setQuery(agentGroupParam);
-    else if (mode === 'attributes') setQuery(attributeSelectorParam);
-    else if (mode === 'nattribute') setQuery(nonIdentifyingSelectorParam);
-  }, [
-    mode,
-    qParam,
-    descParam,
-    agentGroupParam,
-    attributeSelectorParam,
-    nonIdentifyingSelectorParam,
-  ]);
-
-  // Sync mode state if URL changes externally
-  useEffect(() => {
+  // The URL owns the search state, but both controls are also editable locally
+  // between navigations, so each re-syncs on its own trigger: the mode when the
+  // URL's mode changes, the input when the param behind the *current* mode does
+  // (or when the mode itself does). Adjusting during render rather than in an
+  // effect keeps this render showing what the URL says.
+  const [prevModeParam, setPrevModeParam] = useState(modeParam);
+  if (modeParam !== prevModeParam) {
+    setPrevModeParam(modeParam);
     setMode(modeParam);
-  }, [modeParam]);
+  }
+
+  const modeQuery =
+    mode === 'uid'
+      ? qParam
+      : mode === 'description'
+        ? descParam
+        : mode === 'group'
+          ? agentGroupParam
+          : mode === 'attributes'
+            ? attributeSelectorParam
+            : nonIdentifyingSelectorParam;
+
+  const [prevModeQuery, setPrevModeQuery] = useState(modeQuery);
+  if (modeQuery !== prevModeQuery) {
+    setPrevModeQuery(modeQuery);
+    setQuery(modeQuery);
+  }
 
   const updateUrl = (next: {
     q?: string;
