@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, readNamespace, writeNamespace, type ListResponse } from '@shared/api';
+import { readNamespace, useApi, writeNamespace, type ListResponse } from '@shared/api';
 import type { Namespace } from './types';
 import { useAuth } from '@entities/session';
 
@@ -32,48 +32,37 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
   const [namespace, setNamespaceState] = useState<string>(
     () => readNamespace() ?? DEFAULT_NAMESPACE,
   );
-  const [namespaces, setNamespaces] = useState<Namespace[]>([]);
-  const [loading, setLoading] = useState(false);
+  // A null key keeps SWR idle until the session is authenticated. Fetch errors
+  // are swallowed on purpose — a 401 is handled by the api client.
+  const { data, isLoading, mutate } = useApi<ListResponse<Namespace>>(
+    authenticated ? ['/api/v1/namespaces', { limit: 200 }] : null,
+  );
+  const namespaces = useMemo(() => data?.items ?? [], [data]);
 
-  // Ensure the namespace cookie reflects the current selection on mount, so
-  // Server Components have it even for sessions that predate cookie support.
+  // If a freshly fetched list no longer contains the current selection, fall
+  // back to default or the first available item. Adjusting state during render
+  // (React's "derive state from props" pattern) keeps the rest of this render
+  // on the namespace children will actually see.
+  const [seenNamespaces, setSeenNamespaces] = useState(namespaces);
+  if (namespaces !== seenNamespaces) {
+    setSeenNamespaces(namespaces);
+    if (namespaces.length > 0 && !namespaces.some((n) => n.metadata.name === namespace)) {
+      setNamespaceState(
+        namespaces.find((n) => n.metadata.name === DEFAULT_NAMESPACE)?.metadata.name ??
+          namespaces[0].metadata.name,
+      );
+    }
+  }
+
+  // Keep the namespace cookie in step with the selection so Server Components
+  // see it — on mount, and whenever the fallback above changes it.
   useEffect(() => {
     writeNamespace(namespace);
-    // mount only
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [namespace]);
 
   const refresh = useCallback(async () => {
-    if (!authenticated) return;
-    setLoading(true);
-    try {
-      const res = await api.get<ListResponse<Namespace>>('/api/v1/namespaces', {
-        query: { limit: 200 },
-      });
-      setNamespaces(res.items ?? []);
-      // If the current selection no longer exists, fall back to default or
-      // the first available item.
-      const exists = (res.items ?? []).some((n) => n.metadata.name === namespace);
-      if (!exists) {
-        const fallback =
-          (res.items ?? []).find((n) => n.metadata.name === DEFAULT_NAMESPACE)?.metadata.name ??
-          res.items?.[0]?.metadata.name ??
-          DEFAULT_NAMESPACE;
-        setNamespaceState(fallback);
-        writeNamespace(fallback);
-      }
-    } catch {
-      // ignored — likely 401 will be handled by api-client
-    } finally {
-      setLoading(false);
-    }
-  }, [authenticated, namespace]);
-
-  useEffect(() => {
-    void refresh();
-    // refresh on first authenticated mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authenticated]);
+    await mutate();
+  }, [mutate]);
 
   const setNamespace = useCallback(
     (ns: string) => {
@@ -86,8 +75,8 @@ export function NamespaceProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo<NamespaceContextValue>(
-    () => ({ namespace, setNamespace, namespaces, refresh, loading }),
-    [namespace, setNamespace, namespaces, refresh, loading],
+    () => ({ namespace, setNamespace, namespaces, refresh, loading: isLoading }),
+    [namespace, setNamespace, namespaces, refresh, isLoading],
   );
 
   return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;

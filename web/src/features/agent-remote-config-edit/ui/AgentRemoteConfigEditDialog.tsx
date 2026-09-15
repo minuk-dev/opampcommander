@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api, describeApiError } from '@shared/api';
 import {
   languageFor,
@@ -86,38 +86,36 @@ export default function AgentRemoteConfigEditDialog({
   const [saveError, setSaveError] = useState<{ message: string; hint?: string } | null>(null);
   const [samples, setSamples] = useState<CodeSample[] | null>(null);
 
-  // Reset only on the closed→open transition: the list refreshes behind the
-  // dialog and would otherwise hand us a new `initial` reference mid-edit.
-  const initialRef = useRef(initial);
-  initialRef.current = initial;
-  const wasOpen = useRef(false);
-  useEffect(() => {
-    if (open && !wasOpen.current) {
-      const i = initialRef.current;
+  // Reset only on the closed→open transition, reading `initial` as it is at
+  // that moment: the list refreshes behind the dialog and would otherwise hand
+  // us a new `initial` reference mid-edit.
+  // Starts false so a dialog mounted already-open still counts as a transition.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
       const buffers = {
-        contentType: i?.spec.contentType || CONTENT_TYPES[0],
-        body: i?.spec.value ?? '',
+        contentType: initial?.spec.contentType || CONTENT_TYPES[0],
+        body: initial?.spec.value ?? '',
         attributesText:
-          i?.metadata.attributes && Object.keys(i.metadata.attributes).length > 0
-            ? toYAML(i.metadata.attributes)
+          initial?.metadata.attributes && Object.keys(initial.metadata.attributes).length > 0
+            ? toYAML(initial.metadata.attributes)
             : '',
       };
-      setName(i?.metadata.name ?? '');
+      setName(initial?.metadata.name ?? '');
       setContentType(buffers.contentType);
       setBody(buffers.body);
       setAttributesText(buffers.attributesText);
       setLoaded(buffers);
       setTab('edit');
       setSaveError(null);
+      // Reload the sample menu for this open instead of showing the last one.
+      setSamples(null);
     }
-    wasOpen.current = open;
-  }, [open]);
+  }
 
   useEffect(() => {
-    if (!open) {
-      setSamples(null);
-      return;
-    }
+    if (!open) return;
     let cancelled = false;
     loadSamples('/samples/agentremoteconfigs.yaml', { namespace })
       .then((list) => !cancelled && setSamples(list))
