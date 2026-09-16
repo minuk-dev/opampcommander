@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { api, useApi, type ListResponse } from '@shared/api';
 import {
   Alert,
@@ -60,26 +60,20 @@ export default function SelectRemoteConfigDialog({
         ? 'Failed to fetch remote configs'
         : null);
 
-  // Read the latest group through a ref so the seed effect doesn't have to
-  // depend on `group`: re-running it on every `group` change would clobber an
-  // in-progress edit whenever SWR revalidates the group in the background.
-  const groupRef = useRef(group);
-  groupRef.current = group;
-
-  // Seed the working set from the group's current refs once per open.
-  // `didSeed` keeps a later SWR revalidation from clobbering the user's edits.
-  const didSeed = useRef(false);
-  useEffect(() => {
-    if (!open) {
+  // Seed the working set from the group's refs on the closed→open transition,
+  // and clear it on the way out. Reading `group` only at that transition is
+  // what keeps a later SWR revalidation from clobbering an in-progress edit.
+  // Starts false so a dialog mounted already-open still counts as a transition.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setRefs(remoteConfigRefs(group));
+    } else {
       setRefs([]);
       setApplyError(null);
-      didSeed.current = false;
-      return;
     }
-    if (didSeed.current) return;
-    didSeed.current = true;
-    setRefs(remoteConfigRefs(groupRef.current));
-  }, [open]);
+  }
 
   // Toggle options: every fetched config plus any ref the group already points at that is
   // not in the fetched list (e.g. deleted, or beyond the fetch limit), so it stays

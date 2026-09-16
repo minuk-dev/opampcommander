@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { fromYAML, loadSamples, type SamplesPath, toYAML } from '@shared/lib';
 import Alert from './Alert';
 import Button from './Button';
@@ -75,42 +75,41 @@ export default function CodeEditorDialog({
   const [loadedSamples, setLoadedSamples] = useState<CodeSample[] | null>(null);
   const [samplesError, setSamplesError] = useState<string | null>(null);
 
-  // Reset buffer only on the closed→open transition. Parents commonly pass a
-  // freshly-constructed initialValue (e.g. emptyFoo()) each render; depending
-  // on its identity would wipe in-progress edits on every parent re-render.
-  const wasOpen = useRef(false);
-  const initialValueRef = useRef(initialValue);
-  const defaultFormatRef = useRef(defaultFormat);
-  initialValueRef.current = initialValue;
-  defaultFormatRef.current = defaultFormat;
-  useEffect(() => {
-    if (open && !wasOpen.current) {
-      setFormat(defaultFormatRef.current);
-      setText(serialize(initialValueRef.current, defaultFormatRef.current));
+  // Reset the buffer only on the closed→open transition, reading the props as
+  // they are at that moment. Parents commonly pass a freshly-constructed
+  // initialValue (e.g. emptyFoo()) each render, so keying off its identity
+  // would wipe in-progress edits on every parent re-render.
+  // Starts false so a dialog mounted already-open still counts as a transition.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setFormat(defaultFormat);
+      setText(serialize(initialValue, defaultFormat));
       setError(null);
     }
-    wasOpen.current = open;
-  }, [open]);
+  }
 
-  // Stable JSON key so we don't refetch every render when the parent creates
-  // a fresh samplesVars object each time. samplesVars itself MUST stay out of
-  // the dep array — using both defeats the stabilization.
+  // Stable JSON key so we don't refetch every render when the parent creates a
+  // fresh samplesVars object each time; the effect below parses it back rather
+  // than depending on that object's identity.
   const varsKey = samplesVars ? JSON.stringify(samplesVars) : '';
-  const samplesVarsRef = useRef(samplesVars);
-  samplesVarsRef.current = samplesVars;
-  useEffect(() => {
-    if (!open) {
-      // Drop stale samples loaded for a previous open/URL so the next open
-      // shows "Loading…" instead of the previous file's entries.
-      setLoadedSamples(null);
-      setSamplesError(null);
-      return;
-    }
-    if (!samplesUrl) return;
+
+  // Drop samples loaded for a previous open (or a previous file) so the menu
+  // shows "Loading…" rather than the entries that no longer apply.
+  const samplesKey = open && samplesUrl ? `${samplesUrl}|${varsKey}` : '';
+  const [prevSamplesKey, setPrevSamplesKey] = useState(samplesKey);
+  if (samplesKey !== prevSamplesKey) {
+    setPrevSamplesKey(samplesKey);
     setLoadedSamples(null);
     setSamplesError(null);
+  }
+
+  useEffect(() => {
+    if (!open || !samplesUrl) return;
+    const vars = varsKey ? (JSON.parse(varsKey) as Record<string, string>) : {};
     let cancelled = false;
-    loadSamples(samplesUrl, samplesVarsRef.current ?? {})
+    loadSamples(samplesUrl, vars)
       .then((list) => {
         if (!cancelled) setLoadedSamples(list);
       })

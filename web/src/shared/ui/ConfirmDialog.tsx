@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Alert from './Alert';
 import Button from './Button';
 import {
@@ -35,13 +35,18 @@ export default function ConfirmDialog({
   const [error, setError] = useState<string | null>(null);
 
   // Reset inline state every time the dialog reopens so we don't leak the
-  // previous attempt's busy spinner or error.
-  useEffect(() => {
+  // previous attempt's busy spinner or error. Adjusting during render on the
+  // closed→open transition keeps the reopened dialog from flashing the old
+  // state for a frame, which an effect would.
+  // Starts false so a dialog mounted already-open still counts as a transition.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setBusy(false);
       setError(null);
     }
-  }, [open]);
+  }
 
   const handleConfirm = async () => {
     setBusy(true);

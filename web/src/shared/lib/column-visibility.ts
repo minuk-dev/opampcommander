@@ -120,6 +120,10 @@ export function useColumnVisibility(table: string, columns: ColumnConfig[]): Use
   const [visible, setVisible] = useState<ColumnVisibility>(defaults);
 
   useEffect(() => {
+    // Deliberate: the persisted values can only be read on the client, and
+    // reading them during render would make the first client render differ from
+    // the server's (see the note above the hook).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisible(readVisibility(table, columns, defaults));
   }, [table, columns, defaults]);
 
