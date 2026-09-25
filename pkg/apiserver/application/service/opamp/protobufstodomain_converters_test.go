@@ -140,7 +140,7 @@ func TestEffectiveConfigToDomain(t *testing.T) {
 
 		got := effectiveConfigToDomain(&protobufs.EffectiveConfig{
 			ConfigMap: &protobufs.AgentConfigMap{
-				ConfigMap: map[string]*protobufs.AgentConfigFile{
+				ConfigMap: map[string]*protobufs.AgentConfigObject{
 					"otel.yaml": {
 						Body:        []byte("receivers: {}"),
 						ContentType: "application/yaml",

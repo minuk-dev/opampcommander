@@ -66,9 +66,9 @@ func (b *ServerToAgentBuilder) Build(
 	var remoteConfig *protobufs.AgentRemoteConfig
 
 	if agentModel.HasRemoteConfig() {
-		configMap := make(map[string]*protobufs.AgentConfigFile)
+		configMap := make(map[string]*protobufs.AgentConfigObject)
 		for name, configFile := range agentModel.Spec.RemoteConfig.ConfigMap.ConfigMap {
-			configMap[name] = &protobufs.AgentConfigFile{
+			configMap[name] = &protobufs.AgentConfigObject{
 				Body:        configFile.Body,
 				ContentType: configFile.ContentType,
 			}

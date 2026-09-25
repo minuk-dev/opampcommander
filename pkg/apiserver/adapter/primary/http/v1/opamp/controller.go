@@ -55,6 +55,7 @@ func NewController(
 
 	controller.handler, controller.ConnContext, err = ops.Attach(opampServer.Settings{
 		EnableCompression: controller.enableCompression,
+		MaxMessageSize:    0, // opamp-go default (64 MiB)
 		Callbacks: types.Callbacks{
 			OnConnecting: controller.OnConnecting,
 		},
