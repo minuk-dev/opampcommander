@@ -4,7 +4,6 @@ package apiserver_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -284,7 +283,7 @@ func TestE2E_Conformance_OTelCollector(t *testing.T) {
 	apiServer.WaitForReady()
 
 	collector := base.StartOTelCollector(apiServer.Port)
-	defer func() { _ = collector.Terminate(context.Background()) }()
+	defer func() { _ = collector.Terminate(t.Context()) }()
 
 	apiClient := apiServer.Client()
 

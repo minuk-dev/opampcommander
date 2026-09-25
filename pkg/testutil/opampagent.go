@@ -174,6 +174,7 @@ func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) 
 
 // Stop disconnects the agent. It is safe to call more than once.
 func (a *ReferenceAgent) Stop() {
+	// Not t.Context(): Stop runs from t.Cleanup, after the test context is canceled.
 	ctx, cancel := context.WithTimeout(context.Background(), referenceAgentStopTimeout)
 	defer cancel()
 
