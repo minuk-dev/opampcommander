@@ -440,3 +440,20 @@ func TestAgent_HasCustomCapability(t *testing.T) {
 	// A fresh agent advertises no custom capabilities.
 	assert.False(t, agentmodel.NewAgent(uuid.New()).HasCustomCapability("com.example.a"))
 }
+
+func TestAgent_HasNewPackages(t *testing.T) {
+	t.Parallel()
+
+	capabilities := agent.Capabilities(agent.AgentCapabilityAcceptsPackages)
+
+	// A freshly loaded agent has no packages spec at all; advertising AcceptsPackages
+	// must not make that a nil dereference on the OpAMP hot path.
+	a := agentmodel.NewAgent(uuid.New(), agentmodel.WithCapabilities(&capabilities))
+	assert.False(t, a.HasNewPackages())
+
+	a.Spec.PackagesAvailable = &agentmodel.AgentSpecPackage{Packages: []string{"otelcol-contrib"}}
+	assert.True(t, a.HasNewPackages())
+
+	// Without the capability nothing is offered.
+	assert.False(t, agentmodel.NewAgent(uuid.New()).HasNewPackages())
+}
