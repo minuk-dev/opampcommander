@@ -3,7 +3,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"slices"
 	"testing"
 
@@ -35,8 +34,10 @@ func getAgentByID(t *testing.T, baseURL string, uid uuid.UUID) *v1.Agent {
 	return agent
 }
 
-func tryGetAgentByIDWithClient(c *client.Client, uid uuid.UUID) (*v1.Agent, error) {
-	return c.AgentService.GetAgent(context.Background(), "default", uid)
+func tryGetAgentByIDWithClient(t *testing.T, c *client.Client, uid uuid.UUID) (*v1.Agent, error) {
+	t.Helper()
+
+	return c.AgentService.GetAgent(t.Context(), "default", uid)
 }
 
 func findAgentByUID(agents []v1.Agent, uid uuid.UUID) *v1.Agent {

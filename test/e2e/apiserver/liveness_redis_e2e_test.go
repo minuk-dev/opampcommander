@@ -84,7 +84,7 @@ func TestE2E_APIServer_RedisLivenessSurvivesRedisOutage(t *testing.T) {
 
 	deadline := time.Now().Add(outageWatch)
 	for time.Now().Before(deadline) {
-		agent, err := tryGetAgentByIDWithClient(opampClient, otelCollector.UID)
+		agent, err := tryGetAgentByIDWithClient(t, opampClient, otelCollector.UID)
 		require.NoError(t, err, "a Redis outage must never surface as a failed API request")
 		require.NotNil(t, agent, "the agent must stay visible while Redis is down")
 		require.True(t, agent.Status.Connected,

@@ -46,7 +46,7 @@ func putEndpoint(t *testing.T, repo *inmemory.EndpointRepository, namespace, nam
 	t.Helper()
 
 	endpoint := agentmodel.NewEndpoint(namespace, name, nil, time.Now(), "test")
-	_, err := repo.PutEndpoint(context.Background(), endpoint)
+	_, err := repo.PutEndpoint(t.Context(), endpoint)
 	require.NoError(t, err)
 }
 
@@ -61,7 +61,7 @@ func TestEndpointMetricsService_GetEndpointThroughput(t *testing.T) {
 
 	at := time.Unix(1700000000, 0)
 
-	got, err := service.GetEndpointThroughput(context.Background(), "monitoring", "vm", 5*time.Minute, at)
+	got, err := service.GetEndpointThroughput(t.Context(), "monitoring", "vm", 5*time.Minute, at)
 	require.NoError(t, err)
 
 	assert.Equal(t, "vm", got.Name)
@@ -79,7 +79,7 @@ func TestEndpointMetricsService_GetEndpointThroughput_NotFound(t *testing.T) {
 	service := agentservice.NewEndpointMetricsService(repo, &fakeMetricsPort{})
 
 	_, err := service.GetEndpointThroughput(
-		context.Background(), "monitoring", "missing", time.Minute, time.Now())
+		t.Context(), "monitoring", "missing", time.Minute, time.Now())
 	require.Error(t, err)
 }
 
@@ -95,7 +95,7 @@ func TestEndpointMetricsService_ListEndpointThroughput(t *testing.T) {
 	metrics := &fakeMetricsPort{}
 	service := agentservice.NewEndpointMetricsService(repo, metrics)
 
-	got, err := service.ListEndpointThroughput(context.Background(), "monitoring", time.Minute, time.Now())
+	got, err := service.ListEndpointThroughput(t.Context(), "monitoring", time.Minute, time.Now())
 	require.NoError(t, err)
 
 	assert.Len(t, got, 2)

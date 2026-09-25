@@ -169,7 +169,7 @@ func TestParity_AgentSelectors(t *testing.T) {
 
 //nolint:thelper // subtest bodies are the assertions themselves, not helpers
 func runSelectorContract(t *testing.T, backend selectorBackend) {
-	ctx := context.Background()
+	ctx := t.Context()
 	namespace := uniqueNamespace("sel")
 
 	for _, fixture := range selectorFixtures() {

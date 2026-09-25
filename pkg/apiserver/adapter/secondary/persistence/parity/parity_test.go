@@ -119,7 +119,7 @@ func uniqueNamespace(prefix string) string {
 
 //nolint:thelper // subtest bodies are the assertions themselves, not helpers
 func runContract[T any](t *testing.T, agg aggregate[T], b backend[T]) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run(agg.label+"/"+b.name+"/put_get_roundtrip", func(t *testing.T) {
 		ns := uniqueNamespace("rt")

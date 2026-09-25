@@ -104,7 +104,7 @@ func TestContainerServiceObserveAgent(t *testing.T) {
 				len(c.Status.AgentInstanceUIDs) == 1
 		})).Return(&agentmodel.Container{}, nil)
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		persistence.AssertExpectations(t)
 	})
 
@@ -115,7 +115,7 @@ func TestContainerServiceObserveAgent(t *testing.T) {
 		svc := agentservice.NewContainerService(persistence, fixedClock{now: now})
 		a := agentmodel.NewAgent(uuid.New())
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		persistence.AssertNotCalled(t, "GetContainer")
 		persistence.AssertNotCalled(t, "PutContainer")
 	})
@@ -132,7 +132,7 @@ func TestContainerServiceObserveAgent(t *testing.T) {
 		persistence.On("PutContainer", mock.Anything, mock.Anything).Return(nil, model.ErrConflict).Once()
 		persistence.On("PutContainer", mock.Anything, mock.Anything).Return(&agentmodel.Container{}, nil).Once()
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		persistence.AssertNumberOfCalls(t, "PutContainer", 2)
 		persistence.AssertExpectations(t)
 	})

@@ -100,7 +100,7 @@ func mongoAgentBackend(db *mongo.Database) agentBackend {
 
 //nolint:thelper // subtest bodies are the assertions themselves, not helpers
 func runAgentContract(t *testing.T, b agentBackend) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("agent/"+b.name+"/put_get_roundtrip", func(t *testing.T) {
 		t.Parallel()

@@ -96,7 +96,7 @@ func TestAgentRemoteConfigService_ReconcileAgentRemoteConfig(t *testing.T) {
 
 		service := agentservice.NewAgentRemoteConfigService(persistence, detection, group, nil, nil)
 
-		err := service.ReconcileAgentRemoteConfig(context.Background(), "default", "obs")
+		err := service.ReconcileAgentRemoteConfig(t.Context(), "default", "obs")
 
 		require.NoError(t, err)
 		assert.Same(t, stored, detection.reconciled, "endpoint detection should run for the loaded config")
@@ -113,7 +113,7 @@ func TestAgentRemoteConfigService_ReconcileAgentRemoteConfig(t *testing.T) {
 
 		service := agentservice.NewAgentRemoteConfigService(persistence, detection, group, nil, nil)
 
-		err := service.ReconcileAgentRemoteConfig(context.Background(), "default", "missing")
+		err := service.ReconcileAgentRemoteConfig(t.Context(), "default", "missing")
 
 		require.Error(t, err)
 		assert.Nil(t, detection.reconciled, "endpoint detection must not run when the config is missing")

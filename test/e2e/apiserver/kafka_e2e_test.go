@@ -8,7 +8,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -101,14 +100,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// Then: Both servers should have access to the agent data (since they share the same DB)
 	// Note: Remote config may not be supported by the collector, so we verify agent presence instead
 	assert.Eventually(t, func() bool {
-		updatedAgent1, err1 := tryGetAgentByIDWithClient(client1, collector.UID)
+		updatedAgent1, err1 := tryGetAgentByIDWithClient(t, client1, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from server1: %v", err1)
 
 			return false
 		}
 
-		updatedAgent2, err2 := tryGetAgentByIDWithClient(client2, collector.UID)
+		updatedAgent2, err2 := tryGetAgentByIDWithClient(t, client2, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from server2: %v", err2)
 
@@ -196,14 +195,14 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	// we'll verify that the agent data is properly shared between servers
 	// and both servers can access the same agent information
 	assert.Eventually(t, func() bool {
-		primaryAgent, err1 := tryGetAgentByIDWithClient(primaryClient, collector.UID)
+		primaryAgent, err1 := tryGetAgentByIDWithClient(t, primaryClient, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from primary: %v", err1)
 
 			return false
 		}
 
-		secondaryAgent, err2 := tryGetAgentByIDWithClient(secondaryClient, collector.UID)
+		secondaryAgent, err2 := tryGetAgentByIDWithClient(t, secondaryClient, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from secondary: %v", err2)
 
@@ -243,8 +242,10 @@ func createAgentGroup(t *testing.T, c *client.Client, name string, selector map[
 	t.Logf("AgentGroup '%s' created successfully", name)
 }
 
-func agentGroupExistsOnServer(c *client.Client, name string) bool {
-	_, err := c.AgentGroupService.GetAgentGroup(context.Background(), "default", name)
+func agentGroupExistsOnServer(t *testing.T, c *client.Client, name string) bool {
+	t.Helper()
+
+	_, err := c.AgentGroupService.GetAgentGroup(t.Context(), "default", name)
 
 	return err == nil
 }
@@ -347,8 +348,8 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// Then: Both servers should maintain consistent agent data
 	// The messaging system ensures servers are aware of configuration changes
 	assert.Eventually(t, func() bool {
-		agent1, err1 := tryGetAgentByIDWithClient(client1, collector.UID)
-		agent2, err2 := tryGetAgentByIDWithClient(client2, collector.UID)
+		agent1, err1 := tryGetAgentByIDWithClient(t, client1, collector.UID)
+		agent2, err2 := tryGetAgentByIDWithClient(t, client2, collector.UID)
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)
