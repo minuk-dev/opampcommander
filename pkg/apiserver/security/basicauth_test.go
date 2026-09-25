@@ -1,7 +1,6 @@
 package security_test
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -40,7 +39,7 @@ func TestBasicAuth_DisabledPepper_FailedLoginIsInvalidCredentials(t *testing.T) 
 
 	svc := newBasicAuthService(t, "", inmemory.NewUserRepository())
 
-	_, err := svc.BasicAuth(context.Background(), "someone", "whatever")
+	_, err := svc.BasicAuth(t.Context(), "someone", "whatever")
 	require.ErrorIs(t, err, security.ErrInvalidUsernameOrPassword)
 	require.NotErrorIs(t, err, security.ErrBasicAuthDisabled)
 }
@@ -60,15 +59,15 @@ func TestBasicAuth_DBUser(t *testing.T) {
 
 	user := usermodel.NewUser("bob@example.com", "bob")
 	user.SetPasswordHash(hash)
-	_, err = repo.PutUser(context.Background(), user)
+	_, err = repo.PutUser(t.Context(), user)
 	require.NoError(t, err)
 
-	result, err := svc.BasicAuth(context.Background(), "bob", "s3cret")
+	result, err := svc.BasicAuth(t.Context(), "bob", "s3cret")
 	require.NoError(t, err)
 	assert.Equal(t, "bob@example.com", result.Email)
 	assert.NotEmpty(t, result.Token)
 
-	_, err = svc.BasicAuth(context.Background(), "bob", "wrong")
+	_, err = svc.BasicAuth(t.Context(), "bob", "wrong")
 	require.ErrorIs(t, err, security.ErrInvalidUsernameOrPassword)
 }
 
@@ -88,9 +87,9 @@ func TestBasicAuth_InactiveDBUserRejected(t *testing.T) {
 	user := usermodel.NewUser("carol@example.com", "carol")
 	user.SetPasswordHash(hash)
 	user.Spec.IsActive = false
-	_, err = repo.PutUser(context.Background(), user)
+	_, err = repo.PutUser(t.Context(), user)
 	require.NoError(t, err)
 
-	_, err = svc.BasicAuth(context.Background(), "carol", "s3cret")
+	_, err = svc.BasicAuth(t.Context(), "carol", "s3cret")
 	require.ErrorIs(t, err, security.ErrInvalidUsernameOrPassword)
 }

@@ -25,7 +25,6 @@ func TestE2E_UsersMe_RequiresAuthentication(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_usersme_test")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 

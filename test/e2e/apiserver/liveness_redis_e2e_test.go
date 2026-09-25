@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -49,20 +50,16 @@ func TestE2E_APIServer_RedisLivenessSurvivesRedisOutage(t *testing.T) {
 
 	apiServer := base.StartAPIServerWithRedisLiveness(
 		mongoServer.URI, redisServer.Endpoint, dbName, livenessFlushInterval)
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
 	otelCollector := base.StartOTelCollector(apiServer.Port)
-	defer func() { _ = otelCollector.Terminate(ctx) }()
 
 	opampClient := apiServer.Client()
 
 	// Given: the collector is registered and reporting through the Redis-backed tier.
-	require.Eventually(t, func() bool {
-		agent, err := tryGetAgentByIDWithClient(opampClient, otelCollector.UID)
-
-		return err == nil && agent != nil && agent.Status.Connected
+	testutil.EventuallyAgent(t, opampClient, "default", otelCollector.UID, func(agent *v1.Agent) bool {
+		return agent.Status.Connected
 	}, 3*time.Minute, time.Second, "the collector should register and report as connected")
 
 	mongoClient, err := setupMongoDBClient(t, mongoServer.URI)
@@ -87,7 +84,7 @@ func TestE2E_APIServer_RedisLivenessSurvivesRedisOutage(t *testing.T) {
 
 	deadline := time.Now().Add(outageWatch)
 	for time.Now().Before(deadline) {
-		agent, err := tryGetAgentByIDWithClient(opampClient, otelCollector.UID)
+		agent, err := tryGetAgentByIDWithClient(t, opampClient, otelCollector.UID)
 		require.NoError(t, err, "a Redis outage must never surface as a failed API request")
 		require.NotNil(t, agent, "the agent must stay visible while Redis is down")
 		require.True(t, agent.Status.Connected,

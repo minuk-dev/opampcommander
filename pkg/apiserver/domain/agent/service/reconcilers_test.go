@@ -55,7 +55,7 @@ func TestAgentReconciler_Reconcile(t *testing.T) {
 		group := &recordingGroupReconciler{}
 		reconciler := agentservice.NewAgentReconciler(&fakeAgentLoader{agent: agent}, group)
 
-		err := reconciler.Reconcile(context.Background(), "team-a", uid.String())
+		err := reconciler.Reconcile(t.Context(), "team-a", uid.String())
 
 		require.NoError(t, err)
 		assert.True(t, group.called, "the agent should have been reconciled")
@@ -71,7 +71,7 @@ func TestAgentReconciler_Reconcile(t *testing.T) {
 		group := &recordingGroupReconciler{}
 		reconciler := agentservice.NewAgentReconciler(&fakeAgentLoader{agent: agent}, group)
 
-		err := reconciler.Reconcile(context.Background(), "team-b", uid.String())
+		err := reconciler.Reconcile(t.Context(), "team-b", uid.String())
 
 		require.ErrorIs(t, err, model.ErrResourceNotExist)
 		assert.False(t, group.called, "an agent in another namespace must not be reconciled")
@@ -83,7 +83,7 @@ func TestAgentReconciler_Reconcile(t *testing.T) {
 		group := &recordingGroupReconciler{}
 		reconciler := agentservice.NewAgentReconciler(&fakeAgentLoader{agent: nil}, group)
 
-		err := reconciler.Reconcile(context.Background(), "team-a", "not-a-uuid")
+		err := reconciler.Reconcile(t.Context(), "team-a", "not-a-uuid")
 
 		require.ErrorIs(t, err, model.ErrInvalidArgument)
 		assert.False(t, group.called)

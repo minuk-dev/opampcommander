@@ -1,7 +1,6 @@
 package prometheus_test
 
 import (
-	"context"
 	"io"
 	"log/slog"
 	"net/http"
@@ -81,7 +80,7 @@ func TestQueryEndpointThroughput_SumsVectorPerSignal(t *testing.T) {
 		Traces:  "",
 	})
 
-	got, err := adapter.QueryEndpointThroughput(context.Background(), endpoint, 5*time.Minute, time.Unix(1700000000, 0))
+	got, err := adapter.QueryEndpointThroughput(t.Context(), endpoint, 5*time.Minute, time.Unix(1700000000, 0))
 	require.NoError(t, err)
 
 	assert.True(t, got.Metrics.Measured)
@@ -112,7 +111,7 @@ func TestQueryEndpointThroughput_RendersWindowAndIdentity(t *testing.T) {
 		Traces:  "",
 	})
 
-	_, err = adapter.QueryEndpointThroughput(context.Background(), endpoint, 90*time.Second, time.Unix(1700000000, 0))
+	_, err = adapter.QueryEndpointThroughput(t.Context(), endpoint, 90*time.Second, time.Unix(1700000000, 0))
 	require.NoError(t, err)
 
 	rendered := captured.Get("query")
@@ -134,7 +133,7 @@ func TestQueryEndpointThroughput_NilQuerySkipsBackend(t *testing.T) {
 	require.NoError(t, err)
 
 	got, err := adapter.QueryEndpointThroughput(
-		context.Background(), newEndpoint(nil), time.Minute, time.Unix(1700000000, 0))
+		t.Context(), newEndpoint(nil), time.Minute, time.Unix(1700000000, 0))
 	require.NoError(t, err)
 
 	assert.False(t, called, "backend must not be queried when no template is configured")

@@ -24,7 +24,7 @@ var errSentinel = errors.New("boom")
 func TestAgentRepository_PutGetDelete(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 	uid := uuid.New()
 	agent := agentmodel.NewAgent(uid)
@@ -47,7 +47,7 @@ func TestAgentRepository_PutGetDelete(t *testing.T) {
 func TestAgentRepository_ListByNamespaceAndPagination(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 
 	for range 3 {
@@ -78,7 +78,7 @@ func TestAgentRepository_ListByNamespaceAndPagination(t *testing.T) {
 func TestAgentRepository_SearchByInstanceUIDPrefix(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 
 	uid := uuid.New()
@@ -106,7 +106,7 @@ func TestAgentRepository_SearchByInstanceUIDPrefix(t *testing.T) {
 func TestAgentRepository_ListByIdentifyingAttributesSelector(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 
 	const selectorNamespace = "sel-ns"
@@ -153,7 +153,7 @@ func TestAgentRepository_ListByIdentifyingAttributesSelector(t *testing.T) {
 func TestAgentRepository_ListByNonIdentifyingAttributesSelector(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 
 	const selectorNamespace = "sel-ns"
@@ -205,7 +205,7 @@ func TestAgentRepository_ListByNonIdentifyingAttributesSelector(t *testing.T) {
 func TestNamespaceRepository_SoftDeleteHiddenUnlessIncluded(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewNamespaceRepository()
 
 	ns := agentmodel.NewNamespace("ns-soft")
@@ -236,7 +236,7 @@ func TestNamespaceRepository_SoftDeleteHiddenUnlessIncluded(t *testing.T) {
 func TestAgentGroupRepository_StatisticsFromAgentStore(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	agentRepo := inmemory.NewAgentRepository()
 	groupRepo := inmemory.NewAgentGroupRepository(agentRepo)
 
@@ -281,7 +281,7 @@ func TestAgentGroupRepository_StatisticsFromAgentStore(t *testing.T) {
 func TestEndpointRepository_PutGetSoftDeleteAndIsolation(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewEndpointRepository()
 
 	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
@@ -340,7 +340,7 @@ func TestEndpointRepository_PutGetSoftDeleteAndIsolation(t *testing.T) {
 func TestAgentRepository_GetReturnsIsolatedCopy(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 	uid := uuid.New()
 	require.NoError(t, repo.PutAgent(ctx, agentmodel.NewAgent(uid)))
@@ -365,7 +365,7 @@ func TestAgentRepository_GetReturnsIsolatedCopy(t *testing.T) {
 func TestAgentGroupRepository_ConcurrentAccessNoRace(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	agentRepo := inmemory.NewAgentRepository()
 	groupRepo := inmemory.NewAgentGroupRepository(agentRepo)
 
@@ -415,7 +415,7 @@ func TestTransactionRunner_RunsCallback(t *testing.T) {
 	runner := inmemory.NewTransactionRunner()
 
 	called := false
-	err := runner.WithinTransaction(context.Background(), func(context.Context) error {
+	err := runner.WithinTransaction(t.Context(), func(context.Context) error {
 		called = true
 
 		return nil
@@ -423,7 +423,7 @@ func TestTransactionRunner_RunsCallback(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, called)
 
-	err = runner.WithinTransaction(context.Background(), func(context.Context) error {
+	err = runner.WithinTransaction(t.Context(), func(context.Context) error {
 		return errSentinel
 	})
 	require.ErrorIs(t, err, errSentinel)
@@ -432,7 +432,7 @@ func TestTransactionRunner_RunsCallback(t *testing.T) {
 func TestAgentRepository_PutAgentBumpsResourceVersion(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 	uid := uuid.New()
 	agent := agentmodel.NewAgent(uid)
@@ -455,7 +455,7 @@ func TestAgentRepository_PutAgentBumpsResourceVersion(t *testing.T) {
 func TestAgentRepository_PutAgentConflictOnStaleVersion(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 	uid := uuid.New()
 
@@ -485,7 +485,7 @@ func TestAgentRepository_PutAgentConflictOnStaleVersion(t *testing.T) {
 func TestAgentRepository_PutAgentConflictOnConcurrentCreate(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRepository()
 	uid := uuid.New()
 
@@ -501,7 +501,7 @@ func TestAgentRepository_PutAgentConflictOnConcurrentCreate(t *testing.T) {
 func TestServerConnectionRepository_SyncAndList(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewServerConnectionRepository()
 	now := time.Now()
 
@@ -549,7 +549,7 @@ func TestServerConnectionRepository_SyncAndList(t *testing.T) {
 func TestServerConnectionRepository_ListFiltersNamespaceAndStaleness(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewServerConnectionRepository()
 	now := time.Now()
 
@@ -586,7 +586,7 @@ func TestServerConnectionRepository_ListFiltersNamespaceAndStaleness(t *testing.
 func TestServerConnectionRepository_ListFiltersByServerID(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewServerConnectionRepository()
 	now := time.Now()
 
@@ -626,7 +626,7 @@ func newTestAgentPackage(namespace, name string) *agentmodel.AgentPackage {
 func TestAgentPackageRepository_PutOptimisticConcurrency(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentPackageRepository()
 
 	// A freshly created package starts at version 0; the first write inserts it as v1.
@@ -662,7 +662,7 @@ func TestAgentPackageRepository_PutOptimisticConcurrency(t *testing.T) {
 func TestHostRepository_PutOptimisticConcurrency(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewHostRepository()
 	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
 
@@ -695,7 +695,7 @@ func TestHostRepository_PutOptimisticConcurrency(t *testing.T) {
 func TestAgentRemoteConfigRepository_PutGetListSoftDelete(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewAgentRemoteConfigRepository()
 
 	config := &agentmodel.AgentRemoteConfig{
@@ -728,7 +728,7 @@ func TestAgentRemoteConfigRepository_PutGetListSoftDelete(t *testing.T) {
 func TestContainerRepository_PutOptimisticConcurrency(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewContainerRepository()
 	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
 
@@ -761,7 +761,7 @@ func TestContainerRepository_PutOptimisticConcurrency(t *testing.T) {
 func TestEndpointRepository_PutOptimisticConcurrency(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewEndpointRepository()
 	now := time.Date(2026, 6, 19, 0, 0, 0, 0, time.UTC)
 
@@ -799,7 +799,7 @@ func TestEndpointRepository_PutOptimisticConcurrency(t *testing.T) {
 func TestRoleRepository_RejectsLabelSelector(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewRoleRepository()
 
 	//exhaustruct:ignore
@@ -822,7 +822,7 @@ func TestPermissionRepository_RejectsSelectorItCannotEvaluate(t *testing.T) {
 	repo := inmemory.NewPermissionRepository()
 
 	//exhaustruct:ignore
-	_, err := repo.ListPermissions(context.Background(), &model.ListOptions{NamePrefix: "agent:"})
+	_, err := repo.ListPermissions(t.Context(), &model.ListOptions{NamePrefix: "agent:"})
 
 	require.ErrorIs(t, err, inmemory.ErrSelectorUnsupported)
 }
@@ -832,7 +832,7 @@ func TestPermissionRepository_RejectsSelectorItCannotEvaluate(t *testing.T) {
 func TestRoleRepository_ListsNormallyWithoutASelector(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewRoleRepository()
 
 	_, err := repo.ListRoles(ctx, nil)
@@ -844,7 +844,7 @@ func TestRoleRepository_ListsNormallyWithoutASelector(t *testing.T) {
 func TestRoleRepository_FiltersByFieldAndNamePrefix(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	repo := inmemory.NewRoleRepository()
 
 	for _, role := range []*usermodel.Role{
@@ -881,7 +881,7 @@ func TestStore_MalformedContinueTokenIsBadInput(t *testing.T) {
 	repo := inmemory.NewEndpointRepository()
 
 	//exhaustruct:ignore
-	_, err := repo.ListEndpoints(context.Background(), "default", &model.ListOptions{
+	_, err := repo.ListEndpoints(t.Context(), "default", &model.ListOptions{
 		Continue: "not-a-cursor",
 	})
 

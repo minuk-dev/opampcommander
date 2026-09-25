@@ -57,7 +57,7 @@ func TestParity_RoleBindingSelectors(t *testing.T) {
 
 //nolint:thelper // subtest bodies are the assertions themselves, not helpers
 func runRoleBindingContract(t *testing.T, backend roleBindingBackend) {
-	ctx := context.Background()
+	ctx := t.Context()
 	namespace := uniqueNamespace("rbsel")
 	other := uniqueNamespace("rbother")
 

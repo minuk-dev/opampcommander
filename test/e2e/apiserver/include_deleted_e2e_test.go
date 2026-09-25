@@ -28,7 +28,6 @@ func startIncludeDeletedAPIServer(t *testing.T, dbName string) *client.Client {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
-	t.Cleanup(apiServer.Stop)
 
 	apiServer.WaitForReady()
 

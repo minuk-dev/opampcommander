@@ -74,7 +74,6 @@ func TestE2E_Host_Discovery(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_host_discovery")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -92,7 +91,6 @@ func TestE2E_Host_Discovery(t *testing.T) {
 			"cloud.provider": "aws",
 		},
 	)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Guard: the attributes must actually reach the agent description.
 	desc := waitForAgentDescription(ctx, t, opampClient, collector.UID.String())
@@ -142,7 +140,6 @@ func TestE2E_Container_Discovery(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_container_discovery")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -165,7 +162,6 @@ func TestE2E_Container_Discovery(t *testing.T) {
 			"k8s.node.name":        nodeName,
 		},
 	)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Guard: the attributes must actually reach the agent description.
 	desc := waitForAgentDescription(ctx, t, opampClient, collector.UID.String())
@@ -220,7 +216,6 @@ func TestE2E_Host_ListAgents_Pagination(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_host_pagination")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -230,11 +225,8 @@ func TestE2E_Host_ListAgents_Pagination(t *testing.T) {
 
 	// Given: two collectors reporting the same host.id (=> two agents on one host).
 	nonIdentifying := map[string]string{"host.id": hostID, "host.name": "e2e-shared-node"}
-	collector1 := base.StartOTelCollectorWithDescription(apiServer.Port, nonIdentifying)
-	defer func() { _ = collector1.Terminate(ctx) }()
-
-	collector2 := base.StartOTelCollectorWithDescription(apiServer.Port, nonIdentifying)
-	defer func() { _ = collector2.Terminate(ctx) }()
+	base.StartOTelCollectorWithDescription(apiServer.Port, nonIdentifying)
+	base.StartOTelCollectorWithDescription(apiServer.Port, nonIdentifying)
 
 	// When/Then: both agents become associated with the shared host.
 	require.Eventually(t, func() bool {

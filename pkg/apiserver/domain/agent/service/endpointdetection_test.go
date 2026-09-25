@@ -122,7 +122,7 @@ func newRemoteConfig(config string) *agentmodel.AgentRemoteConfig {
 func TestReconcileAutoCreatesEndpoints(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fake := newFakeEndpointUsecase()
 	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
 
@@ -155,7 +155,7 @@ func TestReconcileAutoCreatesEndpoints(t *testing.T) {
 func TestReconcileMatchesExistingByURLPreservingSpec(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fake := newFakeEndpointUsecase()
 	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
 
@@ -192,7 +192,7 @@ func TestReconcileMatchesExistingByURLPreservingSpec(t *testing.T) {
 func TestReconcileNeverDeletes(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fake := newFakeEndpointUsecase()
 	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
 
@@ -218,7 +218,7 @@ service:
 func TestReconcileCollapsesExportersSharingURL(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fake := newFakeEndpointUsecase()
 	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
 
@@ -254,7 +254,7 @@ service:
 func TestReconcileSkipsNonScalarHeaderValues(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fake := newFakeEndpointUsecase()
 	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
 
@@ -321,7 +321,7 @@ func TestExtractEndpointsFromAgent(t *testing.T) {
 	assert.Equal(t, "team-a", mimir.Spec.Tenants[0].Name)
 
 	// Extraction is read-only: nothing was persisted.
-	list, err := fake.ListEndpoints(context.Background(), "default", nil)
+	list, err := fake.ListEndpoints(t.Context(), "default", nil)
 	require.NoError(t, err)
 	assert.Empty(t, list.Items)
 }
@@ -329,7 +329,7 @@ func TestExtractEndpointsFromAgent(t *testing.T) {
 func TestReconcileParseErrorKeepsExisting(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := t.Context()
 	fake := newFakeEndpointUsecase()
 	svc := agentservice.NewEndpointDetectionService(fake, slog.Default())
 

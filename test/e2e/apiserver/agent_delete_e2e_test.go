@@ -40,7 +40,6 @@ func TestE2E_APIServer_DeleteAgent(t *testing.T) {
 	dbName := "opampcommander_e2e_delete_agent_test"
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 

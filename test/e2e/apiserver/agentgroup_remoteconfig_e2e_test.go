@@ -34,7 +34,6 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentgroup_direct")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -42,11 +41,10 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	opampClient := apiServer.Client()
 
 	// Given: OTel Collector is started
-	collector := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
+	base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "staging-service",
 		"environment":  "staging",
 	})
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Wait for collector to register
 	assert.Eventually(t, func() bool {
@@ -161,7 +159,6 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentgroup_collision")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -169,15 +166,12 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	opampClient := apiServer.Client()
 
 	// Given: Two OTel Collectors with different service names
-	collector1 := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
+	base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "service-alpha",
 	})
-	defer func() { _ = collector1.Terminate(ctx) }()
-
-	collector2 := base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
+	base.StartOTelCollectorWithAttributes(apiServer.Port, map[string]string{
 		"service.name": "service-beta",
 	})
-	defer func() { _ = collector2.Terminate(ctx) }()
 
 	// Wait for both collectors to register
 	assert.Eventually(t, func() bool {

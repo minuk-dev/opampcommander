@@ -8,7 +8,6 @@
 package apiserver_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -35,9 +34,6 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + Kafka)
@@ -50,12 +46,10 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// concurrent boots race on the policy bulk-insert (E11000 duplicate
 	// key) which kills one of the Fx starts.
 	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
-	defer apiServer1.Stop()
 
 	apiServer1.WaitForReady()
 
 	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
-	defer apiServer2.Stop()
 
 	apiServer2.WaitForReady()
 
@@ -73,7 +67,6 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 
 	// Given: Collector connects to server 1
 	collector := base.StartOTelCollector(apiServer1.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be visible on server 1
 	var agent1 *v1.Agent
@@ -107,14 +100,14 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// Then: Both servers should have access to the agent data (since they share the same DB)
 	// Note: Remote config may not be supported by the collector, so we verify agent presence instead
 	assert.Eventually(t, func() bool {
-		updatedAgent1, err1 := tryGetAgentByIDWithClient(client1, collector.UID)
+		updatedAgent1, err1 := tryGetAgentByIDWithClient(t, client1, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from server1: %v", err1)
 
 			return false
 		}
 
-		updatedAgent2, err2 := tryGetAgentByIDWithClient(client2, collector.UID)
+		updatedAgent2, err2 := tryGetAgentByIDWithClient(t, client2, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from server2: %v", err2)
 
@@ -146,9 +139,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure setup
@@ -157,7 +147,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// Given: Primary server is running
 	primaryServer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_failover")
-	defer primaryServer.Stop()
 
 	primaryServer.WaitForReady()
 
@@ -172,7 +161,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// Given: Collector connects to primary server
 	collector := base.StartOTelCollector(primaryServer.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent is registered on primary
 	assert.Eventually(t, func() bool {
@@ -184,7 +172,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// When: Secondary server starts (simulating failover scenario)
 	secondaryServer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_failover")
-	defer secondaryServer.Stop()
 
 	secondaryServer.WaitForReady()
 	t.Log("Secondary server started")
@@ -208,14 +195,14 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 	// we'll verify that the agent data is properly shared between servers
 	// and both servers can access the same agent information
 	assert.Eventually(t, func() bool {
-		primaryAgent, err1 := tryGetAgentByIDWithClient(primaryClient, collector.UID)
+		primaryAgent, err1 := tryGetAgentByIDWithClient(t, primaryClient, collector.UID)
 		if err1 != nil {
 			t.Logf("Failed to get agent from primary: %v", err1)
 
 			return false
 		}
 
-		secondaryAgent, err2 := tryGetAgentByIDWithClient(secondaryClient, collector.UID)
+		secondaryAgent, err2 := tryGetAgentByIDWithClient(t, secondaryClient, collector.UID)
 		if err2 != nil {
 			t.Logf("Failed to get agent from secondary: %v", err2)
 
@@ -255,8 +242,10 @@ func createAgentGroup(t *testing.T, c *client.Client, name string, selector map[
 	t.Logf("AgentGroup '%s' created successfully", name)
 }
 
-func agentGroupExistsOnServer(c *client.Client, name string) bool {
-	_, err := c.AgentGroupService.GetAgentGroup(context.Background(), "default", name)
+func agentGroupExistsOnServer(t *testing.T, c *client.Client, name string) bool {
+	t.Helper()
+
+	_, err := c.AgentGroupService.GetAgentGroup(t.Context(), "default", name)
 
 	return err == nil
 }
@@ -308,9 +297,6 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure setup (MongoDB + Kafka)
@@ -322,12 +308,10 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// on the shared MongoDB (see TestE2E_APIServer_KafkaDistributedMode
 	// for the underlying cause).
 	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
-	defer apiServer1.Stop()
 
 	apiServer1.WaitForReady()
 
 	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
-	defer apiServer2.Stop()
 
 	apiServer2.WaitForReady()
 
@@ -345,7 +329,6 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	// Given: Collector connects to server 1
 	collector := base.StartOTelCollector(apiServer1.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be registered on server 1
 	assert.Eventually(t, func() bool {
@@ -365,8 +348,8 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// Then: Both servers should maintain consistent agent data
 	// The messaging system ensures servers are aware of configuration changes
 	assert.Eventually(t, func() bool {
-		agent1, err1 := tryGetAgentByIDWithClient(client1, collector.UID)
-		agent2, err2 := tryGetAgentByIDWithClient(client2, collector.UID)
+		agent1, err1 := tryGetAgentByIDWithClient(t, client1, collector.UID)
+		agent2, err2 := tryGetAgentByIDWithClient(t, client2, collector.UID)
 
 		if err1 != nil || err2 != nil {
 			t.Logf("Failed to get agents: err1=%v, err2=%v", err1, err2)

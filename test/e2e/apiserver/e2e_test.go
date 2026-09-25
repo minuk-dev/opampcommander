@@ -39,13 +39,11 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	dbName := "opampcommander_e2e_test_single"
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
 	// Given: OTel Collector is started
 	otelCollector := base.StartOTelCollector(apiServer.Port)
-	defer func() { _ = otelCollector.Terminate(ctx) }()
 
 	opampClient := apiServer.Client()
 	namespace := "default"
@@ -87,12 +85,7 @@ func TestE2E_APIServer_WithOTelCollector(t *testing.T) {
 	}, 30*time.Second, 1*time.Second, "Agent metadata should be complete within timeout")
 
 	// Then: Agent is retrievable by ID
-	assert.Eventually(t, func() bool {
-		agent, err := opampClient.AgentService.GetAgent(ctx, namespace, otelCollector.UID)
-		if err != nil {
-			return false
-		}
-
+	testutil.EventuallyAgent(t, opampClient, namespace, otelCollector.UID, func(agent *v1.Agent) bool {
 		return agent.Metadata.InstanceUID == otelCollector.UID
 	}, 30*time.Second, 1*time.Second, "Agent should be retrievable by ID within timeout")
 }
@@ -110,7 +103,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_test_multi")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -121,12 +113,6 @@ func TestE2E_APIServer_MultipleCollectors(t *testing.T) {
 	for i := range numCollectors {
 		collectors[i] = base.StartOTelCollector(apiServer.Port)
 	}
-
-	defer func() {
-		for _, c := range collectors {
-			_ = c.Terminate(t.Context())
-		}
-	}()
 
 	// When: All collectors report via OpAMP
 	assert.Eventually(t, func() bool {
@@ -166,7 +152,6 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 	mongoServer := base.StartMongoDB()
 
 	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -178,7 +163,6 @@ func TestE2E_APIServer_SequenceNum(t *testing.T) {
 
 	// Given: OTel Collector is started
 	collector := base.StartOTelCollector(apiServer.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// When: Collector reports via OpAMP multiple times
 	t.Log("Waiting for collector to register...")
@@ -321,7 +305,6 @@ func TestE2E_APIServer_SearchAgents(t *testing.T) {
 	// Given: Infrastructure is set up (MongoDB + API Server)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_search_test")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -451,15 +434,11 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + API Server)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_conntype_test")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -467,10 +446,7 @@ func TestE2E_ConnectionType_HTTPAndWebSocket(t *testing.T) {
 
 	// Given: Two OTel Collectors - one with HTTP polling, one with WebSocket
 	httpCollector := base.StartOTelCollectorHTTP(apiServer.Port)
-	defer func() { _ = httpCollector.Terminate(ctx) }()
-
 	wsCollector := base.StartOTelCollector(apiServer.Port)
-	defer func() { _ = wsCollector.Terminate(ctx) }()
 
 	// When: Both collectors connect
 	assert.Eventually(t, func() bool {
@@ -534,7 +510,6 @@ func TestE2E_AgentPackage_CRUD(t *testing.T) {
 	// Given: Infrastructure is set up (MongoDB + API Server)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_agentpackage_test")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -672,7 +647,6 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 	dbName := "opampcommander_e2e_stats_aggregation_test"
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -818,7 +792,6 @@ func TestE2E_AgentGroup_IncludeDeleted(t *testing.T) {
 	dbName := "opampcommander_e2e_include_deleted_test"
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, dbName)
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 

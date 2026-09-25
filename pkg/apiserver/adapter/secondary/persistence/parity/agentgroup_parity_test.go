@@ -154,7 +154,7 @@ func runGroupStatistics(t *testing.T, b groupStatsBackend) {
 	t.Run(b.name, func(t *testing.T) {
 		t.Parallel()
 
-		ctx := context.Background()
+		ctx := t.Context()
 		ns := uniqueNamespace("stats")
 		// A per-run selector value keeps matches isolated within a shared store.
 		serviceName := "otelcol-" + uuid.NewString()[:8]

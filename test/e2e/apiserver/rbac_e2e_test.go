@@ -29,7 +29,6 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_rbac_test")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 

@@ -44,7 +44,7 @@ func TestService_Reconcile(t *testing.T) {
 		svc, err := reconcile.NewService([]reconcile.Reconciler{target, other})
 		require.NoError(t, err)
 
-		err = svc.Reconcile(context.Background(), "agentgroup", "default", "obs")
+		err = svc.Reconcile(t.Context(), "agentgroup", "default", "obs")
 
 		require.NoError(t, err)
 		assert.Equal(t, 1, target.callCount)
@@ -59,7 +59,7 @@ func TestService_Reconcile(t *testing.T) {
 		svc, err := reconcile.NewService([]reconcile.Reconciler{&fakeReconciler{kind: "agent"}})
 		require.NoError(t, err)
 
-		err = svc.Reconcile(context.Background(), "doesnotexist", "default", "x")
+		err = svc.Reconcile(t.Context(), "doesnotexist", "default", "x")
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, reconcile.ErrUnknownKind)
@@ -71,7 +71,7 @@ func TestService_Reconcile(t *testing.T) {
 		svc, err := reconcile.NewService([]reconcile.Reconciler{&fakeReconciler{kind: "agent", err: errBoom}})
 		require.NoError(t, err)
 
-		err = svc.Reconcile(context.Background(), "agent", "default", "id")
+		err = svc.Reconcile(t.Context(), "agent", "default", "id")
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, errBoom)

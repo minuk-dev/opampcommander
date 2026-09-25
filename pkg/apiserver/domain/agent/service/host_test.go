@@ -106,7 +106,7 @@ func TestHostServiceObserveAgent(t *testing.T) {
 				h.Status.AgentInstanceUIDs[0] == a.Metadata.InstanceUID
 		})).Return(&agentmodel.Host{}, nil)
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		persistence.AssertExpectations(t)
 	})
 
@@ -117,7 +117,7 @@ func TestHostServiceObserveAgent(t *testing.T) {
 		svc := agentservice.NewHostService(persistence, fixedClock{now: now})
 		a := agentmodel.NewAgent(uuid.New()) // no description reported
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		persistence.AssertNotCalled(t, "GetHost")
 		persistence.AssertNotCalled(t, "PutHost")
 	})
@@ -133,7 +133,7 @@ func TestHostServiceObserveAgent(t *testing.T) {
 		persistence.On("GetHost", mock.Anything, "h-1").Return(existing, nil)
 		persistence.On("PutHost", mock.Anything, mock.Anything).Return(&agentmodel.Host{}, nil)
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		assert.Equal(t, now, existing.Metadata.LastSeenAt)
 		persistence.AssertExpectations(t)
 	})
@@ -152,7 +152,7 @@ func TestHostServiceObserveAgent(t *testing.T) {
 		persistence.On("PutHost", mock.Anything, mock.Anything).Return(nil, model.ErrConflict).Once()
 		persistence.On("PutHost", mock.Anything, mock.Anything).Return(&agentmodel.Host{}, nil).Once()
 
-		require.NoError(t, svc.ObserveAgent(context.Background(), a))
+		require.NoError(t, svc.ObserveAgent(t.Context(), a))
 		persistence.AssertNumberOfCalls(t, "PutHost", 2)
 		persistence.AssertExpectations(t)
 	})
@@ -168,6 +168,6 @@ func TestHostServiceObserveAgent(t *testing.T) {
 		persistence.On("GetHost", mock.Anything, "h-1").Return(existing, nil)
 		persistence.On("PutHost", mock.Anything, mock.Anything).Return(nil, model.ErrConflict)
 
-		require.ErrorIs(t, svc.ObserveAgent(context.Background(), a), model.ErrConflict)
+		require.ErrorIs(t, svc.ObserveAgent(t.Context(), a), model.ErrConflict)
 	})
 }
