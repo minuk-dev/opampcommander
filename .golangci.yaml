@@ -210,6 +210,8 @@ linters:
             - go.mongodb.org/mongo-driver/v2/mongo
             - go.mongodb.org/mongo-driver/v2/bson
             - github.com/open-telemetry/opamp-go/protobufs
+            - github.com/open-telemetry/opamp-go/client
+            - google.golang.org/protobuf/proto
             - github.com/testcontainers/testcontainers-go
             - github.com/testcontainers/testcontainers-go/modules/mongodb
             - github.com/testcontainers/testcontainers-go/modules/redis

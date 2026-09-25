@@ -28,7 +28,7 @@ actually implemented.
 | `AcceptsEffectiveConfig` | ✅ | ✅ | Stored on the agent. |
 | `OffersConnectionSettings` | ✅ | ✅ | `opamp`, `own_metrics`, `own_logs`, `own_traces`, `other_connections`, each with headers + TLS certificate. |
 | `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | Intentionally **not advertised**: `connection_settings_request` is not processed, so the capability is withheld rather than claimed-but-ignored. |
-| `OffersPackages` | ✅ | ✅ | Package type derives from the package spec (`TopLevel`/`AddOn`); an unresolvable package is withheld from the offer and logged, not silently dropped (#496). |
+| `OffersPackages` | ✅ | 🟡 | Package type derives from the package spec (`TopLevel`/`AddOn`); an unresolvable package is withheld from the offer and logged, not silently dropped (#496). No API assigns packages to an agent yet (see [Known gaps](#known-gaps)). |
 | `AcceptsPackagesStatus` | ✅ | ✅ | Stored on the agent. |
 
 ## Server → Agent message fields
@@ -99,6 +99,9 @@ actually implemented.
 6. ~~**Non-string attribute values are dropped** in `toMap`.~~ *(Resolved in #504.)* Non-string
    `AnyValue`s are now preserved in their string form for identifying / non-identifying
    attributes and component metadata.
+7. **No way to offer packages to an agent.** `packages_available` is built from the agent's
+   `spec.packagesAvailable`, but nothing sets it: the agent update API ignores the field and
+   the MongoDB store does not persist it. The capability is advertised, the offer is never sent.
 
 ## Custom messages
 
@@ -132,9 +135,25 @@ the use case.
 
 ## Test coverage
 
-Full-path OpAMP behavior (registration, remote-config offer/apply, packages, HTTP vs WebSocket
-transports) is exercised against a real OTel Collector `opamp` extension by the Docker-based E2E
-suite (`test/e2e/apiserver`, using the Collector helper in `pkg/testutil`).
+The OpAMP conformance suite (`make test-e2e-conformance`,
+`test/e2e/apiserver/conformance_e2e_test.go`) drives the server over the real wire protocol
+and asserts each round-trip from both the agent and the REST API side:
+
+| Flow | Reference agent (opamp-go) | OTel Collector `opamp` extension |
+|---|:---:|:---:|
+| Connect + `AgentDescription` ingest | ✅ WS, HTTP | ✅ WS |
+| Server capability negotiation | ✅ | — |
+| `ComponentHealth` reporting | ✅ WS, HTTP | — |
+| Remote config → `effective_config` round-trip | ✅ WS, HTTP | effective config only |
+| Connection settings offer (`own_metrics`) | ✅ WS, HTTP | — |
+| `Restart` command round-trip | ✅ WS, HTTP | — |
+| `package_statuses` reporting | ✅ WS, HTTP | — |
+| `packages_available` offer | ⛔ skipped (gap 7) | — |
+
+The reference agent (`pkg/testutil/opampagent.go`) is the upstream opamp-go client run
+in-process, so the test can see exactly what the agent received. The Collector runs as a
+testcontainer and covers interop with a real agent, which only implements part of the
+protocol (it does not accept remote config or commands).
 
 The message builders and protobuf↔domain converters also have direct, Docker-free unit coverage:
 the `AgentToServer` converters in

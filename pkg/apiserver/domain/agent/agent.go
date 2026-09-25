@@ -1290,6 +1290,7 @@ func (a *Agent) HasNewInstanceUID() bool {
 // HasNewPackages checks if there are new packages available for the agent.
 func (a *Agent) HasNewPackages() bool {
 	return a.Metadata.Capabilities.HasAcceptsPackages() &&
+		a.Spec.PackagesAvailable != nil &&
 		len(a.Spec.PackagesAvailable.Packages) > 0
 }
 

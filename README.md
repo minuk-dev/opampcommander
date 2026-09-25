@@ -154,6 +154,7 @@ make unittest        # go test -short ./...
 make test            # go test -race ./...
 make test-e2e        # E2E tests (requires Docker)
 make test-e2e-basic  # E2E tests without Kafka
+make test-e2e-conformance  # OpAMP protocol conformance/interop suite
 make lint            # golangci-lint
 make lint-fix        # golangci-lint --fix
 ```
@@ -163,6 +164,20 @@ For web checks:
 ```sh
 cd web && npx tsc --noEmit && npm run lint && npm test && npm run build
 ```
+
+### OpAMP interoperability
+
+`make test-e2e-conformance` drives the server over the real OpAMP wire protocol
+and asserts each round-trip from both ends. Verified agents:
+
+| Agent | Version | Transports | Verified |
+|---|---|---|---|
+| [opamp-go](https://github.com/open-telemetry/opamp-go) client (reference agent) | v0.24.0 | WebSocket, HTTP | Registration, capability negotiation, health, remote config → effective config, connection settings offer, restart command, package statuses |
+| OpenTelemetry Collector Contrib, `opamp` extension | 0.115.1 | WebSocket | Registration, description, effective config |
+
+Offering packages (`packages_available`) is advertised but cannot yet be assigned
+to an agent through the API. The full per-field matrix is in the
+[OpAMP conformance](docs/content/en/docs/opamp-conformance.md) doc.
 
 ## Architecture
 

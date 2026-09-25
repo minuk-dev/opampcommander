@@ -4,7 +4,7 @@ GOARCH := $(shell go env GOARCH)
 HELM_CHART := ./deploy/charts/opampcommander
 HELM_CI_VALUES := $(wildcard $(HELM_CHART)/ci/*-values.yaml)
 
-.PHONY: lint lint-fix prebuilt-doc prebuilt-proto build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic test-e2e-selectors test-e2e-liveness bench-liveness release docker docker-image helm-lint helm-template helm-package
+.PHONY: lint lint-fix prebuilt-doc prebuilt-proto build-dev prebuilt-mock generate start-mongodb stop-mongodb clean-mongodb-data start-kafka stop-kafka clean-kafka start-dev-services stop-dev-services clean-dev-services run-dev-server run-standalone debug-server debug-server-console build unittest test test-e2e test-e2e-kafka test-e2e-basic test-e2e-selectors test-e2e-liveness test-e2e-conformance bench-liveness release docker docker-image helm-lint helm-template helm-package
 
 all: prebuilt-doc build
 
@@ -133,6 +133,10 @@ test-e2e-selectors:
 test-e2e-liveness:
 	@echo "Running the agent-liveness Redis outage E2E test only..."
 	go test -tags=e2e ./test/e2e/apiserver -run TestE2E_APIServer_RedisLivenessSurvivesRedisOutage -v -timeout=12m
+
+test-e2e-conformance:
+	@echo "Running the OpAMP conformance/interop E2E suite only..."
+	go test -tags=e2e ./test/e2e/apiserver -run TestE2E_Conformance -v -timeout=10m
 
 bench-liveness:
 	@echo "Measuring what a heartbeat costs the database (writes per heartbeat, by shape)..."
