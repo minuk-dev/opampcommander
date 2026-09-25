@@ -22,7 +22,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.25
+          go-version-file: go.mod
       - name: Run unit tests
         run: make test
 
@@ -47,7 +47,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.25
+          go-version-file: go.mod
       - name: Run E2E tests
         run: make test-e2e
         # Note: E2E tests run without -race flag due to known issues in external Kafka library (IBM/sarama)
