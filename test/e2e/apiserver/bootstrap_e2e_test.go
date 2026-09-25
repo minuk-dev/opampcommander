@@ -64,7 +64,6 @@ func TestE2E_APIServer_BootstrapReconcile(t *testing.T) {
 
 	// --- second start against the SAME database: full-overwrite reconcile resets it ---
 	srv2 := base.StartAPIServer(mongo.URI, dbName)
-	defer srv2.Stop()
 
 	srv2.WaitForReady()
 

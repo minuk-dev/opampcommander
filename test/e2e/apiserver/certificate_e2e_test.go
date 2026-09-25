@@ -107,7 +107,6 @@ func TestE2E_Certificate_CRUD(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_crud")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -227,7 +226,6 @@ func TestE2E_Certificate_MultipleCertificates(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_multi")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -294,7 +292,6 @@ func TestE2E_Certificate_PartialData(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_partial")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -360,7 +357,6 @@ func TestE2E_Certificate_NotFound(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_notfound")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -392,7 +388,6 @@ func TestE2E_Certificate_Pagination(t *testing.T) {
 	// Given: Infrastructure is set up
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_cert_pagination")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 

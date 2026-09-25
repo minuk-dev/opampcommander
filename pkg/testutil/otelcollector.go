@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -204,15 +205,10 @@ service:
 		formatResourceAttrsForTelemetry(resourceAttrs))
 }
 
-// StartOTelCollector starts an OTel Collector container connected to the given OpAMP port.
-func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
+// startCollector runs the collector with the given config and terminates it when the
+// test ends. A test that needs the collector gone earlier can still call Terminate.
+func (b *Base) startCollector(instanceUID uuid.UUID, configPath string) *OTelCollector {
 	b.t.Helper()
-
-	instanceUID := uuid.New()
-	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
-
-	err := os.WriteFile(configPath, []byte(collectorConfigContent(opampPort, instanceUID)), collectorConfigFileMode)
-	require.NoError(b.t, err)
 
 	//exhaustruct:ignore
 	container, err := testcontainers.GenericContainer(
@@ -223,12 +219,28 @@ func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
 		})
 	require.NoError(b.t, err)
 
+	// Not t.Context(): cleanups run after the test context is canceled.
+	b.t.Cleanup(func() { _ = container.Terminate(context.Background()) })
+
 	return &OTelCollector{
 		Base:       b,
 		Container:  container,
 		UID:        instanceUID,
 		configPath: configPath,
 	}
+}
+
+// StartOTelCollector starts an OTel Collector container connected to the given OpAMP port.
+func (b *Base) StartOTelCollector(opampPort int) *OTelCollector {
+	b.t.Helper()
+
+	instanceUID := uuid.New()
+	configPath := filepath.Join(b.CacheDir, fmt.Sprintf("collector-config-%s.yaml", instanceUID.String()))
+
+	err := os.WriteFile(configPath, []byte(collectorConfigContent(opampPort, instanceUID)), collectorConfigFileMode)
+	require.NoError(b.t, err)
+
+	return b.startCollector(instanceUID, configPath)
 }
 
 // StartOTelCollectorHTTP starts an OTel Collector container using HTTP polling to connect to the given OpAMP port.
@@ -241,21 +253,7 @@ func (b *Base) StartOTelCollectorHTTP(opampPort int) *OTelCollector {
 	err := os.WriteFile(configPath, []byte(collectorConfigContentHTTP(opampPort, instanceUID)), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	//exhaustruct:ignore
-	container, err := testcontainers.GenericContainer(
-		//exhaustruct:ignore
-		b.t.Context(), testcontainers.GenericContainerRequest{
-			ContainerRequest: buildCollectorContainerRequest(configPath),
-			Started:          true,
-		})
-	require.NoError(b.t, err)
-
-	return &OTelCollector{
-		Base:       b,
-		Container:  container,
-		UID:        instanceUID,
-		configPath: configPath,
-	}
+	return b.startCollector(instanceUID, configPath)
 }
 
 // nonIdentifyingAttrBlock renders the `non_identifying_attributes` block of the
@@ -347,21 +345,7 @@ func (b *Base) StartOTelCollectorWithDescription(
 	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	//exhaustruct:ignore
-	container, err := testcontainers.GenericContainer(
-		//exhaustruct:ignore
-		b.t.Context(), testcontainers.GenericContainerRequest{
-			ContainerRequest: buildCollectorContainerRequest(configPath),
-			Started:          true,
-		})
-	require.NoError(b.t, err)
-
-	return &OTelCollector{
-		Base:       b,
-		Container:  container,
-		UID:        instanceUID,
-		configPath: configPath,
-	}
+	return b.startCollector(instanceUID, configPath)
 }
 
 // StartOTelCollectorWithAttributes starts an OTel Collector container with custom resource attributes.
@@ -375,19 +359,5 @@ func (b *Base) StartOTelCollectorWithAttributes(opampPort int, resourceAttrs map
 	err := os.WriteFile(configPath, []byte(content), collectorConfigFileMode)
 	require.NoError(b.t, err)
 
-	//exhaustruct:ignore
-	container, err := testcontainers.GenericContainer(
-		//exhaustruct:ignore
-		b.t.Context(), testcontainers.GenericContainerRequest{
-			ContainerRequest: buildCollectorContainerRequest(configPath),
-			Started:          true,
-		})
-	require.NoError(b.t, err)
-
-	return &OTelCollector{
-		Base:       b,
-		Container:  container,
-		UID:        instanceUID,
-		configPath: configPath,
-	}
+	return b.startCollector(instanceUID, configPath)
 }

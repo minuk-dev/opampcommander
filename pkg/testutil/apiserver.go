@@ -102,6 +102,9 @@ func (a *APIServer) IsReady() bool {
 
 // Stop signals the API server to shut down by cancelling its running context.
 // The server's Run goroutine handles graceful shutdown with a built-in timeout.
+//
+// The server is stopped automatically when the test ends; call Stop only to shut it
+// down earlier (e.g. to restart against the same database).
 func (a *APIServer) Stop() {
 	a.stopServer()
 }
@@ -337,6 +340,8 @@ func (b *Base) launchAPIServer(
 	go func() {
 		_ = server.Run(serverCtx)
 	}()
+
+	b.t.Cleanup(serverCancel)
 
 	return &APIServer{
 		Base:               b,

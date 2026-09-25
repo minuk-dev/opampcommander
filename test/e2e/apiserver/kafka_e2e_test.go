@@ -35,9 +35,6 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure is set up (MongoDB + Kafka)
@@ -50,12 +47,10 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 	// concurrent boots race on the policy bulk-insert (E11000 duplicate
 	// key) which kills one of the Fx starts.
 	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
-	defer apiServer1.Stop()
 
 	apiServer1.WaitForReady()
 
 	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_e2e")
-	defer apiServer2.Stop()
 
 	apiServer2.WaitForReady()
 
@@ -73,7 +68,6 @@ func TestE2E_APIServer_KafkaDistributedMode(t *testing.T) {
 
 	// Given: Collector connects to server 1
 	collector := base.StartOTelCollector(apiServer1.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be visible on server 1
 	var agent1 *v1.Agent
@@ -146,9 +140,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure setup
@@ -157,7 +148,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// Given: Primary server is running
 	primaryServer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_failover")
-	defer primaryServer.Stop()
 
 	primaryServer.WaitForReady()
 
@@ -172,7 +162,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// Given: Collector connects to primary server
 	collector := base.StartOTelCollector(primaryServer.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent is registered on primary
 	assert.Eventually(t, func() bool {
@@ -184,7 +173,6 @@ func TestE2E_APIServer_KafkaFailover(t *testing.T) {
 
 	// When: Secondary server starts (simulating failover scenario)
 	secondaryServer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_failover")
-	defer secondaryServer.Stop()
 
 	secondaryServer.WaitForReady()
 	t.Log("Secondary server started")
@@ -308,9 +296,6 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 		t.Skip("Skipping E2E test in short mode")
 	}
 
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
-	defer cancel()
-
 	base := testutil.NewBase(t)
 
 	// Given: Infrastructure setup (MongoDB + Kafka)
@@ -322,12 +307,10 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 	// on the shared MongoDB (see TestE2E_APIServer_KafkaDistributedMode
 	// for the underlying cause).
 	apiServer1 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
-	defer apiServer1.Stop()
 
 	apiServer1.WaitForReady()
 
 	apiServer2 := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "opampcommander_kafka_messaging_e2e")
-	defer apiServer2.Stop()
 
 	apiServer2.WaitForReady()
 
@@ -345,7 +328,6 @@ func TestE2E_APIServer_KafkaEventMessaging(t *testing.T) {
 
 	// Given: Collector connects to server 1
 	collector := base.StartOTelCollector(apiServer1.Port)
-	defer func() { _ = collector.Terminate(ctx) }()
 
 	// Then: Agent should be registered on server 1
 	assert.Eventually(t, func() bool {

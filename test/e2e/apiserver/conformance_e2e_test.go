@@ -4,7 +4,6 @@ package apiserver_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -47,7 +46,6 @@ func TestE2E_Conformance_ServerCapabilities(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_conformance_caps")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -94,7 +92,6 @@ func TestE2E_Conformance_ReferenceAgent(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_conformance")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
@@ -131,9 +128,9 @@ func runReferenceAgentConformance(
 	)
 
 	t.Run("connect and AgentDescription ingest", func(t *testing.T) {
-		registered := eventuallyAgent(t, apiClient, agent.UID, func(a *v1.Agent) bool {
+		registered := testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
 			return a.Metadata.Capabilities != 0 && len(a.Metadata.Description.IdentifyingAttributes) > 0
-		}, "agent should register with its description and capabilities")
+		}, conformanceTimeout, conformancePoll, "agent should register with its description and capabilities")
 
 		assert.Equal(t, "default", registered.Metadata.Namespace)
 		assert.Equal(t, serviceName, registered.Metadata.Description.IdentifyingAttributes["service.name"])
@@ -144,18 +141,18 @@ func runReferenceAgentConformance(
 	})
 
 	t.Run("health reporting", func(t *testing.T) {
-		eventuallyAgent(t, apiClient, agent.UID, func(a *v1.Agent) bool {
+		testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
 			return a.Status.ComponentHealth.Healthy &&
 				a.Status.ComponentHealth.Status == "StatusOK" &&
 				a.Status.ComponentHealth.ComponentsMap["pipeline:traces"] == "StatusOK"
-		}, "reported health should surface on the agent resource")
+		}, conformanceTimeout, conformancePoll, "reported health should surface on the agent resource")
 
 		require.NoError(t, agent.ReportHealth(false, "StatusRecoverableError"))
 
-		eventuallyAgent(t, apiClient, agent.UID, func(a *v1.Agent) bool {
+		testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
 			return !a.Status.ComponentHealth.Healthy &&
 				a.Status.ComponentHealth.Status == "StatusRecoverableError"
-		}, "a health change should surface on the agent resource")
+		}, conformanceTimeout, conformancePoll, "a health change should surface on the agent resource")
 
 		require.NoError(t, agent.ReportHealth(true, "StatusOK"))
 	})
@@ -191,9 +188,9 @@ func runReferenceAgentConformance(
 			return agent.EffectiveConfig()[configKey] == configBody
 		}, conformanceTimeout, conformancePoll, "agent should receive and apply the remote config")
 
-		eventuallyAgent(t, apiClient, agent.UID, func(a *v1.Agent) bool {
+		testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
 			return a.Status.EffectiveConfig.ConfigMap.ConfigMap[configKey].Body == configBody
-		}, "the applied config should be reported back as the effective config")
+		}, conformanceTimeout, conformancePoll, "the applied config should be reported back as the effective config")
 
 		assert.Equal(t, 1, agent.RemoteConfigsApplied(), "one config change should be one distinct offer")
 	})
@@ -238,7 +235,7 @@ func runReferenceAgentConformance(
 		}, conformanceTimeout, conformancePoll, "agent should receive the Restart command") {
 			observed, err := apiClient.AgentService.GetAgent(ctx, "default", agent.UID)
 			require.NoError(t, err)
-			t.Fatalf("last observed agent:\n%s", dumpJSON(t, observed))
+			t.Fatalf("last observed agent:\n%s", testutil.DumpJSON(t, observed))
 		}
 
 		// Once the agent reports a start time after the request, the command is satisfied
@@ -250,11 +247,11 @@ func runReferenceAgentConformance(
 	t.Run("package status reporting", func(t *testing.T) {
 		require.NoError(t, agent.ReportPackageStatuses(map[string]string{"otelcol-contrib": "0.115.1"}))
 
-		eventuallyAgent(t, apiClient, agent.UID, func(a *v1.Agent) bool {
+		testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
 			_, ok := a.Status.PackageStatuses.Packages["otelcol-contrib"]
 
 			return ok
-		}, "reported package statuses should surface on the agent resource")
+		}, conformanceTimeout, conformancePoll, "reported package statuses should surface on the agent resource")
 	})
 
 	t.Run("packages available offer", func(t *testing.T) {
@@ -278,63 +275,24 @@ func TestE2E_Conformance_OTelCollector(t *testing.T) {
 	base := testutil.NewBase(t)
 	mongoServer := base.StartMongoDB()
 	apiServer := base.StartAPIServer(mongoServer.URI, "opampcommander_e2e_conformance_otelcol")
-	defer apiServer.Stop()
 
 	apiServer.WaitForReady()
 
 	collector := base.StartOTelCollector(apiServer.Port)
-	defer func() { _ = collector.Terminate(t.Context()) }()
 
 	apiClient := apiServer.Client()
 
-	registered := eventuallyAgent(t, apiClient, collector.UID, func(a *v1.Agent) bool {
+	registered := testutil.EventuallyAgent(t, apiClient, "default", collector.UID, func(a *v1.Agent) bool {
 		return a.Metadata.Capabilities != 0 &&
 			len(a.Metadata.Description.IdentifyingAttributes) > 0 &&
 			len(a.Status.EffectiveConfig.ConfigMap.ConfigMap) > 0
-	}, "collector should register with its description, capabilities and effective config")
+	}, conformanceTimeout, conformancePoll, "collector should register with its description, capabilities and effective config")
 
 	assert.Equal(t, "otelcol-contrib", registered.Metadata.Type)
 	assert.True(t, registered.Status.Connected)
 
 	effective := strings.Join(configBodies(registered.Status.EffectiveConfig), "\n")
 	assert.Contains(t, effective, "opamp", "effective config should be the collector's running config")
-}
-
-func eventuallyAgent(
-	t *testing.T,
-	apiClient *client.Client,
-	uid uuid.UUID,
-	condition func(*v1.Agent) bool,
-	msg string,
-) *v1.Agent {
-	t.Helper()
-
-	var last *v1.Agent
-
-	satisfied := assert.Eventually(t, func() bool {
-		agent, err := apiClient.AgentService.GetAgent(t.Context(), "default", uid)
-		if err != nil {
-			return false
-		}
-
-		last = agent
-
-		return condition(agent)
-	}, conformanceTimeout, conformancePoll, msg)
-	if !satisfied {
-		t.Fatalf("last observed agent:\n%s", dumpJSON(t, last))
-	}
-
-	return last
-}
-
-func dumpJSON(t *testing.T, value any) string {
-	t.Helper()
-
-	out, err := json.MarshalIndent(value, "", "  ")
-	require.NoError(t, err)
-
-	return string(out)
 }
 
 func transportConnectionType(transport testutil.ReferenceAgentTransport) string {
