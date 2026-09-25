@@ -7,13 +7,7 @@
 // highlighted as if they were YAML; harmless, since it only affects colour.)
 
 export type TokenKind =
-  | 'plain'
-  | 'comment'
-  | 'key'
-  | 'string'
-  | 'number'
-  | 'literal'
-  | 'punctuation';
+  'plain' | 'comment' | 'key' | 'string' | 'number' | 'literal' | 'punctuation';
 
 export interface Token {
   text: string;
