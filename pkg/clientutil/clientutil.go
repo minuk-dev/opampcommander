@@ -115,8 +115,7 @@ func NewAuthedClient(
 
 	_, err = cli.AuthService.GetInfo() // no need to use info. It's just to check if the client is authenticated
 	if err != nil {
-		var httpErr *client.ResponseError
-		if errors.As(err, &httpErr) {
+		if httpErr, ok := errors.AsType[*client.ResponseError](err); ok {
 			if httpErr.StatusCode == http.StatusUnauthorized {
 				return nil, ErrUnauthorized
 			}

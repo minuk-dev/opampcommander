@@ -1303,16 +1303,12 @@ func (mapper *Mapper) mapAgentGroupAgentConfigToAPI(domainAgentGroup *agentmodel
 	return agentConfig
 }
 
-func p[T any](v T) *T {
-	return &v
-}
-
 func mapDeletedAtPtrToAPI(t *time.Time) *v1.Time {
 	if t == nil {
 		return nil
 	}
 
-	return p(v1.NewTime(*t))
+	return new(v1.NewTime(*t))
 }
 
 // mapDeletedAtToAPI maps a value-typed soft-delete timestamp to an optional API
@@ -1322,5 +1318,5 @@ func mapDeletedAtToAPI(t time.Time) *v1.Time {
 		return nil
 	}
 
-	return p(v1.NewTime(t))
+	return new(v1.NewTime(t))
 }
