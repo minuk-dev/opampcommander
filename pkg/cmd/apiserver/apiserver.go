@@ -44,12 +44,12 @@ type CommandOption struct {
 		Kafka struct {
 			Brokers []string `mapstructure:"brokers"`
 			Topic   string   `mapstructure:"topic"`
-		}
+		} `mapstructure:"kafka"`
 		Direct struct {
 			SubProtocol      string `mapstructure:"subProtocol"`
 			ListenAddress    string `mapstructure:"listenAddress"`
 			AdvertiseAddress string `mapstructure:"advertiseAddress"`
-			AuthToken        string `mapstructure:"authToken"`
+			AuthToken        string `mapstructure:"authToken"        secret:"true"`
 		} `mapstructure:"direct"`
 	} `mapstructure:"event"`
 	Management struct {
@@ -63,7 +63,7 @@ type CommandOption struct {
 			OpenTelemetry struct {
 				Endpoint string `mapstructure:"endpoint"`
 			} `mapstructure:"openTelemetry"`
-		}
+		} `mapstructure:"metric"`
 		Log struct {
 			Enabled bool   `mapstructure:"enabled"`
 			Level   string `mapstructure:"level"`
@@ -75,7 +75,7 @@ type CommandOption struct {
 			Compression          bool              `mapstructure:"compression"`
 			CompressionAlgorithm string            `mapstructure:"compressionAlgorithm"`
 			Insecure             bool              `mapstructure:"insecure"`
-			Headers              map[string]string `mapstructure:"headers"`
+			Headers              map[string]string `mapstructure:"headers"              secret:"true"`
 			Endpoint             string            `mapstructure:"endpoint"`
 			Sampler              string            `mapstructure:"sampler"`
 			SamplerRatio         float64           `mapstructure:"samplerRatio"`
@@ -85,24 +85,24 @@ type CommandOption struct {
 		Enabled bool `mapstructure:"enabled"`
 		Admin   struct {
 			Username string `mapstructure:"username"`
-			Password string `mapstructure:"password"`
+			Password string `mapstructure:"password" secret:"true"`
 			Email    string `mapstructure:"email"`
 		} `mapstructure:"admin"`
 		Basic struct {
-			Pepper string `mapstructure:"pepper"`
+			Pepper string `mapstructure:"pepper" secret:"true"`
 		} `mapstructure:"basic"`
 		JWT struct {
 			Issuer        string        `mapstructure:"issuer"`
 			Expire        time.Duration `mapstructure:"expire"`
 			RefreshExpire time.Duration `mapstructure:"refreshExpire"`
-			Secret        string        `mapstructure:"secret"`
+			Secret        string        `mapstructure:"secret"        secret:"true"`
 			Audience      []string      `mapstructure:"audience"`
-		}
+		} `mapstructure:"jwt"`
 		Type   string `mapstructure:"type"`
 		OAuth2 struct {
 			Provider             string   `mapstructure:"provider"`
 			ClientID             string   `mapstructure:"clientId"`
-			ClientSecret         string   `mapstructure:"clientSecret"`
+			ClientSecret         string   `mapstructure:"clientSecret"         secret:"true"`
 			RedirectURI          string   `mapstructure:"redirectUri"`
 			AllowedRedirectHosts []string `mapstructure:"allowedRedirectHosts"`
 			State                struct {
@@ -110,7 +110,7 @@ type CommandOption struct {
 				JWT  struct {
 					Issuer   string        `mapstructure:"issuer"`
 					Expire   time.Duration `mapstructure:"expire"`
-					Secret   string        `mapstructure:"secret"`
+					Secret   string        `mapstructure:"secret"   secret:"true"`
 					Audience []string      `mapstructure:"audience"`
 				} `mapstructure:"jwt"`
 			} `mapstructure:"state"`
@@ -140,7 +140,7 @@ type CommandOption struct {
 			Endpoints      []string      `mapstructure:"endpoints"`
 			MasterName     string        `mapstructure:"masterName"`
 			Username       string        `mapstructure:"username"`
-			Password       string        `mapstructure:"password"`
+			Password       string        `mapstructure:"password"       secret:"true"`
 			DB             int           `mapstructure:"db"`
 			TLS            bool          `mapstructure:"tls"`
 			DialTimeout    time.Duration `mapstructure:"dialTimeout"`
@@ -151,6 +151,8 @@ type CommandOption struct {
 
 	// viper
 	viper *viper.Viper
+	// configReadErr is why the config file could not be read, if it could not.
+	configReadErr error
 
 	// internal
 	app *apiserver.Server
@@ -192,120 +194,124 @@ func NewCommand(opt CommandOption) *cobra.Command {
 
 	cmd.PersistentFlags().StringVar(&opt.configFilename, "config", "",
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
-	cmd.Flags().String("address", "localhost:8080", "server address")
-	cmd.Flags().String("serverId", "", "server ID (default is hostname, can be overridden by SERVER_ID env var)")
-	cmd.Flags().String("database.type", "inmemory", "database type (inmemory, mongodb)")
-	cmd.Flags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
-	cmd.Flags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
-	cmd.Flags().String("database.databaseName", "opampcommander", "database name")
-	cmd.Flags().Bool("database.ddlAuto", false, "automatically create database schema")
-	cmd.Flags().Bool("database.sharding.enabled", false,
+	cmd.PersistentFlags().String("address", "localhost:8080", "server address")
+	cmd.PersistentFlags().String("serverId", "", "server ID (default is hostname, can be overridden by SERVER_ID env var)")
+	cmd.PersistentFlags().String("database.type", "inmemory", "database type (inmemory, mongodb)")
+	cmd.PersistentFlags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
+	cmd.PersistentFlags().Duration("database.connectTimeout", 10*time.Second, "database connection timeout")
+	cmd.PersistentFlags().String("database.databaseName", "opampcommander", "database name")
+	cmd.PersistentFlags().Bool("database.ddlAuto", false, "automatically create database schema")
+	cmd.PersistentFlags().Bool("database.sharding.enabled", false,
 		"enable sharding-aware schema management (enableSharding + shardCollection); requires database.ddlAuto "+
 			"and endpoints pointing at mongos routers")
-	cmd.Flags().String("serviceName", "opampcommander", "service name for observability")
-	cmd.Flags().String("event.type", "inmemory", "event protocol type (inmemory, kafka)")
-	cmd.Flags().Bool("event.enabled", false, "enable event communication")
-	cmd.Flags().StringSlice("event.kafka.brokers", []string{"localhost:9092"}, "Kafka broker addresses")
-	cmd.Flags().String("event.kafka.topic", "opampcommander.events", "Kafka topic name")
-	cmd.Flags().String("management.address", "localhost:9090", "management server address")
-	cmd.Flags().Bool("management.metric.enabled", false, "enable metrics")
-	cmd.Flags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
-	cmd.Flags().String("management.metric.prometheus.path", "/metrics", "Prometheus metrics path")
-	cmd.Flags().String("management.metric.openTelemetry.endpoint", "localhost:4317", "OpenTelemetry metrics endpoint")
-	cmd.Flags().Bool("management.log.enabled", true, "enable logging")
-	cmd.Flags().String("management.log.level", "info", "log level (debug, info, warn, error)")
-	cmd.Flags().String("management.log.format", "text", "log format (json, text)")
-	cmd.Flags().Bool("management.trace.enabled", false, "enable tracing")
-	cmd.Flags().String(
+	cmd.PersistentFlags().String("serviceName", "opampcommander", "service name for observability")
+	cmd.PersistentFlags().String("event.type", "inmemory", "event protocol type (inmemory, kafka)")
+	cmd.PersistentFlags().Bool("event.enabled", false, "enable event communication")
+	cmd.PersistentFlags().StringSlice("event.kafka.brokers", []string{"localhost:9092"}, "Kafka broker addresses")
+	cmd.PersistentFlags().String("event.kafka.topic", "opampcommander.events", "Kafka topic name")
+	cmd.PersistentFlags().String("management.address", "localhost:9090", "management server address")
+	cmd.PersistentFlags().Bool("management.metric.enabled", false, "enable metrics")
+	cmd.PersistentFlags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
+	cmd.PersistentFlags().String("management.metric.prometheus.path", "/metrics", "Prometheus metrics path")
+	cmd.PersistentFlags().String("management.metric.openTelemetry.endpoint", "localhost:4317",
+		"OpenTelemetry metrics endpoint")
+	cmd.PersistentFlags().Bool("management.log.enabled", true, "enable logging")
+	cmd.PersistentFlags().String("management.log.level", "info", "log level (debug, info, warn, error)")
+	cmd.PersistentFlags().String("management.log.format", "text", "log format (json, text)")
+	cmd.PersistentFlags().Bool("management.trace.enabled", false, "enable tracing")
+	cmd.PersistentFlags().String(
 		"management.trace.endpoint",
 		"grpc://localhost:4317",
 		"tracing endpoint (for OpenTelemetry, Jaeger, etc.)",
 	)
-	cmd.Flags().String("management.trace.protocol", "grpc", "tracing protocol (grpc, http/protobuf, http/json)")
-	cmd.Flags().Bool("management.trace.compression", false, "enable compression for tracing")
-	cmd.Flags().String("management.trace.compressionAlgorithm", "gzip", "compression algorithm for tracing (gzip)")
-	cmd.Flags().Bool("management.trace.insecure", false, "use insecure connection for tracing")
-	cmd.Flags().StringToString("management.trace.headers", nil, "headers to be sent with tracing requests")
-	cmd.Flags().String("management.trace.sampler", "always", "tracing sampler (always, never, probability)")
-	cmd.Flags().Float64(
+	cmd.PersistentFlags().String("management.trace.protocol", "grpc", "tracing protocol (grpc, http/protobuf, http/json)")
+	cmd.PersistentFlags().Bool("management.trace.compression", false, "enable compression for tracing")
+	cmd.PersistentFlags().String("management.trace.compressionAlgorithm", "gzip",
+		"compression algorithm for tracing (gzip)")
+	cmd.PersistentFlags().Bool("management.trace.insecure", false, "use insecure connection for tracing")
+	cmd.PersistentFlags().StringToString("management.trace.headers", nil, "headers to be sent with tracing requests")
+	cmd.PersistentFlags().String("management.trace.sampler", "always", "tracing sampler (always, never, probability)")
+	cmd.PersistentFlags().Float64(
 		"management.trace.samplerRatio",
 		1.0,
 		"sampling ratio for traceidratio and parentbased_traceidratio samplers",
 	)
-	cmd.Flags().Bool("auth.enabled", false, "enable authentication")
-	cmd.Flags().String("auth.admin.username", "admin", "admin username")
-	cmd.Flags().String("auth.admin.password", "admin", "admin password")
-	cmd.Flags().String("auth.admin.email", "admin@admin", "admin email")
-	cmd.Flags().String("auth.basic.pepper", "",
+	cmd.PersistentFlags().Bool("auth.enabled", false, "enable authentication")
+	cmd.PersistentFlags().String("auth.admin.username", "admin", "admin username")
+	cmd.PersistentFlags().String("auth.admin.password", "admin", "admin password")
+	cmd.PersistentFlags().String("auth.admin.email", "admin@admin", "admin email")
+	cmd.PersistentFlags().String("auth.basic.pepper", "",
 		"server-side secret mixed into basic-auth password hashes; "+
 			"set a long random value to enable DB-backed basic-auth users (empty disables them)")
-	cmd.Flags().String("auth.jwt.issuer", "opampcommander", "JWT issuer")
+	cmd.PersistentFlags().String("auth.jwt.issuer", "opampcommander", "JWT issuer")
 	//nolint:mnd
-	cmd.Flags().Duration("auth.jwt.expire", 30*time.Minute, "JWT access token expiration duration")
+	cmd.PersistentFlags().Duration("auth.jwt.expire", 30*time.Minute, "JWT access token expiration duration")
 	//nolint:mnd
-	cmd.Flags().Duration("auth.jwt.refreshExpire", 7*24*time.Hour,
+	cmd.PersistentFlags().Duration("auth.jwt.refreshExpire", 7*24*time.Hour,
 		"JWT refresh token expiration duration (0 disables refresh tokens)")
-	cmd.Flags().String("auth.jwt.secret", "", "JWT signing secret")
-	cmd.Flags().StringSlice("auth.jwt.audience", []string{"opampcommander"}, "JWT audience")
-	cmd.Flags().String("auth.type", "oauth2", "authentication type")
-	cmd.Flags().String("auth.oauth2.provider", "", "OAuth2 provider URL")
-	cmd.Flags().String("auth.oauth2.clientId", "", "OAuth2 client ID")
-	cmd.Flags().String("auth.oauth2.clientSecret", "", "OAuth2 client secret")
-	cmd.Flags().String("auth.oauth2.redirectUri", "", "OAuth2 redirect URL")
-	cmd.Flags().StringSlice(
+	cmd.PersistentFlags().String("auth.jwt.secret", "", "JWT signing secret")
+	cmd.PersistentFlags().StringSlice("auth.jwt.audience", []string{"opampcommander"}, "JWT audience")
+	cmd.PersistentFlags().String("auth.type", "oauth2", "authentication type")
+	cmd.PersistentFlags().String("auth.oauth2.provider", "", "OAuth2 provider URL")
+	cmd.PersistentFlags().String("auth.oauth2.clientId", "", "OAuth2 client ID")
+	cmd.PersistentFlags().String("auth.oauth2.clientSecret", "", "OAuth2 client secret")
+	cmd.PersistentFlags().String("auth.oauth2.redirectUri", "", "OAuth2 redirect URL")
+	cmd.PersistentFlags().StringSlice(
 		"auth.oauth2.allowedRedirectHosts",
 		nil,
 		"additional hosts the OAuth2 authcode endpoint accepts as redirect "+
 			"targets (loopback hosts are always allowed)",
 	)
-	cmd.Flags().String("auth.oauth2.state.mode", "jwt", "OAuth2 state mode (jwt)")
-	cmd.Flags().String("auth.oauth2.state.jwt.secret", "", "OAuth2 state JWT secret")
+	cmd.PersistentFlags().String("auth.oauth2.state.mode", "jwt", "OAuth2 state mode (jwt)")
+	cmd.PersistentFlags().String("auth.oauth2.state.jwt.secret", "", "OAuth2 state JWT secret")
 
-	cmd.Flags().String("bootstrap.dir", "",
+	cmd.PersistentFlags().String("bootstrap.dir", "",
 		"directory of initial manifest YAML files to seed on startup "+
 			"(empty disables; the container image sets BOOTSTRAP_DIR=/etc/opampcommander/initial)")
-	cmd.Flags().String("bootstrap.remoteConfigSchemaDir", "",
+	cmd.PersistentFlags().String("bootstrap.remoteConfigSchemaDir", "",
 		"directory of the pre-built RemoteConfigSchema library "+
 			"(empty defaults to <bootstrap.dir>/remoteconfigschema)")
-	cmd.Flags().String("bootstrap.remoteConfigSchemaLoad", "latest",
+	cmd.PersistentFlags().String("bootstrap.remoteConfigSchemaLoad", "latest",
 		"which schemas to seed on startup: latest (newest per distribution), all, or none")
-	cmd.Flags().String("bootstrap.defaultNamespace", "default",
+	cmd.PersistentFlags().String("bootstrap.defaultNamespace", "default",
 		"namespace agents without a service.namespace are placed in, and where the default role is granted")
-	cmd.Flags().String("bootstrap.defaultRole", "default",
+	cmd.PersistentFlags().String("bootstrap.defaultRole", "default",
 		"name of the built-in role auto-granted to every user")
-	cmd.Flags().String("metricsBackend.type", "none",
+	cmd.PersistentFlags().String("metricsBackend.type", "none",
 		"metrics backend for endpoint-throughput queries (none, prometheus)")
-	cmd.Flags().String("metricsBackend.address", "",
+	cmd.PersistentFlags().String("metricsBackend.address", "",
 		"base URL of the Prometheus-compatible HTTP API (required when metricsBackend.type=prometheus)")
-	cmd.Flags().Duration("metricsBackend.defaultWindow", 5*time.Minute,
+	cmd.PersistentFlags().Duration("metricsBackend.defaultWindow", 5*time.Minute,
 		"default rate window for endpoint-throughput queries")
-	cmd.Flags().Duration("liveness.flushInterval", 30*time.Second,
+	cmd.PersistentFlags().Duration("liveness.flushInterval", 30*time.Second,
 		"how often agent liveness absorbed by the fast tier is written through to the database")
-	cmd.Flags().Duration("liveness.flushStaleAfter", 30*time.Second,
+	cmd.PersistentFlags().Duration("liveness.flushStaleAfter", 30*time.Second,
 		"how far behind a stored agent document must fall before the write-behind flush claims it; "+
 			"flushInterval + flushStaleAfter must stay inside the 60s staleness budget")
-	cmd.Flags().Int("liveness.flushBatchSize", 2000,
+	cmd.PersistentFlags().Int("liveness.flushBatchSize", 2000,
 		"maximum agents written by one liveness flush cycle")
-	cmd.Flags().Duration("liveness.persistThrottle", 0,
+	cmd.PersistentFlags().Duration("liveness.persistThrottle", 0,
 		"minimum interval between database writes for an agent whose only change is that it is still alive "+
 			"(0 = 10s without a shared fast tier, the 60s staleness budget with one)")
-	cmd.Flags().Bool("liveness.redis.enabled", false,
+	cmd.PersistentFlags().Bool("liveness.redis.enabled", false,
 		"use Redis as a shared agent-liveness fast tier; optional accelerator, "+
 			"the server falls back to node-local state and the database when it is unavailable")
-	cmd.Flags().StringSlice("liveness.redis.endpoints", nil,
+	cmd.PersistentFlags().StringSlice("liveness.redis.endpoints", nil,
 		"Redis addresses; one for a single server, several for a cluster")
-	cmd.Flags().String("liveness.redis.masterName", "",
+	cmd.PersistentFlags().String("liveness.redis.masterName", "",
 		"Redis Sentinel master name (selects Sentinel mode)")
-	cmd.Flags().String("liveness.redis.username", "", "Redis username")
-	cmd.Flags().String("liveness.redis.password", "", "Redis password")
-	cmd.Flags().Int("liveness.redis.db", 0, "Redis logical database index (ignored in cluster mode)")
-	cmd.Flags().Bool("liveness.redis.tls", false, "connect to Redis over TLS")
-	cmd.Flags().Duration("liveness.redis.dialTimeout", 2*time.Second, "Redis connection timeout")
-	cmd.Flags().Duration("liveness.redis.commandTimeout", 200*time.Millisecond,
+	cmd.PersistentFlags().String("liveness.redis.username", "", "Redis username")
+	cmd.PersistentFlags().String("liveness.redis.password", "", "Redis password")
+	cmd.PersistentFlags().Int("liveness.redis.db", 0, "Redis logical database index (ignored in cluster mode)")
+	cmd.PersistentFlags().Bool("liveness.redis.tls", false, "connect to Redis over TLS")
+	cmd.PersistentFlags().Duration("liveness.redis.dialTimeout", 2*time.Second, "Redis connection timeout")
+	cmd.PersistentFlags().Duration("liveness.redis.commandTimeout", 200*time.Millisecond,
 		"per-command Redis timeout; kept short so a slow Redis degrades to the database "+
 			"instead of holding up agent messages")
-	cmd.Flags().Duration("liveness.redis.ttl", 120*time.Second,
+	cmd.PersistentFlags().Duration("liveness.redis.ttl", 120*time.Second,
 		"how long a Redis liveness record survives unrefreshed; must exceed the 90s staleness window")
+
+	cmd.AddCommand(newConfigCommand(&opt))
 
 	return cmd
 }
@@ -330,7 +336,8 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 		opt.viper.SetConfigType("yaml")
 	}
 
-	_ = opt.viper.ReadInConfig()
+	// A missing config file is not fatal; the error is kept for `config view`.
+	opt.configReadErr = opt.viper.ReadInConfig()
 
 	// Use environment variables
 	// e.g. LOG_LEVEL=debug will set log.level to debug
