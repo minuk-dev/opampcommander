@@ -3,7 +3,7 @@
 # Multi-stage build for the Next.js standalone output. Final image carries
 # only Node.js + the prebuilt server, no source / no npm install.
 
-ARG NODE_VERSION=20-alpine
+ARG NODE_VERSION=22-alpine
 
 # --- deps: install only what the build needs ---------------------------------
 FROM node:${NODE_VERSION} AS deps
