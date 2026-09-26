@@ -160,6 +160,7 @@ func buildServerSettings(
 ) config.ServerSettings {
 	return config.ServerSettings{
 		Address:  fmt.Sprintf("0.0.0.0:%d", serverPort),
+		OpAMPTLS: config.OpAMPTLSSettings{},
 		ServerID: agentmodel.ServerID(serverID),
 		MetricsBackend: config.MetricsBackendSettings{
 			Type:          config.MetricsBackendTypeNone,

@@ -71,6 +71,8 @@ type AgentSpecRemoteConfig struct {
 
 // AgentStatus contains the observed state of the agent.
 type AgentStatus struct {
+	// ConnectionSettings reports the latest OpAMP offer application result.
+	ConnectionSettings AgentConnectionSettingsStatus `json:"connectionSettings,omitzero"`
 	// EffectiveConfig is the effective configuration of the agent.
 	EffectiveConfig AgentEffectiveConfig `json:"effectiveConfig,omitzero"`
 
@@ -98,6 +100,15 @@ type AgentStatus struct {
 	// LastReportedAt is the timestamp when the agent last reported its status.
 	LastReportedAt string `json:"lastReportedAt,omitempty"`
 } // @name AgentStatus
+
+// AgentConnectionSettingsStatus reports whether the last offered settings were applied.
+type AgentConnectionSettingsStatus struct {
+	DesiredHash                []byte `json:"desiredHash,omitempty"`
+	LastConnectionSettingsHash []byte `json:"lastConnectionSettingsHash,omitempty"`
+	Status                     string `json:"status,omitempty"`
+	Rotation                   string `json:"rotation,omitempty"`
+	ErrorMessage               string `json:"errorMessage,omitempty"`
+} // @name AgentConnectionSettingsStatus
 
 // AgentCapabilities is a bitmask representing the capabilities of the agent.
 type AgentCapabilities uint64

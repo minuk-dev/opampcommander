@@ -3,6 +3,7 @@ package opamp
 
 import (
 	"context"
+	"encoding/pem"
 	"errors"
 	"log/slog"
 	"testing"
@@ -70,6 +71,28 @@ func newTestService(t *testing.T, agentUC agentport.AgentUsecase, connUC agentpo
 		agentUsecase:      agentUC,
 		connectionUsecase: connUC,
 	}
+}
+
+func TestClientCertificateRevokedAfterOfferApplied(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	newDER := []byte("new-leaf")
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+		Certificate: &agentmodel.AgentCertificate{
+			Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: newDER}),
+		},
+	}, nil, nil, nil, nil))
+	svc := newTestService(t, &stubAgentUsecase{getResult: agent}, nil)
+	uid := agent.Metadata.InstanceUID
+	assert.True(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("old-leaf")))
+
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
+	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+
+	assert.False(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("old-leaf")))
+	assert.True(t, svc.IsClientCertificateAllowed(t.Context(), uid, newDER))
 }
 
 func aliveConn(t *testing.T, uid uuid.UUID, instanceUID uuid.UUID) *agentmodel.Connection {

@@ -2,12 +2,16 @@ package opamp_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 	"github.com/stretchr/testify/assert"
@@ -29,6 +33,11 @@ func TestMain(m *testing.M) {
 type spyUsecase struct {
 	onConnectedWithTypeCalls int
 	lastIsWebSocket          bool
+	onMessageCalls           int
+}
+
+func (s *spyUsecase) IsClientCertificateAllowed(_ context.Context, _ uuid.UUID, _ []byte) bool {
+	return true
 }
 
 func (s *spyUsecase) OnConnected(_ context.Context, _ opamptypes.Connection) {}
@@ -41,7 +50,34 @@ func (s *spyUsecase) OnConnectedWithType(_ context.Context, _ opamptypes.Connect
 func (s *spyUsecase) OnMessage(
 	_ context.Context, _ opamptypes.Connection, _ *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
+	s.onMessageCalls++
+
 	return nil
+}
+
+func TestController_ClientCertificateIdentity(t *testing.T) {
+	t.Parallel()
+
+	spy := &spyUsecase{}
+	controller := opamp.NewController(spy, slog.Default())
+	controller.RequireClientCertificate = true
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/opamp", nil)
+	assert.False(t, controller.OnConnecting(req).Accept)
+
+	uid := uuid.New()
+	cert := &x509.Certificate{Subject: pkix.Name{CommonName: uid.String()}}
+	req.TLS = &tls.ConnectionState{
+		PeerCertificates: []*x509.Certificate{cert},
+		VerifiedChains:   [][]*x509.Certificate{{cert}},
+	}
+	callbacks := controller.OnConnecting(req).ConnectionCallbacks
+	wrong := uuid.New()
+	response := callbacks.OnMessage(t.Context(), nil, &protobufs.AgentToServer{InstanceUid: wrong[:]})
+	require.NotNil(t, response.GetErrorResponse())
+	assert.Equal(t, 0, spy.onMessageCalls)
+
+	callbacks.OnMessage(t.Context(), nil, &protobufs.AgentToServer{InstanceUid: uid[:]})
+	assert.Equal(t, 1, spy.onMessageCalls)
 }
 
 func (s *spyUsecase) OnConnectionClose(_ opamptypes.Connection) {}

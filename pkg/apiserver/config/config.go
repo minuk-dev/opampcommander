@@ -16,6 +16,7 @@ import (
 // only by the composition root (database, event, cache).
 type ServerSettings struct {
 	Address            string
+	OpAMPTLS           OpAMPTLSSettings
 	ServerID           agentmodel.ServerID
 	DatabaseSettings   DatabaseSettings
 	Security           security.Config
@@ -26,6 +27,14 @@ type ServerSettings struct {
 	BootstrapSettings  BootstrapSettings
 	MetricsBackend     MetricsBackendSettings
 	RBACModelPath      string
+}
+
+// OpAMPTLSSettings enables HTTPS and client certificate authentication on the
+// OpAMP endpoint. All three paths are required when enabled.
+type OpAMPTLSSettings struct {
+	CertFile string
+	KeyFile  string
+	CAFile   string
 }
 
 // RemoteConfigSchema load policies for BootstrapSettings.RemoteConfigSchemaLoad.

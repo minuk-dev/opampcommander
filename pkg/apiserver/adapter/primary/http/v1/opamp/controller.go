@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/open-telemetry/opamp-go/protobufs"
 	opampServer "github.com/open-telemetry/opamp-go/server"
 	"github.com/open-telemetry/opamp-go/server/types"
 
@@ -21,8 +23,9 @@ type Controller struct {
 	handler     opampServer.HTTPHandlerFunc
 	ConnContext opampServer.ConnContext
 
-	opampServer       opampServer.OpAMPServer
-	enableCompression bool
+	opampServer              opampServer.OpAMPServer
+	enableCompression        bool
+	RequireClientCertificate bool
 
 	// usecases
 	opampUsecase usecase.OpAMPUsecase
@@ -46,9 +49,10 @@ func NewController(
 
 		enableCompression: false,
 
-		handler:     nil, // fill below
-		ConnContext: nil, // fill below
-		opampServer: ops,
+		handler:                  nil, // fill below
+		ConnContext:              nil, // fill below
+		opampServer:              ops,
+		RequireClientCertificate: false,
 	}
 
 	var err error
@@ -75,10 +79,37 @@ func NewController(
 func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 	c.logger.Debug("OnConnecting", slog.Any("req", req))
 
+	if c.RequireClientCertificate && (req.TLS == nil || len(req.TLS.VerifiedChains) == 0) {
+		//exhaustruct:ignore
+		return types.ConnectionResponse{Accept: false, HTTPStatusCode: http.StatusUnauthorized}
+	}
+
 	// Detect connection type based on HTTP request
 	// WebSocket connections have "Upgrade: websocket" header
 	// HTTP connections use POST method without upgrade
 	isWebSocket := req.Header.Get("Upgrade") == "websocket"
+
+	onMessage := c.opampUsecase.OnMessage
+	if c.RequireClientCertificate {
+		identity := req.TLS.PeerCertificates[0].Subject.CommonName
+		onMessage = func(
+			ctx context.Context, conn types.Connection, message *protobufs.AgentToServer,
+		) *protobufs.ServerToAgent {
+			instanceUID, err := uuid.FromBytes(message.GetInstanceUid())
+			if err != nil || instanceUID.String() != identity ||
+				!c.opampUsecase.IsClientCertificateAllowed(ctx, instanceUID, req.TLS.PeerCertificates[0].Raw) {
+				return &protobufs.ServerToAgent{
+					InstanceUid: message.GetInstanceUid(),
+					ErrorResponse: &protobufs.ServerErrorResponse{
+						Type:         protobufs.ServerErrorResponseType_ServerErrorResponseType_BadRequest,
+						ErrorMessage: "client certificate is not authorized for agent instance UID",
+					},
+				}
+			}
+
+			return c.opampUsecase.OnMessage(ctx, conn, message)
+		}
+	}
 
 	return types.ConnectionResponse{
 		Accept:             true,
@@ -88,7 +119,7 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 			OnConnected: func(ctx context.Context, conn types.Connection) {
 				c.opampUsecase.OnConnectedWithType(ctx, conn, isWebSocket)
 			},
-			OnMessage:              c.opampUsecase.OnMessage,
+			OnMessage:              onMessage,
 			OnConnectionClose:      c.opampUsecase.OnConnectionClose,
 			OnReadMessageError:     c.opampUsecase.OnReadMessageError,
 			OnMessageResponseError: c.opampUsecase.OnMessageResponseError,

@@ -4,13 +4,31 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
+
+func TestMapAgentConnectionRotationStatus(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+
+	mapper := helper.NewMapper(clock.RealClock{}, 0)
+
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
+	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+}
 
 func TestMapAPIToAgentPackage(t *testing.T) {
 	t.Parallel()

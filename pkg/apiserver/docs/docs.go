@@ -4430,6 +4430,32 @@ const docTemplate = `{
                 }
             }
         },
+        "AgentConnectionSettingsStatus": {
+            "type": "object",
+            "properties": {
+                "desiredHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "errorMessage": {
+                    "type": "string"
+                },
+                "lastConnectionSettingsHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "rotation": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "AgentCustomCapabilities": {
             "type": "object",
             "properties": {
@@ -4844,6 +4870,14 @@ const docTemplate = `{
                 "connected": {
                     "description": "Connected indicates if the agent is currently connected.",
                     "type": "boolean"
+                },
+                "connectionSettings": {
+                    "description": "ConnectionSettings reports the latest OpAMP offer application result.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentConnectionSettingsStatus"
+                        }
+                    ]
                 },
                 "connectionType": {
                     "description": "ConnectionType indicates the type of connection the agent is using.",

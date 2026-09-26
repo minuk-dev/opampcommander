@@ -62,6 +62,23 @@ definitions:
           $ref: '#/definitions/AgentConfigFile'
         type: object
     type: object
+  AgentConnectionSettingsStatus:
+    properties:
+      desiredHash:
+        items:
+          type: integer
+        type: array
+      errorMessage:
+        type: string
+      lastConnectionSettingsHash:
+        items:
+          type: integer
+        type: array
+      rotation:
+        type: string
+      status:
+        type: string
+    type: object
   AgentCustomCapabilities:
     properties:
       capabilities:
@@ -345,6 +362,11 @@ definitions:
       connected:
         description: Connected indicates if the agent is currently connected.
         type: boolean
+      connectionSettings:
+        allOf:
+        - $ref: '#/definitions/AgentConnectionSettingsStatus'
+        description: ConnectionSettings reports the latest OpAMP offer application
+          result.
       connectionType:
         description: ConnectionType indicates the type of connection the agent is
           using.

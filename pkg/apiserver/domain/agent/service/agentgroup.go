@@ -983,9 +983,11 @@ func (s *AgentGroupService) buildOpAMPConnection(
 				slog.String("certificateName", *conn.CertificateName),
 				slog.String("err", err.Error()),
 			)
-		} else {
-			result.Certificate = certificate.ToAgentCertificate()
+
+			return nil
 		}
+
+		result.Certificate = certificate.ToAgentCertificate()
 	}
 
 	return result
