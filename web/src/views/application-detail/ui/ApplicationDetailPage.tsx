@@ -3,7 +3,8 @@
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useApi, type ListResponse } from '@shared/api';
+import { useApi } from '@shared/api';
+import { useCursorPagination } from '@shared/lib';
 import { TimeDisplay } from '@shared/preferences';
 import {
   Alert,
@@ -12,6 +13,7 @@ import {
   Card,
   CardContent,
   PageHeader,
+  PaginationFooter,
   Spinner,
   Table,
   TableBody,
@@ -27,7 +29,10 @@ import type { Agent } from '@entities/agent';
 export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const application = useApi<Application>(`/api/v1/applications/${id}`);
-  const agents = useApi<ListResponse<Agent>>([`/api/v1/applications/${id}/agents`, { limit: 200 }]);
+  const agents = useCursorPagination<Agent>(`/api/v1/applications/${id}/agents`, {
+    initialPageSize: 200,
+    enabled: Boolean(id),
+  });
   const error = application.error ?? agents.error;
   if (application.isLoading)
     return (
@@ -68,7 +73,7 @@ export default function ApplicationDetailPage() {
             aria-label="Refresh"
             onClick={() => {
               void application.mutate();
-              void agents.mutate();
+              agents.refresh();
             }}
           >
             <RefreshCw aria-hidden />
@@ -117,7 +122,7 @@ export default function ApplicationDetailPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              (agents.data?.items ?? []).map((agent) => (
+              agents.items.map((agent) => (
                 <TableRow key={agent.metadata.instanceUid}>
                   <TableCell className="font-mono text-xs">
                     <Link
@@ -135,6 +140,7 @@ export default function ApplicationDetailPage() {
           </TableBody>
         </Table>
       </TableWrap>
+      <PaginationFooter pagination={agents} />
     </div>
   );
 }
