@@ -4,6 +4,7 @@ package application
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	getagent "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/agent"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -113,7 +115,23 @@ func (opt *CommandOptions) listAgents(cmd *cobra.Command, id string) error {
 		return fmt.Errorf("failed to list application agents: %w", err)
 	}
 
-	err = formatter.Format(cmd.OutOrStdout(), resp.Items, formatter.FormatType(opt.formatType))
+	return formatAgents(cmd.OutOrStdout(), resp.Items, formatter.FormatType(opt.formatType))
+}
+
+func formatAgents(writer io.Writer, agents []v1.Agent, formatType formatter.FormatType) error {
+	var err error
+
+	switch formatType {
+	case formatter.SHORT, formatter.TEXT:
+		items := lo.Map(agents, func(item v1.Agent, _ int) getagent.ItemForCLI {
+			return getagent.ToItemForCLI(item)
+		})
+		err = formatter.Format(writer, items, formatType)
+	case formatter.JSON, formatter.YAML:
+		err = formatter.Format(writer, agents, formatType)
+	default:
+		return fmt.Errorf("unsupported format type: %s, %w", formatType, ErrCommandExecutionFailed)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to format application agents: %w", err)
 	}
