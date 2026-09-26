@@ -314,6 +314,10 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes:        platformScopedIndexes(),
 		},
 		{
+			collectionName: applicationCollectionName,
+			indexes:        applicationIndexes(),
+		},
+		{
 			collectionName: serverCollectionName,
 			indexes: []mongo.IndexModel{
 				{
@@ -478,6 +482,14 @@ func platformScopedIndexes() []mongo.IndexModel {
 			Keys:    bson.D{{Key: "spec.platform", Value: 1}},
 			Options: nil,
 		},
+	}
+}
+
+func applicationIndexes() []mongo.IndexModel {
+	return []mongo.IndexModel{
+		{Keys: bson.D{{Key: "metadata.id", Value: 1}}, Options: options.Index().SetUnique(true)},
+		nameSearchIndex(),
+		{Keys: bson.D{{Key: "spec.namespace", Value: 1}}, Options: nil},
 	}
 }
 

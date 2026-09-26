@@ -36,6 +36,7 @@ type Service struct {
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase
 	hostUsecase              agentport.HostUsecase
 	containerUsecase         agentport.ContainerUsecase
+	applicationUsecase       agentport.ApplicationUsecase
 	serverIdentityProvider   agentport.ServerIdentityProvider
 	serverToAgentBuilder     *agentservice.ServerToAgentBuilder
 
@@ -60,6 +61,7 @@ func New(
 	agentRemoteConfigUsecase agentport.AgentRemoteConfigUsecase,
 	hostUsecase agentport.HostUsecase,
 	containerUsecase agentport.ContainerUsecase,
+	applicationUsecase agentport.ApplicationUsecase,
 	customMessageRegistry *CustomMessageRegistry,
 	logger *slog.Logger,
 ) *Service {
@@ -75,6 +77,7 @@ func New(
 		agentRemoteConfigUsecase: agentRemoteConfigUsecase,
 		hostUsecase:              hostUsecase,
 		containerUsecase:         containerUsecase,
+		applicationUsecase:       applicationUsecase,
 		customMessageRegistry:    customMessageRegistry,
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
@@ -663,6 +666,11 @@ func (s *Service) observeEnvironment(
 	containerErr := s.containerUsecase.ObserveAgent(ctx, agent)
 	if containerErr != nil {
 		logger.Error("failed to observe container for agent", slog.String("error", containerErr.Error()))
+	}
+
+	err := s.applicationUsecase.ObserveAgent(ctx, agent)
+	if err != nil {
+		logger.Error("failed to observe application for agent", slog.String("error", err.Error()))
 	}
 }
 

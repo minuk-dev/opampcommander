@@ -26,6 +26,8 @@ var (
 	CertificateSelectableFields = agentmodel.CertificateSelectableFields
 	// ContainerSelectableFields are the fields a container listing can be filtered on.
 	ContainerSelectableFields = agentmodel.ContainerSelectableFields
+	// ApplicationSelectableFields are the fields an application listing can be filtered on.
+	ApplicationSelectableFields = agentmodel.ApplicationSelectableFields
 	// EndpointSelectableFields are the fields an endpoint listing can be filtered on.
 	EndpointSelectableFields = agentmodel.EndpointSelectableFields
 	// HostSelectableFields are the fields a host listing can be filtered on.

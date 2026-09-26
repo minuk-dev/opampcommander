@@ -399,6 +399,10 @@ var (
 			"spec.platform": {path: "spec.platform", kind: fieldString},
 		},
 	}
+	applicationSelectorSchema = selectorSchema{
+		labelPath: "metadata.labels", additionalLabelPath: "", labelStorage: labelsMap, namePath: "metadata.name",
+		fields: map[string]fieldSpec{"spec.namespace": {path: "spec.namespace", kind: fieldString}},
+	}
 	endpointSelectorSchema = selectorSchema{
 		labelPath:           "metadata.attributes",
 		additionalLabelPath: "",

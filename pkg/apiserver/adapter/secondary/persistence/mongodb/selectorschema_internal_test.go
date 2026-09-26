@@ -34,6 +34,7 @@ func TestSelectorSchemasCoverTheDomainAllowlists(t *testing.T) {
 		{"agentremoteconfig", agentRemoteConfigSelectorSchema, agentmodel.AgentRemoteConfigSelectableFields, true},
 		{"certificate", certificateSelectorSchema, agentmodel.CertificateSelectableFields, true},
 		{"container", containerSelectorSchema, agentmodel.ContainerSelectableFields, true},
+		{"application", applicationSelectorSchema, agentmodel.ApplicationSelectableFields, true},
 		{"endpoint", endpointSelectorSchema, agentmodel.EndpointSelectableFields, true},
 		{"host", hostSelectorSchema, agentmodel.HostSelectableFields, true},
 		{"namespace", namespaceSelectorSchema, agentmodel.NamespaceSelectableFields, true},

@@ -22,6 +22,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentpackage"
 	agentremoteconfigcontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentremoteconfig"
+	applicationcontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/application"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/container"
@@ -88,6 +89,7 @@ func NewHTTP() fx.Option {
 			AsController(certificate.NewController),
 			AsController(host.NewController),
 			AsController(container.NewController),
+			AsController(applicationcontroller.NewController),
 			AsController(server.NewController),
 			AsController(user.NewController),
 			AsController(role.NewController),

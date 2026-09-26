@@ -366,6 +366,62 @@ definitions:
           message.
         type: integer
     type: object
+  Application:
+    properties:
+      apiVersion:
+        type: string
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ApplicationMetadata'
+      spec:
+        $ref: '#/definitions/ApplicationSpec'
+      status:
+        $ref: '#/definitions/ApplicationStatus'
+    type: object
+  ApplicationMetadata:
+    properties:
+      annotations:
+        additionalProperties:
+          type: string
+        type: object
+      firstSeenAt:
+        type: string
+      id:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      lastSeenAt:
+        type: string
+      name:
+        type: string
+    type: object
+  ApplicationSpec:
+    properties:
+      agentType:
+        type: string
+      name:
+        type: string
+      namespace:
+        type: string
+      versions:
+        items:
+          type: string
+        type: array
+    type: object
+  ApplicationStatus:
+    properties:
+      agentInstanceUids:
+        items:
+          type: string
+        type: array
+      conditions:
+        items:
+          $ref: '#/definitions/Condition'
+        type: array
+    type: object
   AuthnTokenResponse:
     properties:
       expiresAt:
@@ -984,6 +1040,19 @@ definitions:
       items:
         items:
           $ref: '#/definitions/AgentRemoteConfig'
+        type: array
+      kind:
+        type: string
+      metadata:
+        $ref: '#/definitions/ListMeta'
+    type: object
+  ListResponse-Application:
+    properties:
+      apiVersion:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/Application'
         type: array
       kind:
         type: string
@@ -1725,6 +1794,129 @@ info:
   title: OpAMP Commander API Server
   version: "1.0"
 paths:
+  /api/v1/applications:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of discovered applications.
+      parameters:
+      - description: Maximum number of applications to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing applications
+        in: query
+        name: continue
+        type: string
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: spec.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Application'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Applications
+      tags:
+      - application
+  /api/v1/applications/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a discovered application by its ID.
+      parameters:
+      - description: Application ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Application'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: Get Application
+      tags:
+      - application
+  /api/v1/applications/{id}/agents:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the agents running in a discovered application.
+      parameters:
+      - description: Application ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Maximum number of agents to return
+        in: query
+        name: limit
+        type: integer
+      - description: Token to continue listing agents
+        in: query
+        name: continue
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListResponse-Agent'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/ErrorModel'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/ErrorModel'
+      summary: List Application Agents
+      tags:
+      - application
   /api/v1/auth/basic:
     get:
       consumes:

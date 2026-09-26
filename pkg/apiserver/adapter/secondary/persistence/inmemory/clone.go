@@ -56,6 +56,22 @@ func cloneContainer(container *agentmodel.Container) *agentmodel.Container {
 	return &cloned
 }
 
+func cloneApplication(application *agentmodel.Application) *agentmodel.Application {
+	if application == nil {
+		return nil
+	}
+
+	cloned := *application
+	cloned.Metadata.Labels = maps.Clone(application.Metadata.Labels)
+	cloned.Metadata.Annotations = maps.Clone(application.Metadata.Annotations)
+	cloned.Spec.Versions = slices.Clone(application.Spec.Versions)
+	cloned.Status.AgentInstanceUIDs = slices.Clone(application.Status.AgentInstanceUIDs)
+	cloned.Status.AgentVersions = maps.Clone(application.Status.AgentVersions)
+	cloned.Status.Conditions = slices.Clone(application.Status.Conditions)
+
+	return &cloned
+}
+
 func cloneStringPtr(str *string) *string {
 	if str == nil {
 		return nil
