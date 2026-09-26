@@ -132,6 +132,7 @@ func formatAgents(writer io.Writer, agents []v1.Agent, formatType formatter.Form
 	default:
 		return fmt.Errorf("unsupported format type: %s, %w", formatType, ErrCommandExecutionFailed)
 	}
+
 	if err != nil {
 		return fmt.Errorf("failed to format application agents: %w", err)
 	}
