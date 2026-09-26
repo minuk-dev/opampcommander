@@ -39,15 +39,16 @@ type ApplicationSpec struct {
 }
 
 type ApplicationResourceStatus struct {
-	AgentInstanceUIDs []string    `bson:"agentInstanceUids,omitempty"`
-	Conditions        []Condition `bson:"conditions,omitempty"`
+	AgentInstanceUIDs []string          `bson:"agentInstanceUids,omitempty"`
+	AgentVersions     map[string]string `bson:"agentVersions,omitempty"`
+	Conditions        []Condition       `bson:"conditions,omitempty"`
 }
 
 func (a *Application) ToDomain() *agentmodel.Application {
 	return &agentmodel.Application{
 		Metadata: agentmodel.ApplicationMetadata{ID: a.Metadata.ID, Name: a.Metadata.Name, Labels: a.Metadata.Labels, Annotations: a.Metadata.Annotations, ResourceVersion: a.Metadata.ResourceVersion, FirstSeenAt: a.Metadata.FirstSeenAt, LastSeenAt: a.Metadata.LastSeenAt},
 		Spec:     agentmodel.ApplicationSpec{Namespace: a.Spec.Namespace, Name: a.Spec.Name, Versions: a.Spec.Versions, AgentType: agent.Type(a.Spec.AgentType)},
-		Status:   agentmodel.ApplicationStatus{AgentInstanceUIDs: parseUUIDs(a.Status.AgentInstanceUIDs), Conditions: lo.Map(a.Status.Conditions, func(c Condition, _ int) model.Condition { return c.ToDomain() })},
+		Status:   agentmodel.ApplicationStatus{AgentInstanceUIDs: parseUUIDs(a.Status.AgentInstanceUIDs), AgentVersions: a.Status.AgentVersions, Conditions: lo.Map(a.Status.Conditions, func(c Condition, _ int) model.Condition { return c.ToDomain() })},
 	}
 }
 
@@ -56,6 +57,6 @@ func ApplicationFromDomain(a *agentmodel.Application) *Application {
 		Common:   Common{Version: VersionV1, ID: nil},
 		Metadata: ApplicationMetadata{ID: a.Metadata.ID, Name: a.Metadata.Name, Labels: a.Metadata.Labels, Annotations: a.Metadata.Annotations, ResourceVersion: a.Metadata.ResourceVersion, FirstSeenAt: a.Metadata.FirstSeenAt, LastSeenAt: a.Metadata.LastSeenAt},
 		Spec:     ApplicationSpec{Namespace: a.Spec.Namespace, Name: a.Spec.Name, Versions: a.Spec.Versions, AgentType: string(a.Spec.AgentType)},
-		Status:   ApplicationResourceStatus{AgentInstanceUIDs: formatUUIDs(a.Status.AgentInstanceUIDs), Conditions: lo.Map(a.Status.Conditions, func(c model.Condition, _ int) Condition { return NewConditionFromDomain(c) })},
+		Status:   ApplicationResourceStatus{AgentInstanceUIDs: formatUUIDs(a.Status.AgentInstanceUIDs), AgentVersions: a.Status.AgentVersions, Conditions: lo.Map(a.Status.Conditions, func(c model.Condition, _ int) Condition { return NewConditionFromDomain(c) })},
 	}
 }

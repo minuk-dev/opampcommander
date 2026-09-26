@@ -64,7 +64,7 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // @Param limit query int false "Maximum number of applications to return"
 // @Param continue query string false "Token to continue listing applications"
 // @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
-// @Param fieldSelector query string false "Field selector over the supported fields: spec.platform"
+// @Param fieldSelector query string false "Field selector over the supported fields: spec.namespace"
 // @Param name query string false "Case-sensitive name prefix filter"
 // @Param nameContains query string false "Case-insensitive name substring filter (scan; pass name= to bound it)"
 // @Failure 400 {object} ErrorModel

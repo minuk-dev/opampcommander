@@ -66,6 +66,7 @@ func cloneApplication(application *agentmodel.Application) *agentmodel.Applicati
 	cloned.Metadata.Annotations = maps.Clone(application.Metadata.Annotations)
 	cloned.Spec.Versions = slices.Clone(application.Spec.Versions)
 	cloned.Status.AgentInstanceUIDs = slices.Clone(application.Status.AgentInstanceUIDs)
+	cloned.Status.AgentVersions = maps.Clone(application.Status.AgentVersions)
 	cloned.Status.Conditions = slices.Clone(application.Status.Conditions)
 
 	return &cloned

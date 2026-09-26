@@ -3,6 +3,7 @@ package agentmodel
 import (
 	"encoding/base64"
 	"slices"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,6 +42,7 @@ type ApplicationSpec struct {
 // ApplicationStatus contains observed application state.
 type ApplicationStatus struct {
 	AgentInstanceUIDs []uuid.UUID
+	AgentVersions     map[string]string
 	Conditions        []model.Condition
 }
 
@@ -80,12 +82,33 @@ func (a *Application) ObserveAgent(instanceUID uuid.UUID, desc agent.Description
 	a.Spec.Name = service.Name
 	a.Spec.AgentType = desc.AgentType()
 
-	if service.Version != "" && !slices.Contains(a.Spec.Versions, service.Version) {
-		a.Spec.Versions = append(a.Spec.Versions, service.Version)
+	if a.Status.AgentVersions == nil {
+		a.Status.AgentVersions = make(map[string]string)
 	}
+
+	a.Status.AgentVersions[instanceUID.String()] = service.Version
+	a.Spec.Versions = currentApplicationVersions(a.Status.AgentVersions)
 
 	a.Metadata.LastSeenAt = now
 	if !slices.Contains(a.Status.AgentInstanceUIDs, instanceUID) {
 		a.Status.AgentInstanceUIDs = append(a.Status.AgentInstanceUIDs, instanceUID)
 	}
+}
+
+func currentApplicationVersions(agentVersions map[string]string) []string {
+	unique := make(map[string]struct{}, len(agentVersions))
+	for _, version := range agentVersions {
+		if version != "" {
+			unique[version] = struct{}{}
+		}
+	}
+
+	versions := make([]string, 0, len(unique))
+	for version := range unique {
+		versions = append(versions, version)
+	}
+
+	sort.Strings(versions)
+
+	return versions
 }

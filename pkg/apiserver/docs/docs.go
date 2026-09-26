@@ -50,7 +50,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Field selector over the supported fields: spec.platform",
+                        "description": "Field selector over the supported fields: spec.namespace",
                         "name": "fieldSelector",
                         "in": "query"
                     },

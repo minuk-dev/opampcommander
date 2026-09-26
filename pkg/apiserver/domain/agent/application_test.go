@@ -47,12 +47,12 @@ func TestApplicationObserveAgent(t *testing.T) {
 		"service.namespace": "payments", "service.name": "api", "service.version": "1.1.0",
 	}}, now.Add(time.Minute))
 	application.ObserveAgent(first, agent.Description{IdentifyingAttributes: map[string]string{
-		"service.namespace": "payments", "service.name": "api", "service.version": "1.0.0",
+		"service.namespace": "payments", "service.name": "api", "service.version": "1.1.0",
 	}}, now.Add(2*time.Minute))
 
 	assert.Equal(t, "api", application.Metadata.Name)
 	assert.Equal(t, "payments", application.Spec.Namespace)
-	assert.Equal(t, []string{"1.0.0", "1.1.0"}, application.Spec.Versions)
+	assert.Equal(t, []string{"1.1.0"}, application.Spec.Versions)
 	assert.Equal(t, []uuid.UUID{first, second}, application.Status.AgentInstanceUIDs)
 	assert.Equal(t, now.Add(2*time.Minute), application.Metadata.LastSeenAt)
 }
