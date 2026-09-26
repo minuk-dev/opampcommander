@@ -2,6 +2,7 @@
 
 import {
   Boxes,
+  AppWindow,
   Cable,
   CircleUser,
   Container,
@@ -97,6 +98,11 @@ const sections: NavSection[] = [
         text: 'Platform',
         icon: Layers,
         href: '/platform',
+      },
+      {
+        text: 'Applications',
+        icon: AppWindow,
+        href: '/applications',
       },
       {
         text: 'Agent Packages',
