@@ -2,6 +2,7 @@
 package helper
 
 import (
+	"bytes"
 	"maps"
 	"time"
 
@@ -182,6 +183,19 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo),
 		},
 		Status: v1.AgentStatus{
+			ConnectionSettings: v1.AgentConnectionSettingsStatus{
+				DesiredHash: func() []byte {
+					if agent.Spec.ConnectionInfo == nil {
+						return nil
+					}
+
+					return agent.Spec.ConnectionInfo.Hash.Bytes()
+				}(),
+				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
+				Status:                     connectionSettingsStatusName(agent.Status.ConnectionSettingsStatus.Status),
+				Rotation:                   connectionRotationStatus(agent),
+				ErrorMessage:               agent.Status.ConnectionSettingsStatus.ErrorMessage,
+			},
 			EffectiveConfig: v1.AgentEffectiveConfig{
 				ConfigMap: v1.AgentConfigMap{
 					ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
@@ -212,6 +226,43 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 			LastReportedAt: mapper.formatTime(agent.Status.LastReportedAt),
 		},
 	}
+}
+
+const connectionStatusUnset = "unset"
+
+func connectionSettingsStatusName(status agentmodel.ConnectionSettingsStatus) string {
+	switch status {
+	case agentmodel.ConnectionSettingsStatusUnset:
+		return connectionStatusUnset
+	case agentmodel.ConnectionSettingsStatusApplied:
+		return "applied"
+	case agentmodel.ConnectionSettingsStatusApplying:
+		return "applying"
+	case agentmodel.ConnectionSettingsStatusFailed:
+		return "failed"
+	default:
+		return connectionStatusUnset
+	}
+}
+
+func connectionRotationStatus(agent *agentmodel.Agent) string {
+	if agent.Spec.ConnectionInfo == nil || !agent.Spec.ConnectionInfo.HasConnectionSettings() {
+		return connectionStatusUnset
+	}
+
+	if agent.Status.ConnectionSettingsStatus.Status == agentmodel.ConnectionSettingsStatusFailed {
+		return "failed"
+	}
+
+	if agent.Status.ConnectionSettingsStatus.Status == agentmodel.ConnectionSettingsStatusApplied &&
+		bytes.Equal(
+			agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
+			agent.Spec.ConnectionInfo.Hash.Bytes(),
+		) {
+		return "applied"
+	}
+
+	return "pending"
 }
 
 // MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.

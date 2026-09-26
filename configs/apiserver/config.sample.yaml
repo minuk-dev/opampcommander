@@ -1,4 +1,11 @@
 address: localhost:8080
+# Optional mTLS for /api/v1/opamp. The whole API uses HTTPS when configured;
+# only OpAMP requires a client certificate. Client certificate CN must equal
+# the agent instance UID. Certificate resources can use this CA to rotate keys.
+# opampTLS:
+#   certFile: /etc/opampcommander/tls/server.crt
+#   keyFile: /etc/opampcommander/tls/server.key
+#   caFile: /etc/opampcommander/tls/agent-ca.crt
 bootstrap:
   # Directory of initial manifest YAML files reconciled into persistence on startup
   # (declarative / full overwrite). Edit these files or point `dir` elsewhere to

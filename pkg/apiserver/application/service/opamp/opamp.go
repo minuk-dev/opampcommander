@@ -2,7 +2,10 @@
 package opamp
 
 import (
+	"bytes"
 	"context"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -17,10 +20,38 @@ import (
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
+
+// IsClientCertificateAllowed keeps the previous CA-signed certificate usable
+// until the agent reports the new offer applied. Thereafter only the offered
+// leaf can authenticate that agent identity.
+func (s *Service) IsClientCertificateAllowed(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
+	agent, err := s.agentUsecase.GetAgent(ctx, uid)
+	if errors.Is(err, model.ErrResourceNotExist) {
+		return true // First registration with an externally issued certificate.
+	}
+
+	if err != nil {
+		s.logger.Warn("cannot validate agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+
+		return false
+	}
+
+	info := agent.Spec.ConnectionInfo
+	if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil ||
+		agent.Status.ConnectionSettingsStatus.Status != agentmodel.ConnectionSettingsStatusApplied ||
+		!bytes.Equal(agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash, info.Hash.Bytes()) {
+		return true
+	}
+
+	block, _ := pem.Decode(info.OpAMP().Certificate.Cert)
+
+	return block != nil && bytes.Equal(block.Bytes, certDER)
+}
 
 const (
 	// DefaultOnConnectionCloseTimeout is the default timeout for closing a connection.

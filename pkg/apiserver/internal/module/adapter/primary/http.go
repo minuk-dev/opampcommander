@@ -2,11 +2,14 @@ package primary
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -39,6 +42,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/server"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/version"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
@@ -62,7 +66,9 @@ const (
 
 var (
 	//nolint:gochecknoglobals // Swagger global variable is initialized once to prevent race conditions
-	swaggerOnce sync.Once
+	swaggerOnce           sync.Once
+	errIncompleteOpAMPTLS = errors.New("opampTLS requires certFile, keyFile, and caFile")
+	errInvalidOpAMPCA     = errors.New("opampTLS caFile contains no certificates")
 )
 
 // NewHTTP provides the HTTP server, the Gin engine, and every controller registered into it.
@@ -101,7 +107,12 @@ func NewHTTP() fx.Option {
 			// connection context, so it is provided plainly and then added to the
 			// group via a pass-through (fx.Self() can't be used here: ResultTags
 			// would also tag the concrete output, hiding it from connContext).
-			opamp.NewController,
+			func(opampUsecase usecase.OpAMPUsecase, logger *slog.Logger, settings *config.ServerSettings) *opamp.Controller {
+				controller := opamp.NewController(opampUsecase, logger)
+				controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != ""
+
+				return controller
+			},
 			fx.Annotate(
 				func(c *opamp.Controller) Controller { return c },
 				fx.ResultTags(`group:"controllers"`),
@@ -134,6 +145,13 @@ func NewHTTPServer(
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
+			tlsConfig, err := loadOpAMPTLS(settings.OpAMPTLS)
+			if err != nil {
+				return err
+			}
+
+			srv.TLSConfig = tlsConfig
+
 			//exhaustruct:ignore
 			listenConfig := &net.ListenConfig{}
 
@@ -146,6 +164,9 @@ func NewHTTPServer(
 				slog.String("addr", settings.Address),
 			)
 
+			if srv.TLSConfig != nil {
+				listener = tls.NewListener(listener, srv.TLSConfig)
+			}
 			go func() {
 				err := srv.Serve(listener)
 				if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -163,6 +184,38 @@ func NewHTTPServer(
 	})
 
 	return srv
+}
+
+func loadOpAMPTLS(settings config.OpAMPTLSSettings) (*tls.Config, error) {
+	if settings.CertFile == "" && settings.KeyFile == "" && settings.CAFile == "" {
+		//nolint:nilnil // A nil TLS config is the existing plain HTTP mode.
+		return nil, nil
+	}
+
+	if settings.CertFile == "" || settings.KeyFile == "" || settings.CAFile == "" {
+		return nil, errIncompleteOpAMPTLS
+	}
+
+	certificate, err := tls.LoadX509KeyPair(settings.CertFile, settings.KeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("load OpAMP TLS server certificate: %w", err)
+	}
+
+	caPEM, err := os.ReadFile(settings.CAFile)
+	if err != nil {
+		return nil, fmt.Errorf("read OpAMP client CA: %w", err)
+	}
+
+	clientCAs := x509.NewCertPool()
+	if !clientCAs.AppendCertsFromPEM(caPEM) {
+		return nil, errInvalidOpAMPCA
+	}
+
+	//exhaustruct:ignore
+	return &tls.Config{
+		MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{certificate},
+		ClientCAs: clientCAs, ClientAuth: tls.VerifyClientCertIfGiven,
+	}, nil
 }
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.

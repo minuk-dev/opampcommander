@@ -799,10 +799,10 @@ func (ci *ConnectionInfo) HasConnectionSettings() bool {
 		return false
 	}
 
-	return ci.opamp.DestinationEndpoint != "" ||
-		ci.ownMetrics.DestinationEndpoint != "" ||
-		ci.ownLogs.DestinationEndpoint != "" ||
-		ci.ownTraces.DestinationEndpoint != "" ||
+	return ci.opamp.HasEndpoint() ||
+		ci.ownMetrics.HasEndpoint() ||
+		ci.ownLogs.HasEndpoint() ||
+		ci.ownTraces.HasEndpoint() ||
 		len(ci.otherConnections) > 0
 }
 
