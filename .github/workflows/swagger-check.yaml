@@ -44,3 +44,11 @@ jobs:
           else
             echo "✅ Swagger documentation is up to date."
           fi
+
+      - name: Check for breaking OpenAPI changes
+        if: github.event_name == 'pull_request'
+        uses: oasdiff/oasdiff-action/breaking@v0
+        with:
+          base: '${{ github.event.pull_request.base.sha }}:pkg/apiserver/docs/swagger.yaml'
+          revision: 'pkg/apiserver/docs/swagger.yaml'
+          fail-on: WARN

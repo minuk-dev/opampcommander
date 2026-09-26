@@ -130,7 +130,22 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
 changelog:
+  use: github
+  abbrev: -1
+  format: "{{.Message}}{{ if .Logins }} ({{ .Logins | englishJoin }}){{ end }}"
   sort: asc
+  groups:
+    - title: Breaking changes
+      regexp: '^.+!:.+$'
+      order: 0
+    - title: Features
+      regexp: '^feat(\([^)]+\))?:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^fix(\([^)]+\))?:.+$'
+      order: 2
+    - title: Other changes
+      order: 999
   filters:
     exclude:
       - "^docs:"
