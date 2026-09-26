@@ -198,7 +198,7 @@ func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	}
 
 	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ItemForCLI {
-		return toShortItemForCLI(*a.Agent)
+		return ToItemForCLI(*a.Agent)
 	})
 
 	err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
@@ -377,7 +377,7 @@ func (opt *CommandOptions) formatAgents(cmd *cobra.Command, agents []v1.Agent) e
 	switch formatType := formatter.FormatType(opt.formatType); formatType {
 	case formatter.SHORT, formatter.TEXT:
 		displayedAgents := lo.Map(agents, func(agent v1.Agent, _ int) ItemForCLI {
-			return toShortItemForCLI(agent)
+			return ToItemForCLI(agent)
 		})
 
 		err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatType)
@@ -431,7 +431,8 @@ func decodeAgentCapabilities(agents []v1.Agent) []map[string]any {
 	return result
 }
 
-func toShortItemForCLI(agent v1.Agent) ItemForCLI {
+// ToItemForCLI converts an API agent to the shared CLI table representation.
+func ToItemForCLI(agent v1.Agent) ItemForCLI {
 	var startedAt string
 	if !agent.Status.ComponentHealth.StartTime.IsZero() {
 		startedAt = agent.Status.ComponentHealth.StartTime.Format(time.DateTime)
