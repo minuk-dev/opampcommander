@@ -1,0 +1,39 @@
+name: load test
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run small standalone scenario
+        run: |
+          go run ./cmd/apiserver/main.go --config ./configs/apiserver/standalone.yaml > server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://localhost:8080/api/v1/ping > /dev/null; then break; fi
+            echo "Waiting for server ($attempt/90)"
+            sleep 1
+          done
+          curl --fail --silent http://localhost:8080/api/v1/ping > /dev/null
+          go run ./cmd/loadtest -count 50 -rate 10 -duration 90s -report-interval 10s \
+            -churn-interval 5s -ops-interval 15s -username admin -password admin \
+            -output loadtest-result.json
+      - name: Upload results and server log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loadtest-${{ github.run_id }}
+          path: |
+            loadtest-result.json
+            server.log
+          if-no-files-found: warn

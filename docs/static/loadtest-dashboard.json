@@ -1,0 +1,40 @@
+{
+  "title": "OpAMP Commander fleet load",
+  "uid": "opamp-fleet-load",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Server memory used",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [{ "expr": "go_memory_used_bytes", "legendFormat": "{{instance}}" }],
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "title": "Server goroutines",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [{ "expr": "go_goroutine_count", "legendFormat": "{{instance}}" }]
+    },
+    {
+      "id": 3,
+      "title": "Liveness writes per second",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (instance) (rate(opampcommander_agent_liveness_written_total[5m]))", "legendFormat": "{{instance}}" }]
+    },
+    {
+      "id": 4,
+      "title": "Liveness absorbed per second",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (instance) (rate(opampcommander_agent_liveness_absorbed_total[5m]))", "legendFormat": "{{instance}}" }]
+    }
+  ]
+}

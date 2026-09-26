@@ -12,6 +12,24 @@ linters:
       - "pkg/apiserver/docs/docs.go" # Generated file for Swagger documentation
       - "web/*" # web is not managed go directory
     rules:
+      # The load generator is an executable test harness. Keep its JSON results
+      # stable and its scenario loop in one place instead of splitting for style.
+      - path: cmd/loadtest/
+        linters:
+          - contextcheck # cleanup and final scrapes run after the scenario context expires
+          - cyclop
+          - err113
+          - funlen
+          - gocognit
+          - gocyclo
+          - lll
+          - maintidx
+          - mnd
+          - nlreturn
+          - noinlineerr
+          - tagliatelle
+          - varnamelen
+          - wsl_v5
       # The MongoDB adapter is written in MongoDB's own vocabulary — "$match",
       # "metadata.deletedAt", "hashed". Hoisting those into Go constants names
       # nothing the reader did not already know and moves each term away from the
@@ -107,6 +125,7 @@ linters:
             - github.com/google/uuid
             # OpAMP
             - github.com/open-telemetry/opamp-go/protobufs
+            - github.com/open-telemetry/opamp-go/client
             - github.com/open-telemetry/opamp-go/server
             # Database
             - github.com/redis/go-redis/v9
@@ -157,6 +176,7 @@ linters:
             - github.com/prometheus/client_golang/api
             - github.com/prometheus/client_golang/api/prometheus/v1
             - github.com/prometheus/common/model
+            - github.com/prometheus/common/expfmt
             - go.opentelemetry.io/contrib/instrumentation/runtime
             - go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp
             - github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client
