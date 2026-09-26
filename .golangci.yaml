@@ -19,6 +19,7 @@ linters:
           - contextcheck # cleanup and final scrapes run after the scenario context expires
           - cyclop
           - err113
+          - exhaustruct_v5 # scenario and protocol DTOs intentionally use only required fields
           - funlen
           - gocognit
           - gocyclo
