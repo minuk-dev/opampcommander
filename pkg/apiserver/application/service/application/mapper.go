@@ -1,3 +1,4 @@
+//nolint:lll // API mapping is intentionally field-for-field.
 package application
 
 import (
@@ -13,8 +14,8 @@ func mapApplicationToAPI(application *agentmodel.Application) *v1.Application {
 	return &v1.Application{
 		Kind: v1.ApplicationKind, APIVersion: v1.APIVersion,
 		Metadata: v1.ApplicationMetadata{ID: application.Metadata.ID, Name: application.Metadata.Name, Labels: application.Metadata.Labels, Annotations: application.Metadata.Annotations, FirstSeenAt: v1.NewTime(application.Metadata.FirstSeenAt), LastSeenAt: v1.NewTime(application.Metadata.LastSeenAt)},
-		Spec: v1.ApplicationSpec{Namespace: application.Spec.Namespace, Name: application.Spec.Name, Versions: application.Spec.Versions, AgentType: string(application.Spec.AgentType)},
-		Status: v1.ApplicationStatus{AgentInstanceUIDs: lo.Map(application.Status.AgentInstanceUIDs, func(id uuid.UUID, _ int) string { return id.String() }), Conditions: mapConditionsToAPI(application.Status.Conditions)},
+		Spec:     v1.ApplicationSpec{Namespace: application.Spec.Namespace, Name: application.Spec.Name, Versions: application.Spec.Versions, AgentType: string(application.Spec.AgentType)},
+		Status:   v1.ApplicationStatus{AgentInstanceUIDs: lo.Map(application.Status.AgentInstanceUIDs, func(id uuid.UUID, _ int) string { return id.String() }), Conditions: mapConditionsToAPI(application.Status.Conditions)},
 	}
 }
 

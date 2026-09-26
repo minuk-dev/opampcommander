@@ -166,8 +166,14 @@ func (c *Container) SelectorValues() model.SelectorValues {
 	}
 }
 
+// SelectorValues returns application values used by server-side selectors.
 func (a *Application) SelectorValues() model.SelectorValues {
-	return model.SelectorValues{Name: a.Metadata.Name, Labels: a.Metadata.Labels, Fields: map[string]string{"spec.namespace": a.Spec.Namespace}}
+	return model.SelectorValues{
+		Name:             a.Metadata.Name,
+		Labels:           a.Metadata.Labels,
+		AdditionalLabels: nil,
+		Fields:           map[string]string{"spec.namespace": a.Spec.Namespace},
+	}
 }
 
 // SelectorValues returns the projection server-side selectors filter endpoints

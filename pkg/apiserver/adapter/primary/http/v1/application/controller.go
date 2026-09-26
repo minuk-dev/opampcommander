@@ -78,7 +78,9 @@ func (c *Controller) List(ctx *gin.Context) {
 		return
 	}
 
-	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, applicationport.ApplicationSelectableFields)
+	selectors, ok := ginutil.ParseSelectors(
+		ctx, ginutil.LabelMetadataSelector, applicationport.ApplicationSelectableFields,
+	)
 	if !ok {
 		return
 	}

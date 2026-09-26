@@ -19,6 +19,7 @@ type Application struct {
 	Status   ApplicationStatus
 }
 
+// ApplicationMetadata contains identity and lifecycle information.
 type ApplicationMetadata struct {
 	ID              string
 	Name            string
@@ -37,6 +38,7 @@ type ApplicationSpec struct {
 	AgentType agent.Type
 }
 
+// ApplicationStatus contains observed application state.
 type ApplicationStatus struct {
 	AgentInstanceUIDs []uuid.UUID
 	Conditions        []model.Condition
@@ -53,12 +55,20 @@ func ApplicationIDOf(desc agent.Description) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(service.Namespace + "\x00" + service.Name))
 }
 
+// NewApplication creates an empty discovered application.
 func NewApplication(id string, now time.Time) *Application {
 	return &Application{
 		Metadata: ApplicationMetadata{
-			ID: id, Labels: make(map[string]string), Annotations: make(map[string]string),
-			FirstSeenAt: now, LastSeenAt: now,
+			ID:              id,
+			Name:            "",
+			Labels:          make(map[string]string),
+			Annotations:     make(map[string]string),
+			ResourceVersion: 0,
+			FirstSeenAt:     now,
+			LastSeenAt:      now,
 		},
+		Spec:   ApplicationSpec{},
+		Status: ApplicationStatus{},
 	}
 }
 
@@ -69,9 +79,11 @@ func (a *Application) ObserveAgent(instanceUID uuid.UUID, desc agent.Description
 	a.Spec.Namespace = service.Namespace
 	a.Spec.Name = service.Name
 	a.Spec.AgentType = desc.AgentType()
+
 	if service.Version != "" && !slices.Contains(a.Spec.Versions, service.Version) {
 		a.Spec.Versions = append(a.Spec.Versions, service.Version)
 	}
+
 	a.Metadata.LastSeenAt = now
 	if !slices.Contains(a.Status.AgentInstanceUIDs, instanceUID) {
 		a.Status.AgentInstanceUIDs = append(a.Status.AgentInstanceUIDs, instanceUID)

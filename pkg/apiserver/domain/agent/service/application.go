@@ -1,3 +1,4 @@
+//nolint:dupl // Discovery services intentionally follow the same aggregate pattern.
 package agentservice
 
 import (

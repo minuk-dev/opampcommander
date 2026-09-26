@@ -1,3 +1,4 @@
+//nolint:lll // Table cases keep input and expected identity together.
 package agentmodel_test
 
 import (

@@ -365,6 +365,7 @@ type ContainerPersistencePort interface {
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Container], error)
 }
 
+// ApplicationPersistencePort persists discovered applications.
 type ApplicationPersistencePort interface {
 	GetApplication(ctx context.Context, id string) (*agentmodel.Application, error)
 	PutApplication(ctx context.Context, application *agentmodel.Application) (*agentmodel.Application, error)

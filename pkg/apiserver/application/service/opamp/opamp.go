@@ -668,7 +668,8 @@ func (s *Service) observeEnvironment(
 		logger.Error("failed to observe container for agent", slog.String("error", containerErr.Error()))
 	}
 
-	if err := s.applicationUsecase.ObserveAgent(ctx, agent); err != nil {
+	err := s.applicationUsecase.ObserveAgent(ctx, agent)
+	if err != nil {
 		logger.Error("failed to observe application for agent", slog.String("error", err.Error()))
 	}
 }

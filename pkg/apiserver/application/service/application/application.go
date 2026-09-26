@@ -25,12 +25,12 @@ var _ usecase.ApplicationManageUsecase = (*Service)(nil)
 // Service implements the ApplicationManageUsecase interface.
 type Service struct {
 	applicationUsecase agentport.ApplicationUsecase
-	agentUsecase     agentport.AgentUsecase
-	mapper           *helper.Mapper
-	logger           *slog.Logger
+	agentUsecase       agentport.AgentUsecase
+	mapper             *helper.Mapper
+	logger             *slog.Logger
 }
 
-// New creates a new application application Service.
+// New creates a new application Service.
 func New(
 	applicationUsecase agentport.ApplicationUsecase,
 	agentUsecase agentport.AgentUsecase,
@@ -38,9 +38,9 @@ func New(
 ) *Service {
 	return &Service{
 		applicationUsecase: applicationUsecase,
-		agentUsecase:     agentUsecase,
-		mapper:           helper.NewMapper(clock.RealClock{}, agentmodel.DefaultConnectionStaleness),
-		logger:           logger,
+		agentUsecase:       agentUsecase,
+		mapper:             helper.NewMapper(clock.RealClock{}, agentmodel.DefaultConnectionStaleness),
+		logger:             logger,
 	}
 }
 
