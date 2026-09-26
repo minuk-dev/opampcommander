@@ -50,6 +50,9 @@ var (
 	ContainerSelectableFields = []string{
 		"spec.platform",
 	}
+	ApplicationSelectableFields = []string{
+		"spec.namespace",
+	}
 	// EndpointSelectableFields are the fields an endpoint listing can be filtered on.
 	EndpointSelectableFields = []string{
 		"metadata.namespace",
@@ -161,6 +164,10 @@ func (c *Container) SelectorValues() model.SelectorValues {
 			"spec.platform": string(c.Spec.Platform),
 		},
 	}
+}
+
+func (a *Application) SelectorValues() model.SelectorValues {
+	return model.SelectorValues{Name: a.Metadata.Name, Labels: a.Metadata.Labels, Fields: map[string]string{"spec.namespace": a.Spec.Namespace}}
 }
 
 // SelectorValues returns the projection server-side selectors filter endpoints

@@ -45,6 +45,7 @@ func NewMongoDB() fx.Option {
 			fx.Annotate(mongodb.NewCertificateRepository, fx.As(new(agentport.CertificatePersistencePort))),
 			fx.Annotate(mongodb.NewHostRepository, fx.As(new(agentport.HostPersistencePort))),
 			fx.Annotate(mongodb.NewContainerRepository, fx.As(new(agentport.ContainerPersistencePort))),
+			fx.Annotate(mongodb.NewApplicationRepository, fx.As(new(agentport.ApplicationPersistencePort))),
 			// RBAC MongoDB adapters
 			fx.Annotate(mongodb.NewUserRepository, fx.As(new(userport.UserPersistencePort))),
 			fx.Annotate(mongodb.NewRoleRepository, fx.As(new(userport.RolePersistencePort))),

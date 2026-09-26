@@ -45,6 +45,7 @@ func New() fx.Option {
 		fx.Annotate(provideNamespaceService, fx.As(new(agentport.NamespaceUsecase))),
 		fx.Annotate(provideHostService, fx.As(new(agentport.HostUsecase))),
 		fx.Annotate(provideContainerService, fx.As(new(agentport.ContainerUsecase))),
+		fx.Annotate(provideApplicationService, fx.As(new(agentport.ApplicationUsecase))),
 		fx.Annotate(agentservice.NewAgentRemoteConfigService, fx.As(new(agentport.AgentRemoteConfigUsecase))),
 		fx.Annotate(agentservice.NewEndpointService, fx.As(new(agentport.EndpointUsecase))),
 		fx.Annotate(agentservice.NewRemoteConfigSchemaService,
@@ -218,6 +219,12 @@ func provideContainerService(
 	containerPersistencePort agentport.ContainerPersistencePort,
 ) *agentservice.ContainerService {
 	return agentservice.NewContainerService(containerPersistencePort, clock.RealClock{})
+}
+
+func provideApplicationService(
+	applicationPersistencePort agentport.ApplicationPersistencePort,
+) *agentservice.ApplicationService {
+	return agentservice.NewApplicationService(applicationPersistencePort, clock.RealClock{})
 }
 
 // provideRBACService builds the RBAC domain service, sourcing the built-in

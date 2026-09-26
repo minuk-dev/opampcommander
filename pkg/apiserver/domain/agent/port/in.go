@@ -377,6 +377,14 @@ type ContainerUsecase interface {
 	ObserveAgent(ctx context.Context, agent *agentmodel.Agent) error
 }
 
+// ApplicationUsecase manages logical services discovered from an agent's
+// service.* identifying attributes.
+type ApplicationUsecase interface {
+	GetApplication(ctx context.Context, id string) (*agentmodel.Application, error)
+	ListApplications(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Application], error)
+	ObserveAgent(ctx context.Context, agent *agentmodel.Agent) error
+}
+
 // CertificateUsecase defines the interface for certificate use cases.
 type CertificateUsecase interface {
 	GetCertificate(ctx context.Context, namespace string,

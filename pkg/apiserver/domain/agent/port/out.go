@@ -365,6 +365,12 @@ type ContainerPersistencePort interface {
 		options *model.ListOptions) (*model.ListResponse[*agentmodel.Container], error)
 }
 
+type ApplicationPersistencePort interface {
+	GetApplication(ctx context.Context, id string) (*agentmodel.Application, error)
+	PutApplication(ctx context.Context, application *agentmodel.Application) (*agentmodel.Application, error)
+	ListApplications(ctx context.Context, options *model.ListOptions) (*model.ListResponse[*agentmodel.Application], error)
+}
+
 // CertificatePersistencePort is an interface that defines the methods for certificate config persistence.
 type CertificatePersistencePort interface {
 	GetCertificate(ctx context.Context, namespace string,

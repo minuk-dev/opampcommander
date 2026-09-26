@@ -14,6 +14,7 @@ import (
 	authApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/auth"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	containerApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/container"
+	applicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/application"
 	endpointApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint"
 	endpointmetricsApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpointmetrics"
 	hostApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/host"
@@ -87,6 +88,9 @@ func New() fx.Option {
 
 			containerApplicationService.New,
 			fx.Annotate(Identity[*containerApplicationService.Service], fx.As(new(usecase.ContainerManageUsecase))),
+
+			applicationService.New,
+			fx.Annotate(Identity[*applicationService.Service], fx.As(new(usecase.ApplicationManageUsecase))),
 
 			agentremoteconfigApplicationService.NewAgentRemoteConfigService,
 			fx.Annotate(

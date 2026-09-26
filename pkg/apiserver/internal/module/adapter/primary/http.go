@@ -25,6 +25,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/connection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/container"
+	applicationcontroller "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/application"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/endpoint"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/endpointmetrics"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/host"
@@ -88,6 +89,7 @@ func NewHTTP() fx.Option {
 			AsController(certificate.NewController),
 			AsController(host.NewController),
 			AsController(container.NewController),
+			AsController(applicationcontroller.NewController),
 			AsController(server.NewController),
 			AsController(user.NewController),
 			AsController(role.NewController),
