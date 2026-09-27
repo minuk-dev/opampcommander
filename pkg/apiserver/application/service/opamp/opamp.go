@@ -4,7 +4,6 @@ package opamp
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/pem"
 	"fmt"
 	"log/slog"
@@ -20,6 +19,7 @@ import (
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -43,7 +43,7 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		return false
 	}
 
-	if agent.Status.IsClientCertificateActive(certDER) {
+	if certutil.MatchesSHA256Fingerprint(certDER, agent.Status.ActiveClientCertificateHash) {
 		return true
 	}
 
@@ -59,8 +59,7 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		}
 	}
 
-	fingerprint := sha256.Sum256(certDER)
-	agent.Status.ActiveClientCertificateHash = fingerprint[:]
+	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint(certDER)
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
 	if err != nil {

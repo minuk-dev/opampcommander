@@ -16,6 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
+	"github.com/minuk-dev/opampcommander/pkg/certutil"
 )
 
 // Mapper is a struct that provides methods to map between domain models and API models.
@@ -280,7 +281,7 @@ func connectionSettingsSyncStatus(agent *agentmodel.Agent) string {
 		return connectionStatusPending
 	}
 
-	if !agent.Status.IsClientCertificateActive(block.Bytes) {
+	if !certutil.MatchesSHA256Fingerprint(block.Bytes, agent.Status.ActiveClientCertificateHash) {
 		return connectionStatusPending
 	}
 
