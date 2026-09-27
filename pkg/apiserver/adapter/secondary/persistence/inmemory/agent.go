@@ -11,6 +11,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/datastructure/sets"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -29,7 +30,7 @@ type AgentRepository struct {
 	store     *store[uuid.UUID, *agentmodel.Agent]
 	clock     clock.PassiveClock
 	revokedMu sync.RWMutex
-	revoked   map[uuid.UUID]struct{}
+	revoked   sets.UUID
 }
 
 // NewAgentRepository creates a new in-memory AgentRepository.
@@ -37,7 +38,7 @@ func NewAgentRepository() *AgentRepository {
 	//exhaustruct:ignore
 	repo := &AgentRepository{
 		clock:   clock.NewRealClock(),
-		revoked: make(map[uuid.UUID]struct{}),
+		revoked: sets.NewUUID(),
 	}
 	// The projection reads the repository's clock rather than capturing it, so
 	// connectedness is evaluated at list time against whichever clock the
@@ -54,7 +55,7 @@ func (r *AgentRepository) GetAgent(_ context.Context, instanceUID uuid.UUID) (*a
 
 	agent, err := r.store.get(instanceUID, nil)
 	if errors.Is(err, model.ErrResourceNotExist) {
-		if _, revoked := r.revoked[instanceUID]; revoked {
+		if r.revoked.Has(instanceUID) {
 			return nil, model.ErrAgentRevoked
 		}
 	}
@@ -72,7 +73,7 @@ func (r *AgentRepository) PutAgent(_ context.Context, agent *agentmodel.Agent) e
 	r.revokedMu.RLock()
 	defer r.revokedMu.RUnlock()
 
-	if _, revoked := r.revoked[agent.Metadata.InstanceUID]; revoked {
+	if r.revoked.Has(agent.Metadata.InstanceUID) {
 		return model.ErrAgentRevoked
 	}
 
@@ -122,7 +123,7 @@ func (r *AgentRepository) DeleteAgent(_ context.Context, instanceUID uuid.UUID) 
 		return err
 	}
 
-	r.revoked[instanceUID] = struct{}{}
+	r.revoked.Insert(instanceUID)
 
 	return nil
 }
