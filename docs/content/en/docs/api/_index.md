@@ -15,6 +15,18 @@ Interactive API documentation (Swagger UI) is generated from the source and serv
 the running server. The OpAMP agent protocol itself is handled over a WebSocket at
 `/api/v1/opamp`.
 
+### OpAMP security boundary
+
+The OpAMP endpoint accepts unauthenticated agent connections. An agent chooses
+its namespace through its reported `service.namespace` identifying attribute
+(`default` when absent). REST RBAC does not restrict that choice: an agent can
+claim another namespace and receive remote configuration assigned there.
+Namespaces organize agents; they are not a trust boundary for the OpAMP protocol.
+Only expose `/api/v1/opamp` to trusted agents. If agents have different trust
+levels, enforce agent authentication and namespace access before traffic reaches
+the apiserver; checking connection headers alone cannot verify the namespace
+reported later in OpAMP messages.
+
 ## Authentication
 
 Obtain a JWT and send it as a bearer token:
@@ -62,6 +74,11 @@ DELETE /api/v1/namespaces/{namespace}
 
 A namespace is derived from each agent's `service.namespace` identifying attribute,
 defaulting to `default`.
+
+REST namespace management uses the `namespace` resource in RBAC. Listing or
+creating namespaces requires `namespace:LIST` or `namespace:CREATE` in the `*`
+scope; reading, updating, or deleting one requires the matching action in that
+namespace. The built-in default role grants none of these permissions.
 
 ## Agents
 

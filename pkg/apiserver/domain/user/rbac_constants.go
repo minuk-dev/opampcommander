@@ -20,6 +20,7 @@ const (
 	ResourceAgentRemoteConfig = "agentremoteconfig"
 	ResourceCertificate       = "certificate"
 	ResourceConnection        = "connection"
+	ResourceNamespace         = "namespace"
 	ResourceRoleBinding       = "rolebinding"
 )
 
@@ -57,6 +58,7 @@ func NamespaceScopedResources() []string {
 		ResourceAgentRemoteConfig,
 		ResourceCertificate,
 		ResourceConnection,
+		ResourceNamespace,
 		ResourceRoleBinding,
 	}
 }

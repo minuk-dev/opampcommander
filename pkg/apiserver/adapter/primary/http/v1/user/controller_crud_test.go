@@ -272,7 +272,8 @@ func TestUserController_Me_InternalError(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/users/me", nil)
 	require.NoError(t, err)
-	routerWithAuth(controller, email).ServeHTTP(recorder, req)
+	ctrlBase.SetupRouter(controller, testutil.AuthenticatedUser(email))
+	ctrlBase.Router.ServeHTTP(recorder, req)
 
 	require.Equal(t, http.StatusInternalServerError, recorder.Code)
 }

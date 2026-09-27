@@ -77,8 +77,7 @@ func NewAuthorizationMiddleware(
 }
 
 // isExemptFromRBAC returns true for paths that skip RBAC entirely:
-// authentication flows, public endpoints, self-access, namespace management,
-// and RBAC management endpoints.
+// authentication flows and public endpoints.
 func isExemptFromRBAC(fullPath string) bool {
 	if strings.HasPrefix(fullPath, "/auth/") ||
 		strings.HasPrefix(fullPath, "/api/v1/auth/") ||
@@ -90,9 +89,7 @@ func isExemptFromRBAC(fullPath string) bool {
 	switch fullPath {
 	case "/api/v1/ping",
 		"/api/v1/version",
-		"/api/v1/opamp",
-		"/api/v1/namespaces",
-		"/api/v1/namespaces/:namespace":
+		"/api/v1/opamp":
 		return true
 	}
 
@@ -120,6 +117,10 @@ func resolveRBACTarget(ctx *gin.Context, fullPath string) (string, string, strin
 // resolveNamespacedTarget handles namespace-scoped path resolution.
 func resolveNamespacedTarget(ctx *gin.Context, fullPath string) (string, string, string, bool) {
 	namespace := ctx.Param("namespace")
+	if fullPath == "/api/v1/namespaces/:namespace" {
+		return namespace, "namespace", methodToAction(ctx.Request.Method, false), false
+	}
+
 	resource, action := extractNamespacedResourceAndAction(fullPath, ctx.Request.Method)
 
 	if resource == "" || action == "" {
@@ -268,6 +269,8 @@ func namespacedResourceSingular(plural string) (string, bool) {
 
 func globalResourceSingular(plural string) (string, bool) {
 	switch plural {
+	case "namespaces":
+		return "namespace", true
 	case "users":
 		return "user", true
 	case "servers":
