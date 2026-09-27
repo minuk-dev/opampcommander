@@ -103,16 +103,8 @@ func NewHTTP() fx.Option {
 			AsController(github.NewController),
 			AsController(basic.NewController),
 
-			// The OpAMP controller is also needed as its concrete type for the
-			// connection context, so it is provided plainly and then added to the
-			// group via a pass-through (fx.Self() can't be used here: ResultTags
-			// would also tag the concrete output, hiding it from connContext).
-			func(opampUsecase usecase.OpAMPUsecase, logger *slog.Logger, settings *config.ServerSettings) *opamp.Controller {
-				controller := opamp.NewController(opampUsecase, logger)
-				controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != ""
-
-				return controller
-			},
+			// Keep the concrete controller for ConnContext and register it for routes.
+			newOpAMPController,
 			fx.Annotate(
 				func(c *opamp.Controller) Controller { return c },
 				fx.ResultTags(`group:"controllers"`),
@@ -124,6 +116,17 @@ func NewHTTP() fx.Option {
 			},
 		),
 	)
+}
+
+func newOpAMPController(
+	opampUsecase usecase.OpAMPUsecase,
+	logger *slog.Logger,
+	settings *config.ServerSettings,
+) *opamp.Controller {
+	controller := opamp.NewController(opampUsecase, logger)
+	controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != ""
+
+	return controller
 }
 
 // NewHTTPServer creates a new HTTP server instance.

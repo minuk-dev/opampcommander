@@ -85,8 +85,11 @@ func AgentConnectionInfoFromDomain(info *agentmodel.ConnectionInfo) *AgentConnec
 	}
 
 	return &AgentConnectionInfo{
-		OpAMP: info.OpAMP(), OwnMetrics: info.OwnMetrics(), OwnLogs: info.OwnLogs(),
-		OwnTraces: info.OwnTraces(), OtherConnections: info.OtherConnections(),
+		OpAMP:            info.OpAMP(),
+		OwnMetrics:       info.OwnMetrics(),
+		OwnLogs:          info.OwnLogs(),
+		OwnTraces:        info.OwnTraces(),
+		OtherConnections: info.OtherConnections(),
 	}
 }
 

@@ -194,18 +194,9 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent)
 	}
 
 	if result.UpsertedCount != 0 {
-		revoked, checkErr := a.isRevoked(ctx, agent.Metadata.InstanceUID)
-		if checkErr != nil {
-			return checkErr
-		}
-
-		if revoked {
-			_, _ = a.collection.DeleteOne(ctx, bson.M{
-				entity.AgentKeyFieldName: a.common.KeyQueryFunc(agent.Metadata.InstanceUID),
-				resourceVersionFieldName: next,
-			})
-
-			return model.ErrAgentRevoked
+		err = a.rejectRevokedCreate(ctx, agent.Metadata.InstanceUID, next)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -410,6 +401,35 @@ func validateSearchQuery(query string) error {
 	}
 
 	return nil
+}
+
+// rejectRevokedCreate closes the gap between the initial revocation check and
+// the insert: DeleteAgent may have revoked this UID while the upsert ran.
+func (a *AgentRepository) rejectRevokedCreate(ctx context.Context, uid uuid.UUID, version int64) error {
+	revoked, err := a.isRevoked(ctx, uid)
+	if err == nil && !revoked {
+		return nil
+	}
+
+	filter := bson.M{
+		entity.AgentKeyFieldName: a.common.KeyQueryFunc(uid),
+	}
+	if !revoked {
+		// A failed lookup must not remove a document another writer has updated.
+		filter[resourceVersionFieldName] = version
+	}
+
+	reason := err
+	if revoked {
+		reason = model.ErrAgentRevoked
+	}
+
+	_, rollbackErr := a.collection.DeleteOne(ctx, filter)
+	if rollbackErr != nil {
+		return errors.Join(reason, fmt.Errorf("failed to remove newly created agent: %w", rollbackErr))
+	}
+
+	return reason
 }
 
 func (a *AgentRepository) isRevoked(ctx context.Context, uid uuid.UUID) (bool, error) {
