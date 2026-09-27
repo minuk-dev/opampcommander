@@ -19,12 +19,13 @@ func TestAgentConnectionOfferAndStatusRoundTrip(t *testing.T) {
 		&agentmodel.AgentOpAMPConnectionSettings{
 			DestinationEndpoint: "wss://example.test/api/v1/opamp",
 			Certificate:         &agentmodel.AgentCertificate{Cert: []byte("new-cert"), PrivateKey: []byte("new-key")},
-		}, nil, nil, nil, nil,
+		}, nil, nil, nil, map[string]agentmodel.AgentOtherConnectionSettings{},
 	))
 	agent.Status.ConnectionSettingsStatus = agentmodel.AgentConnectionSettingsStatus{
 		LastConnectionSettingsHash: agent.Spec.ConnectionInfo.Hash.Bytes(),
 		Status:                     agentmodel.ConnectionSettingsStatusApplied,
 	}
+	agent.Status.ActiveClientCertificateHash = []byte("active-certificate-fingerprint")
 
 	data, err := bson.Marshal(entity.AgentFromDomain(agent))
 	require.NoError(t, err)
@@ -35,4 +36,5 @@ func TestAgentConnectionOfferAndStatusRoundTrip(t *testing.T) {
 	require.Equal(t, agent.Spec.ConnectionInfo.Hash, reloaded.Spec.ConnectionInfo.Hash)
 	require.Equal(t, []byte("new-cert"), reloaded.Spec.ConnectionInfo.OpAMP().Certificate.Cert)
 	require.Equal(t, agent.Status.ConnectionSettingsStatus, reloaded.Status.ConnectionSettingsStatus)
+	require.Equal(t, agent.Status.ActiveClientCertificateHash, reloaded.Status.ActiveClientCertificateHash)
 }

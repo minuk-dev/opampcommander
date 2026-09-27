@@ -3,6 +3,8 @@ package helper
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/pem"
 	"maps"
 	"time"
 
@@ -228,14 +230,18 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 	}
 }
 
-const connectionStatusUnset = "unset"
+const (
+	connectionStatusUnset   = "unset"
+	connectionStatusPending = "pending"
+	connectionStatusApplied = "applied"
+)
 
 func connectionSettingsStatusName(status agentmodel.ConnectionSettingsStatus) string {
 	switch status {
 	case agentmodel.ConnectionSettingsStatusUnset:
 		return connectionStatusUnset
 	case agentmodel.ConnectionSettingsStatusApplied:
-		return "applied"
+		return connectionStatusApplied
 	case agentmodel.ConnectionSettingsStatusApplying:
 		return "applying"
 	case agentmodel.ConnectionSettingsStatusFailed:
@@ -254,15 +260,30 @@ func connectionRotationStatus(agent *agentmodel.Agent) string {
 		return "failed"
 	}
 
-	if agent.Status.ConnectionSettingsStatus.Status == agentmodel.ConnectionSettingsStatusApplied &&
-		bytes.Equal(
+	if agent.Status.ConnectionSettingsStatus.Status != agentmodel.ConnectionSettingsStatusApplied ||
+		!bytes.Equal(
 			agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
 			agent.Spec.ConnectionInfo.Hash.Bytes(),
 		) {
-		return "applied"
+		return connectionStatusPending
 	}
 
-	return "pending"
+	opamp := agent.Spec.ConnectionInfo.OpAMP()
+	if opamp == nil || opamp.Certificate == nil {
+		return connectionStatusApplied
+	}
+
+	block, _ := pem.Decode(opamp.Certificate.Cert)
+	if block == nil {
+		return connectionStatusPending
+	}
+
+	fingerprint := sha256.Sum256(block.Bytes)
+	if !bytes.Equal(agent.Status.ActiveClientCertificateHash, fingerprint[:]) {
+		return connectionStatusPending
+	}
+
+	return connectionStatusApplied
 }
 
 // MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.

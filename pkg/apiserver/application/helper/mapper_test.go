@@ -1,6 +1,8 @@
 package helper_test
 
 import (
+	"crypto/sha256"
+	"encoding/pem"
 	"testing"
 	"time"
 
@@ -27,6 +29,27 @@ func TestMapAgentConnectionRotationStatus(t *testing.T) {
 	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
 	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+}
+
+func TestMapAgentConnectionRotationWaitsForNewCertificate(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	certDER := []byte("new-cert")
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+		Certificate: &agentmodel.AgentCertificate{
+			Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}),
+		},
+	}, nil, nil, nil, nil))
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
+	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+	mapper := helper.NewMapper(clock.RealClock{}, 0)
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+
+	fingerprint := sha256.Sum256(certDER)
+	agent.Status.ActiveClientCertificateHash = fingerprint[:]
 	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
 }
 

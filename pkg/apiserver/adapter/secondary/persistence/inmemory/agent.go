@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -25,15 +26,18 @@ var (
 // Agents have no soft-delete concept (DeleteAgent is a hard delete), matching
 // the MongoDB adapter.
 type AgentRepository struct {
-	store *store[uuid.UUID, *agentmodel.Agent]
-	clock clock.PassiveClock
+	store     *store[uuid.UUID, *agentmodel.Agent]
+	clock     clock.PassiveClock
+	revokedMu sync.RWMutex
+	revoked   map[uuid.UUID]struct{}
 }
 
 // NewAgentRepository creates a new in-memory AgentRepository.
 func NewAgentRepository() *AgentRepository {
 	//exhaustruct:ignore
 	repo := &AgentRepository{
-		clock: clock.NewRealClock(),
+		clock:   clock.NewRealClock(),
+		revoked: make(map[uuid.UUID]struct{}),
 	}
 	// The projection reads the repository's clock rather than capturing it, so
 	// connectedness is evaluated at list time against whichever clock the
@@ -45,7 +49,17 @@ func NewAgentRepository() *AgentRepository {
 
 // GetAgent implements agentport.AgentPersistencePort.
 func (r *AgentRepository) GetAgent(_ context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
-	return r.store.get(instanceUID, nil)
+	r.revokedMu.RLock()
+	defer r.revokedMu.RUnlock()
+
+	agent, err := r.store.get(instanceUID, nil)
+	if errors.Is(err, model.ErrResourceNotExist) {
+		if _, revoked := r.revoked[instanceUID]; revoked {
+			return nil, model.ErrAgentRevoked
+		}
+	}
+
+	return agent, err
 }
 
 // PutAgent implements agentport.AgentPersistencePort.
@@ -55,6 +69,13 @@ func (r *AgentRepository) GetAgent(_ context.Context, instanceUID uuid.UUID) (*a
 // agent was loaded with, otherwise it returns [port.ErrConflict]. On success the
 // version is incremented and written back onto the passed agent.
 func (r *AgentRepository) PutAgent(_ context.Context, agent *agentmodel.Agent) error {
+	r.revokedMu.RLock()
+	defer r.revokedMu.RUnlock()
+
+	if _, revoked := r.revoked[agent.Metadata.InstanceUID]; revoked {
+		return model.ErrAgentRevoked
+	}
+
 	expected := agent.Metadata.ResourceVersion
 	next := expected + 1
 
@@ -93,7 +114,17 @@ func (r *AgentRepository) UpdateAgentLiveness(
 
 // DeleteAgent implements agentport.AgentPersistencePort.
 func (r *AgentRepository) DeleteAgent(_ context.Context, instanceUID uuid.UUID) error {
-	return r.store.delete(instanceUID)
+	r.revokedMu.Lock()
+	defer r.revokedMu.Unlock()
+
+	err := r.store.delete(instanceUID)
+	if err != nil {
+		return err
+	}
+
+	r.revoked[instanceUID] = struct{}{}
+
+	return nil
 }
 
 // ListAgents implements agentport.AgentPersistencePort.

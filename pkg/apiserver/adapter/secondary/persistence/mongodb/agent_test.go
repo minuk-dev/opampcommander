@@ -510,6 +510,8 @@ func TestAgentMongoAdapter_DeleteAgent(t *testing.T) {
 
 		_, err = agentRepository.GetAgent(ctx, instanceUID)
 		require.ErrorIs(t, err, model.ErrResourceNotExist)
+		require.ErrorIs(t, err, model.ErrAgentRevoked)
+		require.ErrorIs(t, agentRepository.PutAgent(ctx, agentmodel.NewAgent(instanceUID)), model.ErrAgentRevoked)
 	})
 
 	t.Run("returns ErrResourceNotExist for a missing agent", func(t *testing.T) {

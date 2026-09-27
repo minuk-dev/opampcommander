@@ -4,8 +4,8 @@ package opamp
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -20,37 +20,58 @@ import (
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
 
-// IsClientCertificateAllowed keeps the previous CA-signed certificate usable
-// until the agent reports the new offer applied. Thereafter only the offered
-// leaf can authenticate that agent identity.
+// IsClientCertificateAllowed binds a CA-verified certificate to an agent UID.
+// A pending certificate replaces the active one only after it establishes a
+// successful TLS connection; reported status alone cannot revoke the old one.
 func (s *Service) IsClientCertificateAllowed(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
-	agent, err := s.agentUsecase.GetAgent(ctx, uid)
-	if errors.Is(err, model.ErrResourceNotExist) {
-		return true // First registration with an externally issued certificate.
+	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
+	if !ok {
+		return false
 	}
 
+	invalidator.InvalidateCache(uid)
+
+	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, uid)
 	if err != nil {
 		s.logger.Warn("cannot validate agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
 
 		return false
 	}
 
-	info := agent.Spec.ConnectionInfo
-	if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil ||
-		agent.Status.ConnectionSettingsStatus.Status != agentmodel.ConnectionSettingsStatusApplied ||
-		!bytes.Equal(agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash, info.Hash.Bytes()) {
+	fingerprint := sha256.Sum256(certDER)
+	active := agent.Status.ActiveClientCertificateHash
+
+	if bytes.Equal(active, fingerprint[:]) {
 		return true
 	}
 
-	block, _ := pem.Decode(info.OpAMP().Certificate.Cert)
+	if len(active) != 0 {
+		info := agent.Spec.ConnectionInfo
+		if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil {
+			return false
+		}
 
-	return block != nil && bytes.Equal(block.Bytes, certDER)
+		block, _ := pem.Decode(info.OpAMP().Certificate.Cert)
+		if block == nil || !bytes.Equal(block.Bytes, certDER) {
+			return false
+		}
+	}
+
+	agent.Status.ActiveClientCertificateHash = fingerprint[:]
+
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		s.logger.Warn("cannot bind agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+
+		return false
+	}
+
+	return true
 }
 
 const (

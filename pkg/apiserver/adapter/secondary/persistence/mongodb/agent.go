@@ -39,6 +39,7 @@ const (
 // AgentRepository is a struct that implements the AgentPersistencePort interface.
 type AgentRepository struct {
 	collection *mongo.Collection
+	revoked    *mongo.Collection
 	logger     *slog.Logger
 	common     commonEntityAdapter[entity.Agent, uuid.UUID]
 }
@@ -61,6 +62,7 @@ func NewAgentRepository(
 
 	repo := &AgentRepository{
 		collection: collection,
+		revoked:    mongoDatabase.Collection("revoked_agents"),
 		logger:     logger,
 		common: newCommonAdapter(
 			logger,
@@ -81,6 +83,17 @@ func NewAgentRepository(
 // GetAgent implements agentport.AgentPersistencePort.
 func (a *AgentRepository) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	entity, err := a.common.get(ctx, instanceUID, nil)
+	if errors.Is(err, model.ErrResourceNotExist) {
+		revoked, lookupErr := a.isRevoked(ctx, instanceUID)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+
+		if revoked {
+			return nil, model.ErrAgentRevoked
+		}
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
 	}
@@ -144,6 +157,17 @@ func (a *AgentRepository) ListAgents(
 // which is surfaced as a conflict rather than a duplicate document.
 func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent) error {
 	expected := agent.Metadata.ResourceVersion
+	if expected == 0 {
+		revoked, err := a.isRevoked(ctx, agent.Metadata.InstanceUID)
+		if err != nil {
+			return err
+		}
+
+		if revoked {
+			return model.ErrAgentRevoked
+		}
+	}
+
 	next := expected + 1
 
 	doc := entity.AgentFromDomain(agent)
@@ -167,6 +191,22 @@ func (a *AgentRepository) PutAgent(ctx context.Context, agent *agentmodel.Agent)
 	// find the expected version — another writer advanced it (or deleted the agent).
 	if result.MatchedCount == 0 && result.UpsertedCount == 0 {
 		return fmt.Errorf("%w: agent %s was modified concurrently", model.ErrConflict, agent.Metadata.InstanceUID)
+	}
+
+	if result.UpsertedCount != 0 {
+		revoked, checkErr := a.isRevoked(ctx, agent.Metadata.InstanceUID)
+		if checkErr != nil {
+			return checkErr
+		}
+
+		if revoked {
+			_, _ = a.collection.DeleteOne(ctx, bson.M{
+				entity.AgentKeyFieldName: a.common.KeyQueryFunc(agent.Metadata.InstanceUID),
+				resourceVersionFieldName: next,
+			})
+
+			return model.ErrAgentRevoked
+		}
 	}
 
 	agent.Metadata.ResourceVersion = next
@@ -208,7 +248,17 @@ func (a *AgentRepository) UpdateAgentLiveness(
 
 // DeleteAgent implements agentport.AgentPersistencePort.
 func (a *AgentRepository) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	err := a.common.deleteOne(ctx, instanceUID)
+	_, err := a.common.get(ctx, instanceUID, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get agent before deletion: %w", err)
+	}
+
+	_, err = a.revoked.InsertOne(ctx, bson.M{"_id": a.common.KeyQueryFunc(instanceUID)})
+	if err != nil && !mongo.IsDuplicateKeyError(err) {
+		return fmt.Errorf("failed to revoke agent identity: %w", err)
+	}
+
+	err = a.common.deleteOne(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to delete agent from persistence: %w", err)
 	}
@@ -360,6 +410,19 @@ func validateSearchQuery(query string) error {
 	}
 
 	return nil
+}
+
+func (a *AgentRepository) isRevoked(ctx context.Context, uid uuid.UUID) (bool, error) {
+	err := a.revoked.FindOne(ctx, bson.M{"_id": a.common.KeyQueryFunc(uid)}).Err()
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("failed to check revoked agent identity: %w", err)
+	}
+
+	return true, nil
 }
 
 // buildSearchConditions builds the match conditions for a non-empty search query. The

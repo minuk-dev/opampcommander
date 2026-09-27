@@ -59,7 +59,7 @@ type AgentConnectionInfo struct {
 	OwnMetrics       *agentmodel.AgentTelemetryConnectionSettings       `bson:"ownMetrics,omitempty"`
 	OwnLogs          *agentmodel.AgentTelemetryConnectionSettings       `bson:"ownLogs,omitempty"`
 	OwnTraces        *agentmodel.AgentTelemetryConnectionSettings       `bson:"ownTraces,omitempty"`
-	OtherConnections map[string]agentmodel.AgentOtherConnectionSettings `bson:"otherConnections,omitempty"`
+	OtherConnections map[string]agentmodel.AgentOtherConnectionSettings `bson:"otherConnections"`
 }
 
 // ToDomain reconstructs the connection offer and its content hash.
@@ -92,12 +92,13 @@ func AgentConnectionInfoFromDomain(info *agentmodel.ConnectionInfo) *AgentConnec
 
 // AgentStatus represents the current status of an agent.
 type AgentStatus struct {
-	EffectiveConfig          *AgentEffectiveConfig          `bson:"effectiveConfig,omitempty"`
-	PackageStatuses          *AgentPackageStatuses          `bson:"packageStatuses,omitempty"`
-	ComponentHealth          *AgentComponentHealth          `bson:"componentHealth,omitempty"`
-	AvailableComponents      *AgentAvailableComponents      `bson:"availableComponents,omitempty"`
-	RemoteConfigStatus       *AgentRemoteConfigStatus       `bson:"remoteConfigStatus,omitempty"`
-	ConnectionSettingsStatus *AgentConnectionSettingsStatus `bson:"connectionSettingsStatus,omitempty"`
+	ActiveClientCertificateHash []byte                         `bson:"activeClientCertificateHash,omitempty"`
+	EffectiveConfig             *AgentEffectiveConfig          `bson:"effectiveConfig,omitempty"`
+	PackageStatuses             *AgentPackageStatuses          `bson:"packageStatuses,omitempty"`
+	ComponentHealth             *AgentComponentHealth          `bson:"componentHealth,omitempty"`
+	AvailableComponents         *AgentAvailableComponents      `bson:"availableComponents,omitempty"`
+	RemoteConfigStatus          *AgentRemoteConfigStatus       `bson:"remoteConfigStatus,omitempty"`
+	ConnectionSettingsStatus    *AgentConnectionSettingsStatus `bson:"connectionSettingsStatus,omitempty"`
 	// Conditions stores agent conditions for informational purposes only.
 	// WARNING: Do NOT use Conditions for MongoDB queries or aggregations.
 	// The Conditions field can be null which causes MongoDB aggregation errors.
@@ -348,6 +349,7 @@ func (status *AgentStatus) ToDomain() agentmodel.AgentStatus {
 	//exhaustruct:ignore
 
 	return agentmodel.AgentStatus{
+		ActiveClientCertificateHash: status.ActiveClientCertificateHash,
 		EffectiveConfig: mo.PointerToOption(status.EffectiveConfig.ToDomain()).OrElse(
 			//exhaustruct:ignore
 			agentmodel.AgentEffectiveConfig{},
@@ -602,11 +604,12 @@ func AgentFromDomain(agent *agentmodel.Agent) *Agent {
 			RequiredRestartedAt: agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
 		},
 		Status: AgentStatus{
-			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
-			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
-			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
-			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
-			RemoteConfigStatus:  AgentRemoteConfigStatusFromDomain(&agent.Status.RemoteConfigStatus),
+			ActiveClientCertificateHash: agent.Status.ActiveClientCertificateHash,
+			EffectiveConfig:             AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
+			PackageStatuses:             AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
+			ComponentHealth:             AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
+			AvailableComponents:         AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
+			RemoteConfigStatus:          AgentRemoteConfigStatusFromDomain(&agent.Status.RemoteConfigStatus),
 			ConnectionSettingsStatus: &AgentConnectionSettingsStatus{
 				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
 				Status:                     agent.Status.ConnectionSettingsStatus.Status,
