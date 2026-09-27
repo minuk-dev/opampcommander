@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -16,30 +15,10 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/user/usecasemock"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
-
-// routerWithAuth builds a gin engine that injects an authenticated user before routing.
-func routerWithAuth(controller *user.Controller, email string) *gin.Engine {
-	router := gin.New()
-
-	router.Use(func(ctx *gin.Context) {
-		security.SetUser(ctx, &security.User{
-			Authenticated: true,
-			Email:         &email,
-		})
-		ctx.Next()
-	})
-
-	for _, route := range controller.RoutesInfo() {
-		router.Handle(route.Method, route.Path, route.HandlerFunc)
-	}
-
-	return router
-}
 
 func TestUserController_Me(t *testing.T) {
 	t.Parallel()
@@ -73,7 +52,8 @@ func TestUserController_Me(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/users/me", nil)
 		require.NoError(t, err)
-		routerWithAuth(controller, email).ServeHTTP(recorder, req)
+		ctrlBase.SetupRouter(controller, testutil.AuthenticatedUser(email))
+		ctrlBase.Router.ServeHTTP(recorder, req)
 
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, email, gjson.Get(recorder.Body.String(), "user.spec.email").String())
@@ -112,7 +92,8 @@ func TestUserController_Me(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/users/me", nil)
 		require.NoError(t, err)
-		routerWithAuth(controller, email).ServeHTTP(recorder, req)
+		ctrlBase.SetupRouter(controller, testutil.AuthenticatedUser(email))
+		ctrlBase.Router.ServeHTTP(recorder, req)
 
 		assert.Equal(t, http.StatusOK, recorder.Code)
 		assert.Equal(t, email, gjson.Get(recorder.Body.String(), "user.spec.email").String())

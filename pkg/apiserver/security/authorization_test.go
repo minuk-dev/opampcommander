@@ -16,6 +16,7 @@ import (
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
+	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 func TestMain(m *testing.M) {
@@ -138,10 +139,7 @@ func TestAuthorizationMiddleware_NamespacePermissions(t *testing.T) {
 			email := "user@example.com"
 			called := false
 			router := gin.New()
-			router.Use(func(ctx *gin.Context) {
-				security.SetUser(ctx, &security.User{Authenticated: true, Email: &email})
-				ctx.Next()
-			})
+			router.Use(testutil.AuthenticatedUser(email))
 			router.Use(security.NewAuthorizationMiddleware(namespaceRBAC{check: func(scope, resource, action string) bool {
 				called = true
 
