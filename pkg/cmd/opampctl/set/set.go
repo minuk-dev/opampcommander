@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/agent"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/agentgroup"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -21,6 +22,7 @@ func NewCommand(globalConfig *config.GlobalConfig) *cobra.Command {
 	cmd.AddCommand(agent.NewCommand(agent.CommandOptions{
 		GlobalConfig: globalConfig,
 	}))
+	cmd.AddCommand(agentgroup.NewCommand(agentgroup.CommandOptions{GlobalConfig: globalConfig}))
 
 	return cmd
 }
