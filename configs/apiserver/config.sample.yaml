@@ -1,10 +1,11 @@
 address: localhost:8080
 # Optional mTLS for /api/v1/opamp. The whole API uses HTTPS when configured;
 # only OpAMP requires a client certificate. Client certificate CN must equal
-# the agent instance UID. caFile can contain multiple PEM-encoded trusted CAs;
-# agent certificates are separate Certificate resources issued by one of them.
-# TLS files are loaded at startup, so changing server certificates or trusted
-# CAs requires a server restart.
+# the agent instance UID. caFile is a PEM bundle of trusted agent-client CAs.
+# For CA rotation, include both old and new CA certificates in that one file
+# during the overlap, then remove the old CA after agents have switched.
+# Agent certificates are separate Certificate resources issued by a trusted CA.
+# TLS files are loaded at startup; restart each server after changing the bundle.
 # opampTLS:
 #   certFile: /etc/opampcommander/tls/server.crt
 #   keyFile: /etc/opampcommander/tls/server.key
