@@ -43,14 +43,11 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		return false
 	}
 
-	fingerprint := sha256.Sum256(certDER)
-	active := agent.Status.ActiveClientCertificateHash
-
-	if bytes.Equal(active, fingerprint[:]) {
+	if agent.Status.IsClientCertificateActive(certDER) {
 		return true
 	}
 
-	if len(active) != 0 {
+	if len(agent.Status.ActiveClientCertificateHash) != 0 {
 		info := agent.Spec.ConnectionInfo
 		if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil {
 			return false
@@ -62,6 +59,7 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		}
 	}
 
+	fingerprint := sha256.Sum256(certDER)
 	agent.Status.ActiveClientCertificateHash = fingerprint[:]
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)

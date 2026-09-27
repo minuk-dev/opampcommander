@@ -3,7 +3,6 @@ package helper
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/pem"
 	"maps"
 	"time"
@@ -281,8 +280,7 @@ func connectionSettingsSyncStatus(agent *agentmodel.Agent) string {
 		return connectionStatusPending
 	}
 
-	fingerprint := sha256.Sum256(block.Bytes)
-	if !bytes.Equal(agent.Status.ActiveClientCertificateHash, fingerprint[:]) {
+	if !agent.Status.IsClientCertificateActive(block.Bytes) {
 		return connectionStatusPending
 	}
 

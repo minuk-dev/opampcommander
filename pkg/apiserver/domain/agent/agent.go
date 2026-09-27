@@ -3,6 +3,7 @@ package agentmodel
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -370,6 +371,13 @@ type AgentStatus struct {
 	// LastReportedTo is the ID of the server the agent last reported to.
 	// When you want to get Server object, use `GetServerByID` function from ServerUsecase.
 	LastReportedTo string
+}
+
+// IsClientCertificateActive reports whether certDER is the certificate bound to this agent.
+func (s AgentStatus) IsClientCertificateActive(certDER []byte) bool {
+	fingerprint := sha256.Sum256(certDER)
+
+	return bytes.Equal(s.ActiveClientCertificateHash, fingerprint[:])
 }
 
 // AgentCondition represents a condition of an agent.
