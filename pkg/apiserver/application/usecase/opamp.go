@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	opamptypes "github.com/open-telemetry/opamp-go/server/types"
 )
@@ -13,6 +14,9 @@ import (
 // by the opamp-go server adapter for each connected agent.
 // Please see [github.com/open-telemetry/opamp-go/server/types/ConnectionCallbacks].
 type OpAMPUsecase interface {
+	// AuthorizeClientCertificate binds the presented certificate to the agent UID
+	// after TLS verification and rejects certificates that were superseded.
+	AuthorizeClientCertificate(ctx context.Context, instanceUID uuid.UUID, certDER []byte) bool
 	// OnConnected is called when an agent connection is established.
 	OnConnected(ctx context.Context, conn opamptypes.Connection)
 	// OnConnectedWithType is OnConnected with the transport kind (true for

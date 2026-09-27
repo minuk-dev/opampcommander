@@ -242,6 +242,10 @@ func (s *AgentService) GetAgent(ctx context.Context, instanceUID uuid.UUID) (*ag
 func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
 	agent, err := s.getStoredAgent(ctx, instanceUID)
 	if err != nil {
+		if errors.Is(err, model.ErrAgentRevoked) {
+			return nil, err
+		}
+
 		if errors.Is(err, model.ErrResourceNotExist) {
 			agent = agentmodel.NewAgent(instanceUID, agentmodel.WithNamespace(s.defaultNamespace))
 		} else {

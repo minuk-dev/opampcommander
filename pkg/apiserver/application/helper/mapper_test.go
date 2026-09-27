@@ -1,16 +1,88 @@
 package helper_test
 
 import (
+	"crypto/sha256"
+	"encoding/json"
+	"encoding/pem"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/clock"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/helper"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
+
+func TestMapAgentConnectionSettingsSyncStatus(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+
+	mapper := helper.NewMapper(clock.RealClock{}, 0)
+
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
+	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusFailed
+	assert.Equal(t, "failed", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://next.example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+}
+
+func TestMapAgentConnectionSettingsHashBelongsToSpec(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+
+	mapped := helper.NewMapper(clock.RealClock{}, 0).MapAgentToAPI(agent)
+	assert.Equal(t, agent.Spec.ConnectionInfo.Hash.Bytes(), mapped.Spec.ConnectionSettingsHash)
+
+	data, err := json.Marshal(mapped)
+	require.NoError(t, err)
+
+	var response map[string]map[string]any
+	require.NoError(t, json.Unmarshal(data, &response))
+	assert.Contains(t, response["spec"], "connectionSettingsHash")
+	assert.NotContains(t, response["status"]["connectionSettings"], "desiredHash")
+	assert.Contains(t, response["status"]["connectionSettings"], "syncStatus")
+	assert.NotContains(t, response["status"]["connectionSettings"], "rotation")
+}
+
+func TestMapAgentConnectionSettingsSyncWaitsForNewCertificate(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	certDER := []byte("new-cert")
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+		Certificate: &agentmodel.AgentCertificate{
+			Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}),
+		},
+	}, nil, nil, nil, nil))
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
+	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+	mapper := helper.NewMapper(clock.RealClock{}, 0)
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+
+	fingerprint := sha256.Sum256(certDER)
+	agent.Status.ActiveClientCertificateHash = fingerprint[:]
+	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+}
 
 func TestMapAPIToAgentPackage(t *testing.T) {
 	t.Parallel()

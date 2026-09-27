@@ -48,16 +48,60 @@ type AgentMetadata struct {
 type AgentSpec struct {
 	NewInstanceUID      *bson.Binary           `bson:"newInstanceUID,omitempty"`
 	RemoteConfig        *AgentSpecRemoteConfig `bson:"remoteConfig,omitempty"`
+	ConnectionInfo      *AgentConnectionInfo   `bson:"connectionInfo,omitempty"`
 	RequiredRestartedAt bson.DateTime          `bson:"requiredRestartedAt,omitempty"`
+}
+
+// AgentConnectionInfo stores the resolved offer, including certificate material,
+// so a reconnect or a different server can repeat the same offer.
+type AgentConnectionInfo struct {
+	OpAMP            *agentmodel.AgentOpAMPConnectionSettings           `bson:"opamp,omitempty"`
+	OwnMetrics       *agentmodel.AgentTelemetryConnectionSettings       `bson:"ownMetrics,omitempty"`
+	OwnLogs          *agentmodel.AgentTelemetryConnectionSettings       `bson:"ownLogs,omitempty"`
+	OwnTraces        *agentmodel.AgentTelemetryConnectionSettings       `bson:"ownTraces,omitempty"`
+	OtherConnections map[string]agentmodel.AgentOtherConnectionSettings `bson:"otherConnections"`
+}
+
+// ToDomain reconstructs the connection offer and its content hash.
+func (info *AgentConnectionInfo) ToDomain() *agentmodel.ConnectionInfo {
+	if info == nil {
+		return nil
+	}
+
+	connectionInfo, err := agentmodel.NewConnectionInfo(
+		info.OpAMP, info.OwnMetrics, info.OwnLogs, info.OwnTraces, info.OtherConnections,
+	)
+	if err != nil {
+		return nil
+	}
+
+	return connectionInfo
+}
+
+// AgentConnectionInfoFromDomain preserves the resolved connection offer.
+func AgentConnectionInfoFromDomain(info *agentmodel.ConnectionInfo) *AgentConnectionInfo {
+	if info == nil {
+		return nil
+	}
+
+	return &AgentConnectionInfo{
+		OpAMP:            info.OpAMP(),
+		OwnMetrics:       info.OwnMetrics(),
+		OwnLogs:          info.OwnLogs(),
+		OwnTraces:        info.OwnTraces(),
+		OtherConnections: info.OtherConnections(),
+	}
 }
 
 // AgentStatus represents the current status of an agent.
 type AgentStatus struct {
-	EffectiveConfig     *AgentEffectiveConfig     `bson:"effectiveConfig,omitempty"`
-	PackageStatuses     *AgentPackageStatuses     `bson:"packageStatuses,omitempty"`
-	ComponentHealth     *AgentComponentHealth     `bson:"componentHealth,omitempty"`
-	AvailableComponents *AgentAvailableComponents `bson:"availableComponents,omitempty"`
-	RemoteConfigStatus  *AgentRemoteConfigStatus  `bson:"remoteConfigStatus,omitempty"`
+	ActiveClientCertificateHash []byte                         `bson:"activeClientCertificateHash,omitempty"`
+	EffectiveConfig             *AgentEffectiveConfig          `bson:"effectiveConfig,omitempty"`
+	PackageStatuses             *AgentPackageStatuses          `bson:"packageStatuses,omitempty"`
+	ComponentHealth             *AgentComponentHealth          `bson:"componentHealth,omitempty"`
+	AvailableComponents         *AgentAvailableComponents      `bson:"availableComponents,omitempty"`
+	RemoteConfigStatus          *AgentRemoteConfigStatus       `bson:"remoteConfigStatus,omitempty"`
+	ConnectionSettingsStatus    *AgentConnectionSettingsStatus `bson:"connectionSettingsStatus,omitempty"`
 	// Conditions stores agent conditions for informational purposes only.
 	// WARNING: Do NOT use Conditions for MongoDB queries or aggregations.
 	// The Conditions field can be null which causes MongoDB aggregation errors.
@@ -70,6 +114,26 @@ type AgentStatus struct {
 	SequenceNum        uint64           `bson:"sequenceNum,omitempty"`
 	LastCommunicatedAt bson.DateTime    `bson:"lastCommunicatedAt,omitempty"`
 	LastCommunicatedTo string           `bson:"lastCommunicatedTo,omitempty"`
+}
+
+// AgentConnectionSettingsStatus is the persisted application report.
+type AgentConnectionSettingsStatus struct {
+	LastConnectionSettingsHash []byte                              `bson:"lastConnectionSettingsHash,omitempty"`
+	Status                     agentmodel.ConnectionSettingsStatus `bson:"status"`
+	ErrorMessage               string                              `bson:"errorMessage,omitempty"`
+}
+
+// ToDomain maps the persisted application report to the domain.
+func (status *AgentConnectionSettingsStatus) ToDomain() agentmodel.AgentConnectionSettingsStatus {
+	if status == nil {
+		return agentmodel.AgentConnectionSettingsStatus{}
+	}
+
+	return agentmodel.AgentConnectionSettingsStatus{
+		LastConnectionSettingsHash: status.LastConnectionSettingsHash,
+		Status:                     status.Status,
+		ErrorMessage:               status.ErrorMessage,
+	}
 }
 
 // AgentCondition represents a condition of an agent in MongoDB.
@@ -267,7 +331,7 @@ func (spec *AgentSpec) ToDomain() agentmodel.AgentSpec {
 	agentSpec.RestartInfo = &agentmodel.AgentRestartInfo{
 		RequiredRestartedAt: time.Time{},
 	}
-	agentSpec.ConnectionInfo = nil
+	agentSpec.ConnectionInfo = spec.ConnectionInfo.ToDomain()
 	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomainPtr()
 
 	return agentSpec
@@ -288,6 +352,7 @@ func (status *AgentStatus) ToDomain() agentmodel.AgentStatus {
 	//exhaustruct:ignore
 
 	return agentmodel.AgentStatus{
+		ActiveClientCertificateHash: status.ActiveClientCertificateHash,
 		EffectiveConfig: mo.PointerToOption(status.EffectiveConfig.ToDomain()).OrElse(
 			//exhaustruct:ignore
 			agentmodel.AgentEffectiveConfig{},
@@ -316,17 +381,13 @@ func (status *AgentStatus) ToDomain() agentmodel.AgentStatus {
 
 			return status.RemoteConfigStatus.ToDomain()
 		}(),
-		ConnectionSettingsStatus: agentmodel.AgentConnectionSettingsStatus{
-			LastConnectionSettingsHash: nil,
-			Status:                     agentmodel.ConnectionSettingsStatusUnset,
-			ErrorMessage:               "",
-		},
-		Conditions:     conditions,
-		Connected:      status.Connected,
-		ConnectionType: agentmodel.ConnectionTypeFromString(status.ConnectionType),
-		SequenceNum:    status.SequenceNum,
-		LastReportedAt: status.LastCommunicatedAt.Time(),
-		LastReportedTo: status.LastCommunicatedTo,
+		ConnectionSettingsStatus: status.ConnectionSettingsStatus.ToDomain(),
+		Conditions:               conditions,
+		Connected:                status.Connected,
+		ConnectionType:           agentmodel.ConnectionTypeFromString(status.ConnectionType),
+		SequenceNum:              status.SequenceNum,
+		LastReportedAt:           status.LastCommunicatedAt.Time(),
+		LastReportedTo:           status.LastCommunicatedTo,
 	}
 }
 
@@ -542,20 +603,27 @@ func AgentFromDomain(agent *agentmodel.Agent) *Agent {
 		Spec: AgentSpec{
 			NewInstanceUID:      newInstanceUID,
 			RemoteConfig:        AgentSpecRemoteConfigFromDomain(agent.Spec.RemoteConfig),
+			ConnectionInfo:      AgentConnectionInfoFromDomain(agent.Spec.ConnectionInfo),
 			RequiredRestartedAt: agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
 		},
 		Status: AgentStatus{
-			EffectiveConfig:     AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
-			PackageStatuses:     AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
-			ComponentHealth:     AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
-			AvailableComponents: AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
-			RemoteConfigStatus:  AgentRemoteConfigStatusFromDomain(&agent.Status.RemoteConfigStatus),
-			Conditions:          AgentConditionsFromDomain(agent.Status.Conditions),
-			Connected:           agent.Status.Connected,
-			ConnectionType:      agent.Status.ConnectionType.String(),
-			SequenceNum:         agent.Status.SequenceNum,
-			LastCommunicatedAt:  bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
-			LastCommunicatedTo:  agent.Status.LastReportedTo,
+			ActiveClientCertificateHash: agent.Status.ActiveClientCertificateHash,
+			EffectiveConfig:             AgentEffectiveConfigFromDomain(&agent.Status.EffectiveConfig),
+			PackageStatuses:             AgentPackageStatusesFromDomain(&agent.Status.PackageStatuses),
+			ComponentHealth:             AgentComponentHealthFromDomain(&agent.Status.ComponentHealth),
+			AvailableComponents:         AgentAvailableComponentsFromDomain(&agent.Status.AvailableComponents),
+			RemoteConfigStatus:          AgentRemoteConfigStatusFromDomain(&agent.Status.RemoteConfigStatus),
+			ConnectionSettingsStatus: &AgentConnectionSettingsStatus{
+				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
+				Status:                     agent.Status.ConnectionSettingsStatus.Status,
+				ErrorMessage:               agent.Status.ConnectionSettingsStatus.ErrorMessage,
+			},
+			Conditions:         AgentConditionsFromDomain(agent.Status.Conditions),
+			Connected:          agent.Status.Connected,
+			ConnectionType:     agent.Status.ConnectionType.String(),
+			SequenceNum:        agent.Status.SequenceNum,
+			LastCommunicatedAt: bson.NewDateTimeFromTime(agent.Status.LastReportedAt),
+			LastCommunicatedTo: agent.Status.LastReportedTo,
 		},
 	}
 }

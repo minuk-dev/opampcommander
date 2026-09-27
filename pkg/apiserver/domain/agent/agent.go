@@ -51,6 +51,7 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			PackagesAvailable: nil,
 		},
 		Status: AgentStatus{
+			ActiveClientCertificateHash: nil,
 			RemoteConfigStatus: AgentRemoteConfigStatus{
 				LastRemoteConfigHash: nil,
 				Status:               RemoteConfigStatusUnset,
@@ -344,12 +345,13 @@ func (am *AgentMetadata) IsComplete() bool {
 
 // AgentStatus is a domain model to control opamp agent status.
 type AgentStatus struct {
-	RemoteConfigStatus       AgentRemoteConfigStatus
-	ConnectionSettingsStatus AgentConnectionSettingsStatus
-	EffectiveConfig          AgentEffectiveConfig
-	PackageStatuses          AgentPackageStatuses
-	ComponentHealth          AgentComponentHealth
-	AvailableComponents      AgentAvailableComponents
+	ActiveClientCertificateHash []byte
+	RemoteConfigStatus          AgentRemoteConfigStatus
+	ConnectionSettingsStatus    AgentConnectionSettingsStatus
+	EffectiveConfig             AgentEffectiveConfig
+	PackageStatuses             AgentPackageStatuses
+	ComponentHealth             AgentComponentHealth
+	AvailableComponents         AgentAvailableComponents
 
 	// Conditions is a list of conditions that apply to the agent.
 	// WARNING: Do NOT use Conditions for MongoDB queries or aggregations.
@@ -799,10 +801,10 @@ func (ci *ConnectionInfo) HasConnectionSettings() bool {
 		return false
 	}
 
-	return ci.opamp.DestinationEndpoint != "" ||
-		ci.ownMetrics.DestinationEndpoint != "" ||
-		ci.ownLogs.DestinationEndpoint != "" ||
-		ci.ownTraces.DestinationEndpoint != "" ||
+	return ci.opamp.HasEndpoint() ||
+		ci.ownMetrics.HasEndpoint() ||
+		ci.ownLogs.HasEndpoint() ||
+		ci.ownTraces.HasEndpoint() ||
 		len(ci.otherConnections) > 0
 }
 
@@ -1469,18 +1471,19 @@ func (a *Agent) clonePackagesAvailable() *AgentSpecPackage {
 
 func (a *Agent) cloneStatus() AgentStatus {
 	return AgentStatus{
-		RemoteConfigStatus:       a.cloneRemoteConfigStatus(),
-		ConnectionSettingsStatus: a.cloneConnectionSettingsStatus(),
-		EffectiveConfig:          a.cloneEffectiveConfig(),
-		PackageStatuses:          a.clonePackageStatuses(),
-		ComponentHealth:          a.cloneComponentHealth(a.Status.ComponentHealth),
-		AvailableComponents:      a.cloneAvailableComponents(),
-		Conditions:               a.cloneConditions(),
-		Connected:                a.Status.Connected,
-		ConnectionType:           a.Status.ConnectionType,
-		SequenceNum:              a.Status.SequenceNum,
-		LastReportedAt:           a.Status.LastReportedAt,
-		LastReportedTo:           a.Status.LastReportedTo,
+		ActiveClientCertificateHash: cloneByteSlice(a.Status.ActiveClientCertificateHash),
+		RemoteConfigStatus:          a.cloneRemoteConfigStatus(),
+		ConnectionSettingsStatus:    a.cloneConnectionSettingsStatus(),
+		EffectiveConfig:             a.cloneEffectiveConfig(),
+		PackageStatuses:             a.clonePackageStatuses(),
+		ComponentHealth:             a.cloneComponentHealth(a.Status.ComponentHealth),
+		AvailableComponents:         a.cloneAvailableComponents(),
+		Conditions:                  a.cloneConditions(),
+		Connected:                   a.Status.Connected,
+		ConnectionType:              a.Status.ConnectionType,
+		SequenceNum:                 a.Status.SequenceNum,
+		LastReportedAt:              a.Status.LastReportedAt,
+		LastReportedTo:              a.Status.LastReportedTo,
 	}
 }
 

@@ -62,6 +62,21 @@ definitions:
           $ref: '#/definitions/AgentConfigFile'
         type: object
     type: object
+  AgentConnectionSettingsStatus:
+    properties:
+      errorMessage:
+        type: string
+      lastConnectionSettingsHash:
+        items:
+          type: integer
+        type: array
+      status:
+        type: string
+      syncStatus:
+        description: SyncStatus is the server-computed progress of the desired settings
+          becoming active.
+        type: string
+    type: object
   AgentCustomCapabilities:
     properties:
       capabilities:
@@ -291,6 +306,12 @@ definitions:
         allOf:
         - $ref: '#/definitions/ConnectionSettings'
         description: ConnectionSettings contains connection settings for the agent.
+      connectionSettingsHash:
+        description: ConnectionSettingsHash is the hash of the connection settings
+          currently desired for this agent.
+        items:
+          type: integer
+        type: array
       newInstanceUid:
         description: NewInstanceUID is a new instance UID to inform the agent of its
           new identity.
@@ -345,6 +366,11 @@ definitions:
       connected:
         description: Connected indicates if the agent is currently connected.
         type: boolean
+      connectionSettings:
+        allOf:
+        - $ref: '#/definitions/AgentConnectionSettingsStatus'
+        description: ConnectionSettings reports the latest OpAMP offer application
+          result.
       connectionType:
         description: ConnectionType indicates the type of connection the agent is
           using.

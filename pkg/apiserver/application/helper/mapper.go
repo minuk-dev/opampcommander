@@ -2,6 +2,8 @@
 package helper
 
 import (
+	"bytes"
+	"encoding/pem"
 	"maps"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	usermodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user"
+	"github.com/minuk-dev/opampcommander/pkg/certutil"
 )
 
 // Mapper is a struct that provides methods to map between domain models and API models.
@@ -176,12 +179,25 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 		},
 		//exhaustruct:ignore
 		Spec: v1.AgentSpec{
-			NewInstanceUID:    mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
+			NewInstanceUID: mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
+			ConnectionSettingsHash: func() []byte {
+				if agent.Spec.ConnectionInfo == nil {
+					return nil
+				}
+
+				return agent.Spec.ConnectionInfo.Hash.Bytes()
+			}(),
 			RemoteConfig:      mapper.mapRemoteConfigToAPI(agent.Spec.RemoteConfig),
 			PackagesAvailable: mapper.mapPackagesAvailableToAPI(agent.Spec.PackagesAvailable),
 			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo),
 		},
 		Status: v1.AgentStatus{
+			ConnectionSettings: v1.AgentConnectionSettingsStatus{
+				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
+				Status:                     connectionSettingsStatusName(agent.Status.ConnectionSettingsStatus.Status),
+				SyncStatus:                 connectionSettingsSyncStatus(agent),
+				ErrorMessage:               agent.Status.ConnectionSettingsStatus.ErrorMessage,
+			},
 			EffectiveConfig: v1.AgentEffectiveConfig{
 				ConfigMap: v1.AgentConfigMap{
 					ConfigMap: lo.MapValues(agent.Status.EffectiveConfig.ConfigMap.ConfigMap,
@@ -212,6 +228,64 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 			LastReportedAt: mapper.formatTime(agent.Status.LastReportedAt),
 		},
 	}
+}
+
+const (
+	connectionStatusUnset   = "unset"
+	connectionStatusPending = "pending"
+	connectionStatusApplied = "applied"
+)
+
+func connectionSettingsStatusName(status agentmodel.ConnectionSettingsStatus) string {
+	switch status {
+	case agentmodel.ConnectionSettingsStatusUnset:
+		return connectionStatusUnset
+	case agentmodel.ConnectionSettingsStatusApplied:
+		return connectionStatusApplied
+	case agentmodel.ConnectionSettingsStatusApplying:
+		return "applying"
+	case agentmodel.ConnectionSettingsStatusFailed:
+		return "failed"
+	default:
+		return connectionStatusUnset
+	}
+}
+
+func connectionSettingsSyncStatus(agent *agentmodel.Agent) string {
+	if agent.Spec.ConnectionInfo == nil || !agent.Spec.ConnectionInfo.HasConnectionSettings() {
+		return connectionStatusUnset
+	}
+
+	if !bytes.Equal(
+		agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
+		agent.Spec.ConnectionInfo.Hash.Bytes(),
+	) {
+		return connectionStatusPending
+	}
+
+	if agent.Status.ConnectionSettingsStatus.Status == agentmodel.ConnectionSettingsStatusFailed {
+		return "failed"
+	}
+
+	if agent.Status.ConnectionSettingsStatus.Status != agentmodel.ConnectionSettingsStatusApplied {
+		return connectionStatusPending
+	}
+
+	opamp := agent.Spec.ConnectionInfo.OpAMP()
+	if opamp == nil || opamp.Certificate == nil {
+		return connectionStatusApplied
+	}
+
+	block, _ := pem.Decode(opamp.Certificate.Cert)
+	if block == nil {
+		return connectionStatusPending
+	}
+
+	if !certutil.MatchesSHA256Fingerprint(block.Bytes, agent.Status.ActiveClientCertificateHash) {
+		return connectionStatusPending
+	}
+
+	return connectionStatusApplied
 }
 
 // MapAgentPackageToAPI maps a domain model AgentPackage to an API model AgentPackage.

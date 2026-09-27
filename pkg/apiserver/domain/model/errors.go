@@ -1,10 +1,15 @@
 package model
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	// ErrResourceNotExist is an error that indicates that the resource does not exist.
 	ErrResourceNotExist = errors.New("resource does not exist")
+	// ErrAgentRevoked prevents a deleted agent identity from registering again.
+	ErrAgentRevoked = fmt.Errorf("%w: agent identity revoked", ErrResourceNotExist)
 	// ErrMultipleResourceExist is an error that indicates that multiple resources exist.
 	ErrMultipleResourceExist = errors.New("multiple resources exist")
 	// ErrInvalidArgument indicates the caller supplied an invalid argument; it maps to HTTP 400.

@@ -33,6 +33,28 @@ serverId: ""               # defaults to hostname; also settable via SERVER_ID
 serviceName: opampcommander
 ```
 
+### OpAMP client TLS and CA rotation
+
+`opampTLS` enables HTTPS for the whole API. Only `/api/v1/opamp` requires an
+agent client certificate. `certFile` and `keyFile` are the server's certificate
+and key; `caFile` is a PEM bundle of CAs trusted to issue agent client
+certificates. Each agent certificate's CN must equal its instance UID.
+
+```yaml
+opampTLS:
+  certFile: /etc/opampcommander/tls/server.crt
+  keyFile: /etc/opampcommander/tls/server.key
+  caFile: /etc/opampcommander/tls/agent-ca-bundle.pem
+```
+
+To rotate an agent-client CA, put the **old and new CA certificates in the same
+PEM file**, one `BEGIN CERTIFICATE` block after the other. Restart every
+apiserver instance so both CAs are trusted, switch agents to certificates
+issued by the new CA, then remove the old CA from the bundle and restart the
+instances again. TLS files are read only at startup; editing the file alone
+does not change the CAs trusted by a running instance. `caFile` does not
+control which CA an agent trusts for the *server* certificate.
+
 ## Database
 
 ```yaml

@@ -49,6 +49,9 @@ type AgentSpec struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID string `json:"newInstanceUid,omitempty"`
 
+	// ConnectionSettingsHash is the hash of the connection settings currently desired for this agent.
+	ConnectionSettingsHash []byte `json:"connectionSettingsHash,omitempty"`
+
 	// ConnectionSettings contains connection settings for the agent.
 	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitzero"`
 
@@ -71,6 +74,8 @@ type AgentSpecRemoteConfig struct {
 
 // AgentStatus contains the observed state of the agent.
 type AgentStatus struct {
+	// ConnectionSettings reports the latest OpAMP offer application result.
+	ConnectionSettings AgentConnectionSettingsStatus `json:"connectionSettings,omitzero"`
 	// EffectiveConfig is the effective configuration of the agent.
 	EffectiveConfig AgentEffectiveConfig `json:"effectiveConfig,omitzero"`
 
@@ -98,6 +103,15 @@ type AgentStatus struct {
 	// LastReportedAt is the timestamp when the agent last reported its status.
 	LastReportedAt string `json:"lastReportedAt,omitempty"`
 } // @name AgentStatus
+
+// AgentConnectionSettingsStatus reports whether the last offered settings were applied.
+type AgentConnectionSettingsStatus struct {
+	LastConnectionSettingsHash []byte `json:"lastConnectionSettingsHash,omitempty"`
+	Status                     string `json:"status,omitempty"`
+	// SyncStatus is the server-computed progress of the desired settings becoming active.
+	SyncStatus   string `json:"syncStatus,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
+} // @name AgentConnectionSettingsStatus
 
 // AgentCapabilities is a bitmask representing the capabilities of the agent.
 type AgentCapabilities uint64

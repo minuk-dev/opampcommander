@@ -39,6 +39,8 @@ func TestAgentRepository_PutGetDelete(t *testing.T) {
 
 	_, err = repo.GetAgent(ctx, uid)
 	require.ErrorIs(t, err, model.ErrResourceNotExist)
+	require.ErrorIs(t, err, model.ErrAgentRevoked)
+	require.ErrorIs(t, repo.PutAgent(ctx, agentmodel.NewAgent(uid)), model.ErrAgentRevoked)
 
 	// Deleting a missing agent reports not-found.
 	require.ErrorIs(t, repo.DeleteAgent(ctx, uid), model.ErrResourceNotExist)

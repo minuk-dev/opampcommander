@@ -3,6 +3,8 @@ package opamp
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/pem"
 	"errors"
 	"log/slog"
 	"testing"
@@ -33,6 +35,12 @@ type stubAgentUsecase struct {
 func (s *stubAgentUsecase) GetAgent(_ context.Context, _ uuid.UUID) (*agentmodel.Agent, error) {
 	return s.getResult, s.getErr
 }
+
+func (s *stubAgentUsecase) GetOrCreateAgent(_ context.Context, _ uuid.UUID) (*agentmodel.Agent, error) {
+	return s.getResult, s.getErr
+}
+
+func (s *stubAgentUsecase) InvalidateCache(uuid.UUID) {}
 
 func (s *stubAgentUsecase) SaveAgent(_ context.Context, a *agentmodel.Agent) error {
 	s.saved = a
@@ -70,6 +78,44 @@ func newTestService(t *testing.T, agentUC agentport.AgentUsecase, connUC agentpo
 		agentUsecase:      agentUC,
 		connectionUsecase: connUC,
 	}
+}
+
+func TestClientCertificateReplacedOnlyAfterNewConnection(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	newDER := []byte("new-leaf")
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+		Certificate: &agentmodel.AgentCertificate{
+			Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: newDER}),
+		},
+	}, nil, nil, nil, nil))
+	stub := &stubAgentUsecase{getResult: agent}
+	svc := newTestService(t, stub, nil)
+	uid := agent.Metadata.InstanceUID
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
+
+	oldHash := sha256.Sum256([]byte("old-leaf"))
+	assert.Equal(t, oldHash[:], stub.saved.Status.ActiveClientCertificateHash)
+
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
+	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
+
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("unoffered-leaf")))
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, newDER))
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
+	// A later offer must not reactivate an older certificate.
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusUnset
+
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
+}
+
+func TestRevokedAgentCertificateRejected(t *testing.T) {
+	t.Parallel()
+	svc := newTestService(t, &stubAgentUsecase{getErr: model.ErrAgentRevoked}, nil)
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uuid.New(), []byte("old-leaf")))
 }
 
 func aliveConn(t *testing.T, uid uuid.UUID, instanceUID uuid.UUID) *agentmodel.Connection {

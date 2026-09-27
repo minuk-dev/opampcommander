@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/datastructure/sets"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -25,15 +27,18 @@ var (
 // Agents have no soft-delete concept (DeleteAgent is a hard delete), matching
 // the MongoDB adapter.
 type AgentRepository struct {
-	store *store[uuid.UUID, *agentmodel.Agent]
-	clock clock.PassiveClock
+	store     *store[uuid.UUID, *agentmodel.Agent]
+	clock     clock.PassiveClock
+	revokedMu sync.RWMutex
+	revoked   sets.UUID
 }
 
 // NewAgentRepository creates a new in-memory AgentRepository.
 func NewAgentRepository() *AgentRepository {
 	//exhaustruct:ignore
 	repo := &AgentRepository{
-		clock: clock.NewRealClock(),
+		clock:   clock.NewRealClock(),
+		revoked: sets.NewUUID(),
 	}
 	// The projection reads the repository's clock rather than capturing it, so
 	// connectedness is evaluated at list time against whichever clock the
@@ -45,7 +50,17 @@ func NewAgentRepository() *AgentRepository {
 
 // GetAgent implements agentport.AgentPersistencePort.
 func (r *AgentRepository) GetAgent(_ context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
-	return r.store.get(instanceUID, nil)
+	r.revokedMu.RLock()
+	defer r.revokedMu.RUnlock()
+
+	agent, err := r.store.get(instanceUID, nil)
+	if errors.Is(err, model.ErrResourceNotExist) {
+		if r.revoked.Has(instanceUID) {
+			return nil, model.ErrAgentRevoked
+		}
+	}
+
+	return agent, err
 }
 
 // PutAgent implements agentport.AgentPersistencePort.
@@ -55,6 +70,13 @@ func (r *AgentRepository) GetAgent(_ context.Context, instanceUID uuid.UUID) (*a
 // agent was loaded with, otherwise it returns [port.ErrConflict]. On success the
 // version is incremented and written back onto the passed agent.
 func (r *AgentRepository) PutAgent(_ context.Context, agent *agentmodel.Agent) error {
+	r.revokedMu.RLock()
+	defer r.revokedMu.RUnlock()
+
+	if r.revoked.Has(agent.Metadata.InstanceUID) {
+		return model.ErrAgentRevoked
+	}
+
 	expected := agent.Metadata.ResourceVersion
 	next := expected + 1
 
@@ -93,7 +115,17 @@ func (r *AgentRepository) UpdateAgentLiveness(
 
 // DeleteAgent implements agentport.AgentPersistencePort.
 func (r *AgentRepository) DeleteAgent(_ context.Context, instanceUID uuid.UUID) error {
-	return r.store.delete(instanceUID)
+	r.revokedMu.Lock()
+	defer r.revokedMu.Unlock()
+
+	err := r.store.delete(instanceUID)
+	if err != nil {
+		return err
+	}
+
+	r.revoked.Insert(instanceUID)
+
+	return nil
 }
 
 // ListAgents implements agentport.AgentPersistencePort.

@@ -2,7 +2,9 @@
 package opamp
 
 import (
+	"bytes"
 	"context"
+	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -17,10 +19,57 @@ import (
 	modelagent "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
+
+// AuthorizeClientCertificate binds a CA-verified certificate to an agent UID.
+// A pending certificate replaces the active one only after it establishes a
+// successful TLS connection; reported status alone cannot revoke the old one.
+func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
+	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
+	if !ok {
+		return false
+	}
+
+	invalidator.InvalidateCache(uid)
+
+	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, uid)
+	if err != nil {
+		s.logger.Warn("cannot validate agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+
+		return false
+	}
+
+	if certutil.MatchesSHA256Fingerprint(certDER, agent.Status.ActiveClientCertificateHash) {
+		return true
+	}
+
+	if len(agent.Status.ActiveClientCertificateHash) != 0 {
+		info := agent.Spec.ConnectionInfo
+		if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil {
+			return false
+		}
+
+		block, _ := pem.Decode(info.OpAMP().Certificate.Cert)
+		if block == nil || !bytes.Equal(block.Bytes, certDER) {
+			return false
+		}
+	}
+
+	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint(certDER)
+
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		s.logger.Warn("cannot bind agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+
+		return false
+	}
+
+	return true
+}
 
 const (
 	// DefaultOnConnectionCloseTimeout is the default timeout for closing a connection.

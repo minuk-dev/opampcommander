@@ -4422,6 +4422,27 @@
                 }
             }
         },
+        "AgentConnectionSettingsStatus": {
+            "type": "object",
+            "properties": {
+                "errorMessage": {
+                    "type": "string"
+                },
+                "lastConnectionSettingsHash": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "syncStatus": {
+                    "description": "SyncStatus is the server-computed progress of the desired settings becoming active.",
+                    "type": "string"
+                }
+            }
+        },
         "AgentCustomCapabilities": {
             "type": "object",
             "properties": {
@@ -4757,6 +4778,13 @@
                         }
                     ]
                 },
+                "connectionSettingsHash": {
+                    "description": "ConnectionSettingsHash is the hash of the connection settings currently desired for this agent.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "newInstanceUid": {
                     "description": "NewInstanceUID is a new instance UID to inform the agent of its new identity.",
                     "type": "string"
@@ -4836,6 +4864,14 @@
                 "connected": {
                     "description": "Connected indicates if the agent is currently connected.",
                     "type": "boolean"
+                },
+                "connectionSettings": {
+                    "description": "ConnectionSettings reports the latest OpAMP offer application result.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/AgentConnectionSettingsStatus"
+                        }
+                    ]
                 },
                 "connectionType": {
                     "description": "ConnectionType indicates the type of connection the agent is using.",
