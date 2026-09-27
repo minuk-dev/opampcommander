@@ -3,6 +3,7 @@ package opamp
 
 import (
 	"context"
+	"crypto/x509"
 	"log/slog"
 	"net/http"
 
@@ -79,7 +80,8 @@ func NewController(
 func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 	c.logger.Debug("OnConnecting", slog.Any("req", req))
 
-	if c.RequireClientCertificate && (req.TLS == nil || len(req.TLS.VerifiedChains) == 0) {
+	if c.RequireClientCertificate && (req.TLS == nil || len(req.TLS.VerifiedChains) == 0 ||
+		len(req.TLS.PeerCertificates) == 0) {
 		//exhaustruct:ignore
 		return types.ConnectionResponse{Accept: false, HTTPStatusCode: http.StatusUnauthorized}
 	}
@@ -91,24 +93,7 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 
 	onMessage := c.opampUsecase.OnMessage
 	if c.RequireClientCertificate {
-		identity := req.TLS.PeerCertificates[0].Subject.CommonName
-		onMessage = func(
-			ctx context.Context, conn types.Connection, message *protobufs.AgentToServer,
-		) *protobufs.ServerToAgent {
-			instanceUID, err := uuid.FromBytes(message.GetInstanceUid())
-			if err != nil || instanceUID.String() != identity ||
-				!c.opampUsecase.IsClientCertificateAllowed(ctx, instanceUID, req.TLS.PeerCertificates[0].Raw) {
-				return &protobufs.ServerToAgent{
-					InstanceUid: message.GetInstanceUid(),
-					ErrorResponse: &protobufs.ServerErrorResponse{
-						Type:         protobufs.ServerErrorResponseType_ServerErrorResponseType_BadRequest,
-						ErrorMessage: "client certificate is not authorized for agent instance UID",
-					},
-				}
-			}
-
-			return c.opampUsecase.OnMessage(ctx, conn, message)
-		}
+		onMessage = c.clientCertificateMessageHandler(req.TLS.PeerCertificates[0])
 	}
 
 	return types.ConnectionResponse{
@@ -149,4 +134,33 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 func (c *Controller) Handle(ctx *gin.Context) {
 	c.logger.Info("Handle", "message", "start")
 	c.handler(ctx.Writer, ctx.Request)
+}
+
+func (c *Controller) clientCertificateMessageHandler(
+	cert *x509.Certificate,
+) func(context.Context, types.Connection, *protobufs.AgentToServer) *protobufs.ServerToAgent {
+	return func(ctx context.Context, conn types.Connection, message *protobufs.AgentToServer) *protobufs.ServerToAgent {
+		if !c.authorizeAgentMessage(ctx, cert, message) {
+			return &protobufs.ServerToAgent{
+				InstanceUid: message.GetInstanceUid(),
+				ErrorResponse: &protobufs.ServerErrorResponse{
+					Type:         protobufs.ServerErrorResponseType_ServerErrorResponseType_BadRequest,
+					ErrorMessage: "client certificate is not authorized for agent instance UID",
+				},
+			}
+		}
+
+		return c.opampUsecase.OnMessage(ctx, conn, message)
+	}
+}
+
+func (c *Controller) authorizeAgentMessage(
+	ctx context.Context, cert *x509.Certificate, message *protobufs.AgentToServer,
+) bool {
+	uid, err := uuid.FromBytes(message.GetInstanceUid())
+	if err != nil || uid.String() != cert.Subject.CommonName {
+		return false
+	}
+
+	return c.opampUsecase.AuthorizeClientCertificate(ctx, uid, cert.Raw)
 }

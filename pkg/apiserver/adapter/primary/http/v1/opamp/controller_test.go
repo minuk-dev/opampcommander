@@ -34,10 +34,11 @@ type spyUsecase struct {
 	onConnectedWithTypeCalls int
 	lastIsWebSocket          bool
 	onMessageCalls           int
+	rejectClientCertificate  bool
 }
 
-func (s *spyUsecase) IsClientCertificateAllowed(_ context.Context, _ uuid.UUID, _ []byte) bool {
-	return true
+func (s *spyUsecase) AuthorizeClientCertificate(_ context.Context, _ uuid.UUID, _ []byte) bool {
+	return !s.rejectClientCertificate
 }
 
 func (s *spyUsecase) OnConnected(_ context.Context, _ opamptypes.Connection) {}
@@ -67,6 +68,11 @@ func TestController_ClientCertificateIdentity(t *testing.T) {
 	uid := uuid.New()
 	cert := &x509.Certificate{Subject: pkix.Name{CommonName: uid.String()}}
 	req.TLS = &tls.ConnectionState{
+		VerifiedChains: [][]*x509.Certificate{{cert}},
+	}
+	assert.False(t, controller.OnConnecting(req).Accept)
+
+	req.TLS = &tls.ConnectionState{
 		PeerCertificates: []*x509.Certificate{cert},
 		VerifiedChains:   [][]*x509.Certificate{{cert}},
 	}
@@ -75,6 +81,16 @@ func TestController_ClientCertificateIdentity(t *testing.T) {
 	response := callbacks.OnMessage(t.Context(), nil, &protobufs.AgentToServer{InstanceUid: wrong[:]})
 	require.NotNil(t, response.GetErrorResponse())
 	assert.Equal(t, 0, spy.onMessageCalls)
+
+	response = callbacks.OnMessage(t.Context(), nil, &protobufs.AgentToServer{InstanceUid: []byte("invalid")})
+	require.NotNil(t, response.GetErrorResponse())
+	assert.Equal(t, 0, spy.onMessageCalls)
+
+	spy.rejectClientCertificate = true
+	response = callbacks.OnMessage(t.Context(), nil, &protobufs.AgentToServer{InstanceUid: uid[:]})
+	require.NotNil(t, response.GetErrorResponse())
+	assert.Equal(t, 0, spy.onMessageCalls)
+	spy.rejectClientCertificate = false
 
 	callbacks.OnMessage(t.Context(), nil, &protobufs.AgentToServer{InstanceUid: uid[:]})
 	assert.Equal(t, 1, spy.onMessageCalls)

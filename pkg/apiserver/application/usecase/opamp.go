@@ -14,9 +14,9 @@ import (
 // by the opamp-go server adapter for each connected agent.
 // Please see [github.com/open-telemetry/opamp-go/server/types/ConnectionCallbacks].
 type OpAMPUsecase interface {
-	// IsClientCertificateAllowed binds the presented certificate to the agent UID
+	// AuthorizeClientCertificate binds the presented certificate to the agent UID
 	// after TLS verification and rejects certificates that were superseded.
-	IsClientCertificateAllowed(ctx context.Context, instanceUID uuid.UUID, certDER []byte) bool
+	AuthorizeClientCertificate(ctx context.Context, instanceUID uuid.UUID, certDER []byte) bool
 	// OnConnected is called when an agent connection is established.
 	OnConnected(ctx context.Context, conn opamptypes.Connection)
 	// OnConnectedWithType is OnConnected with the transport kind (true for

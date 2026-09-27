@@ -94,7 +94,7 @@ func TestClientCertificateReplacedOnlyAfterNewConnection(t *testing.T) {
 	stub := &stubAgentUsecase{getResult: agent}
 	svc := newTestService(t, stub, nil)
 	uid := agent.Metadata.InstanceUID
-	assert.True(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("old-leaf")))
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
 
 	oldHash := sha256.Sum256([]byte("old-leaf"))
 	assert.Equal(t, oldHash[:], stub.saved.Status.ActiveClientCertificateHash)
@@ -102,20 +102,20 @@ func TestClientCertificateReplacedOnlyAfterNewConnection(t *testing.T) {
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
 	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
 
-	assert.True(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("old-leaf")))
-	assert.False(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("unoffered-leaf")))
-	assert.True(t, svc.IsClientCertificateAllowed(t.Context(), uid, newDER))
-	assert.False(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("old-leaf")))
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("unoffered-leaf")))
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, newDER))
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
 	// A later offer must not reactivate an older certificate.
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusUnset
 
-	assert.False(t, svc.IsClientCertificateAllowed(t.Context(), uid, []byte("old-leaf")))
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
 }
 
 func TestRevokedAgentCertificateRejected(t *testing.T) {
 	t.Parallel()
 	svc := newTestService(t, &stubAgentUsecase{getErr: model.ErrAgentRevoked}, nil)
-	assert.False(t, svc.IsClientCertificateAllowed(t.Context(), uuid.New(), []byte("old-leaf")))
+	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uuid.New(), []byte("old-leaf")))
 }
 
 func aliveConn(t *testing.T, uid uuid.UUID, instanceUID uuid.UUID) *agentmodel.Connection {

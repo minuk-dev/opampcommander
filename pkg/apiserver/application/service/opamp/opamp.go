@@ -25,10 +25,10 @@ import (
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
 
-// IsClientCertificateAllowed binds a CA-verified certificate to an agent UID.
+// AuthorizeClientCertificate binds a CA-verified certificate to an agent UID.
 // A pending certificate replaces the active one only after it establishes a
 // successful TLS connection; reported status alone cannot revoke the old one.
-func (s *Service) IsClientCertificateAllowed(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
+func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
 	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
 	if !ok {
 		return false
