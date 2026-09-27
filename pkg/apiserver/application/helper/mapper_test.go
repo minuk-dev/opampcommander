@@ -2,6 +2,7 @@ package helper_test
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"encoding/pem"
 	"testing"
 	"time"
@@ -30,6 +31,26 @@ func TestMapAgentConnectionRotationStatus(t *testing.T) {
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
 	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
 	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+}
+
+func TestMapAgentConnectionSettingsHashBelongsToSpec(t *testing.T) {
+	t.Parallel()
+
+	agent := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+
+	mapped := helper.NewMapper(clock.RealClock{}, 0).MapAgentToAPI(agent)
+	assert.Equal(t, agent.Spec.ConnectionInfo.Hash.Bytes(), mapped.Spec.ConnectionSettingsHash)
+
+	data, err := json.Marshal(mapped)
+	require.NoError(t, err)
+
+	var response map[string]map[string]any
+	require.NoError(t, json.Unmarshal(data, &response))
+	assert.Contains(t, response["spec"], "connectionSettingsHash")
+	assert.NotContains(t, response["status"]["connectionSettings"], "desiredHash")
 }
 
 func TestMapAgentConnectionRotationWaitsForNewCertificate(t *testing.T) {

@@ -4433,12 +4433,6 @@ const docTemplate = `{
         "AgentConnectionSettingsStatus": {
             "type": "object",
             "properties": {
-                "desiredHash": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
                 "errorMessage": {
                     "type": "string"
                 },
@@ -4790,6 +4784,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/ConnectionSettings"
                         }
                     ]
+                },
+                "connectionSettingsHash": {
+                    "description": "ConnectionSettingsHash is the hash of the connection settings currently desired for this agent.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 },
                 "newInstanceUid": {
                     "description": "NewInstanceUID is a new instance UID to inform the agent of its new identity.",

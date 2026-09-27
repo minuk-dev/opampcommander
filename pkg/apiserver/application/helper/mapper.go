@@ -179,20 +179,20 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 		},
 		//exhaustruct:ignore
 		Spec: v1.AgentSpec{
-			NewInstanceUID:    mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
+			NewInstanceUID: mapper.mapNewInstanceUIDToAPI(agent.Spec.NewInstanceUID[:]),
+			ConnectionSettingsHash: func() []byte {
+				if agent.Spec.ConnectionInfo == nil {
+					return nil
+				}
+
+				return agent.Spec.ConnectionInfo.Hash.Bytes()
+			}(),
 			RemoteConfig:      mapper.mapRemoteConfigToAPI(agent.Spec.RemoteConfig),
 			PackagesAvailable: mapper.mapPackagesAvailableToAPI(agent.Spec.PackagesAvailable),
 			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo),
 		},
 		Status: v1.AgentStatus{
 			ConnectionSettings: v1.AgentConnectionSettingsStatus{
-				DesiredHash: func() []byte {
-					if agent.Spec.ConnectionInfo == nil {
-						return nil
-					}
-
-					return agent.Spec.ConnectionInfo.Hash.Bytes()
-				}(),
 				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
 				Status:                     connectionSettingsStatusName(agent.Status.ConnectionSettingsStatus.Status),
 				Rotation:                   connectionRotationStatus(agent),

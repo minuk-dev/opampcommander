@@ -64,10 +64,6 @@ definitions:
     type: object
   AgentConnectionSettingsStatus:
     properties:
-      desiredHash:
-        items:
-          type: integer
-        type: array
       errorMessage:
         type: string
       lastConnectionSettingsHash:
@@ -308,6 +304,12 @@ definitions:
         allOf:
         - $ref: '#/definitions/ConnectionSettings'
         description: ConnectionSettings contains connection settings for the agent.
+      connectionSettingsHash:
+        description: ConnectionSettingsHash is the hash of the connection settings
+          currently desired for this agent.
+        items:
+          type: integer
+        type: array
       newInstanceUid:
         description: NewInstanceUID is a new instance UID to inform the agent of its
           new identity.

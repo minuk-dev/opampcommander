@@ -49,6 +49,9 @@ type AgentSpec struct {
 	// NewInstanceUID is a new instance UID to inform the agent of its new identity.
 	NewInstanceUID string `json:"newInstanceUid,omitempty"`
 
+	// ConnectionSettingsHash is the hash of the connection settings currently desired for this agent.
+	ConnectionSettingsHash []byte `json:"connectionSettingsHash,omitempty"`
+
 	// ConnectionSettings contains connection settings for the agent.
 	ConnectionSettings ConnectionSettings `json:"connectionSettings,omitzero"`
 
@@ -103,7 +106,6 @@ type AgentStatus struct {
 
 // AgentConnectionSettingsStatus reports whether the last offered settings were applied.
 type AgentConnectionSettingsStatus struct {
-	DesiredHash                []byte `json:"desiredHash,omitempty"`
 	LastConnectionSettingsHash []byte `json:"lastConnectionSettingsHash,omitempty"`
 	Status                     string `json:"status,omitempty"`
 	Rotation                   string `json:"rotation,omitempty"`
