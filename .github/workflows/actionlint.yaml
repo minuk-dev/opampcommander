@@ -26,6 +26,6 @@ jobs:
       # The image bundles the matching shellcheck, so `run:` scripts are linted
       # too. Pinned by tag for reproducibility — bump deliberately.
       - name: Run actionlint
-        uses: docker://rhysd/actionlint:1.7.7
+        uses: docker://rhysd/actionlint:1.7.12
         with:
           args: -color
