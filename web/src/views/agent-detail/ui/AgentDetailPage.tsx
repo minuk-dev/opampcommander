@@ -140,6 +140,8 @@ function AgentDetailInner() {
   }
 
   const health = agent.status.componentHealth;
+  const connectionSettings = agent.status.connectionSettings;
+  const syncStatus = connectionSettings?.syncStatus ?? 'unset';
   const effectiveConfig = Object.entries(agent.status.effectiveConfig?.configMap.configMap ?? {});
 
   return (
@@ -190,7 +192,7 @@ function AgentDetailInner() {
         }
       />
 
-      <div className="mb-3 grid gap-3 md:grid-cols-3">
+      <div className="mb-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Connection</CardTitle>
@@ -246,6 +248,38 @@ function AgentDetailInner() {
                 ))
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Connection settings</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            <Badge
+              variant={
+                syncStatus === 'applied'
+                  ? 'success'
+                  : syncStatus === 'failed'
+                    ? 'destructive'
+                    : syncStatus === 'pending'
+                      ? 'warning'
+                      : 'muted'
+              }
+            >
+              {syncStatus}
+            </Badge>
+            <p className="text-sm">Agent report: {connectionSettings?.status ?? 'unset'}</p>
+            {connectionSettings?.errorMessage && (
+              <p className="break-words text-sm text-destructive">
+                {connectionSettings.errorMessage}
+              </p>
+            )}
+            {syncStatus === 'pending' && (
+              <p className="text-xs text-muted-foreground">
+                Waiting for the offered settings to become active.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
