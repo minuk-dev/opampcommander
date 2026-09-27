@@ -197,7 +197,7 @@ opampctl get agent -A
 Update an agent (for example, assign a new instance UID):
 
 ```bash
-opampctl set agent <instance-uid> --new-instance-uid <new-uid> -n default
+opampctl set instance-uid agent/<instance-uid> <new-uid> -n default
 ```
 
 Restart agents:
@@ -211,6 +211,9 @@ opampctl restart agent <instance-uid>
 ```bash
 opampctl get agentgroup
 opampctl get agentgroup <name>
+
+# offer an existing certificate to the group's sole agent
+opampctl set opamp-certificate agentgroup/<name> <certificate-name>
 
 # create from a manifest file
 opampctl create agentgroup -f ./agentgroup.yaml

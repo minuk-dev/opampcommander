@@ -1,4 +1,4 @@
-package agentgroup //nolint:testpackage // exercises the unexported certificate validation boundary
+package opampcertificate //nolint:testpackage // exercises the unexported certificate validation boundary
 
 import (
 	"crypto/ed25519"

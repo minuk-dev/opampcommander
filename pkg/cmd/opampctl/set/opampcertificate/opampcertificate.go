@@ -1,5 +1,5 @@
-// Package agentgroup sets connection settings on an agent group.
-package agentgroup
+// Package opampcertificate sets an agent group's OpAMP client certificate.
+package opampcertificate
 
 import (
 	"crypto/tls"
@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resource"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -28,33 +29,37 @@ var (
 type CommandOptions struct {
 	*config.GlobalConfig
 
-	namespace   string
-	certificate string
-	formatType  string
+	namespace  string
+	formatType string
 }
 
-// NewCommand creates the set agentgroup command.
+// NewCommand creates the set opamp-certificate command.
 func NewCommand(options CommandOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "agentgroup NAME",
-		Short: "Rotate the OpAMP client certificate for a single-agent group",
+		Use:   "opamp-certificate (agentgroup/NAME | agentgroup NAME) CERTIFICATE",
+		Short: "Set the OpAMP client certificate for a single-agent group",
 		Long: "Offer an existing Certificate to the group's agent. " +
 			"Its leaf certificate CN must equal the agent instance UID.",
-		Args: cobra.ExactArgs(1),
+		Example: `  opampctl set opamp-certificate agentgroup/my-group new-cert
+  opampctl set opamp-certificate agentgroup my-group new-cert -n default`,
+		Args: cobra.RangeArgs(resource.MinArgs, resource.MaxArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return options.Run(cmd, args[0])
+			name, certificate, err := resource.Parse(args, "agentgroup")
+			if err != nil {
+				return fmt.Errorf("parse agent group target: %w", err)
+			}
+
+			return options.Run(cmd, name, certificate)
 		},
 	}
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent group")
-	cmd.Flags().StringVar(&options.certificate, "opamp-certificate", "", "Certificate resource to offer to the agent")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "yaml", "Output format (yaml, json)")
-	_ = cmd.MarkFlagRequired("opamp-certificate")
 
 	return cmd
 }
 
 // Run validates the certificate and updates the group's OpAMP offer.
-func (opts *CommandOptions) Run(cmd *cobra.Command, name string) error {
+func (opts *CommandOptions) Run(cmd *cobra.Command, name, certificateName string) error {
 	cli, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("create authenticated client: %w", err)
@@ -81,7 +86,7 @@ func (opts *CommandOptions) Run(cmd *cobra.Command, name string) error {
 		return errOneAgentRequired
 	}
 
-	certificate, err := cli.CertificateService.GetCertificate(cmd.Context(), opts.namespace, opts.certificate)
+	certificate, err := cli.CertificateService.GetCertificate(cmd.Context(), opts.namespace, certificateName)
 	if err != nil {
 		return fmt.Errorf("get certificate: %w", err)
 	}
@@ -93,7 +98,7 @@ func (opts *CommandOptions) Run(cmd *cobra.Command, name string) error {
 		return err
 	}
 
-	group.Spec.AgentConfig.ConnectionSettings.OpAMP.CertificateName = &opts.certificate
+	group.Spec.AgentConfig.ConnectionSettings.OpAMP.CertificateName = &certificateName
 
 	updated, err := cli.AgentGroupService.UpdateAgentGroup(cmd.Context(), group)
 	if err != nil {
