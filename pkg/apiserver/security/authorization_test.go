@@ -100,10 +100,13 @@ func TestAuthorizationMiddleware_UsersMe_RequiresAuthentication(t *testing.T) {
 
 type namespaceRBAC struct {
 	userport.RBACUsecase
+
 	check func(string, string, string) bool
 }
 
-func (r namespaceRBAC) CheckPermission(_ context.Context, _ uuid.UUID, namespace, resource, action string) (bool, error) {
+func (r namespaceRBAC) CheckPermission(
+	_ context.Context, _ uuid.UUID, namespace, resource, action string,
+) (bool, error) {
 	return r.check(namespace, resource, action), nil
 }
 
@@ -141,15 +144,19 @@ func TestAuthorizationMiddleware_NamespacePermissions(t *testing.T) {
 			})
 			router.Use(security.NewAuthorizationMiddleware(namespaceRBAC{check: func(scope, resource, action string) bool {
 				called = true
+
 				assert.Equal(t, tt.scope, scope)
 				assert.Equal(t, "namespace", resource)
 				assert.Equal(t, tt.action, action)
+
 				return tt.allowed
 			}}, namespaceUsers{}, adminEmail, slog.Default()))
+
 			route := "/api/v1/namespaces"
 			if tt.scope != "*" {
 				route += "/:namespace"
 			}
+
 			router.Handle(tt.method, route, func(ctx *gin.Context) { ctx.Status(http.StatusOK) })
 
 			recorder := httptest.NewRecorder()
@@ -158,6 +165,7 @@ func TestAuthorizationMiddleware_NamespacePermissions(t *testing.T) {
 			router.ServeHTTP(recorder, req)
 
 			assert.True(t, called)
+
 			if tt.allowed {
 				assert.Equal(t, http.StatusOK, recorder.Code)
 			} else {
