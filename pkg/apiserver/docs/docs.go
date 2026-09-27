@@ -4442,10 +4442,11 @@ const docTemplate = `{
                         "type": "integer"
                     }
                 },
-                "rotation": {
+                "status": {
                     "type": "string"
                 },
-                "status": {
+                "syncStatus": {
+                    "description": "SyncStatus is the server-computed progress of the desired settings becoming active.",
                     "type": "string"
                 }
             }

@@ -195,7 +195,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 			ConnectionSettings: v1.AgentConnectionSettingsStatus{
 				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
 				Status:                     connectionSettingsStatusName(agent.Status.ConnectionSettingsStatus.Status),
-				Rotation:                   connectionRotationStatus(agent),
+				SyncStatus:                 connectionSettingsSyncStatus(agent),
 				ErrorMessage:               agent.Status.ConnectionSettingsStatus.ErrorMessage,
 			},
 			EffectiveConfig: v1.AgentEffectiveConfig{
@@ -251,20 +251,23 @@ func connectionSettingsStatusName(status agentmodel.ConnectionSettingsStatus) st
 	}
 }
 
-func connectionRotationStatus(agent *agentmodel.Agent) string {
+func connectionSettingsSyncStatus(agent *agentmodel.Agent) string {
 	if agent.Spec.ConnectionInfo == nil || !agent.Spec.ConnectionInfo.HasConnectionSettings() {
 		return connectionStatusUnset
+	}
+
+	if !bytes.Equal(
+		agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
+		agent.Spec.ConnectionInfo.Hash.Bytes(),
+	) {
+		return connectionStatusPending
 	}
 
 	if agent.Status.ConnectionSettingsStatus.Status == agentmodel.ConnectionSettingsStatusFailed {
 		return "failed"
 	}
 
-	if agent.Status.ConnectionSettingsStatus.Status != agentmodel.ConnectionSettingsStatusApplied ||
-		!bytes.Equal(
-			agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
-			agent.Spec.ConnectionInfo.Hash.Bytes(),
-		) {
+	if agent.Status.ConnectionSettingsStatus.Status != agentmodel.ConnectionSettingsStatusApplied {
 		return connectionStatusPending
 	}
 

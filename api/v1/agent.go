@@ -108,8 +108,9 @@ type AgentStatus struct {
 type AgentConnectionSettingsStatus struct {
 	LastConnectionSettingsHash []byte `json:"lastConnectionSettingsHash,omitempty"`
 	Status                     string `json:"status,omitempty"`
-	Rotation                   string `json:"rotation,omitempty"`
-	ErrorMessage               string `json:"errorMessage,omitempty"`
+	// SyncStatus is the server-computed progress of the desired settings becoming active.
+	SyncStatus   string `json:"syncStatus,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
 } // @name AgentConnectionSettingsStatus
 
 // AgentCapabilities is a bitmask representing the capabilities of the agent.

@@ -17,7 +17,7 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
 
-func TestMapAgentConnectionRotationStatus(t *testing.T) {
+func TestMapAgentConnectionSettingsSyncStatus(t *testing.T) {
 	t.Parallel()
 
 	agent := agentmodel.NewAgent(uuid.New())
@@ -27,10 +27,18 @@ func TestMapAgentConnectionRotationStatus(t *testing.T) {
 
 	mapper := helper.NewMapper(clock.RealClock{}, 0)
 
-	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
 	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
-	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+
+	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusFailed
+	assert.Equal(t, "failed", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
+
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://next.example.test/api/v1/opamp",
+	}, nil, nil, nil, nil))
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
 }
 
 func TestMapAgentConnectionSettingsHashBelongsToSpec(t *testing.T) {
@@ -51,9 +59,11 @@ func TestMapAgentConnectionSettingsHashBelongsToSpec(t *testing.T) {
 	require.NoError(t, json.Unmarshal(data, &response))
 	assert.Contains(t, response["spec"], "connectionSettingsHash")
 	assert.NotContains(t, response["status"]["connectionSettings"], "desiredHash")
+	assert.Contains(t, response["status"]["connectionSettings"], "syncStatus")
+	assert.NotContains(t, response["status"]["connectionSettings"], "rotation")
 }
 
-func TestMapAgentConnectionRotationWaitsForNewCertificate(t *testing.T) {
+func TestMapAgentConnectionSettingsSyncWaitsForNewCertificate(t *testing.T) {
 	t.Parallel()
 
 	agent := agentmodel.NewAgent(uuid.New())
@@ -67,11 +77,11 @@ func TestMapAgentConnectionRotationWaitsForNewCertificate(t *testing.T) {
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusApplied
 	agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash = agent.Spec.ConnectionInfo.Hash.Bytes()
 	mapper := helper.NewMapper(clock.RealClock{}, 0)
-	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
 
 	fingerprint := sha256.Sum256(certDER)
 	agent.Status.ActiveClientCertificateHash = fingerprint[:]
-	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.Rotation)
+	assert.Equal(t, "applied", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
 }
 
 func TestMapAPIToAgentPackage(t *testing.T) {

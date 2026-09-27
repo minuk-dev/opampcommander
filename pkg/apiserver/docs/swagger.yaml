@@ -70,9 +70,11 @@ definitions:
         items:
           type: integer
         type: array
-      rotation:
-        type: string
       status:
+        type: string
+      syncStatus:
+        description: SyncStatus is the server-computed progress of the desired settings
+          becoming active.
         type: string
     type: object
   AgentCustomCapabilities:
