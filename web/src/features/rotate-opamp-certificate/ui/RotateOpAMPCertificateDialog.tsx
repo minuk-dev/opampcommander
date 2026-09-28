@@ -17,7 +17,6 @@ import {
 } from '@shared/ui';
 import type { Agent } from '@entities/agent';
 import type { AgentGroup } from '@entities/agent-group';
-import type { Certificate } from '@entities/certificate';
 
 interface Props {
   namespace: string;
@@ -43,7 +42,7 @@ export default function RotateOpAMPCertificateDialog({
     error: membersError,
     isLoading,
   } = useApi<ListResponse<Agent>>([`${groupUrl}/agents`, { limit: 2 }]);
-  const singleAgent = members?.items.length === 1 && !members.metadata.continue;
+  const singleAgent = members?.items.length === 1 && members.metadata.remainingItemCount === 0;
   const endpoint = group.spec.agentConfig?.connectionSettings?.opamp?.destinationEndpoint;
 
   const save = async () => {
@@ -53,14 +52,18 @@ export default function RotateOpAMPCertificateDialog({
     setBusy(true);
     setError(null);
     try {
-      const certificate = await api.get<Certificate>(
-        `/api/v1/namespaces/${namespace}/certificates/${encodeURIComponent(name)}`,
-      );
-      if (!certificate.spec.cert || !certificate.spec.privateKey) {
-        throw new Error('Certificate needs a leaf certificate and private key.');
+      const [latest, currentMembers] = await Promise.all([
+        api.get<AgentGroup>(groupUrl),
+        api.get<ListResponse<Agent>>(`${groupUrl}/agents`, { query: { limit: 2 } }),
+      ]);
+      if (
+        currentMembers.items.length !== 1 ||
+        currentMembers.metadata.remainingItemCount !== 0 ||
+        currentMembers.items[0].metadata.instanceUid !== members?.items[0].metadata.instanceUid
+      ) {
+        throw new Error('Group membership changed. Reopen the dialog and confirm the agent UID.');
       }
 
-      const latest = await api.get<AgentGroup>(groupUrl);
       const connectionSettings = latest.spec.agentConfig?.connectionSettings;
       if (!connectionSettings?.opamp?.destinationEndpoint) {
         throw new Error('Configure the group OpAMP destination endpoint first.');
@@ -107,7 +110,7 @@ export default function RotateOpAMPCertificateDialog({
           )}
           {singleAgent && (
             <p className="break-all text-sm text-muted-foreground">
-              Certificate CN must equal agent UID{' '}
+              The server requires a matching key pair and a certificate CN equal to agent UID{' '}
               <code>{members.items[0].metadata.instanceUid}</code>. The agent will report the new
               settings as applied before it reconnects with the new certificate.
             </p>

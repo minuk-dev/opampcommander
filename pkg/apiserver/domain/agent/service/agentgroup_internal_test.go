@@ -2,8 +2,14 @@ package agentservice
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
 	"log/slog"
+	"math/big"
 	"testing"
 	"time"
 
@@ -338,6 +344,110 @@ func (m *mockCertPersistence) ListCertificate(
 }
 
 var errUnexpectedType = errors.New("unexpected type")
+
+func opampTestCertificate(t *testing.T, commonName string) *agentmodel.Certificate {
+	t.Helper()
+
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	der, err := x509.CreateCertificate(rand.Reader, &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: commonName},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+	}, &x509.Certificate{
+		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: commonName},
+	}, publicKey, privateKey)
+	require.NoError(t, err)
+	keyDER, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	require.NoError(t, err)
+
+	return &agentmodel.Certificate{Spec: agentmodel.CertificateSpec{
+		Cert:       pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}),
+		PrivateKey: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER}),
+	}}
+}
+
+func TestSaveAgentGroupRejectsUnsafeOpAMPCertificate(t *testing.T) {
+	t.Parallel()
+
+	uid := uuid.New()
+	name := "next-cert"
+	group := &agentmodel.AgentGroup{
+		Metadata: agentmodel.AgentGroupMetadata{Name: "group", Namespace: "default"},
+		Spec: agentmodel.AgentGroupSpec{AgentConnectionConfig: &agentmodel.AgentGroupConnectionConfig{
+			OpAMPConnection: &agentmodel.OpAMPConnectionSettings{
+				DestinationEndpoint: "wss://example.test", CertificateName: &name,
+			},
+		}},
+	}
+
+	for _, testCase := range []struct {
+		name        string
+		members     *model.ListResponse[*agentmodel.Agent]
+		certificate *agentmodel.Certificate
+	}{
+		{name: "multiple agents", members: &model.ListResponse[*agentmodel.Agent]{
+			Items: []*agentmodel.Agent{agentmodel.NewAgent(uid), agentmodel.NewAgent(uuid.New())},
+		}},
+		{name: "invalid key pair", members: &model.ListResponse[*agentmodel.Agent]{
+			Items: []*agentmodel.Agent{agentmodel.NewAgent(uid)},
+		}, certificate: &agentmodel.Certificate{Spec: agentmodel.CertificateSpec{
+			Cert: []byte("bad"), PrivateKey: []byte("bad"),
+		}}},
+		{name: "wrong CN", members: &model.ListResponse[*agentmodel.Agent]{
+			Items: []*agentmodel.Agent{agentmodel.NewAgent(uid)},
+		}, certificate: opampTestCertificate(t, uuid.NewString())},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := t.Context()
+			groups := new(mockAgentGroupPersistence)
+			agents := new(mockAgentUsecase)
+			certs := new(mockCertPersistence)
+			svc := NewAgentGroupService(groups, new(mockRemoteConfigPersistence), certs,
+				agents, alwaysLeaderElector{}, slog.Default())
+			agents.On("ListAgentsBySelector", ctx, group.Spec.Selector, mock.Anything).
+				Return(testCase.members, nil)
+
+			if testCase.certificate != nil {
+				certs.On("GetCertificate", ctx, "default", name, (*model.GetOptions)(nil)).
+					Return(testCase.certificate, nil)
+			}
+
+			_, err := svc.SaveAgentGroup(ctx, "default", "group", group)
+			require.ErrorIs(t, err, model.ErrInvalidArgument)
+			groups.AssertNotCalled(t, "PutAgentGroup", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func TestApplyConnectionSettingsSkipsCertificateForDifferentAgent(t *testing.T) {
+	t.Parallel()
+
+	uid := uuid.New()
+	name := "next-cert"
+	group := &agentmodel.AgentGroup{
+		Metadata: agentmodel.AgentGroupMetadata{Name: "group", Namespace: "default"},
+		Spec: agentmodel.AgentGroupSpec{AgentConnectionConfig: &agentmodel.AgentGroupConnectionConfig{
+			OpAMPConnection: &agentmodel.OpAMPConnectionSettings{
+				DestinationEndpoint: "wss://example.test", CertificateName: &name,
+			},
+		}},
+	}
+	agent := agentmodel.NewAgent(uid)
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://old.example.test",
+	}, nil, nil, nil, nil))
+
+	certs := new(mockCertPersistence)
+	certs.On("GetCertificate", mock.Anything, "default", name, (*model.GetOptions)(nil)).
+		Return(opampTestCertificate(t, uuid.NewString()), nil)
+	svc := NewAgentGroupService(new(mockAgentGroupPersistence), new(mockRemoteConfigPersistence),
+		certs, new(mockAgentUsecase), alwaysLeaderElector{}, slog.Default())
+
+	require.NoError(t, svc.applyConnectionSettings(t.Context(), group, agent))
+	assert.Equal(t, "wss://old.example.test", agent.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+}
 
 func TestResolveRemoteConfig_RefMode(t *testing.T) {
 	t.Parallel()

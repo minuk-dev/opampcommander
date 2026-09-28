@@ -19,6 +19,7 @@ import (
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
+	"github.com/minuk-dev/opampcommander/pkg/selector"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -106,7 +107,12 @@ func (s *ManageService) ListAgentsByAgentGroup(
 		return nil, fmt.Errorf("get agent group: %w", err)
 	}
 
-	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Spec.Selector, options.ToDomain())
+	listOptions := options.ToDomain()
+	listOptions.FieldSelector = append(listOptions.FieldSelector, selector.FieldRequirement{
+		Field: "metadata.namespace", Operator: selector.OpEquals, Value: namespace,
+	})
+
+	domainResp, err := s.agentUsecase.ListAgentsBySelector(ctx, agentGroup.Spec.Selector, listOptions)
 	if err != nil {
 		return nil, fmt.Errorf("list agents by agent group: %w", err)
 	}

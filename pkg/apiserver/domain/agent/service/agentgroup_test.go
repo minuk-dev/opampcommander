@@ -363,7 +363,7 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 
 		expectedGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
-				Name: "test-group",
+				Name: "test-group", Namespace: "default",
 			},
 		}
 
@@ -456,7 +456,7 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 
 		agentGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
-				Name: "test-group",
+				Name: "test-group", Namespace: "default",
 			},
 			Spec: agentmodel.AgentGroupSpec{
 				Selector: agentmodel.AgentSelector{
@@ -480,7 +480,11 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 		}
 
 		options := &model.ListOptions{Limit: 10}
-		mockAgentUsecase.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector, options).
+
+		mockAgentUsecase.On("ListAgentsBySelector", ctx, agentGroup.Spec.Selector,
+			mock.MatchedBy(func(got *model.ListOptions) bool {
+				return got.Limit == options.Limit && got.FieldSelector.String() == "metadata.namespace=default"
+			})).
 			Return(expectedResponse, nil)
 
 		result, err := svc.ListAgentsByAgentGroup(ctx, agentGroup, options)

@@ -42,7 +42,7 @@ beforeEach(() => {
   vi.mocked(useApi)
     .mockReset()
     .mockReturnValue({
-      data: { items: [{ metadata: { instanceUid: 'agent-uid' } }], metadata: { continue: '' } },
+      data: { items: [{ metadata: { instanceUid: 'agent-uid' } }], metadata: { continue: 'cursor', remainingItemCount: 0 } },
       error: undefined,
       isLoading: false,
     } as ReturnType<typeof useApi>);
@@ -53,8 +53,8 @@ describe('RotateOpAMPCertificateDialog', () => {
     const user = userEvent.setup();
     const onApplied = vi.fn();
     vi.mocked(api.get)
-      .mockResolvedValueOnce({ spec: { cert: 'PEM', privateKey: 'KEY' } })
-      .mockResolvedValueOnce(group);
+      .mockResolvedValueOnce(group)
+      .mockResolvedValueOnce({ items: [{ metadata: { instanceUid: 'agent-uid' } }], metadata: { remainingItemCount: 0 } });
 
     render(
       <RotateOpAMPCertificateDialog
@@ -93,7 +93,7 @@ describe('RotateOpAMPCertificateDialog', () => {
 
   it('blocks rotation when the group has multiple agents', () => {
     vi.mocked(useApi).mockReturnValue({
-      data: { items: [{}, {}], metadata: { continue: '' } },
+      data: { items: [{}, {}], metadata: { continue: 'cursor', remainingItemCount: 0 } },
       error: undefined,
       isLoading: false,
     } as ReturnType<typeof useApi>);
@@ -112,5 +112,26 @@ describe('RotateOpAMPCertificateDialog', () => {
     const panel = screen.getByRole('dialog');
     expect(panel.className).toContain('inset-0');
     expect(panel.className).toContain('sm:inset-auto');
+  });
+
+  it('blocks a save when group membership changed after opening the dialog', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get)
+      .mockResolvedValueOnce(group)
+      .mockResolvedValueOnce({ items: [{ metadata: { instanceUid: 'another-agent' } }], metadata: { remainingItemCount: 0 } });
+
+    render(
+      <RotateOpAMPCertificateDialog
+        namespace="default"
+        group={group}
+        onClose={() => {}}
+        onApplied={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Offer certificate' }));
+
+    expect(await screen.findByText(/Group membership changed/)).toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalled();
   });
 });
