@@ -4,7 +4,8 @@ package set
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/agent"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/instanceuid"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/opampcertificate"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -13,14 +14,13 @@ func NewCommand(globalConfig *config.GlobalConfig) *cobra.Command {
 	//exhaustruct:ignore
 	cmd := &cobra.Command{
 		Use:   "set",
-		Short: "Set configurations",
-		Long:  `Set various configurations for agents and other resources.`,
+		Short: "Set specific features on resources",
 	}
 
-	// Add subcommands
-	cmd.AddCommand(agent.NewCommand(agent.CommandOptions{
+	cmd.AddCommand(instanceuid.NewCommand(instanceuid.CommandOptions{
 		GlobalConfig: globalConfig,
 	}))
+	cmd.AddCommand(opampcertificate.NewCommand(opampcertificate.CommandOptions{GlobalConfig: globalConfig}))
 
 	return cmd
 }

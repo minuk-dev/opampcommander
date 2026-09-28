@@ -133,6 +133,7 @@ type ItemForCLI struct {
 	Namespace      string    `short:"Namespace"        text:"Namespace"`
 	InstanceUID    uuid.UUID `short:"Instance UID"     text:"Instance UID"`
 	ConnectionType string    `short:"Connection Type"  text:"Connection Type"`
+	ConnectionSync string    `short:"Connection Sync"  text:"Connection Sync"`
 	Connected      bool      `short:"Connected"        text:"Connected"`
 	Healthy        bool      `short:"Healthy"          text:"Healthy"`
 	SequenceNum    uint64    `short:"Sequence Num"     text:"Sequence Num"`
@@ -442,6 +443,7 @@ func ToItemForCLI(agent v1.Agent) ItemForCLI {
 		Namespace:      agent.Metadata.Namespace,
 		InstanceUID:    agent.Metadata.InstanceUID,
 		ConnectionType: agent.Status.ConnectionType,
+		ConnectionSync: agent.Status.ConnectionSettings.SyncStatus,
 		Connected:      agent.Status.Connected,
 		Healthy:        agent.Status.ComponentHealth.Healthy,
 		SequenceNum:    agent.Status.SequenceNum,
