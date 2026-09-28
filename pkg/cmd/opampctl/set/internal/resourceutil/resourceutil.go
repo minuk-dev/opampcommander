@@ -1,5 +1,5 @@
-// Package resource parses kubectl-style resource arguments for set commands.
-package resource
+// Package resourceutil parses kubectl-style resource arguments for set commands.
+package resourceutil
 
 import (
 	"errors"

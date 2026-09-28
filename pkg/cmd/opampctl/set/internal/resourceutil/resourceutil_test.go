@@ -1,9 +1,12 @@
-package resource_test
+package resourceutil_test
 
 import (
 	"testing"
 
-	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resource"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resourceutil"
 )
 
 func TestParse(t *testing.T) {
@@ -32,15 +35,16 @@ func TestParse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			name, value, err := resource.Parse(tt.args, tt.kind)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Parse(%q, %q) error = %v, wantErr %t", tt.args, tt.kind, err, tt.wantErr)
+			name, value, err := resourceutil.Parse(tt.args, tt.kind)
+			if tt.wantErr {
+				require.ErrorIs(t, err, resourceutil.ErrInvalidArguments)
+
+				return
 			}
 
-			if name != tt.wantName || value != tt.wantVal {
-				t.Errorf("Parse(%q, %q) = (%q, %q), want (%q, %q)",
-					tt.args, tt.kind, name, value, tt.wantName, tt.wantVal)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, name)
+			assert.Equal(t, tt.wantVal, value)
 		})
 	}
 }

@@ -12,7 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
-	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resource"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resourceutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -49,7 +49,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 			"Its leaf certificate CN must equal the agent instance UID.",
 		Example: `  opampctl set opamp-certificate agentgroup/my-group new-cert
   opampctl set opamp-certificate agentgroup my-group new-cert -n default`,
-		Args: cobra.RangeArgs(resource.MinArgs, resource.MaxArgs),
+		Args: cobra.RangeArgs(resourceutil.MinArgs, resourceutil.MaxArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := options.Prepare(cmd, args)
 			if err != nil {
@@ -67,7 +67,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare parses the target and initializes the client.
 func (opts *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
-	name, certificateName, err := resource.Parse(args, "agentgroup")
+	name, certificateName, err := resourceutil.Parse(args, "agentgroup")
 	if err != nil {
 		return fmt.Errorf("parse agent group target: %w", err)
 	}

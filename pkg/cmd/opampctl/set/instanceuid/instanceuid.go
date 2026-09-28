@@ -10,7 +10,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
-	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resource"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/internal/resourceutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmdutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -39,7 +39,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		Short: "Set an agent's new instance UID",
 		Example: `  opampctl set instance-uid agent/550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001
   opampctl set instance-uid agent 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440001 -o json`,
-		Args:              cobra.RangeArgs(resource.MinArgs, resource.MaxArgs),
+		Args:              cobra.RangeArgs(resourceutil.MinArgs, resourceutil.MaxArgs),
 		ValidArgsFunction: options.ValidArgsFunction,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := options.Prepare(cmd, args)
@@ -63,7 +63,7 @@ func NewCommand(options CommandOptions) *cobra.Command {
 
 // Prepare prepares the command options.
 func (opts *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
-	target, newUID, err := resource.Parse(args, "agent")
+	target, newUID, err := resourceutil.Parse(args, "agent")
 	if err != nil {
 		return fmt.Errorf("parse agent target: %w", err)
 	}
