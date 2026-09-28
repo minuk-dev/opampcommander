@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.24
 # Absolute path: the binary is copied to / , which is not on PATH, so a bare
 # "apiserver" entrypoint fails with "executable file not found in $PATH".
 ENTRYPOINT [ "/apiserver" ]
