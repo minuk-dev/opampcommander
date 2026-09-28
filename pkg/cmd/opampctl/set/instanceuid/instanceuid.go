@@ -28,8 +28,8 @@ type CommandOptions struct {
 	namespace  string
 
 	targetInstanceUID uuid.UUID
-
-	parsedNewInstanceUID uuid.UUID // parsed after Prepare
+	request           client.SetNewInstanceUIDRequest
+	outputFormat      formatter.FormatType
 }
 
 // NewCommand creates a new set instance-uid command.
@@ -80,34 +80,28 @@ func (opts *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid new instance UID: %w", err)
 	}
 
-	opts.parsedNewInstanceUID = parsedNewInstanceUID
-
-	client, err := clientutil.NewClient(opts.GlobalConfig)
+	cli, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	opts.client = client
+	opts.client = cli
+	opts.request = client.SetNewInstanceUIDRequest{NewInstanceUID: parsedNewInstanceUID}
+	opts.outputFormat = formatter.FormatType(opts.formatType)
 
 	return nil
 }
 
 // Run runs the command.
 func (opts *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
-	request := client.SetNewInstanceUIDRequest{
-		NewInstanceUID: opts.parsedNewInstanceUID,
-	}
-
 	agent, err := opts.client.AgentService.SetAgentNewInstanceUID(
-		cmd.Context(), opts.namespace, opts.targetInstanceUID, request,
+		cmd.Context(), opts.namespace, opts.targetInstanceUID, opts.request,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to set new instance UID: %w", err)
 	}
 
-	formatType := formatter.FormatType(opts.formatType)
-
-	err = formatter.Format(cmd.OutOrStdout(), agent, formatType)
+	err = formatter.Format(cmd.OutOrStdout(), agent, opts.outputFormat)
 	if err != nil {
 		return fmt.Errorf("failed to format output: %w", err)
 	}

@@ -25,12 +25,19 @@ var (
 	errCertificateCNMismatch = errors.New("certificate CN must equal the agent instance UID")
 )
 
-// CommandOptions contains flags for setting an agent group's OpAMP certificate.
+// CommandOptions contains the options for setting an agent group's OpAMP certificate.
 type CommandOptions struct {
 	*config.GlobalConfig
 
+	// flags
 	namespace  string
 	formatType string
+
+	// internal
+	client          *client.Client
+	groupName       string
+	certificateName string
+	outputFormat    formatter.FormatType
 }
 
 // NewCommand creates the set opamp-certificate command.
@@ -44,12 +51,12 @@ func NewCommand(options CommandOptions) *cobra.Command {
   opampctl set opamp-certificate agentgroup my-group new-cert -n default`,
 		Args: cobra.RangeArgs(resource.MinArgs, resource.MaxArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			name, certificate, err := resource.Parse(args, "agentgroup")
+			err := options.Prepare(cmd, args)
 			if err != nil {
-				return fmt.Errorf("parse agent group target: %w", err)
+				return err
 			}
 
-			return options.Run(cmd, name, certificate)
+			return options.Run(cmd, args)
 		},
 	}
 	cmd.Flags().StringVarP(&options.namespace, "namespace", "n", "default", "Namespace of the agent group")
@@ -58,14 +65,29 @@ func NewCommand(options CommandOptions) *cobra.Command {
 	return cmd
 }
 
-// Run validates the certificate and updates the group's OpAMP offer.
-func (opts *CommandOptions) Run(cmd *cobra.Command, name, certificateName string) error {
+// Prepare parses the target and initializes the client.
+func (opts *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
+	name, certificateName, err := resource.Parse(args, "agentgroup")
+	if err != nil {
+		return fmt.Errorf("parse agent group target: %w", err)
+	}
+
 	cli, err := clientutil.NewClient(opts.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("create authenticated client: %w", err)
 	}
 
-	group, err := cli.AgentGroupService.GetAgentGroup(cmd.Context(), opts.namespace, name)
+	opts.groupName = name
+	opts.certificateName = certificateName
+	opts.client = cli
+	opts.outputFormat = formatter.FormatType(opts.formatType)
+
+	return nil
+}
+
+// Run validates the certificate and updates the group's OpAMP offer.
+func (opts *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
+	group, err := opts.client.AgentGroupService.GetAgentGroup(cmd.Context(), opts.namespace, opts.groupName)
 	if err != nil {
 		return fmt.Errorf("get agent group: %w", err)
 	}
@@ -75,8 +97,8 @@ func (opts *CommandOptions) Run(cmd *cobra.Command, name, certificateName string
 		return errOpAMPSettingsRequired
 	}
 
-	members, err := cli.AgentGroupService.ListAgentsByAgentGroup(
-		cmd.Context(), opts.namespace, name, client.WithLimit(maxGroupMembers),
+	members, err := opts.client.AgentGroupService.ListAgentsByAgentGroup(
+		cmd.Context(), opts.namespace, opts.groupName, client.WithLimit(maxGroupMembers),
 	)
 	if err != nil {
 		return fmt.Errorf("list group agents: %w", err)
@@ -86,26 +108,26 @@ func (opts *CommandOptions) Run(cmd *cobra.Command, name, certificateName string
 		return errOneAgentRequired
 	}
 
-	certificate, err := cli.CertificateService.GetCertificate(cmd.Context(), opts.namespace, certificateName)
+	certificate, err := opts.client.CertificateService.GetCertificate(
+		cmd.Context(), opts.namespace, opts.certificateName,
+	)
 	if err != nil {
 		return fmt.Errorf("get certificate: %w", err)
 	}
 
-	uid := members.Items[0].Metadata.InstanceUID.String()
-
-	err = validateCertificateForAgent(certificate, uid)
+	err = validateCertificateForAgent(certificate, members.Items[0].Metadata.InstanceUID.String())
 	if err != nil {
 		return err
 	}
 
-	group.Spec.AgentConfig.ConnectionSettings.OpAMP.CertificateName = &certificateName
+	group.Spec.AgentConfig.ConnectionSettings.OpAMP.CertificateName = &opts.certificateName
 
-	updated, err := cli.AgentGroupService.UpdateAgentGroup(cmd.Context(), group)
+	updated, err := opts.client.AgentGroupService.UpdateAgentGroup(cmd.Context(), group)
 	if err != nil {
 		return fmt.Errorf("update agent group: %w", err)
 	}
 
-	err = formatter.Format(cmd.OutOrStdout(), updated, formatter.FormatType(opts.formatType))
+	err = formatter.Format(cmd.OutOrStdout(), updated, opts.outputFormat)
 	if err != nil {
 		return fmt.Errorf("format agent group: %w", err)
 	}
