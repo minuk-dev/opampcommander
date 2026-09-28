@@ -42,7 +42,10 @@ beforeEach(() => {
   vi.mocked(useApi)
     .mockReset()
     .mockReturnValue({
-      data: { items: [{ metadata: { instanceUid: 'agent-uid' } }], metadata: { continue: 'cursor', remainingItemCount: 0 } },
+      data: {
+        items: [{ metadata: { instanceUid: 'agent-uid' } }],
+        metadata: { continue: 'cursor', remainingItemCount: 0 },
+      },
       error: undefined,
       isLoading: false,
     } as ReturnType<typeof useApi>);
@@ -54,7 +57,10 @@ describe('RotateOpAMPCertificateDialog', () => {
     const onApplied = vi.fn();
     vi.mocked(api.get)
       .mockResolvedValueOnce(group)
-      .mockResolvedValueOnce({ items: [{ metadata: { instanceUid: 'agent-uid' } }], metadata: { remainingItemCount: 0 } });
+      .mockResolvedValueOnce({
+        items: [{ metadata: { instanceUid: 'agent-uid' } }],
+        metadata: { remainingItemCount: 0 },
+      });
 
     render(
       <RotateOpAMPCertificateDialog
@@ -118,7 +124,10 @@ describe('RotateOpAMPCertificateDialog', () => {
     const user = userEvent.setup();
     vi.mocked(api.get)
       .mockResolvedValueOnce(group)
-      .mockResolvedValueOnce({ items: [{ metadata: { instanceUid: 'another-agent' } }], metadata: { remainingItemCount: 0 } });
+      .mockResolvedValueOnce({
+        items: [{ metadata: { instanceUid: 'another-agent' } }],
+        metadata: { remainingItemCount: 0 },
+      });
 
     render(
       <RotateOpAMPCertificateDialog
