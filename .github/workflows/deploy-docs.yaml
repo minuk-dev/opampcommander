@@ -38,7 +38,7 @@ jobs:
           # by the Docsy theme, failing with "node: bad option: --permission".
           # 0.151.0 builds these docs cleanly. Bump deliberately once the
           # upstream regression is resolved.
-          hugo-version: '0.151.0'
+          hugo-version: '0.166.0'
           extended: true
 
       - name: Setup Node
