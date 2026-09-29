@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.27
 
 # Multi-stage build for the Next.js standalone output. Final image carries
 # only Node.js + the prebuilt server, no source / no npm install.
