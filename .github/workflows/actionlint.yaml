@@ -22,7 +22,7 @@ jobs:
     name: actionlint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The image bundles the matching shellcheck, so `run:` scripts are linted
       # too. Pinned by tag for reproducibility — bump deliberately.
       - name: Run actionlint
