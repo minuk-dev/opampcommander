@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
+	"go.opentelemetry.io/otel/metric/noop"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
@@ -43,7 +44,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 	// Given: EventSenderAdapter is created
 	sender := createTestSender(t, broker, topic)
 	logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
-	adapter, err := outkafka.NewEventSenderAdapter(sender, logger)
+	adapter, err := outkafka.NewEventSenderAdapter(sender, logger, noop.NewMeterProvider())
 	require.NoError(t, err)
 
 	// Given: Consumer to verify messages

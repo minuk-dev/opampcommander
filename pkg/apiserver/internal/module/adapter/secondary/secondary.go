@@ -6,6 +6,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
 
 // New creates the secondary adapter module, selecting the persistence backend
@@ -24,6 +25,7 @@ func New(databaseType config.DatabaseType, livenessSettings config.LivenessSetti
 		NewLiveness(databaseType, livenessSettings),
 		// Outbound messaging: server-event sender.
 		fx.Provide(newEventSender),
+		fx.Provide(helper.AsHealthIndicator(newEventBackendHealthIndicator)),
 		// Outbound metrics: endpoint-throughput query port (Prometheus or no-op).
 		fx.Provide(newEndpointMetricsQueryAdapter),
 	)

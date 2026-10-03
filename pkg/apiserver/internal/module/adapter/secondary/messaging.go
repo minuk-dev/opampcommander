@@ -8,6 +8,7 @@ import (
 
 	"github.com/IBM/sarama"
 	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
@@ -40,6 +41,7 @@ func newEventSender(
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	hub *inmemory.EventSenderAdapter,
+	meterProvider metric.MeterProvider,
 ) (agentport.ServerEventSenderPort, error) {
 	switch settings.ProtocolType {
 	case config.EventProtocolTypeKafka:
@@ -48,10 +50,25 @@ func newEventSender(
 			return nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 		}
 
-		adapter, err := outkafka.NewEventSenderAdapter(sender, logger)
+		adapter, err := outkafka.NewEventSenderAdapter(sender, logger, meterProvider)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
+		var replayCtx context.Context
+		var cancel context.CancelFunc
+		lifecycle.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				replayCtx, cancel = context.WithCancel(context.Background())
+				go adapter.Replay(replayCtx)
+				return nil
+			},
+			OnStop: func(context.Context) error {
+				if cancel != nil {
+					cancel()
+				}
+				return nil
+			},
+		})
 
 		return adapter, nil
 	case config.EventProtocolTypeDirect:
@@ -112,6 +129,11 @@ func createKafkaSender(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
+	saramaConfig.Producer.Timeout = 2 * time.Second
+	saramaConfig.Producer.Retry.Max = 0 // the adapter owns bounded retries
+	saramaConfig.Net.DialTimeout = 2 * time.Second
+	saramaConfig.Net.ReadTimeout = 2 * time.Second
+	saramaConfig.Net.WriteTimeout = 2 * time.Second
 	saramaConfig.Metadata.Timeout = defaultKafkaTimeout
 	saramaConfig.Metadata.Retry.Max = defaultKafkaRetryMax
 	saramaConfig.Metadata.Retry.Backoff = defaultKafkaRetryBackoff

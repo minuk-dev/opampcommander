@@ -74,6 +74,15 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 // HandleDomainError handles domain-specific errors and returns appropriate HTTP responses.
 func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	baseURL := GetErrorTypeURI(ctx)
+	if errors.Is(err, model.ErrTargetServerUnreachable) {
+		ctx.JSON(http.StatusServiceUnavailable, &api.ErrorModel{
+			Type: baseURL, Title: "Service Unavailable", Status: http.StatusServiceUnavailable,
+			Detail:   "The target server is unreachable; delivery may be retried after the event backend recovers.",
+			Instance: ctx.Request.URL.String(),
+			Errors:   []*api.ErrorDetail{{Message: err.Error(), Location: locationServer}},
+		})
+		return
+	}
 
 	if errors.Is(err, model.ErrResourceNotExist) {
 		ctx.JSON(http.StatusNotFound, &api.ErrorModel{

@@ -76,6 +76,16 @@ func TestHandleDomainError_ResourceNotExist(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func TestHandleDomainError_TargetServerUnreachable(t *testing.T) {
+	t.Parallel()
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/agents/123", nil)
+	ginutil.HandleDomainError(ctx, model.ErrTargetServerUnreachable, "send failed")
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	assert.Contains(t, w.Body.String(), "target server unreachable")
+}
+
 func TestHandleDomainError_InternalServerError(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

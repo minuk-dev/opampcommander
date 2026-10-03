@@ -22,4 +22,6 @@ var (
 	// avoid clobbering that change. The caller should re-read and retry. It maps to
 	// HTTP 409.
 	ErrConflict = errors.New("resource version conflict")
+	// ErrTargetServerUnreachable means a remote command could not be delivered now.
+	ErrTargetServerUnreachable = errors.New("target server unreachable")
 )
