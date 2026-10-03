@@ -28,11 +28,9 @@ type CommandOption struct {
 	// flags
 	Address  string `mapstructure:"address"`
 	OpAMPTLS struct {
-		CertFile       string `mapstructure:"certFile"`
-		KeyFile        string `mapstructure:"keyFile"        secret:"true"`
-		CAFile         string `mapstructure:"caFile"`
-		IssuerCertFile string `mapstructure:"issuerCertFile"`
-		IssuerKeyFile  string `mapstructure:"issuerKeyFile"  secret:"true"`
+		CertFile string `mapstructure:"certFile"`
+		KeyFile  string `mapstructure:"keyFile"  secret:"true"`
+		CAFile   string `mapstructure:"caFile"`
 	} `mapstructure:"opampTLS"`
 	ServerID string `mapstructure:"serverId"`
 	Database struct {
@@ -398,11 +396,9 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address: opt.Address,
 		OpAMPTLS: appconfig.OpAMPTLSSettings{
-			CertFile:       opt.OpAMPTLS.CertFile,
-			KeyFile:        opt.OpAMPTLS.KeyFile,
-			CAFile:         opt.OpAMPTLS.CAFile,
-			IssuerCertFile: opt.OpAMPTLS.IssuerCertFile,
-			IssuerKeyFile:  opt.OpAMPTLS.IssuerKeyFile,
+			CertFile: opt.OpAMPTLS.CertFile,
+			KeyFile:  opt.OpAMPTLS.KeyFile,
+			CAFile:   opt.OpAMPTLS.CAFile,
 		},
 		ServerID: agentmodel.ServerID(opt.ServerID),
 		DatabaseSettings: appconfig.DatabaseSettings{

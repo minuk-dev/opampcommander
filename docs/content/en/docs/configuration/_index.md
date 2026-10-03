@@ -38,35 +38,33 @@ serviceName: opampcommander
 `opampTLS` enables HTTPS for the whole API. Only `/api/v1/opamp` requires an
 agent client certificate. `certFile` and `keyFile` are the server's certificate
 and key; `caFile` is a PEM bundle of CAs trusted to issue agent client
-certificates. Each agent certificate's CN must equal its instance UID. These
-three files are enough for mTLS when agent certificates are issued elsewhere.
+certificates. Each agent certificate's CN must equal its instance UID.
 
 ```yaml
 opampTLS:
   certFile: /etc/opampcommander/tls/server.crt
   keyFile: /etc/opampcommander/tls/server.key
   caFile: /etc/opampcommander/tls/agent-ca-bundle.pem
-  issuerCertFile: /etc/opampcommander/tls/agent-issuer.crt
-  issuerKeyFile: /etc/opampcommander/tls/agent-issuer.key
 ```
 
-`issuerCertFile` and `issuerKeyFile` are only needed when this server issues
-agent client certificates. They contain the issuing CA certificate and its
-private key, respectively; they are not the server's HTTPS certificate and key.
-The issuing CA must chain to a CA in `caFile`, which is the trust bundle used
-to verify agent certificates. When configured, the server issues 30-day ECDSA
-agent client certificates. Issue a certificate with
-`POST /api/v1/namespaces/{namespace}/certificates/issue` and JSON body
-`{"name":"agent-cert","instanceUid":"<agent UUID>"}`. The resulting
-Certificate contains the client certificate chain and private key. Grant read
-access to Certificate resources only to operators allowed to retrieve private
-keys. For an already connected agent, offer the new Certificate through its
-single-agent group's OpAMP connection settings. For bootstrap, install the
-issued certificate and key on the agent before its first connection.
+Issue agent client certificates through your external CA or PKI tooling;
+APIServer does not issue certificates or load a CA private key. Register an
+issued client certificate and its private key as a Certificate resource, then
+offer it to a connected agent through its single-agent group's OpAMP connection
+settings. For bootstrap, install the certificate and key on the agent before
+its first connection. Grant read access to Certificate resources only to
+operators allowed to retrieve agent private keys.
 
-The issued Certificate's `caCert` is empty: OpAMP uses that field for the CA
-the agent trusts for the *server* certificate, which can differ from the CA
-that signs agent client certificates. Set it separately if needed.
+The Certificate's `caCert` field is the CA the agent trusts for the *server*
+certificate. It can differ from the CA that signs agent client certificates.
+
+The rotation lifecycle is: externally issue and register a Certificate, offer
+it through ConnectionSettings, then confirm reconnection and an `applied`
+connection settings status on the Agent resource. Once the replacement
+certificate is active, messages using the old certificate are rejected and the
+previous connection on the same server node is closed. A previous connection
+on another node is rejected on its next message. This is an OpAMP authorization
+change; revocation at the issuing CA remains an external PKI operation.
 
 To rotate an agent-client CA, put the **old and new CA certificates in the same
 PEM file**, one `BEGIN CERTIFICATE` block after the other. Restart every
@@ -75,8 +73,6 @@ issued by the new CA, then remove the old CA from the bundle and restart the
 instances again. TLS files are read only at startup; editing the file alone
 does not change the CAs trusted by a running instance. `caFile` does not
 control which CA an agent trusts for the *server* certificate.
-Update the issuing CA pair to the new CA when switching issuance, and restart
-each server instance after changing the pair.
 
 ## Database
 

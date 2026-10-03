@@ -2213,60 +2213,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/namespaces/{namespace}/certificates/issue": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "certificate"
-                ],
-                "summary": "Issue OpAMP client certificate",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Namespace",
-                        "name": "namespace",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Agent UID and certificate name",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_minuk-dev_opampcommander_api_v1.IssueClientCertificateRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/Certificate"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/namespaces/{namespace}/certificates/{name}": {
             "get": {
                 "description": "Retrieve a certificate by its name.",
@@ -6971,21 +6917,6 @@ const docTemplate = `{
             "type": "object",
             "additionalProperties": {
                 "type": "string"
-            }
-        },
-        "github_com_minuk-dev_opampcommander_api_v1.IssueClientCertificateRequest": {
-            "type": "object",
-            "required": [
-                "instanceUid",
-                "name"
-            ],
-            "properties": {
-                "instanceUid": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
             }
         },
         "user.User": {

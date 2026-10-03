@@ -32,11 +32,9 @@ type ServerSettings struct {
 // OpAMPTLSSettings enables HTTPS and client certificate authentication on the
 // OpAMP endpoint. All three paths are required when enabled.
 type OpAMPTLSSettings struct {
-	CertFile       string
-	KeyFile        string
-	CAFile         string
-	IssuerCertFile string
-	IssuerKeyFile  string
+	CertFile string
+	KeyFile  string
+	CAFile   string
 }
 
 // RemoteConfigSchema load policies for BootstrapSettings.RemoteConfigSchemaLoad.

@@ -1,3 +1,4 @@
+//nolint:dupl // Similar structure to other resource services is intentional
 package client
 
 import (
@@ -8,7 +9,6 @@ import (
 )
 
 const (
-	issueClientCertificateURL = "/api/v1/namespaces/{namespace}/certificates/issue"
 	// ListCertificateURL is the path to list all certificates.
 	ListCertificateURL = "/api/v1/namespaces/{namespace}/certificates"
 	// GetCertificateURL is the path to get a certificate by name.
@@ -31,31 +31,6 @@ func NewCertificateService(service *service) *CertificateService {
 	return &CertificateService{
 		service: service,
 	}
-}
-
-// IssueClientCertificate creates and stores a CA-signed agent certificate.
-func (s *CertificateService) IssueClientCertificate(
-	ctx context.Context, namespace string, request *v1.IssueClientCertificateRequest,
-) (*v1.Certificate, error) {
-	var result v1.Certificate
-
-	res, err := s.service.Resty.R().
-		SetContext(ctx).
-		SetPathParam("namespace", namespace).
-		SetBody(request).
-		SetResult(&result).
-		Post(issueClientCertificateURL)
-	if err != nil {
-		return nil, fmt.Errorf("issue client certificate: %w", err)
-	}
-
-	if res.IsError() {
-		return nil, fmt.Errorf("issue client certificate: %w", &ResponseError{
-			StatusCode: res.StatusCode(), ErrorMessage: res.String(),
-		})
-	}
-
-	return &result, nil
 }
 
 // GetCertificate retrieves a certificate by its namespace and name.

@@ -3,7 +3,6 @@ package certificate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
@@ -30,14 +28,12 @@ type Service struct {
 	mapper             *helper.Mapper
 	clock              clock.Clock
 	logger             *slog.Logger
-	issuer             *Issuer
 }
 
 // NewCertificateService creates a new CertificateService.
 func NewCertificateService(
 	certificateUsecase agentport.CertificateUsecase,
 	logger *slog.Logger,
-	issuer *Issuer,
 ) *Service {
 	realClock := clock.NewRealClock()
 
@@ -46,40 +42,7 @@ func NewCertificateService(
 		mapper:             helper.NewMapper(realClock, 0),
 		clock:              realClock,
 		logger:             logger,
-		issuer:             issuer,
 	}
-}
-
-// IssueClientCertificate signs and stores an agent-specific client certificate.
-func (s *Service) IssueClientCertificate(
-	ctx context.Context, namespace string, request *v1.IssueClientCertificateRequest,
-) (*v1.Certificate, error) {
-	if s.issuer == nil || !s.issuer.Enabled() {
-		return nil, ErrIssuerUnavailable
-	}
-
-	_, err := s.certificateUsecase.GetCertificate(ctx, namespace, request.Name, nil)
-	if err == nil {
-		return nil, model.ErrResourceAlreadyExist
-	}
-
-	if !errors.Is(err, model.ErrResourceNotExist) {
-		return nil, fmt.Errorf("check certificate name: %w", err)
-	}
-
-	cert, key, err := s.issuer.Issue(request.InstanceUID)
-	if err != nil {
-		return nil, fmt.Errorf("issue client certificate: %w", err)
-	}
-
-	//exhaustruct:ignore // Creation metadata and status are stamped by the domain.
-	return s.CreateCertificate(ctx, &v1.Certificate{
-		Kind: v1.CertificateKind, APIVersion: v1.APIVersion,
-		//exhaustruct:ignore // Creation metadata is stamped by the domain.
-		Metadata: v1.CertificateMetadata{Name: request.Name, Namespace: namespace},
-		//exhaustruct:ignore // The agent's server-trust CA is independent of the client issuer.
-		Spec: v1.CertificateSpec{Cert: string(cert), PrivateKey: string(key)},
-	})
 }
 
 // GetCertificate implements [usecase.CertificateManageUsecase].

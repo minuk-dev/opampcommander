@@ -28,46 +28,38 @@ import (
 )
 
 // This test uses the upstream opamp-go WebSocket client and needs no Docker.
-func TestE2E_OpAMPMTLSIssueAndRotate(t *testing.T) {
+func TestE2E_OpAMPMTLSRotate(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping E2E test in short mode")
 	}
 	base := testutil.NewBase(t)
-	settings, roots := mtlsFixture(t)
+	settings, roots, ca, caKey := mtlsFixture(t)
 	server := base.StartStandaloneAPIServerWithOpAMPTLS(settings)
 	require.Eventually(t, server.IsReady, 30*time.Second, 100*time.Millisecond)
 	apiClient := client.New(server.Endpoint, client.WithTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots}),
 		client.WithBasicAuth(server.AdminUsername(), server.AdminPassword()))
 	ctx := t.Context()
 	uid := uuid.New()
-	_, err := apiClient.CertificateService.IssueClientCertificate(ctx, "default", &v1.IssueClientCertificateRequest{
-		Name: "invalid-client", InstanceUID: "not-a-uuid",
-	})
-	require.ErrorContains(t, err, "400")
-
-	issue := func(name string) *v1.Certificate {
-		cert, err := apiClient.CertificateService.IssueClientCertificate(ctx, "default", &v1.IssueClientCertificateRequest{
-			Name: name, InstanceUID: uid.String(),
+	// The test acts as the external CA; APIServer only receives issued client credentials.
+	register := func(name string) *v1.Certificate {
+		cert, err := apiClient.CertificateService.CreateCertificate(ctx, "default", &v1.Certificate{
+			Metadata: v1.CertificateMetadata{Name: name, Namespace: "default"},
+			Spec:     mtlsClientCertificate(t, ca, caKey, uid),
 		})
 		require.NoError(t, err)
-		require.Empty(t, cert.Spec.CaCert)
 		return cert
 	}
-	oldCert := issue("old-client")
-	_, err = apiClient.CertificateService.IssueClientCertificate(ctx, "default", &v1.IssueClientCertificateRequest{
-		Name: "old-client", InstanceUID: uid.String(),
-	})
-	require.ErrorContains(t, err, "409")
+	oldCert := register("old-client")
 	oldAgent := base.StartReferenceAgent(server.Port, testutil.WithReferenceAgentUID(uid),
 		testutil.WithReferenceAgentTLSConfig(agentTLS(t, roots, oldCert)),
 		testutil.WithReferenceAgentOpAMPSettings(),
 		testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": "mtls-rotation"}))
 	testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool { return a.Status.Connected },
 		30*time.Second, 100*time.Millisecond, "old certificate should connect")
-	newCert := issue("new-client")
+	newCert := register("new-client")
 	newName := newCert.Metadata.Name
 	endpoint := "wss://localhost:" + strconv.Itoa(server.Port) + "/api/v1/opamp"
-	_, err = apiClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
+	_, err := apiClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
 		Metadata: v1.Metadata{Name: "mtls-rotation"},
 		Spec: v1.Spec{
 			Selector: v1.AgentSelector{IdentifyingAttributes: map[string]string{"service.name": "mtls-rotation"}},
@@ -99,7 +91,7 @@ func agentTLS(t *testing.T, roots *x509.CertPool, cert *v1.Certificate) *tls.Con
 	return &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: roots, Certificates: []tls.Certificate{pair}}
 }
 
-func mtlsFixture(t *testing.T) (config.OpAMPTLSSettings, *x509.CertPool) {
+func mtlsFixture(t *testing.T) (config.OpAMPTLSSettings, *x509.CertPool, *x509.Certificate, *ecdsa.PrivateKey) {
 	t.Helper()
 	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
@@ -121,8 +113,6 @@ func mtlsFixture(t *testing.T) (config.OpAMPTLSSettings, *x509.CertPool) {
 	require.NoError(t, err)
 	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
 	serverPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverDER})
-	caKeyDER, err := x509.MarshalECPrivateKey(caKey)
-	require.NoError(t, err)
 	serverKeyDER, err := x509.MarshalECPrivateKey(serverKey)
 	require.NoError(t, err)
 	dir := t.TempDir()
@@ -136,6 +126,28 @@ func mtlsFixture(t *testing.T) (config.OpAMPTLSSettings, *x509.CertPool) {
 	require.True(t, roots.AppendCertsFromPEM(caPEM))
 	return config.OpAMPTLSSettings{
 		CertFile: write("server.crt", serverPEM), KeyFile: write("server.key", pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: serverKeyDER})),
-		CAFile: caFile, IssuerCertFile: caFile, IssuerKeyFile: write("issuer.key", pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: caKeyDER})),
-	}, roots
+		CAFile: caFile,
+	}, roots, ca, caKey
+}
+
+func mtlsClientCertificate(t *testing.T, ca *x509.Certificate, caKey *ecdsa.PrivateKey, uid uuid.UUID) v1.CertificateSpec {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: serial, Subject: pkix.Name{CommonName: uid.String()},
+		NotBefore: time.Now().Add(-time.Minute), NotAfter: ca.NotAfter,
+		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, ca, &key.PublicKey, caKey)
+	require.NoError(t, err)
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	require.NoError(t, err)
+	return v1.CertificateSpec{
+		Cert:       string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})),
+		PrivateKey: string(pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})),
+		CaCert:     "",
+	}
 }

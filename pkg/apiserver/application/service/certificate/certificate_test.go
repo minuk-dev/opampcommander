@@ -126,7 +126,7 @@ func newSvc(t *testing.T, cert *mockCertificateUsecase) *certificatesvc.Service 
 
 	base := testutil.NewBase(t)
 
-	return certificatesvc.NewCertificateService(cert, base.Logger, nil)
+	return certificatesvc.NewCertificateService(cert, base.Logger)
 }
 
 func newCert() *agentmodel.Certificate {

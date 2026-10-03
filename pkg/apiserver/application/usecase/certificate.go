@@ -21,8 +21,6 @@ type CertificateManageUsecase interface {
 	// CreateCertificate persists a new certificate, returning
 	// model.ErrResourceAlreadyExist on a duplicate.
 	CreateCertificate(ctx context.Context, certificate *v1.Certificate) (*v1.Certificate, error)
-	IssueClientCertificate(ctx context.Context, namespace string,
-		request *v1.IssueClientCertificateRequest) (*v1.Certificate, error)
 	// UpdateCertificate replaces the named certificate;
 	// optimistic-concurrency controlled (model.ErrConflict on a stale write).
 	UpdateCertificate(ctx context.Context, namespace string, name string,
