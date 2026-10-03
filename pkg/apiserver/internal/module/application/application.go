@@ -2,7 +2,10 @@
 package application
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
+	"os"
 
 	"go.uber.org/fx"
 
@@ -38,6 +41,8 @@ import (
 // registry indexes them by capability and the ServerToAgentBuilder advertises those capabilities.
 const customMessageHandlersGroup = `group:"opampCustomMessageHandlers"`
 
+var errIncompleteClientIssuer = errors.New("issuerCertFile and issuerKeyFile require opampTLS.caFile")
+
 // New creates a new module for application services.
 //
 //nolint:funlen // DI wiring: a flat list of service providers/annotations.
@@ -46,6 +51,7 @@ func New() fx.Option {
 		"application",
 		// application
 		fx.Provide(
+			provideClientCertificateIssuer,
 			opampApplicationService.New,
 			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(usecase.OpAMPUsecase))),
 			helper.AsRunner(Identity[*opampApplicationService.Service]), // for background processing
@@ -132,6 +138,40 @@ func New() fx.Option {
 			),
 		),
 	)
+}
+
+func provideClientCertificateIssuer(settings *config.ServerSettings) (*certificateApplicationService.Issuer, error) {
+	tlsSettings := settings.OpAMPTLS
+	if tlsSettings.IssuerCertFile == "" && tlsSettings.IssuerKeyFile == "" {
+		//exhaustruct:ignore // Disabled issuer has no key material.
+		return &certificateApplicationService.Issuer{}, nil
+	}
+
+	if tlsSettings.IssuerCertFile == "" || tlsSettings.IssuerKeyFile == "" || tlsSettings.CAFile == "" {
+		return nil, errIncompleteClientIssuer
+	}
+
+	cert, err := os.ReadFile(tlsSettings.IssuerCertFile)
+	if err != nil {
+		return nil, fmt.Errorf("read issuing CA certificate: %w", err)
+	}
+
+	key, err := os.ReadFile(tlsSettings.IssuerKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("read issuing CA private key: %w", err)
+	}
+
+	trusted, err := os.ReadFile(tlsSettings.CAFile)
+	if err != nil {
+		return nil, fmt.Errorf("read trusted client CAs: %w", err)
+	}
+
+	issuer, err := certificateApplicationService.NewIssuer(cert, key, trusted)
+	if err != nil {
+		return nil, fmt.Errorf("configure OpAMP client certificate issuer: %w", err)
+	}
+
+	return issuer, nil
 }
 
 // provideEndpointMetricsService builds the endpoint-throughput service, sourcing

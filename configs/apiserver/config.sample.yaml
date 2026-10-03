@@ -10,6 +10,8 @@ address: localhost:8080
 #   certFile: /etc/opampcommander/tls/server.crt
 #   keyFile: /etc/opampcommander/tls/server.key
 #   caFile: /etc/opampcommander/tls/agent-ca.crt
+#   issuerCertFile: /etc/opampcommander/tls/agent-issuer.crt
+#   issuerKeyFile: /etc/opampcommander/tls/agent-issuer.key
 bootstrap:
   # Directory of initial manifest YAML files reconciled into persistence on startup
   # (declarative / full overwrite). Edit these files or point `dir` elsewhere to

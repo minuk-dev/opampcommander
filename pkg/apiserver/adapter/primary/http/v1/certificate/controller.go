@@ -2,13 +2,16 @@
 package certificate
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/minuk-dev/opampcommander/api"
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
+	certificateservice "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/ginutil"
 )
@@ -59,6 +62,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Create,
 		},
 		{
+			Method:      http.MethodPost,
+			Path:        "/api/v1/namespaces/:namespace/certificates/issue",
+			Handler:     "http.v1.certificate.Issue",
+			HandlerFunc: c.Issue,
+		},
+		{
 			Method:      http.MethodPut,
 			Path:        certificateByNamePath,
 			Handler:     "http.v1.certificate.Update",
@@ -71,6 +80,56 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Delete,
 		},
 	}
+}
+
+// Issue creates a signed client certificate for an agent instance.
+//
+// @Summary Issue OpAMP client certificate
+// @Tags certificate
+// @Accept json
+// @Produce json
+// @Param namespace path string true "Namespace"
+// @Param request body v1.IssueClientCertificateRequest true "Agent UID and certificate name"
+// @Success 201 {object} v1.Certificate
+// @Failure 400 {object} map[string]any
+// @Failure 503 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/certificates/issue [post].
+func (c *Controller) Issue(ctx *gin.Context) {
+	namespace, err := ginutil.ParseString(ctx, "namespace", true)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "namespace", ctx.Param("namespace"), err, true)
+
+		return
+	}
+
+	var req v1.IssueClientCertificateRequest
+
+	err = ginutil.BindJSON(ctx, &req)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "body", "", err, false)
+
+		return
+	}
+
+	created, err := c.certificateUsecase.IssueClientCertificate(ctx.Request.Context(), namespace, &req)
+	if err != nil {
+		if errors.Is(err, certificateservice.ErrIssuerUnavailable) {
+			ctx.JSON(http.StatusServiceUnavailable, &api.ErrorModel{
+				Type: ginutil.GetErrorTypeURI(ctx), Title: "Service Unavailable",
+				Status: http.StatusServiceUnavailable, Detail: err.Error(), Instance: ctx.Request.URL.String(),
+				Errors: nil,
+			})
+
+			return
+		}
+
+		ginutil.HandleDomainError(ctx, err, "Failed to issue client certificate")
+
+		return
+	}
+
+	ctx.Header("Location", "/api/v1/namespaces/"+namespace+"/certificates/"+created.Metadata.Name)
+	ctx.JSON(http.StatusCreated, created)
 }
 
 // List retrieves a list of certificates.

@@ -17,6 +17,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/certificate/usecasemock"
+	certificateservice "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -27,6 +28,25 @@ const (
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
+
+func TestCertificateController_IssueUnavailable(t *testing.T) {
+	t.Parallel()
+	ctrlBase := testutil.NewBase(t).ForController()
+	usecase := usecasemock.NewMockUsecase(t)
+	controller := certificate.NewController(usecase, ctrlBase.Logger)
+	ctrlBase.SetupRouter(controller)
+	usecase.EXPECT().IssueClientCertificate(mock.Anything, "default", mock.Anything).
+		Return(nil, certificateservice.ErrIssuerUnavailable)
+
+	recorder := httptest.NewRecorder()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, testBasePath+"/issue",
+		strings.NewReader(`{"name":"agent-cert","instanceUid":"153e01d7-c75a-437a-8cad-966abb22a72a"}`))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	ctrlBase.Router.ServeHTTP(recorder, req)
+	assert.Equal(t, http.StatusServiceUnavailable, recorder.Code)
+	assert.Equal(t, int64(http.StatusServiceUnavailable), gjson.Get(recorder.Body.String(), "status").Int())
+}
 
 func TestCertificateController_List(t *testing.T) {
 	t.Parallel()

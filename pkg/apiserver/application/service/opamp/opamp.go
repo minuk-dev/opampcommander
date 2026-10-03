@@ -68,6 +68,8 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		return false
 	}
 
+	s.closeReplacedConnection(ctx, uid)
+
 	return true
 }
 
@@ -336,6 +338,27 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	logger.Info("end")
 }
 
+func (s *Service) closeReplacedConnection(ctx context.Context, uid uuid.UUID) {
+	if s.connectionUsecase == nil {
+		return
+	}
+
+	old, err := s.connectionUsecase.GetConnectionByInstanceUID(ctx, uid)
+	if err != nil || old == nil || old.Type != agentmodel.ConnectionTypeWebSocket {
+		return
+	}
+
+	oldConn, ok := old.ID.(types.Connection)
+	if !ok {
+		return
+	}
+
+	err = oldConn.Disconnect()
+	if err != nil {
+		s.logger.Warn("failed to close replaced agent connection", slog.Any("error", err))
+	}
+}
+
 // handleInboundCustomMessage routes an inbound custom_message to the handler registered for its
 // custom capability and returns the handler's optional reply as a wire message to include in the
 // same ServerToAgent response, or nil for no reply.
@@ -481,7 +504,14 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	// OnConnectionClose after every request; treating those as disconnects would both
 	// (a) flip agent.Status.Connected on every poll, and (b) defeat the heartbeat-save
 	// throttle by writing to MongoDB on every request.
+	wasActive := false
+
 	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
+		active, lookupErr := s.connectionUsecase.GetConnectionByInstanceUID(ctx, connection.InstanceUID)
+		wasActive = lookupErr == nil && active != nil && active.UID == connection.UID
+	}
+
+	if wasActive {
 		agent, err := s.agentUsecase.GetAgent(ctx, connection.InstanceUID)
 		if err != nil {
 			logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
@@ -506,7 +536,7 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	// message after reconnect is written through immediately instead of waiting out the
 	// throttle window left by the previous session. HTTP polling agents do not get here
 	// because their close is treated as request-end, not disconnect.
-	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
+	if wasActive {
 		forgetErr := s.agentUsecase.ForgetAgentLiveness(ctx, connection.InstanceUID)
 		if forgetErr != nil {
 			logger.Warn("failed to forget agent liveness", slog.String("error", forgetErr.Error()))

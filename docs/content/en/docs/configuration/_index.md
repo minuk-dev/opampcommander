@@ -45,7 +45,24 @@ opampTLS:
   certFile: /etc/opampcommander/tls/server.crt
   keyFile: /etc/opampcommander/tls/server.key
   caFile: /etc/opampcommander/tls/agent-ca-bundle.pem
+  issuerCertFile: /etc/opampcommander/tls/agent-issuer.crt
+  issuerKeyFile: /etc/opampcommander/tls/agent-issuer.key
 ```
+
+`issuerCertFile` and `issuerKeyFile` are optional. When configured, the server
+issues 30-day ECDSA agent client certificates using this CA. The issuing CA
+must chain to `caFile`. Issue a certificate with
+`POST /api/v1/namespaces/{namespace}/certificates/issue` and JSON body
+`{"name":"agent-cert","instanceUid":"<agent UUID>"}`. The resulting
+Certificate contains the client certificate chain and private key. Grant read
+access to Certificate resources only to operators allowed to retrieve private
+keys. For an already connected agent, offer the new Certificate through its
+single-agent group's OpAMP connection settings. For bootstrap, install the
+issued certificate and key on the agent before its first connection.
+
+The issued Certificate's `caCert` is empty: OpAMP uses that field for the CA
+the agent trusts for the *server* certificate, which can differ from the CA
+that signs agent client certificates. Set it separately if needed.
 
 To rotate an agent-client CA, put the **old and new CA certificates in the same
 PEM file**, one `BEGIN CERTIFICATE` block after the other. Restart every
@@ -54,6 +71,8 @@ issued by the new CA, then remove the old CA from the bundle and restart the
 instances again. TLS files are read only at startup; editing the file alone
 does not change the CAs trusted by a running instance. `caFile` does not
 control which CA an agent trusts for the *server* certificate.
+Update the issuing CA pair to the new CA when switching issuance, and restart
+each server instance after changing the pair.
 
 ## Database
 

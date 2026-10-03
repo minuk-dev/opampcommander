@@ -3,11 +3,15 @@ package testutil
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
+	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,6 +57,24 @@ type referenceAgentSettings struct {
 	transport      ReferenceAgentTransport
 	identifying    map[string]string
 	nonIdentifying map[string]string
+	uid            uuid.UUID
+	tlsConfig      *tls.Config
+	acceptOpAMP    bool
+}
+
+// WithReferenceAgentUID sets a stable agent identity for reconnection tests.
+func WithReferenceAgentUID(uid uuid.UUID) ReferenceAgentOption {
+	return func(s *referenceAgentSettings) { s.uid = uid }
+}
+
+// WithReferenceAgentTLSConfig enables an HTTPS/WSS client certificate.
+func WithReferenceAgentTLSConfig(config *tls.Config) ReferenceAgentOption {
+	return func(s *referenceAgentSettings) { s.tlsConfig = config }
+}
+
+// WithReferenceAgentOpAMPSettings enables OpAMP connection setting offers.
+func WithReferenceAgentOpAMPSettings() ReferenceAgentOption {
+	return func(s *referenceAgentSettings) { s.acceptOpAMP = true }
 }
 
 // WithReferenceAgentTransport selects the OpAMP transport (WebSocket by default).
@@ -82,6 +104,9 @@ func newReferenceAgentSettings(opts []ReferenceAgentOption) referenceAgentSettin
 		nonIdentifying: map[string]string{
 			"os.type": "linux",
 		},
+		uid:         uuid.Nil,
+		tlsConfig:   nil,
+		acceptOpAMP: false,
 	}
 	for _, opt := range opts {
 		opt(&settings)
@@ -101,70 +126,91 @@ type ReferenceAgent struct {
 	UID       uuid.UUID
 	Transport ReferenceAgentTransport
 
-	client   client.OpAMPClient
-	packages *memPackagesStore
+	client        client.OpAMPClient
+	packages      *memPackagesStore
+	port          int
+	startSettings types.StartSettings
+	description   *protobufs.AgentDescription
+	capabilities  protobufs.AgentCapabilities
 
-	mu               sync.Mutex
-	effectiveConfig  map[string]*protobufs.AgentConfigObject
-	remoteConfigHash []byte
-	remoteConfigs    int
-	ownMetrics       *protobufs.TelemetryConnectionSettings
-	restarts         int
-	startTime        time.Time
-	serverErrors     []*protobufs.ServerErrorResponse
+	mu                 sync.Mutex
+	effectiveConfig    map[string]*protobufs.AgentConfigObject
+	remoteConfigHash   []byte
+	remoteConfigs      int
+	ownMetrics         *protobufs.TelemetryConnectionSettings
+	restarts           int
+	startTime          time.Time
+	serverErrors       []*protobufs.ServerErrorResponse
+	offeredCertificate *protobufs.TLSCertificate
+	offeredHash        []byte
+	offeredEndpoint    string
 }
 
 // StartReferenceAgent connects a ReferenceAgent to the OpAMP endpoint of the server
 // listening on opampPort. The agent is stopped when the test ends.
+//
+//nolint:funlen // Keep the upstream client setup together in this test helper.
 func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) *ReferenceAgent {
 	b.t.Helper()
 
 	settings := newReferenceAgentSettings(opts)
 
+	//exhaustruct:ignore // Optional observations start empty.
 	agent := &ReferenceAgent{
-		UID:              uuid.New(),
-		Transport:        settings.transport,
-		client:           nil,
-		packages:         newMemPackagesStore(),
-		mu:               sync.Mutex{},
-		effectiveConfig:  map[string]*protobufs.AgentConfigObject{},
-		remoteConfigHash: nil,
-		remoteConfigs:    0,
-		ownMetrics:       nil,
-		restarts:         0,
-		startTime:        time.Now(),
-		serverErrors:     nil,
+		UID:             settings.uid,
+		Transport:       settings.transport,
+		packages:        newMemPackagesStore(),
+		port:            opampPort,
+		effectiveConfig: map[string]*protobufs.AgentConfigObject{},
+		startTime:       time.Now(),
+	}
+	if agent.UID == uuid.Nil {
+		agent.UID = uuid.New()
 	}
 
 	var serverURL string
 
 	agent.client, serverURL = newOpAMPClient(settings.transport, opampPort)
+	if settings.tlsConfig != nil {
+		serverURL = strings.Replace(serverURL, "ws://", "wss://", 1)
+		serverURL = strings.Replace(serverURL, "http://", "https://", 1)
+	}
 
-	require.NoError(b.t, agent.client.SetAgentDescription(&protobufs.AgentDescription{
+	agent.description = &protobufs.AgentDescription{
 		IdentifyingAttributes:    toKeyValues(settings.identifying),
 		NonIdentifyingAttributes: toKeyValues(settings.nonIdentifying),
-	}))
+	}
+	require.NoError(b.t, agent.client.SetAgentDescription(agent.description))
 
 	capabilities := ReferenceAgentCapabilities
+	if settings.acceptOpAMP {
+		capabilities |= protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings
+	}
+
+	agent.capabilities = capabilities
+
 	require.NoError(b.t, agent.client.SetCapabilities(&capabilities))
 	require.NoError(b.t, agent.client.SetHealth(agent.health(true, "StatusOK")))
 
 	heartbeat := referenceAgentHeartbeat
 
 	//exhaustruct:ignore
-	err := agent.client.Start(b.t.Context(), types.StartSettings{
+	agent.startSettings = types.StartSettings{
 		OpAMPServerURL:        serverURL,
 		InstanceUid:           types.InstanceUid(agent.UID),
 		PackagesStateProvider: agent.packages,
 		HeartbeatInterval:     &heartbeat,
+		TLSConfig:             settings.tlsConfig,
 		//exhaustruct:ignore
 		Callbacks: types.Callbacks{
-			OnMessage:          agent.onMessage,
-			OnCommand:          agent.onCommand,
-			OnError:            agent.onError,
-			GetEffectiveConfig: agent.getEffectiveConfig,
+			OnMessage:                 agent.onMessage,
+			OnCommand:                 agent.onCommand,
+			OnError:                   agent.onError,
+			GetEffectiveConfig:        agent.getEffectiveConfig,
+			OnOpampConnectionSettings: agent.onOpAMPConnectionSettings,
 		},
-	})
+	}
+	err := agent.client.Start(b.t.Context(), agent.startSettings)
 	require.NoError(b.t, err, "reference agent should start")
 
 	b.t.Cleanup(agent.Stop)
@@ -226,6 +272,55 @@ func (a *ReferenceAgent) ServerErrors() []*protobufs.ServerErrorResponse {
 	return append([]*protobufs.ServerErrorResponse(nil), a.serverErrors...)
 }
 
+// OfferedClientCertificate returns the last OpAMP client certificate offer.
+func (a *ReferenceAgent) OfferedClientCertificate() *protobufs.TLSCertificate {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.offeredCertificate
+}
+
+// ReconnectWithOfferedCertificate applies the OpAMP offer using a fresh upstream client.
+func (a *ReferenceAgent) ReconnectWithOfferedCertificate(t *testing.T, roots *x509.CertPool) {
+	t.Helper()
+
+	a.mu.Lock()
+	offer := a.offeredCertificate
+	endpoint := a.offeredEndpoint
+	a.mu.Unlock()
+
+	require.NotNil(t, offer)
+	require.NotNil(t, a.startSettings.TLSConfig)
+
+	pair, err := tls.X509KeyPair(offer.GetCert(), offer.GetPrivateKey())
+	require.NoError(t, err)
+
+	tlsConfig := a.startSettings.TLSConfig.Clone()
+
+	tlsConfig.Certificates = []tls.Certificate{pair}
+	if roots != nil {
+		tlsConfig.RootCAs = roots
+	}
+
+	stopCtx, cancel := context.WithTimeout(context.Background(), referenceAgentStopTimeout)
+	defer cancel()
+
+	require.NoError(t, a.client.Stop(stopCtx))
+
+	newClient, _ := newOpAMPClient(a.Transport, a.port)
+	require.NoError(t, newClient.SetAgentDescription(a.description))
+	require.NoError(t, newClient.SetCapabilities(&a.capabilities))
+	require.NoError(t, newClient.SetHealth(a.health(true, "StatusOK")))
+
+	a.startSettings.TLSConfig = tlsConfig
+	if endpoint != "" {
+		a.startSettings.OpAMPServerURL = endpoint
+	}
+
+	a.client = newClient
+	require.NoError(t, a.client.Start(t.Context(), a.startSettings))
+}
+
 // ReportHealth reports the agent's top-level health and status string.
 func (a *ReferenceAgent) ReportHealth(healthy bool, status string) error {
 	//nolint:wrapcheck // test helper surfaces the client error as-is.
@@ -251,6 +346,30 @@ func (a *ReferenceAgent) ReportPackageStatuses(installed map[string]string) erro
 		ServerProvidedAllPackagesHash: []byte("none"),
 		ErrorMessage:                  "",
 	})
+}
+
+func (a *ReferenceAgent) onOpAMPConnectionSettings(
+	_ context.Context, settings *protobufs.OpAMPConnectionSettings,
+) error {
+	a.mu.Lock()
+	a.offeredCertificate = settings.GetCertificate()
+	a.offeredEndpoint = settings.GetDestinationEndpoint()
+	hash := bytes.Clone(a.offeredHash)
+	a.mu.Unlock()
+
+	if len(hash) == 0 {
+		return nil
+	}
+
+	err := a.client.SetConnectionSettingsStatus(&protobufs.ConnectionSettingsStatus{
+		LastConnectionSettingsHash: hash,
+		Status:                     protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_APPLIED,
+	})
+	if err != nil {
+		return fmt.Errorf("report OpAMP connection settings applied: %w", err)
+	}
+
+	return nil
 }
 
 func (a *ReferenceAgent) health(healthy bool, status string) *protobufs.ComponentHealth {
@@ -280,6 +399,12 @@ func (a *ReferenceAgent) health(healthy bool, status string) *protobufs.Componen
 }
 
 func (a *ReferenceAgent) onMessage(ctx context.Context, msg *types.MessageData) {
+	if len(msg.OfferedConnectionsSettingsHash) != 0 {
+		a.mu.Lock()
+		a.offeredHash = bytes.Clone(msg.OfferedConnectionsSettingsHash)
+		a.mu.Unlock()
+	}
+
 	if msg.RemoteConfig != nil {
 		a.applyRemoteConfig(ctx, msg.RemoteConfig)
 	}
@@ -288,6 +413,13 @@ func (a *ReferenceAgent) onMessage(ctx context.Context, msg *types.MessageData) 
 		a.mu.Lock()
 		a.ownMetrics = msg.OwnMetricsConnSettings
 		a.mu.Unlock()
+
+		if len(msg.OfferedConnectionsSettingsHash) != 0 {
+			_ = a.client.SetConnectionSettingsStatus(&protobufs.ConnectionSettingsStatus{
+				LastConnectionSettingsHash: msg.OfferedConnectionsSettingsHash,
+				Status:                     protobufs.ConnectionSettingsStatuses_ConnectionSettingsStatuses_APPLIED,
+			})
+		}
 	}
 }
 

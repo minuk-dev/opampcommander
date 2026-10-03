@@ -5,6 +5,13 @@ const (
 	CertificateKind = "Certificate"
 )
 
+// IssueClientCertificateRequest asks the server to issue a client certificate
+// for an agent instance. The name identifies the stored Certificate resource.
+type IssueClientCertificateRequest struct {
+	Name        string `binding:"required" json:"name"`
+	InstanceUID string `binding:"required" json:"instanceUid"`
+}
+
 // Certificate represents a TLS certificate resource.
 type Certificate struct {
 	// Kind is the type of the resource.

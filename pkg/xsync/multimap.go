@@ -184,7 +184,9 @@ func (m *MultiMap[T]) Delete(key string) {
 
 	if indexes, ok := m.indexesByID[key]; ok {
 		for _, index := range indexes {
-			delete(m.byIndex, index)
+			if m.byIndex[index] == key {
+				delete(m.byIndex, index)
+			}
 		}
 
 		delete(m.indexesByID, key)

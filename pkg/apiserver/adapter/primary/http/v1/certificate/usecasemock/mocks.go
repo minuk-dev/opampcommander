@@ -250,6 +250,80 @@ func (_c *MockUsecase_GetCertificate_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// IssueClientCertificate provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) IssueClientCertificate(ctx context.Context, namespace string, request *v1.IssueClientCertificateRequest) (*v1.Certificate, error) {
+	ret := _mock.Called(ctx, namespace, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for IssueClientCertificate")
+	}
+
+	var r0 *v1.Certificate
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *v1.IssueClientCertificateRequest) (*v1.Certificate, error)); ok {
+		return returnFunc(ctx, namespace, request)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, *v1.IssueClientCertificateRequest) *v1.Certificate); ok {
+		r0 = returnFunc(ctx, namespace, request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Certificate)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, *v1.IssueClientCertificateRequest) error); ok {
+		r1 = returnFunc(ctx, namespace, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_IssueClientCertificate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IssueClientCertificate'
+type MockUsecase_IssueClientCertificate_Call struct {
+	*mock.Call
+}
+
+// IssueClientCertificate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - request *v1.IssueClientCertificateRequest
+func (_e *MockUsecase_Expecter) IssueClientCertificate(ctx interface{}, namespace interface{}, request interface{}) *MockUsecase_IssueClientCertificate_Call {
+	return &MockUsecase_IssueClientCertificate_Call{Call: _e.mock.On("IssueClientCertificate", ctx, namespace, request)}
+}
+
+func (_c *MockUsecase_IssueClientCertificate_Call) Run(run func(ctx context.Context, namespace string, request *v1.IssueClientCertificateRequest)) *MockUsecase_IssueClientCertificate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 *v1.IssueClientCertificateRequest
+		if args[2] != nil {
+			arg2 = args[2].(*v1.IssueClientCertificateRequest)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_IssueClientCertificate_Call) Return(certificate *v1.Certificate, err error) *MockUsecase_IssueClientCertificate_Call {
+	_c.Call.Return(certificate, err)
+	return _c
+}
+
+func (_c *MockUsecase_IssueClientCertificate_Call) RunAndReturn(run func(ctx context.Context, namespace string, request *v1.IssueClientCertificateRequest) (*v1.Certificate, error)) *MockUsecase_IssueClientCertificate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListCertificates provides a mock function for the type MockUsecase
 func (_mock *MockUsecase) ListCertificates(ctx context.Context, namespace string, options *port.ListOptions) (*v1.ListResponse[v1.Certificate], error) {
 	ret := _mock.Called(ctx, namespace, options)

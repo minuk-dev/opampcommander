@@ -1779,6 +1779,16 @@ definitions:
     additionalProperties:
       type: string
     type: object
+  github_com_minuk-dev_opampcommander_api_v1.IssueClientCertificateRequest:
+    properties:
+      instanceUid:
+        type: string
+      name:
+        type: string
+    required:
+    - instanceUid
+    - name
+    type: object
   user.User:
     properties:
       gid:
@@ -3425,6 +3435,42 @@ paths:
             additionalProperties: true
             type: object
       summary: Update Certificate
+      tags:
+      - certificate
+  /api/v1/namespaces/{namespace}/certificates/issue:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Agent UID and certificate name
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_minuk-dev_opampcommander_api_v1.IssueClientCertificateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/Certificate'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Issue OpAMP client certificate
       tags:
       - certificate
   /api/v1/namespaces/{namespace}/connections:
