@@ -38,7 +38,8 @@ serviceName: opampcommander
 `opampTLS` enables HTTPS for the whole API. Only `/api/v1/opamp` requires an
 agent client certificate. `certFile` and `keyFile` are the server's certificate
 and key; `caFile` is a PEM bundle of CAs trusted to issue agent client
-certificates. Each agent certificate's CN must equal its instance UID.
+certificates. Each agent certificate's CN must equal its instance UID. These
+three files are enough for mTLS when agent certificates are issued elsewhere.
 
 ```yaml
 opampTLS:
@@ -49,9 +50,12 @@ opampTLS:
   issuerKeyFile: /etc/opampcommander/tls/agent-issuer.key
 ```
 
-`issuerCertFile` and `issuerKeyFile` are optional. When configured, the server
-issues 30-day ECDSA agent client certificates using this CA. The issuing CA
-must chain to `caFile`. Issue a certificate with
+`issuerCertFile` and `issuerKeyFile` are only needed when this server issues
+agent client certificates. They contain the issuing CA certificate and its
+private key, respectively; they are not the server's HTTPS certificate and key.
+The issuing CA must chain to a CA in `caFile`, which is the trust bundle used
+to verify agent certificates. When configured, the server issues 30-day ECDSA
+agent client certificates. Issue a certificate with
 `POST /api/v1/namespaces/{namespace}/certificates/issue` and JSON body
 `{"name":"agent-cert","instanceUid":"<agent UUID>"}`. The resulting
 Certificate contains the client certificate chain and private key. Grant read
