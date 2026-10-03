@@ -27,7 +27,7 @@ jobs:
       build_date: ${{ steps.compute.outputs.build_date }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       # scripts/version.sh mirrors .goreleaser.yaml's snapshot.version_template
@@ -82,7 +82,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
