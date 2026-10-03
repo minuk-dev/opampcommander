@@ -122,3 +122,15 @@ func TestMultiMap_String(t *testing.T) {
 		})
 	}
 }
+
+func TestMultiMap_DeleteReplacedIndex(t *testing.T) {
+	t.Parallel()
+
+	m := NewMultiMap[string]()
+	m.Store("old", "old", WithIndex("instanceUID", "agent"))
+	m.Store("new", "new", WithIndex("instanceUID", "agent"))
+	m.Delete("old")
+	value, ok := m.LoadByIndex("instanceUID", "agent")
+	assert.True(t, ok)
+	assert.Equal(t, "new", value)
+}

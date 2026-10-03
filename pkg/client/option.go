@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"log/slog"
 	"net/url"
 	"sort"
@@ -11,6 +12,11 @@ import (
 
 	v1auth "github.com/minuk-dev/opampcommander/api/v1/auth"
 )
+
+// WithTLSConfig configures trusted roots for an HTTPS API endpoint.
+func WithTLSConfig(config *tls.Config) OptionFunc {
+	return func(c *Client) { c.common.Resty.SetTLSClientConfig(config) }
+}
 
 // Option provides a way to configure the opampcommander API client.
 type Option interface {

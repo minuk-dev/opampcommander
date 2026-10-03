@@ -21,6 +21,7 @@ import (
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
+	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
@@ -29,6 +30,9 @@ var _ usecase.OpAMPUsecase = (*Service)(nil)
 // A pending certificate replaces the active one only after it establishes a
 // successful TLS connection; reported status alone cannot revoke the old one.
 func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
+	s.agentConnections.Lock(uid)
+	defer s.agentConnections.Unlock(uid)
+
 	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
 	if !ok {
 		return false
@@ -59,6 +63,9 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		}
 	}
 
+	// Capture the socket before committing the new identity. A later lookup could
+	// resolve a connection that already uses the newly activated certificate.
+	old := s.replacedConnection(ctx, uid)
 	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint(certDER)
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
@@ -67,6 +74,8 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 
 		return false
 	}
+
+	s.closeReplacedConnection(old)
 
 	return true
 }
@@ -97,6 +106,10 @@ type Service struct {
 
 	connectionUsecase        agentport.ConnectionUsecase
 	onConnectionCloseTimeout time.Duration
+
+	// Protect the active-connection check and status/liveness writes from
+	// replacement by a concurrent message or certificate activation.
+	agentConnections xsync.KeyedMutex[uuid.UUID]
 }
 
 // New creates a new instance of the OpAMP service.
@@ -131,6 +144,7 @@ func New(
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
+		agentConnections:         xsync.KeyedMutex[uuid.UUID]{},
 	}
 }
 
@@ -220,6 +234,65 @@ func (s *Service) OnMessage(
 	conn types.Connection,
 	message *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
+	uid := uuid.UUID(message.GetInstanceUid())
+	s.agentConnections.Lock(uid)
+	defer s.agentConnections.Unlock(uid)
+
+	return s.onMessage(ctx, conn, message)
+}
+
+// OnReadMessageError implements usecase.OpAMPUsecase.
+func (s *Service) OnReadMessageError(
+	conn types.Connection,
+	messageType int,
+	msgByte []byte,
+	err error,
+) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(
+		slog.String("method", "OnReadMessageError"),
+		slog.String("remoteAddr", remoteAddr),
+		slog.Int("messageType", messageType),
+		slog.String("message", string(msgByte)),
+		slog.String("error", err.Error()),
+	)
+
+	logger.Error("read message error")
+}
+
+// OnMessageResponseError implements usecase.OpAMPUsecase.
+func (s *Service) OnMessageResponseError(conn types.Connection, message *protobufs.ServerToAgent, err error) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(
+		slog.String("method", "OnMessageResponseError"),
+		slog.String("remoteAddr", remoteAddr),
+		slog.String("message", fmt.Sprintf("%+v", message)),
+		slog.String("error", err.Error()),
+	)
+
+	logger.Error("send message error")
+}
+
+// OnConnectionClose implements usecase.OpAMPUsecase.
+func (s *Service) OnConnectionClose(conn types.Connection) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
+	logger.Info("start")
+
+	select {
+	case s.closedConnectionCh <- conn:
+	default:
+		logger.Warn("closedConnectionCh is full, skipping cleanup for this connection")
+	}
+
+	logger.Info("end")
+}
+
+func (s *Service) onMessage(
+	ctx context.Context,
+	conn types.Connection,
+	message *protobufs.AgentToServer,
+) *protobufs.ServerToAgent {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	instanceUID := uuid.UUID(message.GetInstanceUid())
 
@@ -289,51 +362,33 @@ func (s *Service) OnMessage(
 	return response
 }
 
-// OnReadMessageError implements usecase.OpAMPUsecase.
-func (s *Service) OnReadMessageError(
-	conn types.Connection,
-	messageType int,
-	msgByte []byte,
-	err error,
-) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(
-		slog.String("method", "OnReadMessageError"),
-		slog.String("remoteAddr", remoteAddr),
-		slog.Int("messageType", messageType),
-		slog.String("message", string(msgByte)),
-		slog.String("error", err.Error()),
-	)
-
-	logger.Error("read message error")
-}
-
-// OnMessageResponseError implements usecase.OpAMPUsecase.
-func (s *Service) OnMessageResponseError(conn types.Connection, message *protobufs.ServerToAgent, err error) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(
-		slog.String("method", "OnMessageResponseError"),
-		slog.String("remoteAddr", remoteAddr),
-		slog.String("message", fmt.Sprintf("%+v", message)),
-		slog.String("error", err.Error()),
-	)
-
-	logger.Error("send message error")
-}
-
-// OnConnectionClose implements usecase.OpAMPUsecase.
-func (s *Service) OnConnectionClose(conn types.Connection) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
-	logger.Info("start")
-
-	select {
-	case s.closedConnectionCh <- conn:
-	default:
-		logger.Warn("closedConnectionCh is full, skipping cleanup for this connection")
+func (s *Service) replacedConnection(ctx context.Context, uid uuid.UUID) *agentmodel.Connection {
+	if s.connectionUsecase == nil {
+		return nil
 	}
 
-	logger.Info("end")
+	old, err := s.connectionUsecase.GetConnectionByInstanceUID(ctx, uid)
+	if err != nil || old == nil || old.Type != agentmodel.ConnectionTypeWebSocket {
+		return nil
+	}
+
+	return old
+}
+
+func (s *Service) closeReplacedConnection(old *agentmodel.Connection) {
+	if old == nil {
+		return
+	}
+
+	oldConn, ok := old.ID.(types.Connection)
+	if !ok {
+		return
+	}
+
+	err := oldConn.Disconnect()
+	if err != nil {
+		s.logger.Warn("failed to close replaced agent connection", slog.Any("error", err))
+	}
 }
 
 // handleInboundCustomMessage routes an inbound custom_message to the handler registered for its
@@ -466,6 +521,9 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
 
+	s.agentConnections.Lock(connection.InstanceUID)
+	defer s.agentConnections.Unlock(connection.InstanceUID)
+
 	logger := s.logger.With(
 		slog.String("method", "cleanUpConnection"),
 		slog.String("remoteAddr", remoteAddr),
@@ -481,7 +539,14 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	// OnConnectionClose after every request; treating those as disconnects would both
 	// (a) flip agent.Status.Connected on every poll, and (b) defeat the heartbeat-save
 	// throttle by writing to MongoDB on every request.
+	wasActive := false
+
 	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
+		active, lookupErr := s.connectionUsecase.GetConnectionByInstanceUID(ctx, connection.InstanceUID)
+		wasActive = lookupErr == nil && active != nil && active.UID == connection.UID
+	}
+
+	if wasActive {
 		agent, err := s.agentUsecase.GetAgent(ctx, connection.InstanceUID)
 		if err != nil {
 			logger.Error("failed to get agent for connection close", slog.String("error", err.Error()))
@@ -506,7 +571,7 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 	// message after reconnect is written through immediately instead of waiting out the
 	// throttle window left by the previous session. HTTP polling agents do not get here
 	// because their close is treated as request-end, not disconnect.
-	if !connection.IsAnonymous() && connection.Type == agentmodel.ConnectionTypeWebSocket {
+	if wasActive {
 		forgetErr := s.agentUsecase.ForgetAgentLiveness(ctx, connection.InstanceUID)
 		if forgetErr != nil {
 			logger.Warn("failed to forget agent liveness", slog.String("error", forgetErr.Error()))
