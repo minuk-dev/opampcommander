@@ -187,6 +187,15 @@ injection, split into domain / application / adapter layers under
 [`web/ARCHITECTURE.md`](web/ARCHITECTURE.md) for the frontend's Feature-Sliced
 Design layout.
 
+**Service / Store design rule:** Services must remain stateless and contain
+business logic and operation orchestration. Stores own resource and session
+state, including connections, agents, liveness, caches, and indexes, and provide
+safe storage operations through domain ports and secondary adapters. Services
+may hold injected dependencies and immutable configuration; mutable state shared
+between operations belongs in Stores. See
+[Service and Store responsibilities](docs/content/en/docs/overview/_index.md#service-and-store-responsibilities)
+for the boundary and current migration status.
+
 ## Documentation site
 
 The published docs live under `docs/` and are built with Hugo + the Docsy theme.
