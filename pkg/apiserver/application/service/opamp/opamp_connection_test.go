@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,17 +31,25 @@ type lifecycleAgentUsecase struct {
 	liveness    *agentmodel.AgentLiveness
 	forgetCalls int
 	onGet       func()
+	onMessage   func()
 }
 
-func (s *lifecycleAgentUsecase) GetAgent(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
+func (s *lifecycleAgentUsecase) GetAgent(context.Context, uuid.UUID) (*agentmodel.Agent, error) {
 	if s.onGet != nil {
 		s.onGet()
 	}
 
-	return s.GetOrCreateAgent(ctx, uid)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.agent.Clone(), nil
 }
 
 func (s *lifecycleAgentUsecase) GetOrCreateAgent(context.Context, uuid.UUID) (*agentmodel.Agent, error) {
+	if s.onMessage != nil {
+		s.onMessage()
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -140,13 +149,13 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			if tc.cleanupFirst {
 				loadingAgent, releaseCleanup := make(chan struct{}), make(chan struct{})
 
-				var once sync.Once
+				var paused atomic.Bool
 
 				agentUC.onGet = func() {
-					once.Do(func() {
+					if paused.CompareAndSwap(false, true) {
 						close(loadingAgent)
 						<-releaseCleanup
-					})
+					}
 				}
 
 				cleanupDone := make(chan error, 1)
@@ -158,17 +167,15 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 					t.Fatal("cleanup did not reach the agent read")
 				}
 
+				messageEntered := make(chan struct{}, 1)
+				agentUC.onMessage = func() { messageEntered <- struct{}{} }
+
 				messageDone := make(chan *protobufs.ServerToAgent, 1)
 				go func() { messageDone <- svc.OnMessage(t.Context(), newWire, message) }()
-				// Check a real waiter instead of relying on goroutine scheduling or sleeps.
-				waiting := assert.Eventually(t, func() bool {
-					svc.connectionLifecycleMu.Lock()
-					defer svc.connectionLifecycleMu.Unlock()
 
-					lock := svc.connectionLifecycleLocks[uid]
-
-					return lock != nil && lock.users == 2
-				}, time.Second, time.Millisecond, "replacement must wait for cleanup's status and liveness writes")
+				waiting := assert.Never(t, func() bool {
+					return len(messageEntered) != 0
+				}, 100*time.Millisecond, time.Millisecond, "replacement must wait for cleanup's status and liveness writes")
 
 				close(releaseCleanup)
 				require.NoError(t, <-cleanupDone)
@@ -193,8 +200,6 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 				assert.Zero(t, agentUC.forgetCalls, "old close must not remove replacement liveness")
 				assert.True(t, agentUC.agent.Status.Connected)
 			}
-
-			assert.Empty(t, svc.connectionLifecycleLocks, "idle agent locks must not accumulate")
 		})
 	}
 }

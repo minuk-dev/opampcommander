@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +21,7 @@ import (
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
+	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
@@ -30,8 +30,8 @@ var _ usecase.OpAMPUsecase = (*Service)(nil)
 // A pending certificate replaces the active one only after it establishes a
 // successful TLS connection; reported status alone cannot revoke the old one.
 func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
-	unlock := s.lockAgentConnection(uid)
-	defer unlock()
+	s.agentConnections.Lock(uid)
+	defer s.agentConnections.Unlock(uid)
 
 	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
 	if !ok {
@@ -107,8 +107,9 @@ type Service struct {
 	connectionUsecase        agentport.ConnectionUsecase
 	onConnectionCloseTimeout time.Duration
 
-	connectionLifecycleMu    sync.Mutex
-	connectionLifecycleLocks map[uuid.UUID]*agentConnectionLock
+	// Protect the active-connection check and status/liveness writes from
+	// replacement by a concurrent message or certificate activation.
+	agentConnections xsync.KeyedMutex[uuid.UUID]
 }
 
 // New creates a new instance of the OpAMP service.
@@ -143,8 +144,7 @@ func New(
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
-		connectionLifecycleMu:    sync.Mutex{},
-		connectionLifecycleLocks: nil,
+		agentConnections:         xsync.KeyedMutex[uuid.UUID]{},
 	}
 }
 
@@ -234,8 +234,9 @@ func (s *Service) OnMessage(
 	conn types.Connection,
 	message *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
-	unlock := s.lockAgentConnection(uuid.UUID(message.GetInstanceUid()))
-	defer unlock()
+	uid := uuid.UUID(message.GetInstanceUid())
+	s.agentConnections.Lock(uid)
+	defer s.agentConnections.Unlock(uid)
 
 	return s.onMessage(ctx, conn, message)
 }
@@ -520,8 +521,8 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
 
-	unlock := s.lockAgentConnection(connection.InstanceUID)
-	defer unlock()
+	s.agentConnections.Lock(connection.InstanceUID)
+	defer s.agentConnections.Unlock(connection.InstanceUID)
 
 	logger := s.logger.With(
 		slog.String("method", "cleanUpConnection"),
