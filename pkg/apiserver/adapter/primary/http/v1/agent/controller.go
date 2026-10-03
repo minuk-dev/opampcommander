@@ -327,6 +327,7 @@ func (c *Controller) ListEndpoints(ctx *gin.Context) {
 // @Summary  Update Agent
 // @Tags agent
 // @Description Update an agent's metadata & spec in a namespace.
+// @Description A 503 means the update was saved but notification failed or timed out; it may be replayed later.
 // @Accept  json
 // @Produce  json
 // @Param  namespace path string true "Namespace"
@@ -336,6 +337,7 @@ func (c *Controller) ListEndpoints(ctx *gin.Context) {
 // @Failure  400 {object} ErrorModel
 // @Failure  404 {object} ErrorModel
 // @Failure  500 {object} ErrorModel
+// @Failure  503 {object} ErrorModel
 // @Router  /api/v1/namespaces/{namespace}/agents/{id} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)

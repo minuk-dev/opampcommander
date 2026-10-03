@@ -3,13 +3,14 @@ package kafka
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/IBM/sarama"
 	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ type EventSenderAdapter struct {
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	protocolSender *cekafka.Sender,
+	protocolSender *Sender,
 	logger *slog.Logger,
 	meterProvider metric.MeterProvider,
 ) (*EventSenderAdapter, error) {
@@ -137,6 +138,12 @@ func (e *EventSenderAdapter) SendMessageToServer(
 
 	err = e.deliver(ctx, event)
 	if err != nil {
+		if permanentError(err) {
+			e.drop(ctx, event, err)
+
+			return fmt.Errorf("send event for server %s: %w", serverID, err)
+		}
+
 		if ctx.Err() != nil {
 			return fmt.Errorf("send message cancelled: %w", ctx.Err())
 		}
@@ -174,8 +181,12 @@ func (e *EventSenderAdapter) Replay(ctx context.Context) {
 		e.mu.Unlock()
 
 		err := e.deliver(ctx, event)
-		if err != nil {
+		if err != nil && !permanentError(err) {
 			continue
+		}
+
+		if err != nil {
+			e.drop(ctx, event, err)
 		}
 
 		e.mu.Lock()
@@ -226,6 +237,12 @@ func (e *EventSenderAdapter) deliver(ctx context.Context, event cloudevents.Even
 			return nil
 		}
 
+		if permanentError(err) {
+			e.recordFailure(ctx, err)
+
+			return fmt.Errorf("permanent Kafka send failure: %w", err)
+		}
+
 		if attempt == 0 {
 			select {
 			case <-time.After(retryBackoff):
@@ -239,18 +256,27 @@ func (e *EventSenderAdapter) deliver(ctx context.Context, event cloudevents.Even
 		}
 	}
 
+	e.recordFailure(ctx, err)
+
+	return fmt.Errorf("kafka send failed: %w", err)
+}
+
+func (e *EventSenderAdapter) recordFailure(ctx context.Context, err error) {
 	e.failed.Add(ctx, 1)
 	e.mu.Lock()
-	e.failures++
+	defer e.mu.Unlock()
 
 	e.probing = false
+
+	if permanentError(err) {
+		return
+	}
+
+	e.failures++
 	if e.failures >= failureThreshold {
 		e.openUntil = time.Now().Add(probeInterval)
 		e.state.Record(ctx, 1)
 	}
-	e.mu.Unlock()
-
-	return fmt.Errorf("kafka send failed: %w", err)
 }
 
 func (e *EventSenderAdapter) enqueue(ctx context.Context, event cloudevents.Event) bool {
@@ -267,6 +293,21 @@ func (e *EventSenderAdapter) enqueue(ctx context.Context, event cloudevents.Even
 	e.queue = append(e.queue, event)
 
 	return true
+}
+
+func (e *EventSenderAdapter) drop(ctx context.Context, event cloudevents.Event, err error) {
+	e.dropped.Add(ctx, 1)
+	e.logger.Error("dropping Kafka event after permanent failure", "eventID", event.ID(), "error", err)
+}
+
+func permanentError(err error) bool {
+	var configurationError sarama.ConfigurationError
+
+	return errors.Is(err, errEventEncoding) || errors.As(err, &configurationError) ||
+		errors.Is(err, sarama.ErrMessageSizeTooLarge) ||
+		errors.Is(err, sarama.ErrMessageSetSizeTooLarge) || errors.Is(err, sarama.ErrInvalidTopic) ||
+		errors.Is(err, sarama.ErrTopicAuthorizationFailed) || errors.Is(err, sarama.ErrClusterAuthorizationFailed) ||
+		errors.Is(err, sarama.ErrUnsupportedVersion) || errors.Is(err, sarama.ErrInvalidRecord)
 }
 
 func newSource(serverID string) string {

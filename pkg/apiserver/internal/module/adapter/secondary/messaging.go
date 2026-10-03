@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/fx"
 
@@ -137,10 +136,11 @@ func createDirectSender(
 func createKafkaSender(
 	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
-) (*cekafka.Sender, error) {
+) (*outkafka.Sender, error) {
 	brokers := settings.KafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.Producer.Return.Errors = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
 	saramaConfig.Producer.Timeout = kafkaSendTimeout
 	saramaConfig.Producer.Retry.Max = 0 // the adapter owns bounded retries
@@ -152,12 +152,12 @@ func createKafkaSender(
 	saramaConfig.Metadata.Retry.Backoff = defaultKafkaRetryBackoff
 	topic := settings.KafkaSettings.Topic
 
-	var opts []cekafka.SenderOptionFunc
-
-	sender, err := cekafka.NewSender(brokers, saramaConfig, topic, opts...)
+	producer, err := sarama.NewAsyncProducer(brokers, saramaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka sender: %w", err)
 	}
+
+	sender := outkafka.NewSender(producer, topic)
 
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,

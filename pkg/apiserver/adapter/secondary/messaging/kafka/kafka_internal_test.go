@@ -6,9 +6,10 @@ import (
 	"log/slog"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
+	"github.com/IBM/sarama"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/require"
 
@@ -22,7 +23,7 @@ var errBrokerDown = errors.New("broker down")
 func TestNewEventSenderAdapter_DisabledMetrics(t *testing.T) {
 	t.Parallel()
 
-	adapter, err := NewEventSenderAdapter(&cekafka.Sender{}, slog.New(slog.DiscardHandler), nil)
+	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil)
 	require.NoError(t, err)
 	require.False(t, adapter.Degraded())
 }
@@ -96,10 +97,58 @@ func TestKafkaBreakerFailsFast(t *testing.T) {
 	require.Equal(t, before, attempts.Load(), "open breaker should skip the broker")
 }
 
+func TestKafkaPermanentErrorDoesNotBlockReplay(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		adapter := newTestAdapter(t)
+		available := false
+		delivered := 0
+
+		adapter.send = func(_ context.Context, event cloudevents.Event) error {
+			if !available {
+				return errBrokerDown
+			}
+
+			if event.Subject() == "oversized" {
+				return sarama.ConfigurationError("message larger than Producer.MaxMessageBytes")
+			}
+
+			delivered++
+
+			return nil
+		}
+		for _, target := range []string{"oversized", "valid"} {
+			err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: target},
+				serverevent.Message{Target: target, Type: serverevent.MessageTypeInvalidateAgentCache})
+			require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
+		}
+
+		available = true
+		ctx, cancel := context.WithCancel(t.Context())
+
+		done := make(chan struct{})
+		go func() { defer close(done); adapter.Replay(ctx) }()
+
+		time.Sleep(8 * time.Second)
+		cancel()
+		<-done
+		require.Equal(t, 1, delivered)
+		require.False(t, adapter.Degraded())
+		// A new permanent failure is rejected immediately without opening the breaker or queueing.
+		err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "oversized"},
+			serverevent.Message{Target: "oversized", Type: serverevent.MessageTypeInvalidateAgentCache})
+
+		var configurationError sarama.ConfigurationError
+		require.ErrorAs(t, err, &configurationError)
+		require.NotErrorIs(t, err, model.ErrTargetServerUnreachable)
+		require.False(t, adapter.Degraded())
+	})
+}
+
 func newTestAdapter(t *testing.T) *EventSenderAdapter {
 	t.Helper()
 
-	adapter, err := NewEventSenderAdapter(&cekafka.Sender{}, slog.New(slog.DiscardHandler), nil)
+	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil)
 	require.NoError(t, err)
 
 	return adapter
