@@ -118,7 +118,7 @@ require (
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/oapi-codegen/oapi-codegen/v2 v2.7.1 // indirect
+	github.com/oapi-codegen/oapi-codegen/v2 v2.8.0 // indirect
 	github.com/oasdiff/yaml v0.1.1 // indirect
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/onsi/gomega v1.33.1 // indirect
@@ -138,7 +138,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
 	github.com/speakeasy-api/jsonpath v0.6.3 // indirect
-	github.com/speakeasy-api/openapi v1.19.2 // indirect
+	github.com/speakeasy-api/openapi v1.24.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
