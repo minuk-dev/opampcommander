@@ -1,6 +1,14 @@
 'use client';
 
-import { ArrowLeft, CalendarDays, ListChecks, Pencil, RefreshCw, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarDays,
+  KeyRound,
+  ListChecks,
+  Pencil,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -39,6 +47,7 @@ const AgentGroupEditDialog = dynamic(
 const SelectRemoteConfigDialog = dynamic(
   () => import('@features/apply-remote-config/ui/SelectRemoteConfigDialog'),
 );
+const RotateOpAMPCertificateDialog = dynamic(() => import('@features/rotate-opamp-certificate'));
 
 function AgentGroupDetailInner() {
   const params = useParams<{ name: string }>();
@@ -47,6 +56,7 @@ function AgentGroupDetailInner() {
   const { namespace } = useNamespace();
   const [editing, setEditing] = useState(false);
   const [applyingConfig, setApplyingConfig] = useState(false);
+  const [rotatingCertificate, setRotatingCertificate] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionHandled, setActionHandled] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -149,6 +159,10 @@ function AgentGroupDetailInner() {
             <Button variant="outline" size="sm" onClick={() => setApplyingConfig(true)}>
               <ListChecks aria-hidden />
               Apply remote configs
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setRotatingCertificate(true)}>
+              <KeyRound aria-hidden />
+              Rotate OpAMP certificate
             </Button>
             <ReconcileButton
               kind="agentgroup"
@@ -279,6 +293,17 @@ function AgentGroupDetailInner() {
           onClose={() => setApplyingConfig(false)}
           onApplied={() => {
             setApplyingConfig(false);
+            void fetchGroup();
+          }}
+        />
+      )}
+      {rotatingCertificate && (
+        <RotateOpAMPCertificateDialog
+          namespace={namespace}
+          group={group}
+          onClose={() => setRotatingCertificate(false)}
+          onApplied={() => {
+            setRotatingCertificate(false);
             void fetchGroup();
           }}
         />

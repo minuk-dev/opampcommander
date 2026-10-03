@@ -463,7 +463,9 @@ func TestService_ListAgentsByAgentGroup(t *testing.T) {
 
 		group := newGroup()
 		mockGroup.On("GetAgentGroup", ctx, "default", "g-1", (*model.GetOptions)(nil)).Return(group, nil)
-		mockAgent.On("ListAgentsBySelector", ctx, group.Spec.Selector, mock.Anything).
+		mockAgent.On("ListAgentsBySelector", ctx, group.Spec.Selector, mock.MatchedBy(func(got *model.ListOptions) bool {
+			return got.Limit == 10 && got.FieldSelector.String() == "metadata.namespace=default"
+		})).
 			Return(&model.ListResponse[*agentmodel.Agent]{Items: nil}, nil)
 
 		result, err := svc.ListAgentsByAgentGroup(ctx, "default", "g-1", &applicationport.ListOptions{Limit: 10})

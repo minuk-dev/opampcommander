@@ -3,6 +3,8 @@ package agentservice
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,11 +17,13 @@ import (
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
+	"github.com/minuk-dev/opampcommander/pkg/selector"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 const (
 	agentGroupServiceName = "AgentGroupService"
+	singleAgentCheckLimit = 2
 	// ChangedAgentGroupBufferSize is the buffer size for the changed agent group channel.
 	ChangedAgentGroupBufferSize = 100
 	// PropagationChunkSize is the number of agents to process in each batch when propagating changes.
@@ -166,6 +170,25 @@ func (s *AgentGroupService) SaveAgentGroup(
 	name string,
 	agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
+	if conn := agentGroup.Spec.AgentConnectionConfig; conn != nil && conn.OpAMPConnection != nil &&
+		conn.OpAMPConnection.CertificateName != nil {
+		members, err := s.ListAgentsByAgentGroup(ctx, agentGroup, &model.ListOptions{Limit: singleAgentCheckLimit})
+		if err != nil {
+			return nil, fmt.Errorf("list agents for OpAMP certificate: %w", err)
+		}
+
+		if len(members.Items) != 1 || members.RemainingItemCount != 0 {
+			return nil, fmt.Errorf("%w: an OpAMP client certificate requires exactly one agent in the group",
+				model.ErrInvalidArgument)
+		}
+
+		_, err = s.validatedOpAMPCertificate(ctx, namespace, *conn.OpAMPConnection.CertificateName,
+			members.Items[0].Metadata.InstanceUID.String())
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	agentGroup, err := s.persistencePort.PutAgentGroup(ctx, namespace, name, agentGroup)
 	if err != nil {
 		return nil, fmt.Errorf("save agent group: %w", err)
@@ -243,10 +266,20 @@ func (s *AgentGroupService) ListAgentsByAgentGroup(
 ) (*model.ListResponse[*agentmodel.Agent], error) {
 	agentSelector := agentGroup.Spec.Selector
 
+	if options == nil {
+		options = &model.ListOptions{}
+	}
+
+	// A group's selector only applies inside its namespace.
+	scoped := *options
+	scoped.FieldSelector = append(append(selector.FieldSelector(nil), options.FieldSelector...), selector.FieldRequirement{
+		Field: "metadata.namespace", Operator: selector.OpEquals, Value: agentGroup.Metadata.Namespace,
+	})
+
 	listResp, err := s.agentUsecase.ListAgentsBySelector(
 		ctx,
 		agentSelector,
-		options,
+		&scoped,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by agent group: %w", err)
@@ -936,9 +969,21 @@ func (s *AgentGroupService) applyConnectionSettings(
 		return nil
 	}
 
-	opampConnection := s.buildOpAMPConnection(
-		ctx, agentGroup.Metadata.Namespace, conn.OpAMPConnection, logger,
-	)
+	var opampConnection *agentmodel.AgentOpAMPConnectionSettings
+
+	if conn.OpAMPConnection != nil {
+		var err error
+
+		opampConnection, err = s.buildOpAMPConnection(
+			ctx, agentGroup.Metadata.Namespace, agent.Metadata.InstanceUID.String(), conn.OpAMPConnection,
+		)
+		if err != nil {
+			logger.Warn("skip unsafe OpAMP connection settings", slog.String("error", err.Error()))
+
+			return nil
+		}
+	}
+
 	ownMetrics := s.buildTelemetryConnection(
 		ctx, agentGroup.Metadata.Namespace, conn.OwnMetrics, logger,
 	)
@@ -963,13 +1008,9 @@ func (s *AgentGroupService) applyConnectionSettings(
 func (s *AgentGroupService) buildOpAMPConnection(
 	ctx context.Context,
 	namespace string,
+	instanceUID string,
 	conn *agentmodel.OpAMPConnectionSettings,
-	logger *slog.Logger,
-) *agentmodel.AgentOpAMPConnectionSettings {
-	if conn == nil {
-		return nil
-	}
-
+) (*agentmodel.AgentOpAMPConnectionSettings, error) {
 	result := &agentmodel.AgentOpAMPConnectionSettings{
 		DestinationEndpoint: conn.DestinationEndpoint,
 		Headers:             conn.Headers,
@@ -977,20 +1018,41 @@ func (s *AgentGroupService) buildOpAMPConnection(
 	}
 
 	if conn.CertificateName != nil {
-		certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
+		certificate, err := s.validatedOpAMPCertificate(ctx, namespace, *conn.CertificateName, instanceUID)
 		if err != nil {
-			logger.Warn("failed to get certificate for OpAMP connection",
-				slog.String("certificateName", *conn.CertificateName),
-				slog.String("err", err.Error()),
-			)
-
-			return nil
+			return nil, err
 		}
 
 		result.Certificate = certificate.ToAgentCertificate()
 	}
 
-	return result
+	return result, nil
+}
+
+func (s *AgentGroupService) validatedOpAMPCertificate(
+	ctx context.Context, namespace, name, instanceUID string,
+) (*agentmodel.Certificate, error) {
+	certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, name, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get OpAMP certificate %q: %w", name, err)
+	}
+
+	keyPair, err := tls.X509KeyPair(certificate.Spec.Cert, certificate.Spec.PrivateKey)
+	if err != nil {
+		return nil, fmt.Errorf("%w: OpAMP certificate %q has an invalid key pair: %w", model.ErrInvalidArgument, name, err)
+	}
+
+	leaf, err := x509.ParseCertificate(keyPair.Certificate[0])
+	if err != nil {
+		return nil, fmt.Errorf("%w: parse OpAMP certificate %q: %w", model.ErrInvalidArgument, name, err)
+	}
+
+	if leaf.Subject.CommonName != instanceUID {
+		return nil, fmt.Errorf("%w: OpAMP certificate %q CN must equal agent instance UID %s",
+			model.ErrInvalidArgument, name, instanceUID)
+	}
+
+	return certificate, nil
 }
 
 func (s *AgentGroupService) buildTelemetryConnection(

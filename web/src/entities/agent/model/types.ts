@@ -33,6 +33,7 @@ export interface AgentSpecPackages {
 
 export interface AgentSpec {
   newInstanceUid?: string;
+  connectionSettingsHash?: string;
   connectionSettings?: ConnectionSettings;
   remoteConfig?: AgentSpecRemoteConfig;
   packagesAvailable?: AgentSpecPackages;
@@ -62,6 +63,12 @@ export interface AgentComponentHealth {
 }
 
 export interface AgentStatus {
+  connectionSettings?: {
+    lastConnectionSettingsHash?: string;
+    status?: string;
+    syncStatus?: 'unset' | 'pending' | 'applied' | 'failed';
+    errorMessage?: string;
+  };
   effectiveConfig?: AgentEffectiveConfig;
   packageStatuses?: unknown;
   componentHealth: AgentComponentHealth;
