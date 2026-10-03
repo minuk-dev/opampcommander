@@ -22,13 +22,14 @@ func newEventBackendHealthIndicator(sender agentport.ServerEventSenderPort) *eve
 
 func (*eventBackendHealthIndicator) Name() string { return "EventBackend" }
 func (*eventBackendHealthIndicator) Readiness(context.Context) healthcheck.Readiness {
-	return healthcheck.Readiness{Ready: true}
+	return healthcheck.Readiness{Ready: true, Reason: ""}
 }
 func (i *eventBackendHealthIndicator) Health(context.Context) healthcheck.Health {
 	if sender, ok := i.sender.(*outkafka.EventSenderAdapter); ok && sender.Degraded() {
 		return healthcheck.Health{Healthy: true, Degraded: true, Reason: "Kafka delivery failed or replay is pending"}
 	}
-	return healthcheck.Health{Healthy: true}
+
+	return healthcheck.Health{Healthy: true, Degraded: false, Reason: ""}
 }
 
 // MongoDBHealthIndicator is a health indicator for MongoDB.

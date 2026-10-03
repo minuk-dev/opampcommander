@@ -75,12 +75,8 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	baseURL := GetErrorTypeURI(ctx)
 	if errors.Is(err, model.ErrTargetServerUnreachable) {
-		ctx.JSON(http.StatusServiceUnavailable, &api.ErrorModel{
-			Type: baseURL, Title: "Service Unavailable", Status: http.StatusServiceUnavailable,
-			Detail:   "The target server is unreachable; delivery may be retried after the event backend recovers.",
-			Instance: ctx.Request.URL.String(),
-			Errors:   []*api.ErrorDetail{{Message: err.Error(), Location: locationServer}},
-		})
+		targetServerUnreachableError(ctx, err)
+
 		return
 	}
 
@@ -268,4 +264,15 @@ func getErrorDetails(errorType ErrorType) (int, string, string) {
 	default:
 		return http.StatusInternalServerError, "Unknown Error", "An unknown error occurred."
 	}
+}
+
+func targetServerUnreachableError(ctx *gin.Context, err error) {
+	ctx.JSON(http.StatusServiceUnavailable, &api.ErrorModel{
+		Type:     GetErrorTypeURI(ctx),
+		Title:    "Service Unavailable",
+		Status:   http.StatusServiceUnavailable,
+		Detail:   "The target server is unreachable; delivery may be retried after the event backend recovers.",
+		Instance: ctx.Request.URL.String(),
+		Errors:   []*api.ErrorDetail{{Message: err.Error(), Location: locationServer, Value: nil}},
+	})
 }

@@ -31,6 +31,9 @@ const (
 
 	// defaultKafkaRetryBackoff is the backoff duration between Kafka metadata retries.
 	defaultKafkaRetryBackoff = 2 * time.Second
+
+	// kafkaSendTimeout bounds the producer and socket operations during outages.
+	kafkaSendTimeout = 2 * time.Second
 )
 
 // newEventSender provides the outbound server-event sender, selecting the transport
@@ -54,19 +57,29 @@ func newEventSender(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
-		var replayCtx context.Context
-		var cancel context.CancelFunc
+
+		replayCtx, cancel := context.WithCancel(context.Background())
+		replayDone := make(chan struct{})
+
 		lifecycle.Append(fx.Hook{
 			OnStart: func(context.Context) error {
-				replayCtx, cancel = context.WithCancel(context.Background())
-				go adapter.Replay(replayCtx)
+				go func() {
+					defer close(replayDone)
+
+					adapter.Replay(replayCtx)
+				}()
+
 				return nil
 			},
-			OnStop: func(context.Context) error {
-				if cancel != nil {
-					cancel()
+			OnStop: func(ctx context.Context) error {
+				cancel()
+
+				select {
+				case <-replayDone:
+					return nil
+				case <-ctx.Done():
+					return fmt.Errorf("stop Kafka replay: %w", ctx.Err())
 				}
-				return nil
 			},
 		})
 
@@ -129,11 +142,11 @@ func createKafkaSender(
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
-	saramaConfig.Producer.Timeout = 2 * time.Second
+	saramaConfig.Producer.Timeout = kafkaSendTimeout
 	saramaConfig.Producer.Retry.Max = 0 // the adapter owns bounded retries
-	saramaConfig.Net.DialTimeout = 2 * time.Second
-	saramaConfig.Net.ReadTimeout = 2 * time.Second
-	saramaConfig.Net.WriteTimeout = 2 * time.Second
+	saramaConfig.Net.DialTimeout = kafkaSendTimeout
+	saramaConfig.Net.ReadTimeout = kafkaSendTimeout
+	saramaConfig.Net.WriteTimeout = kafkaSendTimeout
 	saramaConfig.Metadata.Timeout = defaultKafkaTimeout
 	saramaConfig.Metadata.Retry.Max = defaultKafkaRetryMax
 	saramaConfig.Metadata.Retry.Backoff = defaultKafkaRetryBackoff

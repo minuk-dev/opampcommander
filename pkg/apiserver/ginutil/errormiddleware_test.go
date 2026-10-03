@@ -78,6 +78,7 @@ func TestHandleDomainError_ResourceNotExist(t *testing.T) {
 
 func TestHandleDomainError_TargetServerUnreachable(t *testing.T) {
 	t.Parallel()
+
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/agents/123", nil)
