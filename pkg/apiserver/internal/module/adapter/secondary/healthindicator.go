@@ -7,8 +7,30 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/liveness/failover"
+	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 )
+
+type eventBackendHealthIndicator struct {
+	sender agentport.ServerEventSenderPort
+}
+
+func newEventBackendHealthIndicator(sender agentport.ServerEventSenderPort) *eventBackendHealthIndicator {
+	return &eventBackendHealthIndicator{sender: sender}
+}
+
+func (*eventBackendHealthIndicator) Name() string { return "EventBackend" }
+func (*eventBackendHealthIndicator) Readiness(context.Context) healthcheck.Readiness {
+	return healthcheck.Readiness{Ready: true, Reason: ""}
+}
+func (i *eventBackendHealthIndicator) Health(context.Context) healthcheck.Health {
+	if sender, ok := i.sender.(*outkafka.EventSenderAdapter); ok && sender.Degraded() {
+		return healthcheck.Health{Healthy: true, Degraded: true, Reason: "Kafka delivery failed or replay is pending"}
+	}
+
+	return healthcheck.Health{Healthy: true, Degraded: false, Reason: ""}
+}
 
 // MongoDBHealthIndicator is a health indicator for MongoDB.
 var _ healthcheck.HealthIndicator = (*MongoDBHealthIndicator)(nil)

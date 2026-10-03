@@ -42,8 +42,10 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 
 	// Given: EventSenderAdapter is created
 	sender := createTestSender(t, broker, topic)
+	defer func() { require.NoError(t, sender.Close(ctx)) }()
+
 	logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
-	adapter, err := outkafka.NewEventSenderAdapter(sender, logger)
+	adapter, err := outkafka.NewEventSenderAdapter(sender, logger, nil)
 	require.NoError(t, err)
 
 	// Given: Consumer to verify messages
@@ -95,7 +97,7 @@ func startKafkaContainer(ctx context.Context, t *testing.T) (testcontainers.Cont
 	return kafkaContainer, brokers[0]
 }
 
-func createTestSender(t *testing.T, broker, topic string) *cekafka.Sender {
+func createTestSender(t *testing.T, broker, topic string) *outkafka.Sender {
 	t.Helper()
 
 	config := sarama.NewConfig()
@@ -104,8 +106,10 @@ func createTestSender(t *testing.T, broker, topic string) *cekafka.Sender {
 	config.Producer.Retry.Max = 5
 	config.Version = sarama.V2_6_0_0
 
-	sender, err := cekafka.NewSender([]string{broker}, config, topic)
+	producer, err := sarama.NewAsyncProducer([]string{broker}, config)
 	require.NoError(t, err)
+
+	sender := outkafka.NewSender(producer, topic)
 
 	return sender
 }

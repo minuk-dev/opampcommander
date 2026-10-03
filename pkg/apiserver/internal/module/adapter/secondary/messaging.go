@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
+	"go.opentelemetry.io/otel/metric"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/inmemory"
@@ -30,6 +30,9 @@ const (
 
 	// defaultKafkaRetryBackoff is the backoff duration between Kafka metadata retries.
 	defaultKafkaRetryBackoff = 2 * time.Second
+
+	// kafkaSendTimeout bounds the producer and socket operations during outages.
+	kafkaSendTimeout = 2 * time.Second
 )
 
 // newEventSender provides the outbound server-event sender, selecting the transport
@@ -40,6 +43,7 @@ func newEventSender(
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
 	hub *inmemory.EventSenderAdapter,
+	meterProvider metric.MeterProvider,
 ) (agentport.ServerEventSenderPort, error) {
 	switch settings.ProtocolType {
 	case config.EventProtocolTypeKafka:
@@ -48,10 +52,35 @@ func newEventSender(
 			return nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 		}
 
-		adapter, err := outkafka.NewEventSenderAdapter(sender, logger)
+		adapter, err := outkafka.NewEventSenderAdapter(sender, logger, meterProvider)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
+
+		replayCtx, cancel := context.WithCancel(context.Background())
+		replayDone := make(chan struct{})
+
+		lifecycle.Append(fx.Hook{
+			OnStart: func(context.Context) error {
+				go func() {
+					defer close(replayDone)
+
+					adapter.Replay(replayCtx)
+				}()
+
+				return nil
+			},
+			OnStop: func(ctx context.Context) error {
+				cancel()
+
+				select {
+				case <-replayDone:
+					return nil
+				case <-ctx.Done():
+					return fmt.Errorf("stop Kafka replay: %w", ctx.Err())
+				}
+			},
+		})
 
 		return adapter, nil
 	case config.EventProtocolTypeDirect:
@@ -107,22 +136,28 @@ func createDirectSender(
 func createKafkaSender(
 	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
-) (*cekafka.Sender, error) {
+) (*outkafka.Sender, error) {
 	brokers := settings.KafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.Producer.Return.Errors = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
+	saramaConfig.Producer.Timeout = kafkaSendTimeout
+	saramaConfig.Producer.Retry.Max = 0 // the adapter owns bounded retries
+	saramaConfig.Net.DialTimeout = kafkaSendTimeout
+	saramaConfig.Net.ReadTimeout = kafkaSendTimeout
+	saramaConfig.Net.WriteTimeout = kafkaSendTimeout
 	saramaConfig.Metadata.Timeout = defaultKafkaTimeout
 	saramaConfig.Metadata.Retry.Max = defaultKafkaRetryMax
 	saramaConfig.Metadata.Retry.Backoff = defaultKafkaRetryBackoff
 	topic := settings.KafkaSettings.Topic
 
-	var opts []cekafka.SenderOptionFunc
-
-	sender, err := cekafka.NewSender(brokers, saramaConfig, topic, opts...)
+	producer, err := sarama.NewAsyncProducer(brokers, saramaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kafka sender: %w", err)
 	}
+
+	sender := outkafka.NewSender(producer, topic)
 
 	lifecycle.Append(fx.Hook{
 		OnStart: nil,
