@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,9 @@ var _ usecase.OpAMPUsecase = (*Service)(nil)
 // A pending certificate replaces the active one only after it establishes a
 // successful TLS connection; reported status alone cannot revoke the old one.
 func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
+	unlock := s.lockAgentConnection(uid)
+	defer unlock()
+
 	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
 	if !ok {
 		return false
@@ -59,6 +63,9 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		}
 	}
 
+	// Capture the socket before committing the new identity. A later lookup could
+	// resolve a connection that already uses the newly activated certificate.
+	old := s.replacedConnection(ctx, uid)
 	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint(certDER)
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
@@ -68,7 +75,7 @@ func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID,
 		return false
 	}
 
-	s.closeReplacedConnection(ctx, uid)
+	s.closeReplacedConnection(old)
 
 	return true
 }
@@ -99,6 +106,9 @@ type Service struct {
 
 	connectionUsecase        agentport.ConnectionUsecase
 	onConnectionCloseTimeout time.Duration
+
+	connectionLifecycleMu    sync.Mutex
+	connectionLifecycleLocks map[uuid.UUID]*agentConnectionLock
 }
 
 // New creates a new instance of the OpAMP service.
@@ -133,6 +143,8 @@ func New(
 		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
 
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
+		connectionLifecycleMu:    sync.Mutex{},
+		connectionLifecycleLocks: nil,
 	}
 }
 
@@ -222,6 +234,64 @@ func (s *Service) OnMessage(
 	conn types.Connection,
 	message *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
+	unlock := s.lockAgentConnection(uuid.UUID(message.GetInstanceUid()))
+	defer unlock()
+
+	return s.onMessage(ctx, conn, message)
+}
+
+// OnReadMessageError implements usecase.OpAMPUsecase.
+func (s *Service) OnReadMessageError(
+	conn types.Connection,
+	messageType int,
+	msgByte []byte,
+	err error,
+) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(
+		slog.String("method", "OnReadMessageError"),
+		slog.String("remoteAddr", remoteAddr),
+		slog.Int("messageType", messageType),
+		slog.String("message", string(msgByte)),
+		slog.String("error", err.Error()),
+	)
+
+	logger.Error("read message error")
+}
+
+// OnMessageResponseError implements usecase.OpAMPUsecase.
+func (s *Service) OnMessageResponseError(conn types.Connection, message *protobufs.ServerToAgent, err error) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(
+		slog.String("method", "OnMessageResponseError"),
+		slog.String("remoteAddr", remoteAddr),
+		slog.String("message", fmt.Sprintf("%+v", message)),
+		slog.String("error", err.Error()),
+	)
+
+	logger.Error("send message error")
+}
+
+// OnConnectionClose implements usecase.OpAMPUsecase.
+func (s *Service) OnConnectionClose(conn types.Connection) {
+	remoteAddr := conn.Connection().RemoteAddr().String()
+	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
+	logger.Info("start")
+
+	select {
+	case s.closedConnectionCh <- conn:
+	default:
+		logger.Warn("closedConnectionCh is full, skipping cleanup for this connection")
+	}
+
+	logger.Info("end")
+}
+
+func (s *Service) onMessage(
+	ctx context.Context,
+	conn types.Connection,
+	message *protobufs.AgentToServer,
+) *protobufs.ServerToAgent {
 	remoteAddr := conn.Connection().RemoteAddr().String()
 	instanceUID := uuid.UUID(message.GetInstanceUid())
 
@@ -291,60 +361,21 @@ func (s *Service) OnMessage(
 	return response
 }
 
-// OnReadMessageError implements usecase.OpAMPUsecase.
-func (s *Service) OnReadMessageError(
-	conn types.Connection,
-	messageType int,
-	msgByte []byte,
-	err error,
-) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(
-		slog.String("method", "OnReadMessageError"),
-		slog.String("remoteAddr", remoteAddr),
-		slog.Int("messageType", messageType),
-		slog.String("message", string(msgByte)),
-		slog.String("error", err.Error()),
-	)
-
-	logger.Error("read message error")
-}
-
-// OnMessageResponseError implements usecase.OpAMPUsecase.
-func (s *Service) OnMessageResponseError(conn types.Connection, message *protobufs.ServerToAgent, err error) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(
-		slog.String("method", "OnMessageResponseError"),
-		slog.String("remoteAddr", remoteAddr),
-		slog.String("message", fmt.Sprintf("%+v", message)),
-		slog.String("error", err.Error()),
-	)
-
-	logger.Error("send message error")
-}
-
-// OnConnectionClose implements usecase.OpAMPUsecase.
-func (s *Service) OnConnectionClose(conn types.Connection) {
-	remoteAddr := conn.Connection().RemoteAddr().String()
-	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
-	logger.Info("start")
-
-	select {
-	case s.closedConnectionCh <- conn:
-	default:
-		logger.Warn("closedConnectionCh is full, skipping cleanup for this connection")
-	}
-
-	logger.Info("end")
-}
-
-func (s *Service) closeReplacedConnection(ctx context.Context, uid uuid.UUID) {
+func (s *Service) replacedConnection(ctx context.Context, uid uuid.UUID) *agentmodel.Connection {
 	if s.connectionUsecase == nil {
-		return
+		return nil
 	}
 
 	old, err := s.connectionUsecase.GetConnectionByInstanceUID(ctx, uid)
 	if err != nil || old == nil || old.Type != agentmodel.ConnectionTypeWebSocket {
+		return nil
+	}
+
+	return old
+}
+
+func (s *Service) closeReplacedConnection(old *agentmodel.Connection) {
+	if old == nil {
 		return
 	}
 
@@ -353,7 +384,7 @@ func (s *Service) closeReplacedConnection(ctx context.Context, uid uuid.UUID) {
 		return
 	}
 
-	err = oldConn.Disconnect()
+	err := oldConn.Disconnect()
 	if err != nil {
 		s.logger.Warn("failed to close replaced agent connection", slog.Any("error", err))
 	}
@@ -488,6 +519,9 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
+
+	unlock := s.lockAgentConnection(connection.InstanceUID)
+	defer unlock()
 
 	logger := s.logger.With(
 		slog.String("method", "cleanUpConnection"),

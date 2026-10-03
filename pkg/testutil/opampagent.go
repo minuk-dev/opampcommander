@@ -4,14 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -126,12 +124,8 @@ type ReferenceAgent struct {
 	UID       uuid.UUID
 	Transport ReferenceAgentTransport
 
-	client        client.OpAMPClient
-	packages      *memPackagesStore
-	port          int
-	startSettings types.StartSettings
-	description   *protobufs.AgentDescription
-	capabilities  protobufs.AgentCapabilities
+	client   client.OpAMPClient
+	packages *memPackagesStore
 
 	mu                 sync.Mutex
 	effectiveConfig    map[string]*protobufs.AgentConfigObject
@@ -148,8 +142,6 @@ type ReferenceAgent struct {
 
 // StartReferenceAgent connects a ReferenceAgent to the OpAMP endpoint of the server
 // listening on opampPort. The agent is stopped when the test ends.
-//
-//nolint:funlen // Keep the upstream client setup together in this test helper.
 func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) *ReferenceAgent {
 	b.t.Helper()
 
@@ -160,7 +152,6 @@ func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) 
 		UID:             settings.uid,
 		Transport:       settings.transport,
 		packages:        newMemPackagesStore(),
-		port:            opampPort,
 		effectiveConfig: map[string]*protobufs.AgentConfigObject{},
 		startTime:       time.Now(),
 	}
@@ -176,18 +167,16 @@ func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) 
 		serverURL = strings.Replace(serverURL, "http://", "https://", 1)
 	}
 
-	agent.description = &protobufs.AgentDescription{
+	description := &protobufs.AgentDescription{
 		IdentifyingAttributes:    toKeyValues(settings.identifying),
 		NonIdentifyingAttributes: toKeyValues(settings.nonIdentifying),
 	}
-	require.NoError(b.t, agent.client.SetAgentDescription(agent.description))
+	require.NoError(b.t, agent.client.SetAgentDescription(description))
 
 	capabilities := ReferenceAgentCapabilities
 	if settings.acceptOpAMP {
 		capabilities |= protobufs.AgentCapabilities_AgentCapabilities_AcceptsOpAMPConnectionSettings
 	}
-
-	agent.capabilities = capabilities
 
 	require.NoError(b.t, agent.client.SetCapabilities(&capabilities))
 	require.NoError(b.t, agent.client.SetHealth(agent.health(true, "StatusOK")))
@@ -195,7 +184,7 @@ func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) 
 	heartbeat := referenceAgentHeartbeat
 
 	//exhaustruct:ignore
-	agent.startSettings = types.StartSettings{
+	startSettings := types.StartSettings{
 		OpAMPServerURL:        serverURL,
 		InstanceUid:           types.InstanceUid(agent.UID),
 		PackagesStateProvider: agent.packages,
@@ -210,7 +199,7 @@ func (b *Base) StartReferenceAgent(opampPort int, opts ...ReferenceAgentOption) 
 			OnOpampConnectionSettings: agent.onOpAMPConnectionSettings,
 		},
 	}
-	err := agent.client.Start(b.t.Context(), agent.startSettings)
+	err := agent.client.Start(b.t.Context(), startSettings)
 	require.NoError(b.t, err, "reference agent should start")
 
 	b.t.Cleanup(agent.Stop)
@@ -278,47 +267,6 @@ func (a *ReferenceAgent) OfferedClientCertificate() *protobufs.TLSCertificate {
 	defer a.mu.Unlock()
 
 	return a.offeredCertificate
-}
-
-// ReconnectWithOfferedCertificate applies the OpAMP offer using a fresh upstream client.
-func (a *ReferenceAgent) ReconnectWithOfferedCertificate(t *testing.T, roots *x509.CertPool) {
-	t.Helper()
-
-	a.mu.Lock()
-	offer := a.offeredCertificate
-	endpoint := a.offeredEndpoint
-	a.mu.Unlock()
-
-	require.NotNil(t, offer)
-	require.NotNil(t, a.startSettings.TLSConfig)
-
-	pair, err := tls.X509KeyPair(offer.GetCert(), offer.GetPrivateKey())
-	require.NoError(t, err)
-
-	tlsConfig := a.startSettings.TLSConfig.Clone()
-
-	tlsConfig.Certificates = []tls.Certificate{pair}
-	if roots != nil {
-		tlsConfig.RootCAs = roots
-	}
-
-	stopCtx, cancel := context.WithTimeout(context.Background(), referenceAgentStopTimeout)
-	defer cancel()
-
-	require.NoError(t, a.client.Stop(stopCtx))
-
-	newClient, _ := newOpAMPClient(a.Transport, a.port)
-	require.NoError(t, newClient.SetAgentDescription(a.description))
-	require.NoError(t, newClient.SetCapabilities(&a.capabilities))
-	require.NoError(t, newClient.SetHealth(a.health(true, "StatusOK")))
-
-	a.startSettings.TLSConfig = tlsConfig
-	if endpoint != "" {
-		a.startSettings.OpAMPServerURL = endpoint
-	}
-
-	a.client = newClient
-	require.NoError(t, a.client.Start(t.Context(), a.startSettings))
 }
 
 // ReportHealth reports the agent's top-level health and status string.

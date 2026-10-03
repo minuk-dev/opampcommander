@@ -56,10 +56,14 @@ func TestE2E_OpAMPMTLSRotate(t *testing.T) {
 		testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": "mtls-rotation"}))
 	testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool { return a.Status.Connected },
 		30*time.Second, 100*time.Millisecond, "old certificate should connect")
+	connections, err := apiClient.ConnectionService.ListConnections(ctx, "default")
+	require.NoError(t, err)
+	require.Len(t, connections.Items, 1)
+	oldConnectionID := connections.Items[0].ID
 	newCert := register("new-client")
 	newName := newCert.Metadata.Name
 	endpoint := "wss://localhost:" + strconv.Itoa(server.Port) + "/api/v1/opamp"
-	_, err := apiClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
+	_, err = apiClient.AgentGroupService.CreateAgentGroup(ctx, "default", &v1.AgentGroup{
 		Metadata: v1.Metadata{Name: "mtls-rotation"},
 		Spec: v1.Spec{
 			Selector: v1.AgentSelector{IdentifyingAttributes: map[string]string{"service.name": "mtls-rotation"}},
@@ -72,10 +76,50 @@ func TestE2E_OpAMPMTLSRotate(t *testing.T) {
 	require.Eventually(t, func() bool { return oldAgent.OfferedClientCertificate() != nil },
 		30*time.Second, 100*time.Millisecond, "old agent should receive the new certificate")
 	require.Equal(t, []byte(newCert.Spec.Cert), oldAgent.OfferedClientCertificate().GetCert())
-	oldAgent.ReconnectWithOfferedCertificate(t, roots)
+	offer := oldAgent.OfferedClientCertificate()
+	pair, err := tls.X509KeyPair(offer.GetCert(), offer.GetPrivateKey())
+	require.NoError(t, err)
+	// Keep the old client running: only the server may close the old socket.
+	newAgent := base.StartReferenceAgent(server.Port, testutil.WithReferenceAgentUID(uid),
+		testutil.WithReferenceAgentTLSConfig(&tls.Config{
+			MinVersion: tls.VersionTLS12, RootCAs: roots, Certificates: []tls.Certificate{pair},
+		}),
+		testutil.WithReferenceAgentOpAMPSettings(),
+		testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": "mtls-rotation"}))
+	var newConnectionID uuid.UUID
+	require.Eventually(t, func() bool {
+		list, listErr := apiClient.ConnectionService.ListConnections(ctx, "default")
+		if listErr != nil {
+			return false
+		}
+		for _, connection := range list.Items {
+			if connection.ID == oldConnectionID {
+				return false
+			}
+			if connection.InstanceUID == uid {
+				newConnectionID = connection.ID
+			}
+		}
+		return newConnectionID != uuid.Nil
+	}, 10*time.Second, 100*time.Millisecond, "server should close and remove the original socket")
+	oldAgent.Stop()
 	testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool {
 		return a.Status.Connected && a.Status.ConnectionSettings.SyncStatus == "applied"
 	}, 30*time.Second, 100*time.Millisecond, "new certificate should become active")
+	// A new report must still reach the agent after delayed old-socket cleanup.
+	require.NoError(t, newAgent.ReportHealth(true, "after-rotation"))
+	testutil.EventuallyAgent(t, apiClient, "default", uid, func(a *v1.Agent) bool {
+		return a.Status.Connected && a.Status.ComponentHealth.Status == "after-rotation"
+	}, 10*time.Second, 100*time.Millisecond, "cleanup should preserve the replacement's status and liveness")
+	connections, err = apiClient.ConnectionService.ListConnections(ctx, "default")
+	require.NoError(t, err)
+	var activeConnectionIDs []uuid.UUID
+	for _, connection := range connections.Items {
+		if connection.InstanceUID == uid {
+			activeConnectionIDs = append(activeConnectionIDs, connection.ID)
+		}
+	}
+	require.Equal(t, []uuid.UUID{newConnectionID}, activeConnectionIDs)
 	rejectedAgent := base.StartReferenceAgent(server.Port, testutil.WithReferenceAgentUID(uid),
 		testutil.WithReferenceAgentTLSConfig(agentTLS(t, roots, oldCert)),
 		testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": "mtls-rotation"}))
