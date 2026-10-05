@@ -6,7 +6,6 @@ import (
 	"encoding/pem"
 	"log/slog"
 	"net"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,75 +14,16 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port/usecasemock"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/certutil"
 )
-
-type lifecycleAgentUsecase struct {
-	agentport.AgentUsecase
-
-	mu          sync.Mutex
-	agent       *agentmodel.Agent
-	liveness    *agentmodel.AgentLiveness
-	forgetCalls int
-	onGet       func()
-	onMessage   func()
-}
-
-func (s *lifecycleAgentUsecase) GetAgent(context.Context, uuid.UUID) (*agentmodel.Agent, error) {
-	if s.onGet != nil {
-		s.onGet()
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.agent.Clone(), nil
-}
-
-func (s *lifecycleAgentUsecase) GetOrCreateAgent(context.Context, uuid.UUID) (*agentmodel.Agent, error) {
-	if s.onMessage != nil {
-		s.onMessage()
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	return s.agent.Clone(), nil
-}
-
-func (s *lifecycleAgentUsecase) SaveAgent(_ context.Context, agent *agentmodel.Agent) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.agent = agent.Clone()
-
-	return nil
-}
-
-func (s *lifecycleAgentUsecase) TouchAgentLiveness(_ context.Context, agent *agentmodel.Agent, _ time.Time) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.liveness = agentmodel.NewAgentLivenessFromAgent(agent)
-
-	return false // Heartbeats only touch the fast tier inside the persistence throttle window.
-}
-
-func (s *lifecycleAgentUsecase) ForgetAgentLiveness(context.Context, uuid.UUID) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.liveness = nil
-	s.forgetCalls++
-
-	return nil
-}
 
 type lifecycleIdentityProvider struct {
 	agentport.ServerIdentityProvider
@@ -132,7 +72,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			uid := uuid.New()
 			agent := agentmodel.NewAgent(uid)
 			agent.Status.Connected = true
-			agentUC := &lifecycleAgentUsecase{agent: agent, liveness: agentmodel.NewAgentLivenessFromAgent(agent)}
+			agentUC := usecasemock.NewMockAgentUsecase(t)
 			store := connectionstore.NewConnectionStore()
 			connUC := agentservice.NewConnectionService(nil, store, nil, nil, slog.New(slog.DiscardHandler))
 			oldWire, newWire := lifecycleWire(t), lifecycleWire(t)
@@ -154,17 +94,37 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			replacementService.serverToAgentBuilder = svc.serverToAgentBuilder
 			message := &protobufs.AgentToServer{InstanceUid: uid[:]}
 
-			if tc.cleanupFirst {
-				loadingAgent, releaseCleanup := make(chan struct{}), make(chan struct{})
+			loadingAgent, releaseCleanup := make(chan struct{}), make(chan struct{})
+			messageEntered := make(chan struct{}, 1)
 
-				var paused atomic.Bool
+			var paused atomic.Bool
 
-				agentUC.onGet = func() {
-					if paused.CompareAndSwap(false, true) {
+			read := agentUC.EXPECT().GetAgent(mock.Anything, uid).
+				RunAndReturn(func(context.Context, uuid.UUID) (*agentmodel.Agent, error) {
+					if tc.cleanupFirst && paused.CompareAndSwap(false, true) {
 						close(loadingAgent)
 						<-releaseCleanup
 					}
-				}
+
+					return agent.Clone(), nil
+				})
+			agentUC.EXPECT().GetOrCreateAgent(mock.Anything, uid).
+				RunAndReturn(func(context.Context, uuid.UUID) (*agentmodel.Agent, error) {
+					messageEntered <- struct{}{}
+
+					return agent.Clone(), nil
+				}).Once()
+			agentUC.EXPECT().TouchAgentLiveness(mock.Anything, mock.MatchedBy(func(observed *agentmodel.Agent) bool {
+				return observed.Metadata.InstanceUID == uid && observed.Status.Connected &&
+					observed.Status.ConnectionType == agentmodel.ConnectionTypeWebSocket
+			}), mock.Anything).Return(false).Once()
+
+			if tc.cleanupFirst {
+				read.Times(2) // Cleanup and the replacement's conflict check each load the agent.
+				agentUC.EXPECT().SaveAgent(mock.Anything, mock.MatchedBy(func(saved *agentmodel.Agent) bool {
+					return saved.Metadata.InstanceUID == uid && !saved.Status.Connected
+				})).Return(nil).Once()
+				agentUC.EXPECT().ForgetAgentLiveness(mock.Anything, uid).Return(nil).Once()
 
 				cleanupDone := make(chan error, 1)
 				go func() { cleanupDone <- svc.cleanUpConnection(t.Context(), oldWire) }()
@@ -174,9 +134,6 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 				case <-time.After(time.Second):
 					t.Fatal("cleanup did not reach the agent read")
 				}
-
-				messageEntered := make(chan struct{}, 1)
-				agentUC.onMessage = func() { messageEntered <- struct{}{} }
 
 				messageDone := make(chan *protobufs.ServerToAgent, 1)
 				go func() { messageDone <- replacementService.OnMessage(t.Context(), newWire, message) }()
@@ -190,6 +147,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 				require.Nil(t, (<-messageDone).GetErrorResponse())
 				require.True(t, waiting)
 			} else {
+				read.Once()
 				require.Nil(t, replacementService.OnMessage(t.Context(), newWire, message).GetErrorResponse())
 				require.NoError(t, svc.cleanUpConnection(t.Context(), oldWire))
 			}
@@ -199,14 +157,10 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			assert.Equal(t, newConnection.UID, active.UID)
 			_, err = connUC.GetConnectionByID(t.Context(), oldWire)
 			require.ErrorIs(t, err, agentport.ErrConnectionNotFound)
-			require.NotNil(t, agentUC.liveness)
-			assert.True(t, agentUC.liveness.Connected)
 
-			if tc.cleanupFirst {
-				assert.Equal(t, 1, agentUC.forgetCalls)
-			} else {
-				assert.Zero(t, agentUC.forgetCalls, "old close must not remove replacement liveness")
-				assert.True(t, agentUC.agent.Status.Connected)
+			if !tc.cleanupFirst {
+				agentUC.AssertNotCalled(t, "SaveAgent", mock.Anything, mock.Anything)
+				agentUC.AssertNotCalled(t, "ForgetAgentLiveness", mock.Anything, uid)
 			}
 		})
 	}
