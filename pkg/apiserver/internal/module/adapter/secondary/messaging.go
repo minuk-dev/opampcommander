@@ -30,9 +30,6 @@ const (
 
 	// defaultKafkaRetryBackoff is the backoff duration between Kafka metadata retries.
 	defaultKafkaRetryBackoff = 2 * time.Second
-
-	// kafkaSendTimeout bounds the producer and socket operations during outages.
-	kafkaSendTimeout = 2 * time.Second
 )
 
 // newEventSender provides the outbound server-event sender, selecting the transport
@@ -52,7 +49,7 @@ func newEventSender(
 			return nil, fmt.Errorf("failed to create Kafka sender: %w", err)
 		}
 
-		adapter, err := outkafka.NewEventSenderAdapter(sender, logger, meterProvider)
+		adapter, err := outkafka.NewEventSenderAdapter(sender, logger, meterProvider, settings.KafkaSettings)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
@@ -137,20 +134,27 @@ func createKafkaSender(
 	settings *config.EventSettings,
 	lifecycle fx.Lifecycle,
 ) (*outkafka.Sender, error) {
-	brokers := settings.KafkaSettings.Brokers
+	kafkaSettings := settings.KafkaSettings.WithDefaults()
+
+	err := kafkaSettings.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid Kafka delivery settings: %w", err)
+	}
+
+	brokers := kafkaSettings.Brokers
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Producer.Return.Successes = true
 	saramaConfig.Producer.Return.Errors = true
 	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll
-	saramaConfig.Producer.Timeout = kafkaSendTimeout
+	saramaConfig.Producer.Timeout = kafkaSettings.SendTimeout
 	saramaConfig.Producer.Retry.Max = 0 // the adapter owns bounded retries
-	saramaConfig.Net.DialTimeout = kafkaSendTimeout
-	saramaConfig.Net.ReadTimeout = kafkaSendTimeout
-	saramaConfig.Net.WriteTimeout = kafkaSendTimeout
+	saramaConfig.Net.DialTimeout = kafkaSettings.SendTimeout
+	saramaConfig.Net.ReadTimeout = kafkaSettings.SendTimeout
+	saramaConfig.Net.WriteTimeout = kafkaSettings.SendTimeout
 	saramaConfig.Metadata.Timeout = defaultKafkaTimeout
 	saramaConfig.Metadata.Retry.Max = defaultKafkaRetryMax
 	saramaConfig.Metadata.Retry.Backoff = defaultKafkaRetryBackoff
-	topic := settings.KafkaSettings.Topic
+	topic := kafkaSettings.Topic
 
 	producer, err := sarama.NewAsyncProducer(brokers, saramaConfig)
 	if err != nil {

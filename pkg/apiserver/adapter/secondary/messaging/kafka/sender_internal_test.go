@@ -9,6 +9,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -43,7 +44,7 @@ func TestSender_BoundsSubmissionAndAcknowledgement(t *testing.T) {
 					failures:  make(chan *sarama.ProducerError),
 				}
 				sender := NewSender(producer, "events")
-				adapter, err := NewEventSenderAdapter(sender, slog.New(slog.DiscardHandler), nil)
+				adapter, err := NewEventSenderAdapter(sender, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
 				require.NoError(t, err)
 
 				if name == "late acknowledgement" {
@@ -60,7 +61,7 @@ func TestSender_BoundsSubmissionAndAcknowledgement(t *testing.T) {
 				err = adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "remote"},
 					serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache})
 				require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-				require.Equal(t, sendTimeout, time.Since(start))
+				require.Equal(t, config.DefaultKafkaSettings().SendTimeout, time.Since(start))
 				require.True(t, adapter.Degraded())
 
 				if name == "late acknowledgement" {
@@ -89,7 +90,7 @@ func TestSender_PropagatesPermanentProducerFailure(t *testing.T) {
 			failures:  make(chan *sarama.ProducerError),
 		}
 		sender := NewSender(producer, "events")
-		adapter, err := NewEventSenderAdapter(sender, slog.New(slog.DiscardHandler), nil)
+		adapter, err := NewEventSenderAdapter(sender, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
 		require.NoError(t, err)
 
 		go func() {

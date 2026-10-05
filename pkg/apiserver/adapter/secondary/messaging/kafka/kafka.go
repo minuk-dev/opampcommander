@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/metric/noop"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
@@ -29,17 +30,9 @@ var (
 	_ agentport.ServerEventSenderPort = (*EventSenderAdapter)(nil)
 )
 
-const (
-	queueLimit       = 256
-	sendTimeout      = 2 * time.Second
-	retryBackoff     = 100 * time.Millisecond
-	retryAttempts    = 2
-	failureThreshold = 2
-	probeInterval    = 5 * time.Second
-)
-
 // EventSenderAdapter implements agentport.ServerEventSenderPort using Kafka CloudEvents sender.
 type EventSenderAdapter struct {
+	settings  config.KafkaSettings
 	send      func(context.Context, cloudevents.Event) error
 	logger    *slog.Logger
 	clock     clock.Clock
@@ -59,17 +52,21 @@ func NewEventSenderAdapter(
 	protocolSender *Sender,
 	logger *slog.Logger,
 	meterProvider metric.MeterProvider,
+	settings config.KafkaSettings,
 ) (*EventSenderAdapter, error) {
+	settings = settings.WithDefaults()
+
+	err := settings.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid Kafka delivery settings: %w", err)
+	}
+
 	//nolint:godox
 	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
 	// https://github.com/cloudevents/sdk-go/pull/1202
 	otelService := observabilityClient.NewOTelObservabilityService()
 
-	opts := make([]client.Option, 0, 1)
-
-	opts = append(opts, client.WithObservabilityService(otelService))
-
-	sender, err := cloudevents.NewClient(protocolSender, opts...)
+	sender, err := cloudevents.NewClient(protocolSender, client.WithObservabilityService(otelService))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
 	}
@@ -101,6 +98,7 @@ func NewEventSenderAdapter(
 	}
 
 	return &EventSenderAdapter{
+		settings:  settings,
 		send:      func(ctx context.Context, event cloudevents.Event) error { return sender.Send(ctx, event) },
 		logger:    logger,
 		clock:     clock.NewRealClock(),
@@ -203,7 +201,7 @@ func (e *EventSenderAdapter) Degraded() bool {
 	return e.failures > 0 || len(e.queue) > 0
 }
 
-// deliver bounds each request and opens the breaker after two failed attempts.
+// deliver bounds each request and opens the breaker at the configured failure threshold.
 func (e *EventSenderAdapter) deliver(ctx context.Context, event cloudevents.Event) error {
 	e.mu.Lock()
 	if e.probing || time.Now().Before(e.openUntil) {
@@ -218,12 +216,12 @@ func (e *EventSenderAdapter) deliver(ctx context.Context, event cloudevents.Even
 	}
 	e.mu.Unlock()
 
-	ctx, cancel := context.WithTimeout(ctx, sendTimeout)
+	ctx, cancel := context.WithTimeout(ctx, e.settings.SendTimeout)
 	defer cancel()
 
 	var err error
 
-	for attempt := range retryAttempts {
+	for attempt := range e.settings.RetryAttempts {
 		err = e.send(ctx, event)
 		if err == nil {
 			e.mu.Lock()
@@ -243,9 +241,9 @@ func (e *EventSenderAdapter) deliver(ctx context.Context, event cloudevents.Even
 			return fmt.Errorf("permanent Kafka send failure: %w", err)
 		}
 
-		if attempt == 0 {
+		if attempt+1 < e.settings.RetryAttempts {
 			select {
-			case <-time.After(retryBackoff):
+			case <-time.After(e.settings.RetryBackoff):
 			case <-ctx.Done():
 				err = ctx.Err()
 			}
@@ -273,8 +271,8 @@ func (e *EventSenderAdapter) recordFailure(ctx context.Context, err error) {
 	}
 
 	e.failures++
-	if e.failures >= failureThreshold {
-		e.openUntil = time.Now().Add(probeInterval)
+	if e.failures >= e.settings.FailureThreshold {
+		e.openUntil = time.Now().Add(e.settings.ProbeInterval)
 		e.state.Record(ctx, 1)
 	}
 }
@@ -283,7 +281,7 @@ func (e *EventSenderAdapter) enqueue(ctx context.Context, event cloudevents.Even
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if len(e.queue) == queueLimit {
+	if len(e.queue) >= e.settings.QueueLimit {
 		e.dropped.Add(ctx, 1)
 		e.logger.Warn("Kafka replay queue full; dropping newest event", "eventID", event.ID())
 

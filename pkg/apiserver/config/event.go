@@ -1,5 +1,23 @@
 package config
 
+import (
+	"errors"
+	"fmt"
+	"time"
+)
+
+// ErrKafkaSendSettingsInvalid indicates negative Kafka delivery settings.
+var ErrKafkaSendSettingsInvalid = errors.New("kafka delivery settings must not be negative")
+
+const (
+	defaultKafkaQueueLimit       = 256
+	defaultKafkaSendTimeout      = 2 * time.Second
+	defaultKafkaRetryBackoff     = 100 * time.Millisecond
+	defaultKafkaRetryAttempts    = 2
+	defaultKafkaFailureThreshold = 2
+	defaultKafkaProbeInterval    = 5 * time.Second
+)
+
 // EventSettings represents the event settings.
 type EventSettings struct {
 	// ProtocolType is the event protocol type.
@@ -15,9 +33,66 @@ type EventSettings struct {
 // KafkaSettings represents the Kafka event settings.
 type KafkaSettings struct {
 	// Brokers is the list of Kafka broker addresses.
-	Brokers []string
+	Brokers []string `mapstructure:"brokers"`
 	// Topic is the Kafka topic name for events.
-	Topic string
+	Topic string `mapstructure:"topic"`
+	// QueueLimit is the maximum number of failed events held for replay. Default: 256.
+	QueueLimit int `mapstructure:"queueLimit"`
+	// SendTimeout bounds all attempts for a single event, including backoff. Default: 2s.
+	SendTimeout time.Duration `mapstructure:"sendTimeout"`
+	// RetryBackoff is the delay between successive send attempts. Default: 100ms.
+	RetryBackoff time.Duration `mapstructure:"retryBackoff"`
+	// RetryAttempts includes the initial attempt; 1 disables retries. Default: 2.
+	RetryAttempts int `mapstructure:"retryAttempts"`
+	// FailureThreshold is the number of failed sends that opens the breaker. Default: 2.
+	FailureThreshold int `mapstructure:"failureThreshold"`
+	// ProbeInterval is how long the breaker stays open before allowing a probe. Default: 5s.
+	ProbeInterval time.Duration `mapstructure:"probeInterval"`
+}
+
+// DefaultKafkaSettings returns the default Kafka delivery settings.
+func DefaultKafkaSettings() KafkaSettings {
+	return KafkaSettings{}.WithDefaults()
+}
+
+// WithDefaults replaces zero delivery settings with defaults, preserving explicit overrides.
+func (s KafkaSettings) WithDefaults() KafkaSettings {
+	if s.QueueLimit == 0 {
+		s.QueueLimit = defaultKafkaQueueLimit
+	}
+
+	if s.SendTimeout == 0 {
+		s.SendTimeout = defaultKafkaSendTimeout
+	}
+
+	if s.RetryBackoff == 0 {
+		s.RetryBackoff = defaultKafkaRetryBackoff
+	}
+
+	if s.RetryAttempts == 0 {
+		s.RetryAttempts = defaultKafkaRetryAttempts
+	}
+
+	if s.FailureThreshold == 0 {
+		s.FailureThreshold = defaultKafkaFailureThreshold
+	}
+
+	if s.ProbeInterval == 0 {
+		s.ProbeInterval = defaultKafkaProbeInterval
+	}
+
+	return s
+}
+
+// Validate rejects negative settings; zero means use the default.
+func (s KafkaSettings) Validate() error {
+	if s.QueueLimit < 0 || s.SendTimeout < 0 || s.RetryBackoff < 0 || s.RetryAttempts < 0 ||
+		s.FailureThreshold < 0 || s.ProbeInterval < 0 {
+		return fmt.Errorf("%w: queueLimit, sendTimeout, retryBackoff, retryAttempts, failureThreshold, probeInterval",
+			ErrKafkaSendSettingsInvalid)
+	}
+
+	return nil
 }
 
 // DirectSettings represents the direct transport settings. In this mode a server

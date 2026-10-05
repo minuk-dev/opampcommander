@@ -115,11 +115,28 @@ event:
     brokers:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
+    queueLimit: 256        # failed events retained in memory for replay
+    sendTimeout: 2s        # total budget per event, including attempts and backoff
+    retryBackoff: 100ms    # delay between attempts
+    retryAttempts: 2      # includes the initial attempt; 1 disables retries
+    failureThreshold: 2   # failed sends before opening the circuit breaker
+    probeInterval: 5s     # breaker cooldown before allowing a recovery probe
 ```
 
 When running multiple apiserver instances, set `enabled: true` and `type: kafka` so a
 management request received by one instance can be delivered to an agent connected to
 another. See the protocol overview for the coordination flow.
+
+The Kafka delivery settings above are the defaults. Omitted or zero values use the
+defaults; negative values are rejected at startup. They can also be set through
+`--event.kafka.<setting>` flags or environment variables such as
+`EVENT_KAFKA_SENDTIMEOUT=3s`. `sendTimeout` also bounds producer/socket operations.
+
+The queue holds failed events during broker outages and replays them after recovery.
+It is not required for graceful shutdown and is not persisted: pending events are
+lost when the process exits. Shutdown stops replay and drains producer acknowledgements
+within the shutdown deadline. A timeout can be followed by a late acknowledgement,
+so delivery remains at least once.
 
 ## Agent liveness
 

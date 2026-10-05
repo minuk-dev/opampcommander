@@ -18,6 +18,7 @@ import (
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
@@ -45,7 +46,7 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 	defer func() { require.NoError(t, sender.Close(ctx)) }()
 
 	logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
-	adapter, err := outkafka.NewEventSenderAdapter(sender, logger, nil)
+	adapter, err := outkafka.NewEventSenderAdapter(sender, logger, nil, config.KafkaSettings{})
 	require.NoError(t, err)
 
 	// Given: Consumer to verify messages

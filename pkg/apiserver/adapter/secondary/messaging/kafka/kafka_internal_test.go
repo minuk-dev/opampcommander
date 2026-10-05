@@ -13,6 +13,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -23,9 +24,75 @@ var errBrokerDown = errors.New("broker down")
 func TestNewEventSenderAdapter_DisabledMetrics(t *testing.T) {
 	t.Parallel()
 
-	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil)
+	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
 	require.NoError(t, err)
 	require.False(t, adapter.Degraded())
+}
+
+func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		settings := config.KafkaSettings{
+			QueueLimit: 1, SendTimeout: 1500 * time.Millisecond, RetryBackoff: 20 * time.Millisecond,
+			RetryAttempts: 3, FailureThreshold: 1, ProbeInterval: 4 * time.Second,
+		}
+		adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, settings)
+		require.NoError(t, err)
+
+		available := false
+		attempts := 0
+		adapter.send = func(context.Context, cloudevents.Event) error {
+			attempts++
+
+			if !available {
+				return errBrokerDown
+			}
+
+			return nil
+		}
+		server := &agentmodel.Server{ID: "remote"}
+		message := serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}
+		start := time.Now()
+		err = adapter.SendMessageToServer(t.Context(), server, message)
+		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
+		require.Equal(t, settings.RetryAttempts, attempts)
+		require.Equal(t, time.Duration(settings.RetryAttempts-1)*settings.RetryBackoff, time.Since(start))
+
+		err = adapter.SendMessageToServer(t.Context(), server, message)
+		require.ErrorContains(t, err, "queue full")
+		require.Equal(t, settings.RetryAttempts, attempts, "failure threshold 1 should open the breaker")
+		time.Sleep(settings.ProbeInterval - time.Nanosecond)
+
+		err = adapter.SendMessageToServer(t.Context(), server, message)
+		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
+		require.Equal(t, settings.RetryAttempts, attempts, "probe must wait for the configured cooldown")
+
+		available = true
+
+		time.Sleep(time.Nanosecond)
+		require.NoError(t, adapter.SendMessageToServer(t.Context(), server, message))
+		require.Equal(t, settings.RetryAttempts+1, attempts)
+		ctx, cancel := context.WithCancel(t.Context())
+
+		done := make(chan struct{})
+		go func() { defer close(done); adapter.Replay(ctx) }()
+
+		time.Sleep(time.Second)
+		synctest.Wait()
+		cancel()
+		<-done
+		require.False(t, adapter.Degraded())
+
+		adapter.send = func(ctx context.Context, _ cloudevents.Event) error {
+			<-ctx.Done()
+
+			return ctx.Err()
+		}
+		start = time.Now()
+		err = adapter.SendMessageToServer(t.Context(), server, message)
+		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
+		require.Equal(t, settings.SendTimeout, time.Since(start))
+	})
 }
 
 func TestKafkaFailureQueuesAndReplays(t *testing.T) {
@@ -148,7 +215,7 @@ func TestKafkaPermanentErrorDoesNotBlockReplay(t *testing.T) {
 func newTestAdapter(t *testing.T) *EventSenderAdapter {
 	t.Helper()
 
-	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil)
+	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
 	require.NoError(t, err)
 
 	return adapter
