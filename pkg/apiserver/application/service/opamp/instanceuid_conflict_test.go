@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -80,6 +81,7 @@ func newTestService(t *testing.T, agentUC agentport.AgentUsecase, connUC agentpo
 		logger:            slog.New(slog.DiscardHandler),
 		agentUsecase:      agentUC,
 		connectionUsecase: connUC,
+		connectionStore:   connectionstore.NewConnectionStore(),
 	}
 }
 

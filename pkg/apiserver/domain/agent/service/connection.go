@@ -2,6 +2,7 @@ package agentservice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -16,7 +17,6 @@ import (
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
-	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var (
@@ -25,8 +25,6 @@ var (
 )
 
 const (
-	idxInstanceUID = "instanceUID"
-
 	connectionServiceName = "ConnectionService"
 
 	// DefaultConnectionSnapshotInterval is how often this server persists a snapshot of its
@@ -41,40 +39,31 @@ const (
 
 // Service is a struct that implements the ConnectionUsecase interface.
 //
-// connectionMap holds only the live connections owned by THIS server instance: an
+// connectionStore holds only the live connections owned by THIS server instance: an
 // OpAMP WebSocket is a stateful socket that lives on exactly one node, so it cannot be
 // shared or reconstructed elsewhere. Consequently every read here (GetConnectionByID,
 // ListConnections, ...) is node-scoped by design.
 //
-// For a cluster-wide view, each server periodically snapshots its connectionMap into the
+// For a cluster-wide view, each server periodically snapshots its connection Store into the
 // shared ServerConnectionPersistencePort (see Run/ListClusterConnections); reads there span
 // every alive server. The agent record (Status.Connected / ConnectionType / LastReportedTo)
 // remains the authoritative, always-current source of agent connectivity.
 type Service struct {
 	agentUsecase                    agentport.AgentUsecase
 	logger                          *slog.Logger
-	connectionMap                   *xsync.MultiMap[*agentmodel.Connection]
+	connectionStore                 agentport.ConnectionStore
 	serverIdentityProvider          agentport.ServerIdentityProvider
 	serverConnectionPersistencePort agentport.ServerConnectionPersistencePort
 	clock                           clock.Clock
 
 	snapshotInterval  time.Duration
 	snapshotStaleness time.Duration
-
-	// lastSnapshot is the set of connection records last synced to the shared store, keyed by
-	// UID. It is the baseline for the next cycle's incremental diff and is touched only from
-	// the single Run goroutine, so it needs no lock.
-	lastSnapshot map[uuid.UUID]agentmodel.ServerConnection
-
-	// needsReconcile forces the next snapshot to first clear any records left by a prior
-	// incarnation of this serverID before diffing. It stays set until that clear succeeds, so a
-	// transient failure cannot leave orphaned records advertised as live.
-	needsReconcile bool
 }
 
 // NewConnectionService creates a new instance of the Service struct.
 func NewConnectionService(
 	agentUsecase agentport.AgentUsecase,
+	connectionStore agentport.ConnectionStore,
 	serverIdentityProvider agentport.ServerIdentityProvider,
 	serverConnectionPersistencePort agentport.ServerConnectionPersistencePort,
 	logger *slog.Logger,
@@ -82,14 +71,12 @@ func NewConnectionService(
 	return &Service{
 		agentUsecase:                    agentUsecase,
 		logger:                          logger,
-		connectionMap:                   xsync.NewMultiMap[*agentmodel.Connection](),
+		connectionStore:                 connectionStore,
 		serverIdentityProvider:          serverIdentityProvider,
 		serverConnectionPersistencePort: serverConnectionPersistencePort,
 		clock:                           clock.NewRealClock(),
 		snapshotInterval:                DefaultConnectionSnapshotInterval,
 		snapshotStaleness:               DefaultConnectionSnapshotStaleness,
-		lastSnapshot:                    nil,
-		needsReconcile:                  true,
 	}
 }
 
@@ -105,7 +92,7 @@ func (s *Service) Name() string {
 func (s *Service) Run(ctx context.Context) error {
 	// Take an initial snapshot so connections appear promptly instead of only after the first
 	// interval. The first snapshot also clears any records left by a prior incarnation (see the
-	// needsReconcile handling in snapshotConnections).
+	// Store's reconciliation state in snapshotConnections).
 	s.snapshotConnections(ctx)
 
 	ticker := time.NewTicker(s.effectiveSnapshotInterval())
@@ -144,37 +131,39 @@ func (s *Service) ListClusterConnections(
 }
 
 // DeleteConnection implements agentport.ConnectionUsecase.
-func (s *Service) DeleteConnection(_ context.Context, connection *agentmodel.Connection) error {
-	connID := connection.IDString()
-	s.connectionMap.Delete(connID)
+func (s *Service) DeleteConnection(ctx context.Context, connection *agentmodel.Connection) error {
+	err := s.connectionStore.DeleteConnection(ctx, connection)
+	if err != nil {
+		return fmt.Errorf("failed to delete connection: %w", err)
+	}
 
 	return nil
 }
 
 // GetConnectionByID implements agentport.ConnectionUsecase.
-func (s *Service) GetConnectionByID(_ context.Context, id any) (*agentmodel.Connection, error) {
-	connID := agentmodel.ConvertConnIDToString(id)
-
-	conn, ok := s.connectionMap.Load(connID)
-	if !ok {
+func (s *Service) GetConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error) {
+	conn, err := s.connectionStore.GetConnection(ctx, id)
+	if err != nil {
 		s.logger.Debug("connection not found by ID",
-			slog.String("connIDHash", connID),
+			slog.String("connIDHash", agentmodel.ConvertConnIDToString(id)),
 			slog.String("rawID", fmt.Sprintf("%v", id)),
 		)
 
-		return nil, agentport.ErrConnectionNotFound
+		return nil, fmt.Errorf("failed to get connection by ID: %w", err)
 	}
 
 	return conn, nil
 }
 
 // GetOrCreateConnectionByID implements agentport.ConnectionUsecase.
-func (s *Service) GetOrCreateConnectionByID(_ context.Context, id any) (*agentmodel.Connection, error) {
-	connID := agentmodel.ConvertConnIDToString(id)
-
-	conn, ok := s.connectionMap.Load(connID)
-	if ok {
+func (s *Service) GetOrCreateConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error) {
+	conn, err := s.connectionStore.GetConnection(ctx, id)
+	if err == nil {
 		return conn, nil
+	}
+
+	if !errors.Is(err, agentport.ErrConnectionNotFound) {
+		return nil, fmt.Errorf("failed to get connection: %w", err)
 	}
 
 	connectionType := s.detectConnectionType(id)
@@ -185,10 +174,12 @@ func (s *Service) GetOrCreateConnectionByID(_ context.Context, id any) (*agentmo
 }
 
 // GetConnectionByInstanceUID implements agentport.ConnectionUsecase.
-func (s *Service) GetConnectionByInstanceUID(_ context.Context, instanceUID uuid.UUID) (*agentmodel.Connection, error) {
-	conn, ok := s.connectionMap.LoadByIndex(idxInstanceUID, instanceUID.String())
-	if !ok {
-		return nil, agentport.ErrConnectionNotFound
+func (s *Service) GetConnectionByInstanceUID(
+	ctx context.Context, instanceUID uuid.UUID,
+) (*agentmodel.Connection, error) {
+	conn, err := s.connectionStore.GetConnectionByInstanceUID(ctx, instanceUID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent connection: %w", err)
 	}
 
 	return conn, nil
@@ -200,7 +191,7 @@ func (s *Service) GetConnectionByInstanceUID(_ context.Context, instanceUID uuid
 // in HA the result is the local node's live connections, not a cluster-wide list. Use
 // the agents API for a global view of agent connectivity.
 func (s *Service) ListConnections(
-	_ context.Context,
+	ctx context.Context,
 	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Connection], error) {
@@ -212,7 +203,14 @@ func (s *Service) ListConnections(
 		}
 	}
 
-	keyValues := s.connectionMap.KeyValues()
+	connections, err := s.connectionStore.ListConnections(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list connections: %w", err)
+	}
+
+	keyValues := lo.SliceToMap(connections, func(conn *agentmodel.Connection) (string, *agentmodel.Connection) {
+		return conn.IDString(), conn
+	})
 
 	// Filter by namespace
 	for key, conn := range keyValues {
@@ -257,16 +255,11 @@ func (s *Service) ListConnections(
 }
 
 // SaveConnection implements agentport.ConnectionUsecase.
-func (s *Service) SaveConnection(_ context.Context, connection *agentmodel.Connection) error {
-	connID := connection.IDString()
-
-	var additionalIndexesOpts []xsync.StoreOption
-	if connection.InstanceUID != uuid.Nil {
-		additionalIndexesOpts = append(additionalIndexesOpts,
-			xsync.WithIndex(idxInstanceUID, connection.InstanceUID.String()))
+func (s *Service) SaveConnection(ctx context.Context, connection *agentmodel.Connection) error {
+	err := s.connectionStore.PutConnection(ctx, connection)
+	if err != nil {
+		return fmt.Errorf("failed to save connection: %w", err)
 	}
-
-	s.connectionMap.Store(connID, connection, additionalIndexesOpts...)
 
 	s.logger.Debug("connection saved",
 		slog.String("connectionUID", connection.UID.String()),
@@ -349,7 +342,8 @@ func (s *Service) snapshotConnections(ctx context.Context) {
 		return
 	}
 
-	if s.needsReconcile {
+	state := s.connectionStore.SnapshotState()
+	if !state.Reconciled {
 		err := s.serverConnectionPersistencePort.RemoveServer(ctx, serverID)
 		if err != nil {
 			s.logger.Warn("failed to clear stale connection records; staying out of the cluster view until it succeeds",
@@ -358,33 +352,25 @@ func (s *Service) snapshotConnections(ctx context.Context) {
 			return
 		}
 
-		s.needsReconcile = false
-		s.lastSnapshot = nil
+		state.Reconciled = true
+		state.Connections = nil
+		s.connectionStore.SaveSnapshotState(state)
 	}
 
 	now := s.clock.Now()
-	current := s.currentServerConnections(serverID, now)
 
-	var (
-		upserts []*agentmodel.ServerConnection
-		deletes []uuid.UUID
-	)
-
-	for uid, record := range current {
-		if prev, ok := s.lastSnapshot[uid]; !ok || !serverConnectionEqual(prev, *record) {
-			upserts = append(upserts, record)
-		}
-	}
-
-	for uid := range s.lastSnapshot {
-		if _, ok := current[uid]; !ok {
-			deletes = append(deletes, uid)
-		}
-	}
-
-	err := s.serverConnectionPersistencePort.SyncServerConnections(ctx, serverID, now, upserts, deletes)
+	current, err := s.currentServerConnections(ctx, serverID, now)
 	if err != nil {
-		// Keep lastSnapshot unchanged so the same diff is retried next cycle.
+		s.logger.Error("failed to read local connections for snapshot", slog.Any("error", err))
+
+		return
+	}
+
+	upserts, deletes := diffServerConnections(state.Connections, current)
+
+	err = s.serverConnectionPersistencePort.SyncServerConnections(ctx, serverID, now, upserts, deletes)
+	if err != nil {
+		// Keep the Store's baseline unchanged so the same diff is retried next cycle.
 		s.logger.Error("failed to sync connection snapshot", slog.String("error", err.Error()))
 
 		return
@@ -395,7 +381,8 @@ func (s *Service) snapshotConnections(ctx context.Context) {
 		next[uid] = *record
 	}
 
-	s.lastSnapshot = next
+	state.Connections = next
+	s.connectionStore.SaveSnapshotState(state)
 
 	s.logger.Debug("synced connection snapshot",
 		slog.Int("upserts", len(upserts)), slog.Int("deletes", len(deletes)))
@@ -404,10 +391,14 @@ func (s *Service) snapshotConnections(ctx context.Context) {
 // currentServerConnections builds this server's connection records from its live connection
 // map, keyed by UID.
 func (s *Service) currentServerConnections(
+	ctx context.Context,
 	serverID string,
 	now time.Time,
-) map[uuid.UUID]*agentmodel.ServerConnection {
-	conns := s.connectionMap.Values()
+) (map[uuid.UUID]*agentmodel.ServerConnection, error) {
+	conns, err := s.connectionStore.ListConnections(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list local connections: %w", err)
+	}
 
 	records := make(map[uuid.UUID]*agentmodel.ServerConnection, len(conns))
 	for _, conn := range conns {
@@ -422,7 +413,31 @@ func (s *Service) currentServerConnections(
 		}
 	}
 
-	return records
+	return records, nil
+}
+
+func diffServerConnections(
+	previous map[uuid.UUID]agentmodel.ServerConnection,
+	current map[uuid.UUID]*agentmodel.ServerConnection,
+) ([]*agentmodel.ServerConnection, []uuid.UUID) {
+	var (
+		upserts []*agentmodel.ServerConnection
+		deletes []uuid.UUID
+	)
+
+	for uid, record := range current {
+		if prev, ok := previous[uid]; !ok || !serverConnectionEqual(prev, *record) {
+			upserts = append(upserts, record)
+		}
+	}
+
+	for uid := range previous {
+		if _, ok := current[uid]; !ok {
+			deletes = append(deletes, uid)
+		}
+	}
+
+	return upserts, deletes
 }
 
 // serverConnectionEqual compares the stable identity of two records, ignoring the timestamps

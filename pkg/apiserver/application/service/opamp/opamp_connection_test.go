@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
@@ -132,7 +133,8 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			agent := agentmodel.NewAgent(uid)
 			agent.Status.Connected = true
 			agentUC := &lifecycleAgentUsecase{agent: agent, liveness: agentmodel.NewAgentLivenessFromAgent(agent)}
-			connUC := agentservice.NewConnectionService(nil, nil, nil, slog.New(slog.DiscardHandler))
+			store := connectionstore.NewConnectionStore()
+			connUC := agentservice.NewConnectionService(nil, store, nil, nil, slog.New(slog.DiscardHandler))
 			oldWire, newWire := lifecycleWire(t), lifecycleWire(t)
 			old := agentmodel.NewConnection(oldWire, agentmodel.ConnectionTypeWebSocket)
 			old.SetInstanceUID(uid)
@@ -142,8 +144,14 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			require.NoError(t, connUC.SaveConnection(t.Context(), old))
 			require.NoError(t, connUC.SaveConnection(t.Context(), newConnection))
 			svc := newTestService(t, agentUC, connUC)
+			svc.connectionStore = store
 			svc.serverIdentityProvider = &lifecycleIdentityProvider{}
 			svc.serverToAgentBuilder = agentservice.NewServerToAgentBuilder(nil, nil, svc.logger)
+			// Separate stateless Services share one Store-owned session scope.
+			replacementService := newTestService(t, agentUC, connUC)
+			replacementService.connectionStore = store
+			replacementService.serverIdentityProvider = svc.serverIdentityProvider
+			replacementService.serverToAgentBuilder = svc.serverToAgentBuilder
 			message := &protobufs.AgentToServer{InstanceUid: uid[:]}
 
 			if tc.cleanupFirst {
@@ -171,7 +179,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 				agentUC.onMessage = func() { messageEntered <- struct{}{} }
 
 				messageDone := make(chan *protobufs.ServerToAgent, 1)
-				go func() { messageDone <- svc.OnMessage(t.Context(), newWire, message) }()
+				go func() { messageDone <- replacementService.OnMessage(t.Context(), newWire, message) }()
 
 				waiting := assert.Never(t, func() bool {
 					return len(messageEntered) != 0
@@ -182,7 +190,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 				require.Nil(t, (<-messageDone).GetErrorResponse())
 				require.True(t, waiting)
 			} else {
-				require.Nil(t, svc.OnMessage(t.Context(), newWire, message).GetErrorResponse())
+				require.Nil(t, replacementService.OnMessage(t.Context(), newWire, message).GetErrorResponse())
 				require.NoError(t, svc.cleanUpConnection(t.Context(), oldWire))
 			}
 

@@ -62,16 +62,22 @@ adapters. A Store may use memory, MongoDB, Redis, or a cache over another Store.
 Each resource exposes the operations it needs through its own Store interface.
 The existing `*PersistencePort` interfaces already provide part of this boundary.
 
+The OpAMP and Connection Services share a node-local `ConnectionStore`. It owns
+live connection records, agent indexes, session synchronization, the pending
+close queue, and cluster snapshot bookkeeping. The Services hold the Store port
+and perform business operations within its session scope; they do not own those
+maps, queues, or mutexes.
+
 Services rely on atomic Store operations with an expected resource version or
 session identity when a state transition requires it. Store implementations
 encapsulate the mutexes or conditional database writes needed for those
 operations. Guarantees spanning multiple Stores must be defined explicitly;
 separate thread-safe methods alone do not make a whole workflow atomic.
 
-This is the design rule for new and refactored code. Some existing Services still
-own connection maps, caches, or synchronization state; moving that ownership
-into Stores remains migration work. This documentation does not imply that the
-migration is already complete.
+This is the design rule for new and refactored code. Some other existing Services
+still own agent caches or notification buffers; moving that ownership into
+Stores remains migration work. The migration is not yet complete across all
+Services.
 
 ### System overview
 

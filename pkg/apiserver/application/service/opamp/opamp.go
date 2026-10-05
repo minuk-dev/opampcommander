@@ -21,7 +21,6 @@ import (
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
-	"github.com/minuk-dev/opampcommander/pkg/xsync"
 )
 
 var _ usecase.OpAMPUsecase = (*Service)(nil)
@@ -30,54 +29,20 @@ var _ usecase.OpAMPUsecase = (*Service)(nil)
 // A pending certificate replaces the active one only after it establishes a
 // successful TLS connection; reported status alone cannot revoke the old one.
 func (s *Service) AuthorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
-	s.agentConnections.Lock(uid)
-	defer s.agentConnections.Unlock(uid)
+	authorized := false
 
-	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
-	if !ok {
-		return false
-	}
+	err := s.connectionStore.WithinSession(ctx, uid, func(ctx context.Context) error {
+		authorized = s.authorizeClientCertificate(ctx, uid, certDER)
 
-	invalidator.InvalidateCache(uid)
-
-	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, uid)
+		return nil
+	})
 	if err != nil {
-		s.logger.Warn("cannot validate agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+		s.logger.Warn("cannot authorize agent session", slog.String("instanceUID", uid.String()), slog.Any("error", err))
 
 		return false
 	}
 
-	if certutil.MatchesSHA256Fingerprint(certDER, agent.Status.ActiveClientCertificateHash) {
-		return true
-	}
-
-	if len(agent.Status.ActiveClientCertificateHash) != 0 {
-		info := agent.Spec.ConnectionInfo
-		if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil {
-			return false
-		}
-
-		block, _ := pem.Decode(info.OpAMP().Certificate.Cert)
-		if block == nil || !bytes.Equal(block.Bytes, certDER) {
-			return false
-		}
-	}
-
-	// Capture the socket before committing the new identity. A later lookup could
-	// resolve a connection that already uses the newly activated certificate.
-	old := s.replacedConnection(ctx, uid)
-	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint(certDER)
-
-	err = s.agentUsecase.SaveAgent(ctx, agent)
-	if err != nil {
-		s.logger.Warn("cannot bind agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
-
-		return false
-	}
-
-	s.closeReplacedConnection(old)
-
-	return true
+	return authorized
 }
 
 const (
@@ -102,20 +67,16 @@ type Service struct {
 
 	customMessageRegistry *CustomMessageRegistry
 
-	closedConnectionCh chan types.Connection
-
 	connectionUsecase        agentport.ConnectionUsecase
+	connectionStore          agentport.ConnectionStore
 	onConnectionCloseTimeout time.Duration
-
-	// Protect the active-connection check and status/liveness writes from
-	// replacement by a concurrent message or certificate activation.
-	agentConnections xsync.KeyedMutex[uuid.UUID]
 }
 
 // New creates a new instance of the OpAMP service.
 func New(
 	agentUsecase agentport.AgentUsecase,
 	connectionUsecase agentport.ConnectionUsecase,
+	connectionStore agentport.ConnectionStore,
 	serverIdentityProvider agentport.ServerIdentityProvider,
 	agentGroupUsecase agentport.AgentGroupUsecase,
 	agentNotificationUsecase agentport.AgentNotificationUsecase,
@@ -132,6 +93,7 @@ func New(
 		logger:                   logger,
 		agentUsecase:             agentUsecase,
 		connectionUsecase:        connectionUsecase,
+		connectionStore:          connectionStore,
 		serverIdentityProvider:   serverIdentityProvider,
 		serverToAgentBuilder:     serverToAgentBuilder,
 		agentGroupUsecase:        agentGroupUsecase,
@@ -141,10 +103,7 @@ func New(
 		containerUsecase:         containerUsecase,
 		applicationUsecase:       applicationUsecase,
 		customMessageRegistry:    customMessageRegistry,
-		closedConnectionCh:       make(chan types.Connection, 1), // buffered channel
-
 		onConnectionCloseTimeout: DefaultOnConnectionCloseTimeout,
-		agentConnections:         xsync.KeyedMutex[uuid.UUID]{},
 	}
 }
 
@@ -156,20 +115,25 @@ func (s *Service) Name() string {
 // Run starts a loop to handle asynchronous operations for the service.
 func (s *Service) Run(ctx context.Context) error {
 	for {
-		select {
-		case <-ctx.Done():
-			s.logger.Info("context done, exiting service loop")
+		id, err := s.connectionStore.NextClosedConnection(ctx)
+		if err != nil {
+			return fmt.Errorf("service loop exited: %w", err)
+		}
 
-			return fmt.Errorf("service loop exited: %w", ctx.Err())
-		case conn := <-s.closedConnectionCh:
-			bgCtx, cancel := context.WithTimeout(ctx, s.onConnectionCloseTimeout)
-			err := s.cleanUpConnection(bgCtx, conn)
+		conn, ok := id.(types.Connection)
+		if !ok {
+			s.logger.Warn("invalid transport in connection cleanup queue")
 
-			cancel()
+			continue
+		}
 
-			if err != nil {
-				s.logger.Error("failed to clean up connection", slog.String("error", err.Error()))
-			}
+		bgCtx, cancel := context.WithTimeout(ctx, s.onConnectionCloseTimeout)
+		err = s.cleanUpConnection(bgCtx, conn)
+
+		cancel()
+
+		if err != nil {
+			s.logger.Error("failed to clean up connection", slog.String("error", err.Error()))
 		}
 	}
 }
@@ -235,10 +199,23 @@ func (s *Service) OnMessage(
 	message *protobufs.AgentToServer,
 ) *protobufs.ServerToAgent {
 	uid := uuid.UUID(message.GetInstanceUid())
-	s.agentConnections.Lock(uid)
-	defer s.agentConnections.Unlock(uid)
 
-	return s.onMessage(ctx, conn, message)
+	var response *protobufs.ServerToAgent
+
+	err := s.connectionStore.WithinSession(ctx, uid, func(ctx context.Context) error {
+		response = s.onMessage(ctx, conn, message)
+
+		return nil
+	})
+	if err != nil {
+		s.logger.Warn("cannot process agent session", slog.Any("error", err))
+
+		return s.createErrorServerToAgent(uid,
+			protobufs.ServerErrorResponseType_ServerErrorResponseType_Unavailable,
+			"cannot process agent session")
+	}
+
+	return response
 }
 
 // OnReadMessageError implements usecase.OpAMPUsecase.
@@ -279,13 +256,58 @@ func (s *Service) OnConnectionClose(conn types.Connection) {
 	logger := s.logger.With(slog.String("method", "OnConnectionClose"), slog.String("remoteAddr", remoteAddr))
 	logger.Info("start")
 
-	select {
-	case s.closedConnectionCh <- conn:
-	default:
-		logger.Warn("closedConnectionCh is full, skipping cleanup for this connection")
+	if !s.connectionStore.EnqueueClosedConnection(conn) {
+		logger.Warn("closed connection queue is full, skipping cleanup for this connection")
 	}
 
 	logger.Info("end")
+}
+
+func (s *Service) authorizeClientCertificate(ctx context.Context, uid uuid.UUID, certDER []byte) bool {
+	invalidator, ok := s.agentUsecase.(agentport.AgentCacheInvalidator)
+	if !ok {
+		return false
+	}
+
+	invalidator.InvalidateCache(uid)
+
+	agent, err := s.agentUsecase.GetOrCreateAgent(ctx, uid)
+	if err != nil {
+		s.logger.Warn("cannot validate agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+
+		return false
+	}
+
+	if certutil.MatchesSHA256Fingerprint(certDER, agent.Status.ActiveClientCertificateHash) {
+		return true
+	}
+
+	if len(agent.Status.ActiveClientCertificateHash) != 0 {
+		info := agent.Spec.ConnectionInfo
+		if info == nil || info.OpAMP() == nil || info.OpAMP().Certificate == nil {
+			return false
+		}
+
+		block, _ := pem.Decode(info.OpAMP().Certificate.Cert)
+		if block == nil || !bytes.Equal(block.Bytes, certDER) {
+			return false
+		}
+	}
+
+	// Capture the old socket before committing the new certificate identity.
+	old := s.replacedConnection(ctx, uid)
+	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint(certDER)
+
+	err = s.agentUsecase.SaveAgent(ctx, agent)
+	if err != nil {
+		s.logger.Warn("cannot bind agent certificate", slog.String("instanceUID", uid.String()), slog.Any("error", err))
+
+		return false
+	}
+
+	s.closeReplacedConnection(old)
+
+	return true
 }
 
 func (s *Service) onMessage(
@@ -521,9 +543,19 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 		return fmt.Errorf("failed to get connection by ID: %w", err)
 	}
 
-	s.agentConnections.Lock(connection.InstanceUID)
-	defer s.agentConnections.Unlock(connection.InstanceUID)
+	err = s.connectionStore.WithinSession(ctx, connection.InstanceUID, func(ctx context.Context) error {
+		return s.cleanUpStoredConnection(ctx, connection, remoteAddr)
+	})
+	if err != nil {
+		return fmt.Errorf("failed to clean up agent session: %w", err)
+	}
 
+	return nil
+}
+
+func (s *Service) cleanUpStoredConnection(
+	ctx context.Context, connection *agentmodel.Connection, remoteAddr string,
+) error {
 	logger := s.logger.With(
 		slog.String("method", "cleanUpConnection"),
 		slog.String("remoteAddr", remoteAddr),
@@ -562,7 +594,7 @@ func (s *Service) cleanUpConnection(ctx context.Context, conn types.Connection) 
 		}
 	}
 
-	err = s.connectionUsecase.DeleteConnection(ctx, connection)
+	err := s.connectionUsecase.DeleteConnection(ctx, connection)
 	if err != nil {
 		return fmt.Errorf("failed to delete connection: %w", err)
 	}
