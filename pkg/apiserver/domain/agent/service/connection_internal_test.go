@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -44,10 +45,6 @@ func (f *fakeConnection) Send(_ context.Context, message *protobufs.ServerToAgen
 func (f *fakeConnection) Disconnect() error { return nil }
 
 var _ types.Connection = (*fakeConnection)(nil)
-
-func newTestConnectionService() *Service {
-	return NewConnectionService(nil, stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default())
-}
 
 type stubServerIdentity struct {
 	id string
@@ -105,7 +102,10 @@ func TestConnectionService_snapshotConnections(t *testing.T) {
 
 	ctx := t.Context()
 	store := &fakeServerConnectionStore{}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	instanceUID := uuid.New()
 	conn := agentmodel.NewConnection("conn-key", agentmodel.ConnectionTypeWebSocket)
@@ -126,7 +126,10 @@ func TestConnectionService_snapshotConnectionsSkipsWithoutIdentity(t *testing.T)
 	t.Parallel()
 
 	store := &fakeServerConnectionStore{}
-	svc := NewConnectionService(nil, stubServerIdentity{id: ""}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: ""}, store, slog.Default(),
+	)
 
 	svc.snapshotConnections(t.Context())
 
@@ -142,7 +145,10 @@ func TestConnectionService_snapshotConnectionsIsIncremental(t *testing.T) {
 
 	ctx := t.Context()
 	store := &fakeServerConnectionStore{}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	conn.SetNamespace("default")
@@ -208,7 +214,10 @@ func TestConnectionService_snapshotRetriesReconcile(t *testing.T) {
 
 	ctx := t.Context()
 	store := &reconcileFailStore{fakeServerConnectionStore: fakeServerConnectionStore{}, removeFailsLeft: 1}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	conn.SetNamespace("default")
@@ -241,7 +250,10 @@ func TestConnectionService_snapshotKeepsBaselineOnSyncError(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, &syncFailStore{}, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &syncFailStore{}, slog.Default(),
+	)
 
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	conn.SetNamespace("default")
@@ -249,8 +261,9 @@ func TestConnectionService_snapshotKeepsBaselineOnSyncError(t *testing.T) {
 
 	svc.snapshotConnections(ctx)
 
-	assert.False(t, svc.needsReconcile, "the reconcile clear succeeded")
-	assert.Nil(t, svc.lastSnapshot, "a failed sync must not advance the diff baseline")
+	state := svc.connectionStore.SnapshotState()
+	assert.True(t, state.Reconciled, "the reconcile clear succeeded")
+	assert.Nil(t, state.Connections, "a failed sync must not advance the diff baseline")
 }
 
 func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testing.T) {
@@ -261,7 +274,10 @@ func TestConnectionService_ListClusterConnectionsAppliesStalenessWindow(t *testi
 			{ServerID: "server-2", UID: uuid.New(), Namespace: "default"},
 		},
 	}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	before := time.Now()
 	resp, err := svc.ListClusterConnections(t.Context(), "default", "", nil)
@@ -284,7 +300,10 @@ func TestConnectionService_ListConnectionsPaginationConvention(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := NewConnectionService(nil, stubServerIdentity{id: "s1"}, &fakeServerConnectionStore{}, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "s1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	const total = 5
 	for i := range total {
@@ -342,7 +361,10 @@ func TestConnectionService_ListClusterConnectionsPassesServerIDFilter(t *testing
 	t.Parallel()
 
 	store := &fakeServerConnectionStore{}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	_, err := svc.ListClusterConnections(t.Context(), "default", "server-7", nil)
 	require.NoError(t, err)
@@ -353,14 +375,22 @@ func TestConnectionService_ListClusterConnectionsPassesServerIDFilter(t *testing
 func TestConnectionService_Name(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, connectionServiceName, newTestConnectionService().Name())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
+
+	assert.Equal(t, connectionServiceName, svc.Name())
 }
 
 func TestConnectionService_GetConnectionByID(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	conn.SetNamespace("default")
@@ -378,7 +408,10 @@ func TestConnectionService_DeleteConnection(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	conn.SetNamespace("default")
@@ -394,7 +427,10 @@ func TestConnectionService_GetOrCreateConnectionByID(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	existing := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	existing.SetNamespace("default")
@@ -416,7 +452,10 @@ func TestConnectionService_GetConnectionByInstanceUID(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	instanceUID := uuid.New()
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
@@ -435,7 +474,10 @@ func TestConnectionService_GetConnectionByInstanceUID(t *testing.T) {
 func TestConnectionService_detectConnectionType(t *testing.T) {
 	t.Parallel()
 
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	assert.Equal(t, agentmodel.ConnectionTypeUnknown, svc.detectConnectionType("plain-string"),
 		"a non-opamp id has an unknown type")
@@ -458,7 +500,10 @@ func TestConnectionService_SendServerToAgent(t *testing.T) {
 	t.Run("sends over the websocket connection", func(t *testing.T) {
 		t.Parallel()
 
-		svc := newTestConnectionService()
+		svc := NewConnectionService(
+			nil, connectionstore.NewConnectionStore(),
+			stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+		)
 		instanceUID := uuid.New()
 		fake := &fakeConnection{netConn: nil}
 		conn := agentmodel.NewConnection(fake, agentmodel.ConnectionTypeWebSocket)
@@ -473,7 +518,10 @@ func TestConnectionService_SendServerToAgent(t *testing.T) {
 	t.Run("propagates the send error", func(t *testing.T) {
 		t.Parallel()
 
-		svc := newTestConnectionService()
+		svc := NewConnectionService(
+			nil, connectionstore.NewConnectionStore(),
+			stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+		)
 		instanceUID := uuid.New()
 		fake := &fakeConnection{netConn: nil, sendErr: errFakeSend}
 		conn := agentmodel.NewConnection(fake, agentmodel.ConnectionTypeWebSocket)
@@ -487,7 +535,10 @@ func TestConnectionService_SendServerToAgent(t *testing.T) {
 	t.Run("errors when the connection id is not an opamp connection", func(t *testing.T) {
 		t.Parallel()
 
-		svc := newTestConnectionService()
+		svc := NewConnectionService(
+			nil, connectionstore.NewConnectionStore(),
+			stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+		)
 		instanceUID := uuid.New()
 		conn := agentmodel.NewConnection("string-id", agentmodel.ConnectionTypeWebSocket)
 		conn.SetInstanceUID(instanceUID)
@@ -501,7 +552,10 @@ func TestConnectionService_SendServerToAgent(t *testing.T) {
 	t.Run("errors when the agent has no connection", func(t *testing.T) {
 		t.Parallel()
 
-		svc := newTestConnectionService()
+		svc := NewConnectionService(
+			nil, connectionstore.NewConnectionStore(),
+			stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+		)
 		require.Error(t, svc.SendServerToAgent(ctx, uuid.New(), &protobufs.ServerToAgent{}))
 	})
 }
@@ -509,7 +563,10 @@ func TestConnectionService_SendServerToAgent(t *testing.T) {
 func TestConnectionService_effectiveSnapshotSettings(t *testing.T) {
 	t.Parallel()
 
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 	assert.Equal(t, DefaultConnectionSnapshotInterval, svc.effectiveSnapshotInterval())
 	assert.Equal(t, DefaultConnectionSnapshotStaleness, svc.effectiveSnapshotStaleness())
 
@@ -528,7 +585,10 @@ func TestConnectionService_RunClearsSnapshotOnCancel(t *testing.T) {
 	t.Parallel()
 
 	store := &fakeServerConnectionStore{}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel() // Run must observe the cancelled ctx and clear this server's snapshot.
@@ -541,7 +601,10 @@ func TestConnectionService_clearSnapshotOnShutdownSkipsWithoutIdentity(t *testin
 	t.Parallel()
 
 	store := &fakeServerConnectionStore{}
-	svc := NewConnectionService(nil, stubServerIdentity{id: ""}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: ""}, store, slog.Default(),
+	)
 
 	svc.clearSnapshotOnShutdown(t.Context())
 	assert.Empty(t, store.removedServerID, "no identity means no clear call")
@@ -583,7 +646,10 @@ func TestConnectionService_PersistenceErrorsAreHandled(t *testing.T) {
 
 	ctx := t.Context()
 	store := &erroringServerConnectionStore{err: errFakeSend}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 
 	// ListClusterConnections surfaces the persistence error.
 	_, err := svc.ListClusterConnections(ctx, "default", "", nil)
@@ -598,7 +664,10 @@ func TestConnectionService_ListConnectionsNilOptions(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	svc := newTestConnectionService()
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, &fakeServerConnectionStore{}, slog.Default(),
+	)
 
 	conn := agentmodel.NewConnection("conn-a", agentmodel.ConnectionTypeWebSocket)
 	conn.SetNamespace("default")
@@ -637,7 +706,10 @@ func TestConnectionService_RunSnapshotsOnTick(t *testing.T) {
 	t.Parallel()
 
 	store := &signalingStore{synced: make(chan struct{}, 2)}
-	svc := NewConnectionService(nil, stubServerIdentity{id: "server-1"}, store, slog.Default())
+	svc := NewConnectionService(
+		nil, connectionstore.NewConnectionStore(),
+		stubServerIdentity{id: "server-1"}, store, slog.Default(),
+	)
 	svc.snapshotInterval = time.Millisecond
 
 	ctx, cancel := context.WithCancel(t.Context())

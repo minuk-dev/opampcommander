@@ -278,6 +278,11 @@ func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName strin
 // integration tests that exercise the full HTTP -> application -> domain ->
 // persistence stack without Docker.
 func (b *Base) StartStandaloneAPIServer() *APIServer {
+	return b.StartStandaloneAPIServerWithOpAMPTLS(config.OpAMPTLSSettings{})
+}
+
+// StartStandaloneAPIServerWithOpAMPTLS starts a standalone server with optional mTLS.
+func (b *Base) StartStandaloneAPIServerWithOpAMPTLS(opampTLS config.OpAMPTLSSettings) *APIServer {
 	b.t.Helper()
 
 	serverID := b.nextServerID()
@@ -285,6 +290,7 @@ func (b *Base) StartStandaloneAPIServer() *APIServer {
 	managementPort := b.GetFreeTCPPort()
 
 	settings := buildServerSettings(serverID, serverPort, managementPort, "", "")
+	settings.OpAMPTLS = opampTLS
 	settings.DatabaseSettings = config.DatabaseSettings{
 		Type:           config.DatabaseTypeInMemory,
 		Endpoints:      nil,
@@ -348,7 +354,7 @@ func (b *Base) launchAPIServer(
 		Base:               b,
 		Server:             server,
 		ServerID:           serverID,
-		Endpoint:           fmt.Sprintf("http://localhost:%d", serverPort),
+		Endpoint:           apiEndpoint(settings.OpAMPTLS, serverPort),
 		Port:               serverPort,
 		ManagementEndpoint: fmt.Sprintf("http://localhost:%d", managementPort),
 		ManagementPort:     managementPort,
@@ -356,4 +362,13 @@ func (b *Base) launchAPIServer(
 		Settings:           settings,
 		stopServer:         serverCancel,
 	}
+}
+
+func apiEndpoint(tlsSettings config.OpAMPTLSSettings, port int) string {
+	scheme := "http"
+	if tlsSettings.CertFile != "" {
+		scheme = "https"
+	}
+
+	return fmt.Sprintf("%s://localhost:%d", scheme, port)
 }

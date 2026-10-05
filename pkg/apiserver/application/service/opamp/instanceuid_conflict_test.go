@@ -7,18 +7,22 @@ import (
 	"encoding/pem"
 	"errors"
 	"log/slog"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/certutil"
 	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
@@ -77,6 +81,7 @@ func newTestService(t *testing.T, agentUC agentport.AgentUsecase, connUC agentpo
 		logger:            slog.New(slog.DiscardHandler),
 		agentUsecase:      agentUC,
 		connectionUsecase: connUC,
+		connectionStore:   connectionstore.NewConnectionStore(),
 	}
 }
 
@@ -110,6 +115,46 @@ func TestClientCertificateReplacedOnlyAfterNewConnection(t *testing.T) {
 	agent.Status.ConnectionSettingsStatus.Status = agentmodel.ConnectionSettingsStatusUnset
 
 	assert.False(t, svc.AuthorizeClientCertificate(t.Context(), uid, []byte("old-leaf")))
+}
+
+type disconnectTrackingConnection struct {
+	disconnected *bool
+}
+
+func (c *disconnectTrackingConnection) Connection() net.Conn { return nil }
+func (c *disconnectTrackingConnection) Send(context.Context, *protobufs.ServerToAgent) error {
+	return nil
+}
+
+func (c *disconnectTrackingConnection) Disconnect() error {
+	*c.disconnected = true
+
+	return nil
+}
+
+func TestClientCertificateReplacementClosesOldWebSocket(t *testing.T) {
+	t.Parallel()
+
+	uid := uuid.New()
+	agent := agentmodel.NewAgent(uid)
+	newDER := []byte("new-leaf")
+	agent.Status.ActiveClientCertificateHash = certutil.SHA256Fingerprint([]byte("old-leaf"))
+	require.NoError(t, agent.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://example.test/api/v1/opamp",
+		Certificate: &agentmodel.AgentCertificate{
+			Cert: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: newDER}),
+		},
+	}, nil, nil, nil, nil))
+
+	disconnected := false
+	old := &disconnectTrackingConnection{disconnected: &disconnected}
+	connUC := &stubConnectionUsecase{byInstanceUID: &agentmodel.Connection{
+		ID: old, Type: agentmodel.ConnectionTypeWebSocket, InstanceUID: uid,
+	}}
+	require.Implements(t, (*types.Connection)(nil), old)
+	svc := newTestService(t, &stubAgentUsecase{getResult: agent}, connUC)
+	assert.True(t, svc.AuthorizeClientCertificate(t.Context(), uid, newDER))
+	assert.True(t, disconnected)
 }
 
 func TestRevokedAgentCertificateRejected(t *testing.T) {
