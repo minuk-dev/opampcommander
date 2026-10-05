@@ -3,14 +3,15 @@ package kafka
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
-	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
 
 	"github.com/IBM/sarama"
-	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/binding"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -21,11 +22,36 @@ import (
 
 var errBrokerDown = errors.New("broker down")
 
+var _ protocol.Sender = (*testProtocolSender)(nil)
+
+type testProtocolSender struct {
+	attempts            int
+	delivered           int
+	err                 error
+	waitForCancellation bool
+}
+
+func (s *testProtocolSender) Send(ctx context.Context, _ binding.Message, _ ...binding.Transformer) error {
+	s.attempts++
+	if s.waitForCancellation {
+		<-ctx.Done()
+
+		return fmt.Errorf("test sender cancelled: %w", ctx.Err())
+	}
+
+	if s.err != nil {
+		return s.err
+	}
+
+	s.delivered++
+
+	return nil
+}
+
 func TestNewEventSenderAdapter_DisabledMetrics(t *testing.T) {
 	t.Parallel()
 
-	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
-	require.NoError(t, err)
+	adapter := newTestAdapter(t, &testProtocolSender{})
 	require.False(t, adapter.Degraded())
 }
 
@@ -36,49 +62,35 @@ func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
 			SendTimeout: 1500 * time.Millisecond, RetryBackoff: 20 * time.Millisecond,
 			RetryAttempts: 3, FailureThreshold: 1, ProbeInterval: 4 * time.Second,
 		}
-		adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, settings)
+		transport := &testProtocolSender{err: errBrokerDown}
+		adapter, err := NewEventSenderAdapter(transport, slog.New(slog.DiscardHandler), nil, settings)
 		require.NoError(t, err)
 
-		available := false
-		attempts := 0
-		adapter.send = func(context.Context, cloudevents.Event) error {
-			attempts++
-
-			if !available {
-				return errBrokerDown
-			}
-
-			return nil
-		}
 		server := &agentmodel.Server{ID: "remote"}
 		message := serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}
 		start := time.Now()
 		err = adapter.SendMessageToServer(t.Context(), server, message)
 		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-		require.Equal(t, settings.RetryAttempts, attempts)
+		require.Equal(t, settings.RetryAttempts, transport.attempts)
 		require.Equal(t, time.Duration(settings.RetryAttempts-1)*settings.RetryBackoff, time.Since(start))
 
 		err = adapter.SendMessageToServer(t.Context(), server, message)
 		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-		require.Equal(t, settings.RetryAttempts, attempts, "failure threshold 1 should open the breaker")
+		require.Equal(t, settings.RetryAttempts, transport.attempts, "failure threshold 1 should open the breaker")
 		time.Sleep(settings.ProbeInterval - time.Nanosecond)
 
 		err = adapter.SendMessageToServer(t.Context(), server, message)
 		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-		require.Equal(t, settings.RetryAttempts, attempts, "probe must wait for the configured cooldown")
+		require.Equal(t, settings.RetryAttempts, transport.attempts, "probe must wait for the configured cooldown")
 
-		available = true
+		transport.err = nil
 
 		time.Sleep(time.Nanosecond)
 		require.NoError(t, adapter.SendMessageToServer(t.Context(), server, message))
-		require.Equal(t, settings.RetryAttempts+1, attempts)
+		require.Equal(t, settings.RetryAttempts+1, transport.attempts)
 		require.False(t, adapter.Degraded())
 
-		adapter.send = func(ctx context.Context, _ cloudevents.Event) error {
-			<-ctx.Done()
-
-			return ctx.Err()
-		}
+		transport.waitForCancellation = true
 		start = time.Now()
 		err = adapter.SendMessageToServer(t.Context(), server, message)
 		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
@@ -89,35 +101,22 @@ func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
 func TestKafkaFailureIsNotReplayed(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		adapter := newTestAdapter(t)
-		available := false
-		attempts := 0
-		delivered := 0
-		adapter.send = func(context.Context, cloudevents.Event) error {
-			attempts++
-
-			if !available {
-				return errBrokerDown
-			}
-
-			delivered++
-
-			return nil
-		}
+		transport := &testProtocolSender{err: errBrokerDown}
+		adapter := newTestAdapter(t, transport)
 		message := serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}
 		server := &agentmodel.Server{ID: "remote"}
 		err := adapter.SendMessageToServer(t.Context(), server, message)
 		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
 		require.True(t, adapter.Degraded())
 
-		before := attempts
-		available = true
+		before := transport.attempts
+		transport.err = nil
 
 		time.Sleep(10 * time.Second)
-		require.Equal(t, before, attempts, "recovery must not retry an old event")
-		require.Zero(t, delivered)
+		require.Equal(t, before, transport.attempts, "recovery must not retry an old event")
+		require.Zero(t, transport.delivered)
 		require.NoError(t, adapter.SendMessageToServer(t.Context(), server, message))
-		require.Equal(t, 1, delivered)
+		require.Equal(t, 1, transport.delivered)
 		require.False(t, adapter.Degraded())
 	})
 }
@@ -125,15 +124,8 @@ func TestKafkaFailureIsNotReplayed(t *testing.T) {
 func TestKafkaBreakerFailsFast(t *testing.T) {
 	t.Parallel()
 
-	adapter := newTestAdapter(t)
-
-	var attempts atomic.Int32
-
-	adapter.send = func(context.Context, cloudevents.Event) error {
-		attempts.Add(1)
-
-		return errBrokerDown
-	}
+	transport := &testProtocolSender{err: errBrokerDown}
+	adapter := newTestAdapter(t, transport)
 	message := serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}
 	server := &agentmodel.Server{ID: "remote"}
 
@@ -142,25 +134,17 @@ func TestKafkaBreakerFailsFast(t *testing.T) {
 		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
 	}
 
-	before := attempts.Load()
+	before := transport.attempts
 	err := adapter.SendMessageToServer(t.Context(), server, message)
 	require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-	require.Equal(t, before, attempts.Load(), "open breaker should skip the broker")
+	require.Equal(t, before, transport.attempts, "open breaker should skip the broker")
 }
 
 func TestKafkaPermanentErrorDoesNotOpenBreaker(t *testing.T) {
 	t.Parallel()
-	adapter := newTestAdapter(t)
-	attempts := 0
-	adapter.send = func(_ context.Context, event cloudevents.Event) error {
-		attempts++
 
-		if event.Subject() == "oversized" {
-			return sarama.ConfigurationError("message larger than Producer.MaxMessageBytes")
-		}
-
-		return nil
-	}
+	transport := &testProtocolSender{err: sarama.ConfigurationError("message larger than Producer.MaxMessageBytes")}
+	adapter := newTestAdapter(t, transport)
 	err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "oversized"},
 		serverevent.Message{Target: "oversized", Type: serverevent.MessageTypeInvalidateAgentCache})
 
@@ -168,16 +152,18 @@ func TestKafkaPermanentErrorDoesNotOpenBreaker(t *testing.T) {
 	require.ErrorAs(t, err, &configurationError)
 	require.NotErrorIs(t, err, model.ErrTargetServerUnreachable)
 	require.False(t, adapter.Degraded())
-	require.Equal(t, 1, attempts, "permanent errors must not be retried")
+	require.Equal(t, 1, transport.attempts, "permanent errors must not be retried")
+	transport.err = nil
+
 	require.NoError(t, adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "valid"},
 		serverevent.Message{Target: "valid", Type: serverevent.MessageTypeInvalidateAgentCache}))
-	require.Equal(t, 2, attempts)
+	require.Equal(t, 2, transport.attempts)
 }
 
-func newTestAdapter(t *testing.T) *EventSenderAdapter {
+func newTestAdapter(t *testing.T, sender protocol.Sender) *EventSenderAdapter {
 	t.Helper()
 
-	adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
+	adapter, err := NewEventSenderAdapter(sender, slog.New(slog.DiscardHandler), nil, config.KafkaSettings{})
 	require.NoError(t, err)
 
 	return adapter

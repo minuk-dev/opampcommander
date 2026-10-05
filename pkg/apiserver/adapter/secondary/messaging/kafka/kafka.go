@@ -13,6 +13,7 @@ import (
 	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
@@ -33,7 +34,7 @@ var (
 // EventSenderAdapter implements agentport.ServerEventSenderPort using Kafka CloudEvents sender.
 type EventSenderAdapter struct {
 	settings  config.KafkaSettings
-	send      func(context.Context, cloudevents.Event) error
+	sender    client.Client
 	logger    *slog.Logger
 	clock     clock.Clock
 	mu        sync.Mutex
@@ -48,7 +49,7 @@ type EventSenderAdapter struct {
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	protocolSender *Sender,
+	protocolSender protocol.Sender,
 	logger *slog.Logger,
 	meterProvider metric.MeterProvider,
 	settings config.KafkaSettings,
@@ -98,7 +99,7 @@ func NewEventSenderAdapter(
 
 	return &EventSenderAdapter{
 		settings:  settings,
-		send:      func(ctx context.Context, event cloudevents.Event) error { return sender.Send(ctx, event) },
+		sender:    sender,
 		logger:    logger,
 		clock:     clock.NewRealClock(),
 		mu:        sync.Mutex{},
@@ -160,68 +161,75 @@ func (e *EventSenderAdapter) Degraded() bool {
 
 // deliver bounds each request and opens the breaker at the configured failure threshold.
 func (e *EventSenderAdapter) deliver(ctx context.Context, event cloudevents.Event) error {
-	e.mu.Lock()
-	if e.probing || time.Now().Before(e.openUntil) {
-		e.mu.Unlock()
+	if !e.allowSend() {
 		e.failed.Add(ctx, 1)
 
 		return model.ErrTargetServerUnreachable
 	}
 
-	if !e.openUntil.IsZero() {
-		e.probing = true
-	}
-	e.mu.Unlock()
-
 	ctx, cancel := context.WithTimeout(ctx, e.settings.SendTimeout)
 	defer cancel()
 
+	err := e.sendWithRetry(ctx, event)
+	e.recordSendResult(ctx, err)
+
+	return err
+}
+
+func (e *EventSenderAdapter) allowSend() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.probing || e.clock.Now().Before(e.openUntil) {
+		return false
+	}
+
+	e.probing = !e.openUntil.IsZero()
+
+	return true
+}
+
+func (e *EventSenderAdapter) sendWithRetry(ctx context.Context, event cloudevents.Event) error {
 	var err error
 
 	for attempt := range e.settings.RetryAttempts {
-		err = e.send(ctx, event)
-		if err == nil {
-			e.mu.Lock()
-			e.failures = 0
-			e.openUntil = time.Time{}
-			e.probing = false
-			e.mu.Unlock()
-			e.state.Record(ctx, 0)
-			e.sent.Add(ctx, 1)
-
-			return nil
-		}
-
-		if permanentError(err) {
-			e.recordFailure(ctx, err)
-
-			return fmt.Errorf("permanent Kafka send failure: %w", err)
-		}
-
-		if attempt+1 < e.settings.RetryAttempts {
+		if attempt > 0 {
 			select {
 			case <-time.After(e.settings.RetryBackoff):
 			case <-ctx.Done():
-				err = ctx.Err()
+				return fmt.Errorf("kafka retry cancelled: %w", ctx.Err())
 			}
 		}
 
-		if ctx.Err() != nil {
+		err = e.sender.Send(ctx, event)
+		if err == nil {
+			return nil
+		}
+
+		if permanentError(err) || ctx.Err() != nil {
 			break
 		}
 	}
 
-	e.recordFailure(ctx, err)
-
 	return fmt.Errorf("kafka send failed: %w", err)
 }
 
-func (e *EventSenderAdapter) recordFailure(ctx context.Context, err error) {
-	e.failed.Add(ctx, 1)
+func (e *EventSenderAdapter) recordSendResult(ctx context.Context, err error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	e.probing = false
+
+	if err == nil {
+		e.failures = 0
+		e.openUntil = time.Time{}
+		e.state.Record(ctx, 0)
+		e.sent.Add(ctx, 1)
+
+		return
+	}
+
+	e.failed.Add(ctx, 1)
 
 	if permanentError(err) {
 		return
@@ -229,7 +237,7 @@ func (e *EventSenderAdapter) recordFailure(ctx context.Context, err error) {
 
 	e.failures++
 	if e.failures >= e.settings.FailureThreshold {
-		e.openUntil = time.Now().Add(e.settings.ProbeInterval)
+		e.openUntil = e.clock.Now().Add(e.settings.ProbeInterval)
 		e.state.Record(ctx, 1)
 	}
 }
