@@ -3052,7 +3052,7 @@ paths:
       - application/json
       description: |-
         Update an agent's metadata & spec in a namespace.
-        A 503 means the update was saved but notification failed or timed out; it may be replayed later.
+        Notifications are best-effort; agents also fetch saved changes on subsequent heartbeats.
       parameters:
       - description: Namespace
         in: path
@@ -3087,10 +3087,6 @@ paths:
             $ref: '#/definitions/ErrorModel'
         "500":
           description: Internal Server Error
-          schema:
-            $ref: '#/definitions/ErrorModel'
-        "503":
-          description: Service Unavailable
           schema:
             $ref: '#/definitions/ErrorModel'
       summary: Update Agent

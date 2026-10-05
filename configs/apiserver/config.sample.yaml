@@ -97,7 +97,6 @@ event:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
     # Delivery settings: omitted or zero values use these defaults; negative values are rejected.
-    queueLimit: 256
     # Total time for one event, including all attempts and backoff; also bounds producer/socket operations.
     sendTimeout: 2s
     retryBackoff: 100ms

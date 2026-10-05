@@ -217,12 +217,12 @@ func (s *Service) UpdateAgent(
 		return nil, fmt.Errorf("failed to update agent: %w", err)
 	}
 
-	// Notify about agent update
+	// Notifications accelerate delivery; heartbeats also fetch the persisted desired state.
 	notifyErr := s.agentNotificationUsecase.NotifyAgentUpdated(ctx, existing)
 	s.invalidatePeerCaches(ctx, instanceUID)
 
 	if notifyErr != nil {
-		return nil, fmt.Errorf("agent saved but notification failed: %w", notifyErr)
+		s.logger.Warn("agent saved but notification failed", "error", notifyErr.Error())
 	}
 
 	return s.mapper.MapAgentToAPI(existing), nil

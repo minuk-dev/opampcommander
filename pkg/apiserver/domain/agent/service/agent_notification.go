@@ -3,7 +3,6 @@ package agentservice
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -13,7 +12,6 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 	"github.com/minuk-dev/opampcommander/pkg/datastructure/sets"
 )
 
@@ -42,7 +40,6 @@ const (
 	DefaultNotificationShutdownCeiling = 10 * time.Second
 	// notificationFlushSignalBuffer is the buffer size of the early-flush signal channel.
 	notificationFlushSignalBuffer = 1
-	notificationWaitTimeout       = 5 * time.Second
 
 	unknownServerID = "unknown"
 )
@@ -51,22 +48,14 @@ type notificationBatch struct {
 	sourceServerID string
 	targetServerID string
 	uids           []uuid.UUID
-	result         *notificationResult
-}
-
-// Closing done publishes the result to every caller coalesced into this batch.
-type notificationResult struct {
-	done chan struct{}
-	err  error
 }
 
 // pendingBucket holds the deduped UIDs pending dispatch for a single target server.
 // Each bucket has its own lock so writes against different target servers don't
 // contend on a single shared mutex.
 type pendingBucket struct {
-	mu     sync.Mutex
-	uids   sets.UUID
-	result *notificationResult
+	mu   sync.Mutex
+	uids sets.UUID
 }
 
 // AgentNotificationService handles notifications about agent updates.
@@ -79,8 +68,9 @@ type pendingBucket struct {
 // Dispatching of the coalesced batches runs in a small worker pool so that
 // a single slow or large target cannot block the flush loop or other targets.
 //
-// NotifyAgentUpdated waits for its coalesced batch's send result so API callers
-// can distinguish a persisted update from a successful notification.
+// NotifyAgentUpdated is asynchronous: it enqueues and returns nil immediately,
+// so any downstream send error (target unreachable, kafka failure) is logged
+// inside the dispatcher rather than surfaced to the original API caller.
 type AgentNotificationService struct {
 	serverMessageUsecase   agentport.ServerMessageUsecase
 	serverUsecase          agentport.ServerUsecase
@@ -165,8 +155,15 @@ func (s *AgentNotificationService) Run(ctx context.Context) error {
 	}
 }
 
-// NotifyAgentUpdated waits for transport acceptance, not for an agent acknowledgement.
-// The wait is bounded even when the dispatch queue is busy or the runner is stopping.
+// NotifyAgentUpdated enqueues a pending-message notification for the agent's
+// connected server. The actual inter-server message is sent later, after
+// coalescing with other notifications targeting the same server.
+//
+// This call is fire-and-forget: enqueue is non-blocking and always returns nil.
+// Downstream send failures (target server unreachable, Kafka error) surface as
+// error-level logs inside the dispatch worker, NOT as a returned error — by the
+// time we know about them, the original HTTP caller is long gone. Callers that
+// need delivery guarantees must not rely on this method's return value.
 func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent *agentmodel.Agent) error {
 	logger := s.logger.With(
 		slog.String("agentInstanceUID", agent.Metadata.InstanceUID.String()),
@@ -191,21 +188,9 @@ func (s *AgentNotificationService) NotifyAgentUpdated(ctx context.Context, agent
 		return nil
 	}
 
-	result := s.enqueue(serverID, agent.Metadata.InstanceUID)
+	s.enqueue(serverID, agent.Metadata.InstanceUID)
 
-	waitCtx, cancel := context.WithTimeout(ctx, notificationWaitTimeout)
-	defer cancel()
-
-	select {
-	case <-result.done:
-		return result.err
-	case <-waitCtx.Done():
-		if ctx.Err() != nil {
-			return fmt.Errorf("notification cancelled: %w", ctx.Err())
-		}
-
-		return fmt.Errorf("notification wait expired: %w", model.ErrTargetServerUnreachable)
-	}
+	return nil
 }
 
 // waitForWorkers closes the dispatch channel and waits for the worker pool to
@@ -235,16 +220,15 @@ func (s *AgentNotificationService) waitForWorkers() {
 	}
 }
 
-func (s *AgentNotificationService) enqueue(serverID string, instanceUID uuid.UUID) *notificationResult {
+func (s *AgentNotificationService) enqueue(serverID string, instanceUID uuid.UUID) {
 	// Load first to avoid allocating a fresh bucket+set on every call. serverIDs
 	// are stable (one per peer server, ~10 in production), so the key is almost
 	// always present after warm-up.
 	val, found := s.pending.Load(serverID)
 	if !found {
 		val, _ = s.pending.LoadOrStore(serverID, &pendingBucket{
-			mu:     sync.Mutex{},
-			uids:   sets.NewUUID(),
-			result: &notificationResult{done: make(chan struct{}), err: nil},
+			mu:   sync.Mutex{},
+			uids: sets.NewUUID(),
 		})
 	}
 
@@ -252,16 +236,12 @@ func (s *AgentNotificationService) enqueue(serverID string, instanceUID uuid.UUI
 	if !isBucket {
 		s.logger.Error("unexpected pending bucket type", slog.String("serverID", serverID))
 
-		result := &notificationResult{done: make(chan struct{}), err: model.ErrTargetServerUnreachable}
-		close(result.done)
-
-		return result
+		return
 	}
 
 	bucket.mu.Lock()
 	bucket.uids.Insert(instanceUID)
 	size := bucket.uids.Len()
-	result := bucket.result
 	bucket.mu.Unlock()
 
 	if size >= s.maxBatchSize {
@@ -271,8 +251,6 @@ func (s *AgentNotificationService) enqueue(serverID string, instanceUID uuid.UUI
 		default:
 		}
 	}
-
-	return result
 }
 
 func (s *AgentNotificationService) flushAll(ctx context.Context) {
@@ -284,7 +262,6 @@ func (s *AgentNotificationService) flushAll(ctx context.Context) {
 	type drained struct {
 		targetServerID string
 		uids           []uuid.UUID
-		result         *notificationResult
 	}
 
 	var batches []drained
@@ -307,12 +284,11 @@ func (s *AgentNotificationService) flushAll(ctx context.Context) {
 			return true
 		}
 
-		uids, result := bucket.uids.List(), bucket.result
+		uids := bucket.uids.List()
 		bucket.uids = sets.NewUUID()
-		bucket.result = &notificationResult{done: make(chan struct{}), err: nil}
 		bucket.mu.Unlock()
 
-		batches = append(batches, drained{targetServerID: targetServerID, uids: uids, result: result})
+		batches = append(batches, drained{targetServerID: targetServerID, uids: uids})
 
 		return true
 	})
@@ -322,7 +298,6 @@ func (s *AgentNotificationService) flushAll(ctx context.Context) {
 			sourceServerID: sourceServerID,
 			targetServerID: item.targetServerID,
 			uids:           item.uids,
-			result:         item.result,
 		}
 
 		select {
@@ -342,8 +317,7 @@ func (s *AgentNotificationService) dispatchWorker(ctx context.Context) {
 	defer s.workerWG.Done()
 
 	for batch := range s.dispatchCh {
-		batch.result.err = s.dispatchBatch(ctx, batch.sourceServerID, batch.targetServerID, batch.uids)
-		close(batch.result.done)
+		s.dispatchBatch(ctx, batch.sourceServerID, batch.targetServerID, batch.uids)
 	}
 }
 
@@ -352,7 +326,7 @@ func (s *AgentNotificationService) dispatchBatch(
 	sourceServerID string,
 	targetServerID string,
 	uids []uuid.UUID,
-) error {
+) {
 	logger := s.logger.With(
 		slog.String("targetServerID", targetServerID),
 		slog.Int("agentCount", len(uids)),
@@ -364,14 +338,14 @@ func (s *AgentNotificationService) dispatchBatch(
 	if ctx.Err() != nil {
 		logger.Debug("skipping dispatch: context done")
 
-		return fmt.Errorf("dispatch notification cancelled: %w", ctx.Err())
+		return
 	}
 
 	server, err := s.serverUsecase.GetServer(ctx, targetServerID)
 	if err != nil {
 		logDispatchFailure(logger, "failed to dispatch notification: cannot get target server", err)
 
-		return fmt.Errorf("get notification target server: %w", err)
+		return
 	}
 
 	err = s.serverMessageUsecase.SendMessageToServer(ctx, server, serverevent.Message{
@@ -387,11 +361,7 @@ func (s *AgentNotificationService) dispatchBatch(
 	})
 	if err != nil {
 		logDispatchFailure(logger, "failed to send batched notification", err)
-
-		return fmt.Errorf("send batched notification: %w", err)
 	}
-
-	return nil
 }
 
 // logDispatchFailure emits at Error level normally, but downgrades to Debug when

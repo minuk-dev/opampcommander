@@ -26,7 +26,6 @@ auth:
     secret: s3cr3t
 event:
   kafka:
-    queueLimit: 17
     sendTimeout: 3s
     retryBackoff: 25ms
     retryAttempts: 3
@@ -82,7 +81,6 @@ event:
 
 		event, _ := parsed["event"].(map[string]any)
 		kafka, _ := event["kafka"].(map[string]any)
-		assert.Equal(t, 17, kafka["queueLimit"])
 		assert.Equal(t, "3s", kafka["sendTimeout"])
 		assert.Equal(t, "40ms", kafka["retryBackoff"])
 		assert.Equal(t, 5, kafka["retryAttempts"])
@@ -99,13 +97,12 @@ event:
 	})
 
 	t.Run("zero Kafka settings use defaults", func(t *testing.T) {
-		_, parsed := run(t, "--event.kafka.queueLimit", "0", "--event.kafka.sendTimeout", "0s",
+		_, parsed := run(t, "--event.kafka.sendTimeout", "0s",
 			"--event.kafka.retryBackoff", "0s", "--event.kafka.retryAttempts", "0",
 			"--event.kafka.failureThreshold", "0", "--event.kafka.probeInterval", "0s")
 		event, _ := parsed["event"].(map[string]any)
 		kafka, _ := event["kafka"].(map[string]any)
 		defaults := config.DefaultKafkaSettings()
-		assert.Equal(t, defaults.QueueLimit, kafka["queueLimit"])
 		assert.Equal(t, defaults.SendTimeout.String(), kafka["sendTimeout"])
 		assert.Equal(t, defaults.RetryBackoff.String(), kafka["retryBackoff"])
 		assert.Equal(t, defaults.RetryAttempts, kafka["retryAttempts"])
@@ -128,6 +125,6 @@ func TestCommand_RejectsInvalidKafkaSettingsBeforeStartup(t *testing.T) {
 	cmd := apiserver.NewCommand(apiserver.CommandOption{})
 	cmd.SilenceUsage = true
 	cmd.SetArgs([]string{"--config", filepath.Join(t.TempDir(), "missing.yaml"),
-		"--event.type", "kafka", "--event.kafka.queueLimit", "-1"})
+		"--event.type", "kafka", "--event.kafka.retryAttempts", "-1"})
 	require.ErrorIs(t, cmd.Execute(), config.ErrKafkaSendSettingsInvalid)
 }

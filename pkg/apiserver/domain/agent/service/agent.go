@@ -194,6 +194,8 @@ func newAgentCache(
 	return ttlcache.New[uuid.UUID, *agentmodel.Agent](
 		ttlcache.WithTTL[uuid.UUID, *agentmodel.Agent](ttl),
 		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(capacity)),
+		// Heartbeats must eventually reload desired state even if a cache-invalidation event is lost.
+		ttlcache.WithDisableTouchOnHit[uuid.UUID, *agentmodel.Agent](),
 	)
 }
 

@@ -54,31 +54,6 @@ func newEventSender(
 			return nil, fmt.Errorf("failed to create Kafka event sender adapter: %w", err)
 		}
 
-		replayCtx, cancel := context.WithCancel(context.Background())
-		replayDone := make(chan struct{})
-
-		lifecycle.Append(fx.Hook{
-			OnStart: func(context.Context) error {
-				go func() {
-					defer close(replayDone)
-
-					adapter.Replay(replayCtx)
-				}()
-
-				return nil
-			},
-			OnStop: func(ctx context.Context) error {
-				cancel()
-
-				select {
-				case <-replayDone:
-					return nil
-				case <-ctx.Done():
-					return fmt.Errorf("stop Kafka replay: %w", ctx.Err())
-				}
-			},
-		})
-
 		return adapter, nil
 	case config.EventProtocolTypeDirect:
 		return createDirectSender(settings, logger, lifecycle)

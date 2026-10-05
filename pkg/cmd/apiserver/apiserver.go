@@ -213,7 +213,6 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().String("event.kafka.topic", "opampcommander.events", "Kafka topic name")
 
 	kafkaDefaults := appconfig.DefaultKafkaSettings()
-	cmd.PersistentFlags().Int("event.kafka.queueLimit", kafkaDefaults.QueueLimit, "Kafka replay queue capacity")
 	cmd.PersistentFlags().Duration("event.kafka.sendTimeout", kafkaDefaults.SendTimeout,
 		"total Kafka event send timeout, including retries and backoff")
 	cmd.PersistentFlags().Duration("event.kafka.retryBackoff", kafkaDefaults.RetryBackoff, "Kafka retry delay")

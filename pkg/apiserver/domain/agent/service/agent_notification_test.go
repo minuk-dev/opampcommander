@@ -40,10 +40,10 @@ func (s *notificationMessageUsecase) SendMessageToServer(
 	return s.err
 }
 
-func TestAgentNotificationService_PropagatesCoalescedSendResult(t *testing.T) {
+func TestAgentNotificationService_BestEffortCoalescedSend(t *testing.T) {
 	t.Parallel()
 
-	for _, name := range []string{"success", "transport failure", "runner unavailable"} {
+	for _, name := range []string{"success", "transport failure"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
@@ -57,42 +57,28 @@ func TestAgentNotificationService_PropagatesCoalescedSendResult(t *testing.T) {
 
 				svc := agentservice.NewAgentNotificationService(messages, notificationServerUsecase{}, identity,
 					slog.New(slog.DiscardHandler))
+				for range 2 {
+					updated := agentmodel.NewAgent(uuid.New())
+					updated.Status.LastReportedAt = time.Now()
+					updated.Status.LastReportedTo = "remote"
+					require.NoError(t, svc.NotifyAgentUpdated(t.Context(), updated))
+				}
+
+				require.Zero(t, messages.calls, "notifications must not wait for transport delivery")
 
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 
 				done := make(chan struct{})
+				go func() { defer close(done); _ = svc.Run(ctx) }()
 
-				if name != "runner unavailable" {
-					go func() { defer close(done); _ = svc.Run(ctx) }()
-				}
-
-				results := make(chan error, 2)
-
-				for range 2 {
-					updated := agentmodel.NewAgent(uuid.New())
-					updated.Status.LastReportedAt = time.Now()
-
-					updated.Status.LastReportedTo = "remote"
-					go func() { results <- svc.NotifyAgentUpdated(t.Context(), updated) }()
-				}
-
-				for range 2 {
-					err := <-results
-					if name == "success" {
-						require.NoError(t, err)
-					} else {
-						require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-					}
-				}
-
+				synctest.Wait()
+				time.Sleep(agentservice.DefaultNotificationFlushInterval)
+				synctest.Wait()
 				cancel()
-
-				if name != "runner unavailable" {
-					<-done
-					require.Equal(t, 1, messages.calls, "notifications should remain coalesced")
-					require.Equal(t, 2, messages.agents)
-				}
+				<-done
+				require.Equal(t, 1, messages.calls, "notifications should remain coalesced")
+				require.Equal(t, 2, messages.agents)
 			})
 		})
 	}

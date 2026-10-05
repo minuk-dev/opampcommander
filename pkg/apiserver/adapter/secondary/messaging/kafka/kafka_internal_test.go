@@ -33,7 +33,7 @@ func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		settings := config.KafkaSettings{
-			QueueLimit: 1, SendTimeout: 1500 * time.Millisecond, RetryBackoff: 20 * time.Millisecond,
+			SendTimeout: 1500 * time.Millisecond, RetryBackoff: 20 * time.Millisecond,
 			RetryAttempts: 3, FailureThreshold: 1, ProbeInterval: 4 * time.Second,
 		}
 		adapter, err := NewEventSenderAdapter(&Sender{}, slog.New(slog.DiscardHandler), nil, settings)
@@ -59,7 +59,7 @@ func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
 		require.Equal(t, time.Duration(settings.RetryAttempts-1)*settings.RetryBackoff, time.Since(start))
 
 		err = adapter.SendMessageToServer(t.Context(), server, message)
-		require.ErrorContains(t, err, "queue full")
+		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
 		require.Equal(t, settings.RetryAttempts, attempts, "failure threshold 1 should open the breaker")
 		time.Sleep(settings.ProbeInterval - time.Nanosecond)
 
@@ -72,15 +72,6 @@ func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
 		time.Sleep(time.Nanosecond)
 		require.NoError(t, adapter.SendMessageToServer(t.Context(), server, message))
 		require.Equal(t, settings.RetryAttempts+1, attempts)
-		ctx, cancel := context.WithCancel(t.Context())
-
-		done := make(chan struct{})
-		go func() { defer close(done); adapter.Replay(ctx) }()
-
-		time.Sleep(time.Second)
-		synctest.Wait()
-		cancel()
-		<-done
 		require.False(t, adapter.Degraded())
 
 		adapter.send = func(ctx context.Context, _ cloudevents.Event) error {
@@ -95,47 +86,40 @@ func TestKafkaConfiguredDeliveryPolicy(t *testing.T) {
 	})
 }
 
-func TestKafkaFailureQueuesAndReplays(t *testing.T) {
+func TestKafkaFailureIsNotReplayed(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		adapter := newTestAdapter(t)
+		available := false
+		attempts := 0
+		delivered := 0
+		adapter.send = func(context.Context, cloudevents.Event) error {
+			attempts++
 
-	adapter := newTestAdapter(t)
+			if !available {
+				return errBrokerDown
+			}
 
-	var (
-		available atomic.Bool
-		delivered atomic.Int32
-	)
+			delivered++
 
-	adapter.send = func(context.Context, cloudevents.Event) error {
-		if !available.Load() {
-			return errBrokerDown
+			return nil
 		}
+		message := serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}
+		server := &agentmodel.Server{ID: "remote"}
+		err := adapter.SendMessageToServer(t.Context(), server, message)
+		require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
+		require.True(t, adapter.Degraded())
 
-		delivered.Add(1)
+		before := attempts
+		available = true
 
-		return nil
-	}
-	message := serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}
-
-	err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "remote"}, message)
-	require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-	require.True(t, adapter.Degraded())
-
-	available.Store(true)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-
-		adapter.Replay(ctx)
-	}()
-
-	t.Cleanup(func() { cancel(); <-done })
-
-	require.Eventually(t, func() bool {
-		return delivered.Load() == 1 && !adapter.Degraded()
-	}, 3*time.Second, 10*time.Millisecond, "queued event should replay after recovery")
+		time.Sleep(10 * time.Second)
+		require.Equal(t, before, attempts, "recovery must not retry an old event")
+		require.Zero(t, delivered)
+		require.NoError(t, adapter.SendMessageToServer(t.Context(), server, message))
+		require.Equal(t, 1, delivered)
+		require.False(t, adapter.Degraded())
+	})
 }
 
 func TestKafkaBreakerFailsFast(t *testing.T) {
@@ -164,52 +148,30 @@ func TestKafkaBreakerFailsFast(t *testing.T) {
 	require.Equal(t, before, attempts.Load(), "open breaker should skip the broker")
 }
 
-func TestKafkaPermanentErrorDoesNotBlockReplay(t *testing.T) {
+func TestKafkaPermanentErrorDoesNotOpenBreaker(t *testing.T) {
 	t.Parallel()
-	synctest.Test(t, func(t *testing.T) {
-		adapter := newTestAdapter(t)
-		available := false
-		delivered := 0
+	adapter := newTestAdapter(t)
+	attempts := 0
+	adapter.send = func(_ context.Context, event cloudevents.Event) error {
+		attempts++
 
-		adapter.send = func(_ context.Context, event cloudevents.Event) error {
-			if !available {
-				return errBrokerDown
-			}
-
-			if event.Subject() == "oversized" {
-				return sarama.ConfigurationError("message larger than Producer.MaxMessageBytes")
-			}
-
-			delivered++
-
-			return nil
-		}
-		for _, target := range []string{"oversized", "valid"} {
-			err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: target},
-				serverevent.Message{Target: target, Type: serverevent.MessageTypeInvalidateAgentCache})
-			require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
+		if event.Subject() == "oversized" {
+			return sarama.ConfigurationError("message larger than Producer.MaxMessageBytes")
 		}
 
-		available = true
-		ctx, cancel := context.WithCancel(t.Context())
+		return nil
+	}
+	err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "oversized"},
+		serverevent.Message{Target: "oversized", Type: serverevent.MessageTypeInvalidateAgentCache})
 
-		done := make(chan struct{})
-		go func() { defer close(done); adapter.Replay(ctx) }()
-
-		time.Sleep(8 * time.Second)
-		cancel()
-		<-done
-		require.Equal(t, 1, delivered)
-		require.False(t, adapter.Degraded())
-		// A new permanent failure is rejected immediately without opening the breaker or queueing.
-		err := adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "oversized"},
-			serverevent.Message{Target: "oversized", Type: serverevent.MessageTypeInvalidateAgentCache})
-
-		var configurationError sarama.ConfigurationError
-		require.ErrorAs(t, err, &configurationError)
-		require.NotErrorIs(t, err, model.ErrTargetServerUnreachable)
-		require.False(t, adapter.Degraded())
-	})
+	var configurationError sarama.ConfigurationError
+	require.ErrorAs(t, err, &configurationError)
+	require.NotErrorIs(t, err, model.ErrTargetServerUnreachable)
+	require.False(t, adapter.Degraded())
+	require.Equal(t, 1, attempts, "permanent errors must not be retried")
+	require.NoError(t, adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "valid"},
+		serverevent.Message{Target: "valid", Type: serverevent.MessageTypeInvalidateAgentCache}))
+	require.Equal(t, 2, attempts)
 }
 
 func newTestAdapter(t *testing.T) *EventSenderAdapter {

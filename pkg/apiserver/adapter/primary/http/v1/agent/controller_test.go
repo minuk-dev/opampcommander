@@ -3,7 +3,6 @@ package agent_test
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -29,27 +28,6 @@ var (
 	// Ensure Controller implements the Controller interface.
 	_ testutil.Controller = (*agent.Controller)(nil)
 )
-
-func TestAgentControllerUpdate_NotificationFailureReturns503(t *testing.T) {
-	t.Parallel()
-	ctrlBase := testutil.NewBase(t).ForController()
-	usecase := usecasemock.NewMockManageUsecase(t)
-	ctrlBase.SetupRouter(agent.NewController(usecase, ctrlBase.Logger))
-
-	uid := uuid.New()
-	usecase.EXPECT().UpdateAgent(mock.Anything, "default", uid, mock.Anything).
-		Return(nil, model.ErrTargetServerUnreachable)
-
-	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodPut,
-		"/api/v1/namespaces/default/agents/"+uid.String(), strings.NewReader(`{}`))
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/json")
-	ctrlBase.Router.ServeHTTP(recorder, req)
-	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
-	require.Equal(t, int64(http.StatusServiceUnavailable), gjson.Get(recorder.Body.String(), "status").Int())
-	require.Contains(t, recorder.Body.String(), "target server unreachable")
-}
 
 func TestAgentControllerListAgent(t *testing.T) {
 	t.Parallel()

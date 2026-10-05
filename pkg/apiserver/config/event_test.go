@@ -15,7 +15,6 @@ func TestKafkaSettings_DefaultsAndOverrides(t *testing.T) {
 
 	settings := config.KafkaSettings{Brokers: []string{"broker:9092"}, Topic: "events"}.WithDefaults()
 	require.NoError(t, settings.Validate())
-	assert.Equal(t, 256, settings.QueueLimit)
 	assert.Equal(t, 2*time.Second, settings.SendTimeout)
 	assert.Equal(t, 100*time.Millisecond, settings.RetryBackoff)
 	assert.Equal(t, 2, settings.RetryAttempts)
@@ -26,7 +25,7 @@ func TestKafkaSettings_DefaultsAndOverrides(t *testing.T) {
 	assert.Equal(t, config.DefaultKafkaSettings(), config.KafkaSettings{}.WithDefaults())
 
 	overrides := config.KafkaSettings{
-		QueueLimit: 17, SendTimeout: 3 * time.Second, RetryBackoff: 25 * time.Millisecond,
+		SendTimeout: 3 * time.Second, RetryBackoff: 25 * time.Millisecond,
 		RetryAttempts: 3, FailureThreshold: 4, ProbeInterval: 9 * time.Second,
 	}
 	assert.Equal(t, overrides, overrides.WithDefaults())
@@ -40,7 +39,6 @@ func TestKafkaSettings_RejectsNegativeValues(t *testing.T) {
 		name     string
 		settings config.KafkaSettings
 	}{
-		{name: "queueLimit", settings: config.KafkaSettings{QueueLimit: -1}},
 		{name: "sendTimeout", settings: config.KafkaSettings{SendTimeout: -time.Second}},
 		{name: "retryBackoff", settings: config.KafkaSettings{RetryBackoff: -time.Second}},
 		{name: "retryAttempts", settings: config.KafkaSettings{RetryAttempts: -1}},

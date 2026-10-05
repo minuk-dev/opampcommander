@@ -1842,7 +1842,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an agent's metadata \u0026 spec in a namespace.\nA 503 means the update was saved but notification failed or timed out; it may be replayed later.",
+                "description": "Update an agent's metadata \u0026 spec in a namespace.\nNotifications are best-effort; agents also fetch saved changes on subsequent heartbeats.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1899,12 +1899,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/ErrorModel"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/ErrorModel"
                         }

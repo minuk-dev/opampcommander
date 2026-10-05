@@ -115,7 +115,6 @@ event:
     brokers:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
-    queueLimit: 256        # failed events retained in memory for replay
     sendTimeout: 2s        # total budget per event, including attempts and backoff
     retryBackoff: 100ms    # delay between attempts
     retryAttempts: 2      # includes the initial attempt; 1 disables retries
@@ -132,11 +131,15 @@ defaults; negative values are rejected at startup. They can also be set through
 `--event.kafka.<setting>` flags or environment variables such as
 `EVENT_KAFKA_SENDTIMEOUT=3s`. `sendTimeout` also bounds producer/socket operations.
 
-The queue holds failed events during broker outages and replays them after recovery.
-It is not required for graceful shutdown and is not persisted: pending events are
-lost when the process exits. Shutdown stops replay and drains producer acknowledgements
-within the shutdown deadline. A timeout can be followed by a late acknowledgement,
-so delivery remains at least once.
+Kafka events are best-effort notifications that accelerate applying saved changes.
+They are not queued or replayed after a failed send. An agent update succeeds once
+its desired state is saved; notification failure does not fail the API request.
+Agents also fetch desired state on heartbeat responses. If a cache-invalidation
+event is lost, the fixed cache TTL bounds how long a peer can serve its cached copy.
+
+Graceful shutdown closes the producer while draining acknowledgements within the
+shutdown deadline. A submitted event may still be acknowledged after a timeout,
+so a failed send does not prove that the event was never delivered.
 
 ## Agent liveness
 

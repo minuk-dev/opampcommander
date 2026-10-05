@@ -21,7 +21,7 @@ import (
 
 var errMockError = errors.New("mock error")
 
-func TestService_UpdateAgent_PropagatesNotificationFailureAfterSaving(t *testing.T) {
+func TestService_UpdateAgent_NotificationFailureDoesNotFailPersistedUpdate(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	agents := new(MockAgentUsecase)
@@ -34,8 +34,9 @@ func TestService_UpdateAgent_PropagatesNotificationFailureAfterSaving(t *testing
 	agents.On("SaveAgent", ctx, existing).Return(nil).Once()
 	notifications.On("NotifyAgentUpdated", ctx, existing).Return(model.ErrTargetServerUnreachable).Once()
 	updated, err := svc.UpdateAgent(ctx, "default", uid, &v1.Agent{})
-	require.ErrorIs(t, err, model.ErrTargetServerUnreachable)
-	require.Nil(t, updated)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	require.Equal(t, uid, updated.Metadata.InstanceUID)
 	require.Equal(t, []uuid.UUID{uid}, invalidation.broadcasted)
 	agents.AssertExpectations(t)
 	notifications.AssertExpectations(t)

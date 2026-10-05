@@ -34,7 +34,7 @@ func NewSender(producer sarama.AsyncProducer, topic string) *Sender {
 }
 
 // Send encodes a CloudEvent and waits until Kafka accepts it or the context expires.
-// Kafka can still accept an already submitted event after cancellation (at-least-once delivery).
+// Kafka can still accept an already submitted event after cancellation; retries may duplicate it.
 func (s *Sender) Send(ctx context.Context, message binding.Message, transformers ...binding.Transformer) error {
 	if ctx.Err() != nil {
 		return fmt.Errorf("send Kafka event: %w", ctx.Err())

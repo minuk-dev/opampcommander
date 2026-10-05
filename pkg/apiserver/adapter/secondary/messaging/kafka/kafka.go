@@ -37,7 +37,6 @@ type EventSenderAdapter struct {
 	logger    *slog.Logger
 	clock     clock.Clock
 	mu        sync.Mutex
-	queue     []cloudevents.Event
 	failures  int
 	openUntil time.Time
 	probing   bool
@@ -103,7 +102,6 @@ func NewEventSenderAdapter(
 		logger:    logger,
 		clock:     clock.NewRealClock(),
 		mu:        sync.Mutex{},
-		queue:     nil,
 		failures:  0,
 		openUntil: time.Time{},
 		probing:   false,
@@ -146,59 +144,18 @@ func (e *EventSenderAdapter) SendMessageToServer(
 			return fmt.Errorf("send message cancelled: %w", ctx.Err())
 		}
 
-		if !e.enqueue(ctx, event) {
-			return fmt.Errorf("server %s: %w: replay queue full (event dropped)", serverID, model.ErrTargetServerUnreachable)
-		}
-
 		return fmt.Errorf("server %s: %w: %w", serverID, model.ErrTargetServerUnreachable, err)
 	}
 
 	return nil
 }
 
-// Replay retries queued events until the context is cancelled. Events remain in memory only.
-func (e *EventSenderAdapter) Replay(ctx context.Context) {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-
-		e.mu.Lock()
-		if len(e.queue) == 0 {
-			e.mu.Unlock()
-
-			continue
-		}
-
-		event := e.queue[0]
-		e.mu.Unlock()
-
-		err := e.deliver(ctx, event)
-		if err != nil && !permanentError(err) {
-			continue
-		}
-
-		if err != nil {
-			e.drop(ctx, event, err)
-		}
-
-		e.mu.Lock()
-		e.queue = e.queue[1:]
-		e.mu.Unlock()
-	}
-}
-
-// Degraded reports an observed Kafka send failure or pending replay work.
+// Degraded reports an observed Kafka send failure until a subsequent send succeeds.
 func (e *EventSenderAdapter) Degraded() bool {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	return e.failures > 0 || len(e.queue) > 0
+	return e.failures > 0
 }
 
 // deliver bounds each request and opens the breaker at the configured failure threshold.
@@ -275,22 +232,6 @@ func (e *EventSenderAdapter) recordFailure(ctx context.Context, err error) {
 		e.openUntil = time.Now().Add(e.settings.ProbeInterval)
 		e.state.Record(ctx, 1)
 	}
-}
-
-func (e *EventSenderAdapter) enqueue(ctx context.Context, event cloudevents.Event) bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	if len(e.queue) >= e.settings.QueueLimit {
-		e.dropped.Add(ctx, 1)
-		e.logger.Warn("Kafka replay queue full; dropping newest event", "eventID", event.ID())
-
-		return false
-	}
-
-	e.queue = append(e.queue, event)
-
-	return true
 }
 
 func (e *EventSenderAdapter) drop(ctx context.Context, event cloudevents.Event, err error) {

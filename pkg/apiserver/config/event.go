@@ -10,7 +10,6 @@ import (
 var ErrKafkaSendSettingsInvalid = errors.New("kafka delivery settings must not be negative")
 
 const (
-	defaultKafkaQueueLimit       = 256
 	defaultKafkaSendTimeout      = 2 * time.Second
 	defaultKafkaRetryBackoff     = 100 * time.Millisecond
 	defaultKafkaRetryAttempts    = 2
@@ -36,8 +35,6 @@ type KafkaSettings struct {
 	Brokers []string `mapstructure:"brokers"`
 	// Topic is the Kafka topic name for events.
 	Topic string `mapstructure:"topic"`
-	// QueueLimit is the maximum number of failed events held for replay. Default: 256.
-	QueueLimit int `mapstructure:"queueLimit"`
 	// SendTimeout bounds all attempts for a single event, including backoff. Default: 2s.
 	SendTimeout time.Duration `mapstructure:"sendTimeout"`
 	// RetryBackoff is the delay between successive send attempts. Default: 100ms.
@@ -57,10 +54,6 @@ func DefaultKafkaSettings() KafkaSettings {
 
 // WithDefaults replaces zero delivery settings with defaults, preserving explicit overrides.
 func (s KafkaSettings) WithDefaults() KafkaSettings {
-	if s.QueueLimit == 0 {
-		s.QueueLimit = defaultKafkaQueueLimit
-	}
-
 	if s.SendTimeout == 0 {
 		s.SendTimeout = defaultKafkaSendTimeout
 	}
@@ -86,9 +79,9 @@ func (s KafkaSettings) WithDefaults() KafkaSettings {
 
 // Validate rejects negative settings; zero means use the default.
 func (s KafkaSettings) Validate() error {
-	if s.QueueLimit < 0 || s.SendTimeout < 0 || s.RetryBackoff < 0 || s.RetryAttempts < 0 ||
+	if s.SendTimeout < 0 || s.RetryBackoff < 0 || s.RetryAttempts < 0 ||
 		s.FailureThreshold < 0 || s.ProbeInterval < 0 {
-		return fmt.Errorf("%w: queueLimit, sendTimeout, retryBackoff, retryAttempts, failureThreshold, probeInterval",
+		return fmt.Errorf("%w: sendTimeout, retryBackoff, retryAttempts, failureThreshold, probeInterval",
 			ErrKafkaSendSettingsInvalid)
 	}
 
