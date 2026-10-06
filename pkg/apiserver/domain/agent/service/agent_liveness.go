@@ -73,7 +73,7 @@ func (s *AgentService) PersistAgentLiveness(ctx context.Context, liveness *agent
 		return nil
 	}
 
-	err := s.agentPersistencePort.UpdateAgentLiveness(ctx, liveness)
+	err := s.agentStore.UpdateAgentLiveness(ctx, liveness)
 	if err != nil {
 		return fmt.Errorf("failed to persist agent liveness: %w", err)
 	}

@@ -2,7 +2,6 @@
 package domain
 
 import (
-	"context"
 	"log/slog"
 
 	"go.uber.org/fx"
@@ -110,35 +109,21 @@ func New() fx.Option {
 	return fx.Module(
 		"domain",
 		fx.Provide(components...),
-		fx.Invoke(registerShutdownHooks),
 	)
 }
 
 func provideAgentService(
-	agentPersistencePort agentport.AgentPersistencePort,
+	agentStore agentport.AgentStore,
 	agentLivenessPort agentport.AgentLivenessPort,
 	livenessMetricsPort agentport.AgentLivenessMetricsPort,
 	logger *slog.Logger,
 	settings *config.ServerSettings,
 ) *agentservice.AgentService {
-	// Apply default cache settings if not explicitly configured
-	cacheSettings := settings.CacheSettings
-	if cacheSettings == (config.CacheSettings{}) {
-		cacheSettings = config.DefaultCacheSettings()
-	}
-
-	agentCacheSettings := cacheSettings.Agent
-
 	return agentservice.NewAgentService(
-		agentPersistencePort,
+		agentStore,
 		agentLivenessPort,
 		livenessMetricsPort,
 		logger,
-		agentservice.AgentCacheConfig{
-			Enabled:     agentCacheSettings.Enabled,
-			TTL:         agentCacheSettings.TTL,
-			MaxCapacity: agentCacheSettings.MaxCapacity,
-		},
 		agentservice.AgentLivenessConfig{
 			PersistThrottle: settings.LivenessSettings.EffectivePersistThrottle(),
 		},
@@ -248,23 +233,6 @@ func provideRBACService(
 		settings.BootstrapSettings.DefaultRole,
 		settings.BootstrapSettings.DefaultNamespace,
 	)
-}
-
-// registerShutdownHooks registers shutdown hooks for services with caches.
-func registerShutdownHooks(
-	lifecycle fx.Lifecycle,
-	agentService *agentservice.AgentService,
-	serverService *agentservice.ServerService,
-) {
-	lifecycle.Append(fx.Hook{
-		OnStart: nil,
-		OnStop: func(_ context.Context) error {
-			agentService.Shutdown()
-			serverService.Shutdown()
-
-			return nil
-		},
-	})
 }
 
 // Identity is a generic function that returns the input value.

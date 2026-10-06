@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math/big"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,8 +19,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	inmemorystore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
@@ -404,8 +407,15 @@ func TestSaveAgentGroupRejectsUnsafeOpAMPCertificate(t *testing.T) {
 			groups := new(mockAgentGroupPersistence)
 			agents := new(mockAgentUsecase)
 			certs := new(mockCertPersistence)
-			svc := NewAgentGroupService(groups, new(mockRemoteConfigPersistence), certs,
-				agents, alwaysLeaderElector{}, slog.Default())
+			svc := NewAgentGroupService(
+				groups,
+				new(mockRemoteConfigPersistence),
+				certs,
+				agents,
+				alwaysLeaderElector{},
+				inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+				slog.Default(),
+			)
 			agents.On("ListAgentsBySelector", ctx, group.Spec.Selector, mock.Anything).
 				Return(testCase.members, nil)
 
@@ -442,8 +452,15 @@ func TestApplyConnectionSettingsSkipsCertificateForDifferentAgent(t *testing.T) 
 	certs := new(mockCertPersistence)
 	certs.On("GetCertificate", mock.Anything, "default", name, (*model.GetOptions)(nil)).
 		Return(opampTestCertificate(t, uuid.NewString()), nil)
-	svc := NewAgentGroupService(new(mockAgentGroupPersistence), new(mockRemoteConfigPersistence),
-		certs, new(mockAgentUsecase), alwaysLeaderElector{}, slog.Default())
+	svc := NewAgentGroupService(
+		new(mockAgentGroupPersistence),
+		new(mockRemoteConfigPersistence),
+		certs,
+		new(mockAgentUsecase),
+		alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+		slog.Default(),
+	)
 
 	require.NoError(t, svc.applyConnectionSettings(t.Context(), group, agent))
 	assert.Equal(t, "wss://old.example.test", agent.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
@@ -463,8 +480,14 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		refName := "shared-otel-config"
 		referencedConfig := &agentmodel.AgentRemoteConfig{
@@ -504,8 +527,14 @@ func TestResolveRemoteConfig_RefMode(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		refName := "non-existent-config"
 		mockRemoteConfigPort.On("GetAgentRemoteConfig", ctx, "", refName, (*model.GetOptions)(nil)).
@@ -537,8 +566,14 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		configName := "collector-config"
 		configValue := []byte("exporters:\n  debug:\n    verbosity: detailed")
@@ -572,8 +607,14 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		configName := "missing-spec-config"
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
@@ -598,8 +639,14 @@ func TestResolveRemoteConfig_DirectMode(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		remoteConfig := agentmodel.AgentGroupAgentRemoteConfig{
 			AgentRemoteConfigName: nil, // Missing name
@@ -630,8 +677,14 @@ func TestApplyRemoteConfigs(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -681,8 +734,14 @@ func TestApplyRemoteConfigs(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "test"},
@@ -732,8 +791,14 @@ func TestNameCollisionPrevention(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		// Create agent
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
@@ -809,6 +874,7 @@ func TestRecordRemoteConfigCondition(t *testing.T) {
 			new(mockCertPersistence),
 			new(mockAgentUsecase),
 			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
 			slog.Default(),
 		)
 
@@ -952,6 +1018,7 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 		new(mockCertPersistence),
 		new(mockAgentUsecase),
 		alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
 		slog.Default(),
 	)
 
@@ -1031,6 +1098,7 @@ func TestDeleteAgentGroup_PropagatesDeletion(t *testing.T) {
 		new(mockCertPersistence),
 		new(mockAgentUsecase),
 		alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
 		slog.Default(),
 	)
 
@@ -1052,13 +1120,11 @@ func TestDeleteAgentGroup_PropagatesDeletion(t *testing.T) {
 	require.NoError(t, err)
 
 	// The deletion must be queued so former members get the group's config dropped.
-	select {
-	case queued := <-svc.changedAgentGroupCh:
-		assert.True(t, queued.IsDeleted(), "queued group should be marked deleted")
-		assert.Equal(t, "to-delete", queued.Metadata.Name)
-	default:
-		t.Fatal("DeleteAgentGroup did not propagate the deletion to agents")
-	}
+	queued, err := svc.changeStore.Next(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "default", queued.Namespace)
+	assert.Equal(t, "to-delete", queued.Name)
+	assert.True(t, existing.IsDeleted())
 
 	mockPersistence.AssertExpectations(t)
 }
@@ -1074,6 +1140,7 @@ func TestShouldReconcileDeletedGroup(t *testing.T) {
 		new(mockCertPersistence),
 		new(mockAgentUsecase),
 		alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
 		slog.Default(),
 	)
 
@@ -1116,8 +1183,14 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},
@@ -1191,8 +1264,14 @@ func TestUpdateAgentsByAgentGroup(t *testing.T) {
 
 		mockCertPort := new(mockCertPersistence)
 		svc := NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPort,
-			mockAgentUC, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPort,
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{"service.name": "my-service"},
@@ -1258,8 +1337,14 @@ func TestReconcileAllAgents(t *testing.T) {
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		svc := NewAgentGroupService(
-			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			mockAgentUC, alwaysLeaderElector{}, slog.Default())
+			mockPersistence,
+			new(mockRemoteConfigPersistence),
+			new(mockCertPersistence),
+			mockAgentUC,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			slog.Default(),
+		)
 
 		return svc, mockPersistence, mockAgentUC
 	}
@@ -1370,8 +1455,14 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 		mockPersistence := new(mockAgentGroupPersistence)
 		mockAgentUC := new(mockAgentUsecase)
 		svc := NewAgentGroupService(
-			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			mockAgentUC, fakeLeaderElector{leader: false, err: nil}, slog.Default())
+			mockPersistence,
+			new(mockRemoteConfigPersistence),
+			new(mockCertPersistence),
+			mockAgentUC,
+			fakeLeaderElector{leader: false, err: nil},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			slog.Default(),
+		)
 
 		svc.reconcileAllIfLeader(ctx)
 
@@ -1388,8 +1479,14 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 
 		mockAgentUC := noAgents(new(mockAgentUsecase))
 		svc := NewAgentGroupService(
-			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			mockAgentUC, fakeLeaderElector{leader: true, err: nil}, slog.Default())
+			mockPersistence,
+			new(mockRemoteConfigPersistence),
+			new(mockCertPersistence),
+			mockAgentUC,
+			fakeLeaderElector{leader: true, err: nil},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			slog.Default(),
+		)
 
 		svc.reconcileAllIfLeader(ctx)
 
@@ -1406,12 +1503,49 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 
 		mockAgentUC := noAgents(new(mockAgentUsecase))
 		svc := NewAgentGroupService(
-			mockPersistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
-			mockAgentUC, fakeLeaderElector{leader: false, err: errBoomLeader}, slog.Default())
+			mockPersistence,
+			new(mockRemoteConfigPersistence),
+			new(mockCertPersistence),
+			mockAgentUC,
+			fakeLeaderElector{leader: false, err: errBoomLeader},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize),
+			slog.Default(),
+		)
 
 		svc.reconcileAllIfLeader(ctx)
 
 		mockPersistence.AssertCalled(t, "ListAllAgentGroups", mock.Anything, listOpts)
 		mockAgentUC.AssertCalled(t, "ListAgentsBySelector", mock.Anything, agentmodel.AgentSelector{}, mock.Anything)
+	})
+}
+
+func TestAgentGroupService_RunReloadsQueuedDeletedGroup(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+
+		store := inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize)
+		require.NoError(t, store.Enqueue(ctx, agentport.AgentGroupChange{Namespace: "default", Name: "group"}))
+		// The queued identity must load the latest stored selector, including a group
+		// deleted after enqueue, so its former members can have their config cleared.
+		group := &agentmodel.AgentGroup{
+			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "group", DeletedAt: time.Now()},
+			Spec: agentmodel.AgentGroupSpec{Selector: agentmodel.AgentSelector{
+				IdentifyingAttributes: map[string]string{"service.name": "latest"},
+			}},
+		}
+		persistence := new(mockAgentGroupPersistence)
+		persistence.On("GetAgentGroup", mock.Anything, "default", "group", &model.GetOptions{IncludeDeleted: true}).
+			Return(group, nil).Once()
+
+		agents := new(mockAgentUsecase)
+		agents.On("ListAgentsBySelector", mock.Anything, group.Spec.Selector, mock.Anything).
+			Run(func(mock.Arguments) { cancel() }).Return(&model.ListResponse[*agentmodel.Agent]{Items: nil}, nil).Once()
+		service := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+			agents, fakeLeaderElector{leader: false, err: nil}, store, slog.Default())
+		require.NoError(t, service.Run(ctx))
+		persistence.AssertExpectations(t)
+		agents.AssertExpectations(t)
 	})
 }

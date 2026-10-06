@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/scheduler"
+	inmemorystore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
@@ -359,7 +360,14 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		expectedGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
@@ -387,7 +395,14 @@ func TestAgentGroupService_GetAgentGroup(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		mockPersistence.On(
 			"GetAgentGroup", ctx, "default", "non-existent", (*model.GetOptions)(nil),
@@ -416,7 +431,14 @@ func TestAgentGroupService_ListAgentGroups(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		expectedResponse := &model.ListResponse[*agentmodel.AgentGroup]{
 			Items: []*agentmodel.AgentGroup{
@@ -452,7 +474,14 @@ func TestAgentGroupService_ListAgentsByAgentGroup(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		agentGroup := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{
@@ -509,7 +538,14 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -578,7 +614,14 @@ func TestAgentGroupService_GetAgentGroupsForAgent(t *testing.T) {
 
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			logger,
+		)
 
 		testAgent := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
 			IdentifyingAttributes: map[string]string{
@@ -625,7 +668,14 @@ func TestAgentGroupService_Name(t *testing.T) {
 
 	mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 	svc := agentservice.NewAgentGroupService(
-		mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, logger)
+		mockPersistence,
+		mockRemoteConfigPort,
+		mockCertPersistence,
+		mockAgentUsecase,
+		alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+		logger,
+	)
 
 	assert.Equal(t, "AgentGroupService", svc.Name())
 }
@@ -643,7 +693,14 @@ func TestAgentGroupService_ReconcileAgent(t *testing.T) {
 		mockCertPersistence := new(MockCertificatePersistencePortForGroup)
 
 		svc := agentservice.NewAgentGroupService(
-			mockPersistence, mockRemoteConfigPort, mockCertPersistence, mockAgentUsecase, alwaysLeaderElector{}, slog.Default())
+			mockPersistence,
+			mockRemoteConfigPort,
+			mockCertPersistence,
+			mockAgentUsecase,
+			alwaysLeaderElector{},
+			inmemorystore.NewAgentGroupChangeStore(agentservice.ChangedAgentGroupBufferSize),
+			slog.Default(),
+		)
 
 		agent := agentmodel.NewAgent(uuid.New())
 

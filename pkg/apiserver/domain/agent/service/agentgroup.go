@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"strconv"
-	"sync/atomic"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -24,7 +22,7 @@ import (
 const (
 	agentGroupServiceName = "AgentGroupService"
 	singleAgentCheckLimit = 2
-	// ChangedAgentGroupBufferSize is the buffer size for the changed agent group channel.
+	// ChangedAgentGroupBufferSize is the capacity of the group propagation Store.
 	ChangedAgentGroupBufferSize = 100
 	// PropagationChunkSize is the number of agents to process in each batch when propagating changes.
 	PropagationChunkSize = 50
@@ -66,8 +64,8 @@ type AgentGroupService struct {
 	// leaderElector gates the periodic reconcile loop so only one node runs it.
 	leaderElector agentport.LeaderElector
 
-	// internalStatus
-	changedAgentGroupCh chan *agentmodel.AgentGroup
+	// pending propagation operations
+	changeStore agentport.AgentGroupChangeStore
 
 	// utils
 	clock  clock.Clock
@@ -81,6 +79,7 @@ func NewAgentGroupService(
 	certificatePersistencePort agentport.CertificatePersistencePort,
 	agentUsecase agentport.AgentUsecase,
 	leaderElector agentport.LeaderElector,
+	changeStore agentport.AgentGroupChangeStore,
 	logger *slog.Logger,
 ) *AgentGroupService {
 	return &AgentGroupService{
@@ -91,7 +90,7 @@ func NewAgentGroupService(
 		leaderElector:               leaderElector,
 		clock:                       clock.NewRealClock(),
 		logger:                      logger,
-		changedAgentGroupCh:         make(chan *agentmodel.AgentGroup, ChangedAgentGroupBufferSize),
+		changeStore:                 changeStore,
 	}
 }
 
@@ -108,27 +107,31 @@ func (s *AgentGroupService) Name() string {
 // Run implements scheduler.Scheduler.
 //
 // Reconciliation runs on its own goroutine so a long pass (full collection scan +
-// per-group agent updates) never blocks the changedAgentGroupCh consumer below.
+// per-group agent updates) never blocks the change Store consumer below.
 // An initial reconcile fires immediately so post-restart drift is repaired without
 // waiting the full DefaultReconcileInterval.
 func (s *AgentGroupService) Run(ctx context.Context) error {
 	go s.runReconcileLoop(ctx)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case agentGroup := <-s.changedAgentGroupCh:
-			err := s.updateAgentsByAgentGroup(ctx, agentGroup)
-			if err != nil {
-				s.logger.Error("failed to propagate agent group changes to agents",
-					slog.String("agent_group", agentGroup.Metadata.Name),
-					slog.String("error", err.Error()),
-				)
+	for ctx.Err() == nil {
+		change, err := s.changeStore.Next(ctx)
+		if err != nil {
+			if ctx.Err() == nil {
+				return fmt.Errorf("next agent group change: %w", err)
 			}
+
+			break
+		}
+
+		err = s.ReconcileAgentGroup(ctx, change.Namespace, change.Name)
+		if err != nil {
+			s.logger.Error("failed to propagate agent group changes to agents",
+				slog.String("agent_group", change.Name), slog.String("namespace", change.Namespace),
+				slog.String("error", err.Error()))
 		}
 	}
-	// unreachable
+
+	return nil
 }
 
 // GetAgentGroup retrieves an agent group by its namespace and name.
@@ -246,13 +249,9 @@ func (s *AgentGroupService) DeleteAgentGroup(
 	// Best-effort, non-blocking: a full buffer must not hang this request handler. The
 	// reconcile loop re-processes recently-deleted groups (DeletedGroupReconcileWindow) as
 	// the durable safety net, so a dropped event still self-heals.
-	select {
-	case s.changedAgentGroupCh <- agentGroup:
-	default:
+	if !s.changeStore.TryEnqueue(agentport.AgentGroupChange{Namespace: namespace, Name: name}) {
 		s.logger.Warn("agent group deletion not queued (buffer full); reconcile will drain former members",
-			slog.String("agent_group", name),
-			slog.String("namespace", namespace),
-		)
+			slog.String("agent_group", name), slog.String("namespace", namespace))
 	}
 
 	return nil
@@ -527,7 +526,7 @@ func (s *AgentGroupService) runReconcileLoop(ctx context.Context) {
 // reconcileAllIfLeader runs the full reconcile pass only when this node is the elected
 // leader, so an N-node deployment performs one reconcile per interval instead of N
 // concurrent full scans (and the write contention they cause). The event-driven path
-// (changedAgentGroupCh) is deliberately not gated: it must run on whichever node served
+// (change Store) is deliberately not gated: it must run on whichever node served
 // the change so propagation stays immediate.
 //
 // Leader determination fails open: if the elector errors, this node reconciles anyway
@@ -554,12 +553,14 @@ func (s *AgentGroupService) propagateAgentGroupChangesToAgents(
 	ctx context.Context,
 	agentGroup *agentmodel.AgentGroup,
 ) error {
-	select {
-	case s.changedAgentGroupCh <- agentGroup:
-		return nil
-	case <-ctx.Done():
-		return fmt.Errorf("context cancelled: %w", ctx.Err())
+	err := s.changeStore.Enqueue(ctx, agentport.AgentGroupChange{
+		Namespace: agentGroup.Metadata.Namespace, Name: agentGroup.Metadata.Name,
+	})
+	if err != nil {
+		return fmt.Errorf("enqueue agent group change: %w", err)
 	}
+
+	return nil
 }
 
 // reconcileAll repairs any drift between agent groups and agents. It runs two complementary
@@ -639,7 +640,7 @@ func (s *AgentGroupService) reconcileAllAgents(ctx context.Context) {
 		}
 
 		for _, agent := range agentsResp.Items {
-			before := agentSpecFingerprint(agent)
+			before, beforeErr := agentSpecFingerprint(agent)
 
 			err := s.ApplyMatchingAgentGroupsToAgent(ctx, agent)
 			if err != nil {
@@ -651,7 +652,8 @@ func (s *AgentGroupService) reconcileAllAgents(ctx context.Context) {
 				continue
 			}
 
-			if before == agentSpecFingerprint(agent) {
+			after, afterErr := agentSpecFingerprint(agent)
+			if beforeErr == nil && afterErr == nil && before == after {
 				continue
 			}
 
@@ -689,11 +691,8 @@ func (s *AgentGroupService) shouldReconcileDeletedGroup(group *agentmodel.AgentG
 // applyAgentGroupToAgent. The reconcile loop uses this to skip SaveAgent (and the
 // cache write that follows) when applying a group leaves the agent unchanged.
 //
-// On marshalling failure the caller's `before == after` comparison must NOT skip the
-// save, so we return a unique sentinel keyed on the agent identity — two unique
-// sentinels never compare equal across calls for the same agent (they include a
-// counter), forcing the save path on error.
-func agentSpecFingerprint(agent *agentmodel.Agent) string {
+// A hashing failure is returned so callers always take the save path on error.
+func agentSpecFingerprint(agent *agentmodel.Agent) (string, error) {
 	var connHash []byte
 	if agent.Spec.ConnectionInfo != nil {
 		connHash = agent.Spec.ConnectionInfo.Hash
@@ -709,18 +708,11 @@ func agentSpecFingerprint(agent *agentmodel.Agent) string {
 
 	hash, err := vo.NewHashFromAny(payload)
 	if err != nil {
-		// Unique per call so before != after; the caller will fall through to SaveAgent.
-		return "err:" + agent.Metadata.InstanceUID.String() + ":" + strconv.FormatInt(fingerprintErrSeq.Add(1), 10)
+		return "", fmt.Errorf("fingerprint agent spec: %w", err)
 	}
 
-	return hash.String()
+	return hash.String(), nil
 }
-
-// successive marshal failures so before != after in agentSpecFingerprint's callers;
-// not a configuration knob.
-//
-//nolint:gochecknoglobals // process-wide error-path counter used only to differentiate
-var fingerprintErrSeq atomic.Int64
 
 // agentGroupReferencesRemoteConfig reports whether any of the group's remote configs
 // references the named AgentRemoteConfig resource (i.e. via AgentRemoteConfigRef).
@@ -869,7 +861,7 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 		}
 
 		for _, agent := range agentsResp.Items {
-			before := agentSpecFingerprint(agent)
+			before, beforeErr := agentSpecFingerprint(agent)
 
 			// Apply the full desired state (union of every matching group), not just
 			// this group's contribution — otherwise we'd keep adding configs without
@@ -879,7 +871,7 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 				return fmt.Errorf("apply matching groups to agent %s: %w", agent.Metadata.InstanceUID, err)
 			}
 
-			after := agentSpecFingerprint(agent)
+			after, afterErr := agentSpecFingerprint(agent)
 
 			// Record on the agent whether the group-driven config could actually be applied.
 			// Crucially this also flags agents that an agent group assigned a config to but
@@ -888,7 +880,7 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 			// participates in the save decision alongside the spec fingerprint.
 			condChanged := s.recordAgentRemoteConfigCondition(agent, agentGroup)
 
-			if before == after && !condChanged {
+			if beforeErr == nil && afterErr == nil && before == after && !condChanged {
 				continue
 			}
 
