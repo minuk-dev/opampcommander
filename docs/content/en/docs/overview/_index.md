@@ -38,6 +38,47 @@ telemetry collection agents.
 
 ## Architecture
 
+### Service and Store responsibilities
+
+Services must remain **stateless** and contain business logic and operation
+orchestration. This rule applies to all resources, including agents, connections,
+certificates, agent groups, namespaces, hosts, containers, applications, users,
+and RBAC resources.
+
+| Responsibility | Owner |
+|---|---|
+| Business rules and operation orchestration | Service, using domain models to validate state transitions |
+| Resource and session state, including active connections and liveness | Store |
+| Caches, indexes, TTL, cloning stored values, and cache invalidation | Store |
+| Storage synchronization, version checks, and conditional updates or deletes | Store implementation |
+
+A Service may hold injected dependencies, such as Store ports, a logger, or a
+clock, and immutable configuration. Per-operation variables remain local to the
+operation. Mutable resource or session state shared between operations must be
+owned by a Store rather than a Service.
+
+Store interfaces are domain ports, and their implementations belong in secondary
+adapters. A Store may use memory, MongoDB, Redis, or a cache over another Store.
+Each resource exposes the operations it needs through its own Store interface.
+The existing `*PersistencePort` interfaces already provide part of this boundary.
+
+The OpAMP and Connection Services share a node-local `ConnectionStore`. It owns
+live connection records, agent indexes, session synchronization, the pending
+close queue, and cluster snapshot bookkeeping. The Services hold the Store port
+and perform business operations within its session scope; they do not own those
+maps, queues, or mutexes.
+
+Services rely on atomic Store operations with an expected resource version or
+session identity when a state transition requires it. Store implementations
+encapsulate the mutexes or conditional database writes needed for those
+operations. Guarantees spanning multiple Stores must be defined explicitly;
+separate thread-safe methods alone do not make a whole workflow atomic.
+
+This is the design rule for new and refactored code. Some other existing Services
+still own agent caches or notification buffers; moving that ownership into
+Stores remains migration work. The migration is not yet complete across all
+Services.
+
 ### System overview
 
 ```mermaid

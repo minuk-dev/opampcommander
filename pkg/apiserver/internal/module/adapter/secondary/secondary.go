@@ -5,7 +5,9 @@ package secondary
 import (
 	"go.uber.org/fx"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/helper"
 )
 
@@ -21,6 +23,9 @@ func New(databaseType config.DatabaseType, livenessSettings config.LivenessSetti
 
 	return fx.Options(
 		persistence,
+		// Live sockets and their session state are local to every server,
+		// regardless of the durable persistence backend.
+		fx.Provide(fx.Annotate(inmemory.NewConnectionStore, fx.As(new(agentport.ConnectionStore)))),
 		// Agent liveness fast tier (node-local by default).
 		NewLiveness(databaseType, livenessSettings),
 		// Outbound messaging: server-event sender.

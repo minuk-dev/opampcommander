@@ -12,6 +12,9 @@ require-template-schema-exists: true
 template: testify
 template-schema: '{{.Template}}.schema.json'
 packages:
+  github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port:
+    interfaces:
+      AgentUsecase: {}
   github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent:
     config:
       all: true

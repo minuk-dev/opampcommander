@@ -47,6 +47,25 @@ opampTLS:
   caFile: /etc/opampcommander/tls/agent-ca-bundle.pem
 ```
 
+Issue agent client certificates through your external CA or PKI tooling;
+APIServer does not issue certificates or load a CA private key. Register an
+issued client certificate and its private key as a Certificate resource, then
+offer it to a connected agent through its single-agent group's OpAMP connection
+settings. For bootstrap, install the certificate and key on the agent before
+its first connection. Grant read access to Certificate resources only to
+operators allowed to retrieve agent private keys.
+
+The Certificate's `caCert` field is the CA the agent trusts for the *server*
+certificate. It can differ from the CA that signs agent client certificates.
+
+The rotation lifecycle is: externally issue and register a Certificate, offer
+it through ConnectionSettings, then confirm reconnection and an `applied`
+connection settings status on the Agent resource. Once the replacement
+certificate is active, messages using the old certificate are rejected and the
+previous connection on the same server node is closed. A previous connection
+on another node is rejected on its next message. This is an OpAMP authorization
+change; revocation at the issuing CA remains an external PKI operation.
+
 To rotate an agent-client CA, put the **old and new CA certificates in the same
 PEM file**, one `BEGIN CERTIFICATE` block after the other. Restart every
 apiserver instance so both CAs are trusted, switch agents to certificates
