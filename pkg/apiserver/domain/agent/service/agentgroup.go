@@ -123,7 +123,15 @@ func (s *AgentGroupService) Run(ctx context.Context) error {
 			break
 		}
 
-		err = s.ReconcileAgentGroup(ctx, change.Namespace, change.Name)
+		group, err := s.persistencePort.GetAgentGroup(ctx, change.Namespace, change.Name,
+			&model.GetOptions{IncludeDeleted: true})
+		if err == nil {
+			// Use current configuration, but visit the agents affected when this
+			// event was queued, even if the group's selector has since changed.
+			group.Spec.Selector = change.Selector
+			err = s.updateAgentsByAgentGroup(ctx, group)
+		}
+
 		if err != nil {
 			s.logger.Error("failed to propagate agent group changes to agents",
 				slog.String("agent_group", change.Name), slog.String("namespace", change.Namespace),
@@ -249,7 +257,9 @@ func (s *AgentGroupService) DeleteAgentGroup(
 	// Best-effort, non-blocking: a full buffer must not hang this request handler. The
 	// reconcile loop re-processes recently-deleted groups (DeletedGroupReconcileWindow) as
 	// the durable safety net, so a dropped event still self-heals.
-	if !s.changeStore.TryEnqueue(agentport.AgentGroupChange{Namespace: namespace, Name: name}) {
+	if !s.changeStore.TryEnqueue(agentport.AgentGroupChange{
+		Namespace: namespace, Name: name, Selector: agentGroup.Spec.Selector,
+	}) {
 		s.logger.Warn("agent group deletion not queued (buffer full); reconcile will drain former members",
 			slog.String("agent_group", name), slog.String("namespace", namespace))
 	}
@@ -554,7 +564,7 @@ func (s *AgentGroupService) propagateAgentGroupChangesToAgents(
 	agentGroup *agentmodel.AgentGroup,
 ) error {
 	err := s.changeStore.Enqueue(ctx, agentport.AgentGroupChange{
-		Namespace: agentGroup.Metadata.Namespace, Name: agentGroup.Metadata.Name,
+		Namespace: agentGroup.Metadata.Namespace, Name: agentGroup.Metadata.Name, Selector: agentGroup.Spec.Selector,
 	})
 	if err != nil {
 		return fmt.Errorf("enqueue agent group change: %w", err)

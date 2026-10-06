@@ -37,14 +37,13 @@ func DefaultAgentCacheConfig() AgentCacheConfig {
 // AgentStore caches document reads; lists and liveness writes use persistence
 // directly. Liveness is overlaid by the service rather than frozen in this cache.
 type AgentStore struct {
-	agentport.AgentPersistencePort
-
-	cache *ttlcache.Cache[uuid.UUID, *agentmodel.Agent]
+	persistence agentport.AgentPersistencePort
+	cache       *ttlcache.Cache[uuid.UUID, *agentmodel.Agent]
 }
 
 // NewAgentStore wraps persistence with an optional cache.
 func NewAgentStore(persistence agentport.AgentPersistencePort, config AgentCacheConfig) *AgentStore {
-	store := &AgentStore{AgentPersistencePort: persistence, cache: nil}
+	store := &AgentStore{persistence: persistence, cache: nil}
 	if !config.Enabled {
 		return store
 	}
@@ -66,15 +65,15 @@ func NewAgentStore(persistence agentport.AgentPersistencePort, config AgentCache
 	return store
 }
 
-// GetAgent returns an isolated copy, reading through the cache when enabled.
-func (s *AgentStore) GetAgent(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
+// Get returns an isolated copy, reading through the cache when enabled.
+func (s *AgentStore) Get(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
 	if s.cache != nil {
 		if item := s.cache.Get(uid); item != nil {
 			return item.Value().Clone(), nil
 		}
 	}
 
-	agent, err := s.GetAgentFresh(ctx, uid)
+	agent, err := s.GetFresh(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -86,9 +85,9 @@ func (s *AgentStore) GetAgent(ctx context.Context, uid uuid.UUID) (*agentmodel.A
 	return agent, nil
 }
 
-// GetAgentFresh bypasses the local cache.
-func (s *AgentStore) GetAgentFresh(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
-	agent, err := s.AgentPersistencePort.GetAgent(ctx, uid)
+// GetFresh bypasses the local cache.
+func (s *AgentStore) GetFresh(ctx context.Context, uid uuid.UUID) (*agentmodel.Agent, error) {
+	agent, err := s.persistence.GetAgent(ctx, uid)
 	if err != nil {
 		return nil, fmt.Errorf("read agent: %w", err)
 	}
@@ -96,10 +95,10 @@ func (s *AgentStore) GetAgentFresh(ctx context.Context, uid uuid.UUID) (*agentmo
 	return agent, nil
 }
 
-// PutAgent refreshes the cache only after persistence accepts the write. A
+// Put refreshes the cache only after persistence accepts the write. A
 // conflict drops the losing version so the next read can observe the winner.
-func (s *AgentStore) PutAgent(ctx context.Context, agent *agentmodel.Agent) error {
-	err := s.AgentPersistencePort.PutAgent(ctx, agent)
+func (s *AgentStore) Put(ctx context.Context, agent *agentmodel.Agent) error {
+	err := s.persistence.PutAgent(ctx, agent)
 	if err != nil {
 		if errors.Is(err, model.ErrConflict) {
 			s.InvalidateCache(agent.Metadata.InstanceUID)
@@ -115,9 +114,9 @@ func (s *AgentStore) PutAgent(ctx context.Context, agent *agentmodel.Agent) erro
 	return nil
 }
 
-// DeleteAgent invalidates cached data after a successful durable deletion.
-func (s *AgentStore) DeleteAgent(ctx context.Context, uid uuid.UUID) error {
-	err := s.AgentPersistencePort.DeleteAgent(ctx, uid)
+// Delete invalidates cached data after a successful durable deletion.
+func (s *AgentStore) Delete(ctx context.Context, uid uuid.UUID) error {
+	err := s.persistence.DeleteAgent(ctx, uid)
 	if err != nil {
 		return fmt.Errorf("delete agent: %w", err)
 	}
@@ -125,6 +124,49 @@ func (s *AgentStore) DeleteAgent(ctx context.Context, uid uuid.UUID) error {
 	s.InvalidateCache(uid)
 
 	return nil
+}
+
+// UpdateAgentLiveness writes narrow liveness fields directly to persistence.
+func (s *AgentStore) UpdateAgentLiveness(ctx context.Context, liveness *agentmodel.AgentLiveness) error {
+	err := s.persistence.UpdateAgentLiveness(ctx, liveness)
+	if err != nil {
+		return fmt.Errorf("update agent liveness: %w", err)
+	}
+
+	return nil
+}
+
+// ListAgents reads a namespace's agents directly from persistence.
+func (s *AgentStore) ListAgents(ctx context.Context, namespace string,
+	options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error) {
+	agents, err := s.persistence.ListAgents(ctx, namespace, options)
+	if err != nil {
+		return nil, fmt.Errorf("list agents: %w", err)
+	}
+
+	return agents, nil
+}
+
+// ListAgentsBySelector reads matching agents directly from persistence.
+func (s *AgentStore) ListAgentsBySelector(ctx context.Context, selector agentmodel.AgentSelector,
+	options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error) {
+	agents, err := s.persistence.ListAgentsBySelector(ctx, selector, options)
+	if err != nil {
+		return nil, fmt.Errorf("list agents by selector: %w", err)
+	}
+
+	return agents, nil
+}
+
+// SearchAgents searches persisted agents without freezing liveness in the cache.
+func (s *AgentStore) SearchAgents(ctx context.Context, namespace, query string,
+	options *model.ListOptions) (*model.ListResponse[*agentmodel.Agent], error) {
+	agents, err := s.persistence.SearchAgents(ctx, namespace, query, options)
+	if err != nil {
+		return nil, fmt.Errorf("search agents: %w", err)
+	}
+
+	return agents, nil
 }
 
 // InvalidateCache forces the next read to persistence.

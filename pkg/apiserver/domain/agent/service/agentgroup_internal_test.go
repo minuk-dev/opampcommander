@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	inmemorypersistence "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	inmemorystore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
@@ -1519,16 +1520,19 @@ func TestAgentGroupService_reconcileAllIfLeader(t *testing.T) {
 	})
 }
 
-func TestAgentGroupService_RunReloadsQueuedDeletedGroup(t *testing.T) {
+func TestAgentGroupService_RunRetainsQueuedSelector(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 
 		store := inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize)
-		require.NoError(t, store.Enqueue(ctx, agentport.AgentGroupChange{Namespace: "default", Name: "group"}))
-		// The queued identity must load the latest stored selector, including a group
-		// deleted after enqueue, so its former members can have their config cleared.
+		queuedSelector := agentmodel.AgentSelector{IdentifyingAttributes: map[string]string{"service.name": "original"}}
+		require.NoError(t, store.Enqueue(ctx, agentport.AgentGroupChange{
+			Namespace: "default", Name: "group", Selector: queuedSelector,
+		}))
+		// Reload the latest configuration, including a group deleted after enqueue,
+		// but still visit the agents selected when the event was queued.
 		group := &agentmodel.AgentGroup{
 			Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "group", DeletedAt: time.Now()},
 			Spec: agentmodel.AgentGroupSpec{Selector: agentmodel.AgentSelector{
@@ -1540,12 +1544,58 @@ func TestAgentGroupService_RunReloadsQueuedDeletedGroup(t *testing.T) {
 			Return(group, nil).Once()
 
 		agents := new(mockAgentUsecase)
-		agents.On("ListAgentsBySelector", mock.Anything, group.Spec.Selector, mock.Anything).
+		agents.On("ListAgentsBySelector", mock.Anything, queuedSelector, mock.Anything).
 			Run(func(mock.Arguments) { cancel() }).Return(&model.ListResponse[*agentmodel.Agent]{Items: nil}, nil).Once()
 		service := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
 			agents, fakeLeaderElector{leader: false, err: nil}, store, slog.Default())
 		require.NoError(t, service.Run(ctx))
 		persistence.AssertExpectations(t)
+		agents.AssertExpectations(t)
+	})
+}
+
+func TestAgentGroupService_RunDrainsFormerMembersAfterRecreation(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+
+		persistence := inmemorypersistence.NewAgentGroupRepository(inmemorypersistence.NewAgentRepository())
+		original := agentmodel.NewAgentGroup("default", "group", nil, time.Now(), "admin")
+		original.Spec.Selector.IdentifyingAttributes = map[string]string{"service.name": "original"}
+		_, err := persistence.PutAgentGroup(ctx, "default", "group", original)
+		require.NoError(t, err)
+
+		member := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+			IdentifyingAttributes: map[string]string{"service.name": "original"},
+		}))
+		setAgentRemoteConfigs(member, map[string]agentmodel.AgentConfigFile{"old": {Body: []byte("old config")}})
+
+		recreated := agentmodel.NewAgentGroup("default", "group", nil, time.Now(), "admin")
+		recreated.Spec.Selector.IdentifyingAttributes = map[string]string{"service.name": "recreated"}
+
+		agents := new(mockAgentUsecase)
+		agents.On("ListAgentsBySelector", mock.Anything, original.Spec.Selector, mock.Anything).
+			Return(&model.ListResponse[*agentmodel.Agent]{Items: []*agentmodel.Agent{member}}, nil).Once()
+		agents.On("SaveAgent", mock.Anything, mock.MatchedBy(func(saved *agentmodel.Agent) bool {
+			return saved.Metadata.InstanceUID == member.Metadata.InstanceUID && saved.Spec.RemoteConfig == nil
+		})).Return(nil).Once()
+		agents.On("ListAgentsBySelector", mock.Anything, recreated.Spec.Selector, mock.Anything).
+			Run(func(mock.Arguments) { cancel() }).Return(&model.ListResponse[*agentmodel.Agent]{}, nil).Once()
+
+		svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence), agents,
+			fakeLeaderElector{leader: false, err: nil},
+			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+		require.NoError(t, svc.DeleteAgentGroup(ctx, "default", "group", time.Now(), "admin"))
+		_, err = svc.SaveAgentGroup(ctx, "default", "group", recreated)
+		require.NoError(t, err)
+		require.NoError(t, svc.Run(ctx))
+		require.Nil(t, member.Spec.RemoteConfig)
+
+		current, err := persistence.GetAgentGroup(t.Context(), "default", "group", nil)
+		require.NoError(t, err)
+		assert.Equal(t, recreated.Spec.Selector, current.Spec.Selector)
+		assert.False(t, current.IsDeleted())
 		agents.AssertExpectations(t)
 	})
 }

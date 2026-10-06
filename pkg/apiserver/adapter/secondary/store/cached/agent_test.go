@@ -13,6 +13,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 func TestAgentStore_CacheIsolationAndFreshRead(t *testing.T) {
@@ -23,15 +24,15 @@ func TestAgentStore_CacheIsolationAndFreshRead(t *testing.T) {
 	t.Cleanup(store.Shutdown)
 
 	agent := agentmodel.NewAgent(uuid.New())
-	require.NoError(t, store.PutAgent(ctx, agent))
+	require.NoError(t, store.Put(ctx, agent))
 	version := agent.Metadata.ResourceVersion
 	// Neither the saved model nor a returned cached model may mutate stored values.
 	agent.Metadata.Namespace = "caller-mutation"
-	first, err := store.GetAgent(ctx, agent.Metadata.InstanceUID)
+	first, err := store.Get(ctx, agent.Metadata.InstanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, "default", first.Metadata.Namespace)
 	first.Metadata.Namespace = "read-mutation"
-	second, err := store.GetAgent(ctx, agent.Metadata.InstanceUID)
+	second, err := store.Get(ctx, agent.Metadata.InstanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, "default", second.Metadata.Namespace)
 	assert.Equal(t, version, second.Metadata.ResourceVersion)
@@ -43,14 +44,14 @@ func TestAgentStore_CacheIsolationAndFreshRead(t *testing.T) {
 
 	peer.Metadata.Namespace = "peer-write"
 	require.NoError(t, persistence.PutAgent(ctx, peer))
-	fresh, err := store.GetAgentFresh(ctx, peer.Metadata.InstanceUID)
+	fresh, err := store.GetFresh(ctx, peer.Metadata.InstanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, "peer-write", fresh.Metadata.Namespace)
-	stale, err := store.GetAgent(ctx, peer.Metadata.InstanceUID)
+	stale, err := store.Get(ctx, peer.Metadata.InstanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, "default", stale.Metadata.Namespace)
 	store.InvalidateCache(peer.Metadata.InstanceUID)
-	refreshed, err := store.GetAgent(ctx, peer.Metadata.InstanceUID)
+	refreshed, err := store.Get(ctx, peer.Metadata.InstanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, "peer-write", refreshed.Metadata.Namespace)
 }
@@ -59,23 +60,25 @@ func TestAgentStore_ConflictInvalidatesAndDeleteRevokes(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	persistence := inmemory.NewAgentRepository()
-	store := cached.NewAgentStore(persistence, cached.DefaultAgentCacheConfig())
-	t.Cleanup(store.Shutdown)
+	cachedStore := cached.NewAgentStore(persistence, cached.DefaultAgentCacheConfig())
+	t.Cleanup(cachedStore.Shutdown)
+
+	var store domainport.Store[uuid.UUID, *agentmodel.Agent] = cachedStore
 
 	agent := agentmodel.NewAgent(uuid.New())
-	require.NoError(t, store.PutAgent(ctx, agent))
-	loser, err := store.GetAgent(ctx, agent.Metadata.InstanceUID)
+	require.NoError(t, store.Put(ctx, agent))
+	loser, err := store.Get(ctx, agent.Metadata.InstanceUID)
 	require.NoError(t, err)
 
 	winner := loser.Clone()
 	winner.Metadata.Namespace = "winner"
 	require.NoError(t, persistence.PutAgent(ctx, winner))
-	require.ErrorIs(t, store.PutAgent(ctx, loser), model.ErrConflict)
-	refreshed, err := store.GetAgent(ctx, agent.Metadata.InstanceUID)
+	require.ErrorIs(t, store.Put(ctx, loser), model.ErrConflict)
+	refreshed, err := store.Get(ctx, agent.Metadata.InstanceUID)
 	require.NoError(t, err)
 	assert.Equal(t, "winner", refreshed.Metadata.Namespace)
-	require.NoError(t, store.DeleteAgent(ctx, agent.Metadata.InstanceUID))
-	_, err = store.GetAgent(ctx, agent.Metadata.InstanceUID)
+	require.NoError(t, store.Delete(ctx, agent.Metadata.InstanceUID))
+	_, err = store.Get(ctx, agent.Metadata.InstanceUID)
 	require.ErrorIs(t, err, model.ErrAgentRevoked)
 }
 
@@ -98,7 +101,7 @@ func TestAgentStore_DisabledCacheAndShutdown(t *testing.T) {
 			t.Cleanup(store.Shutdown)
 
 			agent := agentmodel.NewAgent(uuid.New())
-			require.NoError(t, store.PutAgent(ctx, agent))
+			require.NoError(t, store.Put(ctx, agent))
 			peer := agent.Clone()
 			peer.Metadata.Namespace = "peer"
 			require.NoError(t, persistence.PutAgent(ctx, peer))
@@ -107,7 +110,7 @@ func TestAgentStore_DisabledCacheAndShutdown(t *testing.T) {
 				store.Shutdown()
 			}
 
-			got, err := store.GetAgent(ctx, agent.Metadata.InstanceUID)
+			got, err := store.Get(ctx, agent.Metadata.InstanceUID)
 			require.NoError(t, err)
 			assert.Equal(t, "peer", got.Metadata.Namespace)
 		})
@@ -126,13 +129,13 @@ func TestAgentStore_TTLExpires(t *testing.T) {
 		defer store.Shutdown()
 
 		agent := agentmodel.NewAgent(uuid.New())
-		require.NoError(t, store.PutAgent(ctx, agent))
+		require.NoError(t, store.Put(ctx, agent))
 		peer := agent.Clone()
 		peer.Metadata.Namespace = "peer"
 		require.NoError(t, persistence.PutAgent(ctx, peer))
 		time.Sleep(2 * time.Second)
 
-		got, err := store.GetAgent(ctx, peer.Metadata.InstanceUID)
+		got, err := store.Get(ctx, peer.Metadata.InstanceUID)
 		require.NoError(t, err)
 		assert.Equal(t, "peer", got.Metadata.Namespace)
 	})

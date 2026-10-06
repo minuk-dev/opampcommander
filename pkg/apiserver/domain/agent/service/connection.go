@@ -132,7 +132,7 @@ func (s *Service) ListClusterConnections(
 
 // DeleteConnection implements agentport.ConnectionUsecase.
 func (s *Service) DeleteConnection(ctx context.Context, connection *agentmodel.Connection) error {
-	err := s.connectionStore.DeleteConnection(ctx, connection)
+	err := s.connectionStore.Delete(ctx, connection)
 	if err != nil {
 		return fmt.Errorf("failed to delete connection: %w", err)
 	}
@@ -142,7 +142,7 @@ func (s *Service) DeleteConnection(ctx context.Context, connection *agentmodel.C
 
 // GetConnectionByID implements agentport.ConnectionUsecase.
 func (s *Service) GetConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error) {
-	conn, err := s.connectionStore.GetConnection(ctx, id)
+	conn, err := s.connectionStore.Get(ctx, id)
 	if err != nil {
 		s.logger.Debug("connection not found by ID",
 			slog.String("connIDHash", agentmodel.ConvertConnIDToString(id)),
@@ -157,7 +157,7 @@ func (s *Service) GetConnectionByID(ctx context.Context, id any) (*agentmodel.Co
 
 // GetOrCreateConnectionByID implements agentport.ConnectionUsecase.
 func (s *Service) GetOrCreateConnectionByID(ctx context.Context, id any) (*agentmodel.Connection, error) {
-	conn, err := s.connectionStore.GetConnection(ctx, id)
+	conn, err := s.connectionStore.Get(ctx, id)
 	if err == nil {
 		return conn, nil
 	}
@@ -256,7 +256,7 @@ func (s *Service) ListConnections(
 
 // SaveConnection implements agentport.ConnectionUsecase.
 func (s *Service) SaveConnection(ctx context.Context, connection *agentmodel.Connection) error {
-	err := s.connectionStore.PutConnection(ctx, connection)
+	err := s.connectionStore.Put(ctx, connection)
 	if err != nil {
 		return fmt.Errorf("failed to save connection: %w", err)
 	}

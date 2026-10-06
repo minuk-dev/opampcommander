@@ -28,7 +28,7 @@ func New(databaseType config.DatabaseType, livenessSettings config.LivenessSetti
 		fx.Provide(fx.Annotate(inmemory.NewConnectionStore, fx.As(new(agentport.ConnectionStore)))),
 		fx.Provide(
 			provideAgentStore,
-			cached.NewServerStore,
+			provideServerStore,
 			fx.Annotate(identity[*cached.AgentStore], fx.As(new(agentport.AgentStore))),
 			fx.Annotate(identity[*cached.ServerStore], fx.As(new(agentport.ServerStore))),
 			fx.Annotate(provideNotificationStore, fx.As(new(agentport.NotificationStore))),

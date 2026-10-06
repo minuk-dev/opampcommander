@@ -1,12 +1,18 @@
 package agentport
 
-import "context"
+import (
+	"context"
+
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+)
 
 // AgentGroupChange identifies a saved or deleted group needing propagation.
-// Consumers reload it from persistence, including soft-deleted groups.
+// Consumers reload its configuration, but retain the affected selector so a later
+// selector change or recreation cannot strand its former members.
 type AgentGroupChange struct {
 	Namespace string
 	Name      string
+	Selector  agentmodel.AgentSelector
 }
 
 // AgentGroupChangeStore owns the node-local propagation queue. The periodic

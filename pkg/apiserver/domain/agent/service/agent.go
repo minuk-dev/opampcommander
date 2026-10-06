@@ -179,7 +179,7 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 // the cache entry expired. The caller is expected to re-read and retry (or, for the
 // heartbeat path, simply let the next message re-report the state).
 func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) error {
-	err := s.agentStore.PutAgent(ctx, agent)
+	err := s.agentStore.Put(ctx, agent)
 	if err != nil {
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
 	}
@@ -200,7 +200,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 // write may not be visible in this process's cache yet. A still-connected agent is
 // rejected with [agentport.ErrAgentConnected].
 func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	agent, err := s.agentStore.GetAgentFresh(ctx, instanceUID)
+	agent, err := s.agentStore.GetFresh(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent for deletion: %w", err)
 	}
@@ -214,7 +214,7 @@ func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) e
 		return fmt.Errorf("failed to delete agent: %w", agentport.ErrAgentConnected)
 	}
 
-	err = s.agentStore.DeleteAgent(ctx, instanceUID)
+	err = s.agentStore.Delete(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to delete agent from persistence: %w", err)
 	}
@@ -278,7 +278,7 @@ func (s *AgentService) SearchAgents(
 // getStoredAgent reads the durable document through the Store. The service
 // overlays fresh liveness separately rather than caching that observation.
 func (s *AgentService) getStoredAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
-	agent, err := s.agentStore.GetAgent(ctx, instanceUID)
+	agent, err := s.agentStore.Get(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
 	}

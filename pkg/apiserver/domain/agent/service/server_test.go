@@ -387,9 +387,10 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
+	fakeClock := newTestFakeClock(now)
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, fakeClock, agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -399,7 +400,6 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
-	fakeClock := newTestFakeClock(now)
 	svc.SetClock(fakeClock)
 
 	server1, err := svc.GetServer(ctx, serverID)
@@ -435,9 +435,10 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
+	fakeClock := newTestFakeClock(now)
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, fakeClock, agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -447,7 +448,6 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
-	fakeClock := newTestFakeClock(now)
 	svc.SetClock(fakeClock)
 
 	server1, err := svc.GetServer(ctx, serverID)
@@ -479,7 +479,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, clock.NewRealClock(), agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -523,9 +523,10 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 	mockConnection := new(MockConnectionUsecase)
 	mockAgent := new(MockAgentUsecase)
 
+	fakeClock := newTestFakeClock(now)
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, fakeClock, agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -535,7 +536,6 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
 	)
 
-	fakeClock := newTestFakeClock(now)
 	svc.SetClock(fakeClock)
 
 	server1, err := svc.GetServer(ctx, serverID)
@@ -579,7 +579,7 @@ func TestServerService_SendMessageToServer_LocalShortCircuit(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, clock.NewRealClock(), agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -630,7 +630,7 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, clock.NewRealClock(), agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -683,7 +683,7 @@ func newLeaderTestService(
 ) *agentservice.ServerService {
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, clock.NewRealClock(), agentservice.DefaultHeartbeatTimeout),
 		new(MockServerEventSenderPort),
 		new(MockServerEventReceiverPort),
 		mockIdentity,
@@ -706,7 +706,7 @@ func newServerServiceForInvalidation(
 ) *agentservice.ServerService {
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, clock.NewRealClock(), agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		new(MockServerEventReceiverPort),
 		mockIdentity,
