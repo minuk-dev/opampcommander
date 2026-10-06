@@ -74,10 +74,16 @@ encapsulate the mutexes or conditional database writes needed for those
 operations. Guarantees spanning multiple Stores must be defined explicitly;
 separate thread-safe methods alone do not make a whole workflow atomic.
 
-This is the design rule for new and refactored code. Some other existing Services
-still own agent caches or notification buffers; moving that ownership into
-Stores remains migration work. The migration is not yet complete across all
-Services.
+Agent and Server Services use read-through Stores over their persistence ports.
+The Stores own cache TTL, capacity, cloning, invalidation, and shutdown. Fresh
+agent reads bypass the cache when a deletion decision must observe other writers.
+
+The notification Store owns per-server pending UID sets, early-flush signals, and
+the dispatch queue. The agent-group change Store queues namespace/name values;
+the Service reloads the current group, including deleted groups, before applying
+it. These queues are node-local and best-effort: durable agent messages and the
+periodic group reconcile remain their recovery paths. Worker lifetime tracking
+is local to each Service Run invocation, not shared resource state.
 
 ### System overview
 

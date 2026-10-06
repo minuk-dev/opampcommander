@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cached "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 )
@@ -105,8 +106,10 @@ func simulateFleet(t *testing.T, heartbeat time.Duration) (time.Duration, *store
 	testClock := &fixedClock{}
 
 	service := agentservice.NewAgentService(
-		persistence, liveness, newFakeLivenessMetrics(), slog.New(slog.DiscardHandler),
-		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		cached.NewAgentStore(persistence, cached.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0}),
+		liveness,
+		newFakeLivenessMetrics(),
+		slog.New(slog.DiscardHandler),
 		// Deliberately oversized: the service must clamp it into the budget rather
 		// than honour a throttle that would push the document past the window.
 		agentservice.AgentLivenessConfig{PersistThrottle: 10 * time.Minute},

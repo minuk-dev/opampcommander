@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jellydator/ttlcache/v3"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -26,22 +25,13 @@ var (
 	ErrNoCurrentServerID = errors.New("current server has no identity")
 )
 
-const (
-	// DefaultServerCacheTTL is the default time-to-live for server cache entries.
-	DefaultServerCacheTTL = 30 * time.Second
-	// DefaultServerCacheCapacity is the default maximum number of server cache entries.
-	DefaultServerCacheCapacity = 100
-)
-
 // ServerService is a struct that implements the ServerUsecase interface.
 type ServerService struct {
 	logger           *slog.Logger
 	clock            clock.Clock
 	heartbeatTimeout time.Duration
 
-	serverCache *ttlcache.Cache[string, *agentmodel.Server]
-
-	serverPersistencePort   agentport.ServerPersistencePort
+	serverStore             agentport.ServerStore
 	serverEventSenderPort   agentport.ServerEventSenderPort
 	serverEventReceiverPort agentport.ServerEventReceiverPort
 	serverIdentityProvider  agentport.ServerIdentityProvider
@@ -54,7 +44,7 @@ type ServerService struct {
 // NewServerService creates a new instance of the ServerService.
 func NewServerService(
 	logger *slog.Logger,
-	serverPersistencePort agentport.ServerPersistencePort,
+	serverStore agentport.ServerStore,
 	serverEventSenderPort agentport.ServerEventSenderPort,
 	serverEventReceiverPort agentport.ServerEventReceiverPort,
 	serverIdentityProvider agentport.ServerIdentityProvider,
@@ -63,21 +53,10 @@ func NewServerService(
 	agentCacheInvalidator agentport.AgentCacheInvalidator,
 	serverToAgentBuilder *ServerToAgentBuilder,
 ) *ServerService {
-	serverCache := ttlcache.New[string, *agentmodel.Server](
-		ttlcache.WithTTL[string, *agentmodel.Server](DefaultServerCacheTTL),
-		ttlcache.WithCapacity[string, *agentmodel.Server](DefaultServerCacheCapacity),
-	)
-
-	logger.Info("server cache initialized",
-		slog.Duration("ttl", DefaultServerCacheTTL),
-		slog.Int64("maxCapacity", DefaultServerCacheCapacity),
-	)
-
 	return &ServerService{
 		logger:                  logger,
 		clock:                   clock.NewRealClock(),
-		serverCache:             serverCache,
-		serverPersistencePort:   serverPersistencePort,
+		serverStore:             serverStore,
 		serverEventSenderPort:   serverEventSenderPort,
 		serverEventReceiverPort: serverEventReceiverPort,
 		serverIdentityProvider:  serverIdentityProvider,
@@ -99,14 +78,6 @@ func (s *ServerService) SetClock(c clock.Clock) {
 	s.clock = c
 }
 
-// Shutdown releases resources held by the service.
-// This should be called during graceful shutdown.
-func (s *ServerService) Shutdown() {
-	s.logger.Info("shutting down server service, clearing cache")
-	s.serverCache.DeleteAll()
-	s.serverCache.Stop()
-}
-
 // Run starts the server service.
 //
 // The message-receiving loop runs directly: Run is already invoked on its own goroutine
@@ -123,24 +94,17 @@ func (s *ServerService) Run(ctx context.Context) error {
 
 // GetServer implements agentport.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*agentmodel.Server, error) {
-	cachedServer, ok := s.getCachedServer(id)
-	if ok {
-		return cachedServer, nil
-	}
-
-	server, err := s.serverPersistencePort.GetServer(ctx, id)
+	server, err := s.serverStore.GetServer(ctx, id, s.clock.Now(), s.heartbeatTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
-
-	s.updateCachedServer(server)
 
 	return server, nil
 }
 
 // ListServers implements agentport.ServerUsecase.
 func (s *ServerService) ListServers(ctx context.Context) ([]*agentmodel.Server, error) {
-	servers, err := s.serverPersistencePort.ListServers(ctx)
+	servers, err := s.serverStore.ListServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list servers: %w", err)
 	}
@@ -197,7 +161,7 @@ func (s *ServerService) SendMessageToServerByServerID(
 	serverID string,
 	message serverevent.Message,
 ) error {
-	server, err := s.serverPersistencePort.GetServer(ctx, serverID)
+	server, err := s.serverStore.GetServerFresh(ctx, serverID)
 	if err != nil {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
@@ -413,28 +377,4 @@ func (s *ServerService) sendServerToAgentForInstance(ctx context.Context, instan
 	}
 
 	return nil
-}
-
-func (s *ServerService) getCachedServer(id string) (*agentmodel.Server, bool) {
-	item := s.serverCache.Get(id)
-	if item == nil {
-		return nil, false
-	}
-
-	server := item.Value()
-	if !server.IsAlive(s.clock.Now(), s.heartbeatTimeout) {
-		s.invalidateCachedServer(id)
-
-		return nil, false
-	}
-
-	return server.Clone(), true
-}
-
-func (s *ServerService) invalidateCachedServer(id string) {
-	s.serverCache.Delete(id)
-}
-
-func (s *ServerService) updateCachedServer(server *agentmodel.Server) {
-	s.serverCache.Set(server.ID, server, ttlcache.DefaultTTL)
 }

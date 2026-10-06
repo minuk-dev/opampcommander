@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jellydator/ttlcache/v3"
 	"k8s.io/utils/clock"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -22,10 +21,6 @@ var (
 )
 
 const (
-	// DefaultAgentCacheTTL is the default time-to-live for agent cache entries.
-	DefaultAgentCacheTTL = 30 * time.Second
-	// DefaultAgentCacheCapacity is the default maximum number of agent cache entries.
-	DefaultAgentCacheCapacity int64 = 1000
 	// DefaultLivenessPersistThrottle is the minimum interval between write-throughs of
 	// an agent whose only change is that it is still alive. Bursts of heartbeats in the
 	// same window share a single durable write; anything that changed durable state is
@@ -44,13 +39,6 @@ type AgentLivenessConfig struct {
 	PersistThrottle time.Duration
 }
 
-// AgentCacheConfig holds the configuration for agent caching.
-type AgentCacheConfig struct {
-	Enabled     bool
-	TTL         time.Duration
-	MaxCapacity int64
-}
-
 // DefaultAgentLivenessConfig returns the liveness configuration used when no
 // explicit configuration is supplied.
 func DefaultAgentLivenessConfig() AgentLivenessConfig {
@@ -61,10 +49,8 @@ func DefaultAgentLivenessConfig() AgentLivenessConfig {
 
 // AgentService is a struct that implements the AgentUsecase interface.
 type AgentService struct {
-	agentPersistencePort agentport.AgentPersistencePort
-	logger               *slog.Logger
-	agentCache           *ttlcache.Cache[uuid.UUID, *agentmodel.Agent]
-	cacheEnabled         bool
+	agentStore agentport.AgentStore
+	logger     *slog.Logger
 	// defaultNamespace is the namespace assigned to a newly-seen agent that has
 	// not reported a service.namespace. Sourced from configuration.
 	defaultNamespace string
@@ -80,25 +66,14 @@ type AgentService struct {
 	livenessPersistThrottle time.Duration
 }
 
-// DefaultAgentCacheConfig returns the cache configuration used when no explicit
-// configuration is supplied (caching enabled with the default TTL/capacity).
-func DefaultAgentCacheConfig() AgentCacheConfig {
-	return AgentCacheConfig{
-		Enabled:     true,
-		TTL:         DefaultAgentCacheTTL,
-		MaxCapacity: DefaultAgentCacheCapacity,
-	}
-}
-
 // NewAgentService creates a new instance of AgentService.
 // defaultNamespace is the namespace assigned to newly-seen agents without a service.namespace;
 // an empty value falls back to agentmodel.DefaultNamespaceName.
 func NewAgentService(
-	agentPersistencePort agentport.AgentPersistencePort,
+	agentStore agentport.AgentStore,
 	agentLivenessPort agentport.AgentLivenessPort,
 	livenessMetricsPort agentport.AgentLivenessMetricsPort,
 	logger *slog.Logger,
-	cacheConfig AgentCacheConfig,
 	livenessConfig AgentLivenessConfig,
 	defaultNamespace string,
 	passiveClock clock.PassiveClock,
@@ -113,31 +88,11 @@ func NewAgentService(
 
 	persistThrottle := clampPersistThrottle(livenessConfig.PersistThrottle, logger)
 
-	if !cacheConfig.Enabled {
-		logger.Info("agent cache disabled")
-
-		return &AgentService{
-			agentPersistencePort:    agentPersistencePort,
-			agentLivenessPort:       agentLivenessPort,
-			livenessMetricsPort:     livenessMetricsPort,
-			logger:                  logger,
-			agentCache:              nil,
-			cacheEnabled:            false,
-			defaultNamespace:        defaultNamespace,
-			clock:                   passiveClock,
-			livenessPersistThrottle: persistThrottle,
-		}
-	}
-
-	agentCache := newAgentCache(cacheConfig, logger)
-
 	return &AgentService{
-		agentPersistencePort:    agentPersistencePort,
+		agentStore:              agentStore,
 		agentLivenessPort:       agentLivenessPort,
 		livenessMetricsPort:     livenessMetricsPort,
 		logger:                  logger,
-		agentCache:              agentCache,
-		cacheEnabled:            true,
 		defaultNamespace:        defaultNamespace,
 		clock:                   passiveClock,
 		livenessPersistThrottle: persistThrottle,
@@ -170,54 +125,9 @@ func clampPersistThrottle(throttle time.Duration, logger *slog.Logger) time.Dura
 	return throttle
 }
 
-// newAgentCache builds the read cache, falling back to the package defaults for
-// unset or nonsensical bounds.
-func newAgentCache(
-	cacheConfig AgentCacheConfig,
-	logger *slog.Logger,
-) *ttlcache.Cache[uuid.UUID, *agentmodel.Agent] {
-	ttl := cacheConfig.TTL
-	if ttl <= 0 {
-		ttl = DefaultAgentCacheTTL
-	}
-
-	capacity := cacheConfig.MaxCapacity
-	if capacity <= 0 {
-		capacity = DefaultAgentCacheCapacity
-	}
-
-	logger.Info("agent cache initialized",
-		slog.Duration("ttl", ttl),
-		slog.Int64("maxCapacity", capacity),
-	)
-
-	return ttlcache.New[uuid.UUID, *agentmodel.Agent](
-		ttlcache.WithTTL[uuid.UUID, *agentmodel.Agent](ttl),
-		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(capacity)),
-		// Heartbeats must eventually reload desired state even if a cache-invalidation event is lost.
-		ttlcache.WithDisableTouchOnHit[uuid.UUID, *agentmodel.Agent](),
-	)
-}
-
-// Shutdown releases resources held by the service.
-// This should be called during graceful shutdown.
-func (s *AgentService) Shutdown() {
-	if !s.cacheEnabled {
-		return
-	}
-
-	s.logger.Info("shutting down agent service, clearing cache")
-	s.agentCache.DeleteAll()
-	s.agentCache.Stop()
-}
-
-// InvalidateCache removes a specific agent from the cache.
+// InvalidateCache delegates to the Store that owns the local cache.
 func (s *AgentService) InvalidateCache(instanceUID uuid.UUID) {
-	if !s.cacheEnabled {
-		return
-	}
-
-	s.agentCache.Delete(instanceUID)
+	s.agentStore.InvalidateCache(instanceUID)
 }
 
 // GetAgent retrieves an agent by its instance UID, with its liveness fields
@@ -269,20 +179,9 @@ func (s *AgentService) GetOrCreateAgent(ctx context.Context, instanceUID uuid.UU
 // the cache entry expired. The caller is expected to re-read and retry (or, for the
 // heartbeat path, simply let the next message re-report the state).
 func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) error {
-	err := s.agentPersistencePort.PutAgent(ctx, agent)
+	err := s.agentStore.PutAgent(ctx, agent)
 	if err != nil {
-		if errors.Is(err, model.ErrConflict) {
-			s.InvalidateCache(agent.Metadata.InstanceUID)
-		}
-
 		return fmt.Errorf("failed to save agent to persistence: %w", err)
-	}
-
-	// Cache a clone to prevent external mutations from affecting cache. PutAgent has
-	// bumped agent.Metadata.ResourceVersion on success, so the cached clone carries
-	// the new version and the next SaveAgent from this process uses the right token.
-	if s.cacheEnabled {
-		s.agentCache.Set(agent.Metadata.InstanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
 	s.markLivenessPersisted(ctx, agent.Metadata.InstanceUID, agent.Status.LastReportedAt,
@@ -301,7 +200,7 @@ func (s *AgentService) SaveAgent(ctx context.Context, agent *agentmodel.Agent) e
 // write may not be visible in this process's cache yet. A still-connected agent is
 // rejected with [agentport.ErrAgentConnected].
 func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) error {
-	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
+	agent, err := s.agentStore.GetAgentFresh(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to get agent for deletion: %w", err)
 	}
@@ -315,7 +214,7 @@ func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) e
 		return fmt.Errorf("failed to delete agent: %w", agentport.ErrAgentConnected)
 	}
 
-	err = s.agentPersistencePort.DeleteAgent(ctx, instanceUID)
+	err = s.agentStore.DeleteAgent(ctx, instanceUID)
 	if err != nil {
 		return fmt.Errorf("failed to delete agent from persistence: %w", err)
 	}
@@ -323,8 +222,6 @@ func (s *AgentService) DeleteAgent(ctx context.Context, instanceUID uuid.UUID) e
 	// Drop the fast-tier record too, or a read path merging liveness over the
 	// durable store would resurrect the deleted agent's connection state.
 	_ = s.ForgetAgentLiveness(ctx, instanceUID)
-
-	s.InvalidateCache(instanceUID)
 
 	return nil
 }
@@ -335,7 +232,7 @@ func (s *AgentService) ListAgents(
 	namespace string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	res, err := s.agentPersistencePort.ListAgents(ctx, namespace, options)
+	res, err := s.agentStore.ListAgents(ctx, namespace, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
@@ -351,7 +248,7 @@ func (s *AgentService) ListAgentsBySelector(
 	selector agentmodel.AgentSelector,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	resp, err := s.agentPersistencePort.ListAgentsBySelector(ctx, selector, options)
+	resp, err := s.agentStore.ListAgentsBySelector(ctx, selector, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents by selector: %w", err)
 	}
@@ -368,7 +265,7 @@ func (s *AgentService) SearchAgents(
 	query string,
 	options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Agent], error) {
-	resp, err := s.agentPersistencePort.SearchAgents(ctx, namespace, query, options)
+	resp, err := s.agentStore.SearchAgents(ctx, namespace, query, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search agents: %w", err)
 	}
@@ -378,28 +275,12 @@ func (s *AgentService) SearchAgents(
 	return resp, nil
 }
 
-// getStoredAgent returns the agent as the durable store holds it, reading through
-// the local cache. Liveness is deliberately not merged here: the cache holds the
-// durable document, so the fast tier is consulted per read rather than frozen into
-// a cache entry for the whole TTL.
+// getStoredAgent reads the durable document through the Store. The service
+// overlays fresh liveness separately rather than caching that observation.
 func (s *AgentService) getStoredAgent(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Agent, error) {
-	// Try cache first
-	if s.cacheEnabled {
-		item := s.agentCache.Get(instanceUID)
-		if item != nil {
-			// Return a clone to prevent callers from mutating cached data
-			return item.Value().Clone(), nil
-		}
-	}
-
-	agent, err := s.agentPersistencePort.GetAgent(ctx, instanceUID)
+	agent, err := s.agentStore.GetAgent(ctx, instanceUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent from persistence: %w", err)
-	}
-
-	// Cache a clone to prevent external mutations from affecting cache
-	if s.cacheEnabled {
-		s.agentCache.Set(instanceUID, agent.Clone(), ttlcache.DefaultTTL)
 	}
 
 	return agent, nil

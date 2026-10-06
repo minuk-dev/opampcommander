@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cached "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -31,11 +32,10 @@ func newTestAgentService(
 	logger *slog.Logger,
 ) *agentservice.AgentService {
 	return agentservice.NewAgentService(
-		persistence,
+		cached.NewAgentStore(persistence, cached.DefaultAgentCacheConfig()),
 		newFakeLivenessPort(),
 		newFakeLivenessMetrics(),
 		logger,
-		agentservice.DefaultAgentCacheConfig(),
 		agentservice.DefaultAgentLivenessConfig(),
 		"",
 		nil,
@@ -762,12 +762,16 @@ func TestAgentService_HeartbeatReadsReloadAfterLostInvalidation(t *testing.T) {
 		persistence.On("GetAgent", ctx, instanceUID).Return(original, nil).Once()
 		persistence.On("GetAgent", ctx, instanceUID).Return(updated, nil).Once()
 
-		cacheConfig := agentservice.DefaultAgentCacheConfig()
+		cacheConfig := cached.DefaultAgentCacheConfig()
 		cacheConfig.TTL = 2 * time.Second
+
+		store := cached.NewAgentStore(persistence, cacheConfig)
+		defer store.Shutdown()
+
 		logger := slog.New(slog.DiscardHandler)
 
-		svc := agentservice.NewAgentService(persistence, newFakeLivenessPort(), newFakeLivenessMetrics(),
-			logger, cacheConfig, agentservice.DefaultAgentLivenessConfig(), "", nil)
+		svc := agentservice.NewAgentService(store, newFakeLivenessPort(), newFakeLivenessMetrics(),
+			logger, agentservice.DefaultAgentLivenessConfig(), "", nil)
 		for range 4 {
 			cached, err := svc.GetOrCreateAgent(ctx, instanceUID)
 			require.NoError(t, err)
@@ -934,34 +938,6 @@ func TestAgentService_DeleteAgent_PersistenceError(t *testing.T) {
 
 	require.Error(t, err)
 	mockPersistence.AssertExpectations(t)
-}
-
-func TestAgentService_Shutdown(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	instanceUID := uuid.New()
-
-	mockAgent := agentmodel.NewAgent(instanceUID)
-
-	mockPersistence := new(MockAgentPersistencePort)
-	mockPersistence.On("GetAgent", ctx, instanceUID).Return(mockAgent, nil).Times(2)
-
-	svc := newTestAgentService(mockPersistence, slog.Default())
-
-	// First call - caches the agent
-	_, err := svc.GetAgent(ctx, instanceUID)
-	require.NoError(t, err)
-
-	// Shutdown clears cache
-	svc.Shutdown()
-
-	// Second call - should hit persistence again
-	_, err = svc.GetAgent(ctx, instanceUID)
-	require.NoError(t, err)
-
-	mockPersistence.AssertExpectations(t)
-	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 2)
 }
 
 // fakeLivenessMetrics counts what the service reports about the fast tier.

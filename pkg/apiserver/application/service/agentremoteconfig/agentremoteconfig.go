@@ -177,7 +177,7 @@ func (s *Service) actor(ctx context.Context) string {
 
 // triggerGroupPropagation asks the agent group service to re-apply any groups in the
 // namespace that reference this config. Runs in its own goroutine so a slow
-// changedAgentGroupCh consumer cannot block the HTTP handler; the periodic
+// group propagation Store consumer cannot block the HTTP handler; the periodic
 // reconciliation loop is the durable safety net.
 //
 // We detach the goroutine from the request ctx with context.WithoutCancel so the
