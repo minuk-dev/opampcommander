@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cached "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -31,8 +32,10 @@ func newFlushFixture(t *testing.T, staleAfter time.Duration) *flushFixture {
 	liveness := newFakeLivenessPort()
 
 	service := agentservice.NewAgentService(
-		persistence, liveness, newFakeLivenessMetrics(), slog.Default(),
-		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		cached.NewAgentStore(persistence, cached.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0}),
+		liveness,
+		newFakeLivenessMetrics(),
+		slog.Default(),
 		// A long throttle so the per-message path never writes on its own and the
 		// flusher is unambiguously the thing under test.
 		agentservice.AgentLivenessConfig{PersistThrottle: time.Hour},
@@ -164,9 +167,13 @@ func TestFlush_ReportsAFastTierFailure(t *testing.T) {
 
 	persistence := new(MockAgentPersistencePort)
 	service := agentservice.NewAgentService(
-		persistence, brokenLivenessPort{}, newFakeLivenessMetrics(), slog.Default(),
-		agentservice.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
-		agentservice.DefaultAgentLivenessConfig(), "", nil,
+		cached.NewAgentStore(persistence, cached.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0}),
+		brokenLivenessPort{},
+		newFakeLivenessMetrics(),
+		slog.Default(),
+		agentservice.DefaultAgentLivenessConfig(),
+		"",
+		nil,
 	)
 	flusher := agentservice.NewAgentLivenessFlusher(
 		service, brokenLivenessPort{}, agentservice.DefaultAgentLivenessFlushConfig(), slog.Default(), nil,

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	cached "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
@@ -182,8 +183,10 @@ func runHeartbeats(
 	testClock := &benchClock{now: time.Date(2026, time.August, 20, 10, 0, 0, 0, time.UTC)}
 
 	service := NewAgentService(
-		persistence, liveness, benchMetrics{}, slog.New(slog.DiscardHandler),
-		AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0},
+		cached.NewAgentStore(persistence, cached.AgentCacheConfig{Enabled: false, TTL: 0, MaxCapacity: 0}),
+		liveness,
+		benchMetrics{},
+		slog.New(slog.DiscardHandler),
 		AgentLivenessConfig{PersistThrottle: throttle},
 		"",
 		testClock,

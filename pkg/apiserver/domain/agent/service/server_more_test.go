@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cached "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
@@ -28,7 +29,7 @@ func newServerServiceForSend(
 ) *agentservice.ServerService {
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		new(MockServerEventReceiverPort),
 		mockIdentity,
@@ -54,7 +55,7 @@ func TestServerService_Run_DelegatesToReceiver(t *testing.T) {
 
 		svc := agentservice.NewServerService(
 			slog.Default(),
-			new(MockServerPersistencePort),
+			cached.NewServerStore(new(MockServerPersistencePort)),
 			new(MockServerEventSenderPort),
 			mockReceiver,
 			new(MockServerIdentityProvider),
@@ -77,7 +78,7 @@ func TestServerService_Run_DelegatesToReceiver(t *testing.T) {
 
 		svc := agentservice.NewServerService(
 			slog.Default(),
-			new(MockServerPersistencePort),
+			cached.NewServerStore(new(MockServerPersistencePort)),
 			new(MockServerEventSenderPort),
 			mockReceiver,
 			new(MockServerIdentityProvider),
@@ -105,41 +106,6 @@ func TestServerService_Name(t *testing.T) {
 	)
 
 	assert.Equal(t, "ServerService", svc.Name())
-}
-
-func TestServerService_Shutdown_ClearsCache(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	now := time.Now()
-	serverID := testServerID
-
-	mockPersistence := new(MockServerPersistencePort)
-	mockPersistence.On("GetServer", ctx, serverID).
-		Return(&agentmodel.Server{ID: serverID, LastHeartbeatAt: now}, nil).Once()
-
-	svc := newServerServiceForSend(
-		mockPersistence,
-		new(MockServerEventSenderPort),
-		new(MockServerIdentityProvider),
-		new(MockConnectionUsecase),
-		new(MockAgentUsecase),
-		now,
-	)
-
-	// Populate the cache, then drop it. A subsequent get must hit persistence again.
-	_, err := svc.GetServer(ctx, serverID)
-	require.NoError(t, err)
-
-	svc.Shutdown()
-
-	mockPersistence.On("GetServer", ctx, serverID).
-		Return(&agentmodel.Server{ID: serverID, LastHeartbeatAt: now}, nil).Once()
-
-	_, err = svc.GetServer(ctx, serverID)
-	require.NoError(t, err)
-
-	mockPersistence.AssertNumberOfCalls(t, "GetServer", 2)
 }
 
 func TestServerService_ListServers_FiltersDeadServers(t *testing.T) {

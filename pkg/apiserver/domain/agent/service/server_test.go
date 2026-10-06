@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	cached "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
@@ -388,7 +389,7 @@ func TestServerService_GetServer_CacheHit(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -436,7 +437,7 @@ func TestServerService_GetServer_CacheMiss_Expired(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -478,7 +479,7 @@ func TestServerService_GetServer_DatabaseError(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -524,7 +525,7 @@ func TestServerService_GetServer_CacheUpdate(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -578,7 +579,7 @@ func TestServerService_SendMessageToServer_LocalShortCircuit(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -629,7 +630,7 @@ func TestServerService_SendMessageToServer_RemoteDispatch(t *testing.T) {
 
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		mockEventReceiver,
 		mockIdentity,
@@ -682,7 +683,7 @@ func newLeaderTestService(
 ) *agentservice.ServerService {
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		new(MockServerEventSenderPort),
 		new(MockServerEventReceiverPort),
 		mockIdentity,
@@ -705,7 +706,7 @@ func newServerServiceForInvalidation(
 ) *agentservice.ServerService {
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		mockPersistence,
+		cached.NewServerStore(mockPersistence),
 		mockEventSender,
 		new(MockServerEventReceiverPort),
 		mockIdentity,

@@ -173,6 +173,18 @@ linters:
           deny:
             - pkg: go.uber.org/fx
               desc: Only pkg/apiserver/internal (the composition root) may import fx.
+        service-no-store-implementation:
+          # Services use domain ports; cache and mutable storage implementations
+          # belong in secondary adapters, including their concrete dependencies.
+          files:
+            - "**/pkg/apiserver/domain/**/service/**"
+            - "**/pkg/apiserver/application/service/**"
+            - "!**/*_test.go"
+          deny:
+            - pkg: github.com/jellydator/ttlcache/v3
+              desc: Services must delegate cache ownership to Stores.
+            - pkg: github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store
+              desc: Services must depend on Store ports, not concrete adapters.
         adapter-primary-no-domain:
           # Primary (driving) adapters must reach the core only through the
           # application layer (application/port + api/v1), never the domain
