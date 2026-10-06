@@ -214,14 +214,10 @@ func NewCommand(opt CommandOption) *cobra.Command {
 
 	kafkaDefaults := appconfig.DefaultKafkaSettings()
 	cmd.PersistentFlags().Duration("event.kafka.sendTimeout", kafkaDefaults.SendTimeout,
-		"total Kafka event send timeout, including retries and backoff")
+		"Kafka enqueue and producer/socket operation timeout")
 	cmd.PersistentFlags().Duration("event.kafka.retryBackoff", kafkaDefaults.RetryBackoff, "Kafka retry delay")
 	cmd.PersistentFlags().Int("event.kafka.retryAttempts", kafkaDefaults.RetryAttempts,
 		"Kafka send attempts including the initial attempt (1 disables retries)")
-	cmd.PersistentFlags().Int("event.kafka.failureThreshold", kafkaDefaults.FailureThreshold,
-		"failed Kafka sends before opening the circuit breaker")
-	cmd.PersistentFlags().Duration("event.kafka.probeInterval", kafkaDefaults.ProbeInterval,
-		"Kafka circuit breaker cooldown before allowing a recovery probe")
 	cmd.PersistentFlags().String("management.address", "localhost:9090", "management server address")
 	cmd.PersistentFlags().Bool("management.metric.enabled", false, "enable metrics")
 	cmd.PersistentFlags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")

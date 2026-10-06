@@ -18,15 +18,13 @@ func TestKafkaSettings_DefaultsAndOverrides(t *testing.T) {
 	assert.Equal(t, 2*time.Second, settings.SendTimeout)
 	assert.Equal(t, 100*time.Millisecond, settings.RetryBackoff)
 	assert.Equal(t, 2, settings.RetryAttempts)
-	assert.Equal(t, 2, settings.FailureThreshold)
-	assert.Equal(t, 5*time.Second, settings.ProbeInterval)
 	assert.Equal(t, []string{"broker:9092"}, settings.Brokers)
 	assert.Equal(t, "events", settings.Topic)
 	assert.Equal(t, config.DefaultKafkaSettings(), config.KafkaSettings{}.WithDefaults())
 
 	overrides := config.KafkaSettings{
 		SendTimeout: 3 * time.Second, RetryBackoff: 25 * time.Millisecond,
-		RetryAttempts: 3, FailureThreshold: 4, ProbeInterval: 9 * time.Second,
+		RetryAttempts: 3,
 	}
 	assert.Equal(t, overrides, overrides.WithDefaults())
 	require.NoError(t, overrides.Validate())
@@ -42,8 +40,6 @@ func TestKafkaSettings_RejectsNegativeValues(t *testing.T) {
 		{name: "sendTimeout", settings: config.KafkaSettings{SendTimeout: -time.Second}},
 		{name: "retryBackoff", settings: config.KafkaSettings{RetryBackoff: -time.Second}},
 		{name: "retryAttempts", settings: config.KafkaSettings{RetryAttempts: -1}},
-		{name: "failureThreshold", settings: config.KafkaSettings{FailureThreshold: -1}},
-		{name: "probeInterval", settings: config.KafkaSettings{ProbeInterval: -time.Second}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()

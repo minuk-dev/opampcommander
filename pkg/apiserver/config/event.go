@@ -10,11 +10,9 @@ import (
 var ErrKafkaSendSettingsInvalid = errors.New("kafka delivery settings must not be negative")
 
 const (
-	defaultKafkaSendTimeout      = 2 * time.Second
-	defaultKafkaRetryBackoff     = 100 * time.Millisecond
-	defaultKafkaRetryAttempts    = 2
-	defaultKafkaFailureThreshold = 2
-	defaultKafkaProbeInterval    = 5 * time.Second
+	defaultKafkaSendTimeout   = 2 * time.Second
+	defaultKafkaRetryBackoff  = 100 * time.Millisecond
+	defaultKafkaRetryAttempts = 2
 )
 
 // EventSettings represents the event settings.
@@ -35,16 +33,12 @@ type KafkaSettings struct {
 	Brokers []string `mapstructure:"brokers"`
 	// Topic is the Kafka topic name for events.
 	Topic string `mapstructure:"topic"`
-	// SendTimeout bounds all attempts for a single event, including backoff. Default: 2s.
+	// SendTimeout bounds enqueue and individual producer/socket operations. Default: 2s.
 	SendTimeout time.Duration `mapstructure:"sendTimeout"`
 	// RetryBackoff is the delay between successive send attempts. Default: 100ms.
 	RetryBackoff time.Duration `mapstructure:"retryBackoff"`
 	// RetryAttempts includes the initial attempt; 1 disables retries. Default: 2.
 	RetryAttempts int `mapstructure:"retryAttempts"`
-	// FailureThreshold is the number of failed sends that opens the breaker. Default: 2.
-	FailureThreshold int `mapstructure:"failureThreshold"`
-	// ProbeInterval is how long the breaker stays open before allowing a probe. Default: 5s.
-	ProbeInterval time.Duration `mapstructure:"probeInterval"`
 }
 
 // DefaultKafkaSettings returns the default Kafka delivery settings.
@@ -66,22 +60,13 @@ func (s KafkaSettings) WithDefaults() KafkaSettings {
 		s.RetryAttempts = defaultKafkaRetryAttempts
 	}
 
-	if s.FailureThreshold == 0 {
-		s.FailureThreshold = defaultKafkaFailureThreshold
-	}
-
-	if s.ProbeInterval == 0 {
-		s.ProbeInterval = defaultKafkaProbeInterval
-	}
-
 	return s
 }
 
 // Validate rejects negative settings; zero means use the default.
 func (s KafkaSettings) Validate() error {
-	if s.SendTimeout < 0 || s.RetryBackoff < 0 || s.RetryAttempts < 0 ||
-		s.FailureThreshold < 0 || s.ProbeInterval < 0 {
-		return fmt.Errorf("%w: sendTimeout, retryBackoff, retryAttempts, failureThreshold, probeInterval",
+	if s.SendTimeout < 0 || s.RetryBackoff < 0 || s.RetryAttempts < 0 {
+		return fmt.Errorf("%w: sendTimeout, retryBackoff, retryAttempts",
 			ErrKafkaSendSettingsInvalid)
 	}
 

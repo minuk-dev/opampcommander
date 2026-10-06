@@ -97,15 +97,11 @@ event:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
     # Delivery settings: omitted or zero values use these defaults; negative values are rejected.
-    # Total time for one event, including all attempts and backoff; also bounds producer/socket operations.
+    # Enqueue wait limit and individual producer/socket operation timeout.
     sendTimeout: 2s
     retryBackoff: 100ms
     # Includes the initial attempt. Set to 1 to disable retries.
     retryAttempts: 2
-    # Consecutive failed sends before opening the circuit breaker.
-    failureThreshold: 2
-    # Cooldown before the next send is allowed to probe recovery.
-    probeInterval: 5s
 
 # Agent liveness fast tier.
 #

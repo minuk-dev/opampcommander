@@ -262,11 +262,12 @@ func (b *Base) StartAPIServerWithKafka(mongoURI, kafkaBroker, databaseName strin
 	settings := buildServerSettings(serverID, serverPort, managementPort, mongoURI, databaseName)
 	//exhaustruct:ignore
 	settings.EventSettings = config.EventSettings{
-		ProtocolType:  config.EventProtocolTypeKafka,
-		KafkaSettings: config.DefaultKafkaSettings(),
+		ProtocolType: config.EventProtocolTypeKafka,
+		KafkaSettings: config.KafkaSettings{
+			Brokers: []string{kafkaBroker},
+			Topic:   kafkaEventTopic,
+		},
 	}
-	settings.EventSettings.KafkaSettings.Brokers = []string{kafkaBroker}
-	settings.EventSettings.KafkaSettings.Topic = kafkaEventTopic
 
 	return b.launchAPIServer(settings, serverID, serverPort, managementPort, mongoURI)
 }

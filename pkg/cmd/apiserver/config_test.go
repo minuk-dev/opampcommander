@@ -29,8 +29,6 @@ event:
     sendTimeout: 3s
     retryBackoff: 25ms
     retryAttempts: 3
-    failureThreshold: 4
-    probeInterval: 9s
 `), 0o600)
 	require.NoError(t, err)
 
@@ -84,8 +82,6 @@ event:
 		assert.Equal(t, "3s", kafka["sendTimeout"])
 		assert.Equal(t, "40ms", kafka["retryBackoff"])
 		assert.Equal(t, 5, kafka["retryAttempts"])
-		assert.Equal(t, 4, kafka["failureThreshold"])
-		assert.Equal(t, "9s", kafka["probeInterval"])
 	})
 
 	t.Run("Kafka flags override YAML and environment", func(t *testing.T) {
@@ -98,16 +94,13 @@ event:
 
 	t.Run("zero Kafka settings use defaults", func(t *testing.T) {
 		_, parsed := run(t, "--event.kafka.sendTimeout", "0s",
-			"--event.kafka.retryBackoff", "0s", "--event.kafka.retryAttempts", "0",
-			"--event.kafka.failureThreshold", "0", "--event.kafka.probeInterval", "0s")
+			"--event.kafka.retryBackoff", "0s", "--event.kafka.retryAttempts", "0")
 		event, _ := parsed["event"].(map[string]any)
 		kafka, _ := event["kafka"].(map[string]any)
 		defaults := config.DefaultKafkaSettings()
 		assert.Equal(t, defaults.SendTimeout.String(), kafka["sendTimeout"])
 		assert.Equal(t, defaults.RetryBackoff.String(), kafka["retryBackoff"])
 		assert.Equal(t, defaults.RetryAttempts, kafka["retryAttempts"])
-		assert.Equal(t, defaults.FailureThreshold, kafka["failureThreshold"])
-		assert.Equal(t, defaults.ProbeInterval.String(), kafka["probeInterval"])
 	})
 
 	t.Run("show secrets", func(t *testing.T) {

@@ -32,7 +32,7 @@ func TestService_UpdateAgent_NotificationFailureDoesNotFailPersistedUpdate(t *te
 	existing := agentmodel.NewAgent(uid)
 	agents.On("GetAgent", ctx, uid).Return(existing, nil).Once()
 	agents.On("SaveAgent", ctx, existing).Return(nil).Once()
-	notifications.On("NotifyAgentUpdated", ctx, existing).Return(model.ErrTargetServerUnreachable).Once()
+	notifications.On("NotifyAgentUpdated", ctx, existing).Return(errMockError).Once()
 	updated, err := svc.UpdateAgent(ctx, "default", uid, &v1.Agent{})
 	require.NoError(t, err)
 	require.NotNil(t, updated)

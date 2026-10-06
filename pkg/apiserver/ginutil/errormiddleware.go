@@ -74,6 +74,7 @@ func ErrorResponse(ctx *gin.Context, errorInfo *ErrorInfo) {
 // HandleDomainError handles domain-specific errors and returns appropriate HTTP responses.
 func HandleDomainError(ctx *gin.Context, err error, fallbackMessage string) {
 	baseURL := GetErrorTypeURI(ctx)
+
 	if errors.Is(err, model.ErrResourceNotExist) {
 		ctx.JSON(http.StatusNotFound, &api.ErrorModel{
 			Type:     baseURL,

@@ -134,11 +134,9 @@ event:
     brokers:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
-    sendTimeout: 2s        # total budget per event, including attempts and backoff
+    sendTimeout: 2s        # enqueue and individual producer/socket operation timeout
     retryBackoff: 100ms    # delay between attempts
-    retryAttempts: 2      # includes the initial attempt; 1 disables retries
-    failureThreshold: 2   # failed sends before opening the circuit breaker
-    probeInterval: 5s     # breaker cooldown before allowing a recovery probe
+    retryAttempts: 2       # includes the initial attempt; 1 disables retries
 ```
 
 When running multiple apiserver instances, set `enabled: true` and `type: kafka` so a
@@ -151,14 +149,17 @@ defaults; negative values are rejected at startup. They can also be set through
 `EVENT_KAFKA_SENDTIMEOUT=3s`. `sendTimeout` also bounds producer/socket operations.
 
 Kafka events are best-effort notifications that accelerate applying saved changes.
-They are not queued or replayed after a failed send. An agent update succeeds once
-its desired state is saved; notification failure does not fail the API request.
+There is no application replay queue; Sarama owns its normal producer buffer and
+retries. An agent update succeeds once its desired state is saved; notification
+failure does not fail the API request.
 Agents also fetch desired state on heartbeat responses. If a cache-invalidation
 event is lost, the fixed cache TTL bounds how long a peer can serve its cached copy.
 
-Graceful shutdown closes the producer while draining acknowledgements within the
-shutdown deadline. A submitted event may still be acknowledged after a timeout,
-so a failed send does not prove that the event was never delivered.
+Sarama handles retries with the configured backoff. A successful send means the
+notification was submitted to the producer; delivery failures are logged asynchronously.
+`sendTimeout` limits enqueue waits and individual producer/socket operations, not the
+entire background retry cycle. Graceful shutdown asks the producer to flush pending
+messages while draining errors, with a bounded shutdown wait.
 
 ## Agent liveness
 
