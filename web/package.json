@@ -44,7 +44,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "overrides": {
-    "@babel/core": "^7.29.6",
+    "@babel/core": "^8.0.0",
     "postcss": "^8.5.10"
   },
   "devDependencies": {
