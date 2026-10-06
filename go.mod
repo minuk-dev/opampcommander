@@ -35,7 +35,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/kafka v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.44.0
 	go.mongodb.org/mongo-driver/v2 v2.9.1
-	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo v0.0.0-20261006081151-61c3bbe097b5
+	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/v2/mongo/otelmongo v0.0.0-20261006103655-0e5cf9e23c35
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.72.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.72.0
 	go.opentelemetry.io/otel v1.47.0
