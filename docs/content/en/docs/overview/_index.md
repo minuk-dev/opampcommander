@@ -59,7 +59,12 @@ owned by a Store rather than a Service.
 
 Store interfaces are domain ports, and their implementations belong in secondary
 adapters. A Store may use memory, MongoDB, Redis, or a cache over another Store.
-Each resource exposes the operations it needs through its own Store interface.
+Basic resource access uses the generic `Reader[K, V]` (`Get`) and `Store[K, V]`
+(`Get`, `Put`, `Delete`) ports. Resource-specific Store interfaces embed these
+contracts and add the operations they need, such as fresh reads, selector queries,
+or conditional session deletion. Version checks and cache behavior remain in the
+implementations; a generic interface does not make writes unconditional. Read-only
+resources expose `Reader` without requiring unused write or delete operations.
 The existing `*PersistencePort` interfaces already provide part of this boundary.
 
 The OpAMP and Connection Services share a node-local `ConnectionStore`. It owns
@@ -79,9 +84,10 @@ The Stores own cache TTL, capacity, cloning, invalidation, and shutdown. Fresh
 agent reads bypass the cache when a deletion decision must observe other writers.
 
 The notification Store owns per-server pending UID sets, early-flush signals, and
-the dispatch queue. The agent-group change Store queues namespace/name values;
-the Service reloads the current group, including deleted groups, before applying
-it. These queues are node-local and best-effort: durable agent messages and the
+the dispatch queue. The agent-group change Store queues namespace/name values
+and isolated copies of the affected selectors; the Service reloads the current
+configuration while still visiting the original members after a selector change
+or group recreation. These queues are node-local and best-effort: durable agent messages and the
 periodic group reconcile remain their recovery paths. Worker lifetime tracking
 is local to each Service Run invocation, not shared resource state.
 

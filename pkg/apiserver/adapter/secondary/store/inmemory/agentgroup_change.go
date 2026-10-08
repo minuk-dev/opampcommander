@@ -3,15 +3,15 @@ package inmemory
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 )
 
 var _ agentport.AgentGroupChangeStore = (*AgentGroupChangeStore)(nil)
 
-// AgentGroupChangeStore owns the bounded queue of group identities. Queuing
-// values rather than resource pointers prevents later caller mutations leaking
-// into the propagation worker.
+// AgentGroupChangeStore owns the bounded queue of group changes. Selectors are
+// copied on enqueue so later caller mutations cannot change the affected agents.
 type AgentGroupChangeStore struct {
 	changes chan agentport.AgentGroupChange
 }
@@ -23,6 +23,9 @@ func NewAgentGroupChangeStore(capacity int) *AgentGroupChangeStore {
 
 // Enqueue waits for queue capacity or cancellation.
 func (s *AgentGroupChangeStore) Enqueue(ctx context.Context, change agentport.AgentGroupChange) error {
+	change.Selector.IdentifyingAttributes = maps.Clone(change.Selector.IdentifyingAttributes)
+	change.Selector.NonIdentifyingAttributes = maps.Clone(change.Selector.NonIdentifyingAttributes)
+
 	select {
 	case <-ctx.Done():
 		return fmt.Errorf("enqueue agent group change: %w", ctx.Err())
@@ -33,6 +36,9 @@ func (s *AgentGroupChangeStore) Enqueue(ctx context.Context, change agentport.Ag
 
 // TryEnqueue records a change without blocking the request on a full queue.
 func (s *AgentGroupChangeStore) TryEnqueue(change agentport.AgentGroupChange) bool {
+	change.Selector.IdentifyingAttributes = maps.Clone(change.Selector.IdentifyingAttributes)
+	change.Selector.NonIdentifyingAttributes = maps.Clone(change.Selector.NonIdentifyingAttributes)
+
 	select {
 	case s.changes <- change:
 		return true
@@ -41,7 +47,7 @@ func (s *AgentGroupChangeStore) TryEnqueue(change agentport.AgentGroupChange) bo
 	}
 }
 
-// Next waits for a queued identity or cancellation.
+// Next waits for a queued change or cancellation. The caller owns the result.
 func (s *AgentGroupChangeStore) Next(ctx context.Context) (agentport.AgentGroupChange, error) {
 	err := ctx.Err()
 	if err != nil {

@@ -38,8 +38,8 @@ func NewConnectionStore() *ConnectionStore {
 	}
 }
 
-// GetConnection returns a copy of the connection identified by its transport ID.
-func (s *ConnectionStore) GetConnection(_ context.Context, id any) (*agentmodel.Connection, error) {
+// Get returns a copy of the connection identified by its transport ID.
+func (s *ConnectionStore) Get(_ context.Context, id any) (*agentmodel.Connection, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -69,8 +69,8 @@ func (s *ConnectionStore) ListConnections(_ context.Context) ([]*agentmodel.Conn
 	return connections, nil
 }
 
-// PutConnection stores a copy and updates the agent index atomically.
-func (s *ConnectionStore) PutConnection(_ context.Context, connection *agentmodel.Connection) error {
+// Put stores a copy and updates the agent index atomically.
+func (s *ConnectionStore) Put(_ context.Context, connection *agentmodel.Connection) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -87,8 +87,8 @@ func (s *ConnectionStore) PutConnection(_ context.Context, connection *agentmode
 	return nil
 }
 
-// DeleteConnection removes only the matching connection and its owned index.
-func (s *ConnectionStore) DeleteConnection(_ context.Context, connection *agentmodel.Connection) error {
+// Delete removes only the matching connection and its owned index.
+func (s *ConnectionStore) Delete(_ context.Context, connection *agentmodel.Connection) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

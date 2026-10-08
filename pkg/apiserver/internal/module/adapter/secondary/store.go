@@ -10,6 +10,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
 	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
+	"github.com/minuk-dev/opampcommander/pkg/utils/clock"
 )
 
 func provideAgentStore(persistence agentport.AgentPersistencePort, settings *config.ServerSettings) *cached.AgentStore {
@@ -23,6 +24,10 @@ func provideAgentStore(persistence agentport.AgentPersistencePort, settings *con
 		TTL:         cacheSettings.Agent.TTL,
 		MaxCapacity: cacheSettings.Agent.MaxCapacity,
 	})
+}
+
+func provideServerStore(persistence agentport.ServerPersistencePort) *cached.ServerStore {
+	return cached.NewServerStore(persistence, clock.NewRealClock(), agentservice.DefaultHeartbeatTimeout)
 }
 
 func provideNotificationStore() *inmemory.NotificationStore {

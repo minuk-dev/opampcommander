@@ -29,7 +29,7 @@ func newServerServiceForSend(
 ) *agentservice.ServerService {
 	svc := agentservice.NewServerService(
 		slog.Default(),
-		cached.NewServerStore(mockPersistence),
+		cached.NewServerStore(mockPersistence, newTestFakeClock(now), agentservice.DefaultHeartbeatTimeout),
 		mockEventSender,
 		new(MockServerEventReceiverPort),
 		mockIdentity,
@@ -55,7 +55,8 @@ func TestServerService_Run_DelegatesToReceiver(t *testing.T) {
 
 		svc := agentservice.NewServerService(
 			slog.Default(),
-			cached.NewServerStore(new(MockServerPersistencePort)),
+			cached.NewServerStore(new(MockServerPersistencePort),
+				newTestFakeClock(time.Now()), agentservice.DefaultHeartbeatTimeout),
 			new(MockServerEventSenderPort),
 			mockReceiver,
 			new(MockServerIdentityProvider),
@@ -78,7 +79,8 @@ func TestServerService_Run_DelegatesToReceiver(t *testing.T) {
 
 		svc := agentservice.NewServerService(
 			slog.Default(),
-			cached.NewServerStore(new(MockServerPersistencePort)),
+			cached.NewServerStore(new(MockServerPersistencePort),
+				newTestFakeClock(time.Now()), agentservice.DefaultHeartbeatTimeout),
 			new(MockServerEventSenderPort),
 			mockReceiver,
 			new(MockServerIdentityProvider),

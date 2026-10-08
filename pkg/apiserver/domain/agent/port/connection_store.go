@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
 // ConnectionSnapshotState tracks this process's last successful cluster snapshot.
@@ -19,11 +20,13 @@ type ConnectionSnapshotState struct {
 // closes, and snapshot baseline. Returned models are copies; their opaque ID
 // still identifies the original transport connection.
 type ConnectionStore interface {
-	GetConnection(ctx context.Context, id any) (*agentmodel.Connection, error)
+	domainport.Reader[any, *agentmodel.Connection]
 	GetConnectionByInstanceUID(ctx context.Context, uid uuid.UUID) (*agentmodel.Connection, error)
 	ListConnections(ctx context.Context) ([]*agentmodel.Connection, error)
-	PutConnection(ctx context.Context, connection *agentmodel.Connection) error
-	DeleteConnection(ctx context.Context, connection *agentmodel.Connection) error
+	Put(ctx context.Context, connection *agentmodel.Connection) error
+	// Delete removes only the supplied session incarnation, preserving a newer
+	// connection that reused its transport ID.
+	Delete(ctx context.Context, connection *agentmodel.Connection) error
 
 	// WithinSession serializes work for one agent on this server, including
 	// connection checks and associated agent/liveness writes. The callback may

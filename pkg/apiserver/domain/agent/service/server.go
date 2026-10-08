@@ -94,7 +94,7 @@ func (s *ServerService) Run(ctx context.Context) error {
 
 // GetServer implements agentport.ServerUsecase.
 func (s *ServerService) GetServer(ctx context.Context, id string) (*agentmodel.Server, error) {
-	server, err := s.serverStore.GetServer(ctx, id, s.clock.Now(), s.heartbeatTimeout)
+	server, err := s.serverStore.Get(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get server: %w", err)
 	}
@@ -161,7 +161,7 @@ func (s *ServerService) SendMessageToServerByServerID(
 	serverID string,
 	message serverevent.Message,
 ) error {
-	server, err := s.serverStore.GetServerFresh(ctx, serverID)
+	server, err := s.serverStore.GetFresh(ctx, serverID)
 	if err != nil {
 		return fmt.Errorf("failed to get server: %w", err)
 	}

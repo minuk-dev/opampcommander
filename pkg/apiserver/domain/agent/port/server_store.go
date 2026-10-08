@@ -2,15 +2,15 @@ package agentport
 
 import (
 	"context"
-	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	domainport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/port"
 )
 
-// ServerStore owns the server read cache. A cached heartbeat outside the supplied
-// liveness window is discarded so a fresh heartbeat can be read from persistence.
+// ServerStore owns read-only registry access and its local cache. Implementations
+// discard cached dead servers so newer persisted heartbeats can be discovered.
 type ServerStore interface {
-	GetServer(ctx context.Context, id string, now time.Time, timeout time.Duration) (*agentmodel.Server, error)
-	GetServerFresh(ctx context.Context, id string) (*agentmodel.Server, error)
+	domainport.Reader[string, *agentmodel.Server]
+	GetFresh(ctx context.Context, id string) (*agentmodel.Server, error)
 	ListServers(ctx context.Context) ([]*agentmodel.Server, error)
 }

@@ -21,9 +21,9 @@ func TestConnectionStoreOwnsStoredModels(t *testing.T) {
 	uid := uuid.New()
 	connection := agentmodel.NewConnection(new(int), agentmodel.ConnectionTypeWebSocket)
 	connection.SetInstanceUID(uid)
-	require.NoError(t, store.PutConnection(ctx, connection))
+	require.NoError(t, store.Put(ctx, connection))
 	connection.Namespace = "changed-without-saving"
-	stored, err := store.GetConnection(ctx, connection.ID)
+	stored, err := store.Get(ctx, connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "default", stored.Namespace)
 	stored.Namespace = "changed-after-reading"
@@ -38,7 +38,7 @@ func TestConnectionStoreOwnsStoredModels(t *testing.T) {
 
 	otherUID := uuid.New()
 	indexed.SetInstanceUID(otherUID)
-	require.NoError(t, store.PutConnection(ctx, indexed))
+	require.NoError(t, store.Put(ctx, indexed))
 	_, err = store.GetConnectionByInstanceUID(ctx, uid)
 	require.ErrorIs(t, err, agentport.ErrConnectionNotFound)
 	indexed, err = store.GetConnectionByInstanceUID(ctx, otherUID)
@@ -72,13 +72,13 @@ func TestConnectionStoreDeletionPreservesReplacement(t *testing.T) {
 				current.ID = old.ID
 			}
 
-			require.NoError(t, store.PutConnection(ctx, old))
-			require.NoError(t, store.PutConnection(ctx, current))
-			require.NoError(t, store.DeleteConnection(ctx, old))
+			require.NoError(t, store.Put(ctx, old))
+			require.NoError(t, store.Put(ctx, current))
+			require.NoError(t, store.Delete(ctx, old))
 			active, err := store.GetConnectionByInstanceUID(ctx, uid)
 			require.NoError(t, err)
 			assert.Equal(t, current.UID, active.UID)
-			active, err = store.GetConnection(ctx, current.ID)
+			active, err = store.Get(ctx, current.ID)
 			require.NoError(t, err)
 			assert.Equal(t, current.UID, active.UID)
 		})
