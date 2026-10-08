@@ -19,15 +19,8 @@ func TestAgentConnectionOfferAndStatusRoundTrip(t *testing.T) {
 		&agentmodel.AgentOpAMPConnectionSettings{
 			DestinationEndpoint: "wss://example.test/api/v1/opamp",
 			Certificate:         &agentmodel.AgentCertificate{Cert: []byte("new-cert"), PrivateKey: []byte("new-key")},
-		}, nil, nil, nil, map[string]agentmodel.AgentOtherConnectionSettings{},
+		}, nil, nil, nil, nil,
 	))
-	// Simulate a group overriding the effective offer without changing the independent fallback.
-	groupInfo, err := agentmodel.NewConnectionInfo(&agentmodel.AgentOpAMPConnectionSettings{
-		DestinationEndpoint: "wss://group.test", Certificate: &agentmodel.AgentCertificate{Cert: []byte("group-cert")},
-	}, nil, nil, nil, nil)
-	require.NoError(t, err)
-
-	agent.Spec.ConnectionInfo = groupInfo
 	agent.Status.ConnectionSettingsStatus = agentmodel.AgentConnectionSettingsStatus{
 		LastConnectionSettingsHash: agent.Spec.ConnectionInfo.Hash.Bytes(),
 		Status:                     agentmodel.ConnectionSettingsStatusApplied,
@@ -41,12 +34,7 @@ func TestAgentConnectionOfferAndStatusRoundTrip(t *testing.T) {
 	require.NoError(t, bson.Unmarshal(data, &stored))
 	reloaded := stored.ToDomain()
 	require.Equal(t, agent.Spec.ConnectionInfo.Hash, reloaded.Spec.ConnectionInfo.Hash)
-	require.Equal(t, []byte("group-cert"), reloaded.Spec.ConnectionInfo.OpAMP().Certificate.Cert)
-	require.Equal(t, agent.Spec.PerAgentConnectionInfo.Hash, reloaded.Spec.PerAgentConnectionInfo.Hash)
-	require.Equal(t, []byte("new-cert"), reloaded.Spec.PerAgentConnectionInfo.OpAMP().Certificate.Cert)
-	clone := reloaded.Clone()
-	clone.Spec.PerAgentConnectionInfo.OpAMP().Certificate.Cert[0] = 'X'
-	require.Equal(t, []byte("new-cert"), reloaded.Spec.PerAgentConnectionInfo.OpAMP().Certificate.Cert)
+	require.Equal(t, []byte("new-cert"), reloaded.Spec.ConnectionInfo.OpAMP().Certificate.Cert)
 	require.Equal(t, agent.Status.ConnectionSettingsStatus, reloaded.Status.ConnectionSettingsStatus)
 	require.Equal(t, agent.Status.ActiveClientCertificateHash, reloaded.Status.ActiveClientCertificateHash)
 }

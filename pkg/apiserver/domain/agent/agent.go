@@ -44,12 +44,11 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 		},
 		//exhaustruct:ignore
 		Spec: AgentSpec{
-			NewInstanceUID:         uuid.Nil,
-			RestartInfo:            nil,
-			RemoteConfig:           nil,
-			ConnectionInfo:         nil,
-			PerAgentConnectionInfo: nil,
-			PackagesAvailable:      nil,
+			NewInstanceUID:    uuid.Nil,
+			RestartInfo:       nil,
+			RemoteConfig:      nil,
+			ConnectionInfo:    nil,
+			PackagesAvailable: nil,
 		},
 		Status: AgentStatus{
 			ActiveClientCertificateHash: nil,
@@ -429,11 +428,8 @@ type AgentSpec struct {
 	// RestartInfo contains information about agent restart.
 	RestartInfo *AgentRestartInfo
 
-	// ConnectionInfo is the effective connection offer, replaced by group reconciliation.
+	// ConnectionInfo is the connection offer computed from matching agent groups.
 	ConnectionInfo *ConnectionInfo
-
-	// PerAgentConnectionInfo preserves independently assigned settings while a group overrides the offer.
-	PerAgentConnectionInfo *ConnectionInfo
 
 	// RemoteConfig is exclusively owned and replaced by matching agent groups.
 	RemoteConfig *AgentSpecRemoteConfig
@@ -501,8 +497,6 @@ func WithCertificate(certificate *AgentCertificate) ConnectionOption {
 
 // SetOpAMPConnectionSettings sets OpAMP connection settings for the agent.
 func (a *Agent) SetOpAMPConnectionSettings(endpoint string, opts ...ConnectionOption) error {
-	a.preparePerAgentConnectionSettings()
-
 	//exhaustruct:ignore
 	settings := &connectionSettings{}
 	for _, opt := range opts {
@@ -523,8 +517,6 @@ func (a *Agent) SetOpAMPConnectionSettings(endpoint string, opts ...ConnectionOp
 
 // SetMetricsConnectionSettings sets metrics connection settings for the agent.
 func (a *Agent) SetMetricsConnectionSettings(endpoint string, opts ...ConnectionOption) error {
-	a.preparePerAgentConnectionSettings()
-
 	//exhaustruct:ignore
 	settings := &connectionSettings{}
 	for _, opt := range opts {
@@ -545,8 +537,6 @@ func (a *Agent) SetMetricsConnectionSettings(endpoint string, opts ...Connection
 
 // SetLogsConnectionSettings sets logs connection settings for the agent.
 func (a *Agent) SetLogsConnectionSettings(endpoint string, opts ...ConnectionOption) error {
-	a.preparePerAgentConnectionSettings()
-
 	//exhaustruct:ignore
 	settings := &connectionSettings{}
 	for _, opt := range opts {
@@ -567,8 +557,6 @@ func (a *Agent) SetLogsConnectionSettings(endpoint string, opts ...ConnectionOpt
 
 // SetTracesConnectionSettings sets traces connection settings for the agent.
 func (a *Agent) SetTracesConnectionSettings(endpoint string, opts ...ConnectionOption) error {
-	a.preparePerAgentConnectionSettings()
-
 	//exhaustruct:ignore
 	settings := &connectionSettings{}
 	for _, opt := range opts {
@@ -589,8 +577,6 @@ func (a *Agent) SetTracesConnectionSettings(endpoint string, opts ...ConnectionO
 
 // SetOtherConnectionSettings sets other connection settings for the agent.
 func (a *Agent) SetOtherConnectionSettings(name, endpoint string, opts ...ConnectionOption) error {
-	a.preparePerAgentConnectionSettings()
-
 	//exhaustruct:ignore
 	settings := &connectionSettings{}
 	for _, opt := range opts {
@@ -637,8 +623,7 @@ func (a *Agent) IsOtherConnectionSettingsSupported() bool {
 	return a.Metadata.Capabilities.HasAcceptsOpAMPConnectionSettings()
 }
 
-// ApplyConnectionSettings assigns an independent per-agent offer. Matching groups may override
-// ConnectionInfo during reconciliation, but the independent offer is retained as a fallback.
+// ApplyConnectionSettings applies connection settings to the agent from agent group.
 func (a *Agent) ApplyConnectionSettings(
 	opamp *AgentOpAMPConnectionSettings,
 	ownMetrics *AgentTelemetryConnectionSettings,
@@ -652,7 +637,6 @@ func (a *Agent) ApplyConnectionSettings(
 	}
 
 	a.Spec.ConnectionInfo = connectionInfo
-	a.Spec.PerAgentConnectionInfo = connectionInfo
 
 	return nil
 }
@@ -1333,17 +1317,6 @@ func (a *Agent) Clone() *Agent {
 	return clone
 }
 
-// preparePerAgentConnectionSettings keeps per-agent edits separate from a group offer.
-func (a *Agent) preparePerAgentConnectionSettings() {
-	a.Spec.ConnectionInfo = cloneConnectionInfo(a.Spec.PerAgentConnectionInfo)
-	if a.Spec.ConnectionInfo == nil {
-		//exhaustruct:ignore
-		a.Spec.ConnectionInfo = &ConnectionInfo{otherConnections: make(map[string]AgentOtherConnectionSettings)}
-	}
-
-	a.Spec.PerAgentConnectionInfo = a.Spec.ConnectionInfo
-}
-
 func (a *Agent) cloneMetadata() AgentMetadata {
 	metadata := AgentMetadata{
 		InstanceUID:     a.Metadata.InstanceUID,
@@ -1368,12 +1341,11 @@ func (a *Agent) cloneDescription() agent.Description {
 
 func (a *Agent) cloneSpec() AgentSpec {
 	spec := AgentSpec{
-		NewInstanceUID:         a.Spec.NewInstanceUID,
-		RestartInfo:            a.cloneRestartInfo(),
-		ConnectionInfo:         cloneConnectionInfo(a.Spec.ConnectionInfo),
-		PerAgentConnectionInfo: cloneConnectionInfo(a.Spec.PerAgentConnectionInfo),
-		RemoteConfig:           a.cloneRemoteConfig(),
-		PackagesAvailable:      a.clonePackagesAvailable(),
+		NewInstanceUID:    a.Spec.NewInstanceUID,
+		RestartInfo:       a.cloneRestartInfo(),
+		ConnectionInfo:    a.cloneConnectionInfo(),
+		RemoteConfig:      a.cloneRemoteConfig(),
+		PackagesAvailable: a.clonePackagesAvailable(),
 	}
 
 	return spec
@@ -1389,18 +1361,18 @@ func (a *Agent) cloneRestartInfo() *AgentRestartInfo {
 	}
 }
 
-func cloneConnectionInfo(info *ConnectionInfo) *ConnectionInfo {
-	if info == nil {
+func (a *Agent) cloneConnectionInfo() *ConnectionInfo {
+	if a.Spec.ConnectionInfo == nil {
 		return nil
 	}
 
 	return &ConnectionInfo{
-		Hash:             cloneByteSlice(info.Hash),
-		opamp:            cloneOpAMPConnectionSettings(info.opamp),
-		ownMetrics:       cloneTelemetryConnectionSettings(info.ownMetrics),
-		ownLogs:          cloneTelemetryConnectionSettings(info.ownLogs),
-		ownTraces:        cloneTelemetryConnectionSettings(info.ownTraces),
-		otherConnections: cloneOtherConnections(info.otherConnections),
+		Hash:             cloneByteSlice(a.Spec.ConnectionInfo.Hash),
+		opamp:            cloneOpAMPConnectionSettings(a.Spec.ConnectionInfo.opamp),
+		ownMetrics:       cloneTelemetryConnectionSettings(a.Spec.ConnectionInfo.ownMetrics),
+		ownLogs:          cloneTelemetryConnectionSettings(a.Spec.ConnectionInfo.ownLogs),
+		ownTraces:        cloneTelemetryConnectionSettings(a.Spec.ConnectionInfo.ownTraces),
+		otherConnections: cloneOtherConnections(a.Spec.ConnectionInfo.otherConnections),
 	}
 }
 

@@ -1738,43 +1738,28 @@ func TestApplyMatchingAgentGroupsRemovesOwnedSettings(t *testing.T) {
 				new(mockAgentUsecase), alwaysLeaderElector{},
 				inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
 
-			for _, independent := range []bool{false, true} {
-				member := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
-					IdentifyingAttributes: map[string]string{"service.name": "selected"},
-				}))
-				if independent {
-					require.NoError(t, member.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
-						DestinationEndpoint: "wss://per-agent.test",
-					}, nil, nil, nil, nil))
-				}
+			member := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+				IdentifyingAttributes: map[string]string{"service.name": "selected"},
+			}))
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Equal(t, "wss://group.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
 
-				_, err = persistence.PutAgentGroup(t.Context(), "default", "group", group)
-				require.NoError(t, err)
-				require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
-				assert.Equal(t, "wss://group.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+			changed := *group
+			test.change(&changed, member)
+			_, err = persistence.PutAgentGroup(t.Context(), "default", "group", &changed)
+			require.NoError(t, err)
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Nil(t, member.Spec.RemoteConfig)
+			assert.Nil(t, member.Spec.ConnectionInfo)
 
-				changed := *group
-				test.change(&changed, member)
-				_, err = persistence.PutAgentGroup(t.Context(), "default", "group", &changed)
-				require.NoError(t, err)
-				require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
-				assert.Nil(t, member.Spec.RemoteConfig)
-
-				if independent {
-					assert.Equal(t, "wss://per-agent.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
-				} else {
-					assert.Nil(t, member.Spec.ConnectionInfo)
-				}
-
-				before := member.Clone()
-				require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
-				assert.Equal(t, before, member)
-			}
+			before := member.Clone()
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Equal(t, before, member)
 		})
 	}
 }
 
-func TestApplyMatchingAgentGroupsClearsLegacyGroupOffer(t *testing.T) {
+func TestApplyMatchingAgentGroupsClearsUnmatchedConnectionOffer(t *testing.T) {
 	t.Parallel()
 
 	persistence := new(mockAgentGroupPersistence)
@@ -1788,7 +1773,7 @@ func TestApplyMatchingAgentGroupsClearsLegacyGroupOffer(t *testing.T) {
 	var err error
 
 	member.Spec.ConnectionInfo, err = agentmodel.NewConnectionInfo(&agentmodel.AgentOpAMPConnectionSettings{
-		DestinationEndpoint: "wss://legacy-group.test",
+		DestinationEndpoint: "wss://unmatched-group.test",
 	}, nil, nil, nil, nil)
 	require.NoError(t, err)
 	require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))

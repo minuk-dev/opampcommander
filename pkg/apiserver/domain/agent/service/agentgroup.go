@@ -411,9 +411,8 @@ func (s *AgentGroupService) PropagateAgentRemoteConfigChange(
 // state from the union of all matching, non-deleted agent groups and applies it to the
 // agent in place. Each remote-config filename and the entire connection-settings bundle
 // are won by the highest priority, then lexicographically smallest group name. RemoteConfig
-// is exclusively group-owned. ConnectionInfo is the effective offer; PerAgentConnectionInfo
-// is the independent fallback restored when no group supplies connections. Legacy offers
-// without a per-agent fallback are group-owned (groups were their only production writer).
+// and ConnectionInfo are group-owned computed state: there is no independent per-agent
+// configuration use case. Entries no longer supplied by matching groups are cleared.
 // The caller is responsible for persisting.
 func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 	ctx context.Context,
@@ -449,7 +448,7 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 		}
 	}
 
-	desiredConnection := agent.Spec.PerAgentConnectionInfo
+	var desiredConnection *agentmodel.ConnectionInfo
 
 	for _, group := range groups {
 		if !group.HasAgentConnectionConfig() {
@@ -461,10 +460,6 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 		desiredConnection, err = s.resolveConnectionSettings(ctx, group, agent)
 		if err != nil {
 			return fmt.Errorf("resolve connection settings from group %s: %w", group.Metadata.Name, err)
-		}
-
-		if desiredConnection == nil {
-			desiredConnection = agent.Spec.PerAgentConnectionInfo
 		}
 
 		break
