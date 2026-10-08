@@ -3050,7 +3050,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an agent's metadata & spec in a namespace.
+      description: |-
+        Update an agent's metadata & spec in a namespace.
+        Notifications are best-effort; agents also fetch saved changes on subsequent heartbeats.
       parameters:
       - description: Namespace
         in: path

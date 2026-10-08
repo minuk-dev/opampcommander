@@ -134,11 +134,32 @@ event:
     brokers:
       - "localhost:9092"
     topic: "prod.opampcommander.events"
+    sendTimeout: 2s        # enqueue and individual producer/socket operation timeout
+    retryBackoff: 100ms    # delay between attempts
+    retryAttempts: 2       # includes the initial attempt; 1 disables retries
 ```
 
 When running multiple apiserver instances, set `enabled: true` and `type: kafka` so a
 management request received by one instance can be delivered to an agent connected to
 another. See the protocol overview for the coordination flow.
+
+The Kafka delivery settings above are the defaults. Omitted or zero values use the
+defaults; negative values are rejected at startup. They can also be set through
+`--event.kafka.<setting>` flags or environment variables such as
+`EVENT_KAFKA_SENDTIMEOUT=3s`. `sendTimeout` also bounds producer/socket operations.
+
+Kafka events are best-effort notifications that accelerate applying saved changes.
+There is no application replay queue; Sarama owns its normal producer buffer and
+retries. An agent update succeeds once its desired state is saved; notification
+failure does not fail the API request.
+Agents also fetch desired state on heartbeat responses. If a cache-invalidation
+event is lost, the fixed cache TTL bounds how long a peer can serve its cached copy.
+
+Sarama handles retries with the configured backoff. A successful send means the
+notification was submitted to the producer; delivery failures are logged asynchronously.
+`sendTimeout` limits enqueue waits and individual producer/socket operations, not the
+entire background retry cycle. Graceful shutdown asks the producer to flush pending
+messages while draining errors, with a bounded shutdown wait.
 
 ## Agent liveness
 

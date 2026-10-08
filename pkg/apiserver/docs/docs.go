@@ -1842,7 +1842,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an agent's metadata \u0026 spec in a namespace.",
+                "description": "Update an agent's metadata \u0026 spec in a namespace.\nNotifications are best-effort; agents also fetch saved changes on subsequent heartbeats.",
                 "consumes": [
                     "application/json"
                 ],

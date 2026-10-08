@@ -327,6 +327,7 @@ func (c *Controller) ListEndpoints(ctx *gin.Context) {
 // @Summary  Update Agent
 // @Tags agent
 // @Description Update an agent's metadata & spec in a namespace.
+// @Description Notifications are best-effort; agents also fetch saved changes on subsequent heartbeats.
 // @Accept  json
 // @Produce  json
 // @Param  namespace path string true "Namespace"

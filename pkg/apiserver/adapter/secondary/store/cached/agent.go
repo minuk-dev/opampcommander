@@ -60,6 +60,8 @@ func NewAgentStore(persistence agentport.AgentPersistencePort, config AgentCache
 	store.cache = ttlcache.New[uuid.UUID, *agentmodel.Agent](
 		ttlcache.WithTTL[uuid.UUID, *agentmodel.Agent](config.TTL),
 		ttlcache.WithCapacity[uuid.UUID, *agentmodel.Agent](uint64(config.MaxCapacity)),
+		// Heartbeats must eventually reload desired state even if a cache-invalidation event is lost.
+		ttlcache.WithDisableTouchOnHit[uuid.UUID, *agentmodel.Agent](),
 	)
 
 	return store

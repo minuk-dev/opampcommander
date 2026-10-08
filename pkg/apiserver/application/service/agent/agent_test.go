@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	applicationport "github.com/minuk-dev/opampcommander/pkg/apiserver/application/port"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agent"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -19,6 +20,27 @@ import (
 )
 
 var errMockError = errors.New("mock error")
+
+func TestService_UpdateAgent_NotificationFailureDoesNotFailPersistedUpdate(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	agents := new(MockAgentUsecase)
+	notifications := new(MockAgentNotificationUsecase)
+	invalidation := &spyCacheInvalidationPublisher{}
+	svc := agent.New(agents, notifications, stubEndpointDetectionUsecase{}, invalidation, slog.Default())
+	uid := uuid.New()
+	existing := agentmodel.NewAgent(uid)
+	agents.On("GetAgent", ctx, uid).Return(existing, nil).Once()
+	agents.On("SaveAgent", ctx, existing).Return(nil).Once()
+	notifications.On("NotifyAgentUpdated", ctx, existing).Return(errMockError).Once()
+	updated, err := svc.UpdateAgent(ctx, "default", uid, &v1.Agent{})
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	require.Equal(t, uid, updated.Metadata.InstanceUID)
+	require.Equal(t, []uuid.UUID{uid}, invalidation.broadcasted)
+	agents.AssertExpectations(t)
+	notifications.AssertExpectations(t)
+}
 
 type MockAgentUsecase struct {
 	mock.Mock

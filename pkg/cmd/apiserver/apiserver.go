@@ -45,11 +45,8 @@ type CommandOption struct {
 	} `mapstructure:"database"`
 	ServiceName string `mapstructure:"serviceName"`
 	Event       struct {
-		Type  string `mapstructure:"type"`
-		Kafka struct {
-			Brokers []string `mapstructure:"brokers"`
-			Topic   string   `mapstructure:"topic"`
-		} `mapstructure:"kafka"`
+		Type   string                  `mapstructure:"type"`
+		Kafka  appconfig.KafkaSettings `mapstructure:"kafka"`
 		Direct struct {
 			SubProtocol      string `mapstructure:"subProtocol"`
 			ListenAddress    string `mapstructure:"listenAddress"`
@@ -214,6 +211,13 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().Bool("event.enabled", false, "enable event communication")
 	cmd.PersistentFlags().StringSlice("event.kafka.brokers", []string{"localhost:9092"}, "Kafka broker addresses")
 	cmd.PersistentFlags().String("event.kafka.topic", "opampcommander.events", "Kafka topic name")
+
+	kafkaDefaults := appconfig.DefaultKafkaSettings()
+	cmd.PersistentFlags().Duration("event.kafka.sendTimeout", kafkaDefaults.SendTimeout,
+		"Kafka enqueue and producer/socket operation timeout")
+	cmd.PersistentFlags().Duration("event.kafka.retryBackoff", kafkaDefaults.RetryBackoff, "Kafka retry delay")
+	cmd.PersistentFlags().Int("event.kafka.retryAttempts", kafkaDefaults.RetryAttempts,
+		"Kafka send attempts including the initial attempt (1 disables retries)")
 	cmd.PersistentFlags().String("management.address", "localhost:9090", "management server address")
 	cmd.PersistentFlags().Bool("management.metric.enabled", false, "enable metrics")
 	cmd.PersistentFlags().String("management.metric.type", "prometheus", "metric type (prometheus, opentelemetry)")
@@ -366,6 +370,8 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	opt.Event.Kafka = opt.Event.Kafka.WithDefaults()
+
 	// If serverID is not set, use hostname as default
 	if opt.ServerID == "" {
 		hostname, err := os.Hostname()
@@ -391,6 +397,13 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	err := livenessSettings.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid liveness configuration: %w", err)
+	}
+
+	if appconfig.EventProtocolType(opt.Event.Type) == appconfig.EventProtocolTypeKafka {
+		err = opt.Event.Kafka.Validate()
+		if err != nil {
+			return fmt.Errorf("invalid Kafka configuration: %w", err)
+		}
 	}
 
 	opt.app = apiserver.New(appconfig.ServerSettings{
@@ -442,11 +455,8 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 			},
 		},
 		EventSettings: appconfig.EventSettings{
-			ProtocolType: appconfig.EventProtocolType(opt.Event.Type),
-			KafkaSettings: appconfig.KafkaSettings{
-				Brokers: opt.Event.Kafka.Brokers,
-				Topic:   opt.Event.Kafka.Topic,
-			},
+			ProtocolType:  appconfig.EventProtocolType(opt.Event.Type),
+			KafkaSettings: opt.Event.Kafka.WithDefaults(),
 			DirectSettings: appconfig.DirectSettings{
 				SubProtocol:      appconfig.DirectSubProtocol(opt.Event.Direct.SubProtocol),
 				ListenAddress:    opt.Event.Direct.ListenAddress,

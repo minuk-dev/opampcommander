@@ -18,9 +18,9 @@ import (
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
 	outkafka "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/messaging/kafka"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/serverevent"
-	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
 func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
@@ -42,8 +42,9 @@ func TestEventSenderAdapter_SendMessageToServer(t *testing.T) {
 
 	// Given: EventSenderAdapter is created
 	sender := createTestSender(t, broker, topic)
-	logger := slog.New(slog.NewTextHandler(testutil.TestLogWriter{T: t}, nil))
-	adapter, err := outkafka.NewEventSenderAdapter(sender, logger)
+	defer func() { require.NoError(t, sender.Close(ctx)) }()
+
+	adapter, err := outkafka.NewEventSenderAdapter(sender)
 	require.NoError(t, err)
 
 	// Given: Consumer to verify messages
@@ -95,17 +96,20 @@ func startKafkaContainer(ctx context.Context, t *testing.T) (testcontainers.Cont
 	return kafkaContainer, brokers[0]
 }
 
-func createTestSender(t *testing.T, broker, topic string) *cekafka.Sender {
+func createTestSender(t *testing.T, broker, topic string) *outkafka.Sender {
 	t.Helper()
 
-	config := sarama.NewConfig()
-	config.Producer.Return.Successes = true
-	config.Producer.RequiredAcks = sarama.WaitForAll
-	config.Producer.Retry.Max = 5
-	config.Version = sarama.V2_6_0_0
+	producerConfig := sarama.NewConfig()
+	producerConfig.Producer.Return.Successes = false
+	producerConfig.Producer.Return.Errors = true
+	producerConfig.Producer.RequiredAcks = sarama.WaitForAll
+	producerConfig.Producer.Retry.Max = 5
+	producerConfig.Version = sarama.V2_6_0_0
 
-	sender, err := cekafka.NewSender([]string{broker}, config, topic)
+	producer, err := sarama.NewAsyncProducer([]string{broker}, producerConfig)
 	require.NoError(t, err)
+
+	sender := outkafka.NewSender(producer, topic, slog.New(slog.DiscardHandler), config.DefaultKafkaSettings().SendTimeout)
 
 	return sender
 }
