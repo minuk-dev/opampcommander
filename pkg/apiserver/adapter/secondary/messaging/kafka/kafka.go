@@ -4,12 +4,11 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/google/uuid"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
@@ -26,33 +25,25 @@ var (
 // EventSenderAdapter implements agentport.ServerEventSenderPort using Kafka CloudEvents sender.
 type EventSenderAdapter struct {
 	sender cloudevents.Client
-	logger *slog.Logger
 	clock  clock.Clock
 }
 
 // NewEventSenderAdapter creates a new EventSenderAdapter.
 func NewEventSenderAdapter(
-	protocolSender *cekafka.Sender,
-	logger *slog.Logger,
+	protocolSender protocol.Sender,
 ) (*EventSenderAdapter, error) {
 	//nolint:godox
 	// TODO: cloudevents's observability does not support to inject TracerProvider instead of global
 	// https://github.com/cloudevents/sdk-go/pull/1202
 	otelService := observabilityClient.NewOTelObservabilityService()
 
-	opts := make([]client.Option, 0, 1)
-
-	opts = append(opts, client.WithObservabilityService(otelService))
-
-	sender, err := cloudevents.NewClient(protocolSender, opts...)
+	sender, err := cloudevents.NewClient(protocolSender, client.WithObservabilityService(otelService))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CloudEvents client for sender: %w", err)
 	}
 
-	// sender can be nil when events are disabled
 	return &EventSenderAdapter{
 		sender: sender,
-		logger: logger,
 		clock:  clock.NewRealClock(),
 	}, nil
 }

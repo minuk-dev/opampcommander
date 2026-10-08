@@ -1,5 +1,20 @@
 package config
 
+import (
+	"errors"
+	"fmt"
+	"time"
+)
+
+// ErrKafkaSendSettingsInvalid indicates negative Kafka delivery settings.
+var ErrKafkaSendSettingsInvalid = errors.New("kafka delivery settings must not be negative")
+
+const (
+	defaultKafkaSendTimeout   = 2 * time.Second
+	defaultKafkaRetryBackoff  = 100 * time.Millisecond
+	defaultKafkaRetryAttempts = 2
+)
+
 // EventSettings represents the event settings.
 type EventSettings struct {
 	// ProtocolType is the event protocol type.
@@ -15,9 +30,47 @@ type EventSettings struct {
 // KafkaSettings represents the Kafka event settings.
 type KafkaSettings struct {
 	// Brokers is the list of Kafka broker addresses.
-	Brokers []string
+	Brokers []string `mapstructure:"brokers"`
 	// Topic is the Kafka topic name for events.
-	Topic string
+	Topic string `mapstructure:"topic"`
+	// SendTimeout bounds enqueue and individual producer/socket operations. Default: 2s.
+	SendTimeout time.Duration `mapstructure:"sendTimeout"`
+	// RetryBackoff is the delay between successive send attempts. Default: 100ms.
+	RetryBackoff time.Duration `mapstructure:"retryBackoff"`
+	// RetryAttempts includes the initial attempt; 1 disables retries. Default: 2.
+	RetryAttempts int `mapstructure:"retryAttempts"`
+}
+
+// DefaultKafkaSettings returns the default Kafka delivery settings.
+func DefaultKafkaSettings() KafkaSettings {
+	return KafkaSettings{}.WithDefaults()
+}
+
+// WithDefaults replaces zero delivery settings with defaults, preserving explicit overrides.
+func (s KafkaSettings) WithDefaults() KafkaSettings {
+	if s.SendTimeout == 0 {
+		s.SendTimeout = defaultKafkaSendTimeout
+	}
+
+	if s.RetryBackoff == 0 {
+		s.RetryBackoff = defaultKafkaRetryBackoff
+	}
+
+	if s.RetryAttempts == 0 {
+		s.RetryAttempts = defaultKafkaRetryAttempts
+	}
+
+	return s
+}
+
+// Validate rejects negative settings; zero means use the default.
+func (s KafkaSettings) Validate() error {
+	if s.SendTimeout < 0 || s.RetryBackoff < 0 || s.RetryAttempts < 0 {
+		return fmt.Errorf("%w: sendTimeout, retryBackoff, retryAttempts",
+			ErrKafkaSendSettingsInvalid)
+	}
+
+	return nil
 }
 
 // DirectSettings represents the direct transport settings. In this mode a server

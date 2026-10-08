@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -747,6 +748,47 @@ func TestAgentService_GetAgent_CacheHit(t *testing.T) {
 	// Persistence should only be called once
 	mockPersistence.AssertExpectations(t)
 	mockPersistence.AssertNumberOfCalls(t, "GetAgent", 1)
+}
+
+func TestAgentService_HeartbeatReadsReloadAfterLostInvalidation(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx := t.Context()
+		instanceUID := uuid.New()
+		original := agentmodel.NewAgent(instanceUID)
+		updated := original.Clone()
+		updated.Spec.NewInstanceUID = uuid.New()
+		persistence := new(MockAgentPersistencePort)
+		persistence.On("GetAgent", ctx, instanceUID).Return(original, nil).Once()
+		persistence.On("GetAgent", ctx, instanceUID).Return(updated, nil).Once()
+
+		cacheConfig := cached.DefaultAgentCacheConfig()
+		cacheConfig.TTL = 2 * time.Second
+
+		store := cached.NewAgentStore(persistence, cacheConfig)
+		defer store.Shutdown()
+
+		logger := slog.New(slog.DiscardHandler)
+
+		svc := agentservice.NewAgentService(store, newFakeLivenessPort(), newFakeLivenessMetrics(),
+			logger, agentservice.DefaultAgentLivenessConfig(), "", nil)
+		for range 4 {
+			cached, err := svc.GetOrCreateAgent(ctx, instanceUID)
+			require.NoError(t, err)
+			require.Equal(t, uuid.Nil, cached.Spec.NewInstanceUID)
+			time.Sleep(500 * time.Millisecond)
+		}
+
+		time.Sleep(time.Nanosecond)
+
+		refreshed, err := svc.GetOrCreateAgent(ctx, instanceUID)
+		require.NoError(t, err)
+
+		builder := agentservice.NewServerToAgentBuilder(nil, nil, logger)
+		response := builder.Build(ctx, refreshed)
+		require.Equal(t, updated.Spec.NewInstanceUID[:], response.GetAgentIdentification().GetNewInstanceUid())
+		persistence.AssertExpectations(t)
+	})
 }
 
 func TestAgentService_GetAgent_DatabaseError(t *testing.T) {

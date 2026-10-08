@@ -196,7 +196,7 @@ func (s *Service) UpdateAgent(
 	agent := s.mapper.MapAPIToAgent(api)
 
 	// Handle restart request
-	if !agent.Spec.RestartInfo.RequiredRestartedAt.IsZero() {
+	if agent.Spec.RestartInfo != nil && !agent.Spec.RestartInfo.RequiredRestartedAt.IsZero() {
 		restartErr := existing.SetRestartRequired(agent.Spec.RestartInfo.RequiredRestartedAt)
 		if restartErr != nil {
 			return nil, fmt.Errorf("failed to set restart required: %w", restartErr)
@@ -217,13 +217,13 @@ func (s *Service) UpdateAgent(
 		return nil, fmt.Errorf("failed to update agent: %w", err)
 	}
 
-	// Notify about agent update
+	// Notifications accelerate delivery; heartbeats also fetch the persisted desired state.
 	notifyErr := s.agentNotificationUsecase.NotifyAgentUpdated(ctx, existing)
-	if notifyErr != nil {
-		s.logger.Error("failed to notify agent updated", "error", notifyErr.Error())
-	}
-
 	s.invalidatePeerCaches(ctx, instanceUID)
+
+	if notifyErr != nil {
+		s.logger.Warn("agent saved but notification failed", "error", notifyErr.Error())
+	}
 
 	return s.mapper.MapAgentToAPI(existing), nil
 }
