@@ -15,6 +15,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
 	getagent "github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/agent"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -157,26 +158,11 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves application(s) by ID.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	applications := make([]v1.Application, 0, len(ids))
+	items, lookupErr := getutil.Collect(cmd, "application", ids, func(id string) (*v1.Application, error) {
+		return opt.client.ApplicationService.GetApplication(cmd.Context(), id)
+	})
 
-	for _, id := range ids {
-		result, err := opt.client.ApplicationService.GetApplication(cmd.Context(), id)
-		if err != nil {
-			cmd.PrintErrf("failed to get application %s: %v\n", id, err)
-
-			continue
-		}
-
-		applications = append(applications, *result)
-	}
-
-	if len(applications) == 0 {
-		cmd.Println("No applications found.")
-
-		return nil
-	}
-
-	return opt.format(cmd, applications)
+	return errors.Join(lookupErr, opt.format(cmd, items))
 }
 
 func (opt *CommandOptions) format(cmd *cobra.Command, applications []v1.Application) error {

@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -114,26 +115,11 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves container(s) by ID.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	containers := make([]v1.Container, 0, len(ids))
+	items, lookupErr := getutil.Collect(cmd, "container", ids, func(id string) (*v1.Container, error) {
+		return opt.client.ContainerService.GetContainer(cmd.Context(), id)
+	})
 
-	for _, id := range ids {
-		result, err := opt.client.ContainerService.GetContainer(cmd.Context(), id)
-		if err != nil {
-			cmd.PrintErrf("failed to get container %s: %v\n", id, err)
-
-			continue
-		}
-
-		containers = append(containers, *result)
-	}
-
-	if len(containers) == 0 {
-		cmd.Println("No containers found.")
-
-		return nil
-	}
-
-	return opt.format(cmd, containers)
+	return errors.Join(lookupErr, opt.format(cmd, items))
 }
 
 func (opt *CommandOptions) format(cmd *cobra.Command, containers []v1.Container) error {

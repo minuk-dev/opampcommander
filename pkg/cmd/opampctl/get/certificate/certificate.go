@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -14,6 +13,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -139,53 +139,23 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // Get retrieves the certificate information for the given names.
-func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
-	type CertificateWithErr struct {
-		Certificate *v1.Certificate
-		Err         error
-	}
-
+func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	certificatesWithErr := lo.Map(names, func(name string, _ int) CertificateWithErr {
-		certificate, err := opt.client.CertificateService.GetCertificate(cmd.Context(), opt.namespace, name, getOpts...)
-
-		return CertificateWithErr{
-			Certificate: certificate,
-			Err:         err,
-		}
+	items, lookupErr := getutil.Collect(cmd, "certificate", ids, func(id string) (*v1.Certificate, error) {
+		return opt.client.CertificateService.GetCertificate(cmd.Context(), opt.namespace, id, getOpts...)
 	})
 
-	certificates := lo.Filter(certificatesWithErr, func(c CertificateWithErr, _ int) bool {
-		return c.Err == nil
-	})
-	if len(certificates) == 0 {
-		cmd.Println("No certificates found or all specified certificates could not be retrieved.")
-
-		return nil
-	}
-
-	displayedCertificates := lo.Map(certificates, func(c CertificateWithErr, _ int) formattedCertificate {
-		return opt.toFormattedCertificate(*c.Certificate)
+	displayed := lo.Map(items, func(item v1.Certificate, _ int) formattedCertificate {
+		return opt.toFormattedCertificate(item)
 	})
 
-	err := formatter.Format(cmd.OutOrStdout(), displayedCertificates, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format certificates: %w", err)
+		err = fmt.Errorf("failed to format certificates: %w", err)
 	}
 
-	errs := lo.Filter(certificatesWithErr, func(c CertificateWithErr, _ int) bool {
-		return c.Err != nil
-	})
-	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(c CertificateWithErr, _ int) string {
-			return c.Err.Error()
-		})
-
-		cmd.PrintErrf("Some certificates could not be retrieved: %s", strings.Join(errMessages, ", "))
-	}
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func (opt *CommandOptions) listAllNamespaces(

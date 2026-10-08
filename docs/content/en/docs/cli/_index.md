@@ -114,6 +114,14 @@ These flags apply to every command:
 `connection` (get only), `container` (get only), `host` (get only), `namespace`,
 `user`, `role`, `rolebinding`.
 
+## Lookup failures
+
+When you request specific identities, `opampctl get` prints successful results in
+request order and reports each failed target with its identity and cause on stderr.
+Any failed lookup (including invalid UIDs, missing resources, permission errors,
+or timeouts) makes the command exit with status 1, even if other targets succeeded.
+JSON/YAML stdout contains only the successful result array, or `[]` if none succeeded.
+
 ## Filtering
 
 `opampctl get` accepts four filtering flags on every resource whose list endpoint

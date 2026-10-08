@@ -3,15 +3,16 @@ package connection
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
@@ -77,6 +78,8 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("list failed: %w", err)
 		}
+
+		return nil
 	}
 
 	agentUIDs := args
@@ -120,25 +123,21 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves the connection information for the given IDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	connections := make([]*v1.Connection, 0, len(ids))
-	connectionIDs := lo.Map(ids, func(id string, _ int) uuid.UUID {
-		connectionID, _ := uuid.Parse(id)
-
-		return connectionID
-	})
-
-	for _, connectionID := range connectionIDs {
-		connection, err := opt.client.ConnectionService.GetConnection(cmd.Context(), opt.namespace, connectionID)
+	items, lookupErr := getutil.Collect(cmd, "connection", ids, func(id string) (*v1.Connection, error) {
+		instanceUID, err := uuid.Parse(id)
 		if err != nil {
-			return fmt.Errorf("failed to get agent: %w", err)
+			return nil, fmt.Errorf("invalid UID: %w", err)
 		}
 
-		connections = append(connections, connection)
+		return opt.client.ConnectionService.GetConnection(cmd.Context(), opt.namespace, instanceUID)
+	})
+
+	err := formatter.Format(cmd.OutOrStdout(), items, formatter.FormatType(opt.formatType))
+	if err != nil {
+		err = fmt.Errorf("failed to format connections: %w", err)
 	}
 
-	cmd.Println(connections)
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func (opt *CommandOptions) listAllNamespaces(cmd *cobra.Command) ([]v1.Connection, error) {

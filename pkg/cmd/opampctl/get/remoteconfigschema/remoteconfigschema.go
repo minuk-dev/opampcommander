@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -14,6 +13,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -134,51 +134,23 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // Get retrieves the schema information for the given names.
-func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
-	type schemaWithErr struct {
-		Schema *v1.RemoteConfigSchema
-		Err    error
-	}
-
+func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	schemasWithErr := lo.Map(names, func(name string, _ int) schemaWithErr {
-		schema, err := opt.client.RemoteConfigSchemaService.GetRemoteConfigSchema(
-			cmd.Context(), opt.namespace, name, getOpts...)
-
-		return schemaWithErr{Schema: schema, Err: err}
+	items, lookupErr := getutil.Collect(cmd, "remoteconfigschema", ids, func(id string) (*v1.RemoteConfigSchema, error) {
+		return opt.client.RemoteConfigSchemaService.GetRemoteConfigSchema(cmd.Context(), opt.namespace, id, getOpts...)
 	})
 
-	schemas := lo.Filter(schemasWithErr, func(s schemaWithErr, _ int) bool {
-		return s.Err == nil
-	})
-	if len(schemas) == 0 {
-		cmd.Println("No remote config schemas found or all specified schemas could not be retrieved.")
-
-		return nil
-	}
-
-	displayed := lo.Map(schemas, func(s schemaWithErr, _ int) formattedRemoteConfigSchema {
-		return toFormatted(*s.Schema)
+	displayed := lo.Map(items, func(item v1.RemoteConfigSchema, _ int) formattedRemoteConfigSchema {
+		return toFormatted(item)
 	})
 
 	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format remote config schemas: %w", err)
+		err = fmt.Errorf("failed to format remote config schemas: %w", err)
 	}
 
-	errs := lo.Filter(schemasWithErr, func(s schemaWithErr, _ int) bool {
-		return s.Err != nil
-	})
-	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(s schemaWithErr, _ int) string {
-			return s.Err.Error()
-		})
-
-		cmd.PrintErrf("Some remote config schemas could not be retrieved: %s", strings.Join(errMessages, ", "))
-	}
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func (opt *CommandOptions) listAllNamespaces(

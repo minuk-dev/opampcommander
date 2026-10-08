@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -112,26 +113,11 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves host(s) by ID.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	hosts := make([]v1.Host, 0, len(ids))
+	items, lookupErr := getutil.Collect(cmd, "host", ids, func(id string) (*v1.Host, error) {
+		return opt.client.HostService.GetHost(cmd.Context(), id)
+	})
 
-	for _, id := range ids {
-		result, err := opt.client.HostService.GetHost(cmd.Context(), id)
-		if err != nil {
-			cmd.PrintErrf("failed to get host %s: %v\n", id, err)
-
-			continue
-		}
-
-		hosts = append(hosts, *result)
-	}
-
-	if len(hosts) == 0 {
-		cmd.Println("No hosts found.")
-
-		return nil
-	}
-
-	return opt.format(cmd, hosts)
+	return errors.Join(lookupErr, opt.format(cmd, items))
 }
 
 func (opt *CommandOptions) format(cmd *cobra.Command, hosts []v1.Host) error {
