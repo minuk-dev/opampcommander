@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -14,6 +13,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -139,53 +139,23 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // Get retrieves the agent package information for the given names.
-func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
-	type AgentPackageWithErr struct {
-		AgentPackage *v1.AgentPackage
-		Err          error
-	}
-
+func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	agentPackagesWithErr := lo.Map(names, func(name string, _ int) AgentPackageWithErr {
-		agentPackage, err := opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), opt.namespace, name, getOpts...)
-
-		return AgentPackageWithErr{
-			AgentPackage: agentPackage,
-			Err:          err,
-		}
+	items, lookupErr := getutil.Collect(cmd, "agentpackage", ids, func(id string) (*v1.AgentPackage, error) {
+		return opt.client.AgentPackageService.GetAgentPackage(cmd.Context(), opt.namespace, id, getOpts...)
 	})
 
-	agentPackages := lo.Filter(agentPackagesWithErr, func(a AgentPackageWithErr, _ int) bool {
-		return a.Err == nil
-	})
-	if len(agentPackages) == 0 {
-		cmd.Println("No agent packages found or all specified packages could not be retrieved.")
-
-		return nil
-	}
-
-	displayedAgentPackages := lo.Map(agentPackages, func(a AgentPackageWithErr, _ int) formattedAgentPackage {
-		return opt.toFormattedAgentPackage(*a.AgentPackage)
+	displayed := lo.Map(items, func(item v1.AgentPackage, _ int) formattedAgentPackage {
+		return opt.toFormattedAgentPackage(item)
 	})
 
-	err := formatter.Format(cmd.OutOrStdout(), displayedAgentPackages, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format agent packages: %w", err)
+		err = fmt.Errorf("failed to format agent packages: %w", err)
 	}
 
-	errs := lo.Filter(agentPackagesWithErr, func(a AgentPackageWithErr, _ int) bool {
-		return a.Err != nil
-	})
-	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(a AgentPackageWithErr, _ int) string {
-			return a.Err.Error()
-		})
-
-		cmd.PrintErrf("Some agent packages could not be retrieved: %s", strings.Join(errMessages, ", "))
-	}
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func (opt *CommandOptions) listAllNamespaces(

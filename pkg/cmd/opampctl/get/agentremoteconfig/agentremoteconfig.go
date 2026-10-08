@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -14,6 +13,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -141,57 +141,23 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // Get retrieves the agent remote config information for the given names.
-func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
-	type AgentRemoteConfigWithErr struct {
-		AgentRemoteConfig *v1.AgentRemoteConfig
-		Err               error
-	}
-
+func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	agentRemoteConfigsWithErr := lo.Map(names, func(name string, _ int) AgentRemoteConfigWithErr {
-		agentRemoteConfig, err := opt.client.AgentRemoteConfigService.GetAgentRemoteConfig(
-			cmd.Context(), opt.namespace, name, getOpts...)
-
-		return AgentRemoteConfigWithErr{
-			AgentRemoteConfig: agentRemoteConfig,
-			Err:               err,
-		}
+	items, lookupErr := getutil.Collect(cmd, "agentremoteconfig", ids, func(id string) (*v1.AgentRemoteConfig, error) {
+		return opt.client.AgentRemoteConfigService.GetAgentRemoteConfig(cmd.Context(), opt.namespace, id, getOpts...)
 	})
 
-	agentRemoteConfigs := lo.Filter(agentRemoteConfigsWithErr, func(a AgentRemoteConfigWithErr, _ int) bool {
-		return a.Err == nil
+	displayed := lo.Map(items, func(item v1.AgentRemoteConfig, _ int) formattedAgentRemoteConfig {
+		return opt.toFormattedAgentRemoteConfig(item)
 	})
-	if len(agentRemoteConfigs) == 0 {
-		cmd.Println("No agent remote configs found or all specified configs could not be retrieved.")
 
-		return nil
-	}
-
-	displayedAgentRemoteConfigs := lo.Map(
-		agentRemoteConfigs,
-		func(a AgentRemoteConfigWithErr, _ int) formattedAgentRemoteConfig {
-			return opt.toFormattedAgentRemoteConfig(*a.AgentRemoteConfig)
-		})
-
-	err := formatter.Format(
-		cmd.OutOrStdout(), displayedAgentRemoteConfigs, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format agent remote configs: %w", err)
+		err = fmt.Errorf("failed to format agent remote configs: %w", err)
 	}
 
-	errs := lo.Filter(agentRemoteConfigsWithErr, func(a AgentRemoteConfigWithErr, _ int) bool {
-		return a.Err != nil
-	})
-	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(a AgentRemoteConfigWithErr, _ int) string {
-			return a.Err.Error()
-		})
-
-		cmd.PrintErrf("Some agent remote configs could not be retrieved: %s", strings.Join(errMessages, ", "))
-	}
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func (opt *CommandOptions) listAllNamespaces(

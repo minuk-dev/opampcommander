@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +16,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -174,51 +174,25 @@ func attributesMatch(stored, selector map[string]string) bool {
 
 // Get retrieves the agent information for the given agent UIDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	type AgentWithErr struct {
-		Agent *v1.Agent
-		Err   error
-	}
-
-	agentWithErrs := lo.Map(ids, func(id string, _ int) AgentWithErr {
-		instanceUID, _ := uuid.Parse(id)
-		agent, err := opt.client.AgentService.GetAgent(cmd.Context(), opt.namespace, instanceUID)
-
-		return AgentWithErr{
-			Agent: agent,
-			Err:   err,
+	items, lookupErr := getutil.Collect(cmd, "agent", ids, func(id string) (*v1.Agent, error) {
+		instanceUID, err := uuid.Parse(id)
+		if err != nil {
+			return nil, fmt.Errorf("invalid UID: %w", err)
 		}
+
+		return opt.client.AgentService.GetAgent(cmd.Context(), opt.namespace, instanceUID)
 	})
 
-	agents := lo.Filter(agentWithErrs, func(a AgentWithErr, _ int) bool {
-		return a.Err == nil
-	})
-	if len(agents) == 0 {
-		cmd.Println("No agents found or all specified agents could not be retrieved.")
-
-		return nil
-	}
-
-	displayedAgents := lo.Map(agents, func(a AgentWithErr, _ int) ItemForCLI {
-		return ToItemForCLI(*a.Agent)
+	displayed := lo.Map(items, func(item v1.Agent, _ int) ItemForCLI {
+		return ToItemForCLI(item)
 	})
 
-	err := formatter.Format(cmd.OutOrStdout(), displayedAgents, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format agents: %w", err)
+		err = fmt.Errorf("failed to format agents: %w", err)
 	}
 
-	errs := lo.Filter(agentWithErrs, func(a AgentWithErr, _ int) bool {
-		return a.Err != nil
-	})
-	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(a AgentWithErr, _ int) string {
-			return fmt.Sprintf("failed to get agent %s: %v", a.Agent.Metadata.InstanceUID, a.Err)
-		})
-
-		cmd.PrintErrf("Some agents could not be retrieved: %s", strings.Join(errMessages, ", "))
-	}
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 // ValidArgsFunction provides dynamic completion for agent instance UIDs.

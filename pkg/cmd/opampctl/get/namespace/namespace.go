@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -144,33 +145,14 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // Get retrieves namespace(s) by name.
-func (opt *CommandOptions) Get( //nolint:funlen // CLI display logic requires branching
+func (opt *CommandOptions) Get(
 	cmd *cobra.Command, names []string,
 ) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	namespaces := make([]v1.Namespace, 0, len(names))
-
-	for _, name := range names {
-		result, err := opt.client.NamespaceService.GetNamespace(
-			cmd.Context(), name, getOpts...,
-		)
-		if err != nil {
-			cmd.PrintErrf(
-				"failed to get namespace %s: %v\n", name, err,
-			)
-
-			continue
-		}
-
-		namespaces = append(namespaces, *result)
-	}
-
-	if len(namespaces) == 0 {
-		cmd.Println("No namespaces found.")
-
-		return nil
-	}
+	namespaces, lookupErr := getutil.Collect(cmd, "namespace", names, func(name string) (*v1.Namespace, error) {
+		return opt.client.NamespaceService.GetNamespace(cmd.Context(), name, getOpts...)
+	})
 
 	formatType := formatter.FormatType(opt.formatType)
 
@@ -190,23 +172,23 @@ func (opt *CommandOptions) Get( //nolint:funlen // CLI display logic requires br
 			cmd.OutOrStdout(), items, formatType,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to format: %w", err)
+			err = fmt.Errorf("failed to format: %w", err)
 		}
 
-		return nil
+		return errors.Join(lookupErr, err)
 	case formatter.JSON, formatter.YAML:
 		err := formatter.Format(
 			cmd.OutOrStdout(), namespaces, formatType,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to format: %w", err)
+			err = fmt.Errorf("failed to format: %w", err)
 		}
 
-		return nil
+		return errors.Join(lookupErr, err)
 	default:
-		return fmt.Errorf(
+		return errors.Join(lookupErr, fmt.Errorf(
 			"unsupported format type: %s, %w",
 			opt.formatType, ErrCommandExecutionFailed,
-		)
+		))
 	}
 }

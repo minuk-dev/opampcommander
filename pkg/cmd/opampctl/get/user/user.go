@@ -11,6 +11,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -127,41 +128,22 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 
 // Get retrieves user information for the given user UIDs.
 func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
-	type userWithErr struct {
-		User *v1.User
-		Err  error
-	}
-
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	results := lo.Map(ids, func(id string, _ int) userWithErr {
-		user, err := opt.client.UserService.GetUser(cmd.Context(), id, getOpts...)
-
-		return userWithErr{
-			User: user,
-			Err:  err,
-		}
+	items, lookupErr := getutil.Collect(cmd, "user", ids, func(id string) (*v1.User, error) {
+		return opt.client.UserService.GetUser(cmd.Context(), id, getOpts...)
 	})
 
-	users := lo.Filter(results, func(result userWithErr, _ int) bool {
-		return result.Err == nil
-	})
-	if len(users) == 0 {
-		cmd.Println("No users found or all specified users could not be retrieved.")
-
-		return nil
-	}
-
-	displayedUsers := lo.Map(users, func(result userWithErr, _ int) ItemForCLI {
-		return toItemForCLI(*result.User)
+	displayed := lo.Map(items, func(item v1.User, _ int) ItemForCLI {
+		return toItemForCLI(item)
 	})
 
-	err := formatter.Format(cmd.OutOrStdout(), displayedUsers, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format users: %w", err)
+		err = fmt.Errorf("failed to format users: %w", err)
 	}
 
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func toItemForCLI(user v1.User) ItemForCLI {

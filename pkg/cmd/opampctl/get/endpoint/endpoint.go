@@ -14,6 +14,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -141,54 +142,23 @@ func (opt *CommandOptions) List(cmd *cobra.Command) error {
 }
 
 // Get retrieves the endpoint information for the given names.
-func (opt *CommandOptions) Get(cmd *cobra.Command, names []string) error {
-	type endpointWithErr struct {
-		Endpoint *v1.Endpoint
-		Err      error
-	}
-
+func (opt *CommandOptions) Get(cmd *cobra.Command, ids []string) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	endpointsWithErr := lo.Map(names, func(name string, _ int) endpointWithErr {
-		endpoint, err := opt.client.EndpointService.GetEndpoint(
-			cmd.Context(), opt.namespace, name, getOpts...)
-
-		return endpointWithErr{
-			Endpoint: endpoint,
-			Err:      err,
-		}
+	items, lookupErr := getutil.Collect(cmd, "endpoint", ids, func(id string) (*v1.Endpoint, error) {
+		return opt.client.EndpointService.GetEndpoint(cmd.Context(), opt.namespace, id, getOpts...)
 	})
 
-	endpoints := lo.Filter(endpointsWithErr, func(e endpointWithErr, _ int) bool {
-		return e.Err == nil
-	})
-	if len(endpoints) == 0 {
-		cmd.Println("No endpoints found or all specified endpoints could not be retrieved.")
-
-		return nil
-	}
-
-	displayed := lo.Map(endpoints, func(e endpointWithErr, _ int) formattedEndpoint {
-		return toFormattedEndpoint(*e.Endpoint)
+	displayed := lo.Map(items, func(item v1.Endpoint, _ int) formattedEndpoint {
+		return toFormattedEndpoint(item)
 	})
 
 	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format endpoints: %w", err)
+		err = fmt.Errorf("failed to format endpoints: %w", err)
 	}
 
-	errs := lo.Filter(endpointsWithErr, func(e endpointWithErr, _ int) bool {
-		return e.Err != nil
-	})
-	if len(errs) > 0 {
-		errMessages := lo.Map(errs, func(e endpointWithErr, _ int) string {
-			return e.Err.Error()
-		})
-
-		cmd.PrintErrf("Some endpoints could not be retrieved: %s", strings.Join(errMessages, ", "))
-	}
-
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 func (opt *CommandOptions) listAllNamespaces(

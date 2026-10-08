@@ -12,6 +12,7 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/clientutil"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/getutil"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/get/internal/selectorflags"
 	"github.com/minuk-dev/opampcommander/pkg/formatter"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
@@ -124,40 +125,23 @@ func (opt *CommandOptions) list(cmd *cobra.Command) error {
 	return nil
 }
 
-func (opt *CommandOptions) get(cmd *cobra.Command, names []string) error {
-	type result struct {
-		rb  *v1.RoleBinding
-		err error
-	}
-
+func (opt *CommandOptions) get(cmd *cobra.Command, ids []string) error {
 	getOpts := []client.GetOption{client.WithGetIncludeDeleted(opt.includeDeleted)}
 
-	results := lo.Map(names, func(name string, _ int) result {
-		rb, err := opt.client.RoleBindingService.GetRoleBinding(cmd.Context(), opt.namespace, name, getOpts...)
-
-		return result{rb: rb, err: err}
+	items, lookupErr := getutil.Collect(cmd, "rolebinding", ids, func(id string) (*v1.RoleBinding, error) {
+		return opt.client.RoleBindingService.GetRoleBinding(cmd.Context(), opt.namespace, id, getOpts...)
 	})
 
-	items := lo.FilterMap(results, func(r result, _ int) (formattedRoleBinding, bool) {
-		if r.err != nil {
-			return formattedRoleBinding{}, false
-		}
-
-		return toFormatted(*r.rb), true
+	displayed := lo.Map(items, func(item v1.RoleBinding, _ int) formattedRoleBinding {
+		return toFormatted(item)
 	})
 
-	if len(items) == 0 {
-		cmd.Println("No role bindings found.")
-
-		return nil
-	}
-
-	err := formatter.Format(cmd.OutOrStdout(), items, formatter.FormatType(opt.formatType))
+	err := formatter.Format(cmd.OutOrStdout(), displayed, formatter.FormatType(opt.formatType))
 	if err != nil {
-		return fmt.Errorf("failed to format output: %w", err)
+		err = fmt.Errorf("failed to format role bindings: %w", err)
 	}
 
-	return nil
+	return errors.Join(lookupErr, err)
 }
 
 //nolint:lll
