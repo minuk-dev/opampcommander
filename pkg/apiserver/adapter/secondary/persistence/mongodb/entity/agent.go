@@ -46,10 +46,11 @@ type AgentMetadata struct {
 
 // AgentSpec represents the desired specification of an agent.
 type AgentSpec struct {
-	NewInstanceUID      *bson.Binary           `bson:"newInstanceUID,omitempty"`
-	RemoteConfig        *AgentSpecRemoteConfig `bson:"remoteConfig,omitempty"`
-	ConnectionInfo      *AgentConnectionInfo   `bson:"connectionInfo,omitempty"`
-	RequiredRestartedAt bson.DateTime          `bson:"requiredRestartedAt,omitempty"`
+	NewInstanceUID         *bson.Binary           `bson:"newInstanceUID,omitempty"`
+	RemoteConfig           *AgentSpecRemoteConfig `bson:"remoteConfig,omitempty"`
+	PerAgentConnectionInfo *AgentConnectionInfo   `bson:"perAgentConnectionInfo,omitempty"`
+	ConnectionInfo         *AgentConnectionInfo   `bson:"connectionInfo,omitempty"`
+	RequiredRestartedAt    bson.DateTime          `bson:"requiredRestartedAt,omitempty"`
 }
 
 // AgentConnectionInfo stores the resolved offer, including certificate material,
@@ -332,6 +333,7 @@ func (spec *AgentSpec) ToDomain() agentmodel.AgentSpec {
 		RequiredRestartedAt: time.Time{},
 	}
 	agentSpec.ConnectionInfo = spec.ConnectionInfo.ToDomain()
+	agentSpec.PerAgentConnectionInfo = spec.PerAgentConnectionInfo.ToDomain()
 	agentSpec.RemoteConfig = spec.RemoteConfig.ToDomainPtr()
 
 	return agentSpec
@@ -601,10 +603,11 @@ func AgentFromDomain(agent *agentmodel.Agent) *Agent {
 			CustomCapabilities: AgentCustomCapabilitiesFromDomain(&agent.Metadata.CustomCapabilities),
 		},
 		Spec: AgentSpec{
-			NewInstanceUID:      newInstanceUID,
-			RemoteConfig:        AgentSpecRemoteConfigFromDomain(agent.Spec.RemoteConfig),
-			ConnectionInfo:      AgentConnectionInfoFromDomain(agent.Spec.ConnectionInfo),
-			RequiredRestartedAt: agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
+			NewInstanceUID:         newInstanceUID,
+			RemoteConfig:           AgentSpecRemoteConfigFromDomain(agent.Spec.RemoteConfig),
+			ConnectionInfo:         AgentConnectionInfoFromDomain(agent.Spec.ConnectionInfo),
+			PerAgentConnectionInfo: AgentConnectionInfoFromDomain(agent.Spec.PerAgentConnectionInfo),
+			RequiredRestartedAt:    agentRestartInfoToBsonDateTime(agent.Spec.RestartInfo),
 		},
 		Status: AgentStatus{
 			ActiveClientCertificateHash: agent.Status.ActiveClientCertificateHash,

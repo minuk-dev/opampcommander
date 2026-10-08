@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
@@ -456,4 +457,47 @@ func TestAgent_HasNewPackages(t *testing.T) {
 
 	// Without the capability nothing is offered.
 	assert.False(t, agentmodel.NewAgent(uuid.New()).HasNewPackages())
+}
+
+func TestPerAgentConnectionEditsDoNotCaptureGroupSettings(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		edit func(*agentmodel.Agent) error
+	}{
+		{name: "opamp", edit: func(member *agentmodel.Agent) error {
+			return member.SetOpAMPConnectionSettings("wss://per-agent.test")
+		}},
+		{name: "metrics", edit: func(member *agentmodel.Agent) error {
+			return member.SetMetricsConnectionSettings("https://metrics.test")
+		}},
+		{name: "logs", edit: func(member *agentmodel.Agent) error {
+			return member.SetLogsConnectionSettings("https://logs.test")
+		}},
+		{name: "traces", edit: func(member *agentmodel.Agent) error {
+			return member.SetTracesConnectionSettings("https://traces.test")
+		}},
+		{name: "other", edit: func(member *agentmodel.Agent) error {
+			return member.SetOtherConnectionSettings("other", "https://other.test")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			member := agentmodel.NewAgent(uuid.New())
+			require.NoError(t, test.edit(member))
+			independent := member.Clone().Spec.ConnectionInfo
+			groupOffer, err := agentmodel.NewConnectionInfo(&agentmodel.AgentOpAMPConnectionSettings{
+				DestinationEndpoint: "wss://group.test", Headers: map[string][]string{"group": {"secret"}},
+			}, nil, nil, nil, nil)
+			require.NoError(t, err)
+
+			member.Spec.ConnectionInfo = groupOffer
+			require.NoError(t, test.edit(member))
+			assert.Equal(t, independent.Hash, member.Spec.PerAgentConnectionInfo.Hash)
+			assert.Equal(t, member.Spec.PerAgentConnectionInfo, member.Spec.ConnectionInfo)
+			assert.Equal(t, "wss://group.test", groupOffer.OpAMP().DestinationEndpoint)
+		})
+	}
 }
