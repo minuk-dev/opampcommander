@@ -31,6 +31,7 @@ beforeEach(() => {
 
 const stored: AgentRemoteConfig = {
   metadata: {
+    resourceVersion: '3',
     name: 'otlp-debug',
     namespace: 'default',
     attributes: { team: 'platform' },
@@ -238,5 +239,41 @@ describe('AgentRemoteConfigEditDialog', () => {
 
     expect(await screen.findByText('config body is empty')).toBeInTheDocument();
     expect(screen.getByText(/Bad Request · HTTP 400/)).toBeInTheDocument();
+  });
+  it('pins identity and revision while the editor is open', async () => {
+    const user = userEvent.setup();
+    const props = {
+      open: true,
+      mode: 'edit' as const,
+      namespace: 'default',
+      initial: stored,
+      onClose: vi.fn(),
+      onSaved: vi.fn(),
+    };
+    const { rerender } = render(<AgentRemoteConfigEditDialog {...props} />);
+    await user.type(await bodyEditor(), '# changed{enter}');
+    rerender(
+      <AgentRemoteConfigEditDialog
+        {...props}
+        namespace="other"
+        initial={{
+          ...stored,
+          metadata: {
+            ...stored.metadata,
+            namespace: 'other',
+            name: 'replacement',
+            resourceVersion: '4',
+          },
+        }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+    expect(put.mock.calls[0][0]).toBe(
+      `/api/v1/namespaces/default/agentremoteconfigs/${stored.metadata.name}`,
+    );
+    expect(put.mock.calls[0][1]).toMatchObject({
+      metadata: { name: stored.metadata.name, namespace: 'default', resourceVersion: '3' },
+    });
   });
 });

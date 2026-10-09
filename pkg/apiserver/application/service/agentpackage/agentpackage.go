@@ -121,9 +121,10 @@ func (a *Service) DeleteAgentPackage(
 	ctx context.Context,
 	namespace string,
 	name string,
+	resourceVersion ...int64,
 ) error {
 	err := a.agentpackageUsecase.DeleteAgentPackage(
-		ctx, namespace, name, a.clock.Now(), a.actor(ctx),
+		ctx, namespace, name, a.clock.Now(), a.actor(ctx), resourceVersion...,
 	)
 	if err != nil {
 		return fmt.Errorf("delete agent package: %w", err)

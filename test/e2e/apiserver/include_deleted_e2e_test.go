@@ -49,7 +49,9 @@ func TestE2E_AgentPackage_IncludeDeleted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = c.AgentPackageService.DeleteAgentPackage(t.Context(), "default", name)
+	deleteTargetAgentPackage, readErr := c.AgentPackageService.GetAgentPackage(t.Context(), "default", name)
+	require.NoError(t, readErr)
+	err = c.AgentPackageService.DeleteAgentPackage(t.Context(), "default", name, deleteTargetAgentPackage.Metadata.ResourceVersion)
 	require.NoError(t, err)
 
 	assertAbsent(t,
@@ -110,7 +112,9 @@ func TestE2E_AgentRemoteConfig_IncludeDeleted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = c.AgentRemoteConfigService.DeleteAgentRemoteConfig(t.Context(), "default", name)
+	deleteTargetAgentRemoteConfig, readErr := c.AgentRemoteConfigService.GetAgentRemoteConfig(t.Context(), "default", name)
+	require.NoError(t, readErr)
+	err = c.AgentRemoteConfigService.DeleteAgentRemoteConfig(t.Context(), "default", name, deleteTargetAgentRemoteConfig.Metadata.ResourceVersion)
 	require.NoError(t, err)
 
 	assertAbsent(t,
@@ -235,7 +239,9 @@ func TestE2E_Namespace_IncludeDeleted(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = c.NamespaceService.DeleteNamespace(t.Context(), name)
+	deleteTargetNamespace, readErr := c.NamespaceService.GetNamespace(t.Context(), name)
+	require.NoError(t, readErr)
+	err = c.NamespaceService.DeleteNamespace(t.Context(), name, deleteTargetNamespace.Metadata.ResourceVersion)
 	require.NoError(t, err)
 
 	assertAbsent(t,

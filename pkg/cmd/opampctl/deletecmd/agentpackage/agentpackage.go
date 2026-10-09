@@ -87,9 +87,15 @@ func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
 	}
 
 	results := lo.Map(names, func(name string, _ int) deleteResult {
+		resource, err := o.client.AgentPackageService.GetAgentPackage(cmd.Context(), o.namespace, name)
+		if err != nil {
+			return deleteResult{name: name, err: err}
+		}
+
 		return deleteResult{
 			name: name,
-			err:  o.client.AgentPackageService.DeleteAgentPackage(cmd.Context(), o.namespace, name),
+			err: o.client.AgentPackageService.DeleteAgentPackage(cmd.Context(),
+				o.namespace, name, resource.Metadata.ResourceVersion),
 		}
 	})
 

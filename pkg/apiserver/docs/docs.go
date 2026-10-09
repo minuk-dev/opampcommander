@@ -1032,6 +1032,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorModel"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1107,7 +1114,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an existing agent group.",
+                "description": "Requires metadata.resourceVersion from the original read. Update an existing agent group.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1162,6 +1169,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/ErrorModel"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1190,6 +1204,13 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Revision from the resource read; required for conditional deletion",
+                        "name": "resourceVersion",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1206,6 +1227,13 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/ErrorModel"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "500": {
@@ -1342,6 +1370,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1412,7 +1447,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an existing agent package.",
+                "description": "Requires metadata.resourceVersion from the original read. Update an existing agent package.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1469,6 +1504,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1498,6 +1540,13 @@ const docTemplate = `{
                         "name": "name",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Revision from the resource read; required for conditional deletion",
+                        "name": "resourceVersion",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1513,6 +1562,13 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -4526,6 +4582,11 @@ const docTemplate = `{
                 },
                 "namespace": {
                     "type": "string"
+                },
+                "resourceVersion": {
+                    "description": "ResourceVersion is an opaque revision from a read response, required for updates.",
+                    "type": "string",
+                    "example": "0"
                 }
             }
         },
@@ -4649,6 +4710,11 @@ const docTemplate = `{
                 },
                 "namespace": {
                     "type": "string"
+                },
+                "resourceVersion": {
+                    "description": "ResourceVersion is an opaque revision from a read response, required for updates.",
+                    "type": "string",
+                    "example": "0"
                 }
             }
         },
@@ -4761,6 +4827,11 @@ const docTemplate = `{
                 },
                 "namespace": {
                     "type": "string"
+                },
+                "resourceVersion": {
+                    "description": "ResourceVersion is an opaque revision from a read response, required for updates.",
+                    "type": "string",
+                    "example": "0"
                 }
             }
         },
@@ -6175,6 +6246,11 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "resourceVersion": {
+                    "description": "ResourceVersion is an opaque revision from a read response, required for updates.",
+                    "type": "string",
+                    "example": "0"
                 }
             }
         },

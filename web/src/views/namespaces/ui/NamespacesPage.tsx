@@ -101,7 +101,9 @@ export default function NamespacesPage() {
   const onDelete = async () => {
     if (!deleting) return;
     try {
-      await api.delete(`/api/v1/namespaces/${deleting.metadata.name}`);
+      await api.delete(`/api/v1/namespaces/${deleting.metadata.name}`, {
+        query: { resourceVersion: deleting.metadata.resourceVersion },
+      });
       setDeleting(null);
       await refresh();
     } catch (err) {

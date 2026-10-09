@@ -15,11 +15,13 @@ type Namespace struct {
 
 // NamespaceMetadata represents the metadata of a namespace.
 type NamespaceMetadata struct {
-	Name        string            `json:"name"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-	CreatedAt   Time              `json:"createdAt"`
-	DeletedAt   *Time             `json:"deletedAt,omitempty"`
+	// ResourceVersion is an opaque revision from a read response, required for updates.
+	ResourceVersion int64             `json:"resourceVersion,string,omitempty"`
+	Name            string            `json:"name"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
+	CreatedAt       Time              `json:"createdAt"`
+	DeletedAt       *Time             `json:"deletedAt,omitempty"`
 } // @name NamespaceMetadata
 
 // NamespaceStatus represents the status of a namespace.

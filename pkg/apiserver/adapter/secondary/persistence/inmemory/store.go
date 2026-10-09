@@ -182,7 +182,7 @@ func (s *store[K, V]) casPut(key K, value V, expected int64, versionOf func(V) i
 	defer s.mu.Unlock()
 
 	if existing, ok := s.items[key]; ok {
-		if versionOf(existing.value) != expected {
+		if expected == 0 || versionOf(existing.value) != expected {
 			return errConflict()
 		}
 
@@ -199,22 +199,6 @@ func (s *store[K, V]) casPut(key K, value V, expected int64, versionOf func(V) i
 	s.nextSeq++
 
 	return nil
-}
-
-// casPutOrCreate applies the optimistic-concurrency write semantics shared by the
-// MongoDB adapter. expected 0 is a create or the first write of a
-// pre-optimistic-concurrency value that has no version yet: it upserts by key,
-// migrating that value rather than conflicting. A positive expected must match the
-// stored version or the write is rejected with [model.ErrConflict]. The value's
-// version must already be set to the next version by the caller.
-func (s *store[K, V]) casPutOrCreate(key K, value V, expected int64, versionOf func(V) int64) error {
-	if expected == 0 {
-		s.put(key, value)
-
-		return nil
-	}
-
-	return s.casPut(key, value, expected, versionOf)
 }
 
 // delete permanently removes key (hard delete). It returns

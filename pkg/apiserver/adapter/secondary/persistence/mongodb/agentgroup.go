@@ -8,7 +8,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -121,35 +120,22 @@ func (a *AgentGroupMongoAdapter) ListAllAgentGroups(
 }
 
 // PutAgentGroup implements agentport.AgentGroupPersistencePort.
-//
-//nolint:godox // Reason: TODO comment.
 func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	ctx context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
+	expected := agentGroup.Metadata.ResourceVersion
 	en := entity.AgentGroupFromDomain(agentGroup)
 
-	_, err := a.collection.ReplaceOne(ctx,
-		a.filterByNamespaceAndName(namespace, name),
-		en,
-		options.Replace().SetUpsert(true),
-	)
+	en.Metadata.ResourceVersion = expected + 1
+
+	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), en, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put agent group: %w", err)
 	}
 
-	// If the agent group is soft deleted, return the input directly
-	// since GetAgentGroup filters out deleted items
-	if agentGroup.IsDeleted() {
-		return agentGroup, nil
-	}
+	agentGroup.Metadata.ResourceVersion = expected + 1
 
-	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.
-	newAgentGroup, err := a.GetAgentGroup(ctx, namespace, name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get agent group after put: %w", err)
-	}
-
-	return newAgentGroup, nil
+	return agentGroup, nil
 }
 
 func (a *AgentGroupMongoAdapter) filterByNamespaceAndName(namespace, name string) bson.M {

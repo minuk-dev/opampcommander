@@ -17,7 +17,11 @@ import (
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentpackage"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agentpackage/usecasemock"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
+	agentpackagesvc "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/agentpackage"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
 
@@ -42,7 +46,7 @@ func TestAgentPackageController_List(t *testing.T) {
 
 		packages := []v1.AgentPackage{
 			{
-				Metadata: v1.AgentPackageMetadata{
+				Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 					Name:       testPackageName,
 					Attributes: v1.Attributes{},
 				},
@@ -63,7 +67,7 @@ func TestAgentPackageController_List(t *testing.T) {
 				},
 			},
 			{
-				Metadata: v1.AgentPackageMetadata{
+				Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 					Name:       "pkg2",
 					Attributes: v1.Attributes{},
 				},
@@ -158,7 +162,7 @@ func TestAgentPackageController_Get(t *testing.T) {
 	router := ctrlBase.Router
 
 	agentPkg := &v1.AgentPackage{
-		Metadata: v1.AgentPackageMetadata{
+		Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 			Name:       testPackageName,
 			Attributes: v1.Attributes{},
 		},
@@ -233,7 +237,7 @@ func TestAgentPackageController_Create(t *testing.T) {
 
 	name := testPackageName
 	returnValue := v1.AgentPackage{
-		Metadata: v1.AgentPackageMetadata{
+		Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -255,7 +259,7 @@ func TestAgentPackageController_Create(t *testing.T) {
 	}
 
 	payload := v1.AgentPackage{
-		Metadata: v1.AgentPackageMetadata{
+		Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -320,7 +324,7 @@ func TestAgentPackageController_Create_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 	payload := v1.AgentPackage{
-		Metadata: v1.AgentPackageMetadata{
+		Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 			Name:       testPackageName,
 			Attributes: v1.Attributes{},
 		},
@@ -356,7 +360,7 @@ func TestAgentPackageController_Update(t *testing.T) {
 	router := ctrlBase.Router
 	name := testPackageName
 	pkg := &v1.AgentPackage{
-		Metadata: v1.AgentPackageMetadata{
+		Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -429,7 +433,7 @@ func TestAgentPackageController_Update_InternalError(t *testing.T) {
 	router := ctrlBase.Router
 	name := testPackageName
 	pkg := &v1.AgentPackage{
-		Metadata: v1.AgentPackageMetadata{
+		Metadata: v1.AgentPackageMetadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -477,10 +481,10 @@ func TestAgentPackageController_Delete(t *testing.T) {
 	router := ctrlBase.Router
 	name := testPackageName
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/"+name, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/"+name+"?resourceVersion=1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
@@ -494,10 +498,11 @@ func TestAgentPackageController_Delete_NotFound(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(model.ErrResourceNotExist)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything,
+		mock.Anything, mock.Anything, mock.Anything).Return(model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something?resourceVersion=1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -511,11 +516,87 @@ func TestAgentPackageController_Delete_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something?resourceVersion=1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestAgentPackageController_ConditionalMutations(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	ctrlBase := testutil.NewBase(t).ForController()
+	repo := inmemory.NewAgentPackageRepository()
+	domain := agentservice.NewAgentPackageService(repo)
+	service := agentpackagesvc.NewAgentPackageService(domain, ctrlBase.Logger)
+	ctrlBase.SetupRouter(agentpackage.NewController(service, ctrlBase.Logger))
+	server := httptest.NewServer(ctrlBase.Router)
+	t.Cleanup(server.Close)
+	cli := client.New(server.URL).AgentPackageService
+	resource := &v1.AgentPackage{Metadata: v1.AgentPackageMetadata{Name: "package",
+		Namespace: "default"}, Spec: v1.AgentPackageSpec{Version: "v1"}}
+	created, err := cli.CreateAgentPackage(ctx, "default", resource)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, created.Metadata.ResourceVersion)
+	// A lost create response can be retried without overwriting the winner.
+	_, err = cli.CreateAgentPackage(ctx, "default", resource)
+	assertHTTPStatus(t, err, http.StatusConflict)
+	stale, err := cli.GetAgentPackage(ctx, "default", "package")
+	require.NoError(t, err)
+
+	created.Spec.Version = "v2"
+	updated, err := cli.UpdateAgentPackage(ctx, created)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, updated.Metadata.ResourceVersion)
+	// A lost update response retried with the same desired state is a no-op.
+	retried, err := cli.UpdateAgentPackage(ctx, created)
+	require.NoError(t, err)
+	require.Equal(t, updated.Metadata.ResourceVersion, retried.Metadata.ResourceVersion)
+	unchanged, err := cli.UpdateAgentPackage(ctx, updated)
+	require.NoError(t, err)
+	require.Equal(t, updated.Metadata.ResourceVersion, unchanged.Metadata.ResourceVersion)
+
+	stale.Spec.Version = "v3"
+	_, err = cli.UpdateAgentPackage(ctx, stale)
+	assertHTTPStatus(t, err, http.StatusConflict)
+	err = cli.DeleteAgentPackage(ctx, "default", "package", stale.Metadata.ResourceVersion)
+	assertHTTPStatus(t, err, http.StatusConflict)
+
+	missing := *updated
+	missing.Metadata.ResourceVersion = 0
+	_, err = cli.UpdateAgentPackage(ctx, &missing)
+	assertHTTPStatus(t, err, http.StatusBadRequest)
+	err = cli.DeleteAgentPackage(ctx, "default", "package", 0)
+	assertHTTPStatus(t, err, http.StatusBadRequest)
+	// Path/body mismatch is rejected without changing either record.
+	body, err := json.Marshal(updated)
+	require.NoError(t, err)
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodPut, server.URL+testBaseURL+"/other", strings.NewReader(string(body)))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	// Identity validation happens before existence lookup at the API boundary.
+	recorder := httptest.NewRecorder()
+	ctrlBase.Router.ServeHTTP(recorder, req)
+	require.Equal(t, http.StatusBadRequest, recorder.Code)
+	require.NoError(t, cli.DeleteAgentPackage(ctx, "default", "package", updated.Metadata.ResourceVersion))
+	// A lost delete response retried against its tombstone succeeds without another write.
+	require.NoError(t, cli.DeleteAgentPackage(ctx, "default", "package", updated.Metadata.ResourceVersion))
+	tombstone, err := cli.GetAgentPackage(ctx, "default", "package", client.WithGetIncludeDeleted(true))
+	require.NoError(t, err)
+	require.EqualValues(t, 3, tombstone.Metadata.ResourceVersion)
+
+	_, err = cli.CreateAgentPackage(ctx, "default", resource)
+	assertHTTPStatus(t, err, http.StatusConflict)
+}
+
+func assertHTTPStatus(t *testing.T, err error, status int) {
+	t.Helper()
+
+	var responseErr *client.ResponseError
+	require.ErrorAs(t, err, &responseErr)
+	require.Equal(t, status, responseErr.StatusCode)
 }

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -24,7 +26,7 @@ import (
 )
 
 // ErrAgentGroupAlreadyExists is returned when an agent group with the same name already exists.
-var ErrAgentGroupAlreadyExists = errors.New("agent group already exists")
+var ErrAgentGroupAlreadyExists = model.ErrResourceAlreadyExist
 
 var _ usecase.AgentGroupManageUsecase = (*ManageService)(nil)
 
@@ -173,9 +175,14 @@ func (s *ManageService) CreateAgentGroup(
 	namespace := agentGroup.Metadata.Namespace
 	name := agentGroup.Metadata.Name
 
-	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, nil)
+	existingAgentGroup, getErr := s.agentgroupUsecase.GetAgentGroup(ctx,
+		namespace, name, &model.GetOptions{IncludeDeleted: true})
 	if getErr == nil && existingAgentGroup != nil {
 		return nil, fmt.Errorf("%w: %s/%s", ErrAgentGroupAlreadyExists, namespace, name)
+	}
+
+	if getErr != nil && !errors.Is(getErr, model.ErrResourceNotExist) {
+		return nil, fmt.Errorf("check existing agent group: %w", getErr)
 	}
 
 	createdBy, err := security.GetUser(ctx)
@@ -190,6 +197,8 @@ func (s *ManageService) CreateAgentGroup(
 	// Set the created condition with createdBy information
 	now := s.clock.Now()
 	domainAgentGroup.Metadata.CreatedAt = now
+	domainAgentGroup.Metadata.ResourceVersion = 0
+	domainAgentGroup.Metadata.DeletedAt = time.Time{}
 	domainAgentGroup.Status.Conditions = []model.Condition{
 		{
 			Type:               model.ConditionTypeCreated,
@@ -215,6 +224,11 @@ func (s *ManageService) UpdateAgentGroup(
 	name string,
 	apiAgentGroup *v1.AgentGroup,
 ) (*v1.AgentGroup, error) {
+	err := model.CheckResourceIdentity(namespace,
+		name, apiAgentGroup.Metadata.Namespace, apiAgentGroup.Metadata.Name)
+	if err != nil {
+		return nil, fmt.Errorf("resource precondition: %w", err)
+	}
 	// Check if the agent group exists
 	existingAgentGroup, err := s.agentgroupUsecase.GetAgentGroup(ctx, namespace, name, nil)
 	if err != nil {
@@ -230,33 +244,26 @@ func (s *ManageService) UpdateAgentGroup(
 
 	domainAgentGroup := s.mapper.MapAPIToAgentGroup(apiAgentGroup)
 
+	if apiAgentGroup.Metadata.ResourceVersion <= 0 {
+		return nil, fmt.Errorf("%w: metadata.resourceVersion is required", model.ErrInvalidArgument)
+	}
+
+	if existingAgentGroup.Spec.Equal(domainAgentGroup.Spec) &&
+		maps.Equal(existingAgentGroup.Metadata.Attributes, domainAgentGroup.Metadata.Attributes) {
+		return s.mapper.MapAgentGroupToAPI(existingAgentGroup), nil
+	}
+
+	err = model.CheckResourceVersion(apiAgentGroup.Metadata.ResourceVersion,
+		existingAgentGroup.Metadata.ResourceVersion)
+	if err != nil {
+		return nil, fmt.Errorf("resource precondition: %w", err)
+	}
+
 	// Sanitize: preserve immutable fields from existing agent group
 	domainAgentGroup = s.sanityFilter.Sanitize(existingAgentGroup, domainAgentGroup)
 
-	now := s.clock.Now()
-	updatedCondition := model.Condition{
-		Type:               model.ConditionTypeUpdated,
-		LastTransitionTime: now,
-		Status:             model.ConditionStatusTrue,
-		Reason:             updatedBy.String(),
-		Message:            "Agent group updated",
-	}
-
-	// Find and update existing Updated condition or append new one
-	found := false
-
-	for i, cond := range domainAgentGroup.Status.Conditions {
-		if cond.Type == model.ConditionTypeUpdated {
-			domainAgentGroup.Status.Conditions[i] = updatedCondition
-			found = true
-
-			break
-		}
-	}
-
-	if !found {
-		domainAgentGroup.Status.Conditions = append(domainAgentGroup.Status.Conditions, updatedCondition)
-	}
+	domainAgentGroup.SetCondition(model.ConditionTypeUpdated, model.ConditionStatusTrue,
+		s.clock.Now(), updatedBy.String(), "Agent group updated")
 
 	updatedAgentGroup, err := s.agentgroupUsecase.SaveAgentGroup(ctx, namespace, name, domainAgentGroup)
 	if err != nil {
@@ -271,6 +278,7 @@ func (s *ManageService) DeleteAgentGroup(
 	ctx context.Context,
 	namespace string,
 	name string,
+	resourceVersion ...int64,
 ) error {
 	deletedBy, err := security.GetUser(ctx)
 	if err != nil {
@@ -281,7 +289,7 @@ func (s *ManageService) DeleteAgentGroup(
 
 	deletedAt := s.clock.Now()
 
-	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, namespace, name, deletedAt, deletedBy.String())
+	err = s.agentgroupUsecase.DeleteAgentGroup(ctx, namespace, name, deletedAt, deletedBy.String(), resourceVersion...)
 	if err != nil {
 		return fmt.Errorf("get agent group for delete: %w", err)
 	}

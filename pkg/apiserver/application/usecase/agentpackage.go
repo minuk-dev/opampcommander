@@ -26,5 +26,5 @@ type AgentPackageManageUsecase interface {
 	UpdateAgentPackage(ctx context.Context, namespace string, name string,
 		agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
 	// DeleteAgentPackage removes the named package.
-	DeleteAgentPackage(ctx context.Context, namespace string, name string) error
+	DeleteAgentPackage(ctx context.Context, namespace string, name string, resourceVersion ...int64) error
 }

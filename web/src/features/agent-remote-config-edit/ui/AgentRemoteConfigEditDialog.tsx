@@ -65,11 +65,13 @@ interface Props {
 export default function AgentRemoteConfigEditDialog({
   open,
   mode,
-  namespace,
-  initial,
+  namespace: currentNamespace,
+  initial: incoming,
   onClose,
   onSaved,
 }: Props) {
+  const [initial, setInitial] = useState(incoming);
+  const [namespace, setNamespace] = useState(currentNamespace);
   const [name, setName] = useState('');
   const [contentType, setContentType] = useState(CONTENT_TYPES[0]);
   const [body, setBody] = useState('');
@@ -94,15 +96,17 @@ export default function AgentRemoteConfigEditDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
+      setInitial(incoming);
+      setNamespace(currentNamespace);
       const buffers = {
-        contentType: initial?.spec.contentType || CONTENT_TYPES[0],
-        body: initial?.spec.value ?? '',
+        contentType: incoming?.spec.contentType || CONTENT_TYPES[0],
+        body: incoming?.spec.value ?? '',
         attributesText:
-          initial?.metadata.attributes && Object.keys(initial.metadata.attributes).length > 0
-            ? toYAML(initial.metadata.attributes)
+          incoming?.metadata.attributes && Object.keys(incoming.metadata.attributes).length > 0
+            ? toYAML(incoming.metadata.attributes)
             : '',
       };
-      setName(initial?.metadata.name ?? '');
+      setName(incoming?.metadata.name ?? '');
       setContentType(buffers.contentType);
       setBody(buffers.body);
       setAttributesText(buffers.attributesText);
@@ -159,7 +163,7 @@ export default function AgentRemoteConfigEditDialog({
           spec: { ...initial.spec, value: body, contentType },
         };
         await api.put(
-          `/api/v1/namespaces/${namespace}/agentremoteconfigs/${initial.metadata.name}`,
+          `/api/v1/namespaces/${initial.metadata.namespace}/agentremoteconfigs/${initial.metadata.name}`,
           updated,
         );
       }

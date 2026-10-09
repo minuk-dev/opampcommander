@@ -1,6 +1,7 @@
 import type { AgentRemoteConfigSpec, Attributes, Condition } from '@shared/api';
 
 export interface AgentRemoteConfigMetadata {
+  resourceVersion?: string;
   name: string;
   namespace: string;
   attributes?: Attributes;

@@ -102,8 +102,7 @@ func (f *nsFakeAgentGroupUsecase) SaveAgentGroup(
 }
 
 func (f *nsFakeAgentGroupUsecase) DeleteAgentGroup(
-	context.Context, string, string, time.Time, string,
-) error {
+	context.Context, string, string, time.Time, string, ...int64) error {
 	return f.deleteErr
 }
 
@@ -208,8 +207,7 @@ func (f *nsFakeAgentPackageUsecase) UpdateAgentPackage(
 }
 
 func (f *nsFakeAgentPackageUsecase) DeleteAgentPackage(
-	context.Context, string, string, time.Time, string,
-) error {
+	context.Context, string, string, time.Time, string, ...int64) error {
 	return nil
 }
 
@@ -246,8 +244,7 @@ func (f *nsFakeAgentRemoteConfigUsecase) UpdateAgentRemoteConfig(
 }
 
 func (f *nsFakeAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
-	context.Context, string, string, time.Time, string,
-) error {
+	context.Context, string, string, time.Time, string, ...int64) error {
 	return nil
 }
 
@@ -353,7 +350,7 @@ func TestCreateNamespace_StampsCreation(t *testing.T) {
 	t.Parallel()
 
 	// getErr forces the existence check to treat the namespace as not present.
-	persistence := &nsFakeNamespacePersistence{getErr: errNotImplemented}
+	persistence := &nsFakeNamespacePersistence{getErr: model.ErrResourceNotExist}
 	svc := newNamespaceService(persistence, &nsFakeAgentGroupUsecase{}, &nsRecordingTxRunner{})
 
 	created, err := svc.CreateNamespace(t.Context(), agentmodel.NewNamespace("team-a"), "tester")
@@ -372,6 +369,7 @@ func TestUpdateNamespace_PreservesImmutableFields(t *testing.T) {
 
 	createdAt := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	stored := agentmodel.NewNamespace("team-a")
+	stored.Metadata.ResourceVersion = 1
 	stored.Metadata.CreatedAt = createdAt
 	stored.MarkAsCreated(createdAt, "creator")
 
@@ -380,6 +378,7 @@ func TestUpdateNamespace_PreservesImmutableFields(t *testing.T) {
 
 	// The incoming model tries to mutate immutable fields and the labels.
 	incoming := agentmodel.NewNamespace("team-a")
+	incoming.Metadata.ResourceVersion = 1
 	incoming.Metadata.CreatedAt = time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
 	incoming.Metadata.Labels = map[string]string{"team": "a"}
 
@@ -389,4 +388,27 @@ func TestUpdateNamespace_PreservesImmutableFields(t *testing.T) {
 	assert.Equal(t, createdAt, updated.Metadata.CreatedAt, "CreatedAt must be preserved from the stored namespace")
 	assert.Equal(t, map[string]string{"team": "a"}, updated.Metadata.Labels, "mutable labels must be applied")
 	assert.NotEmpty(t, updated.Status.Conditions, "existing lifecycle conditions must be preserved")
+}
+
+func TestCreateNamespacePropagatesReadFailure(t *testing.T) {
+	t.Parallel()
+
+	persistence := &nsFakeNamespacePersistence{getErr: errNotImplemented}
+	svc := newNamespaceService(persistence, &nsFakeAgentGroupUsecase{}, &nsRecordingTxRunner{})
+	_, err := svc.CreateNamespace(t.Context(), agentmodel.NewNamespace("team"), "actor")
+	require.ErrorIs(t, err, errNotImplemented)
+	require.Zero(t, persistence.putCalls)
+}
+
+func TestDeleteNamespaceRejectsStaleRevisionBeforeCascade(t *testing.T) {
+	t.Parallel()
+
+	stored := agentmodel.NewNamespace("team")
+	stored.Metadata.ResourceVersion = 2
+	persistence := &nsFakeNamespacePersistence{stored: stored}
+	svc := newNamespaceService(persistence, &nsFakeAgentGroupUsecase{deleteErr: errCascade}, &nsRecordingTxRunner{})
+	err := svc.DeleteNamespace(t.Context(), "team", "actor", 1)
+	require.ErrorIs(t, err, model.ErrConflict)
+	require.Zero(t, persistence.putCalls)
+	require.False(t, stored.IsDeleted())
 }

@@ -83,9 +83,10 @@ func (mapper *Mapper) MapAPIToAgentGroup(apiAgentGroup *v1.AgentGroup) *agentmod
 	return &agentmodel.AgentGroup{
 		//exhaustruct:ignore
 		Metadata: agentmodel.AgentGroupMetadata{
-			Namespace:  apiAgentGroup.Metadata.Namespace,
-			Name:       apiAgentGroup.Metadata.Name,
-			Attributes: agentmodel.OfAttributes(apiAgentGroup.Metadata.Attributes),
+			Namespace:       apiAgentGroup.Metadata.Namespace,
+			ResourceVersion: apiAgentGroup.Metadata.ResourceVersion,
+			Name:            apiAgentGroup.Metadata.Name,
+			Attributes:      agentmodel.OfAttributes(apiAgentGroup.Metadata.Attributes),
 		},
 		Spec: agentmodel.AgentGroupSpec{
 			Priority: apiAgentGroup.Spec.Priority,
@@ -112,11 +113,12 @@ func (mapper *Mapper) MapAgentGroupToAPI(domainAgentGroup *agentmodel.AgentGroup
 		Kind:       v1.AgentGroupKind,
 		APIVersion: v1.APIVersion,
 		Metadata: v1.Metadata{
-			Namespace:  domainAgentGroup.Metadata.Namespace,
-			Name:       domainAgentGroup.Metadata.Name,
-			CreatedAt:  v1.NewTime(domainAgentGroup.Metadata.CreatedAt),
-			DeletedAt:  mapDeletedAtToAPI(domainAgentGroup.Metadata.DeletedAt),
-			Attributes: v1.Attributes(domainAgentGroup.Metadata.Attributes),
+			Namespace:       domainAgentGroup.Metadata.Namespace,
+			ResourceVersion: domainAgentGroup.Metadata.ResourceVersion,
+			Name:            domainAgentGroup.Metadata.Name,
+			CreatedAt:       v1.NewTime(domainAgentGroup.Metadata.CreatedAt),
+			DeletedAt:       mapDeletedAtToAPI(domainAgentGroup.Metadata.DeletedAt),
+			Attributes:      v1.Attributes(domainAgentGroup.Metadata.Attributes),
 		},
 		Spec: v1.Spec{
 			Priority: domainAgentGroup.Spec.Priority,
@@ -301,11 +303,12 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *agentmodel.AgentPackage
 		Kind:       v1.AgentPackageKind,
 		APIVersion: v1.APIVersion,
 		Metadata: v1.AgentPackageMetadata{
-			Name:       agentPackage.Metadata.Name,
-			Namespace:  agentPackage.Metadata.Namespace,
-			Attributes: v1.Attributes(agentPackage.Metadata.Attributes),
-			CreatedAt:  v1.NewTime(agentPackage.Metadata.CreatedAt),
-			DeletedAt:  deletedAt,
+			ResourceVersion: agentPackage.Metadata.ResourceVersion,
+			Name:            agentPackage.Metadata.Name,
+			Namespace:       agentPackage.Metadata.Namespace,
+			Attributes:      v1.Attributes(agentPackage.Metadata.Attributes),
+			CreatedAt:       v1.NewTime(agentPackage.Metadata.CreatedAt),
+			DeletedAt:       deletedAt,
 		},
 		Spec: v1.AgentPackageSpec{
 			PackageType: agentPackage.Spec.PackageType,
@@ -326,12 +329,10 @@ func (mapper *Mapper) MapAgentPackageToAPI(agentPackage *agentmodel.AgentPackage
 func (mapper *Mapper) MapAPIToAgentPackage(apiModel *v1.AgentPackage) *agentmodel.AgentPackage {
 	return &agentmodel.AgentPackage{
 		Metadata: agentmodel.AgentPackageMetadata{
-			Name:       apiModel.Metadata.Name,
-			Namespace:  apiModel.Metadata.Namespace,
-			Attributes: agentmodel.OfAttributes(apiModel.Metadata.Attributes),
-			// ResourceVersion is server-managed; a client-supplied model does not carry
-			// it. The service layer loads the stored version before writing.
-			ResourceVersion: 0,
+			ResourceVersion: apiModel.Metadata.ResourceVersion,
+			Name:            apiModel.Metadata.Name,
+			Namespace:       apiModel.Metadata.Namespace,
+			Attributes:      agentmodel.OfAttributes(apiModel.Metadata.Attributes),
 			CreatedAt:       apiModel.Metadata.CreatedAt.Time,
 			DeletedAt:       nil,
 		},
@@ -420,10 +421,11 @@ func (mapper *Mapper) MapAgentRemoteConfigToAPI(
 		Kind:       v1.AgentRemoteConfigKind,
 		APIVersion: v1.APIVersion,
 		Metadata: v1.AgentRemoteConfigMetadata{
-			Name:       domain.Metadata.Name,
-			Namespace:  domain.Metadata.Namespace,
-			Attributes: v1.Attributes(domain.Metadata.Attributes),
-			CreatedAt:  v1.NewTime(domain.Metadata.CreatedAt),
+			ResourceVersion: domain.Metadata.ResourceVersion,
+			Name:            domain.Metadata.Name,
+			Namespace:       domain.Metadata.Namespace,
+			Attributes:      v1.Attributes(domain.Metadata.Attributes),
+			CreatedAt:       v1.NewTime(domain.Metadata.CreatedAt),
 		},
 		Spec: v1.AgentRemoteConfigSpec{
 			Value:       string(domain.Spec.Value),
@@ -446,11 +448,12 @@ func (mapper *Mapper) MapAPIToAgentRemoteConfig(
 
 	return &agentmodel.AgentRemoteConfig{
 		Metadata: agentmodel.AgentRemoteConfigMetadata{
-			Name:       api.Metadata.Name,
-			Namespace:  api.Metadata.Namespace,
-			Attributes: agentmodel.OfAttributes(api.Metadata.Attributes),
-			CreatedAt:  api.Metadata.CreatedAt.Time,
-			DeletedAt:  nil,
+			ResourceVersion: api.Metadata.ResourceVersion,
+			Name:            api.Metadata.Name,
+			Namespace:       api.Metadata.Namespace,
+			Attributes:      agentmodel.OfAttributes(api.Metadata.Attributes),
+			CreatedAt:       api.Metadata.CreatedAt.Time,
+			DeletedAt:       nil,
 		},
 		Spec: agentmodel.AgentRemoteConfigSpec{
 			Value:       []byte(api.Spec.Value),
@@ -954,11 +957,12 @@ func (mapper *Mapper) MapNamespaceToAPI(
 		Kind:       v1.NamespaceKind,
 		APIVersion: v1.APIVersion,
 		Metadata: v1.NamespaceMetadata{
-			Name:        namespace.Metadata.Name,
-			Labels:      namespace.Metadata.Labels,
-			Annotations: namespace.Metadata.Annotations,
-			CreatedAt:   v1.NewTime(namespace.Metadata.CreatedAt),
-			DeletedAt:   mapDeletedAtPtrToAPI(namespace.Metadata.DeletedAt),
+			ResourceVersion: namespace.Metadata.ResourceVersion,
+			Name:            namespace.Metadata.Name,
+			Labels:          namespace.Metadata.Labels,
+			Annotations:     namespace.Metadata.Annotations,
+			CreatedAt:       v1.NewTime(namespace.Metadata.CreatedAt),
+			DeletedAt:       mapDeletedAtPtrToAPI(namespace.Metadata.DeletedAt),
 		},
 		Status: v1.NamespaceStatus{
 			Conditions: mapper.mapConditionsToAPI(
@@ -974,11 +978,12 @@ func (mapper *Mapper) MapAPIToNamespace(
 ) *agentmodel.Namespace {
 	return &agentmodel.Namespace{
 		Metadata: agentmodel.NamespaceMetadata{
-			Name:        apiModel.Metadata.Name,
-			Labels:      apiModel.Metadata.Labels,
-			Annotations: apiModel.Metadata.Annotations,
-			CreatedAt:   apiModel.Metadata.CreatedAt.Time,
-			DeletedAt:   nil,
+			ResourceVersion: apiModel.Metadata.ResourceVersion,
+			Name:            apiModel.Metadata.Name,
+			Labels:          apiModel.Metadata.Labels,
+			Annotations:     apiModel.Metadata.Annotations,
+			CreatedAt:       apiModel.Metadata.CreatedAt.Time,
+			DeletedAt:       nil,
 		},
 		Status: agentmodel.NamespaceStatus{
 			Conditions: nil,

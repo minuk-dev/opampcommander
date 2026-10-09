@@ -1,6 +1,7 @@
 package agentmodel
 
 import (
+	"slices"
 	"strconv"
 	"time"
 
@@ -37,11 +38,12 @@ func (arc *AgentRemoteConfig) SkipSchemaValidation() bool {
 
 // AgentRemoteConfigMetadata contains metadata for the agent remote config resource.
 type AgentRemoteConfigMetadata struct {
-	Name       string
-	Namespace  string
-	Attributes Attributes
-	CreatedAt  time.Time
-	DeletedAt  *time.Time
+	ResourceVersion int64
+	Name            string
+	Namespace       string
+	Attributes      Attributes
+	CreatedAt       time.Time
+	DeletedAt       *time.Time
 }
 
 // AgentRemoteConfigSpec contains the specification for the agent remote config resource.
@@ -102,4 +104,10 @@ func (arc *AgentRemoteConfig) MarkDeleted(deletedAt time.Time, deletedBy string)
 		Reason:             deletedBy,
 		Message:            "Agent remote config deleted",
 	})
+}
+
+// Equal reports whether two remote configuration specifications request the same content and schemas.
+func (s AgentRemoteConfigSpec) Equal(other AgentRemoteConfigSpec) bool {
+	return slices.Equal(s.Value, other.Value) && s.ContentType == other.ContentType &&
+		slices.Equal(s.SchemaRefs, other.SchemaRefs)
 }

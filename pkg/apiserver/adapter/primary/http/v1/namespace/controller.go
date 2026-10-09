@@ -239,6 +239,10 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
+	if !ginutil.RequireResourceVersion(ctx, req.Metadata.ResourceVersion) {
+		return
+	}
+
 	updated, err := c.namespaceUsecase.UpdateNamespace(
 		ctx.Request.Context(), name, &req,
 	)
@@ -269,8 +273,13 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
+	resourceVersion, ok := ginutil.ParseResourceVersion(ctx)
+	if !ok {
+		return
+	}
+
 	err = c.namespaceUsecase.DeleteNamespace(
-		ctx.Request.Context(), name,
+		ctx.Request.Context(), name, resourceVersion,
 	)
 	if err != nil {
 		c.logger.Error(

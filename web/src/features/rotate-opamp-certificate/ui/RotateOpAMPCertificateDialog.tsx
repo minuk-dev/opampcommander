@@ -26,11 +26,13 @@ interface Props {
 }
 
 export default function RotateOpAMPCertificateDialog({
-  namespace,
-  group,
+  namespace: currentNamespace,
+  group: incoming,
   onClose,
   onApplied,
 }: Props) {
+  const [group] = useState(incoming);
+  const [namespace] = useState(currentNamespace);
   const [certificateName, setCertificateName] = useState(
     group.spec.agentConfig?.connectionSettings?.opamp?.certificateName ?? '',
   );
@@ -64,6 +66,9 @@ export default function RotateOpAMPCertificateDialog({
         throw new Error('Group membership changed. Reopen the dialog and confirm the agent UID.');
       }
 
+      if (latest.metadata.resourceVersion !== group.metadata.resourceVersion) {
+        throw new Error('This group changed. Close the dialog, refresh, and reopen it.');
+      }
       const connectionSettings = latest.spec.agentConfig?.connectionSettings;
       if (!connectionSettings?.opamp?.destinationEndpoint) {
         throw new Error('Configure the group OpAMP destination endpoint first.');

@@ -129,6 +129,11 @@ definitions:
         type: string
       namespace:
         type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
+        type: string
     type: object
   AgentGroupSpec:
     properties:
@@ -219,6 +224,11 @@ definitions:
         type: string
       namespace:
         type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
+        type: string
     type: object
   AgentPackageSpec:
     properties:
@@ -291,6 +301,11 @@ definitions:
       name:
         type: string
       namespace:
+        type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
         type: string
     type: object
   AgentRemoteConfigStatus:
@@ -1267,6 +1282,11 @@ definitions:
           type: string
         type: object
       name:
+        type: string
+      resourceVersion:
+        description: ResourceVersion is an opaque revision from a read response, required
+          for updates.
+        example: "0"
         type: string
     type: object
   NamespaceStatus:
@@ -2502,6 +2522,11 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2523,6 +2548,11 @@ paths:
         name: name
         required: true
         type: string
+      - description: Revision from the resource read; required for conditional deletion
+        in: query
+        name: resourceVersion
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -2534,6 +2564,11 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2588,7 +2623,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an existing agent group.
+      description: Requires metadata.resourceVersion from the original read. Update
+        an existing agent group.
       parameters:
       - description: Namespace
         in: path
@@ -2621,6 +2657,11 @@ paths:
           description: Not Found
           schema:
             $ref: '#/definitions/ErrorModel'
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2712,6 +2753,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
         "500":
           description: Internal Server Error
           schema:
@@ -2734,6 +2780,11 @@ paths:
         name: name
         required: true
         type: string
+      - description: Revision from the resource read; required for conditional deletion
+        in: query
+        name: resourceVersion
+        required: true
+        type: string
       responses:
         "204":
           description: No Content
@@ -2744,6 +2795,11 @@ paths:
             type: object
         "404":
           description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
           schema:
             additionalProperties: true
             type: object
@@ -2798,7 +2854,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an existing agent package.
+      description: Requires metadata.resourceVersion from the original read. Update
+        an existing agent package.
       parameters:
       - description: Namespace
         in: path
@@ -2830,6 +2887,11 @@ paths:
             type: object
         "404":
           description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
           schema:
             additionalProperties: true
             type: object

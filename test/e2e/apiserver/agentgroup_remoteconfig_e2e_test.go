@@ -137,7 +137,9 @@ func TestE2E_AgentGroup_RemoteConfig_DirectMode(t *testing.T) {
 	}, 2*time.Minute, 2*time.Second, "Agent should receive both remote configs with prefixed names")
 
 	// Cleanup
-	err = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", agentGroupName)
+	deleteTargetAgentGroup, readErr := opampClient.AgentGroupService.GetAgentGroup(ctx, "default", agentGroupName)
+	require.NoError(t, readErr)
+	err = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", agentGroupName, deleteTargetAgentGroup.Metadata.ResourceVersion)
 	require.NoError(t, err)
 }
 
@@ -284,8 +286,12 @@ func TestE2E_AgentGroup_RemoteConfig_NameCollision(t *testing.T) {
 	}, 2*time.Minute, 2*time.Second, "Beta agent should have prefixed config")
 
 	// Cleanup
-	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupAlphaName)
-	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupBetaName)
+	deleteTargetAgentGroup, readErr := opampClient.AgentGroupService.GetAgentGroup(ctx, "default", groupAlphaName)
+	require.NoError(t, readErr)
+	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupAlphaName, deleteTargetAgentGroup.Metadata.ResourceVersion)
+	deleteTargetAgentGroup, readErr = opampClient.AgentGroupService.GetAgentGroup(ctx, "default", groupBetaName)
+	require.NoError(t, readErr)
+	_ = opampClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupBetaName, deleteTargetAgentGroup.Metadata.ResourceVersion)
 }
 
 // Helper functions

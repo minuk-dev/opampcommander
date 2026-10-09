@@ -30,6 +30,10 @@ func (f *arcFakePersistence) GetAgentRemoteConfig(
 		return nil, f.getErr
 	}
 
+	if f.stored == nil {
+		return nil, model.ErrResourceNotExist
+	}
+
 	return f.stored, nil
 }
 
@@ -78,8 +82,10 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_PreservesImmutableFiel
 
 	createdAt := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
 	stored := &agentmodel.AgentRemoteConfig{
-		Metadata: agentmodel.AgentRemoteConfigMetadata{Name: "cfg", Namespace: "default", CreatedAt: createdAt},
-		Spec:     agentmodel.AgentRemoteConfigSpec{Value: []byte("old"), ContentType: "text/yaml"},
+		Metadata: agentmodel.AgentRemoteConfigMetadata{Name: "cfg",
+			Namespace: "default", CreatedAt: createdAt, ResourceVersion: 1},
+
+		Spec: agentmodel.AgentRemoteConfigSpec{Value: []byte("old"), ContentType: "text/yaml"},
 		Status: agentmodel.AgentRemoteConfigResourceStatus{
 			Conditions: []model.Condition{{Type: model.ConditionTypeCreated}},
 		},
@@ -90,9 +96,10 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_PreservesImmutableFiel
 
 	incoming := &agentmodel.AgentRemoteConfig{
 		Metadata: agentmodel.AgentRemoteConfigMetadata{
-			Name:      "cfg",
-			Namespace: "default",
-			CreatedAt: time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
+			ResourceVersion: 1,
+			Name:            "cfg",
+			Namespace:       "default",
+			CreatedAt:       time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC),
 		},
 		Spec: agentmodel.AgentRemoteConfigSpec{Value: []byte("new"), ContentType: "text/yaml"},
 	}

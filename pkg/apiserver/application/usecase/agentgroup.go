@@ -43,5 +43,5 @@ type AgentGroupManageUsecase interface {
 	UpdateAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *v1.AgentGroup) (*v1.AgentGroup, error)
 	// DeleteAgentGroup removes the named group.
-	DeleteAgentGroup(ctx context.Context, namespace string, name string) error
+	DeleteAgentGroup(ctx context.Context, namespace string, name string, resourceVersion ...int64) error
 }

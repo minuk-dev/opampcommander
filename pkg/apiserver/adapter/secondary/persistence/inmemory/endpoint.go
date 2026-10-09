@@ -53,7 +53,7 @@ func (r *EndpointRepository) PutEndpoint(
 	toStore := cloneEndpoint(endpoint)
 	toStore.Metadata.ResourceVersion = next
 
-	err := r.store.casPutOrCreate(key, toStore, expected, func(e *agentmodel.Endpoint) int64 {
+	err := r.store.casPut(key, toStore, expected, func(e *agentmodel.Endpoint) int64 {
 		return e.Metadata.ResourceVersion
 	})
 	if err != nil {
