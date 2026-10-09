@@ -1868,3 +1868,71 @@ func TestApplyMatchingAgentGroupsPageFailureLeavesAgentUnchanged(t *testing.T) {
 	require.ErrorIs(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member), errRemoteConfigNotFound)
 	assert.Equal(t, before, member)
 }
+
+func TestApplyMatchingAgentGroupsSelectsDeclaredConnectionBundle(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name   string
+		config *agentmodel.AgentGroupConnectionConfig
+	}{
+		{name: "absent declaration uses lower-ranked supplier"},
+		{name: "empty declaration overrides lower-ranked supplier", config: &agentmodel.AgentGroupConnectionConfig{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			higher := agentmodel.NewAgentGroup("default", "higher", nil, time.Now(), "admin")
+			higher.Spec.Priority = 10
+			higher.Spec.AgentConnectionConfig = test.config
+			lower := agentmodel.NewAgentGroup("default", "lower", nil, time.Now(), "admin")
+			lower.Spec.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+				OpAMPConnection: &agentmodel.OpAMPConnectionSettings{DestinationEndpoint: "wss://lower.test"},
+			}
+			persistence := new(mockAgentGroupPersistence)
+			persistence.On("ListAgentGroups", mock.Anything, "default", (*model.ListOptions)(nil)).
+				Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{lower, higher}}, nil)
+			svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+				new(mockAgentUsecase), alwaysLeaderElector{},
+				inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+			member := agentmodel.NewAgent(uuid.New())
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			require.NotNil(t, member.Spec.ConnectionInfo)
+
+			if test.config == nil {
+				assert.Equal(t, "wss://lower.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+			} else {
+				assert.False(t, member.Spec.ConnectionInfo.HasConnectionSettings())
+			}
+		})
+	}
+}
+
+func TestBuildOtherConnectionsOmitsUnresolvedCertificates(t *testing.T) {
+	t.Parallel()
+
+	certs := new(mockCertPersistence)
+	certs.On("GetCertificate", mock.Anything, "default", "valid", (*model.GetOptions)(nil)).
+		Return(&agentmodel.Certificate{
+			Spec: agentmodel.CertificateSpec{Cert: []byte("cert"), PrivateKey: []byte("key")},
+		}, nil)
+	certs.On("GetCertificate", mock.Anything, "default", "missing", (*model.GetOptions)(nil)).
+		Return(nil, model.ErrResourceNotExist)
+	svc := NewAgentGroupService(new(mockAgentGroupPersistence), new(mockRemoteConfigPersistence), certs,
+		new(mockAgentUsecase), alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+	valid, missing := "valid", "missing"
+	connections := svc.buildOtherConnections(t.Context(), "default", map[string]agentmodel.OtherConnectionSettings{
+		"plain":     {DestinationEndpoint: "https://plain.test", Headers: map[string][]string{"token": {"value"}}},
+		"certified": {DestinationEndpoint: "https://certified.test", CertificateName: &valid},
+		"missing":   {DestinationEndpoint: "https://missing.test", CertificateName: &missing},
+	}, slog.Default())
+	assert.Len(t, connections, 2)
+	assert.Equal(t, "https://plain.test", connections["plain"].DestinationEndpoint)
+	assert.Equal(t, []string{"value"}, connections["plain"].Headers["token"])
+	require.NotNil(t, connections["certified"].Certificate)
+	assert.Equal(t, []byte("cert"), connections["certified"].Certificate.Cert)
+	assert.Equal(t, []byte("key"), connections["certified"].Certificate.PrivateKey)
+	assert.NotContains(t, connections, "missing")
+	certs.AssertExpectations(t)
+}

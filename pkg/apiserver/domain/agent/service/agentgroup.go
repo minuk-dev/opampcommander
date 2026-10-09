@@ -9,8 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"time"
+
+	"github.com/samber/lo"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -335,11 +338,7 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 	}
 
 	slices.SortFunc(matchingGroups, func(a, b *agentmodel.AgentGroup) int {
-		if priority := cmp.Compare(b.Spec.Priority, a.Spec.Priority); priority != 0 {
-			return priority
-		}
-
-		return cmp.Compare(a.Metadata.Name, b.Metadata.Name)
+		return cmp.Or(cmp.Compare(b.Spec.Priority, a.Spec.Priority), cmp.Compare(a.Metadata.Name, b.Metadata.Name))
 	})
 
 	return matchingGroups, nil
@@ -425,7 +424,8 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 
 	desired := make(map[string]agentmodel.AgentConfigFile)
 
-	for _, group := range groups {
+	// Copy lower-ranked groups first so higher-ranked groups overwrite filename conflicts.
+	for _, group := range slices.Backward(groups) {
 		configs, err := s.collectGroupRemoteConfigs(ctx, group)
 		if err != nil {
 			// A single group with an invalid/unresolvable config must not block the
@@ -441,28 +441,18 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 			continue
 		}
 
-		for name, file := range configs {
-			if _, exists := desired[name]; !exists {
-				desired[name] = file
-			}
-		}
+		maps.Copy(desired, configs)
 	}
 
 	var desiredConnection *agentmodel.ConnectionInfo
 
-	for _, group := range groups {
-		if !group.HasAgentConnectionConfig() {
-			continue
-		}
-
+	if group, found := lo.Find(groups, (*agentmodel.AgentGroup).HasAgentConnectionConfig); found {
 		// Resolve the winning bundle before mutating the agent. Certificate validation
 		// failures must not retain a stale group offer or mix in another group's settings.
 		desiredConnection, err = s.resolveConnectionSettings(ctx, group, agent)
 		if err != nil {
 			return fmt.Errorf("resolve connection settings from group %s: %w", group.Metadata.Name, err)
 		}
-
-		break
 	}
 
 	setAgentRemoteConfigs(agent, desired)
@@ -995,12 +985,6 @@ func (s *AgentGroupService) resolveConnectionSettings(
 		slog.String("agentgroup.metadata.name", agentGroup.Metadata.Name),
 	)
 
-	if !agentGroup.HasAgentConnectionConfig() {
-		logger.Debug("skip to apply connection settings because agentGroup has no connection config")
-
-		return nil, nil //nolint:nilnil // absent or unsafe group bundle
-	}
-
 	conn := agentGroup.Spec.AgentConnectionConfig
 	if conn == nil {
 		return nil, nil //nolint:nilnil // absent or unsafe group bundle
@@ -1131,43 +1115,30 @@ func (s *AgentGroupService) buildOtherConnections(
 	conns map[string]agentmodel.OtherConnectionSettings,
 	logger *slog.Logger,
 ) map[string]agentmodel.AgentOtherConnectionSettings {
-	return mapValuesWithFilterNil(conns,
-		func(conn agentmodel.OtherConnectionSettings, _ string) *agentmodel.AgentOtherConnectionSettings {
-			result := &agentmodel.AgentOtherConnectionSettings{
-				DestinationEndpoint: conn.DestinationEndpoint,
-				Headers:             conn.Headers,
-				Certificate:         nil,
-			}
+	result := make(map[string]agentmodel.AgentOtherConnectionSettings, len(conns))
 
-			if conn.CertificateName != nil {
-				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
-				if err != nil {
-					logger.Warn("failed to get certificate for other connection",
-						slog.String("certificateName", *conn.CertificateName),
-						slog.String("err", err.Error()),
-					)
-
-					return nil
-				}
-
-				result.Certificate = certificate.ToAgentCertificate()
-			}
-
-			return result
-		},
-	)
-}
-
-func mapValuesWithFilterNil[K comparable, V, R any](in map[K]V, iteratee func(value V, key K) *R) map[K]R {
-	result := make(map[K]R, len(in))
-
-	for key, value := range in {
-		transformed := iteratee(value, key)
-		if transformed == nil {
-			continue
+	for name, conn := range conns {
+		connection := agentmodel.AgentOtherConnectionSettings{
+			DestinationEndpoint: conn.DestinationEndpoint,
+			Headers:             conn.Headers,
+			Certificate:         nil,
 		}
 
-		result[key] = *transformed
+		if conn.CertificateName != nil {
+			certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
+			if err != nil {
+				logger.Warn("failed to get certificate for other connection",
+					slog.String("certificateName", *conn.CertificateName),
+					slog.String("err", err.Error()),
+				)
+
+				continue
+			}
+
+			connection.Certificate = certificate.ToAgentCertificate()
+		}
+
+		result[name] = connection
 	}
 
 	return result

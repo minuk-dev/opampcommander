@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
@@ -709,18 +710,14 @@ func NewConnectionInfo(
 	ownTraces *AgentTelemetryConnectionSettings,
 	otherConnections map[string]AgentOtherConnectionSettings,
 ) (*ConnectionInfo, error) {
-	// BSON decodes an empty map as non-nil; normalize it so persisted offers keep their hash.
-	if otherConnections == nil {
-		otherConnections = make(map[string]AgentOtherConnectionSettings)
-	}
-
+	// Normalize nil maps so persistence round trips preserve the offer hash.
 	connectionInfo := &ConnectionInfo{
 		Hash:             nil,
 		opamp:            opamp,
 		ownMetrics:       ownMetrics,
 		ownLogs:          ownLogs,
 		ownTraces:        ownTraces,
-		otherConnections: otherConnections,
+		otherConnections: lo.CoalesceMapOrEmpty(otherConnections),
 	}
 
 	err := connectionInfo.updateHash()
