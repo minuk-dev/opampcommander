@@ -2,6 +2,7 @@ package agentservice
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -9,7 +10,10 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"time"
+
+	"github.com/samber/lo"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -309,22 +313,33 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 	// An agent carrying no namespace is an error here rather than a cluster-wide
 	// listing, which is what the port's refusal of an empty namespace buys: this
 	// path fails loudly instead of applying every namespace's config to it.
-	groups, err := s.persistencePort.ListAgentGroups(ctx, agent.Metadata.Namespace, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agent groups: %w", err)
-	}
-
 	var matchingGroups []*agentmodel.AgentGroup
 
-	for _, group := range groups.Items {
-		if group.IsDeleted() {
-			continue
+	var options *model.ListOptions
+
+	for {
+		groups, err := s.persistencePort.ListAgentGroups(ctx, agent.Metadata.Namespace, options)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list agent groups: %w", err)
 		}
 
-		if matchesSelector(agent, group.Spec.Selector) {
-			matchingGroups = append(matchingGroups, group)
+		for _, group := range groups.Items {
+			if !group.IsDeleted() && matchesSelector(agent, group.Spec.Selector) {
+				matchingGroups = append(matchingGroups, group)
+			}
 		}
+
+		if groups.Continue == "" {
+			break
+		}
+
+		//exhaustruct:ignore
+		options = &model.ListOptions{Continue: groups.Continue}
 	}
+
+	slices.SortFunc(matchingGroups, func(a, b *agentmodel.AgentGroup) int {
+		return cmp.Or(cmp.Compare(b.Spec.Priority, a.Spec.Priority), cmp.Compare(a.Metadata.Name, b.Metadata.Name))
+	})
 
 	return matchingGroups, nil
 }
@@ -393,8 +408,11 @@ func (s *AgentGroupService) PropagateAgentRemoteConfigChange(
 
 // ApplyMatchingAgentGroupsToAgent computes the desired remote-config and connection
 // state from the union of all matching, non-deleted agent groups and applies it to the
-// agent in place. RemoteConfigs are REPLACED (not merged) so entries left behind by
-// previously-matching groups are cleared. The caller is responsible for persisting.
+// agent in place. Each remote-config filename and the entire connection-settings bundle
+// are won by the highest priority, then lexicographically smallest group name. RemoteConfig
+// and ConnectionInfo are group-owned computed state: there is no independent per-agent
+// configuration use case. Entries no longer supplied by matching groups are cleared.
+// The caller is responsible for persisting.
 func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 	ctx context.Context,
 	agent *agentmodel.Agent,
@@ -406,7 +424,8 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 
 	desired := make(map[string]agentmodel.AgentConfigFile)
 
-	for _, group := range groups {
+	// Copy lower-ranked groups first so higher-ranked groups overwrite filename conflicts.
+	for _, group := range slices.Backward(groups) {
 		configs, err := s.collectGroupRemoteConfigs(ctx, group)
 		if err != nil {
 			// A single group with an invalid/unresolvable config must not block the
@@ -425,16 +444,19 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 		maps.Copy(desired, configs)
 	}
 
-	setAgentRemoteConfigs(agent, desired)
+	var desiredConnection *agentmodel.ConnectionInfo
 
-	// Connection settings still follow per-group apply semantics (last group wins).
-	// Multi-group connection conflicts remain a known limitation.
-	for _, group := range groups {
-		err := s.applyConnectionSettings(ctx, group, agent)
+	if group, found := lo.Find(groups, (*agentmodel.AgentGroup).HasAgentConnectionConfig); found {
+		// Resolve the winning bundle before mutating the agent. Certificate validation
+		// failures must not retain a stale group offer or mix in another group's settings.
+		desiredConnection, err = s.resolveConnectionSettings(ctx, group, agent)
 		if err != nil {
-			return fmt.Errorf("apply connection settings from group %s: %w", group.Metadata.Name, err)
+			return fmt.Errorf("resolve connection settings from group %s: %w", group.Metadata.Name, err)
 		}
 	}
+
+	setAgentRemoteConfigs(agent, desired)
+	agent.Spec.ConnectionInfo = desiredConnection
 
 	return nil
 }
@@ -444,9 +466,16 @@ func (s *AgentGroupService) ApplyMatchingAgentGroupsToAgent(
 // on-demand reconcile of a single agent actually takes effect — ApplyMatchingAgentGroupsToAgent
 // alone only mutates the in-memory agent and leaves persistence to the caller.
 func (s *AgentGroupService) ReconcileAgent(ctx context.Context, agent *agentmodel.Agent) error {
+	before, beforeErr := agentSpecFingerprint(agent)
+
 	err := s.ApplyMatchingAgentGroupsToAgent(ctx, agent)
 	if err != nil {
 		return fmt.Errorf("apply matching agent groups to agent %s: %w", agent.Metadata.InstanceUID, err)
+	}
+
+	after, afterErr := agentSpecFingerprint(agent)
+	if beforeErr == nil && afterErr == nil && before == after {
+		return nil
 	}
 
 	err = s.agentUsecase.SaveAgent(ctx, agent)
@@ -819,22 +848,18 @@ func (s *AgentGroupService) recordRemoteConfigCondition(
 // is silently never delivered. When no config is assigned the condition is left untouched.
 func (s *AgentGroupService) recordAgentRemoteConfigCondition(
 	agent *agentmodel.Agent,
-	agentGroup *agentmodel.AgentGroup,
 ) bool {
 	if !agent.HasAssignedRemoteConfig() {
 		return false
 	}
 
 	status := agentmodel.AgentConditionStatusTrue
-	message := fmt.Sprintf("remote config applied by agent group %q", agentGroup.Metadata.Name)
+	message := "remote config assigned by matching agent groups"
 
 	if !agent.IsRemoteConfigSupported() {
 		status = agentmodel.AgentConditionStatusFalse
-		message = fmt.Sprintf(
-			"agent group %q assigned a remote config but the agent does not accept remote config "+
-				"(missing AcceptsRemoteConfig capability); it will not be delivered",
-			agentGroup.Metadata.Name,
-		)
+		message = "matching agent groups assigned a remote config but the agent does not accept remote config " +
+			"(missing AcceptsRemoteConfig capability); it will not be delivered"
 	}
 
 	prev := agent.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied)
@@ -888,7 +913,7 @@ func (s *AgentGroupService) updateAgentsByAgentGroup(
 			// that cannot accept remote config — otherwise that attempt is invisible. The
 			// condition can change even when the spec did not (e.g. capability flip), so it
 			// participates in the save decision alongside the spec fingerprint.
-			condChanged := s.recordAgentRemoteConfigCondition(agent, agentGroup)
+			condChanged := s.recordAgentRemoteConfigCondition(agent)
 
 			if beforeErr == nil && afterErr == nil && before == after && !condChanged {
 				continue
@@ -950,25 +975,19 @@ func (s *AgentGroupService) resolveRemoteConfig(
 	}, prefixedName, nil
 }
 
-func (s *AgentGroupService) applyConnectionSettings(
+func (s *AgentGroupService) resolveConnectionSettings(
 	ctx context.Context,
 	agentGroup *agentmodel.AgentGroup,
 	agent *agentmodel.Agent,
-) error {
+) (*agentmodel.ConnectionInfo, error) {
 	logger := s.logger.With(
 		slog.String("agent.metadata.instanceUid", agent.Metadata.InstanceUID.String()),
 		slog.String("agentgroup.metadata.name", agentGroup.Metadata.Name),
 	)
 
-	if !agentGroup.HasAgentConnectionConfig() {
-		logger.Debug("skip to apply connection settings because agentGroup has no connection config")
-
-		return nil
-	}
-
 	conn := agentGroup.Spec.AgentConnectionConfig
 	if conn == nil {
-		return nil
+		return nil, nil //nolint:nilnil // absent or unsafe group bundle
 	}
 
 	var opampConnection *agentmodel.AgentOpAMPConnectionSettings
@@ -982,7 +1001,7 @@ func (s *AgentGroupService) applyConnectionSettings(
 		if err != nil {
 			logger.Warn("skip unsafe OpAMP connection settings", slog.String("error", err.Error()))
 
-			return nil
+			return nil, nil //nolint:nilnil // absent or unsafe group bundle
 		}
 	}
 
@@ -999,12 +1018,12 @@ func (s *AgentGroupService) applyConnectionSettings(
 		ctx, agentGroup.Metadata.Namespace, conn.OtherConnections, logger,
 	)
 
-	err := agent.ApplyConnectionSettings(opampConnection, ownMetrics, ownLogs, ownTraces, otherConnections)
+	info, err := agentmodel.NewConnectionInfo(opampConnection, ownMetrics, ownLogs, ownTraces, otherConnections)
 	if err != nil {
-		return fmt.Errorf("apply connection settings: %w", err)
+		return nil, fmt.Errorf("build connection settings: %w", err)
 	}
 
-	return nil
+	return info, nil
 }
 
 func (s *AgentGroupService) buildOpAMPConnection(
@@ -1096,43 +1115,30 @@ func (s *AgentGroupService) buildOtherConnections(
 	conns map[string]agentmodel.OtherConnectionSettings,
 	logger *slog.Logger,
 ) map[string]agentmodel.AgentOtherConnectionSettings {
-	return mapValuesWithFilterNil(conns,
-		func(conn agentmodel.OtherConnectionSettings, _ string) *agentmodel.AgentOtherConnectionSettings {
-			result := &agentmodel.AgentOtherConnectionSettings{
-				DestinationEndpoint: conn.DestinationEndpoint,
-				Headers:             conn.Headers,
-				Certificate:         nil,
-			}
+	result := make(map[string]agentmodel.AgentOtherConnectionSettings, len(conns))
 
-			if conn.CertificateName != nil {
-				certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
-				if err != nil {
-					logger.Warn("failed to get certificate for other connection",
-						slog.String("certificateName", *conn.CertificateName),
-						slog.String("err", err.Error()),
-					)
-
-					return nil
-				}
-
-				result.Certificate = certificate.ToAgentCertificate()
-			}
-
-			return result
-		},
-	)
-}
-
-func mapValuesWithFilterNil[K comparable, V, R any](in map[K]V, iteratee func(value V, key K) *R) map[K]R {
-	result := make(map[K]R, len(in))
-
-	for key, value := range in {
-		transformed := iteratee(value, key)
-		if transformed == nil {
-			continue
+	for name, conn := range conns {
+		connection := agentmodel.AgentOtherConnectionSettings{
+			DestinationEndpoint: conn.DestinationEndpoint,
+			Headers:             conn.Headers,
+			Certificate:         nil,
 		}
 
-		result[key] = *transformed
+		if conn.CertificateName != nil {
+			certificate, err := s.certificatePersistencePort.GetCertificate(ctx, namespace, *conn.CertificateName, nil)
+			if err != nil {
+				logger.Warn("failed to get certificate for other connection",
+					slog.String("certificateName", *conn.CertificateName),
+					slog.String("err", err.Error()),
+				)
+
+				continue
+			}
+
+			connection.Certificate = certificate.ToAgentCertificate()
+		}
+
+		result[name] = connection
 	}
 
 	return result

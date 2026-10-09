@@ -87,7 +87,8 @@ type AgentGroupMetadata struct {
 // AgentGroupSpec represents the specification of an agent group.
 type AgentGroupSpec struct {
 	// Priority is the priority of the agent group.
-	// When multiple agent groups match an agent, the one with the highest priority is applied.
+	// Matching groups compose remote configs by filename and select one whole connection bundle.
+	// Higher priority wins; ties go to the lexicographically smallest group name.
 	Priority int
 
 	// Selector is a set of criteria used to select agents for the group.

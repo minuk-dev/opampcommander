@@ -463,7 +463,9 @@ func TestApplyConnectionSettingsSkipsCertificateForDifferentAgent(t *testing.T) 
 		slog.Default(),
 	)
 
-	require.NoError(t, svc.applyConnectionSettings(t.Context(), group, agent))
+	info, err := svc.resolveConnectionSettings(t.Context(), group, agent)
+	require.NoError(t, err)
+	assert.Nil(t, info)
 	assert.Equal(t, "wss://old.example.test", agent.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
 }
 
@@ -1023,10 +1025,6 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 		slog.Default(),
 	)
 
-	group := &agentmodel.AgentGroup{
-		Metadata: agentmodel.AgentGroupMetadata{Namespace: "default", Name: "grp"},
-	}
-
 	withAssignedConfig := func(a *agentmodel.Agent) {
 		a.Spec.RemoteConfig = &agentmodel.AgentSpecRemoteConfig{
 			ConfigMap: agentmodel.AgentConfigMap{
@@ -1042,7 +1040,7 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 		a.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
 		withAssignedConfig(a)
 
-		changed := svc.recordAgentRemoteConfigCondition(a, group)
+		changed := svc.recordAgentRemoteConfigCondition(a)
 		assert.True(t, changed)
 
 		cond := a.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied)
@@ -1056,7 +1054,7 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 		a := agentmodel.NewAgent(uuid.New()) // default capabilities: none
 		withAssignedConfig(a)
 
-		changed := svc.recordAgentRemoteConfigCondition(a, group)
+		changed := svc.recordAgentRemoteConfigCondition(a)
 		assert.True(t, changed)
 
 		cond := a.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied)
@@ -1070,7 +1068,7 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 
 		a := agentmodel.NewAgent(uuid.New())
 
-		changed := svc.recordAgentRemoteConfigCondition(a, group)
+		changed := svc.recordAgentRemoteConfigCondition(a)
 
 		assert.False(t, changed)
 		assert.Nil(t, a.GetCondition(agentmodel.AgentConditionTypeRemoteConfigApplied))
@@ -1083,8 +1081,8 @@ func TestRecordAgentRemoteConfigCondition(t *testing.T) {
 		a.Metadata.Capabilities = agent.Capabilities(agent.AgentCapabilityAcceptsRemoteConfig)
 		withAssignedConfig(a)
 
-		assert.True(t, svc.recordAgentRemoteConfigCondition(a, group))
-		assert.False(t, svc.recordAgentRemoteConfigCondition(a, group))
+		assert.True(t, svc.recordAgentRemoteConfigCondition(a))
+		assert.False(t, svc.recordAgentRemoteConfigCondition(a))
 	})
 }
 
@@ -1598,4 +1596,343 @@ func TestAgentGroupService_RunDrainsFormerMembersAfterRecreation(t *testing.T) {
 		assert.False(t, current.IsDeleted())
 		agents.AssertExpectations(t)
 	})
+}
+
+func TestApplyMatchingAgentGroupsPriorityAndPagination(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name      string
+		priorityA int
+		priorityB int
+		winner    string
+		reverse   bool
+		paged     bool
+	}{
+		{name: "higher priority first", priorityA: 10, priorityB: -10, winner: "a"},
+		{name: "reversed insertion", priorityA: 10, priorityB: -10, winner: "a", reverse: true},
+		{name: "reversed priorities", priorityA: -10, priorityB: 10, winner: "a/b"},
+		{name: "equal priority", winner: "a"},
+		{name: "equal priority reversed", winner: "a", reverse: true},
+		{name: "winner on next page", priorityA: 10, priorityB: -10, winner: "a", reverse: true, paged: true},
+		{name: "equal priority across pages", winner: "a", reverse: true, paged: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			first := agentmodel.NewAgentGroup("default", "a", nil, time.Now(), "admin")
+			second := agentmodel.NewAgentGroup("default", "a/b", nil, time.Now(), "admin")
+			first.Spec.Priority = test.priorityA
+			second.Spec.Priority = test.priorityB
+
+			for _, group := range []*agentmodel.AgentGroup{first, second} {
+				configName := "shared"
+				if group == first {
+					configName = "b/shared"
+				}
+
+				group.Spec.AgentRemoteConfigs = []agentmodel.AgentGroupAgentRemoteConfig{{
+					AgentRemoteConfigName: &configName,
+					AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{
+						Value: []byte(group.Metadata.Name), ContentType: "text/yaml",
+					},
+				}}
+				group.Spec.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+					OpAMPConnection: &agentmodel.OpAMPConnectionSettings{
+						DestinationEndpoint: "wss://example.test/" + group.Metadata.Name,
+						Headers:             map[string][]string{"group": {group.Metadata.Name}},
+					},
+				}
+			}
+			// The connection bundle is atomic: the loser's metrics must not mix with the winner's logs.
+			first.Spec.AgentConnectionConfig.OwnLogs = &agentmodel.TelemetryConnectionSettings{
+				DestinationEndpoint: "https://logs.test",
+			}
+			second.Spec.AgentConnectionConfig.OwnMetrics = &agentmodel.TelemetryConnectionSettings{
+				DestinationEndpoint: "https://metrics.test",
+			}
+			unique := "unique"
+			second.Spec.AgentRemoteConfigs = append(second.Spec.AgentRemoteConfigs, agentmodel.AgentGroupAgentRemoteConfig{
+				AgentRemoteConfigName: &unique,
+				AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{Value: []byte("unique"), ContentType: "text/yaml"},
+			})
+
+			groups := []*agentmodel.AgentGroup{first, second}
+			if test.reverse {
+				groups[0], groups[1] = groups[1], groups[0]
+			}
+
+			persistence := new(mockAgentGroupPersistence)
+
+			response := &model.ListResponse[*agentmodel.AgentGroup]{Items: groups}
+			if test.paged {
+				response = &model.ListResponse[*agentmodel.AgentGroup]{Items: groups[:1], Continue: "next", RemainingItemCount: 1}
+				persistence.On("ListAgentGroups", mock.Anything, "default", &model.ListOptions{Continue: "next"}).
+					Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: groups[1:]}, nil)
+			}
+
+			persistence.On("ListAgentGroups", mock.Anything, "default", (*model.ListOptions)(nil)).Return(response, nil)
+
+			svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+				new(mockAgentUsecase), alwaysLeaderElector{},
+				inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+			member := agentmodel.NewAgent(uuid.New())
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Equal(t, []byte(test.winner), member.Spec.RemoteConfig.ConfigMap.ConfigMap["a/b/shared"].Body)
+			assert.Equal(t, []byte("unique"), member.Spec.RemoteConfig.ConfigMap.ConfigMap["a/b/unique"].Body)
+			assert.Equal(t, "wss://example.test/"+test.winner, member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+			assert.Equal(t, []string{test.winner}, member.Spec.ConnectionInfo.OpAMP().Headers["group"])
+
+			if test.winner == "a" {
+				assert.Nil(t, member.Spec.ConnectionInfo.OwnMetrics())
+				require.NotNil(t, member.Spec.ConnectionInfo.OwnLogs())
+			} else {
+				assert.Nil(t, member.Spec.ConnectionInfo.OwnLogs())
+				require.NotNil(t, member.Spec.ConnectionInfo.OwnMetrics())
+			}
+
+			before := member.Clone()
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Equal(t, before, member)
+			persistence.AssertExpectations(t)
+		})
+	}
+}
+
+func TestApplyMatchingAgentGroupsRemovesOwnedSettings(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name   string
+		change func(*agentmodel.AgentGroup, *agentmodel.Agent)
+	}{
+		{name: "removed settings", change: func(group *agentmodel.AgentGroup, _ *agentmodel.Agent) {
+			group.Spec.AgentRemoteConfigs = nil
+			group.Spec.AgentConnectionConfig = nil
+		}},
+		{name: "deleted last group", change: func(group *agentmodel.AgentGroup, _ *agentmodel.Agent) {
+			group.MarkDeleted(time.Now(), "admin")
+		}},
+		{name: "identity stops matching", change: func(_ *agentmodel.AgentGroup, member *agentmodel.Agent) {
+			member.Metadata.Description.IdentifyingAttributes["service.name"] = "other"
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			persistence := inmemorypersistence.NewAgentGroupRepository(inmemorypersistence.NewAgentRepository())
+			group := agentmodel.NewAgentGroup("default", "group", nil, time.Now(), "admin")
+			group.Spec.Selector.IdentifyingAttributes = map[string]string{"service.name": "selected"}
+			configName := "config"
+			group.Spec.AgentRemoteConfigs = []agentmodel.AgentGroupAgentRemoteConfig{{
+				AgentRemoteConfigName: &configName,
+				AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{Value: []byte("config"), ContentType: "text/yaml"},
+			}}
+			group.Spec.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+				OpAMPConnection: &agentmodel.OpAMPConnectionSettings{DestinationEndpoint: "wss://group.test"},
+			}
+			_, err := persistence.PutAgentGroup(t.Context(), "default", "group", group)
+			require.NoError(t, err)
+
+			svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+				new(mockAgentUsecase), alwaysLeaderElector{},
+				inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+
+			member := agentmodel.NewAgent(uuid.New(), agentmodel.WithDescription(&agent.Description{
+				IdentifyingAttributes: map[string]string{"service.name": "selected"},
+			}))
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Equal(t, "wss://group.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+
+			changed := *group
+			test.change(&changed, member)
+			_, err = persistence.PutAgentGroup(t.Context(), "default", "group", &changed)
+			require.NoError(t, err)
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Nil(t, member.Spec.RemoteConfig)
+			assert.Nil(t, member.Spec.ConnectionInfo)
+
+			before := member.Clone()
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			assert.Equal(t, before, member)
+		})
+	}
+}
+
+func TestApplyMatchingAgentGroupsClearsUnmatchedConnectionOffer(t *testing.T) {
+	t.Parallel()
+
+	persistence := new(mockAgentGroupPersistence)
+	persistence.On("ListAgentGroups", mock.Anything, "default", (*model.ListOptions)(nil)).
+		Return(&model.ListResponse[*agentmodel.AgentGroup]{}, nil)
+	svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+		new(mockAgentUsecase), alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+	member := agentmodel.NewAgent(uuid.New())
+
+	var err error
+
+	member.Spec.ConnectionInfo, err = agentmodel.NewConnectionInfo(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://unmatched-group.test",
+	}, nil, nil, nil, nil)
+	require.NoError(t, err)
+	require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+	assert.Nil(t, member.Spec.ConnectionInfo)
+}
+
+func TestGroupReconciliationDoesNotSaveUnchangedComposition(t *testing.T) {
+	t.Parallel()
+
+	persistence := inmemorypersistence.NewAgentGroupRepository(inmemorypersistence.NewAgentRepository())
+	first := agentmodel.NewAgentGroup("default", "first", nil, time.Now(), "admin")
+	second := agentmodel.NewAgentGroup("default", "second", nil, time.Now(), "admin")
+
+	for _, group := range []*agentmodel.AgentGroup{first, second} {
+		name := "config"
+		group.Spec.AgentRemoteConfigs = []agentmodel.AgentGroupAgentRemoteConfig{{
+			AgentRemoteConfigName: &name,
+			AgentRemoteConfigSpec: &agentmodel.AgentRemoteConfigSpec{Value: []byte("config"), ContentType: "text/yaml"},
+		}}
+		_, err := persistence.PutAgentGroup(t.Context(), "default", group.Metadata.Name, group)
+		require.NoError(t, err)
+	}
+
+	member := agentmodel.NewAgent(uuid.New())
+	agents := new(mockAgentUsecase)
+	agents.On("ListAgentsBySelector", mock.Anything, mock.Anything, mock.Anything).
+		Return(&model.ListResponse[*agentmodel.Agent]{Items: []*agentmodel.Agent{member}}, nil)
+	agents.On("SaveAgent", mock.Anything, member).Return(nil).Once()
+	svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+		agents, alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+
+	for range 2 {
+		require.NoError(t, svc.updateAgentsByAgentGroup(t.Context(), first))
+		require.NoError(t, svc.updateAgentsByAgentGroup(t.Context(), second))
+	}
+
+	agents.AssertNumberOfCalls(t, "SaveAgent", 1)
+}
+
+func TestApplyMatchingAgentGroupsReplacesConnectionFields(t *testing.T) {
+	t.Parallel()
+
+	persistence := inmemorypersistence.NewAgentGroupRepository(inmemorypersistence.NewAgentRepository())
+	group := agentmodel.NewAgentGroup("default", "group", nil, time.Now(), "admin")
+	group.Spec.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+		OpAMPConnection: &agentmodel.OpAMPConnectionSettings{DestinationEndpoint: "wss://group.test"},
+		OwnLogs:         &agentmodel.TelemetryConnectionSettings{DestinationEndpoint: "https://logs.test"},
+		OtherConnections: map[string]agentmodel.OtherConnectionSettings{
+			"other": {DestinationEndpoint: "https://other.test"},
+		},
+	}
+	_, err := persistence.PutAgentGroup(t.Context(), "default", "group", group)
+	require.NoError(t, err)
+
+	svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+		new(mockAgentUsecase), alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+	member := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+	require.NotNil(t, member.Spec.ConnectionInfo.OwnLogs())
+	require.Contains(t, member.Spec.ConnectionInfo.OtherConnections(), "other")
+
+	group.Spec.AgentConnectionConfig.OwnLogs = nil
+	delete(group.Spec.AgentConnectionConfig.OtherConnections, "other")
+	_, err = persistence.PutAgentGroup(t.Context(), "default", "group", group)
+	require.NoError(t, err)
+	require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+	assert.Nil(t, member.Spec.ConnectionInfo.OwnLogs())
+	assert.Empty(t, member.Spec.ConnectionInfo.OtherConnections())
+	assert.Equal(t, "wss://group.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+}
+
+func TestApplyMatchingAgentGroupsPageFailureLeavesAgentUnchanged(t *testing.T) {
+	t.Parallel()
+
+	persistence := new(mockAgentGroupPersistence)
+	group := agentmodel.NewAgentGroup("default", "group", nil, time.Now(), "admin")
+	persistence.On("ListAgentGroups", mock.Anything, "default", (*model.ListOptions)(nil)).
+		Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{group}, Continue: "next"}, nil)
+	persistence.On("ListAgentGroups", mock.Anything, "default", &model.ListOptions{Continue: "next"}).
+		Return(nil, errRemoteConfigNotFound)
+	svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+		new(mockAgentUsecase), alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+	member := agentmodel.NewAgent(uuid.New())
+	require.NoError(t, member.ApplyRemoteConfig("keep", agentmodel.AgentConfigFile{Body: []byte("keep")}))
+	require.NoError(t, member.ApplyConnectionSettings(&agentmodel.AgentOpAMPConnectionSettings{
+		DestinationEndpoint: "wss://keep.test",
+	}, nil, nil, nil, nil))
+	before := member.Clone()
+	require.ErrorIs(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member), errRemoteConfigNotFound)
+	assert.Equal(t, before, member)
+}
+
+func TestApplyMatchingAgentGroupsSelectsDeclaredConnectionBundle(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name   string
+		config *agentmodel.AgentGroupConnectionConfig
+	}{
+		{name: "absent declaration uses lower-ranked supplier"},
+		{name: "empty declaration overrides lower-ranked supplier", config: &agentmodel.AgentGroupConnectionConfig{}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			higher := agentmodel.NewAgentGroup("default", "higher", nil, time.Now(), "admin")
+			higher.Spec.Priority = 10
+			higher.Spec.AgentConnectionConfig = test.config
+			lower := agentmodel.NewAgentGroup("default", "lower", nil, time.Now(), "admin")
+			lower.Spec.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+				OpAMPConnection: &agentmodel.OpAMPConnectionSettings{DestinationEndpoint: "wss://lower.test"},
+			}
+			persistence := new(mockAgentGroupPersistence)
+			persistence.On("ListAgentGroups", mock.Anything, "default", (*model.ListOptions)(nil)).
+				Return(&model.ListResponse[*agentmodel.AgentGroup]{Items: []*agentmodel.AgentGroup{lower, higher}}, nil)
+			svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence),
+				new(mockAgentUsecase), alwaysLeaderElector{},
+				inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+			member := agentmodel.NewAgent(uuid.New())
+			require.NoError(t, svc.ApplyMatchingAgentGroupsToAgent(t.Context(), member))
+			require.NotNil(t, member.Spec.ConnectionInfo)
+
+			if test.config == nil {
+				assert.Equal(t, "wss://lower.test", member.Spec.ConnectionInfo.OpAMP().DestinationEndpoint)
+			} else {
+				assert.False(t, member.Spec.ConnectionInfo.HasConnectionSettings())
+			}
+		})
+	}
+}
+
+func TestBuildOtherConnectionsOmitsUnresolvedCertificates(t *testing.T) {
+	t.Parallel()
+
+	certs := new(mockCertPersistence)
+	certs.On("GetCertificate", mock.Anything, "default", "valid", (*model.GetOptions)(nil)).
+		Return(&agentmodel.Certificate{
+			Spec: agentmodel.CertificateSpec{Cert: []byte("cert"), PrivateKey: []byte("key")},
+		}, nil)
+	certs.On("GetCertificate", mock.Anything, "default", "missing", (*model.GetOptions)(nil)).
+		Return(nil, model.ErrResourceNotExist)
+	svc := NewAgentGroupService(new(mockAgentGroupPersistence), new(mockRemoteConfigPersistence), certs,
+		new(mockAgentUsecase), alwaysLeaderElector{},
+		inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
+	valid, missing := "valid", "missing"
+	connections := svc.buildOtherConnections(t.Context(), "default", map[string]agentmodel.OtherConnectionSettings{
+		"plain":     {DestinationEndpoint: "https://plain.test", Headers: map[string][]string{"token": {"value"}}},
+		"certified": {DestinationEndpoint: "https://certified.test", CertificateName: &valid},
+		"missing":   {DestinationEndpoint: "https://missing.test", CertificateName: &missing},
+	}, slog.Default())
+	assert.Len(t, connections, 2)
+	assert.Equal(t, "https://plain.test", connections["plain"].DestinationEndpoint)
+	assert.Equal(t, []string{"value"}, connections["plain"].Headers["token"])
+	require.NotNil(t, connections["certified"].Certificate)
+	assert.Equal(t, []byte("cert"), connections["certified"].Certificate.Cert)
+	assert.Equal(t, []byte("key"), connections["certified"].Certificate.PrivateKey)
+	assert.NotContains(t, connections, "missing")
+	certs.AssertExpectations(t)
 }

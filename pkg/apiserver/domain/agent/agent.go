@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model/vo"
@@ -428,10 +429,10 @@ type AgentSpec struct {
 	// RestartInfo contains information about agent restart.
 	RestartInfo *AgentRestartInfo
 
-	// ConnectionInfo is the connection information for the agent.
+	// ConnectionInfo is the connection offer computed from matching agent groups.
 	ConnectionInfo *ConnectionInfo
 
-	// RemoteConfig is the remote configuration for the agent.
+	// RemoteConfig is exclusively owned and replaced by matching agent groups.
 	RemoteConfig *AgentSpecRemoteConfig
 
 	// PackagesAvailable is the packages available for the agent.
@@ -709,13 +710,14 @@ func NewConnectionInfo(
 	ownTraces *AgentTelemetryConnectionSettings,
 	otherConnections map[string]AgentOtherConnectionSettings,
 ) (*ConnectionInfo, error) {
+	// Normalize nil maps so persistence round trips preserve the offer hash.
 	connectionInfo := &ConnectionInfo{
 		Hash:             nil,
 		opamp:            opamp,
 		ownMetrics:       ownMetrics,
 		ownLogs:          ownLogs,
 		ownTraces:        ownTraces,
-		otherConnections: otherConnections,
+		otherConnections: lo.CoalesceMapOrEmpty(otherConnections),
 	}
 
 	err := connectionInfo.updateHash()
