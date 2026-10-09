@@ -215,6 +215,7 @@ linters:
             - gopkg.in/yaml.v3
             - gotest.tools/icmd
             - go.uber.org/goleak
+            - go.uber.org/fx/fxtest
             - github.com/open-telemetry/opamp-go/server/types
             - github.com/IBM/sarama
             - github.com/cloudevents/sdk-go/v2

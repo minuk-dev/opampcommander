@@ -274,6 +274,26 @@ func TestNamespaceController_Create(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{name: "existing resource", err: model.ErrResourceAlreadyExist},
+		{name: "concurrent creator", err: model.ErrConflict},
+	} {
+		t.Run("returns 409 for "+tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrlBase, usecase := setup(t)
+			usecase.On("CreateNamespace", mock.Anything, mock.Anything).Return(nil, tt.err)
+
+			recorder := doReq(t, ctrlBase.Router, http.MethodPost, "/api/v1/namespaces", `{"metadata":{"name":"duplicate"}}`)
+
+			require.Equal(t, http.StatusConflict, recorder.Code)
+			assert.Equal(t, int64(http.StatusConflict), gjson.Get(recorder.Body.String(), "status").Int())
+		})
+	}
+
 	t.Run("returns 500 when the usecase fails", func(t *testing.T) {
 		t.Parallel()
 
