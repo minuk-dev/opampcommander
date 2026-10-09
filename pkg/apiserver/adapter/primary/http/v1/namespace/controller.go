@@ -202,7 +202,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 			"failed to create namespace",
 			"error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while creating the namespace.",
 		)

@@ -75,6 +75,13 @@ var (
 		userRoleCollectionName,
 	}
 
+	// versionedCollections use insert-only creation and require explicit legacy migration.
+	versionedCollections = []string{
+		agentGroupCollectionName, agentPackageCollectionName, agentRemoteConfigCollectionName,
+		namespaceCollectionName, endpointCollectionName, remoteConfigSchemaCollectionName,
+		hostCollectionName, containerCollectionName, applicationCollectionName,
+	}
+
 	// shardedCollections is the built-in shard-key plan. Only collections that grow
 	// with fleet size are sharded; config-/cluster-scale collections stay on the
 	// primary shard. Each shard key uses a hashed index for even write distribution,
@@ -521,10 +528,7 @@ func EnsureSchema(
 	}
 
 	// Upgrade legacy rows explicitly: version zero never authorizes an overwrite.
-	for _, name := range []string{"agentgroups",
-		"agentpackages",
-		"agentremoteconfigs", "namespaces", "endpoints", "remoteconfigschemas",
-		"hosts", "containers", "applications"} {
+	for _, name := range versionedCollections {
 		_, err = database.Collection(name).UpdateMany(ctx, bson.M{"$or": bson.A{
 			bson.M{resourceVersionFieldName: bson.M{"$exists": false}},
 			bson.M{resourceVersionFieldName: 0},

@@ -229,7 +229,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 		c.logger.Error(
 			"failed to create agent remote config", "error", err.Error(),
 		)
-		ginutil.InternalServerError(
+		ginutil.HandleDomainError(
 			ctx, err,
 			"An error occurred while creating the agent remote config.",
 		)

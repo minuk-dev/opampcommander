@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -553,4 +554,77 @@ func TestReconcileManifests_DirIsAFileSkipsWithoutError(t *testing.T) {
 
 	_, err := roleRepo.GetRoleByName(t.Context(), "default")
 	require.Error(t, err, "nothing must be seeded when dir is a file")
+}
+
+// barrierNamespaceUsecase makes both bootstrappers read the same version before either can write.
+type barrierNamespaceUsecase struct {
+	agentport.NamespaceUsecase
+
+	reads   atomic.Int32
+	ready   chan struct{}
+	release chan struct{}
+}
+
+func (b *barrierNamespaceUsecase) GetNamespace(
+	ctx context.Context, name string, opts *model.GetOptions,
+) (*agentmodel.Namespace, error) {
+	namespace, err := b.NamespaceUsecase.GetNamespace(ctx, name, opts)
+	if b.reads.Add(1) <= 2 {
+		b.ready <- struct{}{}
+
+		<-b.release
+	}
+
+	return namespace, err //nolint:wrapcheck // test delegate
+}
+
+func TestApplyManifests_ConcurrentNamespaceBootstrap(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"create", "update"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			deps, _, _ := newTestDeps()
+			delegate := deps.namespaceUsecase
+			expectedVersion := int64(1)
+
+			if name == "update" {
+				seed := agentmodel.NewNamespace("default")
+				seed.Metadata.Labels = map[string]string{"old": "value"}
+				_, err := delegate.SaveNamespace(t.Context(), seed)
+				require.NoError(t, err)
+
+				expectedVersion++
+			}
+
+			dir := writeManifests(t, deps.fs, map[string]string{"00-namespace.yaml": namespaceManifest})
+			docs, err := loadManifestDocs(deps.fs, dir)
+			require.NoError(t, err)
+
+			barrier := &barrierNamespaceUsecase{
+				NamespaceUsecase: delegate,
+				ready:            make(chan struct{}, 2), release: make(chan struct{}),
+			}
+			deps.namespaceUsecase = barrier
+			results := make(chan error, 2)
+
+			for range 2 {
+				go func() { results <- applyManifests(t.Context(), docs, deps) }()
+			}
+
+			<-barrier.ready
+			<-barrier.ready
+			close(barrier.release)
+
+			for range 2 {
+				require.NoError(t, <-results, "identical manifests must converge across concurrent servers")
+			}
+
+			stored, err := delegate.GetNamespace(t.Context(), "default", nil)
+			require.NoError(t, err)
+			assert.Empty(t, stored.Metadata.Labels)
+			assert.Equal(t, expectedVersion, stored.Metadata.ResourceVersion, "only one mutation should commit")
+		})
+	}
 }

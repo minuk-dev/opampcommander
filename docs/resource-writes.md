@@ -36,19 +36,28 @@ reopening; the client does not silently rebase an edit onto a newer read.
 
 ## Storage upgrade
 
-Stop old server versions before upgrading: they do not honor this contract. MongoDB
-startup creates unique logical-key indexes for versioned resources before serving
-traffic. Descending unique indexes can coexist with the old ascending non-unique
+Stop old server versions before upgrading: they do not honor this contract. With
+`database.ddlAuto=true`, MongoDB startup creates unique logical-key indexes for
+versioned resources before serving traffic. With `ddlAuto=false`, startup only
+validates the required full unique indexes and positive stored revisions, and
+refuses to start if either prerequisite is missing. Run the upgrade with DDL
+enabled or provision the same schema offline before disabling it. Sparse and
+partial unique indexes do not satisfy this check. Descending unique indexes can
+coexist with the old ascending non-unique
 indexes on MongoDB 4.4, so migration builds the unique replacement before removing
 the old index. Concurrent startup never drops the unique replacement. Existing
 duplicate logical keys cause startup to fail; migration never chooses a winner or
 deletes resource data. Resolve duplicates explicitly before retrying the upgrade.
 
-Startup then sets missing/zero stored revisions to one without changing positive
+The DDL upgrade then sets missing/zero stored revisions to one without changing positive
 revisions. Version zero means insert-only in persistence, never legacy migration.
 This also applies to the other existing users of the shared CAS helper (endpoints,
 remote config schemas, hosts, containers and applications); their public mutation
 APIs are outside this four-resource contract.
+
+Concurrent servers applying the same bootstrap namespace manifest re-read and
+retry a bounded number of times on version conflicts. A matching manifest is a
+no-op, so both create and update races converge without aborting startup.
 
 MongoDB namespace cascades run in a transaction, validate the client revision before
 touching children and use CAS for the namespace row. The existing in-memory

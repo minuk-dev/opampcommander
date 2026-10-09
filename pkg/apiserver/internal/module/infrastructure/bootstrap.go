@@ -250,6 +250,18 @@ func applyNamespace(ctx context.Context, doc manifestDoc, deps bootstrapDeps) er
 		return fmt.Errorf("%w: %q", errEmptyNamespaceName, doc.source)
 	}
 
+	for attempt := 0; ; attempt++ {
+		err = reconcileBootstrapNamespace(ctx, deps, &apiNamespace)
+		if err == nil || !errors.Is(err, model.ErrConflict) || attempt >= bootstrapConflictRetries {
+			return err
+		}
+	}
+}
+
+// reconcileBootstrapNamespace re-reads the namespace after a concurrent bootstrap write wins.
+func reconcileBootstrapNamespace(ctx context.Context, deps bootstrapDeps, desired *v1.Namespace) error {
+	name := desired.Metadata.Name
+
 	existing, err := deps.namespaceUsecase.GetNamespace(ctx, name, nil)
 	if err != nil && !errors.Is(err, model.ErrResourceNotExist) {
 		return fmt.Errorf("check namespace %q: %w", name, err)
@@ -260,8 +272,8 @@ func applyNamespace(ctx context.Context, doc manifestDoc, deps bootstrapDeps) er
 
 		namespace := agentmodel.NewNamespace(name)
 		namespace.MarkAsCreated(deps.clk.Now(), "system")
-		namespace.Metadata.Labels = apiNamespace.Metadata.Labels
-		namespace.Metadata.Annotations = apiNamespace.Metadata.Annotations
+		namespace.Metadata.Labels = desired.Metadata.Labels
+		namespace.Metadata.Annotations = desired.Metadata.Annotations
 
 		_, err = deps.namespaceUsecase.SaveNamespace(ctx, namespace)
 		if err != nil {
@@ -273,13 +285,13 @@ func applyNamespace(ctx context.Context, doc manifestDoc, deps bootstrapDeps) er
 
 	// Already exists: only re-save when the manifest actually changes labels/annotations,
 	// to avoid a redundant write on every startup. maps.Equal treats nil and empty alike.
-	if maps.Equal(existing.Metadata.Labels, apiNamespace.Metadata.Labels) &&
-		maps.Equal(existing.Metadata.Annotations, apiNamespace.Metadata.Annotations) {
+	if maps.Equal(existing.Metadata.Labels, desired.Metadata.Labels) &&
+		maps.Equal(existing.Metadata.Annotations, desired.Metadata.Annotations) {
 		return nil
 	}
 
-	existing.Metadata.Labels = apiNamespace.Metadata.Labels
-	existing.Metadata.Annotations = apiNamespace.Metadata.Annotations
+	existing.Metadata.Labels = desired.Metadata.Labels
+	existing.Metadata.Annotations = desired.Metadata.Annotations
 
 	_, err = deps.namespaceUsecase.SaveNamespace(ctx, existing)
 	if err != nil {
@@ -328,7 +340,7 @@ func applyEndpoint(ctx context.Context, doc manifestDoc, deps bootstrapDeps) err
 	}
 }
 
-// bootstrapConflictRetries bounds how many times a bootstrap endpoint write is
+// bootstrapConflictRetries bounds how many times a bootstrap resource write is
 // re-read and retried after losing an optimistic-concurrency race to another
 // apiserver applying the same manifest.
 const bootstrapConflictRetries = 3
