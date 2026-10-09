@@ -106,8 +106,7 @@ func (m *mockAgentPackageUsecase) UpdateAgentPackage(
 }
 
 func (m *mockAgentPackageUsecase) DeleteAgentPackage(
-	ctx context.Context, namespace, name string, deletedAt time.Time, deletedBy string,
-) error {
+	ctx context.Context, namespace, name string, deletedAt time.Time, deletedBy string, _ ...int64) error {
 	args := m.Called(ctx, namespace, name, deletedAt, deletedBy)
 
 	return args.Error(0) //nolint:wrapcheck // mock error

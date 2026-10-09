@@ -109,16 +109,22 @@ func (_c *MockUsecase_CreateAgentGroup_Call) RunAndReturn(run func(ctx context.C
 }
 
 // DeleteAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, namespace string, name string) error {
-	ret := _mock.Called(ctx, namespace, name)
+func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, namespace string, name string, resourceVersion ...int64) error {
+	var tmpRet mock.Arguments
+	if len(resourceVersion) > 0 {
+		tmpRet = _mock.Called(ctx, namespace, name, resourceVersion)
+	} else {
+		tmpRet = _mock.Called(ctx, namespace, name)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentGroup")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, ...int64) error); ok {
+		r0 = returnFunc(ctx, namespace, name, resourceVersion...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -134,11 +140,13 @@ type MockUsecase_DeleteAgentGroup_Call struct {
 //   - ctx context.Context
 //   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteAgentGroup_Call {
-	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup", ctx, namespace, name)}
+//   - resourceVersion ...int64
+func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, namespace interface{}, name interface{}, resourceVersion ...interface{}) *MockUsecase_DeleteAgentGroup_Call {
+	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup",
+		append([]interface{}{ctx, namespace, name}, resourceVersion...)...)}
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64)) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -152,10 +160,17 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, n
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 []int64
+		var variadicArgs []int64
+		if len(args) > 3 {
+			variadicArgs = args[3].([]int64)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3...,
 		)
 	})
 	return _c
@@ -166,7 +181,7 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Return(err error) *MockUsecase_Dele
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64) error) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }

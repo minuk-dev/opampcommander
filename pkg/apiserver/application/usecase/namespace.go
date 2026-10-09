@@ -26,5 +26,5 @@ type NamespaceManageUsecase interface {
 		namespace *v1.Namespace) (*v1.Namespace, error)
 	// DeleteNamespace removes the named namespace. The built-in default
 	// namespace is protected and yields ErrDefaultNamespaceUndeletable.
-	DeleteNamespace(ctx context.Context, name string) error
+	DeleteNamespace(ctx context.Context, name string, resourceVersion ...int64) error
 }

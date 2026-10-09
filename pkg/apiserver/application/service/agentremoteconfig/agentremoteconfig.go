@@ -126,6 +126,11 @@ func (s *Service) UpdateAgentRemoteConfig(
 	name string,
 	apiModel *v1.AgentRemoteConfig,
 ) (*v1.AgentRemoteConfig, error) {
+	existing, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(ctx, namespace, name, nil)
+	if err != nil {
+		return nil, fmt.Errorf("read remote config before update: %w", err)
+	}
+
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
 
 	updated, err := s.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
@@ -135,8 +140,10 @@ func (s *Service) UpdateAgentRemoteConfig(
 		return nil, fmt.Errorf("update agent remote config: %w", err)
 	}
 
-	s.triggerGroupPropagation(ctx, updated.Metadata.Namespace, updated.Metadata.Name)
-	s.triggerEndpointDetection(ctx, updated)
+	if updated.Metadata.ResourceVersion != existing.Metadata.ResourceVersion {
+		s.triggerGroupPropagation(ctx, updated.Metadata.Namespace, updated.Metadata.Name)
+		s.triggerEndpointDetection(ctx, updated)
+	}
 
 	return s.mapper.MapAgentRemoteConfigToAPI(updated), nil
 }
@@ -146,9 +153,10 @@ func (s *Service) DeleteAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	resourceVersion ...int64,
 ) error {
 	err := s.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
-		ctx, namespace, name, s.clock.Now(), s.actor(ctx),
+		ctx, namespace, name, s.clock.Now(), s.actor(ctx), resourceVersion...,
 	)
 	if err != nil {
 		return fmt.Errorf("delete agent remote config: %w", err)

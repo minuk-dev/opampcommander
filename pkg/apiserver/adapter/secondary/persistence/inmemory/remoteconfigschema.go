@@ -53,7 +53,7 @@ func (r *RemoteConfigSchemaRepository) PutRemoteConfigSchema(
 	toStore := cloneRemoteConfigSchema(schema)
 	toStore.Metadata.ResourceVersion = next
 
-	err := r.store.casPutOrCreate(key, toStore, expected, func(s *agentmodel.RemoteConfigSchema) int64 {
+	err := r.store.casPut(key, toStore, expected, func(s *agentmodel.RemoteConfigSchema) int64 {
 		return s.Metadata.ResourceVersion
 	})
 	if err != nil {

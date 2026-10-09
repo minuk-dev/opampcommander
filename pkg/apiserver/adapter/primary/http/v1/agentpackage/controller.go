@@ -198,6 +198,7 @@ func (c *Controller) Get(ctx *gin.Context) {
 // @Param agentPackage body v1.AgentPackage true "Agent Package to create"
 // @Failure 400 {object} map[string]any
 // @Failure 500 {object} map[string]any
+// @Failure 409 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentpackages [post].
 func (c *Controller) Create(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
@@ -221,7 +222,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 	created, err := c.agentpackageUsecase.CreateAgentPackage(ctx.Request.Context(), &req)
 	if err != nil {
 		c.logger.Error("failed to create agent package", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while creating the agent package.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while creating the agent package.")
 
 		return
 	}
@@ -234,7 +235,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 //
 // @Summary  Update Agent Package
 // @Tags agentpackage
-// @Description Update an existing agent package.
+// @Description Requires metadata.resourceVersion from the original read. Update an existing agent package.
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.AgentPackage
@@ -244,6 +245,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
+// @Failure 409 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentpackages/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
@@ -269,6 +271,10 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
+	if !ginutil.RequireResourceVersion(ctx, req.Metadata.ResourceVersion) {
+		return
+	}
+
 	updated, err := c.agentpackageUsecase.UpdateAgentPackage(
 		ctx.Request.Context(), namespace, name, &req,
 	)
@@ -289,6 +295,8 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Description Delete an agent package by its name.
 // @Param namespace path string true "Namespace"
 // @Param name path string true "Name of the agent package"
+// @Param resourceVersion query string true "Revision from the resource read; required for conditional deletion"
+// @Failure 409 {object} map[string]any
 // @Success 204
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
@@ -309,7 +317,12 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.agentpackageUsecase.DeleteAgentPackage(ctx.Request.Context(), namespace, name)
+	resourceVersion, ok := ginutil.ParseResourceVersion(ctx)
+	if !ok {
+		return
+	}
+
+	err = c.agentpackageUsecase.DeleteAgentPackage(ctx.Request.Context(), namespace, name, resourceVersion)
 	if err != nil {
 		c.logger.Error("failed to delete agent package", "name", name, "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent package.")

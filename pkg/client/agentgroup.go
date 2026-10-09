@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -226,9 +227,11 @@ func (s *AgentGroupService) UpdateAgentGroup(
 }
 
 // DeleteAgentGroup deletes an agent group by its namespace and name.
-func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context, namespace string, name string) error {
+func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context,
+	namespace string, name string, resourceVersion int64) error {
 	res, err := s.service.Resty.R().
 		SetContext(ctx).
+		SetQueryParam("resourceVersion", strconv.FormatInt(resourceVersion, 10)).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name).
 		Delete(DeleteAgentGroupURL)

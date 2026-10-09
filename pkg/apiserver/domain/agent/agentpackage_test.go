@@ -88,3 +88,37 @@ func TestAgentPackage_MarkAsDeleted(t *testing.T) {
 	require.Len(t, pkg.Status.Conditions, 1)
 	assert.Equal(t, model.ConditionTypeDeleted, pkg.Status.Conditions[0].Type)
 }
+
+func TestDeclarativeSpecEquality(t *testing.T) {
+	t.Parallel()
+
+	left := agentmodel.AgentPackageSpec{}
+	right := agentmodel.AgentPackageSpec{Headers: map[string]string{}, ContentHash: []byte{}}
+	require.True(t, left.Equal(right))
+	right.Version = "changed"
+	require.False(t, left.Equal(right))
+
+	remote := agentmodel.AgentRemoteConfigSpec{}
+	require.True(t, remote.Equal(agentmodel.AgentRemoteConfigSpec{Value: []byte{}, SchemaRefs: []string{}}))
+	require.False(t, remote.Equal(agentmodel.AgentRemoteConfigSpec{Value: []byte("changed")}))
+
+	group := agentmodel.AgentGroupSpec{}
+	require.True(t, group.Equal(agentmodel.AgentGroupSpec{
+		Selector:           agentmodel.AgentSelector{IdentifyingAttributes: map[string]string{}},
+		AgentRemoteConfigs: []agentmodel.AgentGroupAgentRemoteConfig{},
+	}))
+	require.False(t, group.Equal(agentmodel.AgentGroupSpec{Priority: 1}))
+
+	group.AgentConnectionConfig = &agentmodel.AgentGroupConnectionConfig{
+		OpAMPConnection: &agentmodel.OpAMPConnectionSettings{DestinationEndpoint: "wss://example.com"},
+	}
+	other := agentmodel.AgentGroupSpec{AgentConnectionConfig: &agentmodel.AgentGroupConnectionConfig{
+		OpAMPConnection: &agentmodel.OpAMPConnectionSettings{
+			DestinationEndpoint: "wss://example.com", Headers: map[string][]string{},
+		},
+		OtherConnections: map[string]agentmodel.OtherConnectionSettings{},
+	}}
+	require.True(t, group.Equal(other))
+	other.AgentConnectionConfig.OpAMPConnection.DestinationEndpoint = "wss://changed.example.com"
+	require.False(t, group.Equal(other))
+}

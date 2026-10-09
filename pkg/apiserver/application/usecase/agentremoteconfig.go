@@ -27,5 +27,5 @@ type AgentRemoteConfigManageUsecase interface {
 	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,
 		agentRemoteConfig *v1.AgentRemoteConfig) (*v1.AgentRemoteConfig, error)
 	// DeleteAgentRemoteConfig removes the named remote config.
-	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string) error
+	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string, resourceVersion ...int64) error
 }

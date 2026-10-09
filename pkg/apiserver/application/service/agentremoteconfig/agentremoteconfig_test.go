@@ -106,8 +106,7 @@ func (m *mockAgentRemoteConfigUsecase) UpdateAgentRemoteConfig(
 }
 
 func (m *mockAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
-	ctx context.Context, namespace, name string, deletedAt time.Time, deletedBy string,
-) error {
+	ctx context.Context, namespace, name string, deletedAt time.Time, deletedBy string, _ ...int64) error {
 	args := m.Called(ctx, namespace, name, deletedAt, deletedBy)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
@@ -154,7 +153,7 @@ func (*stubAgentGroupUsecase) SaveAgentGroup(
 	return nil, nil //nolint:nilnil // stub
 }
 
-func (*stubAgentGroupUsecase) DeleteAgentGroup(context.Context, string, string, time.Time, string) error {
+func (*stubAgentGroupUsecase) DeleteAgentGroup(context.Context, string, string, time.Time, string, ...int64) error {
 	return nil
 }
 
@@ -367,8 +366,11 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 		det := &stubEndpointDetectionUsecase{detectCh: make(chan struct{}, 1)}
 		svc := newSvc(t, mockARC, group, det)
 
+		mockARC.On("GetAgentRemoteConfig", ctx, "default", "cfg-1", (*model.GetOptions)(nil)).Return(newARC(), nil)
+		updated := newARC()
+		updated.Metadata.ResourceVersion = 1
 		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).
-			Return(newARC(), nil)
+			Return(updated, nil)
 
 		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())
 
@@ -386,6 +388,7 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 		mockARC := new(mockAgentRemoteConfigUsecase)
 		svc := newSvc(t, mockARC, &stubAgentGroupUsecase{}, &stubEndpointDetectionUsecase{})
 
+		mockARC.On("GetAgentRemoteConfig", ctx, "default", "cfg-1", (*model.GetOptions)(nil)).Return(newARC(), nil)
 		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).Return(nil, errMock)
 
 		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())

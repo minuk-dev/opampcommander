@@ -32,6 +32,7 @@ const HASH = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
 
 const stored: AgentPackage = {
   metadata: {
+    resourceVersion: '3',
     name: 'otelcol-linux-amd64',
     namespace: 'default',
     attributes: { team: 'platform' },
@@ -231,5 +232,42 @@ describe('AgentPackageEditDialog', () => {
 
     expect(await screen.findByText('package already exists')).toBeInTheDocument();
     expect(screen.getByText(/Conflict · HTTP 409/)).toBeInTheDocument();
+  });
+  it('pins identity and revision while the editor is open', async () => {
+    const user = userEvent.setup();
+    const props = {
+      open: true,
+      mode: 'edit' as const,
+      namespace: 'default',
+      initial: stored,
+      onClose: vi.fn(),
+      onSaved: vi.fn(),
+    };
+    const { rerender } = render(<AgentPackageEditDialog {...props} />);
+    await user.clear(screen.getByLabelText('Version'));
+    await user.type(screen.getByLabelText('Version'), 'new-version');
+    rerender(
+      <AgentPackageEditDialog
+        {...props}
+        namespace="other"
+        initial={{
+          ...stored,
+          metadata: {
+            ...stored.metadata,
+            namespace: 'other',
+            name: 'replacement',
+            resourceVersion: '4',
+          },
+        }}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+    expect(put.mock.calls[0][0]).toBe(
+      `/api/v1/namespaces/default/agentpackages/${stored.metadata.name}`,
+    );
+    expect(put.mock.calls[0][1]).toMatchObject({
+      metadata: { name: stored.metadata.name, namespace: 'default', resourceVersion: '3' },
+    });
   });
 });

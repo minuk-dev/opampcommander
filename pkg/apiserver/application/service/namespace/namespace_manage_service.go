@@ -128,8 +128,9 @@ func (s *Service) UpdateNamespace(
 func (s *Service) DeleteNamespace(
 	ctx context.Context,
 	name string,
+	resourceVersion ...int64,
 ) error {
-	err := s.namespaceUsecase.DeleteNamespace(ctx, name, s.actor(ctx))
+	err := s.namespaceUsecase.DeleteNamespace(ctx, name, s.actor(ctx), resourceVersion...)
 	if err != nil {
 		return fmt.Errorf("delete namespace %q: %w", name, err)
 	}

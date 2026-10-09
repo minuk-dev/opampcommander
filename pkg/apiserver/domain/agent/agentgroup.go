@@ -2,6 +2,8 @@ package agentmodel
 
 import (
 	"maps"
+	"reflect"
+	"slices"
 	"time"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
@@ -28,11 +30,12 @@ func NewAgentGroup(
 ) *AgentGroup {
 	return &AgentGroup{
 		Metadata: AgentGroupMetadata{
-			Namespace:  namespace,
-			Name:       name,
-			Attributes: attributes,
-			CreatedAt:  createdAt,
-			DeletedAt:  time.Time{},
+			ResourceVersion: 0,
+			Namespace:       namespace,
+			Name:            name,
+			Attributes:      attributes,
+			CreatedAt:       createdAt,
+			DeletedAt:       time.Time{},
 		},
 		Spec: AgentGroupSpec{
 			Priority: 0,
@@ -70,6 +73,7 @@ func (ag *AgentGroup) HasAgentConnectionConfig() bool {
 
 // AgentGroupMetadata represents metadata information for an agent group.
 type AgentGroupMetadata struct {
+	ResourceVersion int64
 	// Namespace is the namespace of the agent group.
 	// Together with Name, it forms the unique identity of the agent group.
 	Namespace string
@@ -299,4 +303,46 @@ func OfAttributes(attributes map[string]string) Attributes {
 	attr := maps.Clone(attributes)
 
 	return attr
+}
+
+// Equal reports whether two group specifications request the same selection and configuration.
+func (s AgentGroupSpec) Equal(other AgentGroupSpec) bool {
+	return s.Priority == other.Priority &&
+		maps.Equal(s.Selector.IdentifyingAttributes, other.Selector.IdentifyingAttributes) &&
+		maps.Equal(s.Selector.NonIdentifyingAttributes, other.Selector.NonIdentifyingAttributes) &&
+		slices.EqualFunc(s.AgentRemoteConfigs, other.AgentRemoteConfigs, func(left, right AgentGroupAgentRemoteConfig) bool {
+			sameSpec := left.AgentRemoteConfigSpec == nil && right.AgentRemoteConfigSpec == nil
+			if left.AgentRemoteConfigSpec != nil && right.AgentRemoteConfigSpec != nil {
+				sameSpec = left.AgentRemoteConfigSpec.Equal(*right.AgentRemoteConfigSpec)
+			}
+
+			return sameSpec && reflect.DeepEqual(left.AgentRemoteConfigName, right.AgentRemoteConfigName) &&
+				reflect.DeepEqual(left.AgentRemoteConfigRef, right.AgentRemoteConfigRef)
+		}) && s.AgentConnectionConfig.Equal(other.AgentConnectionConfig)
+}
+
+// Equal compares connection settings without treating omitted and empty headers differently.
+func (c *AgentGroupConnectionConfig) Equal(other *AgentGroupConnectionConfig) bool {
+	if c == nil || other == nil {
+		return c == other
+	}
+
+	return equalConnectionSettings((*TelemetryConnectionSettings)(c.OpAMPConnection),
+		(*TelemetryConnectionSettings)(other.OpAMPConnection)) &&
+		equalConnectionSettings(c.OwnMetrics, other.OwnMetrics) &&
+		equalConnectionSettings(c.OwnLogs, other.OwnLogs) &&
+		equalConnectionSettings(c.OwnTraces, other.OwnTraces) &&
+		maps.EqualFunc(c.OtherConnections, other.OtherConnections, func(left, right OtherConnectionSettings) bool {
+			return equalConnectionSettings((*TelemetryConnectionSettings)(&left), (*TelemetryConnectionSettings)(&right))
+		})
+}
+
+func equalConnectionSettings(left, right *TelemetryConnectionSettings) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+
+	return left.DestinationEndpoint == right.DestinationEndpoint &&
+		reflect.DeepEqual(left.CertificateName, right.CertificateName) &&
+		maps.EqualFunc(left.Headers, right.Headers, slices.Equal[[]string])
 }

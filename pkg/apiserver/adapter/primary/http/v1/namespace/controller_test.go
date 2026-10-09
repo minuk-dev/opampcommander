@@ -85,7 +85,7 @@ func (m *mockNamespaceUsecase) UpdateNamespace(
 	return res, args.Error(1) //nolint:wrapcheck // mock error
 }
 
-func (m *mockNamespaceUsecase) DeleteNamespace(ctx context.Context, name string) error {
+func (m *mockNamespaceUsecase) DeleteNamespace(ctx context.Context, name string, _ ...int64) error {
 	args := m.Called(ctx, name)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
@@ -97,7 +97,7 @@ func newNamespace(name string) *v1.Namespace {
 		Kind:       v1.NamespaceKind,
 		APIVersion: v1.APIVersion,
 		//exhaustruct:ignore
-		Metadata: v1.NamespaceMetadata{Name: name},
+		Metadata: v1.NamespaceMetadata{ResourceVersion: 1, Name: name},
 	}
 }
 
@@ -257,7 +257,8 @@ func TestNamespaceController_Create(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("CreateNamespace", mock.Anything, mock.Anything).Return(newNamespace("prod"), nil)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPost, "/api/v1/namespaces", `{"metadata":{"name":"prod"}}`)
+		recorder := doReq(t, ctrlBase.Router,
+			http.MethodPost, "/api/v1/namespaces", `{"metadata":{"resourceVersion":"1","name":"prod"}}`)
 
 		require.Equal(t, http.StatusCreated, recorder.Code)
 		assert.Equal(t, "/api/v1/namespaces/prod", recorder.Header().Get("Location"))
@@ -279,7 +280,8 @@ func TestNamespaceController_Create(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("CreateNamespace", mock.Anything, mock.Anything).Return(nil, errBoom)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPost, "/api/v1/namespaces", `{"metadata":{"name":"prod"}}`)
+		recorder := doReq(t, ctrlBase.Router,
+			http.MethodPost, "/api/v1/namespaces", `{"metadata":{"resourceVersion":"1","name":"prod"}}`)
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
@@ -294,7 +296,8 @@ func TestNamespaceController_Update(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("UpdateNamespace", mock.Anything, "prod", mock.Anything).Return(newNamespace("prod"), nil)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPut, "/api/v1/namespaces/prod", `{"metadata":{"name":"prod"}}`)
+		recorder := doReq(t, ctrlBase.Router,
+			http.MethodPut, "/api/v1/namespaces/prod", `{"metadata":{"resourceVersion":"1","name":"prod"}}`)
 
 		require.Equal(t, http.StatusOK, recorder.Code)
 	})
@@ -315,7 +318,8 @@ func TestNamespaceController_Update(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("UpdateNamespace", mock.Anything, "missing", mock.Anything).Return(nil, model.ErrResourceNotExist)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPut, "/api/v1/namespaces/missing", `{"metadata":{"name":"missing"}}`)
+		recorder := doReq(t, ctrlBase.Router,
+			http.MethodPut, "/api/v1/namespaces/missing", `{"metadata":{"resourceVersion":"1","name":"missing"}}`)
 
 		require.Equal(t, http.StatusNotFound, recorder.Code)
 	})
@@ -330,7 +334,7 @@ func TestNamespaceController_Delete(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("DeleteNamespace", mock.Anything, "prod").Return(nil)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, "/api/v1/namespaces/prod", "")
+		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, "/api/v1/namespaces/prod?resourceVersion=1", "")
 
 		require.Equal(t, http.StatusNoContent, recorder.Code)
 	})
@@ -341,7 +345,7 @@ func TestNamespaceController_Delete(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("DeleteNamespace", mock.Anything, "missing").Return(model.ErrResourceNotExist)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, "/api/v1/namespaces/missing", "")
+		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, "/api/v1/namespaces/missing?resourceVersion=1", "")
 
 		require.Equal(t, http.StatusNotFound, recorder.Code)
 	})

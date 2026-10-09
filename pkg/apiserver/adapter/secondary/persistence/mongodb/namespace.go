@@ -86,12 +86,17 @@ func (a *NamespaceMongoAdapter) ListNamespaces(
 func (a *NamespaceMongoAdapter) PutNamespace(
 	ctx context.Context, namespace *agentmodel.Namespace,
 ) (*agentmodel.Namespace, error) {
+	expected := namespace.Metadata.ResourceVersion
 	namespaceEntity := entity.NamespaceFromDomain(namespace)
 
-	err := a.common.put(ctx, namespaceEntity)
+	namespaceEntity.Metadata.ResourceVersion = expected + 1
+
+	err := casReplace(ctx, a.common.collection, a.common.filterByKey(namespace.Metadata.Name), namespaceEntity, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put namespace: %w", err)
 	}
+
+	namespace.Metadata.ResourceVersion = expected + 1
 
 	return namespace, nil
 }

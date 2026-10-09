@@ -37,7 +37,18 @@ func (r *NamespaceRepository) GetNamespace(
 func (r *NamespaceRepository) PutNamespace(
 	_ context.Context, namespace *agentmodel.Namespace,
 ) (*agentmodel.Namespace, error) {
-	r.store.put(namespace.Metadata.Name, namespace)
+	expected := namespace.Metadata.ResourceVersion
+	toStore := cloneNamespace(namespace)
+	toStore.Metadata.ResourceVersion = expected + 1
+
+	err := r.store.casPut(namespace.Metadata.Name, toStore, expected, func(value *agentmodel.Namespace) int64 {
+		return value.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	namespace.Metadata.ResourceVersion = expected + 1
 
 	return namespace, nil
 }

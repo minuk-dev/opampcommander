@@ -108,16 +108,22 @@ func (_c *MockUsecase_CreateAgentPackage_Call) RunAndReturn(run func(ctx context
 }
 
 // DeleteAgentPackage provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentPackage(ctx context.Context, namespace string, name string) error {
-	ret := _mock.Called(ctx, namespace, name)
+func (_mock *MockUsecase) DeleteAgentPackage(ctx context.Context, namespace string, name string, resourceVersion ...int64) error {
+	var tmpRet mock.Arguments
+	if len(resourceVersion) > 0 {
+		tmpRet = _mock.Called(ctx, namespace, name, resourceVersion)
+	} else {
+		tmpRet = _mock.Called(ctx, namespace, name)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentPackage")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, ...int64) error); ok {
+		r0 = returnFunc(ctx, namespace, name, resourceVersion...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -133,11 +139,13 @@ type MockUsecase_DeleteAgentPackage_Call struct {
 //   - ctx context.Context
 //   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) DeleteAgentPackage(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteAgentPackage_Call {
-	return &MockUsecase_DeleteAgentPackage_Call{Call: _e.mock.On("DeleteAgentPackage", ctx, namespace, name)}
+//   - resourceVersion ...int64
+func (_e *MockUsecase_Expecter) DeleteAgentPackage(ctx interface{}, namespace interface{}, name interface{}, resourceVersion ...interface{}) *MockUsecase_DeleteAgentPackage_Call {
+	return &MockUsecase_DeleteAgentPackage_Call{Call: _e.mock.On("DeleteAgentPackage",
+		append([]interface{}{ctx, namespace, name}, resourceVersion...)...)}
 }
 
-func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteAgentPackage_Call {
+func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64)) *MockUsecase_DeleteAgentPackage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -151,10 +159,17 @@ func (_c *MockUsecase_DeleteAgentPackage_Call) Run(run func(ctx context.Context,
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 []int64
+		var variadicArgs []int64
+		if len(args) > 3 {
+			variadicArgs = args[3].([]int64)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3...,
 		)
 	})
 	return _c
@@ -165,7 +180,7 @@ func (_c *MockUsecase_DeleteAgentPackage_Call) Return(err error) *MockUsecase_De
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteAgentPackage_Call {
+func (_c *MockUsecase_DeleteAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64) error) *MockUsecase_DeleteAgentPackage_Call {
 	_c.Call.Return(run)
 	return _c
 }

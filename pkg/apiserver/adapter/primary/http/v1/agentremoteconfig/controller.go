@@ -274,6 +274,10 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
+	if !ginutil.RequireResourceVersion(ctx, req.Metadata.ResourceVersion) {
+		return
+	}
+
 	updated, err := c.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
 		ctx.Request.Context(), namespace, name, &req,
 	)
@@ -313,8 +317,13 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
+	resourceVersion, ok := ginutil.ParseResourceVersion(ctx)
+	if !ok {
+		return
+	}
+
 	err = c.agentRemoteConfigUsecase.DeleteAgentRemoteConfig(
-		ctx.Request.Context(), namespace, name,
+		ctx.Request.Context(), namespace, name, resourceVersion,
 	)
 	if err != nil {
 		c.logger.Error(

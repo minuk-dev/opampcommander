@@ -238,10 +238,26 @@ func (s *AgentGroupService) DeleteAgentGroup(
 	name string,
 	deletedAt time.Time,
 	deletedBy string,
+	resourceVersion ...int64,
 ) error {
-	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, namespace, name, nil)
+	agentGroup, err := s.persistencePort.GetAgentGroup(ctx, namespace, name, &model.GetOptions{IncludeDeleted: true})
 	if err != nil {
 		return fmt.Errorf("failed to get agent group: %w", err)
+	}
+
+	if len(resourceVersion) > 0 {
+		if !agentGroup.Metadata.DeletedAt.IsZero() && resourceVersion[0] == agentGroup.Metadata.ResourceVersion-1 {
+			return nil
+		}
+
+		err = model.CheckResourceVersion(resourceVersion[0], agentGroup.Metadata.ResourceVersion)
+		if err != nil {
+			return fmt.Errorf("resource precondition: %w", err)
+		}
+	}
+
+	if !agentGroup.Metadata.DeletedAt.IsZero() {
+		return nil
 	}
 
 	agentGroup.MarkDeleted(deletedAt, deletedBy)

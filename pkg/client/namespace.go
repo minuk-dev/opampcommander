@@ -82,6 +82,7 @@ func (s *NamespaceService) UpdateNamespace(
 func (s *NamespaceService) DeleteNamespace(
 	ctx context.Context,
 	name string,
+	resourceVersion int64,
 ) error {
-	return deleteResource(ctx, s.service, DeleteNamespaceURL, name)
+	return deleteResource(ctx, s.service, DeleteNamespaceURL, name, resourceVersion)
 }

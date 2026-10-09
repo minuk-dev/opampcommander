@@ -177,10 +177,10 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "metadata.namespace", Value: 1},
-						{Key: "metadata.name", Value: 1},
+						{Key: "metadata.namespace", Value: -1},
+						{Key: "metadata.name", Value: -1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 				{
 					Keys: bson.D{
@@ -215,10 +215,10 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "metadata.namespace", Value: 1},
-						{Key: "metadata.name", Value: 1},
+						{Key: "metadata.namespace", Value: -1},
+						{Key: "metadata.name", Value: -1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 				{
 					Keys: bson.D{
@@ -242,10 +242,10 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "metadata.namespace", Value: 1},
-						{Key: "metadata.name", Value: 1},
+						{Key: "metadata.namespace", Value: -1},
+						{Key: "metadata.name", Value: -1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 				{
 					Keys: bson.D{
@@ -261,9 +261,9 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "metadata.name", Value: 1},
+						{Key: "metadata.name", Value: -1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 			},
 		},
@@ -272,10 +272,10 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "metadata.namespace", Value: 1},
-						{Key: "metadata.name", Value: 1},
+						{Key: "metadata.namespace", Value: -1},
+						{Key: "metadata.name", Value: -1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 				nameSearchIndex(),
 				{
@@ -293,10 +293,10 @@ func fleetIndexes() []collectionAndIndexes {
 			indexes: []mongo.IndexModel{
 				{
 					Keys: bson.D{
-						{Key: "metadata.namespace", Value: 1},
-						{Key: "metadata.name", Value: 1},
+						{Key: "metadata.namespace", Value: -1},
+						{Key: "metadata.name", Value: -1},
 					},
-					Options: nil,
+					Options: options.Index().SetUnique(true),
 				},
 				nameSearchIndex(),
 				{
@@ -474,8 +474,8 @@ func nameSearchIndex() mongo.IndexModel {
 func platformScopedIndexes() []mongo.IndexModel {
 	return []mongo.IndexModel{
 		{
-			Keys:    bson.D{{Key: "metadata.id", Value: 1}},
-			Options: nil,
+			Keys:    bson.D{{Key: "metadata.id", Value: -1}},
+			Options: options.Index().SetUnique(true),
 		},
 		nameSearchIndex(),
 		{
@@ -513,6 +513,25 @@ func EnsureSchema(
 	err = createIndexes(ctx, database, managedIndexes())
 	if err != nil {
 		return fmt.Errorf("failed to create indexes: %w", err)
+	}
+
+	err = upgradeResourceKeyIndexes(ctx, database)
+	if err != nil {
+		return err
+	}
+
+	// Upgrade legacy rows explicitly: version zero never authorizes an overwrite.
+	for _, name := range []string{"agentgroups",
+		"agentpackages",
+		"agentremoteconfigs", "namespaces", "endpoints", "remoteconfigschemas",
+		"hosts", "containers", "applications"} {
+		_, err = database.Collection(name).UpdateMany(ctx, bson.M{"$or": bson.A{
+			bson.M{resourceVersionFieldName: bson.M{"$exists": false}},
+			bson.M{resourceVersionFieldName: 0},
+		}}, bson.M{"$set": bson.M{resourceVersionFieldName: int64(1)}})
+		if err != nil {
+			return fmt.Errorf("migrate resource versions in %s: %w", name, err)
+		}
 	}
 
 	if sharding {
@@ -644,4 +663,43 @@ func isAlreadyShardedError(err error) bool {
 	}
 
 	return strings.Contains(cmdErr.Message, "already sharded")
+}
+
+// upgradeResourceKeyIndexes removes old ascending non-unique indexes only after
+// their descending unique replacements exist. Distinct key patterns support MongoDB
+// 4.4 and concurrent startup without ever dropping the replacement or exposing an
+// unprotected write window. Existing duplicates fail index creation without deleting data.
+func upgradeResourceKeyIndexes(ctx context.Context, database *mongo.Database) error {
+	for _, key := range []struct{ collection, index string }{
+		{agentGroupCollectionName, "metadata.namespace_1_metadata.name_1"},
+		{agentPackageCollectionName, "metadata.namespace_1_metadata.name_1"},
+		{agentRemoteConfigCollectionName, "metadata.namespace_1_metadata.name_1"},
+		{remoteConfigSchemaCollectionName, "metadata.namespace_1_metadata.name_1"},
+		{endpointCollectionName, "metadata.namespace_1_metadata.name_1"},
+		{namespaceCollectionName, "metadata.name_1"},
+		{hostCollectionName, "metadata.id_1"},
+		{containerCollectionName, "metadata.id_1"},
+	} {
+		indexes := database.Collection(key.collection).Indexes()
+
+		specs, err := indexes.ListSpecifications(ctx)
+		if err != nil {
+			return fmt.Errorf("list indexes for %s: %w", key.collection, err)
+		}
+
+		for _, spec := range specs {
+			if spec.Name != key.index || (spec.Unique != nil && *spec.Unique) {
+				continue
+			}
+
+			err = indexes.DropOne(ctx, spec.Name)
+
+			var commandErr mongo.CommandError
+			if err != nil && (!errors.As(err, &commandErr) || commandErr.Code != 27) {
+				return fmt.Errorf("upgrade logical-key index in %s: %w", key.collection, err)
+			}
+		}
+	}
+
+	return nil
 }

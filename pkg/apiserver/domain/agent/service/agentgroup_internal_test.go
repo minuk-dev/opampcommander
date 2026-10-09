@@ -1110,7 +1110,7 @@ func TestDeleteAgentGroup_PropagatesDeletion(t *testing.T) {
 		},
 	}
 
-	mockPersistence.On("GetAgentGroup", ctx, "default", "to-delete", (*model.GetOptions)(nil)).
+	mockPersistence.On("GetAgentGroup", ctx, "default", "to-delete", &model.GetOptions{IncludeDeleted: true}).
 		Return(existing, nil)
 	mockPersistence.On("PutAgentGroup", ctx, "default", "to-delete", mock.Anything).
 		Return(existing, nil)
@@ -1552,7 +1552,7 @@ func TestAgentGroupService_RunRetainsQueuedSelector(t *testing.T) {
 	})
 }
 
-func TestAgentGroupService_RunDrainsFormerMembersAfterRecreation(t *testing.T) {
+func TestAgentGroupService_RunDrainsFormerMembersAfterSelectorUpdate(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -1584,7 +1584,10 @@ func TestAgentGroupService_RunDrainsFormerMembersAfterRecreation(t *testing.T) {
 		svc := NewAgentGroupService(persistence, new(mockRemoteConfigPersistence), new(mockCertPersistence), agents,
 			fakeLeaderElector{leader: false, err: nil},
 			inmemorystore.NewAgentGroupChangeStore(ChangedAgentGroupBufferSize), slog.Default())
-		require.NoError(t, svc.DeleteAgentGroup(ctx, "default", "group", time.Now(), "admin"))
+		_, err = svc.SaveAgentGroup(ctx, "default", "group", original)
+		require.NoError(t, err)
+
+		recreated.Metadata.ResourceVersion = original.Metadata.ResourceVersion
 		_, err = svc.SaveAgentGroup(ctx, "default", "group", recreated)
 		require.NoError(t, err)
 		require.NoError(t, svc.Run(ctx))

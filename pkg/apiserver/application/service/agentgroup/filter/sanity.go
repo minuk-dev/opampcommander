@@ -2,8 +2,9 @@
 package filter
 
 import (
+	"slices"
+
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
 )
 
 // Sanity provides methods to sanitize AgentGroup during update operations.
@@ -26,16 +27,16 @@ func (f *Sanity) Sanitize(
 	}
 
 	// Preserve immutable metadata fields
+	updated.Metadata.Name = existing.Metadata.Name
+	updated.Metadata.ResourceVersion = existing.Metadata.ResourceVersion
+	updated.Metadata.DeletedAt = existing.Metadata.DeletedAt
+	updated.Status = existing.Status
 	updated.Metadata.Namespace = existing.Metadata.Namespace
 	updated.Metadata.CreatedAt = existing.Metadata.CreatedAt
 
 	// Preserve existing conditions (caller will append Updated condition).
 	// Clone the slice to keep the existing model immutable.
-	if len(existing.Status.Conditions) > 0 {
-		clonedConditions := make([]model.Condition, len(existing.Status.Conditions))
-		copy(clonedConditions, existing.Status.Conditions)
-		updated.Status.Conditions = clonedConditions
-	}
+	updated.Status.Conditions = slices.Clone(existing.Status.Conditions)
 
 	return updated
 }
