@@ -171,7 +171,8 @@ type AgentRemoteConfigResourceSpec struct {
 
 // AgentRemoteConfigResourceEntityStatus represents the status of an agent remote config resource.
 type AgentRemoteConfigResourceEntityStatus struct {
-	Conditions []Condition `bson:"conditions,omitempty"`
+	Conditions       []Condition `bson:"conditions,omitempty"`
+	SchemaRefsSource string      `bson:"schemaRefsSource,omitempty"`
 }
 
 // ToDomain converts the entity to domain model.
@@ -190,6 +191,7 @@ func (arc *AgentRemoteConfigResourceEntity) ToDomain() *agentmodel.AgentRemoteCo
 			SchemaRefs:  arc.Spec.SchemaRefs,
 		},
 		Status: agentmodel.AgentRemoteConfigResourceStatus{
+			SchemaRefsSource: agentmodel.SchemaRefsSource(arc.Status.SchemaRefsSource),
 			Conditions: lo.Map(arc.Status.Conditions, func(c Condition, _ int) model.Condition {
 				return c.ToDomain()
 			}),
@@ -216,6 +218,7 @@ func AgentRemoteConfigResourceEntityFromDomain(
 			SchemaRefs:  arc.Spec.SchemaRefs,
 		},
 		Status: AgentRemoteConfigResourceEntityStatus{
+			SchemaRefsSource: string(arc.Status.SchemaRefsSource),
 			Conditions: lo.Map(arc.Status.Conditions, func(c model.Condition, _ int) Condition {
 				return NewConditionFromDomain(c)
 			}),

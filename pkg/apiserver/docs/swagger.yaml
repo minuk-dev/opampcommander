@@ -299,6 +299,13 @@ definitions:
         items:
           $ref: '#/definitions/Condition'
         type: array
+      schemaRefsSource:
+        description: SchemaRefsSource is server-managed; omitted when refs are absent
+          or their source is unknown.
+        enum:
+        - auto
+        - explicit
+        type: string
     type: object
   AgentSpec:
     properties:

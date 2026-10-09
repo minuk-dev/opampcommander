@@ -4772,6 +4772,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/Condition"
                     }
+                },
+                "schemaRefsSource": {
+                    "description": "SchemaRefsSource is server-managed; omitted when refs are absent or their source is unknown.",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "explicit"
+                    ]
                 }
             }
         },

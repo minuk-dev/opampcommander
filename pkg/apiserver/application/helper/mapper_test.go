@@ -41,6 +41,41 @@ func TestMapAgentConnectionSettingsSyncStatus(t *testing.T) {
 	assert.Equal(t, "pending", mapper.MapAgentToAPI(agent).Status.ConnectionSettings.SyncStatus)
 }
 
+func TestMapAgentRemoteConfigSchemaRefsSource(t *testing.T) {
+	t.Parallel()
+
+	mapper := helper.NewMapper(clock.RealClock{}, 0)
+
+	for _, tt := range []struct {
+		name   string
+		source agentmodel.SchemaRefsSource
+	}{
+		{name: "legacy"},
+		{name: "automatic", source: agentmodel.SchemaRefsSourceAuto},
+		{name: "explicit", source: agentmodel.SchemaRefsSourceExplicit},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			mapped := mapper.MapAgentRemoteConfigToAPI(&agentmodel.AgentRemoteConfig{
+				Status: agentmodel.AgentRemoteConfigResourceStatus{SchemaRefsSource: tt.source},
+			})
+			assert.Equal(t, string(tt.source), mapped.Status.SchemaRefsSource)
+			data, err := json.Marshal(mapped.Status)
+			require.NoError(t, err)
+
+			if tt.source == "" {
+				assert.NotContains(t, string(data), "schemaRefsSource")
+			} else {
+				assert.Contains(t, string(data), `"schemaRefsSource":"`+string(tt.source)+`"`)
+			}
+
+			assert.Empty(t, mapper.MapAPIToAgentRemoteConfig(mapped).Status.SchemaRefsSource,
+				"client status must not be accepted on writes")
+		})
+	}
+}
+
 func TestMapAgentConnectionSettingsHashBelongsToSpec(t *testing.T) {
 	t.Parallel()
 

@@ -104,3 +104,47 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_PreservesImmutableFiel
 	assert.Equal(t, []byte("new"), updated.Spec.Value, "mutable spec must be applied")
 	assert.NotEmpty(t, updated.Status.Conditions, "existing lifecycle conditions must be preserved")
 }
+
+func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_SchemaRefsSource(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name   string
+		refs   []string
+		source agentmodel.SchemaRefsSource
+		want   agentmodel.SchemaRefsSource
+	}{
+		{name: "body edit preserves automatic source", refs: []string{"auto"},
+			source: agentmodel.SchemaRefsSourceAuto, want: agentmodel.SchemaRefsSourceAuto},
+		{name: "body edit preserves explicit source", refs: []string{"auto"},
+			source: agentmodel.SchemaRefsSourceExplicit, want: agentmodel.SchemaRefsSourceExplicit},
+		{name: "legacy source remains unknown", refs: []string{"auto"}},
+		{name: "replacing refs records explicit source", refs: []string{"pinned"},
+			source: agentmodel.SchemaRefsSourceAuto, want: agentmodel.SchemaRefsSourceExplicit},
+		{name: "clearing refs clears source", source: agentmodel.SchemaRefsSourceAuto},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			stored := &agentmodel.AgentRemoteConfig{
+				Spec: agentmodel.AgentRemoteConfigSpec{SchemaRefs: []string{"auto"}},
+				Status: agentmodel.AgentRemoteConfigResourceStatus{
+					Conditions:       []model.Condition{{Type: model.ConditionTypeCreated}},
+					SchemaRefsSource: tt.source,
+				},
+			}
+			persistence := &arcFakePersistence{stored: stored}
+			svc := agentservice.NewAgentRemoteConfigService(persistence, nil, nil, nil, nil)
+			incoming := &agentmodel.AgentRemoteConfig{Spec: agentmodel.AgentRemoteConfigSpec{
+				Value: []byte("changed"), SchemaRefs: tt.refs,
+			}, Status: agentmodel.AgentRemoteConfigResourceStatus{SchemaRefsSource: "untrusted"}}
+
+			updated, err := svc.UpdateAgentRemoteConfig(t.Context(), "default", "cfg", incoming)
+			require.NoError(t, err)
+			require.Len(t, updated.Status.Conditions, 1)
+			assert.Equal(t, model.ConditionTypeCreated, updated.Status.Conditions[0].Type)
+			assert.Equal(t, tt.want, updated.Status.SchemaRefsSource)
+			assert.Equal(t, tt.refs, updated.Spec.SchemaRefs)
+		})
+	}
+}

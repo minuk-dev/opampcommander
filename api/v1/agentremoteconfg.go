@@ -35,4 +35,6 @@ type AgentRemoteConfigSpec struct {
 // AgentRemoteConfigStatus represents the status of an agent remote config.
 type AgentRemoteConfigStatus struct {
 	Conditions []Condition `json:"conditions"`
+	// SchemaRefsSource is server-managed; omitted when refs are absent or their source is unknown.
+	SchemaRefsSource string `enums:"auto,explicit" json:"schemaRefsSource,omitempty"`
 } // @name AgentRemoteConfigStatus
