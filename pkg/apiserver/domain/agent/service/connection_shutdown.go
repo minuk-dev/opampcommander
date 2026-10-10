@@ -11,9 +11,9 @@ import (
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 )
 
-// CloseLocalConnections stops admission, snapshots this server's Store, and
+// Shutdown stops admission, snapshots this server's Store, and
 // staggers persistent connection closes. HTTP requests drain with the HTTP server.
-func (s *Service) CloseLocalConnections(ctx context.Context, window time.Duration) error {
+func (s *Service) Shutdown(ctx context.Context, window time.Duration) error {
 	admissionErr := s.transport.StopAccepting(ctx)
 
 	connections, err := s.connectionStore.ListConnections(ctx)

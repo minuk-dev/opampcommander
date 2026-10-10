@@ -46,7 +46,7 @@ func (s *shutdownTransport) CloseConnection(_ context.Context, id any) error {
 	return s.closeErr
 }
 
-func TestConnectionService_CloseLocalConnections(t *testing.T) {
+func TestConnectionService_Shutdown(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		store := connectionstore.NewConnectionStore()
@@ -62,7 +62,7 @@ func TestConnectionService_CloseLocalConnections(t *testing.T) {
 		start := time.Now()
 
 		done := make(chan error, 1)
-		go func() { done <- service.CloseLocalConnections(t.Context(), time.Second) }()
+		go func() { done <- service.Shutdown(t.Context(), time.Second) }()
 
 		synctest.Wait()
 		transport.mu.Lock()
@@ -93,7 +93,7 @@ func TestConnectionService_ClosesAllAfterDeadlineAndErrors(t *testing.T) {
 	service := agentservice.NewConnectionService(nil, store, nil, nil, slog.Default(), transport)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	require.ErrorIs(t, service.CloseLocalConnections(ctx, time.Hour), errCloseConnection)
+	require.ErrorIs(t, service.Shutdown(ctx, time.Hour), errCloseConnection)
 	assert.Len(t, transport.closed, 2, "a close failure or deadline must not skip the remaining connections")
 }
 
@@ -115,6 +115,6 @@ func TestConnectionService_ListFailure(t *testing.T) {
 	service := agentservice.NewConnectionService(
 		nil, &failedConnectionStore{err: errListConnections}, nil, nil, slog.Default(), transport,
 	)
-	require.ErrorIs(t, service.CloseLocalConnections(t.Context(), 0), errListConnections)
+	require.ErrorIs(t, service.Shutdown(t.Context(), 0), errListConnections)
 	assert.True(t, stopped, "admission must stop before listing local connections")
 }

@@ -79,7 +79,7 @@ func TestController_Drain(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
-			go func() { drained <- shutdown.CloseLocalConnections(ctx, 10*time.Millisecond) }()
+			go func() { drained <- shutdown.Shutdown(ctx, 10*time.Millisecond) }()
 
 			_, _, err = conn.ReadMessage()
 			require.True(t, websocket.IsCloseError(err, websocket.CloseGoingAway), "got %v", err)
@@ -121,7 +121,7 @@ func TestController_DrainForceClosesUnresponsivePeer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
 
-	require.ErrorIs(t, shutdown.CloseLocalConnections(ctx, 0), context.DeadlineExceeded)
+	require.ErrorIs(t, shutdown.Shutdown(ctx, 0), context.DeadlineExceeded)
 	require.NoError(t, conn.SetReadDeadline(time.Now().Add(time.Second)))
 	_, _, err = conn.ReadMessage()
 	require.True(t, websocket.IsCloseError(err, websocket.CloseGoingAway), "got %v", err)

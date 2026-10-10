@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"go.uber.org/fx"
@@ -75,8 +74,7 @@ func appOptions(settings *config.ServerSettings) []fx.Option {
 			return &fxevent.SlogLogger{Logger: logger}
 		}),
 
-		// Initialize HTTP server
-		fx.Invoke(func(*http.Server) {}),
+		fx.Invoke(registerConnectionShutdown),
 	}
 }
 

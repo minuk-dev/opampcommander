@@ -144,10 +144,6 @@ type MockConnectionUsecase struct {
 	mock.Mock
 }
 
-func (m *MockConnectionUsecase) CloseLocalConnections(ctx context.Context, window time.Duration) error {
-	return m.Called(ctx, window).Error(0) //nolint:wrapcheck // mock error
-}
-
 func (m *MockConnectionUsecase) GetConnectionByInstanceUID(
 	ctx context.Context,
 	instanceUID uuid.UUID,

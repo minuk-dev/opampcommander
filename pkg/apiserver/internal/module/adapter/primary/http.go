@@ -47,7 +47,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -141,8 +140,6 @@ func NewHTTPServer(
 	settings *config.ServerSettings,
 	logger *slog.Logger,
 	connContext func(context.Context, net.Conn) context.Context,
-	opampUsecase usecase.OpAMPUsecase,
-	health *healthcheck.HealthHelper,
 ) (*http.Server, error) {
 	settings.Shutdown = settings.Shutdown.WithDefaults()
 
@@ -198,11 +195,7 @@ func NewHTTPServer(
 			ctx, cancel := context.WithTimeout(ctx, settings.Shutdown.Timeout)
 			defer cancel()
 
-			health.BeginShutdown()
-
-			drainErr := opampUsecase.CloseLocalConnections(ctx, settings.Shutdown.DrainWindow)
-
-			return errors.Join(drainErr, srv.Shutdown(ctx))
+			return srv.Shutdown(ctx)
 		},
 	})
 

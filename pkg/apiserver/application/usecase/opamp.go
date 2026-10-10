@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/protobufs"
@@ -15,8 +14,6 @@ import (
 // by the opamp-go server adapter for each connected agent.
 // Please see [github.com/open-telemetry/opamp-go/server/types/ConnectionCallbacks].
 type OpAMPUsecase interface {
-	// CloseLocalConnections closes this server's persistent connections on shutdown.
-	CloseLocalConnections(ctx context.Context, window time.Duration) error
 	// AuthorizeClientCertificate binds the presented certificate to the agent UID
 	// after TLS verification and rejects certificates that were superseded.
 	AuthorizeClientCertificate(ctx context.Context, instanceUID uuid.UUID, certDER []byte) bool

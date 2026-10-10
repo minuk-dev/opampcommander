@@ -27,10 +27,6 @@ type mockConnectionUsecase struct {
 	mock.Mock
 }
 
-func (m *mockConnectionUsecase) CloseLocalConnections(ctx context.Context, window time.Duration) error {
-	return m.Called(ctx, window).Error(0) //nolint:wrapcheck // mock error
-}
-
 func (m *mockConnectionUsecase) ListConnections(
 	ctx context.Context, namespace string, options *model.ListOptions,
 ) (*model.ListResponse[*agentmodel.Connection], error) {

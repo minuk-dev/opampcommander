@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -39,8 +38,6 @@ type spyUsecase struct {
 	onMessageCalls           int
 	rejectClientCertificate  bool
 }
-
-func (*spyUsecase) CloseLocalConnections(context.Context, time.Duration) error { return nil }
 
 func (s *spyUsecase) AuthorizeClientCertificate(_ context.Context, _ uuid.UUID, _ []byte) bool {
 	return !s.rejectClientCertificate
