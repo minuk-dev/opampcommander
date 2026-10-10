@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sync/atomic"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management"
 )
@@ -43,6 +44,7 @@ type Health struct {
 // HealthHelper is a service that aggregates multiple HealthIndicators to provide overall health and readiness status.
 type HealthHelper struct {
 	indicators []HealthIndicator
+	draining   atomic.Bool
 }
 
 var (
@@ -55,13 +57,23 @@ func NewHealthHelper(
 ) *HealthHelper {
 	return &HealthHelper{
 		indicators: indicators,
+		draining:   atomic.Bool{},
 	}
+}
+
+// BeginShutdown marks the server unready before connections are drained.
+func (h *HealthHelper) BeginShutdown() {
+	h.draining.Store(true)
 }
 
 // Readiness checks the readiness of all registered health indicators.
 func (h *HealthHelper) Readiness(ctx context.Context) (bool, map[string]string) {
 	reasons := make(map[string]string)
-	ready := true
+
+	ready := !h.draining.Load()
+	if !ready {
+		reasons["shutdown"] = "server is shutting down"
+	}
 
 	for _, indicator := range h.indicators {
 		indicatorReady := indicator.Readiness(ctx)

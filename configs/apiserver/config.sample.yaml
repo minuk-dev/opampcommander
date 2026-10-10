@@ -1,4 +1,7 @@
 address: localhost:8080
+shutdown:
+  drainWindow: 10s # spread WebSocket close frames across this window
+  timeout: 30s     # total shutdown budget, including drain and HTTP requests
 # Optional mTLS for /api/v1/opamp. The whole API uses HTTPS when configured;
 # only OpAMP requires a client certificate. Client certificate CN must equal
 # the agent instance UID. caFile is a PEM bundle of trusted agent-client CAs.

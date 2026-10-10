@@ -24,6 +24,9 @@ management:
 auth:
   jwt:
     secret: s3cr3t
+shutdown:
+  drainWindow: 2s
+  timeout: 15s
 event:
   kafka:
     sendTimeout: 3s
@@ -33,6 +36,7 @@ event:
 	require.NoError(t, err)
 
 	t.Setenv("MANAGEMENT_LOG_FORMAT", "json")
+	t.Setenv("SHUTDOWN_TIMEOUT", "20s")
 	t.Setenv("EVENT_KAFKA_RETRYBACKOFF", "40ms")
 	t.Setenv("EVENT_KAFKA_RETRYATTEMPTS", "5")
 
@@ -82,6 +86,17 @@ event:
 		assert.Equal(t, "3s", kafka["sendTimeout"])
 		assert.Equal(t, "40ms", kafka["retryBackoff"])
 		assert.Equal(t, 5, kafka["retryAttempts"])
+	})
+
+	t.Run("shutdown flags override YAML and environment", func(t *testing.T) {
+		_, parsed := run(t)
+		shutdown, _ := parsed["shutdown"].(map[string]any)
+		assert.Equal(t, "2s", shutdown["drainWindow"])
+		assert.Equal(t, "20s", shutdown["timeout"])
+		_, parsed = run(t, "--shutdown.timeout", "25s", "--shutdown.drainWindow", "3s")
+		shutdown, _ = parsed["shutdown"].(map[string]any)
+		assert.Equal(t, "3s", shutdown["drainWindow"])
+		assert.Equal(t, "25s", shutdown["timeout"])
 	})
 
 	t.Run("Kafka flags override YAML and environment", func(t *testing.T) {

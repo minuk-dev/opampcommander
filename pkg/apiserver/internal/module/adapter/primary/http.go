@@ -130,13 +130,21 @@ func newOpAMPController(
 }
 
 // NewHTTPServer creates a new HTTP server instance.
+//
+//nolint:funlen // Registers serving and graceful shutdown in one lifecycle hook.
 func NewHTTPServer(
 	lifecycle fx.Lifecycle,
 	engine *gin.Engine,
 	settings *config.ServerSettings,
 	logger *slog.Logger,
 	connContext func(context.Context, net.Conn) context.Context,
-) *http.Server {
+) (*http.Server, error) {
+	settings.Shutdown = settings.Shutdown.WithDefaults()
+
+	err := settings.Shutdown.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid shutdown configuration: %w", err)
+	}
 	//exhaustruct:ignore
 	srv := &http.Server{
 		ReadTimeout: DefaultHTTPReadTimeout,
@@ -182,11 +190,14 @@ func NewHTTPServer(
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, settings.Shutdown.Timeout)
+			defer cancel()
+
 			return srv.Shutdown(ctx)
 		},
 	})
 
-	return srv
+	return srv, nil
 }
 
 func loadOpAMPTLS(settings config.OpAMPTLSSettings) (*tls.Config, error) {
