@@ -494,6 +494,86 @@ func (_c *MockUsecase_ListAgentsByAgentGroup_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// PatchAgentGroup provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) PatchAgentGroup(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentGroup, error) {
+	ret := _mock.Called(ctx, namespace, name, patch)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PatchAgentGroup")
+	}
+
+	var r0 *v1.AgentGroup
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) (*v1.AgentGroup, error)); ok {
+		return returnFunc(ctx, namespace, name, patch)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) *v1.AgentGroup); ok {
+		r0 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.AgentGroup)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, []byte) error); ok {
+		r1 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_PatchAgentGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PatchAgentGroup'
+type MockUsecase_PatchAgentGroup_Call struct {
+	*mock.Call
+}
+
+// PatchAgentGroup is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - name string
+//   - patch []byte
+func (_e *MockUsecase_Expecter) PatchAgentGroup(ctx interface{}, namespace interface{}, name interface{}, patch interface{}) *MockUsecase_PatchAgentGroup_Call {
+	return &MockUsecase_PatchAgentGroup_Call{Call: _e.mock.On("PatchAgentGroup", ctx, namespace, name, patch)}
+}
+
+func (_c *MockUsecase_PatchAgentGroup_Call) Run(run func(ctx context.Context, namespace string, name string, patch []byte)) *MockUsecase_PatchAgentGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []byte
+		if args[3] != nil {
+			arg3 = args[3].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentGroup_Call) Return(agentGroup *v1.AgentGroup, err error) *MockUsecase_PatchAgentGroup_Call {
+	_c.Call.Return(agentGroup, err)
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentGroup, error)) *MockUsecase_PatchAgentGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateAgentGroup provides a mock function for the type MockUsecase
 func (_mock *MockUsecase) UpdateAgentGroup(ctx context.Context, namespace string, name string, agentGroup *v1.AgentGroup) (*v1.AgentGroup, error) {
 	ret := _mock.Called(ctx, namespace, name, agentGroup)

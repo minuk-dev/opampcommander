@@ -201,7 +201,7 @@ func TestAgentRemoteConfigService_UpdateDoesNotAutoResolve(t *testing.T) {
 	update.Metadata.ResourceVersion = created.Metadata.ResourceVersion
 	update.Spec.SchemaRefs = nil
 
-	updated, err := arcSvc.UpdateAgentRemoteConfig(ctx, "default", "cfg", update)
+	updated, _, err := arcSvc.UpdateAgentRemoteConfig(ctx, "default", "cfg", update)
 	require.NoError(t, err)
 	assert.Empty(t, updated.Spec.SchemaRefs)
 	assert.Empty(t, updated.Status.SchemaRefsSource)

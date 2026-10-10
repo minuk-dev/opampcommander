@@ -296,3 +296,20 @@ func (s *ManageService) DeleteAgentGroup(
 
 	return nil
 }
+
+// PatchAgentGroup applies a JSON Merge Patch through the conditional update path.
+func (s *ManageService) PatchAgentGroup(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentGroup, error) {
+	result, err := helper.PatchResource(ctx, patch,
+		func(ctx context.Context) (*v1.AgentGroup, error) { return s.GetAgentGroup(ctx, namespace, name, nil) },
+		func(
+			ctx context.Context, resource *v1.AgentGroup) (*v1.AgentGroup, error) {
+			return s.UpdateAgentGroup(ctx, namespace, name, resource)
+		})
+	if err != nil {
+		return nil, fmt.Errorf("patch resource: %w", err)
+	}
+
+	return result, nil
+}

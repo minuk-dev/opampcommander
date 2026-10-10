@@ -303,6 +303,7 @@ it('selects multiple schemas, removes an unavailable ref, and changes the skip a
           ...stored,
           metadata: {
             ...stored.metadata,
+            namespace: 'team',
             attributes: { team: 'platform', 'opampcommander.io/skip-schema-validation': 'TRUE' },
           },
         }}

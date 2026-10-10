@@ -183,3 +183,11 @@ func (s *AgentPackageService) DeleteAgentPackage(
 
 	return nil
 }
+
+// PatchAgentPackage sends a merge patch without a preliminary GET. Include
+// metadata.resourceVersion in patch to make the edit conditional.
+func (s *AgentPackageService) PatchAgentPackage(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentPackage, error) {
+	return patchResource[v1.AgentPackage](ctx, s.service, UpdateAgentPackageURL, namespace, name, patch)
+}

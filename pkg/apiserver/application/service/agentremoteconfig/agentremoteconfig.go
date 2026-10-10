@@ -126,21 +126,16 @@ func (s *Service) UpdateAgentRemoteConfig(
 	name string,
 	apiModel *v1.AgentRemoteConfig,
 ) (*v1.AgentRemoteConfig, error) {
-	existing, err := s.agentRemoteConfigUsecase.GetAgentRemoteConfig(ctx, namespace, name, nil)
-	if err != nil {
-		return nil, fmt.Errorf("read remote config before update: %w", err)
-	}
-
 	domainModel := s.mapper.MapAPIToAgentRemoteConfig(apiModel)
 
-	updated, err := s.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
+	updated, changed, err := s.agentRemoteConfigUsecase.UpdateAgentRemoteConfig(
 		ctx, namespace, name, domainModel,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("update agent remote config: %w", err)
 	}
 
-	if updated.Metadata.ResourceVersion != existing.Metadata.ResourceVersion {
+	if changed {
 		s.triggerGroupPropagation(ctx, updated.Metadata.Namespace, updated.Metadata.Name)
 		s.triggerEndpointDetection(ctx, updated)
 	}
@@ -165,6 +160,25 @@ func (s *Service) DeleteAgentRemoteConfig(
 	s.triggerGroupPropagation(ctx, namespace, name)
 
 	return nil
+}
+
+// PatchAgentRemoteConfig applies a JSON Merge Patch through the conditional update path.
+func (s *Service) PatchAgentRemoteConfig(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentRemoteConfig, error) {
+	result, err := helper.PatchResource(ctx, patch,
+		func(ctx context.Context) (*v1.AgentRemoteConfig, error) {
+			return s.GetAgentRemoteConfig(ctx, namespace, name, nil)
+		},
+		func(
+			ctx context.Context, resource *v1.AgentRemoteConfig) (*v1.AgentRemoteConfig, error) {
+			return s.UpdateAgentRemoteConfig(ctx, namespace, name, resource)
+		})
+	if err != nil {
+		return nil, fmt.Errorf("patch resource: %w", err)
+	}
+
+	return result, nil
 }
 
 // actor resolves the acting user from the request context, falling back to an

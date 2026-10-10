@@ -14,6 +14,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
+	"github.com/minuk-dev/opampcommander/pkg/testutil/resourcepatchtest"
 )
 
 func TestConditionalResourceWrites(t *testing.T) {
@@ -40,6 +41,10 @@ func TestConditionalResourceWrites(t *testing.T) {
 	testutil.CheckResourceWrites(t, mongodb.NewAgentGroupRepository(db, logger),
 		mongodb.NewAgentPackageRepository(db, logger), mongodb.NewAgentRemoteConfigRepository(db, logger),
 		mongodb.NewNamespaceRepository(db, logger))
+	resourcepatchtest.CheckResourcePatches(t, mongodb.NewAgentGroupRepository(db, logger),
+		mongodb.NewAgentPackageRepository(db, logger), mongodb.NewAgentRemoteConfigRepository(db, logger),
+		mongodb.NewNamespaceRepository(db, logger))
+
 	// Migration upgrades legacy rows explicitly, remains idempotent, and never rewinds positive tokens.
 	_, err = db.Collection("namespaces").InsertOne(ctx, bson.M{"metadata": bson.M{"name": "legacy"}})
 	require.NoError(t, err)

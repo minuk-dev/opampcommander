@@ -64,3 +64,47 @@ touching children and use CAS for the namespace row. The existing in-memory
 transaction runner does not provide multi-resource rollback; that development-mode
 limitation remains. Single-resource creates and versioned writes share the same
 atomicity/conflict contract in both adapters.
+
+## Partial updates (PATCH)
+
+AgentGroup, AgentPackage, AgentRemoteConfig and Namespace accept `PATCH` on their
+single-resource URL with `Content-Type: application/merge-patch+json` ([RFC 7396](https://www.rfc-editor.org/rfc/rfc7396)).
+PATCH requires the same UPDATE permission as PUT, with no additional GET permission.
+It updates existing live resources only: missing names and tombstones return 404.
+
+- PUT replaces the desired resource and requires the revision from the original read.
+- PATCH with `metadata.resourceVersion` (a positive decimal string) keeps that
+  original precondition. A changed desired state with a stale revision returns 409;
+  the server never refreshes the supplied revision to replay the edit.
+- PATCH without `metadata.resourceVersion` applies to current state. The server
+  still writes with CAS, recomputing the patch from a fresh read on conflicts, for
+  at most five attempts; exhaustion returns 409. Unrelated concurrent changes are
+  preserved. Later patches to the **same field overwrite earlier values**. This
+  is not field ownership, Server-Side Apply, or same-field lost-update protection.
+
+Omitted fields are preserved. Objects merge recursively; null deletes map entries
+or clears nullable map, slice, and pointer fields. Non-nullable scalars and required
+objects cannot be removed. Arrays replace the entire array (including an empty
+array), never merge by index. Unknown fields are rejected. Identity fields, when
+supplied, must match the resource at the path. Status and creation/deletion timestamps
+are server-owned and may not appear in a patch. Revision is a precondition, not a
+client-assigned next revision. Existing update validation applies to the merged result.
+An already-satisfied patch, including a retry after a lost response, returns the
+current object/revision without a write, revision increment, or propagation.
+
+```sh
+# No GET required; other attributes and all omitted spec fields are preserved.
+opampctl patch agentpackage collector -n default \
+  -p '{"metadata":{"attributes":{"channel":"stable","obsolete":null}}}'
+# Conditional edit using the revision retained from the original read.
+opampctl patch agentgroup production -n default \
+  -p '{"metadata":{"resourceVersion":"12"},"spec":{"priority":20}}'
+# A JSON patch document can also come from a file or stdin.
+opampctl patch namespace production -f patch.json
+cat patch.json | opampctl patch namespace production -f -
+```
+
+Go clients expose `PatchAgentGroup`, `PatchAgentPackage`, `PatchAgentRemoteConfig`
+and `PatchNamespace`, accepting raw JSON bytes and explicit path identity. They
+send one PATCH and forward supplied revisions unchanged. Web editors continue to
+use conditional PUT and retain the revision from when the editor was opened.

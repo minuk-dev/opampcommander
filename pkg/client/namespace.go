@@ -86,3 +86,11 @@ func (s *NamespaceService) DeleteNamespace(
 ) error {
 	return deleteResource(ctx, s.service, DeleteNamespaceURL, name, resourceVersion)
 }
+
+// PatchNamespace sends a merge patch without a preliminary GET. Include
+// metadata.resourceVersion in patch to make the edit conditional.
+func (s *NamespaceService) PatchNamespace(
+	ctx context.Context, name string, patch []byte,
+) (*v1.Namespace, error) {
+	return patchResource[v1.Namespace](ctx, s.service, UpdateNamespaceURL, "", name, patch)
+}

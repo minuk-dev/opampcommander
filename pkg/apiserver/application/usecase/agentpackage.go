@@ -1,3 +1,4 @@
+//nolint:dupl // Resource use cases intentionally share the CRUD contract.
 package usecase
 
 import (
@@ -21,6 +22,9 @@ type AgentPackageManageUsecase interface {
 	// CreateAgentPackage persists a new package, returning
 	// model.ErrResourceAlreadyExist on a duplicate.
 	CreateAgentPackage(ctx context.Context, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error)
+	// PatchAgentPackage partially updates an existing resource with an optional revision.
+	PatchAgentPackage(ctx context.Context, namespace, name string, patch []byte) (*v1.AgentPackage, error)
+
 	// UpdateAgentPackage replaces the named package; optimistic-concurrency
 	// controlled (model.ErrConflict on a stale write).
 	UpdateAgentPackage(ctx context.Context, namespace string, name string,

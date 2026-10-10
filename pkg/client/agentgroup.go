@@ -248,3 +248,11 @@ func (s *AgentGroupService) DeleteAgentGroup(ctx context.Context,
 
 	return nil
 }
+
+// PatchAgentGroup sends a merge patch without a preliminary GET. Include
+// metadata.resourceVersion in patch to make the edit conditional.
+func (s *AgentGroupService) PatchAgentGroup(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentGroup, error) {
+	return patchResource[v1.AgentGroup](ctx, s.service, UpdateAgentGroupURL, namespace, name, patch)
+}

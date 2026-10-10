@@ -339,6 +339,86 @@ func (_c *MockUsecase_ListAgentPackages_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// PatchAgentPackage provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) PatchAgentPackage(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentPackage, error) {
+	ret := _mock.Called(ctx, namespace, name, patch)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PatchAgentPackage")
+	}
+
+	var r0 *v1.AgentPackage
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) (*v1.AgentPackage, error)); ok {
+		return returnFunc(ctx, namespace, name, patch)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) *v1.AgentPackage); ok {
+		r0 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.AgentPackage)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, []byte) error); ok {
+		r1 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_PatchAgentPackage_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PatchAgentPackage'
+type MockUsecase_PatchAgentPackage_Call struct {
+	*mock.Call
+}
+
+// PatchAgentPackage is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - name string
+//   - patch []byte
+func (_e *MockUsecase_Expecter) PatchAgentPackage(ctx interface{}, namespace interface{}, name interface{}, patch interface{}) *MockUsecase_PatchAgentPackage_Call {
+	return &MockUsecase_PatchAgentPackage_Call{Call: _e.mock.On("PatchAgentPackage", ctx, namespace, name, patch)}
+}
+
+func (_c *MockUsecase_PatchAgentPackage_Call) Run(run func(ctx context.Context, namespace string, name string, patch []byte)) *MockUsecase_PatchAgentPackage_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []byte
+		if args[3] != nil {
+			arg3 = args[3].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentPackage_Call) Return(agentPackage *v1.AgentPackage, err error) *MockUsecase_PatchAgentPackage_Call {
+	_c.Call.Return(agentPackage, err)
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentPackage_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentPackage, error)) *MockUsecase_PatchAgentPackage_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateAgentPackage provides a mock function for the type MockUsecase
 func (_mock *MockUsecase) UpdateAgentPackage(ctx context.Context, namespace string, name string, agentPackage *v1.AgentPackage) (*v1.AgentPackage, error) {
 	ret := _mock.Called(ctx, namespace, name, agentPackage)

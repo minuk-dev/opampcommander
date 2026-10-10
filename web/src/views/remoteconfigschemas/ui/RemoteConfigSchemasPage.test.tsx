@@ -83,7 +83,10 @@ it('deletes a schema after confirmation', async () => {
   expect(api.delete).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: 'Delete' }));
   await waitFor(() =>
-    expect(api.delete).toHaveBeenCalledWith('/api/v1/namespaces/team/remoteconfigschemas/contrib'),
+    expect(api.delete).toHaveBeenCalledWith(
+      '/api/v1/namespaces/team/remoteconfigschemas/contrib',
+      undefined,
+    ),
   );
 });
 

@@ -136,7 +136,7 @@ func TestController_RoutesInfo(t *testing.T) {
 	controller := agentremoteconfig.NewController(newMockUsecase(t), slog.Default())
 
 	routes := controller.RoutesInfo()
-	require.Len(t, routes, 5)
+	require.Len(t, routes, 6)
 
 	got := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
@@ -404,4 +404,13 @@ func TestController_MissingParams(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, recorder.Code)
 		})
 	}
+}
+
+func (m *mockUsecase) PatchAgentRemoteConfig(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentRemoteConfig, error) {
+	args := m.Called(ctx, namespace, name, patch)
+	res, _ := args.Get(0).(*v1.AgentRemoteConfig)
+
+	return res, args.Error(1) //nolint:wrapcheck // mock error
 }

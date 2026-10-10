@@ -208,3 +208,11 @@ func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 
 	return nil
 }
+
+// PatchAgentRemoteConfig sends a merge patch without a preliminary GET. Include
+// metadata.resourceVersion in patch to make the edit conditional.
+func (s *AgentRemoteConfigService) PatchAgentRemoteConfig(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentRemoteConfig, error) {
+	return patchResource[v1.AgentRemoteConfig](ctx, s.service, UpdateAgentRemoteConfigURL, namespace, name, patch)
+}

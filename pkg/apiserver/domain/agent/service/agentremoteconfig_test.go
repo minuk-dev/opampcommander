@@ -104,7 +104,7 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_PreservesImmutableFiel
 		Spec: agentmodel.AgentRemoteConfigSpec{Value: []byte("new"), ContentType: "text/yaml"},
 	}
 
-	updated, err := svc.UpdateAgentRemoteConfig(t.Context(), "default", "cfg", incoming)
+	updated, _, err := svc.UpdateAgentRemoteConfig(t.Context(), "default", "cfg", incoming)
 
 	require.NoError(t, err)
 	assert.Equal(t, createdAt, updated.Metadata.CreatedAt, "CreatedAt must be preserved from the stored config")
@@ -134,7 +134,8 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_SchemaRefsSource(t *te
 			t.Parallel()
 
 			stored := &agentmodel.AgentRemoteConfig{
-				Spec: agentmodel.AgentRemoteConfigSpec{SchemaRefs: []string{"auto"}},
+				Metadata: agentmodel.AgentRemoteConfigMetadata{ResourceVersion: 1},
+				Spec:     agentmodel.AgentRemoteConfigSpec{SchemaRefs: []string{"auto"}},
 				Status: agentmodel.AgentRemoteConfigResourceStatus{
 					Conditions:       []model.Condition{{Type: model.ConditionTypeCreated}},
 					SchemaRefsSource: tt.source,
@@ -142,11 +143,13 @@ func TestAgentRemoteConfigService_UpdateAgentRemoteConfig_SchemaRefsSource(t *te
 			}
 			persistence := &arcFakePersistence{stored: stored}
 			svc := agentservice.NewAgentRemoteConfigService(persistence, nil, nil, nil, nil)
-			incoming := &agentmodel.AgentRemoteConfig{Spec: agentmodel.AgentRemoteConfigSpec{
-				Value: []byte("changed"), SchemaRefs: tt.refs,
-			}, Status: agentmodel.AgentRemoteConfigResourceStatus{SchemaRefsSource: "untrusted"}}
+			incoming := &agentmodel.AgentRemoteConfig{
+				Metadata: agentmodel.AgentRemoteConfigMetadata{ResourceVersion: 1},
+				Spec: agentmodel.AgentRemoteConfigSpec{
+					Value: []byte("changed"), SchemaRefs: tt.refs,
+				}, Status: agentmodel.AgentRemoteConfigResourceStatus{SchemaRefsSource: "untrusted"}}
 
-			updated, err := svc.UpdateAgentRemoteConfig(t.Context(), "default", "cfg", incoming)
+			updated, _, err := svc.UpdateAgentRemoteConfig(t.Context(), "default", "cfg", incoming)
 			require.NoError(t, err)
 			require.Len(t, updated.Status.Conditions, 1)
 			assert.Equal(t, model.ConditionTypeCreated, updated.Status.Conditions[0].Type)

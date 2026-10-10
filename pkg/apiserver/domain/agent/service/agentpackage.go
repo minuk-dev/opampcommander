@@ -110,8 +110,6 @@ func (s *AgentPackageService) CreateAgentPackage(
 }
 
 // UpdateAgentPackage implements [agentport.AgentPackageUsecase].
-//
-//nolint:dupl // Resource updates share identity and revision checks.
 func (s *AgentPackageService) UpdateAgentPackage(
 	ctx context.Context,
 	namespace string,
@@ -155,6 +153,8 @@ func (s *AgentPackageService) UpdateAgentPackage(
 }
 
 // DeleteAgentPackage implements [agentport.AgentPackageUsecase].
+//
+//nolint:dupl // Resource deletion shares the revision and tombstone contract.
 func (s *AgentPackageService) DeleteAgentPackage(
 	ctx context.Context,
 	namespace string,

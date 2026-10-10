@@ -12,6 +12,13 @@ linters:
       - "pkg/apiserver/docs/docs.go" # Generated file for Swagger documentation
       - "web/*" # web is not managed go directory
     rules:
+      # Shared contract tests are imported by both persistence adapter suites.
+      - path: pkg/testutil/resourcepatchtest/
+        linters:
+          - exhaustruct_v5
+          - funlen
+          - mnd
+          - wrapcheck
       # The MongoDB adapter is written in MongoDB's own vocabulary — "$match",
       # "metadata.deletedAt", "hashed". Hoisting those into Go constants names
       # nothing the reader did not already know and moves each term away from the
@@ -92,7 +99,7 @@ linters:
         main:
           files:
             - "!**/*_test.go" # Exclude test files
-            - "!**/testutil/*" # Exclude testutil package
+            - "!**/testutil/**" # Exclude testutil package
           allow:
             - $gostd
             - github.com/minuk-dev/opampcommander

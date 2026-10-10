@@ -141,7 +141,7 @@ func TestNamespaceController_RoutesInfo(t *testing.T) {
 	controller := namespace.NewController(newMockNamespaceUsecase(t), slog.Default())
 
 	routes := controller.RoutesInfo()
-	require.Len(t, routes, 5)
+	require.Len(t, routes, 6)
 
 	got := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
@@ -154,6 +154,7 @@ func TestNamespaceController_RoutesInfo(t *testing.T) {
 		"GET /api/v1/namespaces",
 		"GET /api/v1/namespaces/:namespace",
 		"POST /api/v1/namespaces",
+		"PATCH /api/v1/namespaces/:namespace",
 		"PUT /api/v1/namespaces/:namespace",
 		"DELETE /api/v1/namespaces/:namespace",
 	} {
@@ -401,4 +402,13 @@ func TestNamespaceController_MissingNamespaceParam(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, recorder.Code)
 		})
 	}
+}
+
+func (m *mockNamespaceUsecase) PatchNamespace(
+	ctx context.Context, name string, patch []byte,
+) (*v1.Namespace, error) {
+	args := m.Called(ctx, name, patch)
+	res, _ := args.Get(0).(*v1.Namespace)
+
+	return res, args.Error(1) //nolint:wrapcheck // mock error
 }

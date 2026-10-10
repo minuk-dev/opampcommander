@@ -239,8 +239,8 @@ func (f *nsFakeAgentRemoteConfigUsecase) CreateAgentRemoteConfig(
 
 func (f *nsFakeAgentRemoteConfigUsecase) UpdateAgentRemoteConfig(
 	context.Context, string, string, *agentmodel.AgentRemoteConfig,
-) (*agentmodel.AgentRemoteConfig, error) {
-	return nil, errNotImplemented
+) (*agentmodel.AgentRemoteConfig, bool, error) {
+	return nil, false, errNotImplemented
 }
 
 func (f *nsFakeAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
