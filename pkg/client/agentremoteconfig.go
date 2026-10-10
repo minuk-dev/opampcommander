@@ -4,6 +4,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	v1 "github.com/minuk-dev/opampcommander/api/v1"
 )
@@ -181,9 +182,11 @@ func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
+	resourceVersion int64,
 ) error {
 	res, err := s.service.Resty.R().
 		SetContext(ctx).
+		SetQueryParam("resourceVersion", strconv.FormatInt(resourceVersion, 10)).
 		SetPathParam("namespace", namespace).
 		SetPathParam("id", name).
 		Delete(DeleteAgentRemoteConfigURL)
@@ -204,4 +207,12 @@ func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	}
 
 	return nil
+}
+
+// PatchAgentRemoteConfig sends a merge patch without a preliminary GET. Include
+// metadata.resourceVersion in patch to make the edit conditional.
+func (s *AgentRemoteConfigService) PatchAgentRemoteConfig(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentRemoteConfig, error) {
+	return patchResource[v1.AgentRemoteConfig](ctx, s.service, UpdateAgentRemoteConfigURL, namespace, name, patch)
 }

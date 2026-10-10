@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -284,11 +285,15 @@ func updateResource[Resource any](
 	return &result, nil
 }
 
-func deleteResource(ctx context.Context, service *service, url string, name string) error {
-	res, err := service.Resty.R().
+func deleteResource(ctx context.Context, service *service, url string, name string, resourceVersion ...int64) error {
+	req := service.Resty.R().
 		SetContext(ctx).
-		SetPathParam("id", name).
-		Delete(url)
+		SetPathParam("id", name)
+	if len(resourceVersion) > 0 {
+		req.SetQueryParam("resourceVersion", strconv.FormatInt(resourceVersion[0], 10))
+	}
+
+	res, err := req.Delete(url)
 	if err != nil {
 		return fmt.Errorf("failed to delete resource(restyError): %w", err)
 	}

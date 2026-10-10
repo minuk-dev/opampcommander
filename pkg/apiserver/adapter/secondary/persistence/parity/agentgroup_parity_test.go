@@ -193,5 +193,14 @@ func runGroupStatistics(t *testing.T, b groupStatsBackend) {
 		assert.Equal(t, 1, stored.Status.NumConnectedAgents)
 		assert.Equal(t, 1, stored.Status.NumHealthyAgents)
 		assert.Equal(t, 1, stored.Status.NumNotConnectedAgents)
+
+		stored.Spec.Selector.IdentifyingAttributes = map[string]string{"service.name": serviceName + "-missing"}
+		updated, err := b.putGroup(ctx, stored)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), updated.Metadata.ResourceVersion)
+		assert.Zero(t, updated.Status.NumAgents, "updated selector must replace the previous statistics")
+		assert.Zero(t, updated.Status.NumConnectedAgents)
+		assert.Zero(t, updated.Status.NumHealthyAgents)
+		assert.Zero(t, updated.Status.NumNotConnectedAgents)
 	})
 }

@@ -8,7 +8,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
-	"go.mongodb.org/mongo-driver/v2/mongo/options"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb/entity"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -121,35 +120,32 @@ func (a *AgentGroupMongoAdapter) ListAllAgentGroups(
 }
 
 // PutAgentGroup implements agentport.AgentGroupPersistencePort.
-//
-//nolint:godox // Reason: TODO comment.
 func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	ctx context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	en := entity.AgentGroupFromDomain(agentGroup)
+	expected := agentGroup.Metadata.ResourceVersion
+	saved := entity.AgentGroupFromDomain(agentGroup)
 
-	_, err := a.collection.ReplaceOne(ctx,
-		a.filterByNamespaceAndName(namespace, name),
-		en,
-		options.Replace().SetUpsert(true),
-	)
+	saved.Metadata.ResourceVersion = expected + 1
+
+	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), saved, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put agent group: %w", err)
 	}
 
-	// If the agent group is soft deleted, return the input directly
-	// since GetAgentGroup filters out deleted items
+	agentGroup.Metadata.ResourceVersion = expected + 1
+
 	if agentGroup.IsDeleted() {
 		return agentGroup, nil
 	}
 
-	// TODO: Optimize by returning the saved entity directly from put operation with aggregation.
-	newAgentGroup, err := a.GetAgentGroup(ctx, namespace, name, nil)
+	// Compute statistics for the saved selector without reloading a newer resource version.
+	statistics, err := a.getAgentGroupStatistics(ctx, saved)
 	if err != nil {
-		return nil, fmt.Errorf("get agent group after put: %w", err)
+		return nil, fmt.Errorf("get agent group statistics after put: %w", err)
 	}
 
-	return newAgentGroup, nil
+	return saved.ToDomain(statistics), nil
 }
 
 func (a *AgentGroupMongoAdapter) filterByNamespaceAndName(namespace, name string) bson.M {

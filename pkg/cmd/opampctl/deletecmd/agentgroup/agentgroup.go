@@ -82,7 +82,13 @@ func (o *CommandOptions) Prepare(_ *cobra.Command, args []string) error {
 // Run runs the command.
 func (o *CommandOptions) Run(cmd *cobra.Command, names []string) error {
 	deleteutil.Run(cmd, "agentgroup", names, func(name string) error {
-		return o.client.AgentGroupService.DeleteAgentGroup(cmd.Context(), o.namespace, name)
+		resource, err := o.client.AgentGroupService.GetAgentGroup(cmd.Context(), o.namespace, name)
+		if err != nil {
+			return fmt.Errorf("read agent group before deletion: %w", err)
+		}
+
+		return o.client.AgentGroupService.DeleteAgentGroup(cmd.Context(),
+			o.namespace, name, resource.Metadata.ResourceVersion)
 	})
 
 	return nil

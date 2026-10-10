@@ -24,7 +24,7 @@ var (
 	ErrAgentConnected = errors.New("agent is still connected; only disconnected agents can be deleted")
 	// ErrNamespaceAlreadyExists indicates a namespace create was attempted for a name
 	// that already exists.
-	ErrNamespaceAlreadyExists = errors.New("namespace already exists")
+	ErrNamespaceAlreadyExists = model.ErrResourceAlreadyExist
 	// ErrDefaultNamespaceUndeletable indicates a delete was attempted on the built-in
 	// default namespace, which is protected.
 	ErrDefaultNamespaceUndeletable = errors.New("default namespace cannot be deleted")
@@ -127,15 +127,13 @@ type NamespaceUsecase interface {
 	// certificates, agent packages, agent remote configs) and the namespace itself
 	// inside a single transaction. The built-in default namespace is protected and
 	// returns ErrDefaultNamespaceUndeletable.
-	DeleteNamespace(ctx context.Context, name string, actor string) error
+	DeleteNamespace(ctx context.Context, name string, actor string, resourceVersion ...int64) error
 }
 
 // AgentPackageUsecase is an interface that defines the methods for agent package use cases.
 //
 // Scoping ListAgentPackages by namespace made this interface token-identical to
 // EndpointUsecase, which carries the same waiver below.
-//
-//nolint:dupl // Resource use case interfaces intentionally mirror the other aggregates.
 type AgentPackageUsecase interface {
 	// GetAgentPackage retrieves an agent package by its namespace and name.
 	GetAgentPackage(ctx context.Context, namespace string,
@@ -159,7 +157,7 @@ type AgentPackageUsecase interface {
 		agentPackage *agentmodel.AgentPackage) (*agentmodel.AgentPackage, error)
 	// DeleteAgentPackage deletes the agent package by its namespace and name.
 	DeleteAgentPackage(ctx context.Context, namespace string, name string,
-		deletedAt time.Time, deletedBy string) error
+		deletedAt time.Time, deletedBy string, resourceVersion ...int64) error
 }
 
 // AgentRemoteConfigUsecase is an interface that defines the methods for agent remote config use cases.
@@ -184,12 +182,12 @@ type AgentRemoteConfigUsecase interface {
 		actor string) (*agentmodel.AgentRemoteConfig, error)
 	// UpdateAgentRemoteConfig loads the stored agent remote config, applies the
 	// mutable fields from the supplied config while preserving immutable
-	// identity/lifecycle state, and persists the result.
+	// identity/lifecycle state, and persists the result. The boolean reports an actual write.
 	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,
-		agentRemoteConfig *agentmodel.AgentRemoteConfig) (*agentmodel.AgentRemoteConfig, error)
+		agentRemoteConfig *agentmodel.AgentRemoteConfig) (*agentmodel.AgentRemoteConfig, bool, error)
 	// DeleteAgentRemoteConfig deletes the agent remote config by its namespace and name.
 	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string,
-		deletedAt time.Time, deletedBy string) error
+		deletedAt time.Time, deletedBy string, resourceVersion ...int64) error
 	// ReconcileAgentRemoteConfig re-runs the side effects normally triggered when the named
 	// AgentRemoteConfig is created/updated: it detects telemetry endpoints from the config's
 	// collector exporters and re-propagates the config to every agent group that references it.
@@ -318,7 +316,7 @@ type AgentGroupUsecase interface {
 		agentGroup *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error)
 	// DeleteAgentGroup deletes the agent group by its namespace and name.
 	DeleteAgentGroup(ctx context.Context, namespace string, name string,
-		deletedAt time.Time, deletedBy string) error
+		deletedAt time.Time, deletedBy string, resourceVersion ...int64) error
 	// GetAgentGroupsForAgent retrieves all agent groups that match the agent's attributes.
 	GetAgentGroupsForAgent(ctx context.Context, agent *agentmodel.Agent) ([]*agentmodel.AgentGroup, error)
 	// PropagateAgentRemoteConfigChange re-applies all agent groups in the given namespace that

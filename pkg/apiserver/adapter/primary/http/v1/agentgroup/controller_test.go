@@ -38,7 +38,7 @@ func TestAgentGroupController_List(t *testing.T) {
 
 		groups := []v1.AgentGroup{
 			{
-				Metadata: v1.Metadata{
+				Metadata: v1.Metadata{ResourceVersion: 1,
 					Name:       "g1",
 					Attributes: v1.Attributes{},
 				},
@@ -60,7 +60,7 @@ func TestAgentGroupController_List(t *testing.T) {
 				},
 			},
 			{
-				Metadata: v1.Metadata{
+				Metadata: v1.Metadata{ResourceVersion: 1,
 					Name:       "g2",
 					Attributes: v1.Attributes{},
 				},
@@ -158,7 +158,7 @@ func TestAgentGroupController_Get(t *testing.T) {
 	router := ctrlBase.Router
 
 	agentGroup := &v1.AgentGroup{
-		Metadata: v1.Metadata{
+		Metadata: v1.Metadata{ResourceVersion: 1,
 			Name:       "g1",
 			Attributes: v1.Attributes{},
 		},
@@ -247,7 +247,7 @@ func TestAgentGroupController_ListAgentGroupsByAgent(t *testing.T) {
 				APIVersion: "v1",
 				Metadata:   v1.ListMeta{Continue: "", RemainingItemCount: 0},
 				Items: []v1.AgentGroup{
-					{Metadata: v1.Metadata{Namespace: "default", Name: "g1"}},
+					{Metadata: v1.Metadata{ResourceVersion: 1, Namespace: "default", Name: "g1"}},
 				},
 			}, nil)
 
@@ -313,7 +313,7 @@ func TestAgentGroupController_Create(t *testing.T) {
 
 	name := "g1"
 	returnValue := v1.AgentGroup{
-		Metadata: v1.Metadata{
+		Metadata: v1.Metadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -336,7 +336,7 @@ func TestAgentGroupController_Create(t *testing.T) {
 	}
 
 	payload := v1.AgentGroup{
-		Metadata: v1.Metadata{
+		Metadata: v1.Metadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -402,7 +402,7 @@ func TestAgentGroupController_Create_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 	payload := v1.AgentGroup{
-		Metadata: v1.Metadata{
+		Metadata: v1.Metadata{ResourceVersion: 1,
 			Name:       "g1",
 			Attributes: v1.Attributes{},
 		},
@@ -440,7 +440,7 @@ func TestAgentGroupController_Update(t *testing.T) {
 	router := ctrlBase.Router
 	uid := uuid.New()
 	group := &v1.AgentGroup{
-		Metadata: v1.Metadata{
+		Metadata: v1.Metadata{ResourceVersion: 1,
 			Name:       "g1",
 			Attributes: v1.Attributes{},
 		},
@@ -514,7 +514,7 @@ func TestAgentGroupController_Update_InternalError(t *testing.T) {
 	router := ctrlBase.Router
 	name := "g1"
 	group := &v1.AgentGroup{
-		Metadata: v1.Metadata{
+		Metadata: v1.Metadata{ResourceVersion: 1,
 			Name:       name,
 			Attributes: v1.Attributes{},
 		},
@@ -564,12 +564,12 @@ func TestAgentGroupController_Delete(t *testing.T) {
 	router := ctrlBase.Router
 	uid := uuid.New()
 
-	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	usecase.EXPECT().DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
 		t.Context(), http.MethodDelete,
-		"/api/v1/namespaces/default/agentgroups/"+uid.String(), nil,
+		"/api/v1/namespaces/default/agentgroups/"+uid.String()+"?resourceVersion=1", nil,
 	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
@@ -585,13 +585,13 @@ func TestAgentGroupController_Delete_NotFound(t *testing.T) {
 	router := ctrlBase.Router
 
 	usecase.EXPECT().
-		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).
+		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
 		t.Context(), http.MethodDelete,
-		"/api/v1/namespaces/default/agentgroups/something", nil,
+		"/api/v1/namespaces/default/agentgroups/something?resourceVersion=1", nil,
 	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
@@ -607,13 +607,13 @@ func TestAgentGroupController_Delete_InternalError(t *testing.T) {
 	router := ctrlBase.Router
 
 	usecase.EXPECT().
-		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything).
+		DeleteAgentGroup(mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
 	req, err := http.NewRequestWithContext(
 		t.Context(), http.MethodDelete,
-		"/api/v1/namespaces/default/agentgroups/something", nil,
+		"/api/v1/namespaces/default/agentgroups/something?resourceVersion=1", nil,
 	)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)

@@ -42,6 +42,7 @@ interface Props<T> {
   listPath: string;
   itemPath: (row: T) => string;
   itemName: (row: T) => string;
+  resourceVersion?: (row: T) => string | undefined;
   columns: Column<T>[];
   renderCreate?: (props: { open: boolean; onClose: () => void; onSaved: () => void }) => ReactNode;
   renderEdit?: (props: {
@@ -79,6 +80,7 @@ export default function ResourceListPage<T>({
   listPath,
   itemPath,
   itemName,
+  resourceVersion,
   columns,
   renderCreate,
   renderEdit,
@@ -111,7 +113,10 @@ export default function ResourceListPage<T>({
   const onDelete = async () => {
     if (!deleting) return;
     try {
-      await api.delete(itemPath(deleting));
+      await api.delete(
+        itemPath(deleting),
+        resourceVersion ? { query: { resourceVersion: resourceVersion(deleting) } } : undefined,
+      );
       setDeleting(null);
       setActionError(null);
       refresh();

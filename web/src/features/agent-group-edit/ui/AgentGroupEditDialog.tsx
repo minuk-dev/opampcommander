@@ -54,8 +54,16 @@ function parse(text: string, format: Format): unknown {
   return JSON.parse(text);
 }
 
-export default function AgentGroupEditDialog({ open, mode, initial, onClose, onSaved }: Props) {
-  const { namespace } = useNamespace();
+export default function AgentGroupEditDialog({
+  open,
+  mode,
+  initial: incoming,
+  onClose,
+  onSaved,
+}: Props) {
+  const { namespace: currentNamespace } = useNamespace();
+  const [initial, setInitial] = useState(incoming);
+  const [namespace, setNamespace] = useState(currentNamespace);
   const [format, setFormat] = useState<Format>('yaml');
   const [name, setName] = useState('');
   const [specText, setSpecText] = useState('');
@@ -101,11 +109,13 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
+      setInitial(incoming);
+      setNamespace(currentNamespace);
       setError(null);
       setFormat('yaml');
-      setName(initial?.metadata.name ?? '');
-      setSpecText(serialize(initial?.spec ?? defaultSpec(), 'yaml'));
-      setAttributesText(serialize(initial?.metadata.attributes ?? {}, 'yaml'));
+      setName(incoming?.metadata.name ?? '');
+      setSpecText(serialize(incoming?.spec ?? defaultSpec(), 'yaml'));
+      setAttributesText(serialize(incoming?.metadata.attributes ?? {}, 'yaml'));
       // Reload the sample menu for this open instead of showing the last one.
       setSamples(null);
       setSamplesError(null);
@@ -161,7 +171,10 @@ export default function AgentGroupEditDialog({ open, mode, initial, onClose, onS
           metadata: { ...initial.metadata, attributes },
           spec,
         };
-        await api.put(`/api/v1/namespaces/${namespace}/agentgroups/${initial.metadata.name}`, body);
+        await api.put(
+          `/api/v1/namespaces/${initial.metadata.namespace}/agentgroups/${initial.metadata.name}`,
+          body,
+        );
       }
       onSaved();
     } catch (err) {

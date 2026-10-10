@@ -42,7 +42,7 @@ func (r *HostRepository) PutHost(_ context.Context, host *agentmodel.Host) (*age
 	toStore := cloneHost(host)
 	toStore.Metadata.ResourceVersion = next
 
-	err := r.store.casPutOrCreate(host.Metadata.ID, toStore, expected, func(h *agentmodel.Host) int64 {
+	err := r.store.casPut(host.Metadata.ID, toStore, expected, func(h *agentmodel.Host) int64 {
 		return h.Metadata.ResourceVersion
 	})
 	if err != nil {

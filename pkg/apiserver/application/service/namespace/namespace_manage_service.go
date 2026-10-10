@@ -128,13 +128,31 @@ func (s *Service) UpdateNamespace(
 func (s *Service) DeleteNamespace(
 	ctx context.Context,
 	name string,
+	resourceVersion ...int64,
 ) error {
-	err := s.namespaceUsecase.DeleteNamespace(ctx, name, s.actor(ctx))
+	err := s.namespaceUsecase.DeleteNamespace(ctx, name, s.actor(ctx), resourceVersion...)
 	if err != nil {
 		return fmt.Errorf("delete namespace %q: %w", name, err)
 	}
 
 	return nil
+}
+
+// PatchNamespace applies a JSON Merge Patch through the conditional update path.
+func (s *Service) PatchNamespace(
+	ctx context.Context, name string, patch []byte,
+) (*v1.Namespace, error) {
+	result, err := helper.PatchResource(ctx, patch,
+		func(ctx context.Context) (*v1.Namespace, error) { return s.GetNamespace(ctx, name, nil) },
+		func(
+			ctx context.Context, resource *v1.Namespace) (*v1.Namespace, error) {
+			return s.UpdateNamespace(ctx, name, resource)
+		})
+	if err != nil {
+		return nil, fmt.Errorf("patch resource: %w", err)
+	}
+
+	return result, nil
 }
 
 // actor resolves the acting user from the request context, falling back to an

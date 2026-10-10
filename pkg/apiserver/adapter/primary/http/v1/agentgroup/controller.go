@@ -76,6 +76,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Update,
 		},
 		{
+			Method:      http.MethodPatch,
+			Path:        agentGroupByNamePath,
+			Handler:     "http.v1.agentgroup.Patch",
+			HandlerFunc: c.Patch,
+		},
+		{
 			Method:      http.MethodDelete,
 			Path:        agentGroupByNamePath,
 			Handler:     "http.v1.agentgroup.Delete",
@@ -315,6 +321,7 @@ func (c *Controller) ListAgentGroupsByAgent(ctx *gin.Context) {
 // @Success 201 {object} v1.AgentGroup
 // @Failure 400 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
+// @Failure 409 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentgroups [post].
 func (c *Controller) Create(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
@@ -338,7 +345,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 	created, err := c.agentGroupUsecase.CreateAgentGroup(ctx.Request.Context(), &req)
 	if err != nil {
 		c.logger.Error("failed to create agent group", "error", err.Error())
-		ginutil.InternalServerError(ctx, err, "An error occurred while creating the agent group.")
+		ginutil.HandleDomainError(ctx, err, "An error occurred while creating the agent group.")
 
 		return
 	}
@@ -351,7 +358,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 //
 // @Summary Update Agent Group
 // @Tags agentgroup
-// @Description Update an existing agent group.
+// @Description Requires metadata.resourceVersion from the original read. Update an existing agent group.
 // @Accept json
 // @Produce json
 // @Param namespace path string true "Namespace"
@@ -361,6 +368,7 @@ func (c *Controller) Create(ctx *gin.Context) {
 // @Failure 400 {object} ErrorModel
 // @Failure 404 {object} ErrorModel
 // @Failure 500 {object} ErrorModel
+// @Failure 409 {object} map[string]any
 // @Router /api/v1/namespaces/{namespace}/agentgroups/{name} [put].
 func (c *Controller) Update(ctx *gin.Context) {
 	namespace, err := ginutil.ParseString(ctx, "namespace", true)
@@ -386,6 +394,10 @@ func (c *Controller) Update(ctx *gin.Context) {
 		return
 	}
 
+	if !ginutil.RequireResourceVersion(ctx, req.Metadata.ResourceVersion) {
+		return
+	}
+
 	updated, err := c.agentGroupUsecase.UpdateAgentGroup(ctx.Request.Context(), namespace, name, &req)
 	if err != nil {
 		c.logger.Error("failed to update agent group", "error", err.Error())
@@ -404,6 +416,8 @@ func (c *Controller) Update(ctx *gin.Context) {
 // @Description Mark an agent group as deleted.
 // @Param namespace path string true "Namespace"
 // @Param name path string true "Agent Group Name"
+// @Param resourceVersion query string true "Revision from the resource read; required for conditional deletion"
+// @Failure 409 {object} map[string]any
 // @Success 204 "No Content"
 // @Failure 400 {object} ErrorModel
 // @Failure 404 {object} ErrorModel
@@ -424,7 +438,12 @@ func (c *Controller) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), namespace, name)
+	resourceVersion, ok := ginutil.ParseResourceVersion(ctx)
+	if !ok {
+		return
+	}
+
+	err = c.agentGroupUsecase.DeleteAgentGroup(ctx.Request.Context(), namespace, name, resourceVersion)
 	if err != nil {
 		c.logger.Error("failed to delete agent group", "error", err.Error())
 		ginutil.HandleDomainError(ctx, err, "An error occurred while deleting the agent group.")
@@ -433,4 +452,38 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// Patch partially updates an existing AgentGroup.
+//
+// @Summary Patch AgentGroup
+// @Tags agentgroup
+// @Description JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.
+// @Accept application/merge-patch+json
+// @Produce json
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Resource name"
+// @Param patch body object true "Merge patch with optional metadata.resourceVersion"
+// @Success 200 {object} v1.AgentGroup
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Failure 415 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/agentgroups/{name} [patch].
+func (c *Controller) Patch(ctx *gin.Context) {
+	patch, ok := ginutil.ReadMergePatch(ctx)
+	if !ok {
+		return
+	}
+
+	result, err := c.agentGroupUsecase.PatchAgentGroup(
+		ctx.Request.Context(), ctx.Param("namespace"), ctx.Param("name"), patch,
+	)
+	if err != nil {
+		ginutil.HandleDomainError(ctx, err, "Failed to patch resource.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }

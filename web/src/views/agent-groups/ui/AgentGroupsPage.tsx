@@ -95,7 +95,10 @@ export default function AgentGroupsPage() {
   const onDelete = async () => {
     if (!deleting) return;
     try {
-      await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${deleting.metadata.name}`);
+      await api.delete(
+        `/api/v1/namespaces/${deleting.metadata.namespace}/agentgroups/${deleting.metadata.name}`,
+        { query: { resourceVersion: deleting.metadata.resourceVersion } },
+      );
       setDeleting(null);
       setActionError(null);
       refresh();

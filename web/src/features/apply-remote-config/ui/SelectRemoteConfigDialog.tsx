@@ -33,11 +33,13 @@ interface Props {
 
 export default function SelectRemoteConfigDialog({
   open,
-  namespace,
-  group,
+  namespace: currentNamespace,
+  group: incoming,
   onClose,
   onApplied,
 }: Props) {
+  const [group, setGroup] = useState(incoming);
+  const [namespace, setNamespace] = useState(currentNamespace);
   // The working set of refs the user is editing; applied to the group on Apply.
   const [refs, setRefs] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -68,7 +70,9 @@ export default function SelectRemoteConfigDialog({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setRefs(remoteConfigRefs(group));
+      setGroup(incoming);
+      setNamespace(incoming?.metadata.namespace ?? currentNamespace);
+      setRefs(remoteConfigRefs(incoming));
     } else {
       setRefs([]);
       setApplyError(null);
@@ -87,10 +91,7 @@ export default function SelectRemoteConfigDialog({
     setBusy(true);
     setApplyError(null);
     try {
-      // Re-fetch the group to apply on top of its latest state.
-      const latest = await api.get<AgentGroup>(
-        `/api/v1/namespaces/${namespace}/agentgroups/${group.metadata.name}`,
-      );
+      const latest = group;
       const nextConfigs = withRemoteConfigRefs(latest, refs);
       const body: AgentGroup = {
         ...latest,

@@ -109,16 +109,22 @@ func (_c *MockUsecase_CreateAgentGroup_Call) RunAndReturn(run func(ctx context.C
 }
 
 // DeleteAgentGroup provides a mock function for the type MockUsecase
-func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, namespace string, name string) error {
-	ret := _mock.Called(ctx, namespace, name)
+func (_mock *MockUsecase) DeleteAgentGroup(ctx context.Context, namespace string, name string, resourceVersion ...int64) error {
+	var tmpRet mock.Arguments
+	if len(resourceVersion) > 0 {
+		tmpRet = _mock.Called(ctx, namespace, name, resourceVersion)
+	} else {
+		tmpRet = _mock.Called(ctx, namespace, name)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteAgentGroup")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = returnFunc(ctx, namespace, name)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, ...int64) error); ok {
+		r0 = returnFunc(ctx, namespace, name, resourceVersion...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -134,11 +140,13 @@ type MockUsecase_DeleteAgentGroup_Call struct {
 //   - ctx context.Context
 //   - namespace string
 //   - name string
-func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, namespace interface{}, name interface{}) *MockUsecase_DeleteAgentGroup_Call {
-	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup", ctx, namespace, name)}
+//   - resourceVersion ...int64
+func (_e *MockUsecase_Expecter) DeleteAgentGroup(ctx interface{}, namespace interface{}, name interface{}, resourceVersion ...interface{}) *MockUsecase_DeleteAgentGroup_Call {
+	return &MockUsecase_DeleteAgentGroup_Call{Call: _e.mock.On("DeleteAgentGroup",
+		append([]interface{}{ctx, namespace, name}, resourceVersion...)...)}
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, namespace string, name string)) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64)) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -152,10 +160,17 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Run(run func(ctx context.Context, n
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
+		var arg3 []int64
+		var variadicArgs []int64
+		if len(args) > 3 {
+			variadicArgs = args[3].([]int64)
+		}
+		arg3 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3...,
 		)
 	})
 	return _c
@@ -166,7 +181,7 @@ func (_c *MockUsecase_DeleteAgentGroup_Call) Return(err error) *MockUsecase_Dele
 	return _c
 }
 
-func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string) error) *MockUsecase_DeleteAgentGroup_Call {
+func (_c *MockUsecase_DeleteAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, resourceVersion ...int64) error) *MockUsecase_DeleteAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -475,6 +490,86 @@ func (_c *MockUsecase_ListAgentsByAgentGroup_Call) Return(listResponse *v1.ListR
 }
 
 func (_c *MockUsecase_ListAgentsByAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, agentGroupName string, options *port.ListOptions) (*v1.ListResponse[v1.Agent], error)) *MockUsecase_ListAgentsByAgentGroup_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PatchAgentGroup provides a mock function for the type MockUsecase
+func (_mock *MockUsecase) PatchAgentGroup(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentGroup, error) {
+	ret := _mock.Called(ctx, namespace, name, patch)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PatchAgentGroup")
+	}
+
+	var r0 *v1.AgentGroup
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) (*v1.AgentGroup, error)); ok {
+		return returnFunc(ctx, namespace, name, patch)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, []byte) *v1.AgentGroup); ok {
+		r0 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.AgentGroup)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, []byte) error); ok {
+		r1 = returnFunc(ctx, namespace, name, patch)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsecase_PatchAgentGroup_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PatchAgentGroup'
+type MockUsecase_PatchAgentGroup_Call struct {
+	*mock.Call
+}
+
+// PatchAgentGroup is a helper method to define mock.On call
+//   - ctx context.Context
+//   - namespace string
+//   - name string
+//   - patch []byte
+func (_e *MockUsecase_Expecter) PatchAgentGroup(ctx interface{}, namespace interface{}, name interface{}, patch interface{}) *MockUsecase_PatchAgentGroup_Call {
+	return &MockUsecase_PatchAgentGroup_Call{Call: _e.mock.On("PatchAgentGroup", ctx, namespace, name, patch)}
+}
+
+func (_c *MockUsecase_PatchAgentGroup_Call) Run(run func(ctx context.Context, namespace string, name string, patch []byte)) *MockUsecase_PatchAgentGroup_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 []byte
+		if args[3] != nil {
+			arg3 = args[3].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentGroup_Call) Return(agentGroup *v1.AgentGroup, err error) *MockUsecase_PatchAgentGroup_Call {
+	_c.Call.Return(agentGroup, err)
+	return _c
+}
+
+func (_c *MockUsecase_PatchAgentGroup_Call) RunAndReturn(run func(ctx context.Context, namespace string, name string, patch []byte) (*v1.AgentGroup, error)) *MockUsecase_PatchAgentGroup_Call {
 	_c.Call.Return(run)
 	return _c
 }

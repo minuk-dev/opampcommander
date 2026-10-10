@@ -100,7 +100,8 @@ func TestStandaloneAPIServer(t *testing.T) {
 			"created agent group should appear in the listing")
 
 		// Soft-delete, then confirm it is hidden from the default read path.
-		require.NoError(t, apiClient.AgentGroupService.DeleteAgentGroup(ctx, "default", groupName))
+		require.NoError(t, apiClient.AgentGroupService.DeleteAgentGroup(ctx,
+			"default", groupName, got.Metadata.ResourceVersion))
 
 		_, err = apiClient.AgentGroupService.GetAgentGroup(ctx, "default", groupName)
 		require.Error(t, err, "soft-deleted agent group should not be returned by default")

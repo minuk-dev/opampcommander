@@ -128,6 +128,8 @@ func TestAuthorizationMiddleware_NamespacePermissions(t *testing.T) {
 		{"create requires cluster scope", http.MethodPost, "/api/v1/namespaces", "*", "CREATE", false},
 		{"own namespace readable", http.MethodGet, "/api/v1/namespaces/default", "default", "GET", true},
 		{"other namespace denied", http.MethodGet, "/api/v1/namespaces/production", "production", "GET", false},
+		{"patch uses update without get", http.MethodPatch, "/api/v1/namespaces/default", "default", "UPDATE", true},
+		{"patch denied without update", http.MethodPatch, "/api/v1/namespaces/default", "default", "UPDATE", false},
 		{"update requires permission", http.MethodPut, "/api/v1/namespaces/default", "default", "UPDATE", false},
 		{"delete requires permission", http.MethodDelete, "/api/v1/namespaces/default", "default", "DELETE", false},
 	}

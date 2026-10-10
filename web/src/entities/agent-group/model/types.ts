@@ -17,6 +17,7 @@ export interface AgentGroupAgentConfig {
 }
 
 export interface AgentGroupMetadata {
+  resourceVersion?: string;
   namespace: string;
   name: string;
   attributes: Attributes;

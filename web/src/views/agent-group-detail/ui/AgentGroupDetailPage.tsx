@@ -57,7 +57,7 @@ function AgentGroupDetailInner() {
   const [editing, setEditing] = useState(false);
   const [applyingConfig, setApplyingConfig] = useState(false);
   const [rotatingCertificate, setRotatingCertificate] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [deleting, setDeleting] = useState<AgentGroup | null>(null);
   const [actionHandled, setActionHandled] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -88,18 +88,22 @@ function AgentGroupDetailInner() {
     } else if (action === 'apply') {
       setApplyingConfig(true);
     } else if (action === 'delete') {
-      setDeleting(true);
+      setDeleting(group ?? null);
     }
     router.replace(`/agentgroups/${params.name}`);
   }, [group, actionHandled, search, router, params.name]);
 
   const onDelete = async () => {
     try {
-      await api.delete(`/api/v1/namespaces/${namespace}/agentgroups/${params.name}`);
+      if (!deleting) return;
+      await api.delete(
+        `/api/v1/namespaces/${deleting.metadata.namespace}/agentgroups/${deleting.metadata.name}`,
+        { query: { resourceVersion: deleting.metadata.resourceVersion } },
+      );
       router.push('/agentgroups');
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Failed to delete');
-      setDeleting(false);
+      setDeleting(null);
     }
   };
 
@@ -309,12 +313,12 @@ function AgentGroupDetailInner() {
         />
       )}
       <ConfirmDialog
-        open={deleting}
+        open={Boolean(deleting)}
         title="Delete agent group"
         message={`Delete "${group.metadata.name}"? This cannot be undone.`}
         confirmLabel="Delete"
         destructive
-        onClose={() => setDeleting(false)}
+        onClose={() => setDeleting(null)}
         onConfirm={onDelete}
       />
     </div>

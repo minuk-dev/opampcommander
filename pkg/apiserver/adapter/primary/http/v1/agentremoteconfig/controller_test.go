@@ -85,7 +85,7 @@ func (m *mockUsecase) UpdateAgentRemoteConfig(
 	return res, args.Error(1) //nolint:wrapcheck // mock error
 }
 
-func (m *mockUsecase) DeleteAgentRemoteConfig(ctx context.Context, namespace, name string) error {
+func (m *mockUsecase) DeleteAgentRemoteConfig(ctx context.Context, namespace, name string, _ ...int64) error {
 	args := m.Called(ctx, namespace, name)
 
 	return args.Error(0) //nolint:wrapcheck // mock error
@@ -97,7 +97,7 @@ func newConfig() *v1.AgentRemoteConfig {
 		Kind:       v1.AgentRemoteConfigKind,
 		APIVersion: v1.APIVersion,
 		//exhaustruct:ignore
-		Metadata: v1.AgentRemoteConfigMetadata{Name: "cfg", Namespace: "default"},
+		Metadata: v1.AgentRemoteConfigMetadata{ResourceVersion: 1, Name: "cfg", Namespace: "default"},
 	}
 }
 
@@ -136,7 +136,7 @@ func TestController_RoutesInfo(t *testing.T) {
 	controller := agentremoteconfig.NewController(newMockUsecase(t), slog.Default())
 
 	routes := controller.RoutesInfo()
-	require.Len(t, routes, 5)
+	require.Len(t, routes, 6)
 
 	got := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
@@ -252,7 +252,7 @@ func TestController_Create(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("CreateAgentRemoteConfig", mock.Anything, mock.Anything).Return(newConfig(), nil)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPost, base, `{"metadata":{"name":"cfg"}}`)
+		recorder := doReq(t, ctrlBase.Router, http.MethodPost, base, `{"metadata":{"resourceVersion":"1","name":"cfg"}}`)
 
 		require.Equal(t, http.StatusCreated, recorder.Code)
 		assert.Equal(t, base+"/cfg", recorder.Header().Get("Location"))
@@ -268,13 +268,33 @@ func TestController_Create(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, recorder.Code)
 	})
 
+	for _, tt := range []struct {
+		name string
+		err  error
+	}{
+		{name: "existing resource", err: model.ErrResourceAlreadyExist},
+		{name: "concurrent creator", err: model.ErrConflict},
+	} {
+		t.Run("returns 409 for "+tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrlBase, usecase := setup(t)
+			usecase.On("CreateAgentRemoteConfig", mock.Anything, mock.Anything).Return(nil, tt.err)
+
+			recorder := doReq(t, ctrlBase.Router, http.MethodPost, base, `{"metadata":{"name":"duplicate"}}`)
+
+			require.Equal(t, http.StatusConflict, recorder.Code)
+			assert.Equal(t, int64(http.StatusConflict), gjson.Get(recorder.Body.String(), "status").Int())
+		})
+	}
+
 	t.Run("returns 500 when the usecase fails", func(t *testing.T) {
 		t.Parallel()
 
 		ctrlBase, usecase := setup(t)
 		usecase.On("CreateAgentRemoteConfig", mock.Anything, mock.Anything).Return(nil, errBoom)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPost, base, `{"metadata":{"name":"cfg"}}`)
+		recorder := doReq(t, ctrlBase.Router, http.MethodPost, base, `{"metadata":{"resourceVersion":"1","name":"cfg"}}`)
 
 		require.Equal(t, http.StatusInternalServerError, recorder.Code)
 	})
@@ -289,7 +309,8 @@ func TestController_Update(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("UpdateAgentRemoteConfig", mock.Anything, "default", "cfg", mock.Anything).Return(newConfig(), nil)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPut, base+"/cfg", `{"metadata":{"name":"cfg"}}`)
+		recorder := doReq(t, ctrlBase.Router,
+			http.MethodPut, base+"/cfg", `{"metadata":{"resourceVersion":"1","name":"cfg"}}`)
 
 		require.Equal(t, http.StatusOK, recorder.Code)
 	})
@@ -311,7 +332,8 @@ func TestController_Update(t *testing.T) {
 		usecase.On("UpdateAgentRemoteConfig", mock.Anything, "default", "missing", mock.Anything).
 			Return(nil, model.ErrResourceNotExist)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodPut, base+"/missing", `{"metadata":{"name":"missing"}}`)
+		recorder := doReq(t, ctrlBase.Router,
+			http.MethodPut, base+"/missing", `{"metadata":{"resourceVersion":"1","name":"missing"}}`)
 
 		require.Equal(t, http.StatusNotFound, recorder.Code)
 	})
@@ -326,7 +348,7 @@ func TestController_Delete(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("DeleteAgentRemoteConfig", mock.Anything, "default", "cfg").Return(nil)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, base+"/cfg", "")
+		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, base+"/cfg?resourceVersion=1", "")
 
 		require.Equal(t, http.StatusNoContent, recorder.Code)
 	})
@@ -337,7 +359,7 @@ func TestController_Delete(t *testing.T) {
 		ctrlBase, usecase := setup(t)
 		usecase.On("DeleteAgentRemoteConfig", mock.Anything, "default", "missing").Return(model.ErrResourceNotExist)
 
-		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, base+"/missing", "")
+		recorder := doReq(t, ctrlBase.Router, http.MethodDelete, base+"/missing?resourceVersion=1", "")
 
 		require.Equal(t, http.StatusNotFound, recorder.Code)
 	})
@@ -382,4 +404,13 @@ func TestController_MissingParams(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, recorder.Code)
 		})
 	}
+}
+
+func (m *mockUsecase) PatchAgentRemoteConfig(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentRemoteConfig, error) {
+	args := m.Called(ctx, namespace, name, patch)
+	res, _ := args.Get(0).(*v1.AgentRemoteConfig)
+
+	return res, args.Error(1) //nolint:wrapcheck // mock error
 }

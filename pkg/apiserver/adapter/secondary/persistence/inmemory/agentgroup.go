@@ -71,7 +71,19 @@ func (r *AgentGroupRepository) ListAllAgentGroups(
 func (r *AgentGroupRepository) PutAgentGroup(
 	_ context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
-	r.store.put(namespacedName{Namespace: namespace, Name: name}, agentGroup)
+	expected := agentGroup.Metadata.ResourceVersion
+	toStore := cloneAgentGroup(agentGroup)
+	toStore.Metadata.ResourceVersion = expected + 1
+
+	err := r.store.casPut(namespacedName{Namespace: namespace,
+		Name: name}, toStore, expected, func(value *agentmodel.AgentGroup) int64 {
+		return value.Metadata.ResourceVersion
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	agentGroup.Metadata.ResourceVersion = expected + 1
 
 	if !agentGroup.IsDeleted() {
 		r.applyStatistics(agentGroup)
