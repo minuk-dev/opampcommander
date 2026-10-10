@@ -16,9 +16,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/fx" //nolint:depguard // Composition-root tests exercise FX lifecycle hooks.
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/connectionshutdown"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/module/adapter/primary"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 )
@@ -27,16 +33,25 @@ type lifecycle struct{ hooks []fx.Hook }
 
 func (l *lifecycle) Append(hook fx.Hook) { l.hooks = append(l.hooks, hook) }
 
-type noopOpAMP struct{ usecase.OpAMPUsecase }
+type noopOpAMP struct {
+	usecase.OpAMPUsecase
 
-func (*noopOpAMP) OnConnectedWithType(context.Context, types.Connection, bool) {}
-func (*noopOpAMP) OnConnectionClose(types.Connection)                          {}
-func (*noopOpAMP) OnReadMessageError(types.Connection, int, []byte, error)     {}
+	store agentport.ConnectionStore
+}
+
+func (s *noopOpAMP) OnConnectedWithType(ctx context.Context, conn types.Connection, _ bool) {
+	_ = s.store.Put(ctx, agentmodel.NewConnection(conn, agentmodel.ConnectionTypeWebSocket))
+}
+func (*noopOpAMP) OnConnectionClose(types.Connection)                      {}
+func (*noopOpAMP) OnReadMessageError(types.Connection, int, []byte, error) {}
 
 func TestHTTPServer_ShutdownDrainsBeforeHTTPShutdown(t *testing.T) {
 	t.Parallel()
 
-	controller := opamp.NewController(&noopOpAMP{}, slog.Default())
+	store := connectionstore.NewConnectionStore()
+	transport := opampconnection.NewTransport()
+	controller := opamp.NewController(&noopOpAMP{store: store}, slog.Default(), transport)
+	shutdown := connectionshutdown.New(agentservice.NewConnectionShutdownService(store, transport))
 	health := healthcheck.NewHealthHelper(nil)
 	engine := gin.New()
 	engine.GET("/api/v1/opamp", controller.Handle)
@@ -45,7 +60,7 @@ func TestHTTPServer_ShutdownDrainsBeforeHTTPShutdown(t *testing.T) {
 	settings := &config.ServerSettings{
 		Shutdown: config.ShutdownSettings{DrainWindow: time.Millisecond, Timeout: time.Second},
 	}
-	srv, err := primary.NewHTTPServer(hooks, engine, settings, slog.Default(), controller.ConnContext, controller, health)
+	srv, err := primary.NewHTTPServer(hooks, engine, settings, slog.Default(), controller.ConnContext, shutdown, health)
 	require.NoError(t, err)
 
 	server := httptest.NewUnstartedServer(srv.Handler)

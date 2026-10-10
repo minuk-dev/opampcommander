@@ -14,6 +14,7 @@ import (
 	applicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/application"
 	authApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/auth"
 	certificateApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/certificate"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/connectionshutdown"
 	containerApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/container"
 	endpointApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpoint"
 	endpointmetricsApplicationService "github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/endpointmetrics"
@@ -46,6 +47,7 @@ func New() fx.Option {
 		"application",
 		// application
 		fx.Provide(
+			fx.Annotate(connectionshutdown.New, fx.As(new(usecase.ConnectionShutdownUsecase))),
 			opampApplicationService.New,
 			fx.Annotate(Identity[*opampApplicationService.Service], fx.As(new(usecase.OpAMPUsecase))),
 			helper.AsRunner(Identity[*opampApplicationService.Service]), // for background processing

@@ -12,10 +12,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
+	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
+	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	agentservice "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/service"
 )
 
 func TestController_Drain(t *testing.T) {
@@ -30,7 +36,10 @@ func TestController_Drain(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := opamp.NewController(&spyUsecase{}, slog.Default())
+			store := connectionstore.NewConnectionStore()
+			transport := opampconnection.NewTransport()
+			controller := opamp.NewController(&shutdownUsecase{store: store}, slog.Default(), transport)
+			shutdown := agentservice.NewConnectionShutdownService(store, transport)
 
 			engine := gin.New()
 			for _, route := range controller.RoutesInfo() {
@@ -70,7 +79,7 @@ func TestController_Drain(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 
-			go func() { drained <- controller.Drain(ctx, 10*time.Millisecond) }()
+			go func() { drained <- shutdown.CloseLocalConnections(ctx, 10*time.Millisecond) }()
 
 			_, _, err = conn.ReadMessage()
 			require.True(t, websocket.IsCloseError(err, websocket.CloseGoingAway), "got %v", err)
@@ -90,7 +99,10 @@ func TestController_Drain(t *testing.T) {
 func TestController_DrainForceClosesUnresponsivePeer(t *testing.T) {
 	t.Parallel()
 
-	controller := opamp.NewController(&spyUsecase{}, slog.Default())
+	store := connectionstore.NewConnectionStore()
+	transport := opampconnection.NewTransport()
+	controller := opamp.NewController(&shutdownUsecase{store: store}, slog.Default(), transport)
+	shutdown := agentservice.NewConnectionShutdownService(store, transport)
 	engine := gin.New()
 	engine.GET("/api/v1/opamp", controller.Handle)
 	server := httptest.NewUnstartedServer(engine)
@@ -109,7 +121,7 @@ func TestController_DrainForceClosesUnresponsivePeer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
 	defer cancel()
 
-	require.ErrorIs(t, controller.Drain(ctx, 0), context.DeadlineExceeded)
+	require.ErrorIs(t, shutdown.CloseLocalConnections(ctx, 0), context.DeadlineExceeded)
 	require.NoError(t, conn.SetReadDeadline(time.Now().Add(time.Second)))
 	_, _, err = conn.ReadMessage()
 	require.True(t, websocket.IsCloseError(err, websocket.CloseGoingAway), "got %v", err)
@@ -120,4 +132,20 @@ func TestController_DrainForceClosesUnresponsivePeer(t *testing.T) {
 	if errors.As(err, &netErr) {
 		assert.False(t, netErr.Timeout(), "socket must be force-closed")
 	}
+}
+
+// shutdownUsecase registers real OpAMP callbacks into the server-local Store.
+type shutdownUsecase struct {
+	spyUsecase
+
+	store agentport.ConnectionStore
+}
+
+func (s *shutdownUsecase) OnConnectedWithType(ctx context.Context, conn types.Connection, isWebSocket bool) {
+	kind := agentmodel.ConnectionTypeHTTP
+	if isWebSocket {
+		kind = agentmodel.ConnectionTypeWebSocket
+	}
+
+	_ = s.store.Put(ctx, agentmodel.NewConnection(conn, kind))
 }

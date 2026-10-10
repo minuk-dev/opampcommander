@@ -1,11 +1,10 @@
-package opamp
+package opampconnection
 
 import (
 	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
-	"log/slog"
 	"net"
 	"strconv"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,9 +43,9 @@ func TestDrainConnection_Write(t *testing.T) {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
 			t.Parallel()
 
-			controller := NewController(nil, slog.Default())
+			transport := NewTransport()
 			raw := &recordingConnection{closed: make(chan struct{})}
-			conn := &drainConnection{Conn: raw, controller: controller, closed: make(chan struct{})}
+			conn := &connection{Conn: raw, transport: transport, closed: make(chan struct{})}
 			payload := bytes.Repeat([]byte("a"), size)
 
 			header := []byte{0x82, byte(size)}
@@ -97,67 +97,36 @@ func TestFrameSize_RejectsShortHeaders(t *testing.T) {
 	}
 }
 
-func TestController_DrainJitterAndDeadline(t *testing.T) {
+func TestTransport_CloseConnectionUnblocksBlockedWrite(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		controller := NewController(nil, slog.Default())
-
-		const count = 20
-		for range count {
-			raw := &recordingConnection{closed: make(chan struct{})}
-			conn := &drainConnection{Conn: raw, controller: controller, closed: make(chan struct{})}
-			controller.connections[conn] = struct{}{}
-		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		done := make(chan error, 1)
-		go func() { done <- controller.Drain(ctx, time.Second) }()
-
-		synctest.Wait()
-		controller.mu.Lock()
-		for conn := range controller.connections {
-			conn.mu.Lock()
-			raw, ok := conn.Conn.(*recordingConnection)
-			require.True(t, ok)
-			assert.Empty(t, raw.buffer.Bytes(), "jitter must delay closes")
-			conn.mu.Unlock()
-		}
-		controller.mu.Unlock()
-		time.Sleep(time.Second)
-		synctest.Wait()
-		controller.mu.Lock()
-		for conn := range controller.connections {
-			conn.mu.Lock()
-			raw, ok := conn.Conn.(*recordingConnection)
-			require.True(t, ok)
-			assert.Equal(t, []byte("\x88\x02\x03\xe9"), raw.buffer.Bytes())
-			conn.mu.Unlock()
-		}
-		controller.mu.Unlock()
-		time.Sleep(time.Second)
-		require.ErrorIs(t, <-done, context.DeadlineExceeded)
-		assert.Empty(t, controller.connections)
-	})
-}
-
-func TestController_DrainUnblocksBlockedCloseWrite(t *testing.T) {
-	t.Parallel()
-	synctest.Test(t, func(t *testing.T) {
-		controller := NewController(nil, slog.Default())
+		transport := NewTransport()
 
 		server, peer := net.Pipe()
 		defer func() { _ = peer.Close() }()
 
-		conn := &drainConnection{Conn: server, controller: controller, closed: make(chan struct{})}
-		controller.connections[conn] = struct{}{}
+		conn := &connection{Conn: server, transport: transport, closed: make(chan struct{})}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		// The peer never reads, so writing the close frame blocks until force-close.
-		err := controller.Drain(ctx, 0)
+		err := transport.CloseConnection(ctx, &testConnection{netConn: conn})
 		require.ErrorIs(t, err, context.DeadlineExceeded)
-		assert.Empty(t, controller.connections)
+
+		select {
+		case <-conn.closed:
+		default:
+			t.Fatal("connection must be force-closed")
+		}
 	})
 }
+
+type connectionMethods = types.Connection
+
+type testConnection struct {
+	connectionMethods
+
+	netConn net.Conn
+}
+
+func (c *testConnection) Connection() net.Conn { return c.netConn }

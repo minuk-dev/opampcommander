@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"log/slog"
 	"net/http"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,6 +13,7 @@ import (
 	opampServer "github.com/open-telemetry/opamp-go/server"
 	"github.com/open-telemetry/opamp-go/server/types"
 
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 )
 
@@ -22,9 +22,7 @@ import (
 type Controller struct {
 	logger *slog.Logger
 
-	mu          sync.Mutex
-	draining    bool
-	connections map[*drainConnection]struct{}
+	transport *opampconnection.Transport
 
 	handler     opampServer.HTTPHandlerFunc
 	ConnContext opampServer.ConnContext
@@ -44,6 +42,7 @@ type Option func(*Controller)
 func NewController(
 	opampUsecase usecase.OpAMPUsecase,
 	logger *slog.Logger,
+	transport *opampconnection.Transport,
 ) *Controller {
 	ops := opampServer.New(&Logger{
 		logger: logger,
@@ -51,9 +50,7 @@ func NewController(
 
 	controller := &Controller{
 		logger:       logger,
-		mu:           sync.Mutex{},
-		draining:     false,
-		connections:  make(map[*drainConnection]struct{}),
+		transport:    transport,
 		opampUsecase: opampUsecase,
 
 		enableCompression: false,
@@ -116,6 +113,10 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 		ConnectionCallbacks: types.ConnectionCallbacks{
 			OnConnected: func(ctx context.Context, conn types.Connection) {
 				c.opampUsecase.OnConnectedWithType(ctx, conn, isWebSocket)
+
+				if isWebSocket {
+					c.transport.Connected(conn.Connection())
+				}
 			},
 			OnMessage:              onMessage,
 			OnConnectionClose:      c.opampUsecase.OnConnectionClose,
@@ -146,17 +147,14 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // Handle is a method that handles the HTTP request.
 func (c *Controller) Handle(ctx *gin.Context) {
 	c.logger.Info("Handle", "message", "start")
-	c.mu.Lock()
-	draining := c.draining
-	c.mu.Unlock()
 
-	if draining {
+	if !c.transport.Accepting() {
 		ctx.Status(http.StatusServiceUnavailable)
 
 		return
 	}
 
-	c.handler(&drainResponseWriter{ResponseWriter: ctx.Writer, controller: c}, ctx.Request)
+	c.handler(c.transport.WrapWriter(ctx.Writer), ctx.Request)
 }
 
 func (c *Controller) onClientCertificateMessage(
