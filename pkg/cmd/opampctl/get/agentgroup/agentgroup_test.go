@@ -4,8 +4,10 @@ package agentgroup
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -104,6 +106,47 @@ func TestListByAgentEmpty(t *testing.T) {
 			cmd.SetOut(&output)
 			require.NoError(t, options.ListByAgent(cmd))
 			require.Equal(t, "[]\n", output.String())
+		})
+	}
+}
+
+type failedWriter struct{}
+
+func (failedWriter) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func TestListByAgentStopsOnOutputError(t *testing.T) {
+	t.Parallel()
+
+	for _, format := range []string{"short", "text", "yaml", "json"} {
+		t.Run(format, func(t *testing.T) {
+			t.Parallel()
+
+			var calls atomic.Int32
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				_, err := io.WriteString(w,
+					`{"items":[{"metadata":{"name":"first"}}],"metadata":{"continue":"next","remainingItemCount":1}}`)
+				assert.NoError(t, err)
+			}))
+			defer server.Close()
+
+			options := CommandOptions{client: client.New(server.URL), namespace: "team", agent: "collector", formatType: format}
+			cmd := &cobra.Command{}
+			cmd.SetContext(t.Context())
+			cmd.SetOut(failedWriter{})
+
+			err := options.ListByAgent(cmd)
+			require.ErrorIs(t, err, io.ErrClosedPipe)
+
+			if format == "json" {
+				require.Zero(t, calls.Load(), "the opening bracket fails before any request")
+			} else {
+				require.Equal(t, int32(1), calls.Load(), "must not fetch another page after output fails")
+			}
 		})
 	}
 }

@@ -12,6 +12,7 @@ package inmemory
 
 import (
 	"cmp"
+	"container/heap"
 	"fmt"
 	"slices"
 	"strconv"
@@ -27,6 +28,26 @@ import (
 type item[V any] struct {
 	seq   uint64
 	value V
+}
+
+// pageHeap keeps the latest sequence at the root so earlier matches can replace it.
+type pageHeap[V any] []item[V]
+
+func (h pageHeap[V]) Len() int           { return len(h) }
+func (h pageHeap[V]) Less(i, j int) bool { return h[i].seq > h[j].seq }
+func (h pageHeap[V]) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *pageHeap[V]) Push(value any) {
+	*h = append(*h, value.(item[V])) //nolint:forcetypeassert // heap.Interface receives only item[V].
+}
+
+func (h *pageHeap[V]) Pop() any {
+	last := len(*h) - 1
+	value := (*h)[last]
+	clear((*h)[last:])
+	*h = (*h)[:last]
+
+	return value
 }
 
 // store is a concurrency-safe in-memory key/value collection that mirrors the
@@ -366,9 +387,8 @@ func (s *store[K, V]) collectPage(
 	}
 
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 
-	entries := make([]item[V], 0)
+	entries := make(pageHeap[V], 0)
 
 	var total int64
 
@@ -380,23 +400,30 @@ func (s *store[K, V]) collectPage(
 
 		total++
 
-		pos, _ := slices.BinarySearchFunc(entries, entry.seq, func(value item[V], seq uint64) int {
-			return cmp.Compare(value.seq, seq)
-		})
-		if int64(pos) >= limit {
+		if int64(len(entries)) < limit {
+			entries = append(entries, *entry)
+			if int64(len(entries)) == limit {
+				heap.Init(&entries)
+			}
+
 			continue
 		}
 
-		if int64(len(entries)) == limit {
-			entries = entries[:len(entries)-1]
+		if entry.seq < entries[0].seq {
+			entries[0] = *entry
+			heap.Fix(&entries, 0)
 		}
-
-		entries = slices.Insert(entries, pos, *entry)
 	}
 
 	for i := range entries {
 		entries[i].value = s.clone(entries[i].value)
 	}
+
+	s.mu.RUnlock()
+
+	slices.SortFunc(entries, func(a, b item[V]) int {
+		return cmp.Compare(a.seq, b.seq)
+	})
 
 	return entries, total
 }
