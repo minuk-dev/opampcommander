@@ -153,8 +153,7 @@ linters:
             - github.com/casbin/casbin/v2
             - github.com/casbin/mongodb-adapter/v4
             # documentation
-            - github.com/swaggo/files
-            - github.com/swaggo/gin-swagger
+            - github.com/swaggo/http-swagger/v2
             # observability
             - github.com/samber/slog-gin
             - go.opentelemetry.io/otel
