@@ -124,18 +124,28 @@ func (a *AgentGroupMongoAdapter) PutAgentGroup(
 	ctx context.Context, namespace string, name string, agentGroup *agentmodel.AgentGroup,
 ) (*agentmodel.AgentGroup, error) {
 	expected := agentGroup.Metadata.ResourceVersion
-	en := entity.AgentGroupFromDomain(agentGroup)
+	saved := entity.AgentGroupFromDomain(agentGroup)
 
-	en.Metadata.ResourceVersion = expected + 1
+	saved.Metadata.ResourceVersion = expected + 1
 
-	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), en, expected)
+	err := casReplace(ctx, a.collection, a.filterByNamespaceAndName(namespace, name), saved, expected)
 	if err != nil {
 		return nil, fmt.Errorf("put agent group: %w", err)
 	}
 
 	agentGroup.Metadata.ResourceVersion = expected + 1
 
-	return agentGroup, nil
+	if agentGroup.IsDeleted() {
+		return agentGroup, nil
+	}
+
+	// Compute statistics for the saved selector without reloading a newer resource version.
+	statistics, err := a.getAgentGroupStatistics(ctx, saved)
+	if err != nil {
+		return nil, fmt.Errorf("get agent group statistics after put: %w", err)
+	}
+
+	return saved.ToDomain(statistics), nil
 }
 
 func (a *AgentGroupMongoAdapter) filterByNamespaceAndName(namespace, name string) bson.M {
