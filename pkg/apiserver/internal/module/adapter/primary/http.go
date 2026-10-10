@@ -141,7 +141,7 @@ func NewHTTPServer(
 	settings *config.ServerSettings,
 	logger *slog.Logger,
 	connContext func(context.Context, net.Conn) context.Context,
-	connections usecase.ConnectionShutdownUsecase,
+	opampUsecase usecase.OpAMPUsecase,
 	health *healthcheck.HealthHelper,
 ) (*http.Server, error) {
 	settings.Shutdown = settings.Shutdown.WithDefaults()
@@ -200,7 +200,7 @@ func NewHTTPServer(
 
 			health.BeginShutdown()
 
-			drainErr := connections.CloseLocalConnections(ctx, settings.Shutdown.DrainWindow)
+			drainErr := opampUsecase.CloseLocalConnections(ctx, settings.Shutdown.DrainWindow)
 
 			return errors.Join(drainErr, srv.Shutdown(ctx))
 		},

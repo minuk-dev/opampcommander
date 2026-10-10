@@ -3,6 +3,7 @@ package agentservice_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -45,7 +46,7 @@ func (s *shutdownTransport) CloseConnection(_ context.Context, id any) error {
 	return s.closeErr
 }
 
-func TestConnectionShutdownService_CloseLocalConnections(t *testing.T) {
+func TestConnectionService_CloseLocalConnections(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		store := connectionstore.NewConnectionStore()
@@ -57,7 +58,7 @@ func TestConnectionShutdownService_CloseLocalConnections(t *testing.T) {
 			// An upgrade accepted before shutdown must be registered before the snapshot.
 			require.NoError(t, store.Put(t.Context(), agentmodel.NewConnection("late", agentmodel.ConnectionTypeWebSocket)))
 		}
-		service := agentservice.NewConnectionShutdownService(store, transport)
+		service := agentservice.NewConnectionService(nil, store, nil, nil, slog.Default(), transport)
 		start := time.Now()
 
 		done := make(chan error, 1)
@@ -81,7 +82,7 @@ func TestConnectionShutdownService_CloseLocalConnections(t *testing.T) {
 	})
 }
 
-func TestConnectionShutdownService_ClosesAllAfterDeadlineAndErrors(t *testing.T) {
+func TestConnectionService_ClosesAllAfterDeadlineAndErrors(t *testing.T) {
 	t.Parallel()
 
 	store := connectionstore.NewConnectionStore()
@@ -89,7 +90,7 @@ func TestConnectionShutdownService_ClosesAllAfterDeadlineAndErrors(t *testing.T)
 	require.NoError(t, store.Put(t.Context(), agentmodel.NewConnection("second", agentmodel.ConnectionTypeWebSocket)))
 
 	transport := &shutdownTransport{closed: make(map[any]time.Time), closeErr: errCloseConnection}
-	service := agentservice.NewConnectionShutdownService(store, transport)
+	service := agentservice.NewConnectionService(nil, store, nil, nil, slog.Default(), transport)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	require.ErrorIs(t, service.CloseLocalConnections(ctx, time.Hour), errCloseConnection)
@@ -106,12 +107,14 @@ func (s *failedConnectionStore) ListConnections(context.Context) ([]*agentmodel.
 	return nil, s.err
 }
 
-func TestConnectionShutdownService_ListFailure(t *testing.T) {
+func TestConnectionService_ListFailure(t *testing.T) {
 	t.Parallel()
 
 	stopped := false
 	transport := &shutdownTransport{admitted: func() { stopped = true }}
-	service := agentservice.NewConnectionShutdownService(&failedConnectionStore{err: errListConnections}, transport)
+	service := agentservice.NewConnectionService(
+		nil, &failedConnectionStore{err: errListConnections}, nil, nil, slog.Default(), transport,
+	)
 	require.ErrorIs(t, service.CloseLocalConnections(t.Context(), 0), errListConnections)
 	assert.True(t, stopped, "admission must stop before listing local connections")
 }

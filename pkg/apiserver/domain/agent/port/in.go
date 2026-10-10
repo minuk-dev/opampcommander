@@ -454,6 +454,8 @@ type ServerReceiverUsecase interface {
 
 // ConnectionUsecase is an interface that defines the methods for connection use cases.
 type ConnectionUsecase interface {
+	// CloseLocalConnections stops admission and closes this server's persistent connections.
+	CloseLocalConnections(ctx context.Context, window time.Duration) error
 	// GetConnectionByInstanceUID returns the connection for the given instance UID.
 	GetConnectionByInstanceUID(ctx context.Context, instanceUID uuid.UUID) (*agentmodel.Connection, error)
 	// GetOrCreateConnectionByID returns the connection for the given ID or creates a new one.

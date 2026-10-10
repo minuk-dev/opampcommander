@@ -39,7 +39,7 @@ func TestController_Drain(t *testing.T) {
 			store := connectionstore.NewConnectionStore()
 			transport := opampconnection.NewTransport()
 			controller := opamp.NewController(&shutdownUsecase{store: store}, slog.Default(), transport)
-			shutdown := agentservice.NewConnectionShutdownService(store, transport)
+			shutdown := agentservice.NewConnectionService(nil, store, nil, nil, slog.Default(), transport)
 
 			engine := gin.New()
 			for _, route := range controller.RoutesInfo() {
@@ -102,7 +102,7 @@ func TestController_DrainForceClosesUnresponsivePeer(t *testing.T) {
 	store := connectionstore.NewConnectionStore()
 	transport := opampconnection.NewTransport()
 	controller := opamp.NewController(&shutdownUsecase{store: store}, slog.Default(), transport)
-	shutdown := agentservice.NewConnectionShutdownService(store, transport)
+	shutdown := agentservice.NewConnectionService(nil, store, nil, nil, slog.Default(), transport)
 	engine := gin.New()
 	engine.GET("/api/v1/opamp", controller.Handle)
 	server := httptest.NewUnstartedServer(engine)

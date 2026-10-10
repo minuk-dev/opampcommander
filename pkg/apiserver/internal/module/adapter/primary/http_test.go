@@ -19,7 +19,6 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
 	connectionstore "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/service/connectionshutdown"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -36,7 +35,12 @@ func (l *lifecycle) Append(hook fx.Hook) { l.hooks = append(l.hooks, hook) }
 type noopOpAMP struct {
 	usecase.OpAMPUsecase
 
-	store agentport.ConnectionStore
+	store       agentport.ConnectionStore
+	connections agentport.ConnectionUsecase
+}
+
+func (s *noopOpAMP) CloseLocalConnections(ctx context.Context, window time.Duration) error {
+	return s.connections.CloseLocalConnections(ctx, window) //nolint:wrapcheck // Test delegate preserves the domain error.
 }
 
 func (s *noopOpAMP) OnConnectedWithType(ctx context.Context, conn types.Connection, _ bool) {
@@ -50,8 +54,9 @@ func TestHTTPServer_ShutdownDrainsBeforeHTTPShutdown(t *testing.T) {
 
 	store := connectionstore.NewConnectionStore()
 	transport := opampconnection.NewTransport()
-	controller := opamp.NewController(&noopOpAMP{store: store}, slog.Default(), transport)
-	shutdown := connectionshutdown.New(agentservice.NewConnectionShutdownService(store, transport))
+	connections := agentservice.NewConnectionService(nil, store, nil, nil, slog.Default(), transport)
+	opampUsecase := &noopOpAMP{store: store, connections: connections}
+	controller := opamp.NewController(opampUsecase, slog.Default(), transport)
 	health := healthcheck.NewHealthHelper(nil)
 	engine := gin.New()
 	engine.GET("/api/v1/opamp", controller.Handle)
@@ -60,7 +65,9 @@ func TestHTTPServer_ShutdownDrainsBeforeHTTPShutdown(t *testing.T) {
 	settings := &config.ServerSettings{
 		Shutdown: config.ShutdownSettings{DrainWindow: time.Millisecond, Timeout: time.Second},
 	}
-	srv, err := primary.NewHTTPServer(hooks, engine, settings, slog.Default(), controller.ConnContext, shutdown, health)
+	srv, err := primary.NewHTTPServer(
+		hooks, engine, settings, slog.Default(), controller.ConnContext, opampUsecase, health,
+	)
 	require.NoError(t, err)
 
 	server := httptest.NewUnstartedServer(srv.Handler)

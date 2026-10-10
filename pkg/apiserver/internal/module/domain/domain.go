@@ -22,7 +22,6 @@ import (
 //nolint:funlen // DI wiring: a flat list of service providers/annotations.
 func New() fx.Option {
 	components := []any{
-		fx.Annotate(agentservice.NewConnectionShutdownService, fx.As(new(agentport.ConnectionShutdownUsecase))),
 		agentservice.NewConnectionService,
 		fx.Annotate(
 			Identity[*agentservice.Service],

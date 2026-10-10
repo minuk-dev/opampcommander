@@ -14,6 +14,16 @@ import (
 // ReceiveServerEventHandler is a function type for handling received server events.
 type ReceiveServerEventHandler func(ctx context.Context, message *serverevent.Message) error
 
+// ConnectionTransportPort controls admission and closes one live transport.
+type ConnectionTransportPort interface {
+	// StopAccepting rejects new upgrades and waits for accepted handshakes to
+	// register in ConnectionStore, force-closing pending handshakes at the deadline.
+	StopAccepting(ctx context.Context) error
+	// CloseConnection sends a close frame and waits for the peer, force-closing
+	// at the deadline. id is the opaque Connection.ID from ConnectionStore.
+	CloseConnection(ctx context.Context, id any) error
+}
+
 // TransactionPort runs a unit of work inside a storage transaction so that a
 // multi-step domain operation (e.g. a namespace cascade delete) commits
 // atomically or rolls back as a whole. Implementations live in the secondary
