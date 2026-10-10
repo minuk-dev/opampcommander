@@ -52,7 +52,6 @@ type Service struct {
 	agentUsecase                    agentport.AgentUsecase
 	logger                          *slog.Logger
 	connectionStore                 agentport.ConnectionStore
-	transport                       agentport.ConnectionTransportPort
 	serverIdentityProvider          agentport.ServerIdentityProvider
 	serverConnectionPersistencePort agentport.ServerConnectionPersistencePort
 	clock                           clock.Clock
@@ -68,13 +67,11 @@ func NewConnectionService(
 	serverIdentityProvider agentport.ServerIdentityProvider,
 	serverConnectionPersistencePort agentport.ServerConnectionPersistencePort,
 	logger *slog.Logger,
-	transport agentport.ConnectionTransportPort,
 ) *Service {
 	return &Service{
 		agentUsecase:                    agentUsecase,
 		logger:                          logger,
 		connectionStore:                 connectionStore,
-		transport:                       transport,
 		serverIdentityProvider:          serverIdentityProvider,
 		serverConnectionPersistencePort: serverConnectionPersistencePort,
 		clock:                           clock.NewRealClock(),

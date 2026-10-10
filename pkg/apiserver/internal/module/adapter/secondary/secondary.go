@@ -5,7 +5,6 @@ package secondary
 import (
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/cached"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/store/inmemory"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
@@ -28,8 +27,6 @@ func New(databaseType config.DatabaseType, livenessSettings config.LivenessSetti
 		// regardless of the durable persistence backend.
 		fx.Provide(fx.Annotate(inmemory.NewConnectionStore, fx.As(new(agentport.ConnectionStore)))),
 		fx.Provide(
-			opampconnection.NewTransport,
-			fx.Annotate(identity[*opampconnection.Transport], fx.As(new(agentport.ConnectionTransportPort))),
 			provideAgentStore,
 			provideServerStore,
 			fx.Annotate(identity[*cached.AgentStore], fx.As(new(agentport.AgentStore))),

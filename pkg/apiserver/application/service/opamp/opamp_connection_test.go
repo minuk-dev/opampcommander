@@ -74,7 +74,7 @@ func TestConnectionCleanupSerializesWithReplacementMessage(t *testing.T) {
 			agent.Status.Connected = true
 			agentUC := usecasemock.NewMockAgentUsecase(t)
 			store := connectionstore.NewConnectionStore()
-			connUC := agentservice.NewConnectionService(nil, store, nil, nil, slog.New(slog.DiscardHandler), nil)
+			connUC := agentservice.NewConnectionService(nil, store, nil, nil, slog.New(slog.DiscardHandler))
 			oldWire, newWire := lifecycleWire(t), lifecycleWire(t)
 			old := agentmodel.NewConnection(oldWire, agentmodel.ConnectionTypeWebSocket)
 			old.SetInstanceUID(uid)

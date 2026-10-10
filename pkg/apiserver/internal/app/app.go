@@ -74,7 +74,7 @@ func appOptions(settings *config.ServerSettings) []fx.Option {
 			return &fxevent.SlogLogger{Logger: logger}
 		}),
 
-		fx.Invoke(registerConnectionShutdown),
+		fx.Invoke(registerOpAMPShutdown),
 	}
 }
 

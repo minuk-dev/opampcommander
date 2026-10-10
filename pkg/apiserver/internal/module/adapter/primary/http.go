@@ -19,7 +19,6 @@ import (
 	ginswagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/fx"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/basic"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/github"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/agent"
@@ -123,9 +122,8 @@ func newOpAMPController(
 	opampUsecase usecase.OpAMPUsecase,
 	logger *slog.Logger,
 	settings *config.ServerSettings,
-	transport *opampconnection.Transport,
 ) *opamp.Controller {
-	controller := opamp.NewController(opampUsecase, logger, transport)
+	controller := opamp.NewController(opampUsecase, logger)
 	controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != ""
 
 	return controller

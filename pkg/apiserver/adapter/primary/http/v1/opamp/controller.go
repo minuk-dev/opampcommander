@@ -4,8 +4,10 @@ package opamp
 import (
 	"context"
 	"crypto/x509"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,7 +15,7 @@ import (
 	opampServer "github.com/open-telemetry/opamp-go/server"
 	"github.com/open-telemetry/opamp-go/server/types"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp/internal/connection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/application/usecase"
 )
 
@@ -22,7 +24,7 @@ import (
 type Controller struct {
 	logger *slog.Logger
 
-	transport *opampconnection.Transport
+	connections *connection.Connections
 
 	handler     opampServer.HTTPHandlerFunc
 	ConnContext opampServer.ConnContext
@@ -42,7 +44,6 @@ type Option func(*Controller)
 func NewController(
 	opampUsecase usecase.OpAMPUsecase,
 	logger *slog.Logger,
-	transport *opampconnection.Transport,
 ) *Controller {
 	ops := opampServer.New(&Logger{
 		logger: logger,
@@ -50,7 +51,7 @@ func NewController(
 
 	controller := &Controller{
 		logger:       logger,
-		transport:    transport,
+		connections:  connection.NewConnections(),
 		opampUsecase: opampUsecase,
 
 		enableCompression: false,
@@ -113,10 +114,6 @@ func (c *Controller) OnConnecting(req *http.Request) types.ConnectionResponse {
 		ConnectionCallbacks: types.ConnectionCallbacks{
 			OnConnected: func(ctx context.Context, conn types.Connection) {
 				c.opampUsecase.OnConnectedWithType(ctx, conn, isWebSocket)
-
-				if isWebSocket {
-					c.transport.Connected(conn.Connection())
-				}
 			},
 			OnMessage:              onMessage,
 			OnConnectionClose:      c.opampUsecase.OnConnectionClose,
@@ -148,13 +145,23 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 func (c *Controller) Handle(ctx *gin.Context) {
 	c.logger.Info("Handle", "message", "start")
 
-	if !c.transport.Accepting() {
+	if !c.connections.Accepting() {
 		ctx.Status(http.StatusServiceUnavailable)
 
 		return
 	}
 
-	c.handler(c.transport.WrapWriter(ctx.Writer), ctx.Request)
+	c.handler(c.connections.WrapWriter(ctx.Writer), ctx.Request)
+}
+
+// Shutdown rejects new requests and gracefully closes this controller's WebSockets.
+func (c *Controller) Shutdown(ctx context.Context, drainWindow time.Duration) error {
+	err := c.connections.Shutdown(ctx, drainWindow)
+	if err != nil {
+		return fmt.Errorf("shutdown OpAMP connections: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Controller) onClientCertificateMessage(

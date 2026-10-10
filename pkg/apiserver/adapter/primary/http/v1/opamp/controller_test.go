@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
-	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/opampconnection"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/v1/opamp"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
@@ -62,7 +60,7 @@ func TestController_ClientCertificateIdentity(t *testing.T) {
 	t.Parallel()
 
 	spy := &spyUsecase{}
-	controller := opamp.NewController(spy, slog.Default(), opampconnection.NewTransport())
+	controller := opamp.NewController(spy, slog.Default())
 	controller.RequireClientCertificate = true
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/opamp", nil)
 	assert.False(t, controller.OnConnecting(req).Accept)
@@ -108,7 +106,7 @@ func (s *spyUsecase) OnMessageResponseError(_ opamptypes.Connection, _ *protobuf
 func TestController_New_RoutesInfo(t *testing.T) {
 	t.Parallel()
 
-	controller := opamp.NewController(&spyUsecase{}, slog.Default(), opampconnection.NewTransport())
+	controller := opamp.NewController(&spyUsecase{}, slog.Default())
 	require.NotNil(t, controller)
 
 	routes := controller.RoutesInfo()
@@ -132,7 +130,7 @@ func TestController_OnConnecting(t *testing.T) {
 		t.Parallel()
 
 		spy := &spyUsecase{}
-		controller := opamp.NewController(spy, slog.Default(), opampconnection.NewTransport())
+		controller := opamp.NewController(spy, slog.Default())
 
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/opamp", nil)
 		require.NoError(t, err)
@@ -143,7 +141,7 @@ func TestController_OnConnecting(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.HTTPStatusCode)
 
 		// Invoke the OnConnected callback to exercise the closure body.
-		resp.ConnectionCallbacks.OnConnected(t.Context(), &callbackConnection{})
+		resp.ConnectionCallbacks.OnConnected(t.Context(), nil)
 		assert.Equal(t, 1, spy.onConnectedWithTypeCalls)
 		assert.True(t, spy.lastIsWebSocket)
 	})
@@ -152,7 +150,7 @@ func TestController_OnConnecting(t *testing.T) {
 		t.Parallel()
 
 		spy := &spyUsecase{}
-		controller := opamp.NewController(spy, slog.Default(), opampconnection.NewTransport())
+		controller := opamp.NewController(spy, slog.Default())
 
 		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/opamp", nil)
 		require.NoError(t, err)
@@ -160,7 +158,7 @@ func TestController_OnConnecting(t *testing.T) {
 		resp := controller.OnConnecting(req)
 		assert.True(t, resp.Accept)
 
-		resp.ConnectionCallbacks.OnConnected(t.Context(), &callbackConnection{})
+		resp.ConnectionCallbacks.OnConnected(t.Context(), nil)
 		assert.Equal(t, 1, spy.onConnectedWithTypeCalls)
 		assert.False(t, spy.lastIsWebSocket)
 	})
@@ -170,7 +168,7 @@ func TestController_Handle(t *testing.T) {
 	t.Parallel()
 
 	ctrlBase := testutil.NewBase(t).ForController()
-	controller := opamp.NewController(&spyUsecase{}, slog.Default(), opampconnection.NewTransport())
+	controller := opamp.NewController(&spyUsecase{}, slog.Default())
 	ctrlBase.SetupRouter(controller)
 
 	// A GET without a websocket upgrade is rejected by the opamp-go handler; the point is that
@@ -182,9 +180,3 @@ func TestController_Handle(t *testing.T) {
 
 	assert.NotEqual(t, http.StatusNotFound, recorder.Code)
 }
-
-type callbackConnection struct{}
-
-func (*callbackConnection) Connection() net.Conn                                 { return nil }
-func (*callbackConnection) Send(context.Context, *protobufs.ServerToAgent) error { return nil }
-func (*callbackConnection) Disconnect() error                                    { return nil }
