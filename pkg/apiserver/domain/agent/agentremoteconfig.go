@@ -63,7 +63,19 @@ type AgentRemoteConfigSpec struct {
 // AgentRemoteConfigResourceStatus contains the status of the agent remote config resource.
 type AgentRemoteConfigResourceStatus struct {
 	Conditions []model.Condition
+	// SchemaRefsSource is empty when the refs are absent or their source is unknown.
+	SchemaRefsSource SchemaRefsSource
 }
+
+// SchemaRefsSource identifies how the current schema references were assigned.
+type SchemaRefsSource string
+
+const (
+	// SchemaRefsSourceAuto indicates that the server selected compatible schemas.
+	SchemaRefsSourceAuto SchemaRefsSource = "auto"
+	// SchemaRefsSourceExplicit indicates that the caller selected the schemas.
+	SchemaRefsSourceExplicit SchemaRefsSource = "explicit"
+)
 
 // IsDeleted returns true if the agent remote config is marked as deleted.
 func (arc *AgentRemoteConfig) IsDeleted() bool {
@@ -84,7 +96,7 @@ func (arc *AgentRemoteConfig) MarkAsCreated(createdAt time.Time, createdBy strin
 
 // ApplyUpdate copies the mutable fields from incoming into the receiver while
 // preserving immutable identity and lifecycle state (Name, Namespace, CreatedAt,
-// DeletedAt, and Status conditions). Callers should load the stored config,
+// DeletedAt, and Status). Callers should load the stored config,
 // ApplyUpdate the client-supplied one onto it, and persist the receiver — this
 // keeps the identity intact and avoids forking a phantom record on update.
 func (arc *AgentRemoteConfig) ApplyUpdate(incoming *AgentRemoteConfig) {

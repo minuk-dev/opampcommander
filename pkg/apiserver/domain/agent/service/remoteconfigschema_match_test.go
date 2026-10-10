@@ -122,6 +122,7 @@ func TestAgentRemoteConfigService_AutoResolvesSchemaRefs(t *testing.T) {
 	created, err := arcSvc.CreateAgentRemoteConfig(t.Context(), config, "tester")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"contrib"}, created.Spec.SchemaRefs)
+	assert.Equal(t, agentmodel.SchemaRefsSourceAuto, created.Status.SchemaRefsSource)
 }
 
 // TestAgentRemoteConfigService_KeepsExplicitSchemaRefs verifies explicit SchemaRefs
@@ -142,6 +143,7 @@ func TestAgentRemoteConfigService_KeepsExplicitSchemaRefs(t *testing.T) {
 	created, err := arcSvc.CreateAgentRemoteConfig(t.Context(), config, "tester")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"pinned"}, created.Spec.SchemaRefs)
+	assert.Equal(t, agentmodel.SchemaRefsSourceExplicit, created.Status.SchemaRefsSource)
 }
 
 // TestAgentRemoteConfigService_SkipAnnotationBypassesAutoResolve verifies the
@@ -165,10 +167,12 @@ func TestAgentRemoteConfigService_SkipAnnotationBypassesAutoResolve(t *testing.T
 	config.Metadata.Attributes = agentmodel.Attributes{
 		agentmodel.SkipSchemaValidationAnnotation: "true",
 	}
+	config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceAuto
 
 	created, err := arcSvc.CreateAgentRemoteConfig(t.Context(), config, "tester")
 	require.NoError(t, err)
 	assert.Empty(t, created.Spec.SchemaRefs)
+	assert.Empty(t, created.Status.SchemaRefsSource)
 }
 
 // TestAgentRemoteConfigService_UpdateDoesNotAutoResolve verifies auto-resolution runs only
@@ -199,6 +203,7 @@ func TestAgentRemoteConfigService_UpdateDoesNotAutoResolve(t *testing.T) {
 	updated, err := arcSvc.UpdateAgentRemoteConfig(ctx, "default", "cfg", update)
 	require.NoError(t, err)
 	assert.Empty(t, updated.Spec.SchemaRefs)
+	assert.Empty(t, updated.Status.SchemaRefsSource)
 }
 
 // catalogOf builds a catalog of components known only by name.

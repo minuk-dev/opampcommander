@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -131,6 +132,14 @@ func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
 		return nil, fmt.Errorf("failed to get agent remote config for update: %w", err)
 	}
 
+	if !slices.Equal(existing.Spec.SchemaRefs, agentRemoteConfig.Spec.SchemaRefs) {
+		existing.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceExplicit
+	}
+
+	if len(agentRemoteConfig.Spec.SchemaRefs) == 0 {
+		existing.Status.SchemaRefsSource = ""
+	}
+
 	existing.ApplyUpdate(agentRemoteConfig)
 
 	updated, err := s.persistence.PutAgentRemoteConfig(ctx, existing)
@@ -202,7 +211,14 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 	ctx context.Context,
 	config *agentmodel.AgentRemoteConfig,
 ) {
-	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 || config.SkipSchemaValidation() {
+	config.Status.SchemaRefsSource = ""
+	if len(config.Spec.SchemaRefs) > 0 {
+		config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceExplicit
+
+		return
+	}
+
+	if s.schemaMatcher == nil || config.SkipSchemaValidation() {
 		return
 	}
 
@@ -220,5 +236,6 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 
 	if len(refs) > 0 {
 		config.Spec.SchemaRefs = refs
+		config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceAuto
 	}
 }
