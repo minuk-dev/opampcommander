@@ -178,14 +178,16 @@ func (opt *CommandOptions) listAllNamespaces(
 
 //nolint:lll
 type formattedAgentRemoteConfig struct {
-	Namespace   string            `json:"namespace"           short:"namespace"   text:"namespace"           yaml:"namespace"`
-	Name        string            `json:"name"                short:"name"        text:"name"                yaml:"name"`
-	Attributes  map[string]string `json:"attributes"          short:"-"           text:"-"                   yaml:"attributes"`
-	ContentType string            `json:"contentType"         short:"contentType" text:"contentType"         yaml:"contentType"`
-	CreatedAt   time.Time         `json:"createdAt"           short:"createdAt"   text:"createdAt"           yaml:"createdAt"`
-	CreatedBy   string            `json:"createdBy"           short:"createdBy"   text:"createdBy"           yaml:"createdBy"`
-	DeletedAt   *time.Time        `json:"deletedAt,omitempty" short:"-"           text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
-	DeletedBy   *string           `json:"deletedBy,omitempty" short:"-"           text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
+	Namespace        string            `json:"namespace"           short:"namespace"        text:"namespace"           yaml:"namespace"`
+	Name             string            `json:"name"                short:"name"             text:"name"                yaml:"name"`
+	Attributes       map[string]string `json:"attributes"          short:"-"                text:"-"                   yaml:"attributes"`
+	SchemaRefs       []string          `json:"schemaRefs"          short:"schemaRefs"       text:"schemaRefs"          yaml:"schemaRefs"`
+	SchemaRefsSource string            `json:"schemaRefsSource"    short:"schemaRefsSource" text:"schemaRefsSource"    yaml:"schemaRefsSource"`
+	ContentType      string            `json:"contentType"         short:"contentType"      text:"contentType"         yaml:"contentType"`
+	CreatedAt        time.Time         `json:"createdAt"           short:"createdAt"        text:"createdAt"           yaml:"createdAt"`
+	CreatedBy        string            `json:"createdBy"           short:"createdBy"        text:"createdBy"           yaml:"createdBy"`
+	DeletedAt        *time.Time        `json:"deletedAt,omitempty" short:"-"                text:"deletedAt,omitempty" yaml:"deletedAt,omitempty"`
+	DeletedBy        *string           `json:"deletedBy,omitempty" short:"-"                text:"deletedBy,omitempty" yaml:"deletedBy,omitempty"`
 }
 
 func extractConditionInfo(conditions []v1.Condition) (time.Time, string, *time.Time, *string) {
@@ -229,14 +231,24 @@ func (opt *CommandOptions) toFormattedAgentRemoteConfig(
 		createdAt = condCreatedAt
 	}
 
+	schemaRefsSource := "none"
+	if len(agentRemoteConfig.Spec.SchemaRefs) > 0 {
+		schemaRefsSource = agentRemoteConfig.Status.SchemaRefsSource
+		if schemaRefsSource == "" {
+			schemaRefsSource = "unknown"
+		}
+	}
+
 	return formattedAgentRemoteConfig{
-		Namespace:   agentRemoteConfig.Metadata.Namespace,
-		Name:        agentRemoteConfig.Metadata.Name,
-		Attributes:  agentRemoteConfig.Metadata.Attributes,
-		ContentType: agentRemoteConfig.Spec.ContentType,
-		CreatedAt:   createdAt,
-		CreatedBy:   createdBy,
-		DeletedAt:   deletedAt,
-		DeletedBy:   deletedBy,
+		Namespace:        agentRemoteConfig.Metadata.Namespace,
+		Name:             agentRemoteConfig.Metadata.Name,
+		Attributes:       agentRemoteConfig.Metadata.Attributes,
+		ContentType:      agentRemoteConfig.Spec.ContentType,
+		SchemaRefs:       agentRemoteConfig.Spec.SchemaRefs,
+		SchemaRefsSource: schemaRefsSource,
+		CreatedAt:        createdAt,
+		CreatedBy:        createdBy,
+		DeletedAt:        deletedAt,
+		DeletedBy:        deletedBy,
 	}
 }
