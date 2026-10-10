@@ -4,7 +4,8 @@ go 1.26.0
 
 require (
 	github.com/awnumar/memguard v0.23.0
-	github.com/casbin/casbin/v2 v2.135.0
+	github.com/casbin/casbin/v2 v2.71.1
+	github.com/casbin/casbin/v3 v3.10.0
 	github.com/casbin/mongodb-adapter/v4 v4.3.0
 	github.com/cloudevents/sdk-go/observability/opentelemetry/v2 v2.16.2
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
@@ -59,6 +60,7 @@ require (
 require (
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/awnumar/memcall v0.4.0 // indirect
