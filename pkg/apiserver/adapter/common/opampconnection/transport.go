@@ -1,3 +1,4 @@
+// Package opampconnection adapts OpAMP connection admission and shutdown.
 package opampconnection
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/open-telemetry/opamp-go/server/types"
 
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/websocketutil"
 )
 
 var _ agentport.ConnectionTransportPort = (*Transport)(nil)
@@ -23,7 +25,7 @@ var errUnmanagedConnection = errors.New("connection has no managed OpAMP WebSock
 type Transport struct {
 	mu       sync.Mutex
 	stopping bool
-	pending  map[*connection]struct{}
+	pending  map[*websocketutil.Conn]struct{}
 	admitted chan struct{}
 }
 
@@ -31,7 +33,7 @@ type Transport struct {
 func NewTransport() *Transport {
 	return &Transport{
 		mu: sync.Mutex{}, stopping: false,
-		pending: make(map[*connection]struct{}), admitted: make(chan struct{}),
+		pending: make(map[*websocketutil.Conn]struct{}), admitted: make(chan struct{}),
 	}
 }
 
@@ -50,7 +52,7 @@ func (t *Transport) WrapWriter(writer http.ResponseWriter) http.ResponseWriter {
 
 // Connected completes admission after the application has registered the session.
 func (t *Transport) Connected(conn net.Conn) {
-	managed, ok := conn.(*connection)
+	managed, ok := conn.(*websocketutil.Conn)
 	if ok {
 		t.connected(managed)
 	}
@@ -73,7 +75,7 @@ func (t *Transport) StopAccepting(ctx context.Context) error {
 	case <-ctx.Done():
 		t.mu.Lock()
 
-		pending := make([]*connection, 0, len(t.pending))
+		pending := make([]*websocketutil.Conn, 0, len(t.pending))
 		for conn := range t.pending {
 			pending = append(pending, conn)
 		}
@@ -94,18 +96,12 @@ func (t *Transport) CloseConnection(ctx context.Context, id any) error {
 		return errUnmanagedConnection
 	}
 
-	managed, ok := conn.Connection().(*connection)
+	managed, ok := conn.Connection().(*websocketutil.Conn)
 	if !ok {
 		return errUnmanagedConnection
 	}
 
-	stop := context.AfterFunc(ctx, func() { _ = managed.Close() })
-	defer stop()
-
-	managed.requestClose()
-	<-managed.closed
-
-	err := ctx.Err()
+	err := managed.CloseGracefully(ctx)
 	if err != nil {
 		return fmt.Errorf("close OpAMP connection: %w", err)
 	}
@@ -113,7 +109,7 @@ func (t *Transport) CloseConnection(ctx context.Context, id any) error {
 	return nil
 }
 
-func (t *Transport) connected(conn *connection) {
+func (t *Transport) connected(conn *websocketutil.Conn) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -147,8 +143,10 @@ func (w *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("hijack OpAMP connection: %w", err)
 	}
-	//exhaustruct:ignore
-	managed := &connection{Conn: conn, transport: transport, handshaking: true, closed: make(chan struct{})}
+
+	var managed *websocketutil.Conn
+
+	managed = websocketutil.NewServerConn(conn, func() { transport.connected(managed) })
 	transport.pending[managed] = struct{}{}
 
 	return managed, buffer, nil

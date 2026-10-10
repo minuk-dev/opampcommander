@@ -1,4 +1,4 @@
-package opampconnection
+package websocketutil
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/open-telemetry/opamp-go/server/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,16 +35,15 @@ func (c *recordingConnection) Close() error {
 	return nil
 }
 
-func TestDrainConnection_Write(t *testing.T) {
+func TestConn_Write(t *testing.T) {
 	t.Parallel()
 
 	for _, size := range []int{10, 4096, 100000} {
 		t.Run(strconv.Itoa(size), func(t *testing.T) {
 			t.Parallel()
 
-			transport := NewTransport()
 			raw := &recordingConnection{closed: make(chan struct{})}
-			conn := &connection{Conn: raw, transport: transport, closed: make(chan struct{})}
+			conn := &Conn{Conn: raw, closed: make(chan struct{})}
 			payload := bytes.Repeat([]byte("a"), size)
 
 			header := []byte{0x82, byte(size)}
@@ -97,20 +95,18 @@ func TestFrameSize_RejectsShortHeaders(t *testing.T) {
 	}
 }
 
-func TestTransport_CloseConnectionUnblocksBlockedWrite(t *testing.T) {
+func TestConn_CloseGracefullyUnblocksBlockedWrite(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
-		transport := NewTransport()
-
 		server, peer := net.Pipe()
 		defer func() { _ = peer.Close() }()
 
-		conn := &connection{Conn: server, transport: transport, closed: make(chan struct{})}
+		conn := &Conn{Conn: server, closed: make(chan struct{})}
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		// The peer never reads, so writing the close frame blocks until force-close.
-		err := transport.CloseConnection(ctx, &testConnection{netConn: conn})
+		err := conn.CloseGracefully(ctx)
 		require.ErrorIs(t, err, context.DeadlineExceeded)
 
 		select {
@@ -121,12 +117,25 @@ func TestTransport_CloseConnectionUnblocksBlockedWrite(t *testing.T) {
 	})
 }
 
-type connectionMethods = types.Connection
+func TestConn_CloseGracefullyAfterUpgrade(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		raw := &recordingConnection{closed: make(chan struct{})}
+		closeCalls := 0
+		conn := NewServerConn(raw, func() { closeCalls++ })
+		handshake := []byte("HTTP/1.1 101 Switching Protocols\r\n\r\n")
+		_, err := conn.Write(handshake)
+		require.NoError(t, err)
 
-type testConnection struct {
-	connectionMethods
+		done := make(chan error, 1)
+		go func() { done <- conn.CloseGracefully(t.Context()) }()
 
-	netConn net.Conn
+		synctest.Wait()
+		assert.Equal(t, append(handshake, []byte("\x88\x02\x03\xe9")...), raw.buffer.Bytes())
+		assert.Zero(t, closeCalls, "wait for the peer before closing")
+		require.NoError(t, conn.Close())
+		require.NoError(t, <-done)
+		require.NoError(t, conn.Close())
+		assert.Equal(t, 1, closeCalls, "onClose must run only once")
+	})
 }
-
-func (c *testConnection) Connection() net.Conn { return c.netConn }

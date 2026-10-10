@@ -1,20 +1,21 @@
-// Package opampconnection adapts OpAMP WebSocket transport operations.
-package opampconnection
+// Package websocketutil provides server-side WebSocket transport helpers.
+package websocketutil
 
 import (
+	"context"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"net"
 	"sync"
 )
 
-// opamp-go exposes only an abrupt Disconnect. Guard transport writes so the
-// shutdown close frame cannot split a data frame, including gorilla's two-write
-// large-payload path. Control frames may appear between message fragments.
-type connection struct {
+// Conn guards server writes so a close frame cannot split a data frame,
+// including gorilla's two-write large-payload path.
+type Conn struct {
 	net.Conn
 
-	transport   *Transport
+	onClose     func()
 	mu          sync.Mutex
 	remaining   uint64
 	handshaking bool
@@ -24,7 +25,32 @@ type connection struct {
 	closed      chan struct{}
 }
 
-func (c *connection) Write(data []byte) (int, error) {
+// NewServerConn wraps a hijacked connection before its HTTP upgrade response is
+// written. onClose, if non-nil, runs once when the underlying connection closes.
+func NewServerConn(conn net.Conn, onClose func()) *Conn {
+	//exhaustruct:ignore
+	return &Conn{Conn: conn, onClose: onClose, handshaking: true, closed: make(chan struct{})}
+}
+
+// CloseGracefully sends Going Away, waits for the caller's read loop to Close
+// after the peer's reply, and force-closes when ctx expires, including blocked writes.
+func (c *Conn) CloseGracefully(ctx context.Context) error {
+	stop := context.AfterFunc(ctx, func() { _ = c.Close() })
+	defer stop()
+
+	c.requestClose()
+	<-c.closed
+
+	err := ctx.Err()
+	if err != nil {
+		return fmt.Errorf("close WebSocket connection: %w", err)
+	}
+
+	return nil
+}
+
+// Write serializes writes and inserts a requested close at a frame boundary.
+func (c *Conn) Write(data []byte) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -55,19 +81,22 @@ func (c *connection) Write(data []byte) (int, error) {
 	return count, err //nolint:wrapcheck // Preserve net.Conn's Write contract.
 }
 
-func (c *connection) Close() error {
+// Close immediately closes the underlying connection and invokes onClose once.
+func (c *Conn) Close() error {
 	var err error
 
 	c.once.Do(func() {
 		err = c.Conn.Close()
-		c.transport.connected(c)
+		if c.onClose != nil {
+			c.onClose()
+		}
 		close(c.closed)
 	})
 
 	return err //nolint:wrapcheck // Preserve net.Conn's Close contract.
 }
 
-func (c *connection) requestClose() {
+func (c *Conn) requestClose() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -78,7 +107,7 @@ func (c *connection) requestClose() {
 }
 
 // writeClose runs under mu. Only the drain deadline force-closes an unresponsive peer.
-func (c *connection) writeClose() {
+func (c *Conn) writeClose() {
 	if c.closeSent {
 		return
 	}
@@ -94,7 +123,7 @@ func (c *connection) writeClose() {
 //nolint:mnd // RFC 6455 frame header lengths and length markers.
 func frameSize(data []byte) (uint64, error) {
 	// shortcut: gorilla writes each complete server frame header in its first Write;
-	// remove this transport guard when opamp-go exposes a control-frame API.
+	// use the WebSocket library's control-frame API directly when available.
 	if len(data) < 2 {
 		return 0, io.ErrShortBuffer
 	}
