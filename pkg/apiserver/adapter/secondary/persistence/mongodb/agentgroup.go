@@ -112,6 +112,28 @@ func (a *AgentGroupMongoAdapter) ListAgentGroups(
 	return a.listWithConditions(ctx, options, conditions...)
 }
 
+// ListAgentGroupsForAgent implements agentport.AgentGroupPersistencePort.
+func (a *AgentGroupMongoAdapter) ListAgentGroupsForAgent(
+	ctx context.Context, agent *agentmodel.Agent, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	conditions, err := namespaceCondition(agent.Metadata.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	options, err = model.AgentGroupMembershipListOptions(options)
+	if err != nil {
+		return nil, fmt.Errorf("membership list options: %w", err)
+	}
+
+	conditions = append(conditions, bson.M{"$expr": bson.M{"$and": bson.A{
+		selectorSubset("$spec.selector.identifyingattributes", agent.Metadata.Description.IdentifyingAttributes),
+		selectorSubset("$spec.selector.nonidentifyingattributes", agent.Metadata.Description.NonIdentifyingAttributes),
+	}}})
+
+	return a.listWithConditions(ctx, options, conditions...)
+}
+
 // ListAllAgentGroups implements agentport.AgentGroupPersistencePort.
 func (a *AgentGroupMongoAdapter) ListAllAgentGroups(
 	ctx context.Context, options *model.ListOptions,
@@ -290,4 +312,16 @@ func (a *AgentGroupMongoAdapter) listWithConditions(
 		Continue:           resp.Continue,
 		RemainingItemCount: resp.RemainingItemCount,
 	}, nil
+}
+
+func selectorSubset(field string, attributes map[string]string) bson.M {
+	pairs := make(bson.A, 0, len(attributes))
+	for key, value := range attributes {
+		pairs = append(pairs, bson.D{{Key: "k", Value: key}, {Key: "v", Value: value}})
+	}
+
+	return bson.M{"$setIsSubset": bson.A{
+		bson.M{"$objectToArray": bson.M{"$ifNull": bson.A{field, bson.D{}}}},
+		bson.M{"$literal": pairs},
+	}}
 }

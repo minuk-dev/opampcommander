@@ -1939,3 +1939,21 @@ func TestBuildOtherConnectionsOmitsUnresolvedCertificates(t *testing.T) {
 	assert.NotContains(t, connections, "missing")
 	certs.AssertExpectations(t)
 }
+
+func (m *mockAgentGroupPersistence) ListAgentGroupsForAgent(
+	ctx context.Context,
+	agent *agentmodel.Agent,
+	options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	args := m.Called(ctx, agent, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck
+	}
+
+	result, ok := args.Get(0).(*model.ListResponse[*agentmodel.AgentGroup])
+	if !ok {
+		return nil, errUnexpectedType
+	}
+
+	return result, args.Error(1) //nolint:wrapcheck
+}

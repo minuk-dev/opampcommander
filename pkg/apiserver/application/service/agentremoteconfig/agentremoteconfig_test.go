@@ -458,3 +458,9 @@ func TestService_DeleteAgentRemoteConfig(t *testing.T) {
 		mockARC.AssertExpectations(t)
 	})
 }
+
+func (*stubAgentGroupUsecase) ListAgentGroupsForAgent(
+	context.Context, *agentmodel.Agent, *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	return nil, nil //nolint:nilnil // stub
+}

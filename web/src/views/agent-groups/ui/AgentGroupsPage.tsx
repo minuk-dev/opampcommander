@@ -2,7 +2,8 @@
 
 import { Eye, ListChecks, Pencil, Plus, RefreshCw, Trash2, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Alert,
   Badge,
@@ -58,7 +59,8 @@ const AGENT_GROUP_COLUMNS: ColumnConfig[] = [
   { id: 'created', label: 'Created' },
 ];
 
-export default function AgentGroupsPage() {
+function AgentGroupsInner() {
+  const agent = useSearchParams().get('agent');
   const { namespace } = useNamespace();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<AgentGroup | null>(null);
@@ -78,7 +80,9 @@ export default function AgentGroupsPage() {
   // prefix — both answered by the datastore, so the paginated total stays in
   // step with the rows.
   const pagination = useCursorPagination<AgentGroup>(
-    `/api/v1/namespaces/${namespace}/agentgroups`,
+    agent
+      ? `/api/v1/namespaces/${namespace}/agents/${encodeURIComponent(agent)}/agentgroups`
+      : `/api/v1/namespaces/${namespace}/agentgroups`,
     { query: listFilterQuery(filters) },
   );
   const { items: groups, isLoading: loading, error: fetchError, refresh } = pagination;
@@ -111,7 +115,7 @@ export default function AgentGroupsPage() {
     <div>
       <PageHeader
         title="Agent Groups"
-        subtitle={`Namespace: ${namespace}`}
+        subtitle={`Namespace: ${namespace}${agent ? ` · Agent: ${agent}` : ''}`}
         actions={
           <>
             <Label className="flex cursor-pointer items-center gap-1.5">
@@ -303,5 +307,13 @@ export default function AgentGroupsPage() {
         onConfirm={onDelete}
       />
     </div>
+  );
+}
+
+export default function AgentGroupsPage() {
+  return (
+    <Suspense fallback={null}>
+      <AgentGroupsInner />
+    </Suspense>
   );
 }
