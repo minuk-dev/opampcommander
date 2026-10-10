@@ -207,6 +207,7 @@ linters:
             - github.com/spf13/afero
             - github.com/spf13/cobra
             - github.com/gin-gonic/gin
+            - github.com/gorilla/websocket
             - github.com/stretchr/testify/assert
             - github.com/stretchr/testify/require
             - github.com/stretchr/testify/mock

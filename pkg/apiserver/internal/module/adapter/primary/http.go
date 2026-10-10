@@ -46,6 +46,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/healthcheck"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -130,13 +131,23 @@ func newOpAMPController(
 }
 
 // NewHTTPServer creates a new HTTP server instance.
+//
+//nolint:funlen // Registers serving and graceful shutdown in one lifecycle hook.
 func NewHTTPServer(
 	lifecycle fx.Lifecycle,
 	engine *gin.Engine,
 	settings *config.ServerSettings,
 	logger *slog.Logger,
 	connContext func(context.Context, net.Conn) context.Context,
-) *http.Server {
+	opampController *opamp.Controller,
+	health *healthcheck.HealthHelper,
+) (*http.Server, error) {
+	settings.Shutdown = settings.Shutdown.WithDefaults()
+
+	err := settings.Shutdown.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid shutdown configuration: %w", err)
+	}
 	//exhaustruct:ignore
 	srv := &http.Server{
 		ReadTimeout: DefaultHTTPReadTimeout,
@@ -182,11 +193,18 @@ func NewHTTPServer(
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			return srv.Shutdown(ctx)
+			ctx, cancel := context.WithTimeout(ctx, settings.Shutdown.Timeout)
+			defer cancel()
+
+			health.BeginShutdown()
+
+			drainErr := opampController.Drain(ctx, settings.Shutdown.DrainWindow)
+
+			return errors.Join(drainErr, srv.Shutdown(ctx))
 		},
 	})
 
-	return srv
+	return srv, nil
 }
 
 func loadOpAMPTLS(settings config.OpAMPTLSSettings) (*tls.Config, error) {

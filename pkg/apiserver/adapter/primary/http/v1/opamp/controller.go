@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"log/slog"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -20,6 +21,10 @@ import (
 // It handles the connection and message processing for the OPAMP protocol.
 type Controller struct {
 	logger *slog.Logger
+
+	mu          sync.Mutex
+	draining    bool
+	connections map[*drainConnection]struct{}
 
 	handler     opampServer.HTTPHandlerFunc
 	ConnContext opampServer.ConnContext
@@ -46,6 +51,9 @@ func NewController(
 
 	controller := &Controller{
 		logger:       logger,
+		mu:           sync.Mutex{},
+		draining:     false,
+		connections:  make(map[*drainConnection]struct{}),
 		opampUsecase: opampUsecase,
 
 		enableCompression: false,
@@ -138,7 +146,17 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 // Handle is a method that handles the HTTP request.
 func (c *Controller) Handle(ctx *gin.Context) {
 	c.logger.Info("Handle", "message", "start")
-	c.handler(ctx.Writer, ctx.Request)
+	c.mu.Lock()
+	draining := c.draining
+	c.mu.Unlock()
+
+	if draining {
+		ctx.Status(http.StatusServiceUnavailable)
+
+		return
+	}
+
+	c.handler(&drainResponseWriter{ResponseWriter: ctx.Writer, controller: c}, ctx.Request)
 }
 
 func (c *Controller) onClientCertificateMessage(

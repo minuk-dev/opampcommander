@@ -33,6 +33,26 @@ serverId: ""               # defaults to hostname; also settable via SERVER_ID
 serviceName: opampcommander
 ```
 
+### Graceful shutdown
+
+```yaml
+shutdown:
+  drainWindow: 10s
+  timeout: 30s
+```
+
+On shutdown, `/readyz` returns 503 and the OpAMP endpoint rejects new connections.
+Existing WebSockets receive a Going Away (1001) close frame at randomized times
+within `drainWindow`. The server waits for close handshakes, then shuts down the
+HTTP listener and drains REST requests. At the total `timeout`, any remaining
+WebSockets are force-closed. Zero values select the defaults above; the drain
+window must be nonnegative and shorter than the timeout. The same settings are
+available as `--shutdown.drainWindow`, `--shutdown.timeout`,
+`SHUTDOWN_DRAINWINDOW`, and `SHUTDOWN_TIMEOUT`.
+
+Set the pod's `terminationGracePeriodSeconds` longer than `shutdown.timeout` so
+Kubernetes leaves enough time for this shutdown sequence.
+
 ### OpAMP client TLS and CA rotation
 
 `opampTLS` enables HTTPS for the whole API. Only `/api/v1/opamp` requires an
