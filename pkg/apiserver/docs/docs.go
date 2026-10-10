@@ -915,6 +915,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/namespaces/{namespace}": {
+            "patch": {
+                "description": "JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.",
+                "consumes": [
+                    "application/merge-patch+json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "namespace"
+                ],
+                "summary": "Patch Namespace",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Merge patch with optional metadata.resourceVersion",
+                        "name": "patch",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Namespace"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported Media Type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/namespaces/{namespace}/agentgroups": {
             "get": {
                 "description": "Retrieves a list of agent groups with pagination options.",
@@ -1240,6 +1309,80 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/ErrorModel"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "description": "JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.",
+                "consumes": [
+                    "application/merge-patch+json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentgroup"
+                ],
+                "summary": "Patch AgentGroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Merge patch with optional metadata.resourceVersion",
+                        "name": "patch",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentGroup"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported Media Type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1582,6 +1725,80 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "patch": {
+                "description": "JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.",
+                "consumes": [
+                    "application/merge-patch+json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentpackage"
+                ],
+                "summary": "Patch AgentPackage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Merge patch with optional metadata.resourceVersion",
+                        "name": "patch",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentPackage"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported Media Type",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
             }
         },
         "/api/v1/namespaces/{namespace}/agentremoteconfigs": {
@@ -1658,6 +1875,82 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/namespaces/{namespace}/agentremoteconfigs/{name}": {
+            "patch": {
+                "description": "JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.",
+                "consumes": [
+                    "application/merge-patch+json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agentremoteconfig"
+                ],
+                "summary": "Patch AgentRemoteConfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Namespace",
+                        "name": "namespace",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Merge patch with optional metadata.resourceVersion",
+                        "name": "patch",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AgentRemoteConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "415": {
+                        "description": "Unsupported Media Type",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -2022,7 +2315,7 @@ const docTemplate = `{
         },
         "/api/v1/namespaces/{namespace}/agents/{id}/agentgroups": {
             "get": {
-                "description": "Retrieve the agent groups in the namespace whose selector matches the given agent.",
+                "description": "Retrieve the agent groups in the namespace whose selector matches the given agent.\nPages use insertion-key order and live membership, not a snapshot across requests.\nPass continue unchanged and stop when remainingItemCount is zero.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2047,6 +2340,51 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size; 0 uses the default of 50",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agent groups",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent groups",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: metadata.namespace",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan; pass name= to bound it)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4843,6 +5181,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/Condition"
                     }
+                },
+                "schemaRefsSource": {
+                    "description": "SchemaRefsSource is server-managed; omitted when refs are absent or their source is unknown.",
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "explicit"
+                    ]
                 }
             }
         },

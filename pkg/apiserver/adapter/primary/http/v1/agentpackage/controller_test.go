@@ -88,7 +88,8 @@ func TestAgentPackageController_List(t *testing.T) {
 				},
 			},
 		}
-		usecase.EXPECT().ListAgentPackages(mock.Anything, "default", mock.Anything).Return(&v1.ListResponse[v1.AgentPackage]{
+		usecase.EXPECT().ListAgentPackages(mock.Anything, "default",
+			mock.Anything).Return(&v1.ListResponse[v1.AgentPackage]{
 			Kind:       "AgentPackage",
 			APIVersion: "v1",
 			Metadata: v1.ListMeta{
@@ -484,7 +485,8 @@ func TestAgentPackageController_Delete(t *testing.T) {
 	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/"+name+"?resourceVersion=1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete,
+		testBaseURL+"/"+name+"?resourceVersion=1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNoContent, recorder.Code)
@@ -502,7 +504,8 @@ func TestAgentPackageController_Delete_NotFound(t *testing.T) {
 		mock.Anything, mock.Anything, mock.Anything).Return(model.ErrResourceNotExist)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something?resourceVersion=1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete,
+		testBaseURL+"/something?resourceVersion=1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -516,10 +519,12 @@ func TestAgentPackageController_Delete_InternalError(t *testing.T) {
 	ctrlBase.SetupRouter(controller)
 	router := ctrlBase.Router
 
-	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(assert.AnError)
+	usecase.EXPECT().DeleteAgentPackage(mock.Anything, mock.Anything, mock.Anything,
+		mock.Anything).Return(assert.AnError)
 
 	recorder := httptest.NewRecorder()
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete, testBaseURL+"/something?resourceVersion=1", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodDelete,
+		testBaseURL+"/something?resourceVersion=1", nil)
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
@@ -599,4 +604,56 @@ func assertHTTPStatus(t *testing.T, err error, status int) {
 	var responseErr *client.ResponseError
 	require.ErrorAs(t, err, &responseErr)
 	require.Equal(t, status, responseErr.StatusCode)
+}
+
+func TestAgentPackageController_MergePatch(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	base := testutil.NewBase(t).ForController()
+	domain := agentservice.NewAgentPackageService(inmemory.NewAgentPackageRepository())
+	svc := agentpackagesvc.NewAgentPackageService(domain, base.Logger)
+	base.SetupRouter(agentpackage.NewController(svc, base.Logger))
+
+	server := httptest.NewServer(base.Router)
+	defer server.Close()
+
+	cli := client.New(server.URL).AgentPackageService
+	_, err := cli.CreateAgentPackage(ctx, "default", &v1.AgentPackage{
+		Metadata: v1.AgentPackageMetadata{Name: "pkg", Namespace: "default"},
+		Spec:     v1.AgentPackageSpec{Version: "v1", DownloadURL: "https://example.com/package"},
+	})
+	require.NoError(t, err)
+
+	body := []byte(`{"metadata":{"resourceVersion":"1"},"spec":{"version":"v2"}}`)
+	updated, err := cli.PatchAgentPackage(ctx, "default", "pkg", body)
+	require.NoError(t, err)
+	require.Equal(t, "v2", updated.Spec.Version)
+	require.Equal(t, "https://example.com/package", updated.Spec.DownloadURL)
+	require.EqualValues(t, 2, updated.Metadata.ResourceVersion)
+	updated, err = cli.PatchAgentPackage(ctx, "default", "pkg", body)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, updated.Metadata.ResourceVersion)
+
+	_, err = cli.PatchAgentPackage(ctx, "default", "pkg",
+		[]byte(`{"metadata":{"resourceVersion":"1"},"spec":{"version":"v3"}}`))
+	assertHTTPStatus(t, err, http.StatusConflict)
+
+	for _, body := range []string{`null`, `{"status":{}}`, `{"metadata":{"resourceVersion":null}}`,
+		`{"spec":{"unknown":true}}`} {
+		_, err = cli.PatchAgentPackage(ctx, "default", "pkg", []byte(body))
+		assertHTTPStatus(t, err, http.StatusBadRequest)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequestWithContext(ctx, http.MethodPatch, "/api/v1/namespaces/default/agentpackages/pkg",
+		strings.NewReader(`{}`))
+	request.Header.Set("Content-Type", "application/json")
+	base.Router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusUnsupportedMediaType, recorder.Code)
+	require.Equal(t, "application/merge-patch+json", recorder.Header().Get("Accept-Patch"))
+	require.NoError(t, cli.DeleteAgentPackage(ctx, "default", "pkg", 2))
+	_, err = cli.PatchAgentPackage(ctx, "default", "pkg", []byte(`{}`))
+	assertHTTPStatus(t, err, http.StatusNotFound)
+	_, err = cli.PatchAgentPackage(ctx, "default", "missing", []byte(`{}`))
+	assertHTTPStatus(t, err, http.StatusNotFound)
 }

@@ -159,6 +159,7 @@ func buildServerSettings(
 	serverID string, serverPort, managementPort int, mongoURI, databaseName string,
 ) config.ServerSettings {
 	return config.ServerSettings{
+		Shutdown: config.ShutdownSettings{}.WithDefaults(),
 		Address:  fmt.Sprintf("0.0.0.0:%d", serverPort),
 		OpAMPTLS: config.OpAMPTLSSettings{},
 		ServerID: agentmodel.ServerID(serverID),

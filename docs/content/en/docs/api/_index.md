@@ -322,3 +322,44 @@ format:
 - `401 Unauthorized` — missing or invalid authentication
 - `404 Not Found` — resource not found
 - `500 Internal Server Error` — server error
+
+### Agent-to-AgentGroup membership
+
+`GET /api/v1/namespaces/{namespace}/agents/{id}/agentgroups` accepts the common
+list options: `limit`, `continue`, `includeDeleted`, `labelSelector`,
+`fieldSelector` (`metadata.namespace`), `name`, and `nameContains`. Filters describe
+AgentGroups; the agent must exist in the requested namespace or the response is
+404. `limit` defaults to 50 (also when 0), accepts 1–1000, and rejects negative or
+larger values with 400. Consumers that previously relied on an unlimited response
+must follow the cursor to retrieve every matching group.
+
+Matching happens in the read adapter before pagination. Each response contains at
+most one page of matching groups and an exact `remainingItemCount` for matching
+groups after that page. Per-group live statistics are computed only for returned
+groups. The page size bounds returned/materialized groups, not rows examined:
+reverse selector matching and exact counting may scan the remaining namespace
+inventory. Query-plan/count budgets remain tracked in #685; no membership
+projection is required by this read contract.
+
+Pages follow the common insertion-key order (ascending MongoDB `_id`, increasing
+in-memory insertion sequence), rather than group priority or name. Updates retain
+the key. Treat `continue` as an opaque value and pass it back unchanged; it is
+non-empty for every non-empty page, including the last. Stop when
+`remainingItemCount` is 0. Resuming after a deleted anchor continues strictly after
+its insertion key. An invalid cursor returns 400.
+
+Traversal is a live ordered read, not a snapshot across requests: with unchanged
+agent attributes, group selectors, and filters, stable groups appear exactly once
+in key order. Inserts after the cursor can appear on later pages; deletions and
+selector/attribute changes can remove or introduce memberships. A newly matching
+group before the cursor requires restarting from the first page. Counts apply to
+the current page read and can change between requests. Keep the namespace, agent,
+and filters fixed during traversal; cursors are currently storage-specific and
+not bound to these inputs. Opaque encoding/filter binding is tracked in #596.
+
+The Go client's `ListAgentGroupsByAgent` accepts the same `ListOption` values as
+other list methods. `opampctl get agentgroup --agent <uid> -n <namespace>` follows
+pages and streams output (JSON is one array, YAML one sequence; text/short output
+has a header per page). Cancellation or a later-page error can leave partial
+output. In the web UI, an agent's **Agent groups** link opens the existing paginated
+group table, with filters and Previous/Next controls.

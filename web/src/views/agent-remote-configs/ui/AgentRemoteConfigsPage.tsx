@@ -9,7 +9,11 @@ import { TimeDisplay } from '@shared/preferences';
 import { api } from '@shared/api';
 import { useToast } from '@shared/ui';
 import { reconcileResource } from '@features/reconcile';
-import type { AgentRemoteConfig } from '@entities/agent-remote-config';
+import {
+  type AgentRemoteConfig,
+  schemaRefsSource,
+  skipsSchemaValidation,
+} from '@entities/agent-remote-config';
 
 // Lazy-loaded: none of these dialogs is needed to render the list, and the
 // config editor pulls in the highlighter and diff chunks on top.
@@ -21,8 +25,7 @@ const ApplyToGroupDialog = dynamic(
   () => import('@features/apply-remote-config/ui/ApplyToGroupDialog'),
 );
 
-// Raw editing stays available for fields the form does not model (schemaRefs
-// today) and for pasting a whole manifest.
+// Raw editing stays available for pasting a whole manifest.
 interface RawTarget {
   row: AgentRemoteConfig;
   refresh: () => void;
@@ -82,6 +85,18 @@ export default function AgentRemoteConfigsPage() {
         ]}
         columns={[
           { header: 'Name', render: (c) => c.metadata.name },
+          {
+            header: 'Schema references',
+            render: (c) => (
+              <div className="min-w-40">
+                <p>{c.spec.schemaRefs?.join(', ') || '—'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {schemaRefsSource(c)}
+                  {skipsSchemaValidation(c) ? ' · Validation skipped' : ''}
+                </p>
+              </div>
+            ),
+          },
           { header: 'Content type', render: (c) => c.spec.contentType || '-' },
           {
             header: 'Preview',

@@ -32,7 +32,8 @@ type CommandOption struct {
 		KeyFile  string `mapstructure:"keyFile"  secret:"true"`
 		CAFile   string `mapstructure:"caFile"`
 	} `mapstructure:"opampTLS"`
-	ServerID string `mapstructure:"serverId"`
+	ServerID string                     `mapstructure:"serverId"`
+	Shutdown appconfig.ShutdownSettings `mapstructure:"shutdown"`
 	Database struct {
 		Type           string        `mapstructure:"type"`
 		Endpoints      []string      `mapstructure:"endpoints"`
@@ -197,6 +198,12 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&opt.configFilename, "config", "",
 		"config file (default is $HOME/.config/opampcommander/apiserver/config.yaml)")
 	cmd.PersistentFlags().String("address", "localhost:8080", "server address")
+
+	shutdownDefaults := appconfig.ShutdownSettings{}.WithDefaults()
+	cmd.PersistentFlags().Duration("shutdown.drainWindow", shutdownDefaults.DrainWindow,
+		"window over which OpAMP WebSocket closes are staggered")
+	cmd.PersistentFlags().Duration("shutdown.timeout", shutdownDefaults.Timeout,
+		"total graceful shutdown timeout, including OpAMP drain")
 	cmd.PersistentFlags().String("serverId", "", "server ID (default is hostname, can be overridden by SERVER_ID env var)")
 	cmd.PersistentFlags().String("database.type", "inmemory", "database type (inmemory, mongodb)")
 	cmd.PersistentFlags().StringSlice("database.endpoints", []string{"mongodb://localhost:27017"}, "database endpoints")
@@ -371,6 +378,12 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 	}
 
 	opt.Event.Kafka = opt.Event.Kafka.WithDefaults()
+	opt.Shutdown = opt.Shutdown.WithDefaults()
+
+	err = opt.Shutdown.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid shutdown configuration: %w", err)
+	}
 
 	// If serverID is not set, use hostname as default
 	if opt.ServerID == "" {
@@ -407,7 +420,8 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	}
 
 	opt.app = apiserver.New(appconfig.ServerSettings{
-		Address: opt.Address,
+		Address:  opt.Address,
+		Shutdown: opt.Shutdown,
 		OpAMPTLS: appconfig.OpAMPTLSSettings{
 			CertFile: opt.OpAMPTLS.CertFile,
 			KeyFile:  opt.OpAMPTLS.KeyFile,

@@ -76,6 +76,12 @@ func (c *Controller) RoutesInfo() gin.RoutesInfo {
 			HandlerFunc: c.Update,
 		},
 		{
+			Method:      http.MethodPatch,
+			Path:        agentGroupByNamePath,
+			Handler:     "http.v1.agentgroup.Patch",
+			HandlerFunc: c.Patch,
+		},
+		{
 			Method:      http.MethodDelete,
 			Path:        agentGroupByNamePath,
 			Handler:     "http.v1.agentgroup.Delete",
@@ -262,11 +268,20 @@ func (c *Controller) ListAgentsByAgentGroup(ctx *gin.Context) {
 // @Summary List Agent Groups by Agent
 // @Tags agentgroup
 // @Description Retrieve the agent groups in the namespace whose selector matches the given agent.
+// @Description Pages use insertion-key order and live membership, not a snapshot across requests.
+// @Description Pass continue unchanged and stop when remainingItemCount is zero.
 // @Accept json
 // @Produce json
 // @Success 200 {object} v1.ListResponse[v1.AgentGroup]
 // @Param namespace path string true "Namespace"
 // @Param id path string true "Instance UID of the agent"
+// @Param limit query int false "Page size; 0 uses the default of 50" default(50) minimum(0) maximum(1000)
+// @Param continue query string false "Token to continue listing agent groups"
+// @Param includeDeleted query bool false "Include soft-deleted agent groups"
+// @Param labelSelector query string false "Label selector, e.g. env=prod,tier notin (canary,dev)"
+// @Param fieldSelector query string false "Field selector over the supported fields: metadata.namespace"
+// @Param name query string false "Case-sensitive name prefix filter"
+// @Param nameContains query string false "Case-insensitive name substring filter (scan; pass name= to bound it)"
 // @Failure 400 {object} map[string]any
 // @Failure 404 {object} map[string]any
 // @Failure 500 {object} map[string]any
@@ -286,7 +301,33 @@ func (c *Controller) ListAgentGroupsByAgent(ctx *gin.Context) {
 		return
 	}
 
-	agentGroups, err := c.agentGroupUsecase.ListAgentGroupsByAgent(ctx.Request.Context(), namespace, instanceUID)
+	limit, err := ginutil.ParseInt64(ctx, "limit", 0)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "limit", ctx.Query("limit"), err, false)
+
+		return
+	}
+
+	continueToken := ctx.Query("continue")
+
+	includeDeleted, err := ginutil.ParseBool(ctx, "includeDeleted", false)
+	if err != nil {
+		ginutil.HandleValidationError(ctx, "includeDeleted", ctx.Query("includeDeleted"), err, false)
+
+		return
+	}
+
+	selectors, ok := ginutil.ParseSelectors(ctx, ginutil.LabelMetadataSelector, applicationport.AgentGroupSelectableFields)
+	if !ok {
+		return
+	}
+
+	agentGroups, err := c.agentGroupUsecase.ListAgentGroupsByAgent(
+		ctx.Request.Context(), namespace, instanceUID, &applicationport.ListOptions{
+			LabelSelector: selectors.Metadata, FieldSelector: selectors.Field,
+			NamePrefix: selectors.NamePrefix, NameContains: selectors.NameContains,
+			Limit: limit, Continue: continueToken, IncludeDeleted: includeDeleted,
+		})
 	if err != nil {
 		if errors.Is(err, applicationport.ErrAgentNamespaceMismatch) {
 			ginutil.ResourceNotFoundError(ctx, "agent", ctx.Param("id"))
@@ -446,4 +487,38 @@ func (c *Controller) Delete(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// Patch partially updates an existing AgentGroup.
+//
+// @Summary Patch AgentGroup
+// @Tags agentgroup
+// @Description JSON Merge Patch with optional metadata.resourceVersion. Omitted revisions allow same-field overwrite.
+// @Accept application/merge-patch+json
+// @Produce json
+// @Param namespace path string true "Namespace"
+// @Param name path string true "Resource name"
+// @Param patch body object true "Merge patch with optional metadata.resourceVersion"
+// @Success 200 {object} v1.AgentGroup
+// @Failure 400 {object} map[string]any
+// @Failure 404 {object} map[string]any
+// @Failure 409 {object} map[string]any
+// @Failure 415 {object} map[string]any
+// @Router /api/v1/namespaces/{namespace}/agentgroups/{name} [patch].
+func (c *Controller) Patch(ctx *gin.Context) {
+	patch, ok := ginutil.ReadMergePatch(ctx)
+	if !ok {
+		return
+	}
+
+	result, err := c.agentGroupUsecase.PatchAgentGroup(
+		ctx.Request.Context(), ctx.Param("namespace"), ctx.Param("name"), patch,
+	)
+	if err != nil {
+		ginutil.HandleDomainError(ctx, err, "Failed to patch resource.")
+
+		return
+	}
+
+	ctx.JSON(http.StatusOK, result)
 }

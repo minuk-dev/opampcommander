@@ -139,6 +139,7 @@ func (s *ManageService) ListAgentGroupsByAgent(
 	ctx context.Context,
 	namespace string,
 	instanceUID uuid.UUID,
+	options *port.ListOptions,
 ) (*v1.ListResponse[v1.AgentGroup], error) {
 	agent, err := s.agentUsecase.GetAgent(ctx, instanceUID)
 	if err != nil {
@@ -149,7 +150,12 @@ func (s *ManageService) ListAgentGroupsByAgent(
 		return nil, fmt.Errorf("list agent groups by agent: %w", port.ErrAgentNamespaceMismatch)
 	}
 
-	groups, err := s.agentgroupUsecase.GetAgentGroupsForAgent(ctx, agent)
+	listOptions, err := model.AgentGroupMembershipListOptions(options.ToDomain())
+	if err != nil {
+		return nil, fmt.Errorf("membership list options: %w", err)
+	}
+
+	groups, err := s.agentgroupUsecase.ListAgentGroupsForAgent(ctx, agent, listOptions)
 	if err != nil {
 		return nil, fmt.Errorf("get agent groups for agent: %w", err)
 	}
@@ -158,10 +164,10 @@ func (s *ManageService) ListAgentGroupsByAgent(
 		Kind:       v1.AgentGroupKind,
 		APIVersion: v1.APIVersion,
 		Metadata: v1.ListMeta{
-			Continue:           "",
-			RemainingItemCount: 0,
+			Continue:           groups.Continue,
+			RemainingItemCount: groups.RemainingItemCount,
 		},
-		Items: lo.Map(groups, func(agentGroup *agentmodel.AgentGroup, _ int) v1.AgentGroup {
+		Items: lo.Map(groups.Items, func(agentGroup *agentmodel.AgentGroup, _ int) v1.AgentGroup {
 			return *s.mapper.MapAgentGroupToAPI(agentGroup)
 		}),
 	}, nil
@@ -295,4 +301,21 @@ func (s *ManageService) DeleteAgentGroup(
 	}
 
 	return nil
+}
+
+// PatchAgentGroup applies a JSON Merge Patch through the conditional update path.
+func (s *ManageService) PatchAgentGroup(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentGroup, error) {
+	result, err := helper.PatchResource(ctx, patch,
+		func(ctx context.Context) (*v1.AgentGroup, error) { return s.GetAgentGroup(ctx, namespace, name, nil) },
+		func(
+			ctx context.Context, resource *v1.AgentGroup) (*v1.AgentGroup, error) {
+			return s.UpdateAgentGroup(ctx, namespace, name, resource)
+		})
+	if err != nil {
+		return nil, fmt.Errorf("patch resource: %w", err)
+	}
+
+	return result, nil
 }

@@ -11,5 +11,5 @@ export interface AgentRemoteConfigMetadata {
 export interface AgentRemoteConfig {
   metadata: AgentRemoteConfigMetadata;
   spec: AgentRemoteConfigSpec;
-  status?: { conditions?: Condition[] };
+  status?: { conditions?: Condition[]; schemaRefsSource?: 'auto' | 'explicit' };
 }

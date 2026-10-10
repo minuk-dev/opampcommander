@@ -217,6 +217,18 @@ func (s *AgentGroupService) SaveAgentGroup(
 	return agentGroup, nil
 }
 
+// ListAgentGroupsForAgent delegates the paginated membership read to persistence.
+func (s *AgentGroupService) ListAgentGroupsForAgent(
+	ctx context.Context, agent *agentmodel.Agent, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	response, err := s.persistencePort.ListAgentGroupsForAgent(ctx, agent, options)
+	if err != nil {
+		return nil, fmt.Errorf("list agent groups for agent: %w", err)
+	}
+
+	return response, nil
+}
+
 // ListAgentGroups retrieves a list of agent groups with pagination options.
 func (s *AgentGroupService) ListAgentGroups(
 	ctx context.Context,
@@ -340,7 +352,7 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 		}
 
 		for _, group := range groups.Items {
-			if !group.IsDeleted() && matchesSelector(agent, group.Spec.Selector) {
+			if !group.IsDeleted() && group.Spec.Selector.Matches(agent) {
 				matchingGroups = append(matchingGroups, group)
 			}
 		}
@@ -358,27 +370,6 @@ func (s *AgentGroupService) GetAgentGroupsForAgent(
 	})
 
 	return matchingGroups, nil
-}
-
-// matchesSelector checks if an agent matches the given selector.
-func matchesSelector(agent *agentmodel.Agent, selector agentmodel.AgentSelector) bool {
-	// Check identifying attributes
-	for key, value := range selector.IdentifyingAttributes {
-		agentValue, ok := agent.Metadata.Description.IdentifyingAttributes[key]
-		if !ok || agentValue != value {
-			return false
-		}
-	}
-
-	// Check non-identifying attributes
-	for key, value := range selector.NonIdentifyingAttributes {
-		agentValue, ok := agent.Metadata.Description.NonIdentifyingAttributes[key]
-		if !ok || agentValue != value {
-			return false
-		}
-	}
-
-	return true
 }
 
 // PropagateAgentRemoteConfigChange queues propagation for every agent group in the

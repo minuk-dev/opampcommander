@@ -21,6 +21,9 @@ type NamespaceManageUsecase interface {
 	// ErrNamespaceAlreadyExists on a duplicate.
 	CreateNamespace(ctx context.Context,
 		namespace *v1.Namespace) (*v1.Namespace, error)
+	// PatchNamespace partially updates an existing resource with an optional revision.
+	PatchNamespace(ctx context.Context, name string, patch []byte) (*v1.Namespace, error)
+
 	// UpdateNamespace replaces the named namespace's spec.
 	UpdateNamespace(ctx context.Context, name string,
 		namespace *v1.Namespace) (*v1.Namespace, error)

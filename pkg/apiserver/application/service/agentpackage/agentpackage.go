@@ -133,6 +133,25 @@ func (a *Service) DeleteAgentPackage(
 	return nil
 }
 
+// PatchAgentPackage applies a JSON Merge Patch through the conditional update path.
+func (a *Service) PatchAgentPackage(
+	ctx context.Context, namespace, name string, patch []byte,
+) (*v1.AgentPackage, error) {
+	result, err := helper.PatchResource(ctx, patch,
+		func(ctx context.Context) (*v1.AgentPackage, error) {
+			return a.GetAgentPackage(ctx, namespace, name, nil)
+		},
+		func(
+			ctx context.Context, resource *v1.AgentPackage) (*v1.AgentPackage, error) {
+			return a.UpdateAgentPackage(ctx, namespace, name, resource)
+		})
+	if err != nil {
+		return nil, fmt.Errorf("patch resource: %w", err)
+	}
+
+	return result, nil
+}
+
 // actor resolves the acting user from the request context, falling back to an
 // anonymous identity (and logging) when none is present.
 func (a *Service) actor(ctx context.Context) string {

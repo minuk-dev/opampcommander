@@ -1,3 +1,4 @@
+//nolint:dupl // Resource use cases intentionally share the CRUD contract.
 package usecase
 
 import (
@@ -22,6 +23,9 @@ type AgentRemoteConfigManageUsecase interface {
 	// model.ErrResourceAlreadyExist on a duplicate.
 	CreateAgentRemoteConfig(ctx context.Context,
 		agentRemoteConfig *v1.AgentRemoteConfig) (*v1.AgentRemoteConfig, error)
+	// PatchAgentRemoteConfig partially updates an existing resource with an optional revision.
+	PatchAgentRemoteConfig(ctx context.Context, namespace, name string, patch []byte) (*v1.AgentRemoteConfig, error)
+
 	// UpdateAgentRemoteConfig replaces the named remote config;
 	// optimistic-concurrency controlled (model.ErrConflict on a stale write).
 	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,

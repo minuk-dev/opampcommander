@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -58,6 +59,26 @@ func (r *AgentGroupRepository) ListAgentGroups(
 	}
 
 	return r.listWithFilter(options, filter)
+}
+
+// ListAgentGroupsForAgent implements agentport.AgentGroupPersistencePort.
+func (r *AgentGroupRepository) ListAgentGroupsForAgent(
+	_ context.Context, agent *agentmodel.Agent, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	filter, err := namespaceFilter(agent.Metadata.Namespace,
+		func(group *agentmodel.AgentGroup) string { return group.Metadata.Namespace })
+	if err != nil {
+		return nil, err
+	}
+
+	options, err = model.AgentGroupMembershipListOptions(options)
+	if err != nil {
+		return nil, fmt.Errorf("membership list options: %w", err)
+	}
+
+	return r.listWithFilter(options, func(group *agentmodel.AgentGroup) bool {
+		return filter(group) && group.Spec.Selector.Matches(agent)
+	})
 }
 
 // ListAllAgentGroups implements agentport.AgentGroupPersistencePort.

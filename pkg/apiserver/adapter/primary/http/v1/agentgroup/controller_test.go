@@ -241,7 +241,7 @@ func TestAgentGroupController_ListAgentGroupsByAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		usecase.EXPECT().
-			ListAgentGroupsByAgent(mock.Anything, "default", agentID).
+			ListAgentGroupsByAgent(mock.Anything, "default", agentID, mock.Anything).
 			Return(&v1.ListResponse[v1.AgentGroup]{
 				Kind:       "AgentGroup",
 				APIVersion: "v1",
@@ -289,7 +289,7 @@ func TestAgentGroupController_ListAgentGroupsByAgent(t *testing.T) {
 		router := ctrlBase.Router
 
 		usecase.EXPECT().
-			ListAgentGroupsByAgent(mock.Anything, "default", agentID).
+			ListAgentGroupsByAgent(mock.Anything, "default", agentID, mock.Anything).
 			Return(nil, applicationport.ErrAgentNamespaceMismatch)
 
 		recorder := httptest.NewRecorder()
@@ -618,4 +618,50 @@ func TestAgentGroupController_Delete_InternalError(t *testing.T) {
 	require.NoError(t, err)
 	router.ServeHTTP(recorder, req)
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestAgentGroupController_MembershipListOptions(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name, query string
+		status      int
+	}{
+		{name: "page and selectors", query: "?limit=50&continue=cursor&includeDeleted=true&labelSelector=env%3Dprod" +
+			"&fieldSelector=metadata.namespace%3Ddefault&name=group&nameContains=OTEL", status: http.StatusOK},
+		{name: "malformed limit", query: "?limit=no", status: http.StatusBadRequest},
+		{name: "malformed deleted", query: "?includeDeleted=no", status: http.StatusBadRequest},
+		{name: "malformed selector", query: "?labelSelector=%3D", status: http.StatusBadRequest},
+		{name: "unsupported field", query: "?fieldSelector=spec.secret%3Dyes", status: http.StatusBadRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			base := testutil.NewBase(t).ForController()
+			usecase := usecasemock.NewMockUsecase(t)
+			base.SetupRouter(agentgroup.NewController(usecase, base.Logger))
+
+			id := uuid.New()
+			if test.status == http.StatusOK {
+				usecase.EXPECT().ListAgentGroupsByAgent(mock.Anything, "default", id,
+					mock.MatchedBy(func(options *applicationport.ListOptions) bool {
+						return options.Limit == 50 && options.Continue == "cursor" && options.IncludeDeleted &&
+							options.NamePrefix == "group" && options.NameContains == "OTEL" &&
+							options.LabelSelector.String() == "env=prod" && options.FieldSelector.String() == "metadata.namespace=default"
+					})).Return(&v1.ListResponse[v1.AgentGroup]{
+					Metadata: v1.ListMeta{Continue: "next", RemainingItemCount: 100001},
+				}, nil)
+			}
+
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+				"/api/v1/namespaces/default/agents/"+id.String()+"/agentgroups"+test.query, nil)
+			recorder := httptest.NewRecorder()
+			base.Router.ServeHTTP(recorder, request)
+			require.Equal(t, test.status, recorder.Code)
+
+			if test.status == http.StatusOK {
+				assert.Equal(t, "next", gjson.Get(recorder.Body.String(), "metadata.continue").String())
+				assert.EqualValues(t, 100001, gjson.Get(recorder.Body.String(), "metadata.remainingItemCount").Int())
+			}
+		})
+	}
 }

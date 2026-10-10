@@ -292,7 +292,7 @@ func methodToAction(method string, isCollection bool) string {
 		return "GET"
 	case http.MethodPost:
 		return "CREATE"
-	case http.MethodPut:
+	case http.MethodPut, http.MethodPatch:
 		return "UPDATE"
 	case http.MethodDelete:
 		return "DELETE"

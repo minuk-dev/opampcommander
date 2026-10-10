@@ -182,9 +182,9 @@ type AgentRemoteConfigUsecase interface {
 		actor string) (*agentmodel.AgentRemoteConfig, error)
 	// UpdateAgentRemoteConfig loads the stored agent remote config, applies the
 	// mutable fields from the supplied config while preserving immutable
-	// identity/lifecycle state, and persists the result.
+	// identity/lifecycle state, and persists the result. The boolean reports an actual write.
 	UpdateAgentRemoteConfig(ctx context.Context, namespace string, name string,
-		agentRemoteConfig *agentmodel.AgentRemoteConfig) (*agentmodel.AgentRemoteConfig, error)
+		agentRemoteConfig *agentmodel.AgentRemoteConfig) (*agentmodel.AgentRemoteConfig, bool, error)
 	// DeleteAgentRemoteConfig deletes the agent remote config by its namespace and name.
 	DeleteAgentRemoteConfig(ctx context.Context, namespace string, name string,
 		deletedAt time.Time, deletedBy string, resourceVersion ...int64) error
@@ -305,6 +305,10 @@ type AgentGroupUsecase interface {
 	// GetAgentGroup retrieves an agent group by its namespace and name.
 	GetAgentGroup(ctx context.Context, namespace string, name string,
 		options *model.GetOptions) (*agentmodel.AgentGroup, error)
+	// ListAgentGroupsForAgent returns one page of groups in the agent's namespace
+	// whose selectors match its current attributes. Filtering precedes pagination.
+	ListAgentGroupsForAgent(ctx context.Context, agent *agentmodel.Agent,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentGroup], error)
 	// ListAgentGroups lists the agent groups in namespace. The namespace is
 	// required; cluster-wide listing is ListAllAgentGroups on the persistence
 	// port, so it cannot be asked for by a namespace that happens to be empty.

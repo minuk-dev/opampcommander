@@ -239,8 +239,8 @@ func (f *nsFakeAgentRemoteConfigUsecase) CreateAgentRemoteConfig(
 
 func (f *nsFakeAgentRemoteConfigUsecase) UpdateAgentRemoteConfig(
 	context.Context, string, string, *agentmodel.AgentRemoteConfig,
-) (*agentmodel.AgentRemoteConfig, error) {
-	return nil, errNotImplemented
+) (*agentmodel.AgentRemoteConfig, bool, error) {
+	return nil, false, errNotImplemented
 }
 
 func (f *nsFakeAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
@@ -411,4 +411,10 @@ func TestDeleteNamespaceRejectsStaleRevisionBeforeCascade(t *testing.T) {
 	require.ErrorIs(t, err, model.ErrConflict)
 	require.Zero(t, persistence.putCalls)
 	require.False(t, stored.IsDeleted())
+}
+
+func (f *nsFakeAgentGroupUsecase) ListAgentGroupsForAgent(
+	context.Context, *agentmodel.Agent, *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	return &model.ListResponse[*agentmodel.AgentGroup]{Items: f.items}, nil
 }

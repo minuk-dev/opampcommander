@@ -433,7 +433,8 @@ func (mapper *Mapper) MapAgentRemoteConfigToAPI(
 			SchemaRefs:  domain.Spec.SchemaRefs,
 		},
 		Status: v1.AgentRemoteConfigStatus{
-			Conditions: mapper.mapConditionsToAPI(domain.Status.Conditions),
+			Conditions:       mapper.mapConditionsToAPI(domain.Status.Conditions),
+			SchemaRefsSource: string(domain.Status.SchemaRefsSource),
 		},
 	}
 }
@@ -461,7 +462,8 @@ func (mapper *Mapper) MapAPIToAgentRemoteConfig(
 			SchemaRefs:  api.Spec.SchemaRefs,
 		},
 		Status: agentmodel.AgentRemoteConfigResourceStatus{
-			Conditions: nil,
+			Conditions:       nil,
+			SchemaRefsSource: "",
 		},
 	}
 }

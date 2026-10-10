@@ -35,7 +35,13 @@ import {
   TabsTrigger,
   Textarea,
 } from '@shared/ui';
-import type { AgentRemoteConfig } from '@entities/agent-remote-config';
+import {
+  type AgentRemoteConfig,
+  SKIP_SCHEMA_VALIDATION,
+  skipsSchemaValidation,
+  schemaRefsSource,
+} from '@entities/agent-remote-config';
+import SchemaRefsFields from './SchemaRefsFields';
 import { validateConfigBody } from '../lib/validate';
 
 // The highlighted editor and the diff renderer are only needed once this dialog
@@ -76,12 +82,16 @@ export default function AgentRemoteConfigEditDialog({
   const [contentType, setContentType] = useState(CONTENT_TYPES[0]);
   const [body, setBody] = useState('');
   const [attributesText, setAttributesText] = useState('');
+  const [schemaRefs, setSchemaRefs] = useState<string[]>([]);
+  const [skipValidation, setSkipValidation] = useState(false);
   // Snapshot of the buffers as loaded, so "Save changes" can tell whether
   // anything actually changed.
   const [loaded, setLoaded] = useState({
     contentType: CONTENT_TYPES[0],
     body: '',
     attributesText: '',
+    schemaRefs: [] as string[],
+    skipValidation: false,
   });
   const [tab, setTab] = useState<'edit' | 'diff'>('edit');
   const [busy, setBusy] = useState(false);
@@ -98,18 +108,21 @@ export default function AgentRemoteConfigEditDialog({
     if (open) {
       setInitial(incoming);
       setNamespace(currentNamespace);
+      const attributes = { ...incoming?.metadata.attributes };
+      delete attributes[SKIP_SCHEMA_VALIDATION];
       const buffers = {
         contentType: incoming?.spec.contentType || CONTENT_TYPES[0],
         body: incoming?.spec.value ?? '',
-        attributesText:
-          incoming?.metadata.attributes && Object.keys(incoming.metadata.attributes).length > 0
-            ? toYAML(incoming.metadata.attributes)
-            : '',
+        attributesText: Object.keys(attributes).length > 0 ? toYAML(attributes) : '',
+        schemaRefs: incoming?.spec.schemaRefs ?? [],
+        skipValidation: skipsSchemaValidation(incoming),
       };
       setName(incoming?.metadata.name ?? '');
       setContentType(buffers.contentType);
       setBody(buffers.body);
       setAttributesText(buffers.attributesText);
+      setSchemaRefs(buffers.schemaRefs);
+      setSkipValidation(buffers.skipValidation);
       setLoaded(buffers);
       setTab('edit');
       setSaveError(null);
@@ -141,26 +154,29 @@ export default function AgentRemoteConfigEditDialog({
   const dirty =
     body !== loaded.body ||
     contentType !== loaded.contentType ||
-    attributesText !== loaded.attributesText;
+    attributesText !== loaded.attributesText ||
+    JSON.stringify(schemaRefs) !== JSON.stringify(loaded.schemaRefs) ||
+    skipValidation !== loaded.skipValidation;
 
   const save = async () => {
     setBusy(true);
     setSaveError(null);
     try {
       const attributes = parseAttributes(attributesText);
+      delete attributes[SKIP_SCHEMA_VALIDATION];
+      if (skipValidation) attributes[SKIP_SCHEMA_VALIDATION] = 'true';
       if (mode === 'create') {
         const created: AgentRemoteConfig = {
           metadata: { name, namespace, attributes, createdAt: new Date().toISOString() },
-          spec: { value: body, contentType },
+          spec: { value: body, contentType, schemaRefs },
         };
         await api.post(`/api/v1/namespaces/${namespace}/agentremoteconfigs`, created);
       } else if (initial) {
-        // Spread the loaded resource so fields this dialog does not edit
-        // (schemaRefs, status, kind/apiVersion) round-trip untouched.
+        // Preserve server-owned status and the resource envelope.
         const updated: AgentRemoteConfig = {
           ...initial,
           metadata: { ...initial.metadata, attributes },
-          spec: { ...initial.spec, value: body, contentType },
+          spec: { ...initial.spec, value: body, contentType, schemaRefs },
         };
         await api.put(
           `/api/v1/namespaces/${initial.metadata.namespace}/agentremoteconfigs/${initial.metadata.name}`,
@@ -259,6 +275,25 @@ export default function AgentRemoteConfigEditDialog({
               />
             </TabsContent>
           </Tabs>
+
+          <SchemaRefsFields
+            open={open}
+            namespace={namespace}
+            refs={schemaRefs}
+            onRefsChange={setSchemaRefs}
+            skip={skipValidation}
+            onSkipChange={setSkipValidation}
+            creating={mode === 'create'}
+            source={
+              JSON.stringify(schemaRefs) !== JSON.stringify(loaded.schemaRefs)
+                ? schemaRefs.length
+                  ? 'Explicitly set'
+                  : 'No schema pinned'
+                : initial
+                  ? schemaRefsSource(initial)
+                  : 'No schema pinned'
+            }
+          />
 
           <Collapsible label="Attributes">
             <Field label="Attributes (YAML map)">

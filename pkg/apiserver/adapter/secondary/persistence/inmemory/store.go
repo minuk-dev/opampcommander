@@ -12,6 +12,7 @@ package inmemory
 
 import (
 	"cmp"
+	"container/heap"
 	"fmt"
 	"slices"
 	"strconv"
@@ -27,6 +28,26 @@ import (
 type item[V any] struct {
 	seq   uint64
 	value V
+}
+
+// pageHeap keeps the latest sequence at the root so earlier matches can replace it.
+type pageHeap[V any] []item[V]
+
+func (h pageHeap[V]) Len() int           { return len(h) }
+func (h pageHeap[V]) Less(i, j int) bool { return h[i].seq > h[j].seq }
+func (h pageHeap[V]) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *pageHeap[V]) Push(value any) {
+	*h = append(*h, value.(item[V])) //nolint:forcetypeassert // heap.Interface receives only item[V].
+}
+
+func (h *pageHeap[V]) Pop() any {
+	last := len(*h) - 1
+	value := (*h)[last]
+	clear((*h)[last:])
+	*h = (*h)[:last]
+
+	return value
 }
 
 // store is a concurrency-safe in-memory key/value collection that mirrors the
@@ -295,14 +316,9 @@ func (s *store[K, V]) list(options *model.ListOptions, filter func(V) bool) (*mo
 		afterSeq = parsed
 	}
 
-	candidates := s.collect(options.IncludeDeleted, afterSeq, filter)
-
-	total := int64(len(candidates))
+	candidates, total := s.collectPage(options.IncludeDeleted, afterSeq, filter, options.Limit)
 
 	page := candidates
-	if options.Limit > 0 && int64(len(candidates)) > options.Limit {
-		page = candidates[:options.Limit]
-	}
 
 	items := make([]V, 0, len(page))
 
@@ -358,4 +374,56 @@ func (s *store[K, V]) withSelectors(
 
 		return s.selectorValues(value).Matches(options)
 	}, nil
+}
+
+// collectPage counts matches but retains and clones only the requested page.
+func (s *store[K, V]) collectPage(
+	includeDeleted bool, afterSeq uint64, filter func(V) bool, limit int64,
+) ([]item[V], int64) {
+	if limit <= 0 {
+		entries := s.collect(includeDeleted, afterSeq, filter)
+
+		return entries, int64(len(entries))
+	}
+
+	s.mu.RLock()
+
+	entries := make(pageHeap[V], 0)
+
+	var total int64
+
+	for _, entry := range s.items {
+		if (!includeDeleted && s.isDeleted(entry.value)) || entry.seq <= afterSeq ||
+			(filter != nil && !filter(entry.value)) {
+			continue
+		}
+
+		total++
+
+		if int64(len(entries)) < limit {
+			entries = append(entries, *entry)
+			if int64(len(entries)) == limit {
+				heap.Init(&entries)
+			}
+
+			continue
+		}
+
+		if entry.seq < entries[0].seq {
+			entries[0] = *entry
+			heap.Fix(&entries, 0)
+		}
+	}
+
+	for i := range entries {
+		entries[i].value = s.clone(entries[i].value)
+	}
+
+	s.mu.RUnlock()
+
+	slices.SortFunc(entries, func(a, b item[V]) int {
+		return cmp.Compare(a.seq, b.seq)
+	})
+
+	return entries, total
 }

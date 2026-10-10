@@ -4,11 +4,12 @@ import userEvent from '@testing-library/user-event';
 import AgentRemoteConfigEditDialog from './AgentRemoteConfigEditDialog';
 import { api } from '@shared/api';
 import type * as SharedApi from '@shared/api';
+import { SWRConfig } from 'swr';
 import type { AgentRemoteConfig } from '@entities/agent-remote-config';
 
 vi.mock('@shared/api', async (importOriginal) => {
   const actual = await importOriginal<typeof SharedApi>();
-  return { ...actual, api: { post: vi.fn(), put: vi.fn() } };
+  return { ...actual, api: { get: vi.fn(), post: vi.fn(), put: vi.fn() } };
 });
 
 const post = vi.mocked(api.post);
@@ -16,6 +17,9 @@ const put = vi.mocked(api.put);
 
 // The dialog loads its sample menu over fetch; an empty list keeps it quiet.
 beforeEach(() => {
+  vi.mocked(api.get)
+    .mockReset()
+    .mockResolvedValue({ items: [], metadata: { continue: '' } });
   post.mockReset().mockResolvedValue(undefined);
   put.mockReset().mockResolvedValue(undefined);
   vi.stubGlobal(
@@ -42,6 +46,7 @@ const stored: AgentRemoteConfig = {
     contentType: 'text/yaml',
     schemaRefs: ['otelcol-0.110'],
   },
+  status: { schemaRefsSource: 'auto' },
 };
 
 // The body editor is lazily imported, so wait for the real textarea to replace
@@ -119,7 +124,7 @@ describe('AgentRemoteConfigEditDialog', () => {
     expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
   });
 
-  it('preserves fields it does not edit when saving an existing config', async () => {
+  it('preserves stored schema references when saving an existing config', async () => {
     const user = userEvent.setup();
     render(
       <AgentRemoteConfigEditDialog
@@ -133,6 +138,7 @@ describe('AgentRemoteConfigEditDialog', () => {
     );
 
     const editor = await bodyEditor();
+    expect(screen.getByText('Auto-resolved')).toBeInTheDocument();
     expect(editor).toHaveValue(stored.spec.value);
     await user.clear(editor);
     await user.type(editor, 'exporters:{enter}  debug:{enter}  verbosity: detailed');
@@ -276,4 +282,97 @@ describe('AgentRemoteConfigEditDialog', () => {
       metadata: { name: stored.metadata.name, namespace: 'default', resourceVersion: '3' },
     });
   });
+});
+
+it('selects multiple schemas, removes an unavailable ref, and changes the skip annotation without losing attributes', async () => {
+  const user = userEvent.setup();
+  vi.mocked(api.get).mockResolvedValue({
+    items: [
+      { metadata: { name: 'schema-a' }, spec: { binary: 'otelcol', version: '1.0' } },
+      { metadata: { name: 'schema-b' }, spec: { binary: 'otelcol', version: '2.0' } },
+    ],
+    metadata: { continue: '' },
+  });
+  render(
+    <SWRConfig value={{ provider: () => new Map() }}>
+      <AgentRemoteConfigEditDialog
+        open
+        mode="edit"
+        namespace="team"
+        initial={{
+          ...stored,
+          metadata: {
+            ...stored.metadata,
+            namespace: 'team',
+            attributes: { team: 'platform', 'opampcommander.io/skip-schema-validation': 'TRUE' },
+          },
+        }}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />
+    </SWRConfig>,
+  );
+  expect(screen.getByRole('switch', { name: 'Skip schema validation' })).toBeChecked();
+  await user.click(await screen.findByRole('checkbox', { name: /schema-a/ }));
+  await user.click(screen.getByRole('checkbox', { name: /schema-b/ }));
+  await user.click(screen.getByRole('checkbox', { name: /otelcol-0.110/ }));
+  await user.click(screen.getByRole('switch', { name: 'Skip schema validation' }));
+  expect(screen.getByText('Explicitly set')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+  expect(put.mock.calls[0]).toEqual([
+    '/api/v1/namespaces/team/agentremoteconfigs/otlp-debug',
+    expect.objectContaining({
+      metadata: expect.objectContaining({ attributes: { team: 'platform' } }),
+      spec: expect.objectContaining({ schemaRefs: ['schema-a', 'schema-b'] }),
+    }),
+  ]);
+  expect(api.get).toHaveBeenCalledWith(
+    '/api/v1/namespaces/team/remoteconfigschemas',
+    expect.anything(),
+  );
+});
+
+it('saves the skip annotation when it is the only change', async () => {
+  const user = userEvent.setup();
+  render(
+    <AgentRemoteConfigEditDialog
+      open
+      mode="edit"
+      namespace="default"
+      initial={stored}
+      onClose={() => {}}
+      onSaved={() => {}}
+    />,
+  );
+  await user.click(screen.getByRole('switch', { name: 'Skip schema validation' }));
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+  expect(put.mock.calls[0][1]).toMatchObject({
+    metadata: {
+      attributes: { team: 'platform', 'opampcommander.io/skip-schema-validation': 'true' },
+    },
+  });
+});
+
+it('shows a schema loading failure while allowing existing refs to be removed', async () => {
+  vi.mocked(api.get).mockRejectedValue(new Error('Forbidden'));
+  const user = userEvent.setup();
+  render(
+    <SWRConfig value={{ provider: () => new Map(), shouldRetryOnError: false }}>
+      <AgentRemoteConfigEditDialog
+        open
+        mode="edit"
+        namespace="default"
+        initial={stored}
+        onClose={() => {}}
+        onSaved={() => {}}
+      />
+    </SWRConfig>,
+  );
+  expect(await screen.findByText('Failed to load schemas: Forbidden')).toBeInTheDocument();
+  await user.click(screen.getByRole('checkbox', { name: /otelcol-0.110/ }));
+  await user.click(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+  expect(put.mock.calls[0][1]).toMatchObject({ spec: { schemaRefs: [] } });
 });

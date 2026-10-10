@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 	"text/tabwriter"
 
 	"gopkg.in/yaml.v3"
@@ -104,7 +105,7 @@ func FormatShort(w io.Writer, data any) error {
 	return formatCustomTags(w, data, "short")
 }
 
-//nolint:errcheck,varnamelen,mnd,intrange,gosec,funlen,err113,cyclop,exhaustive
+//nolint:varnamelen,mnd,intrange,funlen,err113,cyclop,exhaustive
 func formatCustomTags(w io.Writer, data any, tag string) error {
 	v := reflect.ValueOf(data)
 
@@ -154,17 +155,22 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 
 	// Header
 	for _, name := range fieldNames {
-		fmt.Fprintf(tw, "%s\t", name)
+		_, err := fmt.Fprintf(tw, "%s\t", name)
+		if err != nil {
+			return fmt.Errorf("write table header: %w", err)
+		}
 	}
 
-	fmt.Fprintln(tw)
+	_, err := fmt.Fprintln(tw)
+	if err != nil {
+		return fmt.Errorf("write table header: %w", err)
+	}
 
 	// Separator
-	for range fieldNames {
-		fmt.Fprintf(tw, "--------\t")
+	_, err = fmt.Fprintln(tw, strings.Repeat("--------\t", len(fieldNames)))
+	if err != nil {
+		return fmt.Errorf("write table separator: %w", err)
 	}
-
-	fmt.Fprintln(tw)
 
 	// Rows
 	for i := 0; i < slice.Len(); i++ {
@@ -174,13 +180,22 @@ func formatCustomTags(w io.Writer, data any, tag string) error {
 		}
 
 		for _, idx := range fieldIndexes {
-			fmt.Fprintf(tw, "%v\t", row.Field(idx).Interface())
+			_, err = fmt.Fprintf(tw, "%v\t", row.Field(idx).Interface())
+			if err != nil {
+				return fmt.Errorf("write table row: %w", err)
+			}
 		}
 
-		fmt.Fprintln(tw)
+		_, err = fmt.Fprintln(tw)
+		if err != nil {
+			return fmt.Errorf("write table row: %w", err)
+		}
 	}
 
-	tw.Flush()
+	err = tw.Flush()
+	if err != nil {
+		return fmt.Errorf("flush table: %w", err)
+	}
 
 	return nil
 }

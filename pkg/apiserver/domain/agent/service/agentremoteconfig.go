@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"slices"
 	"time"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
@@ -135,51 +136,59 @@ func (s *AgentRemoteConfigService) CreateAgentRemoteConfig(
 }
 
 // UpdateAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
-//
-//nolint:dupl // Resource updates share identity and revision checks.
 func (s *AgentRemoteConfigService) UpdateAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
 	name string,
 	agentRemoteConfig *agentmodel.AgentRemoteConfig,
-) (*agentmodel.AgentRemoteConfig, error) {
+) (*agentmodel.AgentRemoteConfig, bool, error) {
 	err := model.CheckResourceIdentity(namespace,
 		name, agentRemoteConfig.Metadata.Namespace, agentRemoteConfig.Metadata.Name)
 	if err != nil {
-		return nil, fmt.Errorf("resource precondition: %w", err)
+		return nil, false, fmt.Errorf("resource precondition: %w", err)
 	}
 
 	existing, err := s.persistence.GetAgentRemoteConfig(ctx, namespace, name, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get agent remote config for update: %w", err)
+		return nil, false, fmt.Errorf("failed to get agent remote config for update: %w", err)
 	}
 
 	if agentRemoteConfig.Metadata.ResourceVersion <= 0 {
-		return nil, fmt.Errorf("%w: metadata.resourceVersion is required", model.ErrInvalidArgument)
+		return nil, false, fmt.Errorf("%w: metadata.resourceVersion is required", model.ErrInvalidArgument)
 	}
 
 	if existing.Spec.Equal(agentRemoteConfig.Spec) &&
 		maps.Equal(existing.Metadata.Attributes, agentRemoteConfig.Metadata.Attributes) {
-		return existing, nil
+		return existing, false, nil
 	}
 
 	err = model.CheckResourceVersion(agentRemoteConfig.Metadata.ResourceVersion,
 		existing.Metadata.ResourceVersion)
 	if err != nil {
-		return nil, fmt.Errorf("resource precondition: %w", err)
+		return nil, false, fmt.Errorf("resource precondition: %w", err)
+	}
+
+	if !slices.Equal(existing.Spec.SchemaRefs, agentRemoteConfig.Spec.SchemaRefs) {
+		existing.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceExplicit
+	}
+
+	if len(agentRemoteConfig.Spec.SchemaRefs) == 0 {
+		existing.Status.SchemaRefsSource = ""
 	}
 
 	existing.ApplyUpdate(agentRemoteConfig)
 
 	updated, err := s.persistence.PutAgentRemoteConfig(ctx, existing)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update agent remote config: %w", err)
+		return nil, false, fmt.Errorf("failed to update agent remote config: %w", err)
 	}
 
-	return updated, nil
+	return updated, true, nil
 }
 
 // DeleteAgentRemoteConfig implements [agentport.AgentRemoteConfigUsecase].
+//
+//nolint:dupl // Resource deletion shares the revision and tombstone contract.
 func (s *AgentRemoteConfigService) DeleteAgentRemoteConfig(
 	ctx context.Context,
 	namespace string,
@@ -256,7 +265,14 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 	ctx context.Context,
 	config *agentmodel.AgentRemoteConfig,
 ) {
-	if s.schemaMatcher == nil || len(config.Spec.SchemaRefs) > 0 || config.SkipSchemaValidation() {
+	config.Status.SchemaRefsSource = ""
+	if len(config.Spec.SchemaRefs) > 0 {
+		config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceExplicit
+
+		return
+	}
+
+	if s.schemaMatcher == nil || config.SkipSchemaValidation() {
 		return
 	}
 
@@ -274,5 +290,6 @@ func (s *AgentRemoteConfigService) autoResolveSchemaRefs(
 
 	if len(refs) > 0 {
 		config.Spec.SchemaRefs = refs
+		config.Status.SchemaRefsSource = agentmodel.SchemaRefsSourceAuto
 	}
 }

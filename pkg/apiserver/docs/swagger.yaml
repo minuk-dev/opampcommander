@@ -314,6 +314,13 @@ definitions:
         items:
           $ref: '#/definitions/Condition'
         type: array
+      schemaRefsSource:
+        description: SchemaRefsSource is server-managed; omitted when refs are absent
+          or their source is unknown.
+        enum:
+        - auto
+        - explicit
+        type: string
     type: object
   AgentSpec:
     properties:
@@ -2444,6 +2451,54 @@ paths:
       summary: List Namespaces
       tags:
       - namespace
+  /api/v1/namespaces/{namespace}:
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Namespace'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch Namespace
+      tags:
+      - namespace
   /api/v1/namespaces/{namespace}/agentgroups:
     get:
       description: Retrieves a list of agent groups with pagination options.
@@ -2618,6 +2673,58 @@ paths:
             additionalProperties: true
             type: object
       summary: Get Agent Group
+      tags:
+      - agentgroup
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentGroup'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch AgentGroup
       tags:
       - agentgroup
     put:
@@ -2851,6 +2958,58 @@ paths:
       summary: Get Agent Package
       tags:
       - agentpackage
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentPackage'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch AgentPackage
+      tags:
+      - agentpackage
     put:
       consumes:
       - application/json
@@ -2957,6 +3116,59 @@ paths:
             additionalProperties: true
             type: object
       summary: List Agent Remote Configs
+      tags:
+      - agentremoteconfig
+  /api/v1/namespaces/{namespace}/agentremoteconfigs/{name}:
+    patch:
+      consumes:
+      - application/merge-patch+json
+      description: JSON Merge Patch with optional metadata.resourceVersion. Omitted
+        revisions allow same-field overwrite.
+      parameters:
+      - description: Namespace
+        in: path
+        name: namespace
+        required: true
+        type: string
+      - description: Resource name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Merge patch with optional metadata.resourceVersion
+        in: body
+        name: patch
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AgentRemoteConfig'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "415":
+          description: Unsupported Media Type
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Patch AgentRemoteConfig
       tags:
       - agentremoteconfig
   /api/v1/namespaces/{namespace}/agents:
@@ -3158,8 +3370,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve the agent groups in the namespace whose selector matches
-        the given agent.
+      description: |-
+        Retrieve the agent groups in the namespace whose selector matches the given agent.
+        Pages use insertion-key order and live membership, not a snapshot across requests.
+        Pass continue unchanged and stop when remainingItemCount is zero.
       parameters:
       - description: Namespace
         in: path
@@ -3170,6 +3384,38 @@ paths:
         in: path
         name: id
         required: true
+        type: string
+      - default: 50
+        description: Page size; 0 uses the default of 50
+        in: query
+        maximum: 1000
+        minimum: 0
+        name: limit
+        type: integer
+      - description: Token to continue listing agent groups
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted agent groups
+        in: query
+        name: includeDeleted
+        type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       produces:
       - application/json

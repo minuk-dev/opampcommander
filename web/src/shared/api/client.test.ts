@@ -80,6 +80,20 @@ describe('api-client', () => {
     expect((err as ApiError).message).toBe('not found');
   });
 
+  it.each([
+    'The resource already exists.',
+    'The agent is still connected and cannot be deleted.',
+    'The resource was modified concurrently; reload and retry.',
+  ])('preserves the server conflict explanation: %s', async (detail) => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ title: 'Conflict', detail }, 409));
+
+    await expect(api.post('/api/v1/namespaces', {})).rejects.toMatchObject({
+      status: 409,
+      message: detail,
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('attempts refresh on 401 and retries with the new token', async () => {
     window.localStorage.setItem(TOKEN_KEY, 'old');
     window.localStorage.setItem(REFRESH_KEY, 'rrr');

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -91,18 +92,18 @@ func (m *mockAgentRemoteConfigUsecase) CreateAgentRemoteConfig(
 
 func (m *mockAgentRemoteConfigUsecase) UpdateAgentRemoteConfig(
 	ctx context.Context, namespace, name string, agentRemoteConfig *agentmodel.AgentRemoteConfig,
-) (*agentmodel.AgentRemoteConfig, error) {
+) (*agentmodel.AgentRemoteConfig, bool, error) {
 	args := m.Called(ctx, namespace, name, agentRemoteConfig)
 	if args.Get(0) == nil {
-		return nil, args.Error(1) //nolint:wrapcheck // mock error
+		return nil, false, args.Error(2) //nolint:wrapcheck // mock error
 	}
 
 	cfg, ok := args.Get(0).(*agentmodel.AgentRemoteConfig)
 	if !ok {
-		return nil, errMock
+		return nil, false, errMock
 	}
 
-	return cfg, args.Error(1) //nolint:wrapcheck // mock error
+	return cfg, args.Bool(1), args.Error(2)
 }
 
 func (m *mockAgentRemoteConfigUsecase) DeleteAgentRemoteConfig(
@@ -366,11 +367,10 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 		det := &stubEndpointDetectionUsecase{detectCh: make(chan struct{}, 1)}
 		svc := newSvc(t, mockARC, group, det)
 
-		mockARC.On("GetAgentRemoteConfig", ctx, "default", "cfg-1", (*model.GetOptions)(nil)).Return(newARC(), nil)
 		updated := newARC()
 		updated.Metadata.ResourceVersion = 1
 		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).
-			Return(updated, nil)
+			Return(updated, true, nil)
 
 		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())
 
@@ -381,6 +381,27 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 		mockARC.AssertExpectations(t)
 	})
 
+	t.Run("no-op from concurrent winner does not propagate", func(t *testing.T) {
+		t.Parallel()
+		synctest.Test(t, func(t *testing.T) {
+			ctx := t.Context()
+			mockARC := new(mockAgentRemoteConfigUsecase)
+			group := &stubAgentGroupUsecase{propagateCh: make(chan struct{}, 1)}
+			det := &stubEndpointDetectionUsecase{detectCh: make(chan struct{}, 1)}
+			svc := newSvc(t, mockARC, group, det)
+			winner := newARC()
+			winner.Metadata.ResourceVersion = 2
+			mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).Return(winner, false, nil)
+			result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())
+			require.NoError(t, err)
+			require.EqualValues(t, 2, result.Metadata.ResourceVersion)
+			synctest.Wait()
+			require.Empty(t, group.propagateCh)
+			require.Empty(t, det.detectCh)
+			mockARC.AssertExpectations(t)
+		})
+	})
+
 	t.Run("error skips side effects", func(t *testing.T) {
 		t.Parallel()
 
@@ -388,8 +409,7 @@ func TestService_UpdateAgentRemoteConfig(t *testing.T) {
 		mockARC := new(mockAgentRemoteConfigUsecase)
 		svc := newSvc(t, mockARC, &stubAgentGroupUsecase{}, &stubEndpointDetectionUsecase{})
 
-		mockARC.On("GetAgentRemoteConfig", ctx, "default", "cfg-1", (*model.GetOptions)(nil)).Return(newARC(), nil)
-		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).Return(nil, errMock)
+		mockARC.On("UpdateAgentRemoteConfig", ctx, "default", "cfg-1", mock.Anything).Return(nil, false, errMock)
 
 		result, err := svc.UpdateAgentRemoteConfig(ctx, "default", "cfg-1", apiARC())
 
@@ -437,4 +457,10 @@ func TestService_DeleteAgentRemoteConfig(t *testing.T) {
 		assert.Contains(t, err.Error(), "delete agent remote config")
 		mockARC.AssertExpectations(t)
 	})
+}
+
+func (*stubAgentGroupUsecase) ListAgentGroupsForAgent(
+	context.Context, *agentmodel.Agent, *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	return nil, nil //nolint:nilnil // stub
 }

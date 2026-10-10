@@ -140,18 +140,16 @@ async function doFetch<T>(path: string, opts: RequestOptions): Promise<T> {
   if (!res.ok) {
     const body = await readBody(res);
     const message =
-      res.status === 409
-        ? 'This resource changed. Close this dialog, refresh the list, and reopen it before saving or deleting.'
-        : (body && typeof body === 'object' && 'detail' in body
-            ? String((body as { detail?: unknown }).detail)
-            : undefined) ||
-          (body && typeof body === 'object' && 'title' in body
-            ? String((body as { title?: unknown }).title)
-            : undefined) ||
-          (body && typeof body === 'object' && 'error' in body
-            ? String((body as { error?: unknown }).error)
-            : undefined) ||
-          `HTTP ${res.status} ${res.statusText}`;
+      (body && typeof body === 'object' && 'detail' in body
+        ? String((body as { detail?: unknown }).detail)
+        : undefined) ||
+      (body && typeof body === 'object' && 'title' in body
+        ? String((body as { title?: unknown }).title)
+        : undefined) ||
+      (body && typeof body === 'object' && 'error' in body
+        ? String((body as { error?: unknown }).error)
+        : undefined) ||
+      `HTTP ${res.status} ${res.statusText}`;
     const err: ApiError = Object.assign(new Error(message), {
       status: res.status,
       body,
