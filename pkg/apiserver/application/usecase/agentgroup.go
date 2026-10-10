@@ -34,6 +34,7 @@ type AgentGroupManageUsecase interface {
 		ctx context.Context,
 		namespace string,
 		instanceUID uuid.UUID,
+		options *port.ListOptions,
 	) (*v1.ListResponse[v1.AgentGroup], error)
 	// CreateAgentGroup persists a new group (namespace and name come from the
 	// payload), returning model.ErrResourceAlreadyExist on a duplicate.

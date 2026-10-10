@@ -295,14 +295,9 @@ func (s *store[K, V]) list(options *model.ListOptions, filter func(V) bool) (*mo
 		afterSeq = parsed
 	}
 
-	candidates := s.collect(options.IncludeDeleted, afterSeq, filter)
-
-	total := int64(len(candidates))
+	candidates, total := s.collectPage(options.IncludeDeleted, afterSeq, filter, options.Limit)
 
 	page := candidates
-	if options.Limit > 0 && int64(len(candidates)) > options.Limit {
-		page = candidates[:options.Limit]
-	}
 
 	items := make([]V, 0, len(page))
 
@@ -358,4 +353,50 @@ func (s *store[K, V]) withSelectors(
 
 		return s.selectorValues(value).Matches(options)
 	}, nil
+}
+
+// collectPage counts matches but retains and clones only the requested page.
+func (s *store[K, V]) collectPage(
+	includeDeleted bool, afterSeq uint64, filter func(V) bool, limit int64,
+) ([]item[V], int64) {
+	if limit <= 0 {
+		entries := s.collect(includeDeleted, afterSeq, filter)
+
+		return entries, int64(len(entries))
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	entries := make([]item[V], 0)
+
+	var total int64
+
+	for _, entry := range s.items {
+		if (!includeDeleted && s.isDeleted(entry.value)) || entry.seq <= afterSeq ||
+			(filter != nil && !filter(entry.value)) {
+			continue
+		}
+
+		total++
+
+		pos, _ := slices.BinarySearchFunc(entries, entry.seq, func(value item[V], seq uint64) int {
+			return cmp.Compare(value.seq, seq)
+		})
+		if int64(pos) >= limit {
+			continue
+		}
+
+		if int64(len(entries)) == limit {
+			entries = entries[:len(entries)-1]
+		}
+
+		entries = slices.Insert(entries, pos, *entry)
+	}
+
+	for i := range entries {
+		entries[i].value = s.clone(entries[i].value)
+	}
+
+	return entries, total
 }

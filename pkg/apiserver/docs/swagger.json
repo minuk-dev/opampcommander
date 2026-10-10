@@ -2307,7 +2307,7 @@
         },
         "/api/v1/namespaces/{namespace}/agents/{id}/agentgroups": {
             "get": {
-                "description": "Retrieve the agent groups in the namespace whose selector matches the given agent.",
+                "description": "Retrieve the agent groups in the namespace whose selector matches the given agent.\nPages use insertion-key order and live membership, not a snapshot across requests.\nPass continue unchanged and stop when remainingItemCount is zero.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2332,6 +2332,51 @@
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "maximum": 1000,
+                        "minimum": 0,
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Page size; 0 uses the default of 50",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Token to continue listing agent groups",
+                        "name": "continue",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Include soft-deleted agent groups",
+                        "name": "includeDeleted",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Label selector, e.g. env=prod,tier notin (canary,dev)",
+                        "name": "labelSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Field selector over the supported fields: metadata.namespace",
+                        "name": "fieldSelector",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-sensitive name prefix filter",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Case-insensitive name substring filter (scan; pass name= to bound it)",
+                        "name": "nameContains",
+                        "in": "query"
                     }
                 ],
                 "responses": {

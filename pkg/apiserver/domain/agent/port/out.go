@@ -199,6 +199,10 @@ type AgentGroupPersistencePort interface {
 	// PutAgentGroup saves the agent group.
 	PutAgentGroup(ctx context.Context, namespace string, name string,
 		agentGroup *agentmodel.AgentGroup) (*agentmodel.AgentGroup, error)
+	// ListAgentGroupsForAgent returns one page of groups in the agent's namespace
+	// whose selectors match its current attributes. Filtering precedes pagination.
+	ListAgentGroupsForAgent(ctx context.Context, agent *agentmodel.Agent,
+		options *model.ListOptions) (*model.ListResponse[*agentmodel.AgentGroup], error)
 	// ListAgentGroups retrieves the agent groups in namespace, with pagination
 	// options. The namespace is required: an empty one is
 	// [model.ErrInvalidArgument], not a cluster-wide listing, so a namespace read

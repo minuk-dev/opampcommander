@@ -516,7 +516,7 @@ func TestService_ListAgentGroupsByAgent(t *testing.T) {
 		agent.Metadata.Namespace = "other"
 		mockAgent.On("GetAgent", ctx, instanceUID).Return(agent, nil)
 
-		result, err := svc.ListAgentGroupsByAgent(ctx, "default", instanceUID)
+		result, err := svc.ListAgentGroupsByAgent(ctx, "default", instanceUID, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -534,7 +534,7 @@ func TestService_ListAgentGroupsByAgent(t *testing.T) {
 		instanceUID := uuid.New()
 		mockAgent.On("GetAgent", ctx, instanceUID).Return(nil, errMock)
 
-		result, err := svc.ListAgentGroupsByAgent(ctx, "default", instanceUID)
+		result, err := svc.ListAgentGroupsByAgent(ctx, "default", instanceUID, nil)
 
 		require.Error(t, err)
 		assert.Nil(t, result)
@@ -565,4 +565,66 @@ func TestService_UpdateAgentGroupNoop(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, existing.Metadata.ResourceVersion, updated.Metadata.ResourceVersion)
 	groups.AssertExpectations(t)
+}
+
+func (m *mockAgentGroupUsecase) ListAgentGroupsForAgent(
+	ctx context.Context, agent *agentmodel.Agent, options *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	args := m.Called(ctx, agent, options)
+	if args.Get(0) == nil {
+		return nil, args.Error(1) //nolint:wrapcheck // mock error
+	}
+
+	resp, _ := args.Get(0).(*model.ListResponse[*agentmodel.AgentGroup])
+
+	return resp, args.Error(1) //nolint:wrapcheck // mock error
+}
+
+func TestService_ListAgentGroupsByAgentPage(t *testing.T) {
+	t.Parallel()
+
+	for _, failure := range []bool{false, true} {
+		name := "page metadata"
+		if failure {
+			name = "persistence error"
+		}
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			groups := new(mockAgentGroupUsecase)
+			agents := new(mockAgentUsecase)
+			instanceUID := uuid.New()
+			agent := agentmodel.NewAgent(instanceUID)
+			agent.Metadata.Namespace = "default"
+			agents.On("GetAgent", ctx, instanceUID).Return(agent, nil)
+
+			options := &applicationport.ListOptions{Limit: 50, Continue: "cursor", NamePrefix: "group"}
+			response := &model.ListResponse[*agentmodel.AgentGroup]{
+				Items:    []*agentmodel.AgentGroup{agentmodel.NewAgentGroup("default", "group", nil, time.Now(), "tester")},
+				Continue: "next", RemainingItemCount: 100001,
+			}
+
+			if failure {
+				groups.On("ListAgentGroupsForAgent", ctx, agent, options.ToDomain()).Return(nil, errMock)
+			} else {
+				groups.On("ListAgentGroupsForAgent", ctx, agent, options.ToDomain()).Return(response, nil)
+			}
+
+			svc := newSvc(t, groups, agents)
+
+			page, err := svc.ListAgentGroupsByAgent(ctx, "default", instanceUID, options)
+			if failure {
+				require.ErrorIs(t, err, errMock)
+			} else {
+				require.NoError(t, err)
+				require.Len(t, page.Items, 1)
+				assert.Equal(t, "next", page.Metadata.Continue)
+				assert.EqualValues(t, 100001, page.Metadata.RemainingItemCount)
+			}
+
+			groups.AssertExpectations(t)
+			agents.AssertExpectations(t)
+		})
+	}
 }

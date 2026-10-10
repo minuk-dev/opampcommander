@@ -16,6 +16,9 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/inmemory"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/secondary/persistence/mongodb"
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
+	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/model"
+	"github.com/minuk-dev/opampcommander/pkg/selector"
 )
 
 // TestParity_AgentGroup reuses the shared namespaced/soft-delete contract for the
@@ -203,4 +206,142 @@ func runGroupStatistics(t *testing.T, b groupStatsBackend) {
 		assert.Zero(t, updated.Status.NumHealthyAgents)
 		assert.Zero(t, updated.Status.NumNotConnectedAgents)
 	})
+}
+
+func TestParity_AgentGroupMembership(t *testing.T) {
+	t.Parallel()
+	t.Run("inmemory", func(t *testing.T) {
+		t.Parallel()
+		runMembershipPages(t, inmemory.NewAgentGroupRepository(inmemory.NewAgentRepository()))
+	})
+
+	if testing.Short() {
+		return
+	}
+
+	// Non-short runs require MongoDB so CI cannot silently skip adapter parity.
+	t.Run("mongodb", func(t *testing.T) {
+		t.Parallel()
+		runMembershipPages(t, mongodb.NewAgentGroupRepository(startMongoDatabase(t), slog.Default()))
+	})
+}
+
+func runMembershipPages(t *testing.T, repo agentport.AgentGroupPersistencePort) {
+	t.Helper()
+	ctx := t.Context()
+	ns := uniqueNamespace("membership")
+	agent := agentmodel.NewAgent(uuid.New())
+	agent.Metadata.Namespace = ns
+	agent.Metadata.Description.IdentifyingAttributes = map[string]string{"service.name": "$otel", "empty": ""}
+	agent.Metadata.Description.NonIdentifyingAttributes = map[string]string{"host.name": "node"}
+
+	var expected []string
+
+	for i := range 123 {
+		name := fmt.Sprintf("group-%03d", i)
+		group := agentmodel.NewAgentGroup(ns, name, agentmodel.Attributes{"env": "prod"}, contractTime(), "tester")
+		group.Spec.Priority = 123 - i // Membership pagination uses insertion order, not config priority.
+
+		group.Spec.Selector = agentmodel.AgentSelector{
+			IdentifyingAttributes:    map[string]string{"service.name": "$otel", "empty": ""},
+			NonIdentifyingAttributes: map[string]string{"host.name": "node"},
+		}
+		if i%3 == 0 {
+			group.Spec.Selector.IdentifyingAttributes["missing"] = ""
+		} else {
+			expected = append(expected, name)
+		}
+
+		_, err := repo.PutAgentGroup(ctx, ns, name, group)
+		require.NoError(t, err)
+	}
+
+	for _, test := range []struct {
+		name      string
+		selector  agentmodel.AgentSelector
+		namespace string
+		deleted   bool
+	}{
+		{name: "other-namespace", namespace: ns + "-other"},
+		{name: "deleted", namespace: ns, deleted: true},
+		{name: "non-identifying-mismatch", namespace: ns,
+			selector: agentmodel.AgentSelector{NonIdentifyingAttributes: map[string]string{"host.name": "other"}}},
+		{name: "wrong-kind", namespace: ns,
+			selector: agentmodel.AgentSelector{NonIdentifyingAttributes: map[string]string{"service.name": "$otel"}}},
+	} {
+		group := agentmodel.NewAgentGroup(test.namespace, test.name, nil, contractTime(), "tester")
+
+		group.Spec.Selector = test.selector
+		if test.deleted {
+			group.MarkDeleted(contractTime(), "tester")
+		}
+
+		_, err := repo.PutAgentGroup(ctx, test.namespace, test.name, group)
+		require.NoError(t, err)
+	}
+
+	actual := make([]string, 0, len(expected))
+
+	options := &model.ListOptions{Limit: 50}
+	first, err := repo.ListAgentGroupsForAgent(ctx, agent, options)
+	require.NoError(t, err)
+	require.Len(t, first.Items, 50)
+	require.EqualValues(t, 32, first.RemainingItemCount)
+
+	for _, group := range first.Items {
+		actual = append(actual, group.Metadata.Name)
+	}
+	// Soft-deleting the cursor anchor must not invalidate its sort position.
+	anchor := first.Items[len(first.Items)-1]
+	anchor.MarkDeleted(contractTime(), "tester")
+	_, err = repo.PutAgentGroup(ctx, ns, anchor.Metadata.Name, anchor)
+	require.NoError(t, err)
+
+	options.Continue = first.Continue
+	second, err := repo.ListAgentGroupsForAgent(ctx, agent, options)
+	require.NoError(t, err)
+	require.Len(t, second.Items, 32)
+	require.Zero(t, second.RemainingItemCount)
+
+	for _, group := range second.Items {
+		actual = append(actual, group.Metadata.Name)
+	}
+
+	require.Equal(t, expected, actual)
+
+	options.Continue = second.Continue
+	end, err := repo.ListAgentGroupsForAgent(ctx, agent, options)
+	require.NoError(t, err)
+	require.Empty(t, end.Items)
+	require.Empty(t, end.Continue)
+	// Selectors and name filtering narrow the set before it is counted/paged.
+	labels, err := selector.ParseLabels("env=prod")
+	require.NoError(t, err)
+	fields, err := selector.ParseFields("metadata.namespace=" + ns)
+	require.NoError(t, err)
+	filtered, err := repo.ListAgentGroupsForAgent(ctx, agent, &model.ListOptions{
+		Limit: 2, NamePrefix: "group-00", NameContains: "GROUP", LabelSelector: labels, FieldSelector: fields,
+	})
+	require.NoError(t, err)
+	require.Len(t, filtered.Items, 2)
+	require.EqualValues(t, 4, filtered.RemainingItemCount)
+	require.Equal(t, "group-001", filtered.Items[0].Metadata.Name)
+	// Empty selectors (nil maps) match, and includeDeleted applies to groups.
+	deleted, err := repo.ListAgentGroupsForAgent(ctx, agent, &model.ListOptions{
+		NamePrefix: "deleted", IncludeDeleted: true,
+	})
+	require.NoError(t, err)
+	require.Len(t, deleted.Items, 1)
+
+	for _, limit := range []int64{-1, 1001} {
+		_, err := repo.ListAgentGroupsForAgent(ctx, agent, &model.ListOptions{Limit: limit})
+		require.ErrorIs(t, err, model.ErrInvalidArgument)
+	}
+
+	_, err = repo.ListAgentGroupsForAgent(ctx, agent, &model.ListOptions{Continue: "not-a-cursor"})
+	require.ErrorIs(t, err, model.ErrInvalidArgument)
+
+	agent.Metadata.Namespace = ""
+	_, err = repo.ListAgentGroupsForAgent(ctx, agent, nil)
+	require.ErrorIs(t, err, model.ErrInvalidArgument)
 }

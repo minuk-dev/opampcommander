@@ -412,3 +412,9 @@ func TestDeleteNamespaceRejectsStaleRevisionBeforeCascade(t *testing.T) {
 	require.Zero(t, persistence.putCalls)
 	require.False(t, stored.IsDeleted())
 }
+
+func (f *nsFakeAgentGroupUsecase) ListAgentGroupsForAgent(
+	context.Context, *agentmodel.Agent, *model.ListOptions,
+) (*model.ListResponse[*agentmodel.AgentGroup], error) {
+	return &model.ListResponse[*agentmodel.AgentGroup]{Items: f.items}, nil
+}

@@ -3370,8 +3370,10 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve the agent groups in the namespace whose selector matches
-        the given agent.
+      description: |-
+        Retrieve the agent groups in the namespace whose selector matches the given agent.
+        Pages use insertion-key order and live membership, not a snapshot across requests.
+        Pass continue unchanged and stop when remainingItemCount is zero.
       parameters:
       - description: Namespace
         in: path
@@ -3382,6 +3384,38 @@ paths:
         in: path
         name: id
         required: true
+        type: string
+      - default: 50
+        description: Page size; 0 uses the default of 50
+        in: query
+        maximum: 1000
+        minimum: 0
+        name: limit
+        type: integer
+      - description: Token to continue listing agent groups
+        in: query
+        name: continue
+        type: string
+      - description: Include soft-deleted agent groups
+        in: query
+        name: includeDeleted
+        type: boolean
+      - description: Label selector, e.g. env=prod,tier notin (canary,dev)
+        in: query
+        name: labelSelector
+        type: string
+      - description: 'Field selector over the supported fields: metadata.namespace'
+        in: query
+        name: fieldSelector
+        type: string
+      - description: Case-sensitive name prefix filter
+        in: query
+        name: name
+        type: string
+      - description: Case-insensitive name substring filter (scan; pass name= to bound
+          it)
+        in: query
+        name: nameContains
         type: string
       produces:
       - application/json

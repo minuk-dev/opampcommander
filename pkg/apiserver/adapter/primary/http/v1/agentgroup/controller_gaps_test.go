@@ -134,7 +134,7 @@ func TestAgentGroupController_ListAgentGroupsByAgentGaps(t *testing.T) {
 
 		ctrlBase, usecase := gapSetup(t)
 		uid := uuid.New()
-		usecase.On("ListAgentGroupsByAgent", mock.Anything, "default", uid).
+		usecase.On("ListAgentGroupsByAgent", mock.Anything, "default", uid, mock.Anything).
 			Return(nil, applicationport.ErrAgentNamespaceMismatch)
 
 		require.Equal(t, http.StatusNotFound,
@@ -146,7 +146,7 @@ func TestAgentGroupController_ListAgentGroupsByAgentGaps(t *testing.T) {
 
 		ctrlBase, usecase := gapSetup(t)
 		uid := uuid.New()
-		usecase.On("ListAgentGroupsByAgent", mock.Anything, "default", uid).Return(nil, errGapBoom)
+		usecase.On("ListAgentGroupsByAgent", mock.Anything, "default", uid, mock.Anything).Return(nil, errGapBoom)
 
 		require.Equal(t, http.StatusInternalServerError,
 			gapGET(t, ctrlBase.Router, agentsBase+"/"+uid.String()+"/agentgroups").Code)
