@@ -15,8 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
-	swaggerfiles "github.com/swaggo/files"
-	ginswagger "github.com/swaggo/gin-swagger"
+	httpswagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/http/auth/basic"
@@ -243,7 +242,7 @@ func NewEngine(
 	))
 	engine.Use(observabilityService.Middleware())
 	// swagger
-	engine.GET("/swagger/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
+	engine.GET("/swagger/*any", gin.WrapH(httpswagger.Handler()))
 	engine.GET("/docs", func(ctx *gin.Context) {
 		ctx.Redirect(http.StatusMovedPermanently, "/swagger/index.html")
 	})
