@@ -1,10 +1,12 @@
 package testutil
 
 import (
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
@@ -35,10 +37,11 @@ func (b *Base) StartKafka() *Kafka {
 		kafkaTestContainer.WithClusterID("test-cluster-id"),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("9093/tcp")),
 		// Keep the server's configured broker address valid across container restarts.
-		testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) error {
-			req.ExposedPorts = []string{fmt.Sprintf("%d:9093/tcp", b.GetFreeTCPPort())}
+		testcontainers.WithHostConfigModifier(func(hostConfig *container.HostConfig) {
+			binding := network.PortBinding{}
+			binding.HostPort = strconv.Itoa(b.GetFreeTCPPort())
 
-			return nil
+			hostConfig.PortBindings = network.PortMap{network.MustParsePort("9093/tcp"): {binding}}
 		}),
 	)
 	require.NoError(b.t, err)
