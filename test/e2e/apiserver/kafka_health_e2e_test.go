@@ -27,6 +27,7 @@ func TestE2E_APIServer_KafkaHealthSurvivesBrokerOutage(t *testing.T) {
 	broker := base.StartKafka()
 	server := base.StartAPIServerWithKafka(mongodb.URI, broker.Broker, "opampcommander_kafka_health")
 	server.WaitForReady()
+
 	client := &http.Client{Timeout: 3 * time.Second}
 
 	healthReason := func() string {
@@ -36,7 +37,9 @@ func TestE2E_APIServer_KafkaHealthSurvivesBrokerOutage(t *testing.T) {
 		require.NoError(t, err)
 		response, err := client.Do(req)
 		require.NoError(t, err)
-		defer response.Body.Close()
+
+		defer func() { require.NoError(t, response.Body.Close()) }()
+
 		require.Equal(t, http.StatusOK, response.StatusCode)
 
 		var reasons map[string]string
