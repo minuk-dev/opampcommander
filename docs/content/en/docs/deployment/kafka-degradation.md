@@ -16,7 +16,9 @@ once the agent cache expires (30s by default). Cache reads do not extend that TT
 Recovery therefore depends on the database remaining available and the agent sending
 another message; it does not require Kafka to reconnect. Later updates may supersede
 older desired state. This is state convergence, not an ordered replay of every command
-or an exactly-once execution guarantee.
+or an exactly-once execution guarantee. Previously stored restart requests can now
+be offered after a reload if the reported agent start time precedes the request;
+a newer reported start time suppresses the command.
 
 ## Limits and recovery
 
@@ -77,7 +79,10 @@ merge did not close [issue #592](https://github.com/minuk-dev/opampcommander/iss
 The receive path also started `OpenInbound` twice and could exit after consumer-group
 errors during a sustained outage, leaving pushes stopped after Kafka recovered.
 The receiver now retries failed sessions without closing its CloudEvents channel,
-and the duplicate lifecycle start is removed.
+and the duplicate lifecycle start is removed. MongoDB also discarded the stored
+`requiredRestartedAt` value when reloading an agent, so a restart could disappear
+from the heartbeat recovery path. That timestamp now survives reload; missing
+requests still remain absent, including legacy documents.
 
 The original checklist still mixes that earlier delivery proposal with the merged
 best-effort contract:
