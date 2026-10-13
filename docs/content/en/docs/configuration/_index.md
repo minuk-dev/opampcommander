@@ -438,6 +438,25 @@ management:
 
 Health checks are served at `GET /healthz` and `GET /readyz`.
 
+Both endpoints return a JSON object mapping affected dependency names to reasons
+(an empty object when there are no problems). Their dependency semantics are:
+
+| Dependency | `/readyz` during an outage | `/healthz` during an outage |
+| --- | --- | --- |
+| MongoDB (when selected) | HTTP 503: durable storage is required to serve requests | HTTP 200: restarting does not repair the database |
+| In-memory storage | HTTP 200 | HTTP 200 |
+| Shared agent liveness cache | HTTP 200: node-local state and database fallback remain available | HTTP 200 with `AgentLivenessCache` and the degradation reason |
+| Kafka (only with `event.type: kafka`) | HTTP 200: REST and locally connected agents remain available | HTTP 200 with `Kafka` and the degradation reason |
+
+Kafka broker reachability is checked with a metadata request, without producing
+events or creating topics. Results, including failures, are cached for five
+seconds per server; concurrent polls share one check. Socket operations are
+limited to 200 ms and metadata attempts have a 500 ms budget (an in-flight socket
+operation can finish after that budget). Recovery appears on the first health
+poll after the cache expires. Monitor the `/healthz` JSON body to detect degraded
+cross-server command delivery: Kubernetes probes intentionally stay successful
+so a broker outage does not drain or restart every replica.
+
 ## Authentication
 
 OpAMP Commander supports OAuth2 (GitHub), basic auth (with hashed passwords), and a
