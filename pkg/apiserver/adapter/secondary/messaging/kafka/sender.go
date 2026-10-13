@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -23,19 +24,31 @@ type Sender struct {
 	sendTimeout time.Duration
 	done        chan struct{}
 	closeOnce   sync.Once
+	enqueued    atomic.Int64
+	delivered   atomic.Int64
+	failed      atomic.Int64
+	rejected    atomic.Int64
+	lastFailure atomic.Pointer[string]
 }
 
-// NewSender requires Producer.Return.Errors enabled and Producer.Return.Successes disabled.
+// NewSender requires Producer.Return.Errors and Producer.Return.Successes enabled.
 func NewSender(producer sarama.AsyncProducer, topic string, logger *slog.Logger, sendTimeout time.Duration) *Sender {
+	//exhaustruct:ignore // counters and the last failure start empty.
 	sender := &Sender{producer: producer, topic: topic, logger: logger, sendTimeout: sendTimeout,
 		done: make(chan struct{}), closeOnce: sync.Once{}}
-	go sender.drainErrors()
+	go sender.drainResults()
 
 	return sender
 }
 
 // Send bounds enqueue time. Success means submitted to the producer, not delivered to Kafka.
-func (s *Sender) Send(ctx context.Context, message binding.Message, transformers ...binding.Transformer) error {
+func (s *Sender) Send(ctx context.Context, message binding.Message, transformers ...binding.Transformer) (err error) {
+	defer func() {
+		if err != nil {
+			s.rejected.Add(1)
+		}
+	}()
+
 	ctx, cancel := context.WithTimeout(ctx, s.sendTimeout)
 	defer cancel()
 
@@ -47,7 +60,7 @@ func (s *Sender) Send(ctx context.Context, message binding.Message, transformers
 
 	kafkaMessage.Topic = s.topic
 
-	err := cekafka.WriteProducerMessage(ctx, message, kafkaMessage, transformers...)
+	err = cekafka.WriteProducerMessage(ctx, message, kafkaMessage, transformers...)
 	if err != nil {
 		return fmt.Errorf("encode Kafka event: %w", err)
 	}
@@ -60,6 +73,8 @@ func (s *Sender) Send(ctx context.Context, message binding.Message, transformers
 
 	select {
 	case s.producer.Input() <- kafkaMessage:
+		s.enqueued.Add(1)
+
 		return nil
 	case <-ctx.Done():
 		return fmt.Errorf("submit Kafka event: %w", ctx.Err())
@@ -81,10 +96,33 @@ func (s *Sender) Close(ctx context.Context) error {
 	}
 }
 
-func (s *Sender) drainErrors() {
+func (s *Sender) drainResults() {
 	defer close(s.done)
 
-	for failure := range s.producer.Errors() {
-		s.logger.Warn("Kafka notification delivery failed", "topic", s.topic, "error", failure.Err)
+	failures, successes := s.producer.Errors(), s.producer.Successes()
+	for failures != nil || successes != nil {
+		select {
+		case failure, ok := <-failures:
+			if !ok {
+				failures = nil
+
+				continue
+			}
+
+			s.failed.Add(1)
+
+			reason := failure.Err.Error()
+			s.lastFailure.Store(&reason)
+			s.logger.Warn("Kafka notification delivery failed", "topic", s.topic, "error", failure.Err)
+		case _, ok := <-successes:
+			if !ok {
+				successes = nil
+
+				continue
+			}
+
+			s.delivered.Add(1)
+			s.lastFailure.Store(nil)
+		}
 	}
 }

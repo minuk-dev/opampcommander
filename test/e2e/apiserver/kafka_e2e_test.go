@@ -8,6 +8,8 @@
 package apiserver_test
 
 import (
+	"encoding/json"
+	"net/http"
 	"testing"
 	"time"
 
@@ -20,6 +22,99 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/client"
 	"github.com/minuk-dev/opampcommander/pkg/testutil"
 )
+
+// TestE2E_APIServer_KafkaOutage verifies actual agent config application while
+// Kafka is stopped, then producer recovery after the same broker restarts.
+func TestE2E_APIServer_KafkaOutage(t *testing.T) {
+	t.Parallel()
+	testcontainers.SkipIfProviderIsNotHealthy(t)
+
+	if testing.Short() {
+		t.Skip("Skipping E2E test in short mode")
+	}
+
+	base := testutil.NewBase(t)
+	mongoServer := base.StartMongoDB()
+	kafkaServer := base.StartKafka()
+	writer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "kafka_outage")
+	writer.WaitForReady()
+
+	peer := base.StartAPIServerWithKafka(mongoServer.URI, kafkaServer.Broker, "kafka_outage")
+	peer.WaitForReady()
+
+	local := base.StartReferenceAgent(writer.Port,
+		testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": "kafka-outage"}))
+	remote := base.StartReferenceAgent(peer.Port,
+		testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{"service.name": "kafka-outage"}))
+
+	apiClient := writer.Client()
+	for _, agent := range []*testutil.ReferenceAgent{local, remote} {
+		testutil.EventuallyAgent(t, apiClient, "default", agent.UID, func(a *v1.Agent) bool {
+			return a.Status.Connected
+		}, time.Minute, time.Second, "agent should connect before the broker outage")
+	}
+
+	createAgentGroup(t, apiClient, "outage", map[string]string{"service.name": "kafka-outage"})
+	updateAgentGroup(t, apiClient, "outage", map[string]string{"phase": "before"})
+	require.Eventually(t, func() bool {
+		return local.EffectiveConfig()["outage/inline-config"] == "phase: before\n" &&
+			remote.EffectiveConfig()["outage/inline-config"] == "phase: before\n"
+	}, 2*time.Minute, time.Second, "both agents must apply the initial config, warming the peer cache")
+
+	stopTimeout := time.Second
+	require.NoError(t, kafkaServer.Stop(t.Context(), &stopTimeout))
+	updateAgentGroup(t, apiClient, "outage", map[string]string{"phase": "outage"})
+
+	// Kafka remains down: remote recovery must come from persisted state and
+	// heartbeat/cache expiry, not a replay after broker reconnection.
+	require.Eventually(t, func() bool {
+		return local.EffectiveConfig()["outage/inline-config"] == "phase: outage\n" &&
+			remote.EffectiveConfig()["outage/inline-config"] == "phase: outage\n"
+	}, 2*time.Minute, time.Second, "local and remote agents must apply the config while Kafka stays down")
+	require.Eventually(t, func() bool {
+		return kafkaProducerDegraded(t, writer)
+	}, 2*time.Minute, time.Second, "an exhausted producer retry must be visible without failing probes")
+
+	for _, agent := range []*testutil.ReferenceAgent{local, remote} {
+		current, err := apiClient.AgentService.GetAgent(t.Context(), "default", agent.UID)
+		require.NoError(t, err)
+		require.True(t, current.Status.Connected)
+	}
+
+	require.NoError(t, kafkaServer.Start(t.Context()))
+	updateAgentGroup(t, apiClient, "outage", map[string]string{"phase": "recovered"})
+	require.Eventually(t, func() bool {
+		return local.EffectiveConfig()["outage/inline-config"] == "phase: recovered\n" &&
+			remote.EffectiveConfig()["outage/inline-config"] == "phase: recovered\n" &&
+			!kafkaProducerDegraded(t, writer)
+	}, 3*time.Minute, time.Second, "agents and the producer must recover without restarting the API servers")
+}
+
+func kafkaProducerDegraded(t *testing.T, server *testutil.APIServer) bool {
+	t.Helper()
+
+	var degraded bool
+	for _, path := range []string{"/healthz", "/readyz"} {
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.ManagementEndpoint+path, nil)
+		require.NoError(t, err)
+		response, err := http.DefaultClient.Do(request)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, response.StatusCode, "Kafka loss must not drain or restart the node")
+
+		var reasons map[string]string
+
+		err = json.NewDecoder(response.Body).Decode(&reasons)
+		_ = response.Body.Close()
+
+		require.NoError(t, err)
+
+		if path == "/healthz" {
+			degraded = reasons["KafkaProducer"] != ""
+		}
+	}
+
+	return degraded
+}
 
 // TestE2E_APIServer_KafkaDistributedMode tests distributed mode with Kafka messaging
 // Scenario: Two API servers communicate via Kafka, and an agent update on server1
