@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -32,6 +33,12 @@ func (b *Base) StartKafka() *Kafka {
 		b.t.Context(),
 		kafkaImage,
 		kafkaTestContainer.WithClusterID("test-cluster-id"),
+		// A random Docker mapping changes on stop/start, stranding existing clients.
+		testcontainers.CustomizeRequestOption(func(request *testcontainers.GenericContainerRequest) error {
+			request.ExposedPorts = []string{fmt.Sprintf("%d:9093/tcp", b.GetFreeTCPPort())}
+
+			return nil
+		}),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("9093/tcp")),
 	)
 	require.NoError(b.t, err)

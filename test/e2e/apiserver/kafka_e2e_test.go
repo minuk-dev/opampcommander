@@ -64,6 +64,8 @@ func TestE2E_APIServer_KafkaOutage(t *testing.T) {
 	}, 2*time.Minute, time.Second, "both agents must apply the initial config, warming the peer cache")
 
 	stopTimeout := time.Second
+	brokerPort, err := kafkaServer.MappedPort(t.Context(), "9093/tcp")
+	require.NoError(t, err)
 	require.NoError(t, kafkaServer.Stop(t.Context(), &stopTimeout))
 
 	outageStarted := time.Now()
@@ -97,6 +99,10 @@ func TestE2E_APIServer_KafkaOutage(t *testing.T) {
 	time.Sleep(time.Until(outageStarted.Add(90 * time.Second)))
 
 	require.NoError(t, kafkaServer.Start(t.Context()))
+	restartedPort, err := kafkaServer.MappedPort(t.Context(), "9093/tcp")
+	require.NoError(t, err)
+	require.Equal(t, brokerPort, restartedPort, "broker restart must preserve its advertised endpoint")
+
 	updateAgentGroup(t, apiClient, "outage", map[string]string{"phase": "recovered"})
 	require.Eventually(t, func() bool {
 		return local.EffectiveConfig()["outage/inline-config"] == "phase: recovered\n" &&
