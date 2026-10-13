@@ -53,19 +53,82 @@ available as `--shutdown.drainWindow`, `--shutdown.timeout`,
 Set the pod's `terminationGracePeriodSeconds` longer than `shutdown.timeout` so
 Kubernetes leaves enough time for this shutdown sequence.
 
-### OpAMP client TLS and CA rotation
+### Listener TLS
 
-`opampTLS` enables HTTPS for the whole API. Only `/api/v1/opamp` requires an
-agent client certificate. `certFile` and `keyFile` are the server's certificate
-and key; `caFile` is a PEM bundle of CAs trusted to issue agent client
-certificates. Each agent certificate's CN must equal its instance UID.
+Set `tls.certFile` and `tls.keyFile` to enable HTTPS for the entire REST API
+and WSS at `/api/v1/opamp`. Both paths are required; invalid or unreadable
+credentials fail startup. Clients must trust the CA that issued the server
+certificate and connect using a name present in its subject alternative names.
 
 ```yaml
-opampTLS:
+tls:
+  certFile: /etc/opampcommander/tls/server.crt
+  keyFile: /etc/opampcommander/tls/server.key
+  minVersion: "1.2"
+  cipherSuites: []
+management:
+  tls:
+    certFile: /etc/opampcommander/tls/management.crt
+    keyFile: /etc/opampcommander/tls/management.key
+```
+
+`certFile` contains the PEM leaf certificate followed by any intermediate
+certificates; `keyFile` contains its PEM private key. Protect the key with file
+permissions readable only by the server. `minVersion` accepts `"1.2"` (default)
+or `"1.3"`; older versions are rejected. `cipherSuites` optionally restricts
+TLS 1.2 to named secure suites from Go's `tls.CipherSuites`, for example
+`TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256`. Empty uses Go defaults. Go controls
+preference order and TLS 1.3 suites; TLS 1.3 suite names cannot be configured.
+
+The management listener is configured independently and serves health checks,
+metrics and pprof. Its optional `management.tls.caFile` requires a trusted
+client certificate on **every** management route. Update health probes and
+Prometheus scrapers to use HTTPS and the necessary client credentials. Keep
+this listener private even when using TLS.
+
+All new settings have dotted flags and environment variables, for example
+`--tls.certFile`, `TLS_CERTFILE`, and `MANAGEMENT_TLS_KEYFILE`.
+
+Without certificate paths, a listener stays plaintext for local development
+or [ingress TLS termination](/docs/deployment/#tls-at-the-ingress). The server
+logs a startup warning naming the plaintext OpAMP WebSocket endpoint, whose
+remote configuration can contain credentials, and a separate management
+warning. Do not expose either plaintext listener to an untrusted network.
+
+#### Server certificate rotation
+
+Replace the server certificate and key, then send SIGHUP to the apiserver
+process:
+
+```bash
+kill -HUP <apiserver-pid>
+```
+
+Both configured listeners reload their own server certificate/key pairs. New
+TLS handshakes use the replacement; existing WebSocket and HTTP connections
+continue uninterrupted. Missing, malformed, or mismatched replacements log an
+error and retain the last valid pair. Publish both files before signaling,
+preferably by switching a directory symlink to a complete pair. Repeat for
+every server process. Settings, paths and client CA bundles are loaded at
+startup and require a restart to change.
+
+### OpAMP mutual TLS
+
+Add `tls.caFile` to trust a PEM bundle of agent client CAs. Only
+`/api/v1/opamp` requires an agent client certificate; REST clients may connect
+without one. Each agent certificate's CN must equal its instance UID.
+
+```yaml
+tls:
   certFile: /etc/opampcommander/tls/server.crt
   keyFile: /etc/opampcommander/tls/server.key
   caFile: /etc/opampcommander/tls/agent-ca-bundle.pem
 ```
+
+Existing `opampTLS` configurations remain supported with all three paths
+required. They also gain SIGHUP server-certificate reload. Do not configure
+certificate paths under both `tls` and `opampTLS`; ambiguous settings fail
+startup.
 
 Issue agent client certificates through your external CA or PKI tooling;
 APIServer does not issue certificates or load a CA private key. Register an
@@ -90,9 +153,10 @@ To rotate an agent-client CA, put the **old and new CA certificates in the same
 PEM file**, one `BEGIN CERTIFICATE` block after the other. Restart every
 apiserver instance so both CAs are trusted, switch agents to certificates
 issued by the new CA, then remove the old CA from the bundle and restart the
-instances again. TLS files are read only at startup; editing the file alone
-does not change the CAs trusted by a running instance. `caFile` does not
-control which CA an agent trusts for the *server* certificate.
+instances again. Client CA bundles are read only at startup; SIGHUP reloads
+only the server certificate/key and does not change the CAs trusted by a
+running instance. `caFile` does not control which CA an agent trusts for the
+*server* certificate.
 
 ## Database
 
@@ -373,6 +437,25 @@ management:
 ```
 
 Health checks are served at `GET /healthz` and `GET /readyz`.
+
+Both endpoints return a JSON object mapping affected dependency names to reasons
+(an empty object when there are no problems). Their dependency semantics are:
+
+| Dependency | `/readyz` during an outage | `/healthz` during an outage |
+| --- | --- | --- |
+| MongoDB (when selected) | HTTP 503: durable storage is required to serve requests | HTTP 200: restarting does not repair the database |
+| In-memory storage | HTTP 200 | HTTP 200 |
+| Shared agent liveness cache | HTTP 200: node-local state and database fallback remain available | HTTP 200 with `AgentLivenessCache` and the degradation reason |
+| Kafka (only with `event.type: kafka`) | HTTP 200: REST and locally connected agents remain available | HTTP 200 with `Kafka` and the degradation reason |
+
+Kafka broker reachability is checked with a metadata request, without producing
+events or creating topics. Results, including failures, are cached for five
+seconds per server; concurrent polls share one check. Socket operations are
+limited to 200 ms and metadata attempts have a 500 ms budget (an in-flight socket
+operation can finish after that budget). Recovery appears on the first health
+poll after the cache expires. Monitor the `/healthz` JSON body to detect degraded
+cross-server command delivery: Kubernetes probes intentionally stay successful
+so a broker outage does not drain or restart every replica.
 
 ## Authentication
 

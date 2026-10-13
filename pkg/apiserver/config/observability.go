@@ -10,6 +10,9 @@ type ManagementSettings struct {
 	// e.g. ":9090" or "localhost:9090"
 	Address string
 
+	// TLS enables HTTPS independently of the main API listener.
+	TLS TLSSettings
+
 	// Observability holds the settings for observability features. The concrete
 	// type is owned by the observability package; config only aggregates it.
 	Observability observability.Config

@@ -61,7 +61,6 @@ func (s *Sender) Readiness(context.Context) healthcheck.Readiness {
 }
 
 // Health reports the last observed delivery failure without failing liveness.
-// shortcut: idle outages and consumer failures need the active broker probe in #595.
 func (s *Sender) Health(context.Context) healthcheck.Health {
 	health := healthcheck.Health{Healthy: true, Degraded: false, Reason: ""}
 	if failure := s.lastFailure.Load(); failure != nil {

@@ -1,10 +1,14 @@
 package testutil
 
 import (
-	"fmt"
+	"context"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
+	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
@@ -33,13 +37,15 @@ func (b *Base) StartKafka() *Kafka {
 		b.t.Context(),
 		kafkaImage,
 		kafkaTestContainer.WithClusterID("test-cluster-id"),
-		// A random Docker mapping changes on stop/start, stranding existing clients.
-		testcontainers.CustomizeRequestOption(func(request *testcontainers.GenericContainerRequest) error {
-			request.ExposedPorts = []string{fmt.Sprintf("%d:9093/tcp", b.GetFreeTCPPort())}
-
-			return nil
-		}),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("9093/tcp")),
+		// Keep the server's configured broker address valid across container restarts.
+		testcontainers.WithHostConfigModifier(func(hostConfig *container.HostConfig) {
+			binding := network.PortBinding{}
+			binding.HostPort = strconv.Itoa(b.GetFreeTCPPort())
+
+			hostConfig.PortBindings = network.PortMap{network.MustParsePort("9093/tcp"): {binding}}
+		}),
+		testcontainers.CustomizeRequestOption(kafkaInitializeOnce),
 	)
 	require.NoError(b.t, err)
 
@@ -57,6 +63,25 @@ func (b *Base) StartKafka() *Kafka {
 		Container: container,
 		Broker:    broker,
 	}
+}
+
+// kafkaInitializeOnce avoids replacing the startup script while a restarting broker executes it.
+func kafkaInitializeOnce(req *testcontainers.GenericContainerRequest) error {
+	for idx := range req.LifecycleHooks {
+		for startIdx, hook := range req.LifecycleHooks[idx].PostStarts {
+			var initialize sync.Once
+
+			var initializeErr error
+
+			req.LifecycleHooks[idx].PostStarts[startIdx] = func(ctx context.Context, ctr testcontainers.Container) error {
+				initialize.Do(func() { initializeErr = hook(ctx, ctr) })
+
+				return initializeErr
+			}
+		}
+	}
+
+	return nil
 }
 
 //nolint:nestif

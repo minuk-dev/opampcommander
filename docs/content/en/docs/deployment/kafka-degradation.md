@@ -65,9 +65,11 @@ not treated as broker failures. Queue acceptance alone never clears a delivery f
 
 These signals describe the last **producer result**, not current cluster reachability.
 Before any result, the gauge is 0; mixed partition results can clear it even if another
-partition remains unavailable. Idle broker outages and consumer-only failures need
-an active, bounded, cached broker probe tracked in
-[issue #595](https://github.com/minuk-dev/opampcommander/issues/595).
+partition remains unavailable. The separate `Kafka` health indicator probes broker metadata with a short timeout
+and a five-second cache, including idle outages; it was added by
+[PR #797](https://github.com/minuk-dev/opampcommander/pull/797) for
+[issue #595](https://github.com/minuk-dev/opampcommander/issues/595). Neither a producer
+acknowledgement nor a metadata probe guarantees that a consumer is making progress.
 
 ## Issue #592 closure criteria
 
@@ -95,11 +97,11 @@ best-effort contract:
 | Distinct unreachable error / HTTP status | Persisted updates succeed; asynchronous notification failure cannot truthfully change an already returned HTTP response |
 | Sent/failed/dropped and breaker metrics | Enqueued/delivered/terminal-failed/rejected counters and last-result degradation are available; there is no breaker to measure |
 | Broker killed mid-flight | `TestE2E_APIServer_KafkaOutage` stops the broker, checks actual config application on local and remote reference agents while it stays down, checks local/remote restart commands, then proves push recovery on an agent with a one-hour heartbeat |
-| Broker health | Last producer outcome is exposed; active reachability/consumer monitoring remains #595 |
+| Broker health | #797 supplies a cached active `Kafka` metadata probe; `KafkaProducer` adds delivery-result state |
 
 To close #592 under the merged architecture, accept state convergence as the recovery
 contract in place of ordered replay, the bounded producer as the outage isolation
 mechanism, and successful persistence as the API contract; require the outage E2E to
-pass, and explicitly track active broker health in #595. If the original breaker,
+pass. Active broker health is supplied by #797. If the original breaker,
 DLQ/replay and unreachable HTTP semantics remain requirements, those are still missing
 and #592 must remain open. This change does not close the issue automatically.
