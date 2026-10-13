@@ -27,7 +27,10 @@ have a separate budget; `sendTimeout` does not cap the whole background retry cy
 The producer uses Sarama's own buffers. Exhausted deliveries are logged and counted;
 there is no application replay queue, DLQ or custom circuit breaker. Notification
 workers and enqueue waits are bounded so broker acknowledgements do not hold API
-request goroutines. Producer shutdown drains both result channels with a bounded wait.
+request goroutines. Producer shutdown drains both result channels with a bounded wait. The Kafka receiver
+keeps its incoming channel open and retries failed consumer-group sessions with a
+cancelable backoff; CloudEvents owns a single receive loop. Broker recovery therefore
+restores event-driven pushes without restarting the API server.
 
 A broker outage after startup leaves REST and locally connected agents serving.
 Kafka is still required during Kafka client construction: starting a new server while
@@ -71,6 +74,10 @@ retry/backoff, bounded asynchronous enqueue and heartbeat/cache-expiry recovery.
 intentionally removed the custom breaker, application replay queue and unreachable
 HTTP error from its earlier implementation. Its description used `Refs #592`, so its
 merge did not close [issue #592](https://github.com/minuk-dev/opampcommander/issues/592).
+The receive path also started `OpenInbound` twice and could exit after consumer-group
+errors during a sustained outage, leaving pushes stopped after Kafka recovered.
+The receiver now retries failed sessions without closing its CloudEvents channel,
+and the duplicate lifecycle start is removed.
 
 The original checklist still mixes that earlier delivery proposal with the merged
 best-effort contract:
@@ -82,7 +89,7 @@ best-effort contract:
 | Replay buffer or DLQ | Persisted state plus heartbeat/cache expiry supplies convergence; ordered command replay is not implemented |
 | Distinct unreachable error / HTTP status | Persisted updates succeed; asynchronous notification failure cannot truthfully change an already returned HTTP response |
 | Sent/failed/dropped and breaker metrics | Enqueued/delivered/terminal-failed/rejected counters and last-result degradation are available; there is no breaker to measure |
-| Broker killed mid-flight | `TestE2E_APIServer_KafkaOutage` stops the broker, checks actual config application on local and remote reference agents while it stays down, then checks producer recovery on restart |
+| Broker killed mid-flight | `TestE2E_APIServer_KafkaOutage` stops the broker, checks actual config application on local and remote reference agents while it stays down, checks local/remote restart commands, then proves push recovery on an agent with a one-hour heartbeat |
 | Broker health | Last producer outcome is exposed; active reachability/consumer monitoring remains #595 |
 
 To close #592 under the merged architecture, accept state convergence as the recovery

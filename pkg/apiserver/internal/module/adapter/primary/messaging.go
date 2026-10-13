@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/IBM/sarama"
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	"go.uber.org/fx"
 
 	indirect "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/primary/messaging/direct"
@@ -115,7 +114,7 @@ func createKafkaReceiver(
 	serverID agentmodel.ServerID,
 	logger *slog.Logger,
 	lifecycle fx.Lifecycle,
-) (*cekafka.Consumer, error) {
+) (*inkafka.Consumer, error) {
 	if serverID.String() == "" {
 		return nil, ErrServerIDRequired
 	}
@@ -131,31 +130,17 @@ func createKafkaReceiver(
 	topic := settings.KafkaSettings.Topic
 	groupID := "opampcommander-consumer-group-" + serverID.String()
 
-	consumer, err := cekafka.NewConsumer(brokers, saramaConfig, groupID, topic)
+	group, err := sarama.NewConsumerGroup(brokers, groupID, saramaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka receiver: %w", err)
 	}
 
-	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
+	consumer := inkafka.NewConsumer(group, topic, logger, settings.KafkaSettings.WithDefaults().RetryBackoff)
 
 	lifecycle.Append(fx.Hook{
-		OnStart: func(context.Context) error {
-			// Start OpenInbound asynchronously to avoid blocking application startup
-			// OpenInbound may take time to establish connection to Kafka
-			go func() {
-				err := consumer.OpenInbound(lifecycleCtx)
-				if err != nil {
-					logger.Error("Kafka receiver OpenInbound error", "error", err)
-				}
-			}()
-
-			return nil
-		},
+		// CloudEvents StartReceiver owns the single OpenInbound loop.
+		OnStart: nil,
 		OnStop: func(ctx context.Context) error {
-			// Cancel the lifecycle context first so OpenInbound stops receiving,
-			// then close the underlying consumer to release resources.
-			lifecycleCancel()
-
 			err := consumer.Close(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to close Kafka receiver: %w", err)

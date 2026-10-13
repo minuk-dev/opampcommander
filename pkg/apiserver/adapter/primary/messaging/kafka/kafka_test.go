@@ -244,7 +244,7 @@ func createTestSender(t *testing.T, broker, topic string) *cekafka.Sender {
 	return sender
 }
 
-func createTestConsumer(t *testing.T, broker, topic string) *cekafka.Consumer {
+func createTestConsumer(t *testing.T, broker, topic string) *inkafka.Consumer {
 	t.Helper()
 
 	config := sarama.NewConfig()
@@ -253,8 +253,11 @@ func createTestConsumer(t *testing.T, broker, topic string) *cekafka.Consumer {
 	config.Version = sarama.V2_6_0_0
 
 	groupID := "test-consumer-group-" + uuid.New().String()
-	consumer, err := cekafka.NewConsumer([]string{broker}, config, groupID, topic)
+	group, err := sarama.NewConsumerGroup([]string{broker}, groupID, config)
 	require.NoError(t, err)
+
+	consumer := inkafka.NewConsumer(group, topic, slog.New(slog.DiscardHandler), time.Second)
+	t.Cleanup(func() { _ = consumer.Close(context.Background()) })
 
 	return consumer
 }
