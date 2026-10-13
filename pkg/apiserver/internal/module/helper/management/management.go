@@ -3,9 +3,11 @@ package management
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"go.uber.org/fx"
 
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/servertls"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management"
 )
 
@@ -35,7 +38,16 @@ func NewHTTPServer(
 	handlers []management.HTTPHandler,
 	lifecycle fx.Lifecycle,
 	logger *slog.Logger,
-) *HTTPServer {
+) (*HTTPServer, error) {
+	tlsConfig, err := servertls.New(settings.TLS, lifecycle, logger)
+	if err != nil {
+		return nil, fmt.Errorf("management TLS configuration: %w", err)
+	}
+
+	if tlsConfig != nil && settings.TLS.CAFile != "" {
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+	}
+
 	mux := http.NewServeMux()
 
 	for _, handler := range handlers {
@@ -51,6 +63,7 @@ func NewHTTPServer(
 
 	//exhaustruct:ignore
 	server := &http.Server{
+		TLSConfig:         tlsConfig,
 		Addr:              settings.Address,
 		Handler:           mux,
 		ReadHeaderTimeout: DefaultPrometheusReadHeaderTimeout,
@@ -60,7 +73,7 @@ func NewHTTPServer(
 
 	return &HTTPServer{
 		server: server,
-	}
+	}, nil
 }
 
 func setupMetricsLifecycleHooks(
@@ -71,9 +84,22 @@ func setupMetricsLifecycleHooks(
 	var httpWg sync.WaitGroup
 
 	lifecycle.Append(fx.Hook{
-		OnStart: func(context.Context) error {
+		OnStart: func(ctx context.Context) error {
+			var listenConfig net.ListenConfig
+
+			listener, err := listenConfig.Listen(ctx, "tcp", server.Addr)
+			if err != nil {
+				return fmt.Errorf("listen on management address: %w", err)
+			}
+
+			if server.TLSConfig != nil {
+				listener = tls.NewListener(listener, server.TLSConfig)
+			} else {
+				logger.Warn("TLS disabled on management listener", slog.String("addr", server.Addr))
+			}
+
 			httpWg.Go(func() {
-				err := server.ListenAndServe()
+				err := server.Serve(listener)
 				if err != nil && !errors.Is(err, http.ErrServerClosed) {
 					logger.Warn("Failed to start Prometheus metrics server", slog.String("error", err.Error()))
 				}

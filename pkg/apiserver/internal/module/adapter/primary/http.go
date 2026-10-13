@@ -3,13 +3,11 @@ package primary
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -45,6 +43,7 @@ import (
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/config"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/docs"
 	userport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/user/port"
+	"github.com/minuk-dev/opampcommander/pkg/apiserver/internal/servertls"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/management/observability"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/security"
 )
@@ -63,12 +62,8 @@ const (
 	DefaultHTTPIdleTimeout = 120 * time.Second
 )
 
-var (
-	//nolint:gochecknoglobals // Swagger global variable is initialized once to prevent race conditions
-	swaggerOnce           sync.Once
-	errIncompleteOpAMPTLS = errors.New("opampTLS requires certFile, keyFile, and caFile")
-	errInvalidOpAMPCA     = errors.New("opampTLS caFile contains no certificates")
-)
+//nolint:gochecknoglobals // Swagger global variable is initialized once to prevent race conditions.
+var swaggerOnce sync.Once
 
 // NewHTTP provides the HTTP server, the Gin engine, and every controller registered into it.
 func NewHTTP() fx.Option {
@@ -123,7 +118,7 @@ func newOpAMPController(
 	settings *config.ServerSettings,
 ) *opamp.Controller {
 	controller := opamp.NewController(opampUsecase, logger)
-	controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != ""
+	controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != "" || settings.TLS.CAFile != ""
 
 	return controller
 }
@@ -144,8 +139,20 @@ func NewHTTPServer(
 	if err != nil {
 		return nil, fmt.Errorf("invalid shutdown configuration: %w", err)
 	}
+
+	tlsSettings, err := settings.ListenerTLS()
+	if err != nil {
+		return nil, fmt.Errorf("API TLS settings: %w", err)
+	}
+
+	tlsConfig, err := servertls.New(tlsSettings, lifecycle, logger)
+	if err != nil {
+		return nil, fmt.Errorf("API TLS configuration: %w", err)
+	}
+
 	//exhaustruct:ignore
 	srv := &http.Server{
+		TLSConfig:   tlsConfig,
 		ReadTimeout: DefaultHTTPReadTimeout,
 		IdleTimeout: DefaultHTTPIdleTimeout,
 		Addr:        settings.Address,
@@ -155,13 +162,6 @@ func NewHTTPServer(
 
 	lifecycle.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
-			tlsConfig, err := loadOpAMPTLS(settings.OpAMPTLS)
-			if err != nil {
-				return err
-			}
-
-			srv.TLSConfig = tlsConfig
-
 			//exhaustruct:ignore
 			listenConfig := &net.ListenConfig{}
 
@@ -176,6 +176,10 @@ func NewHTTPServer(
 
 			if srv.TLSConfig != nil {
 				listener = tls.NewListener(listener, srv.TLSConfig)
+			} else {
+				logger.Warn("TLS disabled: OpAMP remote configuration and credentials are sent in plaintext; "+
+					"configure TLS or terminate TLS at a trusted ingress",
+					slog.String("endpoint", "ws://"+srv.Addr+"/api/v1/opamp"))
 			}
 			go func() {
 				err := srv.Serve(listener)
@@ -197,38 +201,6 @@ func NewHTTPServer(
 	})
 
 	return srv, nil
-}
-
-func loadOpAMPTLS(settings config.OpAMPTLSSettings) (*tls.Config, error) {
-	if settings.CertFile == "" && settings.KeyFile == "" && settings.CAFile == "" {
-		//nolint:nilnil // A nil TLS config is the existing plain HTTP mode.
-		return nil, nil
-	}
-
-	if settings.CertFile == "" || settings.KeyFile == "" || settings.CAFile == "" {
-		return nil, errIncompleteOpAMPTLS
-	}
-
-	certificate, err := tls.LoadX509KeyPair(settings.CertFile, settings.KeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("load OpAMP TLS server certificate: %w", err)
-	}
-
-	caPEM, err := os.ReadFile(settings.CAFile)
-	if err != nil {
-		return nil, fmt.Errorf("read OpAMP client CA: %w", err)
-	}
-
-	clientCAs := x509.NewCertPool()
-	if !clientCAs.AppendCertsFromPEM(caPEM) {
-		return nil, errInvalidOpAMPCA
-	}
-
-	//exhaustruct:ignore
-	return &tls.Config{
-		MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{certificate},
-		ClientCAs: clientCAs, ClientAuth: tls.VerifyClientCertIfGiven,
-	}, nil
 }
 
 // NewEngine creates a new Gin engine and registers the provided controllers' routes.

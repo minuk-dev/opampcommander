@@ -2,17 +2,18 @@ address: localhost:8080
 shutdown:
   drainWindow: 10s # spread WebSocket close frames across this window
   timeout: 30s     # total shutdown budget, including drain and HTTP requests
-# Optional mTLS for /api/v1/opamp. The whole API uses HTTPS when configured;
-# only OpAMP requires a client certificate. Client certificate CN must equal
-# the agent instance UID. caFile is a PEM bundle of trusted agent-client CAs.
-# For CA rotation, include both old and new CA certificates in that one file
-# during the overlap, then remove the old CA after agents have switched.
-# Agent certificates are separate Certificate resources issued by a trusted CA.
-# TLS files are loaded at startup; restart each server after changing the bundle.
-# opampTLS:
-#   certFile: /etc/opampcommander/tls/server.crt
-#   keyFile: /etc/opampcommander/tls/server.key
-#   caFile: /etc/opampcommander/tls/agent-ca.crt
+# Optional HTTPS for REST and WSS for OpAMP. If omitted, startup logs a warning
+# naming the plaintext OpAMP endpoint. Use TLS here or at a trusted ingress.
+# tls:
+#   certFile: /etc/opampcommander/tls/server.crt # PEM certificate chain
+#   keyFile: /etc/opampcommander/tls/server.key # PEM private key
+#   minVersion: "1.2" # "1.2" (default) or "1.3"
+#   cipherSuites: [] # secure TLS 1.2 suite names; empty uses Go defaults
+#   caFile: /etc/opampcommander/tls/agent-ca.pem # optional: require agent mTLS
+# Send SIGHUP after replacing certFile/keyFile to reload the server certificate.
+# Invalid replacements keep the previous certificate. CA bundles require restart.
+# Legacy opampTLS (certFile + keyFile + caFile) remains supported; do not combine
+# its certificate paths with tls. Client certificate CN must equal the agent UID.
 bootstrap:
   # Directory of initial manifest YAML files reconciled into persistence on startup
   # (declarative / full overwrite). Edit these files or point `dir` elsewhere to
@@ -39,6 +40,12 @@ database:
   #   enabled: true
 management:
   address: localhost:9090
+  # Independent TLS for health, metrics and pprof; SIGHUP reloads this pair too.
+  # tls:
+  #   certFile: /etc/opampcommander/tls/management.crt
+  #   keyFile: /etc/opampcommander/tls/management.key
+  #   minVersion: "1.2"
+  #   caFile: /etc/opampcommander/tls/monitoring-ca.pem # optional: mTLS on all routes
   metric:
     enabled: true
     type: prometheus

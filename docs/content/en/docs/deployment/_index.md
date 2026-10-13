@@ -48,7 +48,7 @@ helm test opampcommander --namespace opampcommander
 
 ## Going to production
 
-Two defaults must change: persistence and secrets.
+Production deployments need persistence, stable secrets, and TLS for agent and API traffic.
 
 ### Persistence
 
@@ -139,6 +139,9 @@ apiserver:
       # /api/v1/opamp is a long-lived WebSocket upgrade.
       nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    tls:
+      - secretName: opampcommander-api-tls
+        hosts: [api.opampcommander.example.com]
     hosts:
       - host: api.opampcommander.example.com
         paths:
@@ -155,6 +158,45 @@ web:
           - path: /
             pathType: Prefix
 ```
+
+### TLS at the ingress
+
+A supported topology is `agent/client → HTTPS/WSS → ingress → HTTP/WS → apiserver`
+with a private backend network. Provision the ingress TLS Secret,
+redirect or reject external plaintext HTTP, and allow backend API traffic only
+from the trusted ingress (for example with Kubernetes NetworkPolicies). The
+apiserver can leave `tls` unset in this topology; its plaintext startup warning
+is expected. Preserve WebSocket Upgrade/Connection headers and use long proxy
+timeouts for `/api/v1/opamp`. Agents connect to
+`wss://api.opampcommander.example.com/api/v1/opamp`.
+
+The API currently uses Gin's default client-IP handling: `X-Forwarded-For` and
+`X-Real-IP` are accepted from any peer for client-IP logging. Restrict direct
+backend access and configure the ingress to discard untrusted incoming values
+and set these headers itself. `Forwarded` and `X-Forwarded-Proto` do not establish
+TLS or authenticated identity in the apiserver; PROXY protocol is not supported.
+OAuth2 callback URLs are configured explicitly. Client-certificate headers are
+not trusted: OpAMP mTLS checks the certificate from the actual TLS connection.
+Use TLS passthrough to the apiserver for OpAMP mTLS so the agent certificate
+reaches the listener, rather than terminating that connection at the ingress.
+
+### TLS at the apiserver
+
+For native HTTPS/WSS, set `apiserver.config.tls` as described in the
+[Configuration guide](/docs/configuration/#listener-tls). Mount a TLS Secret
+using the chart's existing `apiserver.extraVolumes` and
+`apiserver.extraVolumeMounts`; avoid `subPath` mounts if the files must rotate.
+Configure ingress upstream HTTPS or TLS passthrough when using this listener.
+Send SIGHUP to each apiserver process after the mounted certificate and key
+have updated.
+
+If enabling `management.tls`, set `httpGet.scheme: HTTPS` on the chart's
+liveness and readiness probes (and startup probe when configured). Kubernetes
+HTTP probes cannot present client certificates: with `management.tls.caFile`,
+supply suitable authenticated exec probes instead. Configure Prometheus to use
+HTTPS, the server CA, and client credentials when required; the bundled
+ServiceMonitor uses HTTP, so disable it and provide your own HTTPS
+ServiceMonitor for this topology.
 
 For OAuth2 logins from the dashboard, set the callback and the allowed redirect
 host to match:
