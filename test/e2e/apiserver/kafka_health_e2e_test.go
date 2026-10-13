@@ -44,6 +44,7 @@ func TestE2E_APIServer_KafkaHealthSurvivesBrokerOutage(t *testing.T) {
 
 		var reasons map[string]string
 		require.NoError(t, json.NewDecoder(response.Body).Decode(&reasons))
+		t.Logf("Kafka health reason: %q", reasons["Kafka"])
 
 		return reasons["Kafka"]
 	}
@@ -56,6 +57,11 @@ func TestE2E_APIServer_KafkaHealthSurvivesBrokerOutage(t *testing.T) {
 	require.True(t, server.IsReady(), "broker loss must not drain the server")
 
 	require.NoError(t, broker.Start(t.Context()))
+
+	restartedAddress, err := broker.PortEndpoint(t.Context(), "9093/tcp", "")
+	require.NoError(t, err)
+	require.Equal(t, broker.Broker, restartedAddress, "restarting Kafka must preserve its configured address")
+
 	require.Eventually(t, func() bool {
 		return healthReason() == ""
 	}, time.Minute, time.Second, "health must recover after the broker restarts")

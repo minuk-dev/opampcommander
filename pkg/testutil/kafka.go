@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -33,6 +34,12 @@ func (b *Base) StartKafka() *Kafka {
 		kafkaImage,
 		kafkaTestContainer.WithClusterID("test-cluster-id"),
 		testcontainers.WithWaitStrategy(wait.ForListeningPort("9093/tcp")),
+		// Keep the server's configured broker address valid across container restarts.
+		testcontainers.CustomizeRequestOption(func(req *testcontainers.GenericContainerRequest) error {
+			req.ExposedPorts = []string{fmt.Sprintf("%d:9093/tcp", b.GetFreeTCPPort())}
+
+			return nil
+		}),
 	)
 	require.NoError(b.t, err)
 
