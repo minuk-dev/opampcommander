@@ -257,6 +257,7 @@ func createTestConsumer(t *testing.T, broker, topic string) *inkafka.Consumer {
 	require.NoError(t, err)
 
 	consumer := inkafka.NewConsumer(group, topic, slog.New(slog.DiscardHandler), time.Second)
+
 	t.Cleanup(func() { _ = consumer.Close(context.Background()) })
 
 	return consumer

@@ -9,10 +9,12 @@ package apiserver_test
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -63,22 +65,24 @@ func TestE2E_APIServer_KafkaOutage(t *testing.T) {
 
 	stopTimeout := time.Second
 	require.NoError(t, kafkaServer.Stop(t.Context(), &stopTimeout))
+
 	outageStarted := time.Now()
 
 	updateAgentGroup(t, apiClient, "outage", map[string]string{"phase": "outage"})
-
-	for _, agent := range []*testutil.ReferenceAgent{local, remote} {
-		_, err := apiClient.AgentService.RestartAgent(t.Context(), "default", agent.UID)
-		require.NoError(t, err, "persisted commands must succeed during a Kafka outage")
-	}
 
 	// Kafka remains down: remote recovery must come from persisted state and
 	// heartbeat/cache expiry, not a replay after broker reconnection.
 	require.Eventually(t, func() bool {
 		return local.EffectiveConfig()["outage/inline-config"] == "phase: outage\n" &&
-			remote.EffectiveConfig()["outage/inline-config"] == "phase: outage\n" &&
-			local.Restarts() > 0 && remote.Restarts() > 0
+			remote.EffectiveConfig()["outage/inline-config"] == "phase: outage\n"
 	}, 2*time.Minute, time.Second, "local and remote agents must apply the config while Kafka stays down")
+
+	for _, agent := range []*testutil.ReferenceAgent{local, remote} {
+		restartAgentForKafkaTest(t, apiClient, agent.UID)
+	}
+
+	require.Eventually(t, func() bool { return local.Restarts() > 0 && remote.Restarts() > 0 },
+		2*time.Minute, time.Second, "persisted restart requests must reach both agents while Kafka stays down")
 	require.Eventually(t, func() bool {
 		return kafkaProducerDegraded(t, writer)
 	}, 2*time.Minute, time.Second, "an exhausted producer retry must be visible without failing probes")
@@ -96,9 +100,12 @@ func TestE2E_APIServer_KafkaOutage(t *testing.T) {
 	updateAgentGroup(t, apiClient, "outage", map[string]string{"phase": "recovered"})
 	require.Eventually(t, func() bool {
 		return local.EffectiveConfig()["outage/inline-config"] == "phase: recovered\n" &&
-			remote.EffectiveConfig()["outage/inline-config"] == "phase: recovered\n" &&
-			!kafkaProducerDegraded(t, writer)
-	}, 3*time.Minute, time.Second, "agents and the producer must recover without restarting the API servers")
+			remote.EffectiveConfig()["outage/inline-config"] == "phase: recovered\n"
+	}, 3*time.Minute, time.Second, "agents must keep applying updates after broker recovery")
+
+	restartAgentForKafkaTest(t, apiClient, remote.UID)
+	require.Eventually(t, func() bool { return !kafkaProducerDegraded(t, writer) }, time.Minute, time.Second,
+		"a new notification must reach the recovered producer without restarting the API server")
 
 	// This agent cannot recover via a heartbeat inside the assertion window:
 	// a successful restart proves the peer's Kafka receive loop is still running.
@@ -108,16 +115,32 @@ func TestE2E_APIServer_KafkaOutage(t *testing.T) {
 		return a.Status.Connected && a.Metadata.Capabilities != 0
 	}, time.Minute, time.Second, "quiet agent should register")
 
-	_, err := apiClient.AgentService.RestartAgent(t.Context(), "default", quiet.UID)
-	require.NoError(t, err)
+	restartAgentForKafkaTest(t, apiClient, quiet.UID)
 	require.Eventually(t, func() bool { return quiet.Restarts() > 0 }, 15*time.Second, time.Second,
 		"Kafka delivery must resume after a sustained outage, without waiting for heartbeat or cache expiry")
+}
+
+func restartAgentForKafkaTest(t *testing.T, apiClient *client.Client, uid uuid.UUID) {
+	t.Helper()
+
+	var err error
+
+	// A heartbeat can win optimistic concurrency; retry only that expected conflict.
+	require.Eventually(t, func() bool {
+		_, err = apiClient.AgentService.RestartAgent(t.Context(), "default", uid)
+
+		var responseError *client.ResponseError
+
+		return !errors.As(err, &responseError) || responseError.StatusCode != http.StatusConflict
+	}, time.Minute, time.Second, "restart request must eventually persist")
+	require.NoError(t, err, "Kafka loss must not fail a persisted management request")
 }
 
 func kafkaProducerDegraded(t *testing.T, server *testutil.APIServer) bool {
 	t.Helper()
 
 	var degraded bool
+
 	for _, path := range []string{"/healthz", "/readyz"} {
 		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.ManagementEndpoint+path, nil)
 		require.NoError(t, err)
