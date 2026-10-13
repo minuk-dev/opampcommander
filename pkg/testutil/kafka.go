@@ -1,7 +1,9 @@
 package testutil
 
 import (
+	"context"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/IBM/sarama"
@@ -43,6 +45,7 @@ func (b *Base) StartKafka() *Kafka {
 
 			hostConfig.PortBindings = network.PortMap{network.MustParsePort("9093/tcp"): {binding}}
 		}),
+		testcontainers.CustomizeRequestOption(kafkaInitializeOnce),
 	)
 	require.NoError(b.t, err)
 
@@ -60,6 +63,25 @@ func (b *Base) StartKafka() *Kafka {
 		Container: container,
 		Broker:    broker,
 	}
+}
+
+// kafkaInitializeOnce avoids replacing the startup script while a restarting broker executes it.
+func kafkaInitializeOnce(req *testcontainers.GenericContainerRequest) error {
+	for idx := range req.LifecycleHooks {
+		for startIdx, hook := range req.LifecycleHooks[idx].PostStarts {
+			var initialize sync.Once
+
+			var initializeErr error
+
+			req.LifecycleHooks[idx].PostStarts[startIdx] = func(ctx context.Context, ctr testcontainers.Container) error {
+				initialize.Do(func() { initializeErr = hook(ctx, ctr) })
+
+				return initializeErr
+			}
+		}
+	}
+
+	return nil
 }
 
 //nolint:nestif
