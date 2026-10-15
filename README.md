@@ -67,7 +67,7 @@ Agents are organized into **namespaces**, derived from each agent's
 
 ### Run the apiserver
 
-Standalone mode (MongoDB only, no Kafka):
+Standalone mode (in-memory, no MongoDB or Kafka):
 
 ```sh
 make run-standalone
@@ -114,6 +114,9 @@ OPAMP_API_URL=http://localhost:8080 npm run dev
 ```
 
 Open <http://localhost:3000>. See [`web/README.md`](web/README.md) for details.
+
+See the [two-image deployment guide](docs/deployment.md) for Compose evaluation,
+ingress routing, image configuration, and HA deployment.
 
 ### Deploy on Kubernetes
 

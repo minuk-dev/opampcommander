@@ -1,0 +1,26 @@
+# Local evaluation only: loopback ports, demo credentials, no persistent storage.
+services:
+  apiserver:
+    image: ghcr.io/minuk-dev/opampcommander:${OPAMP_VERSION:?Set OPAMP_VERSION to a shared published image tag}
+    entrypoint: ["/apiserver"]
+    environment:
+      ADDRESS: 0.0.0.0:8080
+      MANAGEMENT_ADDRESS: 0.0.0.0:9090
+      DATABASE_TYPE: inmemory
+      EVENT_TYPE: inmemory
+      BOOTSTRAP_DIR: /etc/opampcommander/initial
+      AUTH_ENABLED: "true"
+      AUTH_ADMIN_USERNAME: admin
+      AUTH_ADMIN_PASSWORD: local-demo-password
+      AUTH_JWT_SECRET: local-demo-jwt-secret-change-before-deployment
+      AUTH_BASIC_PEPPER: local-demo-pepper-change-before-deployment
+    ports:
+      - "127.0.0.1:8080:8080"
+  web:
+    image: ghcr.io/minuk-dev/opampcommander-web:${OPAMP_VERSION:?Set OPAMP_VERSION to a shared published image tag}
+    environment:
+      OPAMP_API_URL: http://apiserver:8080
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - apiserver
