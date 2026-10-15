@@ -7,10 +7,10 @@ import (
 	"log/slog"
 
 	observabilityClient "github.com/cloudevents/sdk-go/observability/opentelemetry/v2/client"
-	cekafka "github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	"github.com/cloudevents/sdk-go/v2/event"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 
 	kafkamodel "github.com/minuk-dev/opampcommander/pkg/apiserver/adapter/common/kafka"
 	agentport "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/port"
@@ -33,7 +33,7 @@ type EventReceiverAdapter struct {
 // NewEventReceiverAdapter creates a new EventReceiverAdapter.
 func NewEventReceiverAdapter(
 	serverIdentityProvider agentport.ServerIdentityProvider,
-	protocolConsumer *cekafka.Consumer,
+	protocolConsumer protocol.Receiver,
 	logger *slog.Logger,
 ) (*EventReceiverAdapter, error) {
 	//nolint:godox

@@ -100,7 +100,7 @@ func createTestSender(t *testing.T, broker, topic string) *outkafka.Sender {
 	t.Helper()
 
 	producerConfig := sarama.NewConfig()
-	producerConfig.Producer.Return.Successes = false
+	producerConfig.Producer.Return.Successes = true
 	producerConfig.Producer.Return.Errors = true
 	producerConfig.Producer.RequiredAcks = sarama.WaitForAll
 	producerConfig.Producer.Retry.Max = 5

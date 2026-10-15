@@ -20,14 +20,20 @@ type testAsyncProducer struct {
 
 	input     chan *sarama.ProducerMessage
 	failures  chan *sarama.ProducerError
+	successes chan *sarama.ProducerMessage
 	holdClose bool
 }
 
-func (p *testAsyncProducer) Input() chan<- *sarama.ProducerMessage { return p.input }
-func (p *testAsyncProducer) Errors() <-chan *sarama.ProducerError  { return p.failures }
+func (p *testAsyncProducer) Input() chan<- *sarama.ProducerMessage     { return p.input }
+func (p *testAsyncProducer) Errors() <-chan *sarama.ProducerError      { return p.failures }
+func (p *testAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return p.successes }
 func (p *testAsyncProducer) AsyncClose() {
 	if !p.holdClose {
 		close(p.failures)
+
+		if p.successes != nil {
+			close(p.successes)
+		}
 	}
 }
 
@@ -114,4 +120,41 @@ func TestSender_ShutdownIsBoundedAndRejectsClosedProducer(t *testing.T) {
 		require.ErrorIs(t, adapter.SendMessageToServer(t.Context(), &agentmodel.Server{ID: "remote"},
 			serverevent.Message{Target: "remote", Type: serverevent.MessageTypeInvalidateAgentCache}), sarama.ErrClosedClient)
 	})
+}
+
+func TestSender_DrainsBothResultChannels(t *testing.T) {
+	t.Parallel()
+
+	for _, first := range []string{"errors", "successes"} {
+		t.Run(first+" closes first", func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				producer := &testAsyncProducer{
+					input: make(chan *sarama.ProducerMessage), failures: make(chan *sarama.ProducerError),
+					successes: make(chan *sarama.ProducerMessage), holdClose: true,
+				}
+
+				sender := NewSender(producer, "events", slog.New(slog.DiscardHandler), time.Second)
+				if first == "errors" {
+					close(producer.failures)
+
+					producer.successes <- &sarama.ProducerMessage{}
+
+					synctest.Wait()
+					require.EqualValues(t, 1, sender.delivered.Load())
+					close(producer.successes)
+				} else {
+					close(producer.successes)
+
+					producer.failures <- &sarama.ProducerError{Err: sarama.ErrOutOfBrokers}
+
+					synctest.Wait()
+					require.EqualValues(t, 1, sender.failed.Load())
+					close(producer.failures)
+				}
+
+				require.NoError(t, sender.Close(t.Context()))
+			})
+		})
+	}
 }
