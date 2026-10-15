@@ -57,6 +57,15 @@ graph TB
 Agents are organized into **namespaces**, derived from each agent's
 `service.namespace` identifying attribute (defaulting to `default`).
 
+## OpAMP capability support
+
+See the [server and agent capability matrix](docs/content/en/docs/opamp-conformance.md)
+([published guide](https://minuk-dev.github.io/opampcommander/docs/opamp-conformance/))
+for every capability flag, implementation status, limitations and code references.
+Remote configuration and status ingestion are supported; package assignment,
+connection negotiation and custom messages have documented gaps.
+`AcceptsConnectionSettingsRequest` is intentionally not advertised.
+
 ## Quick start
 
 ### Prerequisites
