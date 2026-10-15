@@ -163,6 +163,7 @@ func buildServerSettings(
 		Shutdown: config.ShutdownSettings{}.WithDefaults(),
 		Address:  fmt.Sprintf("0.0.0.0:%d", serverPort),
 		OpAMPTLS: config.OpAMPTLSSettings{},
+		OpAMP:    config.DefaultOpAMPSettings(),
 		ServerID: agentmodel.ServerID(serverID),
 		MetricsBackend: config.MetricsBackendSettings{
 			Type:          config.MetricsBackendTypeNone,

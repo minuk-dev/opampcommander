@@ -1,4 +1,7 @@
 address: localhost:8080
+opamp:
+  maxMessageSize: 0 # bytes after decompression; 0 = 64 MiB, negative = unlimited
+  enableCompression: false
 shutdown:
   drainWindow: 10s # spread WebSocket close frames across this window
   timeout: 30s     # total shutdown budget, including drain and HTTP requests

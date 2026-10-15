@@ -158,6 +158,27 @@ only the server certificate/key and does not change the CAs trusted by a
 running instance. `caFile` does not control which CA an agent trusts for the
 *server* certificate.
 
+## OpAMP transport
+
+```yaml
+opamp:
+  maxMessageSize: 0
+  enableCompression: false
+```
+
+`maxMessageSize` limits sent and received OpAMP messages **after decompression**:
+HTTP uses the full request/response body; WebSocket uses the full OpAMP message.
+`0` uses the opamp-go default (**64 MiB**), any negative value disables the limit,
+and a positive value sets the limit in bytes. Disabling the limit permits
+unbounded message memory use; prefer a finite limit suitable for your agents.
+
+Compression defaults to `false`; set `enableCompression: true` to enable
+transport compression (WebSocket also requires client negotiation).
+Both settings require a restart. Flags are `--opamp.maxMessageSize` and
+`--opamp.enableCompression`; environment variables are `OPAMP_MAXMESSAGESIZE`
+and `OPAMP_ENABLECOMPRESSION`. For example, `OPAMP_MAXMESSAGESIZE=8388608`
+sets an 8 MiB limit.
+
 ## Database
 
 ```yaml

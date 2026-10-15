@@ -35,6 +35,7 @@ type CommandOption struct {
 	} `mapstructure:"opampTLS"`
 	ServerID string                     `mapstructure:"serverId"`
 	Shutdown appconfig.ShutdownSettings `mapstructure:"shutdown"`
+	OpAMP    appconfig.OpAMPSettings    `mapstructure:"opamp"`
 	Database struct {
 		Type           string        `mapstructure:"type"`
 		Endpoints      []string      `mapstructure:"endpoints"`
@@ -212,6 +213,12 @@ func NewCommand(opt CommandOption) *cobra.Command {
 	for _, name := range []string{"certFile", "keyFile", "caFile"} {
 		cmd.PersistentFlags().String("opampTLS."+name, "", "legacy OpAMP mTLS file; use tls settings instead")
 	}
+
+	opampDefaults := appconfig.DefaultOpAMPSettings()
+	cmd.PersistentFlags().Int64("opamp.maxMessageSize", opampDefaults.MaxMessageSize,
+		"maximum OpAMP message bytes after decompression (0 = 64 MiB, negative = unlimited)")
+	cmd.PersistentFlags().Bool("opamp.enableCompression", opampDefaults.EnableCompression,
+		"enable OpAMP transport compression")
 
 	shutdownDefaults := appconfig.ShutdownSettings{}.WithDefaults()
 	cmd.PersistentFlags().Duration("shutdown.drainWindow", shutdownDefaults.DrainWindow,
@@ -399,6 +406,11 @@ func (opt *CommandOption) Init(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("invalid shutdown configuration: %w", err)
 	}
 
+	err = opt.OpAMP.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid OpAMP configuration: %w", err)
+	}
+
 	// If serverID is not set, use hostname as default
 	if opt.ServerID == "" {
 		hostname, err := os.Hostname()
@@ -436,6 +448,7 @@ func (opt *CommandOption) Prepare(_ *cobra.Command, _ []string) error {
 	opt.app = apiserver.New(appconfig.ServerSettings{
 		Address:  opt.Address,
 		Shutdown: opt.Shutdown,
+		OpAMP:    opt.OpAMP,
 		TLS:      opt.TLS,
 		OpAMPTLS: appconfig.OpAMPTLSSettings{
 			CertFile: opt.OpAMPTLS.CertFile,

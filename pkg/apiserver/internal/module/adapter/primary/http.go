@@ -117,7 +117,9 @@ func newOpAMPController(
 	logger *slog.Logger,
 	settings *config.ServerSettings,
 ) *opamp.Controller {
-	controller := opamp.NewController(opampUsecase, logger)
+	controller := opamp.NewController(
+		opampUsecase, logger, settings.OpAMP.MaxMessageSize, settings.OpAMP.EnableCompression,
+	)
 	controller.RequireClientCertificate = settings.OpAMPTLS.CAFile != "" || settings.TLS.CAFile != ""
 
 	return controller
