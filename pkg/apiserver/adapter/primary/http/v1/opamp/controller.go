@@ -30,7 +30,6 @@ type Controller struct {
 	ConnContext opampServer.ConnContext
 
 	opampServer              opampServer.OpAMPServer
-	enableCompression        bool
 	RequireClientCertificate bool
 
 	// usecases
@@ -44,6 +43,8 @@ type Option func(*Controller)
 func NewController(
 	opampUsecase usecase.OpAMPUsecase,
 	logger *slog.Logger,
+	maxMessageSize int64,
+	enableCompression bool,
 ) *Controller {
 	ops := opampServer.New(&Logger{
 		logger: logger,
@@ -54,8 +55,6 @@ func NewController(
 		connections:  connection.NewConnections(),
 		opampUsecase: opampUsecase,
 
-		enableCompression: false,
-
 		handler:                  nil, // fill below
 		ConnContext:              nil, // fill below
 		opampServer:              ops,
@@ -65,8 +64,8 @@ func NewController(
 	var err error
 
 	controller.handler, controller.ConnContext, err = ops.Attach(opampServer.Settings{
-		EnableCompression: controller.enableCompression,
-		MaxMessageSize:    0, // opamp-go default (64 MiB)
+		EnableCompression: enableCompression,
+		MaxMessageSize:    maxMessageSize,
 		Callbacks: types.Callbacks{
 			OnConnecting: controller.OnConnecting,
 		},

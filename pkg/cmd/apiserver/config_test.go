@@ -32,6 +32,9 @@ tls:
 auth:
   jwt:
     secret: s3cr3t
+opamp:
+  maxMessageSize: 1024
+  enableCompression: true
 shutdown:
   drainWindow: 2s
   timeout: 15s
@@ -96,6 +99,21 @@ event:
 		assert.Equal(t, "3s", kafka["sendTimeout"])
 		assert.Equal(t, "40ms", kafka["retryBackoff"])
 		assert.Equal(t, 5, kafka["retryAttempts"])
+	})
+
+	t.Run("OpAMP YAML environment and flags", func(t *testing.T) {
+		_, parsed := run(t)
+		settings, _ := parsed["opamp"].(map[string]any)
+		assert.Equal(t, 1024, settings["maxMessageSize"])
+		assert.Equal(t, true, settings["enableCompression"])
+		t.Setenv("OPAMP_MAXMESSAGESIZE", "2048")
+		_, parsed = run(t)
+		settings, _ = parsed["opamp"].(map[string]any)
+		assert.Equal(t, 2048, settings["maxMessageSize"])
+		_, parsed = run(t, "--opamp.maxMessageSize=-1", "--opamp.enableCompression=false")
+		settings, _ = parsed["opamp"].(map[string]any)
+		assert.Equal(t, -1, settings["maxMessageSize"])
+		assert.Equal(t, false, settings["enableCompression"])
 	})
 
 	t.Run("shutdown flags override YAML and environment", func(t *testing.T) {

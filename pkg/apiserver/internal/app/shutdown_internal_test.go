@@ -37,7 +37,7 @@ func TestOpAMPShutdownLifecycle(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := opamp.NewController(&noopOpAMP{}, slog.Default())
+			controller := opamp.NewController(&noopOpAMP{}, slog.Default(), 0, false)
 			health := healthcheck.NewHealthHelper(nil)
 			engine := gin.New()
 			engine.GET("/api/v1/opamp", controller.Handle)

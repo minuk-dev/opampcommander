@@ -30,7 +30,7 @@ func TestController_Shutdown(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := opamp.NewController(&spyUsecase{}, slog.Default())
+			controller := opamp.NewController(&spyUsecase{}, slog.Default(), 0, false)
 
 			engine := gin.New()
 			for _, route := range controller.RoutesInfo() {
@@ -90,7 +90,7 @@ func TestController_Shutdown(t *testing.T) {
 func TestController_ShutdownForceClosesUnresponsivePeer(t *testing.T) {
 	t.Parallel()
 
-	controller := opamp.NewController(&spyUsecase{}, slog.Default())
+	controller := opamp.NewController(&spyUsecase{}, slog.Default(), 0, false)
 	engine := gin.New()
 	engine.GET("/api/v1/opamp", controller.Handle)
 	server := httptest.NewUnstartedServer(engine)
