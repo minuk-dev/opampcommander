@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,8 @@ import (
 )
 
 var (
+	// ErrEmptySchemaRef is returned for an empty schema name.
+	ErrEmptySchemaRef = errors.New("schema reference must not be empty")
 	// ErrValueOrFileRequired is returned when neither --value nor --file is specified.
 	ErrValueOrFileRequired = errors.New("either --value or --file must be specified")
 	// ErrContentTypeRequired is returned when --content-type is required but not specified.
@@ -31,13 +34,15 @@ type CommandOptions struct {
 	*config.GlobalConfig
 
 	// Flags
-	name        string
-	namespace   string
-	attributes  map[string]string
-	value       string
-	file        string
-	contentType string
-	formatType  string
+	name                 string
+	namespace            string
+	attributes           map[string]string
+	value                string
+	file                 string
+	contentType          string
+	formatType           string
+	schemaRefs           []string
+	skipSchemaValidation bool
 
 	// internal state
 	client *client.Client
@@ -75,6 +80,11 @@ func NewCommand(options CommandOptions) *cobra.Command {
 		"Content type of the configuration (auto-detected from file extension if .yaml/.yml/.json)")
 	cmd.Flags().StringVarP(&options.formatType, "output", "o", "text", "Output format (text, json, yaml)")
 
+	cmd.Flags().StringArrayVar(&options.schemaRefs, "schema-ref", nil,
+		"RemoteConfigSchema name in this namespace (repeatable)")
+	cmd.Flags().BoolVar(&options.skipSchemaValidation, "skip-schema-validation", false,
+		"Skip schema auto-resolution and validation")
+
 	cmd.MarkFlagRequired("name") //nolint:errcheck,gosec
 
 	return cmd
@@ -94,6 +104,12 @@ func (opt *CommandOptions) Prepare(*cobra.Command, []string) error {
 
 // Run executes the create agentremoteconfig command.
 func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
+	for _, ref := range opt.schemaRefs {
+		if strings.TrimSpace(ref) == "" {
+			return ErrEmptySchemaRef
+		}
+	}
+
 	agentRemoteConfigService := opt.client.AgentRemoteConfigService
 
 	valueContent, err := opt.loadValueContent()
@@ -118,7 +134,16 @@ func (opt *CommandOptions) Run(cmd *cobra.Command, _ []string) error {
 		Spec: v1.AgentRemoteConfigSpec{
 			Value:       valueContent,
 			ContentType: contentType,
+			SchemaRefs:  opt.schemaRefs,
 		},
+	}
+
+	if opt.skipSchemaValidation {
+		if createRequest.Metadata.Attributes == nil {
+			createRequest.Metadata.Attributes = v1.Attributes{}
+		}
+
+		createRequest.Metadata.Attributes["opampcommander.io/skip-schema-validation"] = "true"
 	}
 
 	agentRemoteConfig, err := agentRemoteConfigService.CreateAgentRemoteConfig(

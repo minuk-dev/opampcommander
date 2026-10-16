@@ -6,6 +6,7 @@ import (
 
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/instanceuid"
 	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/opampcertificate"
+	"github.com/minuk-dev/opampcommander/pkg/cmd/opampctl/set/schemaref"
 	"github.com/minuk-dev/opampcommander/pkg/opampctl/config"
 )
 
@@ -21,6 +22,8 @@ func NewCommand(globalConfig *config.GlobalConfig) *cobra.Command {
 		GlobalConfig: globalConfig,
 	}))
 	cmd.AddCommand(opampcertificate.NewCommand(opampcertificate.CommandOptions{GlobalConfig: globalConfig}))
+
+	cmd.AddCommand(schemaref.NewCommand(schemaref.CommandOptions{GlobalConfig: globalConfig}))
 
 	return cmd
 }

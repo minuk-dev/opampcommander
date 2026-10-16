@@ -276,3 +276,58 @@ config file. For GitHub users, try `--auth-flow device` if a browser is unavaila
 
 **Connection issues** — ensure the apiserver is running and reachable at the cluster's
 `endpoint`, and that the value matches the running server's `--address`.
+
+## Remote-config schema workflow
+
+A `RemoteConfigSchema` describes a collector distribution/version and its component
+catalog. Generate it from the collector you deploy, then create it in the same
+namespace as your remote config:
+
+```sh
+opampctl generate remoteconfigschema --binary-path ./otelcol-contrib > schema.yaml
+opampctl create remoteconfigschema -n default -f schema.yaml
+opampctl get remoteconfigschema -n default
+```
+
+Use the name from the generated manifest's `metadata.name` as `SCHEMA` below.
+For a hand-written example, run `opampctl template remoteconfigschema basic`;
+edit its name, version and component catalog to match your binary before creating
+it. A catalog without field schemas only describes component availability.
+
+```sh
+# collector.yaml is a raw collector config, not an AgentRemoteConfig manifest.
+opampctl create agentremoteconfig --name my-config -n default -f collector.yaml \
+  --schema-ref SCHEMA
+# Repeat --schema-ref to target more than one catalog.
+opampctl set schemaref my-config -n default --schema-ref SCHEMA --schema-ref SECOND_SCHEMA
+# Remove all references without re-sending the collector config.
+opampctl set schemaref my-config -n default --clear
+```
+
+`set schemaref` replaces the complete reference list, or clears it with `--clear`.
+It reads the current resource version and sends only that precondition and
+`spec.schemaRefs` in a merge PATCH. Config content, content type and attributes
+are preserved. If another writer changes the resource, the command reports a
+conflict; re-read the resource before retrying. Clearing references on an existing
+config does not rerun creation-time auto-resolution.
+
+When creating a remote config **without explicit references**, the server attempts
+best-effort matching against the schema catalogs in its namespace. Explicit
+references take precedence. To opt out, use:
+
+```sh
+opampctl create agentremoteconfig --name unpinned-config -n default -f collector.yaml \
+  --skip-schema-validation
+```
+
+This sets the metadata attribute
+`opampcommander.io/skip-schema-validation: "true"`, which disables automatic schema
+matching. It does not remove explicit references. The annotation is the schema
+validation opt-out marker; a schema reference alone is not proof that an agent has
+accepted or successfully applied the config.
+
+`opampctl get remoteconfigschema` shows the component count across catalog classes.
+`opampctl get agentremoteconfig` shows `schemaRefs` and `schemaRefsSource`: `explicit`
+for user-selected references, `auto` for creation-time matches, `none` when empty,
+and `unknown` for legacy references without recorded provenance. Source is
+server-managed; reapplying an unchanged list preserves its existing source.
