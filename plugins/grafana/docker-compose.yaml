@@ -1,0 +1,21 @@
+services:
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-13.2.3}
+    ports:
+      - '127.0.0.1:${GRAFANA_PORT:-3300}:3000'
+    environment:
+      # Development only. No upstream credentials are provisioned.
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DEFAULT_APP_MODE: development
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: minukdev-opampcommander-app,minukdev-opampcommander-datasource
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    volumes:
+      - ./dist:/var/lib/grafana/plugins/minukdev-opampcommander-app:ro
+      - ./provisioning:/etc/grafana/provisioning:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '--spider', 'http://127.0.0.1:3000/api/health']
+      interval: 5s
+      timeout: 3s
+      retries: 30

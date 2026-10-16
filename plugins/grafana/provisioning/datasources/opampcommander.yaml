@@ -1,0 +1,7 @@
+apiVersion: 1
+datasources:
+  - name: OpAMP Commander preview
+    uid: opampcommander-preview
+    type: minukdev-opampcommander-datasource
+    access: proxy
+    editable: false
