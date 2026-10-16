@@ -14,13 +14,12 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-github/v72 v72.0.0
-	github.com/google/go-github/v92 v92.0.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.1
 	github.com/open-telemetry/opamp-go v0.25.0
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
-	github.com/prometheus/client_golang v1.24.1
-	github.com/prometheus/common v0.72.0
+	github.com/prometheus/client_golang v1.25.0
+	github.com/prometheus/common v0.72.1
 	github.com/redis/go-redis/v9 v9.23.0
 	github.com/samber/lo v1.53.0
 	github.com/samber/mo v1.17.0
@@ -48,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	go.uber.org/fx v1.24.0
 	go.uber.org/goleak v1.3.0
-	golang.org/x/mod v0.41.0
+	golang.org/x/mod v0.42.0
 	golang.org/x/oauth2 v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
@@ -110,7 +109,7 @@ require (
 	github.com/mdelapenya/tlscert v0.2.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.3.0 // indirect
-	github.com/moby/moby/api v1.55.0
+	github.com/moby/moby/api v1.56.1
 	github.com/moby/moby/client v0.5.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/sequential v0.7.0 // indirect
@@ -195,7 +194,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.31.0 // indirect
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260928230214-8a89bd6388cc // indirect
