@@ -191,7 +191,8 @@ func (a *AgentGroupMongoAdapter) getAgentGroupStatistics(
 ) (*entity.AgentGroupStatistics, error) {
 	// Build filter conditions for agents matching this agent group's selector
 	selector := agentGroupEntity.Spec.Selector
-	allConditions := SelectorToMatchConditions(selector)
+	allConditions := append(SelectorToMatchConditions(selector),
+		bson.M{"metadata.namespace": agentGroupEntity.Metadata.Namespace})
 
 	// Build match filter
 	matchFilter := buildFilter(allConditions)
