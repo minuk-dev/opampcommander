@@ -677,6 +677,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		// Agent with no status fields set (defaults to not connected/healthy)
 		bson.M{
 			"metadata": bson.M{
+				"namespace":         "default",
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent1UID[:]},
 				"instanceUidString": agent1UID.String(),
 				"description": bson.M{
@@ -693,6 +694,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		// Agent with connected=false
 		bson.M{
 			"metadata": bson.M{
+				"namespace":         "default",
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent2UID[:]},
 				"instanceUidString": agent2UID.String(),
 				"description": bson.M{
@@ -712,6 +714,7 @@ func TestE2E_AgentGroup_StatisticsAggregation(t *testing.T) {
 		// Agent with connected=true and healthy=true
 		bson.M{
 			"metadata": bson.M{
+				"namespace":         "default",
 				"instanceUid":       bson.Binary{Subtype: 0x04, Data: agent3UID[:]},
 				"instanceUidString": agent3UID.String(),
 				"description": bson.M{
