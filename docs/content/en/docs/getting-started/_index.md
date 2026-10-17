@@ -108,3 +108,27 @@ The agent's `service.namespace` resource attribute determines its namespace
 - Configure the server in the [Configuration guide](/docs/configuration/)
 - Explore the [REST API](/docs/api/)
 - Learn the [CLI commands](/docs/cli/)
+
+### Collector namespace reporting
+
+Commander reads a non-empty `service.namespace` identifying attribute first,
+then falls back to the non-identifying attribute used by the Collector extension.
+If neither is provided, a new agent uses `defaultNamespace`; an existing agent
+keeps its namespace. Conflicting values preserve the identifying value.
+
+For a directly connected Collector, configure:
+
+```yaml
+extensions:
+  opamp:
+    agent_description:
+      non_identifying_attributes:
+        service.namespace: production
+```
+
+Alternatively enable `agent_description.include_resource_attributes` and set
+`service.namespace` in the Collector's own telemetry resource. The extension
+forwards those additional resource attributes as non-identifying attributes.
+This attribute controls grouping, not enrollment authorization: configure agent
+connection authentication and REST RBAC separately. Existing authenticated UID
+and certificate bindings are retained when the description changes.

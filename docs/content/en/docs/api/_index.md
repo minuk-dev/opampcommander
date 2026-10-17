@@ -18,7 +18,7 @@ the running server. The OpAMP agent protocol itself is handled over a WebSocket 
 ### OpAMP security boundary
 
 The OpAMP endpoint accepts unauthenticated agent connections. An agent chooses
-its namespace through its reported `service.namespace` identifying attribute
+its namespace through its reported `service.namespace` attribute (identifying first, then non-identifying)
 (`default` when absent). REST RBAC does not restrict that choice: an agent can
 claim another namespace and receive remote configuration assigned there.
 Namespaces organize agents; they are not a trust boundary for the OpAMP protocol.
@@ -72,7 +72,7 @@ GET    /api/v1/namespaces/{namespace}
 DELETE /api/v1/namespaces/{namespace}
 ```
 
-A namespace is derived from each agent's `service.namespace` identifying attribute,
+A namespace is derived from each agent's `service.namespace` attribute (identifying first, then non-identifying),
 defaulting to `default`.
 
 REST namespace management uses the `namespace` resource in RBAC. Listing or
