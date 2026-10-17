@@ -222,3 +222,26 @@ the `AgentToServer` converters in
 `pkg/apiserver/application/service/opamp/protobufstodomain_converters_test.go` and the
 `ServerToAgent` builder (including the connection-settings offer path) in
 `pkg/apiserver/domain/agent/service/servertoagent_test.go`.
+
+### Remote configuration acknowledgment and retry
+
+For agents advertising `ReportsRemoteConfig`, the shared delivery builder stops
+reoffering a desired hash once it is reported as `APPLYING`, `APPLIED`, or `FAILED`.
+A failed hash remains suppressed when a Supervisor reports `APPLIED` for an older,
+restored configuration. Failure information and report timestamps survive server
+restart and MongoDB persistence. Agents without status reporting retain redelivery.
+
+`Agent.status.remoteConfig` exposes desired/reported hashes (base64), reported
+status, `syncStatus` (`Unassigned`, `Unsupported`, `Pending`, `Applying`, `Applied`,
+`Failed`, or `RolledBack`), and the last failure. `RolledBack` means a different hash
+was reported applied after the desired hash failed; it is not a claim about the
+agent's internal rollback mechanism. An acknowledgment of an older hash is never
+proof that the current desired configuration was applied.
+
+Change the assigned configuration to deliver a new hash, or explicitly retry the
+unchanged configuration with `spec.retryRemoteConfig: true` in the existing agent
+update API. This write-only command clears acknowledgment/failure state, persists
+it, and notifies the agent. Normal reconciliation and reconnects do not clear it.
+An agent reporting `UNSET` after losing local state can receive its desired config
+again, unless that desired hash previously failed. Retry is not a revision barrier:
+late reports for the same hash may still describe the earlier attempt.

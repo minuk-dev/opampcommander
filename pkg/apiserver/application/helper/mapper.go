@@ -194,6 +194,7 @@ func (mapper *Mapper) MapAgentToAPI(agent *agentmodel.Agent) *v1.Agent {
 			RestartRequiredAt: mapper.mapRestartRequiredAtToAPI(agent.Spec.RestartInfo),
 		},
 		Status: v1.AgentStatus{
+			RemoteConfig: mapRemoteConfigAcknowledgment(agent),
 			ConnectionSettings: v1.AgentConnectionSettingsStatus{
 				LastConnectionSettingsHash: agent.Status.ConnectionSettingsStatus.LastConnectionSettingsHash,
 				Status:                     connectionSettingsStatusName(agent.Status.ConnectionSettingsStatus.Status),
@@ -1400,4 +1401,30 @@ func mapDeletedAtToAPI(t time.Time) *v1.Time {
 	}
 
 	return new(v1.NewTime(t))
+}
+
+func mapRemoteConfigAcknowledgment(agent *agentmodel.Agent) v1.AgentRemoteConfigAcknowledgment {
+	offer, _ := agent.RemoteConfigOffer()
+	hash := offer.GetConfigHash()
+	status := agent.Status.RemoteConfigStatus
+
+	return v1.AgentRemoteConfigAcknowledgment{
+		DesiredHash:     hash,
+		ReportedHash:    status.LastRemoteConfigHash,
+		Status:          status.Status.String(),
+		SyncStatus:      agent.RemoteConfigSyncStatus(hash),
+		ErrorMessage:    status.ErrorMessage,
+		LastUpdatedAt:   remoteConfigReportTime(status.LastUpdatedAt),
+		LastFailedHash:  status.LastFailedHash,
+		LastFailedError: status.LastFailedError,
+		LastFailedAt:    remoteConfigReportTime(status.LastFailedAt),
+	}
+}
+
+func remoteConfigReportTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+
+	return value.Format(time.RFC3339Nano)
 }

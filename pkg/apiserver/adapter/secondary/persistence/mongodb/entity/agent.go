@@ -249,6 +249,10 @@ type AgentRemoteConfigStatusEnum int32
 
 // AgentRemoteConfigStatus represents the status of remote config in MongoDB.
 type AgentRemoteConfigStatus struct {
+	LastFailedHash       []byte                      `bson:"lastFailedHash,omitempty"`
+	LastFailedError      string                      `bson:"lastFailedError,omitempty"`
+	LastFailedAt         time.Time                   `bson:"lastFailedAt,omitempty"`
+	LastUpdatedAt        time.Time                   `bson:"lastUpdatedAt,omitempty"`
 	LastRemoteConfigHash *bson.Binary                `bson:"lastRemoteConfigHash,omitempty"`
 	Status               AgentRemoteConfigStatusEnum `bson:"status"`
 	ErrorMessage         string                      `bson:"errorMessage,omitempty"`
@@ -378,6 +382,9 @@ func (status *AgentStatus) ToDomain() agentmodel.AgentStatus {
 			if status.RemoteConfigStatus == nil {
 				return agentmodel.AgentRemoteConfigStatus{
 					LastRemoteConfigHash: nil,
+					LastFailedHash:       nil,
+					LastFailedError:      "",
+					LastFailedAt:         time.Time{},
 					Status:               agentmodel.RemoteConfigStatusUnset,
 					ErrorMessage:         "",
 					LastUpdatedAt:        time.Time{},
@@ -800,6 +807,9 @@ func (arcs *AgentRemoteConfigStatus) ToDomain() agentmodel.AgentRemoteConfigStat
 	if arcs == nil {
 		return agentmodel.AgentRemoteConfigStatus{
 			LastRemoteConfigHash: nil,
+			LastFailedHash:       nil,
+			LastFailedError:      "",
+			LastFailedAt:         time.Time{},
 			Status:               agentmodel.RemoteConfigStatusUnset,
 			ErrorMessage:         "",
 			LastUpdatedAt:        time.Time{},
@@ -813,9 +823,12 @@ func (arcs *AgentRemoteConfigStatus) ToDomain() agentmodel.AgentRemoteConfigStat
 
 	return agentmodel.AgentRemoteConfigStatus{
 		LastRemoteConfigHash: lastRemoteConfigHash,
+		LastFailedHash:       arcs.LastFailedHash,
+		LastFailedError:      arcs.LastFailedError,
+		LastFailedAt:         arcs.LastFailedAt,
 		Status:               agentmodel.RemoteConfigStatus(arcs.Status),
 		ErrorMessage:         arcs.ErrorMessage,
-		LastUpdatedAt:        time.Time{},
+		LastUpdatedAt:        arcs.LastUpdatedAt,
 	}
 }
 
@@ -835,6 +848,10 @@ func AgentRemoteConfigStatusFromDomain(arcs *agentmodel.AgentRemoteConfigStatus)
 
 	return &AgentRemoteConfigStatus{
 		LastRemoteConfigHash: lastRemoteConfigHash,
+		LastFailedHash:       arcs.LastFailedHash,
+		LastFailedError:      arcs.LastFailedError,
+		LastFailedAt:         arcs.LastFailedAt,
+		LastUpdatedAt:        arcs.LastUpdatedAt,
 		Status:               AgentRemoteConfigStatusEnum(arcs.Status),
 		ErrorMessage:         arcs.ErrorMessage,
 	}
