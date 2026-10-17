@@ -1,0 +1,14 @@
+apiVersion: 1
+datasources:
+  - name: Local Commander demo
+    uid: opampcommander-preview
+    type: minukdev-opampcommander-datasource
+    access: proxy
+    editable: false
+    jsonData:
+      url: http://commander:8080
+      namespace: default
+      allowInsecureHTTP: true
+      demo: true
+    secureJsonData:
+      token: $COMMANDER_DEMO_TOKEN

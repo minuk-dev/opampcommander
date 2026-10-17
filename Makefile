@@ -11,13 +11,14 @@ all: prebuilt-doc build
 .PHONY: grafana-demo grafana-demo-stop grafana-demo-logs
 grafana-demo:
 	cd plugins/grafana && npm ci
-	$(MAKE) -C plugins/grafana serve
+	$(MAKE) -C plugins/grafana build
+	python3 plugins/grafana/demo/run.py
 
 grafana-demo-stop:
-	$(MAKE) -C plugins/grafana stop
+	python3 plugins/grafana/demo/run.py stop
 
 grafana-demo-logs:
-	cd plugins/grafana && docker compose logs --tail=100 -f grafana
+	python3 plugins/grafana/demo/run.py logs
 
 lint:
 	golangci-lint run
