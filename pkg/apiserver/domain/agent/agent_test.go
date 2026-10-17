@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	agentmodel "github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent"
 	"github.com/minuk-dev/opampcommander/pkg/apiserver/domain/agent/agent"
@@ -456,4 +457,39 @@ func TestAgent_HasNewPackages(t *testing.T) {
 
 	// Without the capability nothing is offered.
 	assert.False(t, agentmodel.NewAgent(uuid.New()).HasNewPackages())
+}
+
+func TestAgent_ReportDescriptionNamespace(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		identifying    string
+		nonIdentifying string
+		want           string
+	}{
+		{name: "identifying", identifying: "team-a", want: "team-a"},
+		{name: "collector resource", nonIdentifying: "team-b", want: "team-b"},
+		{name: "identifying wins", identifying: "team-a", nonIdentifying: "team-b", want: "team-a"},
+		{name: "empty attributes preserve configured namespace", want: "configured"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			a := agentmodel.NewAgent(uuid.New(), agentmodel.WithNamespace("configured"))
+			a.Status.ActiveClientCertificateHash = []byte("certificate-binding")
+			desc := &agent.Description{
+				IdentifyingAttributes:    map[string]string{"service.namespace": tt.identifying},
+				NonIdentifyingAttributes: map[string]string{"service.namespace": tt.nonIdentifying},
+			}
+			require.NoError(t, a.ReportDescription(desc))
+			assert.Equal(t, tt.want, a.Metadata.Namespace)
+			assert.Equal(t, []byte("certificate-binding"), a.Status.ActiveClientCertificateHash)
+			require.NoError(t, a.ReportDescription(&agent.Description{}))
+			assert.Equal(t, tt.want, a.Metadata.Namespace, "missing attributes do not reset an existing namespace")
+			require.NoError(t, a.ReportDescription(nil))
+			assert.Equal(t, tt.want, a.Metadata.Namespace)
+		})
+	}
 }
