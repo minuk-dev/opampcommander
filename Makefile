@@ -155,7 +155,8 @@ bench-liveness:
 
 .PHONY: helm-deps
 helm-deps:
-	helm dependency build $(HELM_CHART)
+	helm repo add grafana-community https://grafana-community.github.io/helm-charts
+	helm dependency build $(HELM_CHART) --skip-refresh
 
 helm-lint: helm-deps
 	helm lint $(HELM_CHART)

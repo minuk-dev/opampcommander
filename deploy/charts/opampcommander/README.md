@@ -7,7 +7,7 @@ optionally, the Next.js web dashboard.
 ## Quick start
 
 ```sh
-helm dependency build ./deploy/charts/opampcommander
+make helm-deps
 helm install opampcommander ./deploy/charts/opampcommander \
   --namespace opampcommander --create-namespace
 ```
@@ -46,7 +46,7 @@ make image IMAGE=opampcommander-grafana:dev
 cd ../..
 # For a local kind cluster: kind load docker-image opampcommander-grafana:dev --name <cluster>
 # For a remote cluster: tag/push to your registry and override grafana.image below.
-helm dependency build ./deploy/charts/opampcommander
+make helm-deps
 helm upgrade --install commander ./deploy/charts/opampcommander \
   --namespace commander --create-namespace \
   -f deploy/charts/opampcommander/ci/grafana-values.yaml
