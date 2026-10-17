@@ -55,6 +55,7 @@ jobs:
       # the images built from the same commit.
       - name: Package
         run: |
+          make helm-deps
           helm package "${CHART}" \
             --version "${VERSION}" \
             --app-version "${VERSION}" \

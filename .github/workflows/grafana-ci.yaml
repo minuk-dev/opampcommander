@@ -38,6 +38,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: docker compose up -d --wait
       - run: npm run e2e
+      - name: Test packaged image with a fresh data volume
+        run: |
+          docker build --build-arg GRAFANA_VERSION="$GRAFANA_VERSION" -t opampcommander-grafana:dev .
+          docker compose -f docker-compose.yaml -f compose.image.yaml up -d --wait --force-recreate
+          npm run e2e
       - name: Grafana logs
         if: failure()
         run: docker compose logs --no-color

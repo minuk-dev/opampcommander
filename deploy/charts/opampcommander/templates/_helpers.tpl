@@ -253,3 +253,7 @@ could carry credentials instead — an existing ConfigMap, extraEnv, extraEnvFro
 {{- fail (printf "\nopampcommander: invalid values:\n%s" (join "\n" $messages)) -}}
 {{- end -}}
 {{- end }}
+{{/* Called from both parent and subchart contexts; only Release is shared. */}}
+{{- define "opampcommander.grafanaProvisioningName" -}}
+{{- printf "%s-commander-app" .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- end }}
