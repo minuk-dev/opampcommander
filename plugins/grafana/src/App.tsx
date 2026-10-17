@@ -96,6 +96,9 @@ export function App() {
   }, [uid, cursor, refresh]);
 
   const nextCursor = typeof frame?.meta?.custom?.nextCursor === 'string' ? frame.meta.custom.nextCursor : '';
+  const columns = ['Name', 'Connection', 'Health', 'Namespace', 'Type', 'Instance UID', 'Last reported']
+    .map((name) => frame?.fields.find((field) => field.name === name))
+    .filter((field) => field !== undefined);
   const values = (field: string) => frame?.fields.find((item) => item.name === field)?.values ?? [];
   const count = (field: string, value: string) => values(field).filter((item) => item === value).length;
 
@@ -171,7 +174,7 @@ export function App() {
                     <table className={styles.table}>
                       <thead>
                         <tr>
-                          {frame.fields.map((field) => (
+                          {columns.map((field) => (
                             <th scope="col" key={field.name}>
                               {field.name}
                             </th>
@@ -181,7 +184,7 @@ export function App() {
                       <tbody>
                         {Array.from({ length: frame.length }, (_, row) => (
                           <tr key={String(values('Instance UID')[row])}>
-                            {frame.fields.map((field) => (
+                            {columns.map((field) => (
                               <td key={field.name}>{String(field.values[row] || '—')}</td>
                             ))}
                           </tr>
