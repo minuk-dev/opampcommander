@@ -222,3 +222,15 @@ the `AgentToServer` converters in
 `pkg/apiserver/application/service/opamp/protobufstodomain_converters_test.go` and the
 `ServerToAgent` builder (including the connection-settings offer path) in
 `pkg/apiserver/domain/agent/service/servertoagent_test.go`.
+
+### Collector identity across restarts
+
+OpAMP `instance_uid` and the Collector resource's `service.instance.id` are
+independent. A changed description on an existing session, after disconnect, or
+on a new HTTP poll does not allocate a new UID. Duplicate-session detection
+requires a different live WebSocket plus a conflicting reported identity.
+Overlapping WebSocket reconnects with the same identity are accepted. Without
+authenticated identity, simultaneous sessions reporting different identities
+cannot reliably be distinguished from a restart whose old socket is still open;
+clients should close the old socket before reconnecting with a changed identity.
+This heuristic does not replace mTLS certificate authorization.
