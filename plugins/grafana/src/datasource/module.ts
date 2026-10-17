@@ -1,5 +1,5 @@
 import { DataSourcePlugin } from '@grafana/data';
 import { DataSource } from './datasource';
-import { PreviewNotice } from './PreviewNotice';
+import { ConfigEditor, QueryEditor } from './ConfigEditor';
 
-export const plugin = new DataSourcePlugin(DataSource).setConfigEditor(PreviewNotice).setQueryEditor(PreviewNotice);
+export const plugin = new DataSourcePlugin(DataSource).setConfigEditor(ConfigEditor).setQueryEditor(QueryEditor);

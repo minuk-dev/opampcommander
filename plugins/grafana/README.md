@@ -2,41 +2,70 @@
 
 Development foundation for the read-only fleet visibility milestone [#803](https://github.com/minuk-dev/opampcommander/issues/803).
 
-This draft loads an app and a nested Go data source in Grafana. It does **not** connect to Commander yet: queries return an explicit not-implemented error and connection checks report an error. No generated sample metrics or healthy empty fleet is returned.
+This draft queries the Commander REST API through the Grafana Go backend and displays a namespace's agents, connection state, reported health and last-report timestamp. Credentials stay in Grafana's encrypted data-source settings. This is current-state visibility, not time-series history.
 
-## Local development
+## Local fleet demo
 
-Requirements: Node.js 24 LTS, npm 11, Go 1.26.5+, Docker Compose v2.
+Requirements: Node.js 24 LTS, npm 11, Go 1.26.5+, Python 3, Docker Compose v2.
 
-From the repository root, start the preview with one command:
+From the repository root:
 
 ```sh
 make grafana-demo
 # Open http://127.0.0.1:3300/a/minukdev-opampcommander-app
-# make grafana-demo-logs  # follow logs
-# make grafana-demo-stop # remove the demo container and network
+make grafana-demo-logs
+make grafana-demo-stop
 ```
 
-This installs locked dependencies, builds both plugin parts, and recreates Grafana so backend and manifest changes take effect. The preview shows the app shell and an explicit unavailable-query state; it does not display a live fleet yet. Only Grafana is started. Demo state is disposable. Automatic installation of unrelated plugins is disabled. The default Go memory target is 256 MiB for small Docker VMs; override it with `GRAFANA_GOMEMLIMIT` if needed.
+This builds the plugin and current Commander server, then starts an in-memory
+Commander and two real OpenTelemetry Collectors, then stops one to demonstrate
+both connected and disconnected states. The page labels them as a local
+demo; their states come from OpAMP reports through the real authenticated API.
+No production server is contacted. Credentials are generated under the ignored
+`plugins/grafana/.demo/` directory. A read-only basic-auth user receives an access
+token valid for 24 hours; restarting the demo creates new credentials and resets
+all Commander/Grafana demo state. All host ports bind to loopback. `GRAFANA_PORT`
+(default 3300) and `COMMANDER_DEMO_PORT` (default 3301) are configurable.
 
-For development and checks:
+Run the live browser checks with:
 
 ```sh
 cd plugins/grafana
-npm ci
-make check
-make serve
-```
-
-Open http://127.0.0.1:3300/a/minukdev-opampcommander-app. The loopback-only development instance permits anonymous Viewer access and provisions the app and data source without upstream credentials. `GRAFANA_PORT` changes the host port; `GRAFANA_VERSION` selects the image (default 13.2.3). Do not expose this development instance publicly.
-
-```sh
 npx playwright install chromium
-npm run e2e
-make stop
+COMMANDER_DEMO=1 npm run e2e
 ```
 
-Set `GRAFANA_URL` when running tests against a different host port. Tests exercise the page as a Viewer at desktop and 375px widths. After changing either `plugin.json`, rebuild and restart Grafana (`docker compose restart grafana`). Use `npm run dev` for frontend watch builds; rebuild the Go backend with `make backend` and restart Grafana after backend changes.
+Only this demo stack is removed by `make grafana-demo-stop`. The Go memory target
+is 256 MiB for Grafana (`GRAFANA_GOMEMLIMIT` overrides it), 128 MiB for Commander,
+and 64 MiB per demo Collector. These are GC targets, not hard memory limits. Unrelated Grafana data-source
+backends are disabled in this disposable demo to keep it usable on small Docker VMs.
+
+## Connect an existing Commander
+
+Add an OpAMP Commander data source in Grafana Connections. Configure its base
+URL, namespace and access token, then use **Save & test**. The token's identity
+needs `agent:LIST` in that namespace. HTTPS is required unless HTTP is explicitly
+enabled for trusted development. The URL is set by the data-source administrator;
+queries cannot change its host, namespace or HTTP method. Redirects are rejected.
+
+Everyone who can query the data source shares its Commander visibility. The
+namespace setting is not a per-viewer authorization boundary. No raw collector
+configuration, connection settings, or error bodies are exposed in frames.
+Short-lived tokens must be replaced when they expire; automated scoped machine
+credentials remain tracked in #683/#806. No admin credentials are needed.
+
+Fleet overview offers a data-source picker, Refresh, Next page and First page.
+Each request reads at most 100 agents, with a 10-second timeout and 4 MiB response
+cap. Counts describe the displayed page, not the whole fleet. Health is the last
+reported value and may be old for a disconnected agent; unsupported/missing
+health remains Unknown. Large management-API payloads can exceed the response
+cap until #804 provides a compact read projection.
+
+For the unconfigured-plugin smoke test, run `npm ci && make serve` from this
+directory, then `npm run e2e`. It must show a configuration error rather than
+invented fleet data. `make check` runs frontend/backend checks. After changing a
+manifest or Go backend, `make serve` rebuilds and recreates Grafana. Stop a live
+demo first with the root `make grafana-demo-stop` before switching environments.
 
 ## Layout and builds
 
@@ -56,10 +85,10 @@ The root server and `web/` builds remain independent of this package. Run checks
 | Issue | Work |
 | --- | --- |
 | [#804](https://github.com/minuk-dev/opampcommander/issues/804) | Read contract and remote-config acknowledgment |
-| [#805](https://github.com/minuk-dev/opampcommander/issues/805) | Finish the development environment, including standalone Commander and sample agent |
+| [#805](https://github.com/minuk-dev/opampcommander/issues/805) | Development environment and demo verification |
 | [#806](https://github.com/minuk-dev/opampcommander/issues/806) | Secure API access and machine authentication using #683 |
 | [#807](https://github.com/minuk-dev/opampcommander/issues/807) | Bounded queries, pagination and DataFrames |
 | [#808](https://github.com/minuk-dev/opampcommander/issues/808) | Fleet dashboard and agent detail |
 | [#809](https://github.com/minuk-dev/opampcommander/issues/809) | Release verification, signing and packaging |
 
-The backend will own credentials and expose selected status fields only. Credentials belong in `secureJsonData`; raw configurations and secrets must never become dashboard frames. The shared data-source identity's namespace permissions are the visibility boundary, not a namespace dropdown. The production connection test must read an authorized resource as well as the public ping/version endpoints.
+The backend owns credentials and exposes selected status fields only. Credentials belong in `secureJsonData`; raw configurations and secrets must never become dashboard frames. The shared data-source identity's namespace permissions are the visibility boundary, not a namespace dropdown. The production connection test must read an authorized resource as well as the public ping/version endpoints.

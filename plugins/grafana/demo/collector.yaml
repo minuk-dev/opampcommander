@@ -1,0 +1,24 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+exporters:
+  debug:
+    verbosity: basic
+extensions:
+  opamp:
+    server:
+      ws:
+        endpoint: ws://commander:8080/api/v1/opamp
+        tls:
+          insecure: true
+    agent_description:
+      non_identifying_attributes:
+        host.name: ${env:DEMO_AGENT_NAME}
+service:
+  extensions: [opamp]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug]

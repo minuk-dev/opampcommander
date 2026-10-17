@@ -46,3 +46,7 @@ ci/
 .idea
 
 .eslintcache
+
+# Generated local demo credentials and server binary
+.demo/
+__pycache__/
