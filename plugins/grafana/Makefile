@@ -19,7 +19,8 @@ check:
 	go vet ./pkg/...
 
 serve: build
-	docker compose up -d --wait
+	docker compose up -d --wait --force-recreate
+	@echo "Grafana preview: http://127.0.0.1:$${GRAFANA_PORT:-3300}/a/minukdev-opampcommander-app"
 
 stop:
 	docker compose down

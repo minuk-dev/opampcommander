@@ -4,6 +4,8 @@ services:
     ports:
       - '127.0.0.1:${GRAFANA_PORT:-3300}:3000'
     environment:
+      # Keep the demo usable on small Docker VMs; this is a Go GC target, not a container limit.
+      GOMEMLIMIT: ${GRAFANA_GOMEMLIMIT:-256MiB}
       # Development only. No upstream credentials are provisioned.
       GF_AUTH_ANONYMOUS_ENABLED: 'true'
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer

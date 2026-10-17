@@ -8,6 +8,19 @@ This draft loads an app and a nested Go data source in Grafana. It does **not** 
 
 Requirements: Node.js 24 LTS, npm 11, Go 1.26.5+, Docker Compose v2.
 
+From the repository root, start the preview with one command:
+
+```sh
+make grafana-demo
+# Open http://127.0.0.1:3300/a/minukdev-opampcommander-app
+# make grafana-demo-logs  # follow logs
+# make grafana-demo-stop # remove the demo container and network
+```
+
+This installs locked dependencies, builds both plugin parts, and recreates Grafana so backend and manifest changes take effect. The preview shows the app shell and an explicit unavailable-query state; it does not display a live fleet yet. Only Grafana is started. Demo state is disposable. The default Go memory target is 256 MiB for small Docker VMs; override it with `GRAFANA_GOMEMLIMIT` if needed.
+
+For development and checks:
+
 ```sh
 cd plugins/grafana
 npm ci
