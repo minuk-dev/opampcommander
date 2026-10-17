@@ -7,6 +7,7 @@ optionally, the Next.js web dashboard.
 ## Quick start
 
 ```sh
+helm dependency build ./deploy/charts/opampcommander
 helm install opampcommander ./deploy/charts/opampcommander \
   --namespace opampcommander --create-namespace
 ```
@@ -29,7 +30,59 @@ Verify a release with the bundled connectivity test:
 helm test opampcommander --namespace opampcommander
 ```
 
-## A real install
+## Optional Grafana preview
+
+Grafana is disabled by default. Enabling it uses the pinned Grafana community
+subchart and requires Kubernetes >=1.25. It provisions the Commander app and
+preview data source in organization 1. **Live Commander queries and authentication
+are not implemented yet**; data-source health and queries intentionally return errors.
+
+Build a Grafana image containing the plugin before enabling it:
+
+```sh
+cd plugins/grafana
+npm ci
+make image IMAGE=opampcommander-grafana:dev
+cd ../..
+# For a local kind cluster: kind load docker-image opampcommander-grafana:dev --name <cluster>
+# For a remote cluster: tag/push to your registry and override grafana.image below.
+helm dependency build ./deploy/charts/opampcommander
+helm upgrade --install commander ./deploy/charts/opampcommander \
+  --namespace commander --create-namespace \
+  -f deploy/charts/opampcommander/ci/grafana-values.yaml
+kubectl -n commander port-forward svc/commander-grafana 3300:80
+```
+
+Open `http://127.0.0.1:3300/a/minukdev-opampcommander-app`. Sign in as `admin`;
+read the generated password with:
+
+```sh
+kubectl -n commander get secret commander-grafana \
+  -o jsonpath='{.data.admin-password}' | base64 -d; echo
+```
+
+The example explicitly allows the two unsigned preview plugin IDs. Use signed
+plugins for production; signing and release publishing are tracked in #809.
+There is no published Commander Grafana image yet. `make image` builds for the
+local Docker architecture; build/push the image for your cluster's architecture.
+Custom images must retain the bundled plugin at `/opt/opampcommander/plugins` so
+Grafana's data volume cannot hide it. No plugins are downloaded at startup.
+
+All `grafana.*` values pass through to the [community chart](https://github.com/grafana-community/helm-charts/tree/main/charts/grafana).
+Set `grafana.image.registry`, `repository` and `tag` for your registry. Anonymous
+access, ingress and persistence are disabled by default; no cluster RBAC or
+service-account token is required. Use `grafana.admin.existingSecret` (keys
+`admin-user` and `admin-password`) for GitOps installs. Enable
+`grafana.persistence.enabled` to retain dashboards/settings and choose a storage
+class that supports the Grafana pod's fsGroup 472. The Grafana image version is
+independent of the Commander chart's appVersion.
+
+`grafana.extraConfigmapMounts` contains the app provisioning mount; preserve that
+entry when adding mounts. Provisioning files are read at startup, so restart the
+Grafana deployment after changing them. To use an existing Grafana installation,
+leave `grafana.enabled=false` and install the plugin there separately.
+
+## A real Commander install
 
 Two things must change for anything beyond a demo: persistence and secrets.
 

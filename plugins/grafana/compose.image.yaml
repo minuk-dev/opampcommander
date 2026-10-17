@@ -1,0 +1,11 @@
+# Smoke-test the baked plugin, ignoring the development dist mount.
+services:
+  grafana:
+    image: opampcommander-grafana:dev
+    environment:
+      GF_PATHS_PLUGINS: /opt/opampcommander/plugins
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/lib/grafana:uid=472,gid=0
+      - /var/log/grafana:uid=472,gid=0

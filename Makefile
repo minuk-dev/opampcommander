@@ -153,20 +153,24 @@ bench-liveness:
 	@echo "Measuring what a heartbeat costs the database (writes per heartbeat, by shape)..."
 	go test ./pkg/apiserver/domain/agent/service -run XXX -bench BenchmarkHeartbeatWriteCost -benchtime 2000x
 
-helm-lint:
+.PHONY: helm-deps
+helm-deps:
+	helm dependency build $(HELM_CHART)
+
+helm-lint: helm-deps
 	helm lint $(HELM_CHART)
 	@for values in $(HELM_CI_VALUES); do \
 		echo "==> helm lint with $$values"; \
 		helm lint $(HELM_CHART) -f $$values || exit 1; \
 	done
 
-helm-template:
+helm-template: helm-deps
 	@for values in $(HELM_CI_VALUES); do \
 		echo "==> helm template with $$values"; \
 		helm template opampcommander $(HELM_CHART) -f $$values || exit 1; \
 	done
 
-helm-package:
+helm-package: helm-deps
 	helm package $(HELM_CHART) --destination ./dist
 
 release:

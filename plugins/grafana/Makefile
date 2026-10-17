@@ -1,5 +1,11 @@
 .PHONY: build frontend backend check serve stop
 
+IMAGE ?= opampcommander-grafana:dev
+GRAFANA_VERSION ?= 13.2.3
+.PHONY: image
+image: build
+	docker build --build-arg GRAFANA_VERSION=$(GRAFANA_VERSION) -t $(IMAGE) .
+
 build: frontend backend
 
 frontend:
