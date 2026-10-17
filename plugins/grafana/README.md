@@ -36,8 +36,9 @@ COMMANDER_DEMO=1 npm run e2e
 ```
 
 Only this demo stack is removed by `make grafana-demo-stop`. The Go memory target
-is 256 MiB for Grafana (`GRAFANA_GOMEMLIMIT` overrides it), 128 MiB for Commander,
-and 64 MiB per demo Collector. These are GC targets, not hard memory limits. Unrelated Grafana data-source
+is 128 MiB for Grafana (`GRAFANA_GOMEMLIMIT` overrides it), 128 MiB for Commander,
+and 64 MiB per demo Collector. These are GC targets. The demo also caps Grafana at 512 MiB
+(`GRAFANA_DEMO_MEMORY_LIMIT` overrides the container limit). Unrelated Grafana data-source
 backends are disabled in this disposable demo to keep it usable on small Docker VMs.
 
 ## Connect an existing Commander
