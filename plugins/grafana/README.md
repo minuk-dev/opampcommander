@@ -17,7 +17,7 @@ make grafana-demo
 # make grafana-demo-stop # remove the demo container and network
 ```
 
-This installs locked dependencies, builds both plugin parts, and recreates Grafana so backend and manifest changes take effect. The preview shows the app shell and an explicit unavailable-query state; it does not display a live fleet yet. Only Grafana is started. Demo state is disposable. The default Go memory target is 256 MiB for small Docker VMs; override it with `GRAFANA_GOMEMLIMIT` if needed.
+This installs locked dependencies, builds both plugin parts, and recreates Grafana so backend and manifest changes take effect. The preview shows the app shell and an explicit unavailable-query state; it does not display a live fleet yet. Only Grafana is started. Demo state is disposable. Automatic installation of unrelated plugins is disabled. The default Go memory target is 256 MiB for small Docker VMs; override it with `GRAFANA_GOMEMLIMIT` if needed.
 
 For development and checks:
 
