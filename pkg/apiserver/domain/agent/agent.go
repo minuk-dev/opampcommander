@@ -306,7 +306,7 @@ type AgentMetadata struct {
 	InstanceUID uuid.UUID
 
 	// Namespace is the namespace the agent belongs to.
-	// Derived from the "service.namespace" identifying attribute.
+	// Derived from "service.namespace", preferring a non-empty identifying attribute.
 	// Defaults to "default" if not specified.
 	Namespace string
 
@@ -993,7 +993,7 @@ func (a *Agent) ReportDescription(desc *agent.Description) error {
 
 	a.Metadata.Description = *desc
 
-	// Derive namespace from the service.namespace identifying attribute when present.
+	// Derive namespace from service.namespace, preferring identifying over non-identifying.
 	// When absent, the agent keeps the namespace it was constructed with (the
 	// configured default applied at creation time), so no hardcoded fallback is used.
 	if ns := desc.Service().Namespace; ns != "" {

@@ -347,8 +347,6 @@ func (s *Service) onMessage(
 			"failed to load agent state")
 	}
 
-	s.syncConnectionNamespace(ctx, logger, connection, agent)
-
 	// Capture a single timestamp so the throttle window is anchored on message
 	// arrival, not on SaveAgent return — Mongo latency spikes would otherwise
 	// push the next throttle boundary out by the write duration.
@@ -366,6 +364,8 @@ func (s *Service) onMessage(
 			protobufs.ServerErrorResponseType_ServerErrorResponseType_BadRequest,
 			reportErr.Error())
 	}
+
+	s.syncConnectionNamespace(ctx, logger, connection, agent)
 
 	s.maybePersistAgent(ctx, logger, message, agent, receivedAt)
 
