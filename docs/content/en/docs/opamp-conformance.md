@@ -245,3 +245,14 @@ it, and notifies the agent. Normal reconciliation and reconnects do not clear it
 An agent reporting `UNSET` after losing local state can receive its desired config
 again, unless that desired hash previously failed. Retry is not a revision barrier:
 late reports for the same hash may still describe the earlier attempt.
+### Collector identity across restarts
+
+OpAMP `instance_uid` and the Collector resource's `service.instance.id` are
+independent. A changed description on an existing session, after disconnect, or
+on a new HTTP poll does not allocate a new UID. Duplicate-session detection
+requires a different live WebSocket plus a conflicting reported identity.
+Overlapping WebSocket reconnects with the same identity are accepted. Without
+authenticated identity, simultaneous sessions reporting different identities
+cannot reliably be distinguished from a restart whose old socket is still open;
+clients should close the old socket before reconnecting with a changed identity.
+This heuristic does not replace mTLS certificate authorization.
