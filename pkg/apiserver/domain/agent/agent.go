@@ -55,6 +55,9 @@ func NewAgent(instanceUID uuid.UUID, opts ...AgentOption) *Agent {
 			ActiveClientCertificateHash: nil,
 			RemoteConfigStatus: AgentRemoteConfigStatus{
 				LastRemoteConfigHash: nil,
+				LastFailedHash:       nil,
+				LastFailedError:      "",
+				LastFailedAt:         time.Time{},
 				Status:               RemoteConfigStatusUnset,
 				ErrorMessage:         "",
 				LastUpdatedAt:        time.Time{},
@@ -911,6 +914,9 @@ type AgentConfigFile struct {
 
 // AgentRemoteConfigStatus is the status of the remote configuration.
 type AgentRemoteConfigStatus struct {
+	LastFailedHash       []byte
+	LastFailedError      string
+	LastFailedAt         time.Time
 	LastRemoteConfigHash []byte
 	Status               RemoteConfigStatus
 	ErrorMessage         string
@@ -1042,7 +1048,24 @@ func (a *Agent) ReportRemoteConfigStatus(status *AgentRemoteConfigStatus) error 
 		return nil // No remote config status to report
 	}
 
+	previous := a.Status.RemoteConfigStatus
+	// Older persisted reports did not retain a separate failure record.
+	if previous.Status == RemoteConfigStatusFailed && len(previous.LastFailedHash) == 0 {
+		previous.LastFailedHash = previous.LastRemoteConfigHash
+		previous.LastFailedError = previous.ErrorMessage
+		previous.LastFailedAt = previous.LastUpdatedAt
+	}
+
 	a.Status.RemoteConfigStatus = *status
+	a.Status.RemoteConfigStatus.LastFailedHash = cloneByteSlice(previous.LastFailedHash)
+	a.Status.RemoteConfigStatus.LastFailedError = previous.LastFailedError
+	a.Status.RemoteConfigStatus.LastFailedAt = previous.LastFailedAt
+
+	if status.Status == RemoteConfigStatusFailed {
+		a.Status.RemoteConfigStatus.LastFailedHash = cloneByteSlice(status.LastRemoteConfigHash)
+		a.Status.RemoteConfigStatus.LastFailedError = status.ErrorMessage
+		a.Status.RemoteConfigStatus.LastFailedAt = status.LastUpdatedAt
+	}
 
 	return nil
 }
@@ -1492,6 +1515,9 @@ func (a *Agent) cloneStatus() AgentStatus {
 func (a *Agent) cloneRemoteConfigStatus() AgentRemoteConfigStatus {
 	return AgentRemoteConfigStatus{
 		LastRemoteConfigHash: cloneByteSlice(a.Status.RemoteConfigStatus.LastRemoteConfigHash),
+		LastFailedHash:       cloneByteSlice(a.Status.RemoteConfigStatus.LastFailedHash),
+		LastFailedError:      a.Status.RemoteConfigStatus.LastFailedError,
+		LastFailedAt:         a.Status.RemoteConfigStatus.LastFailedAt,
 		Status:               a.Status.RemoteConfigStatus.Status,
 		ErrorMessage:         a.Status.RemoteConfigStatus.ErrorMessage,
 		LastUpdatedAt:        a.Status.RemoteConfigStatus.LastUpdatedAt,
