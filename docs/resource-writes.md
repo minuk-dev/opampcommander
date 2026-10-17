@@ -33,6 +33,10 @@ methods now require a revision argument. `opampctl delete` reads once before
 sending its conditional delete. Web editors retain the original resource, namespace
 and revision while open. Conflicts require closing the editor, refreshing and
 reopening; the client does not silently rebase an edit onto a newer read.
+The web's **Apply remote config to agent group** dialog likewise retains the
+source config's namespace/name while open and the target group's revision from
+selection. Applying or retrying uses that snapshot; a background list refresh
+cannot silently advance its precondition.
 
 ## Storage upgrade
 
