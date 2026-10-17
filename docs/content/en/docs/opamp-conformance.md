@@ -40,7 +40,7 @@ These flags describe the server, independently of the capabilities an agent repo
 | `AcceptsEffectiveConfig` | ✅ | ✅ | [Handler][handler] stores reports through `ReportEffectiveConfig`. |
 | `OffersConnectionSettings` | ✅ | 🟡 | [Builder][builder] emits OpAMP, telemetry and other destinations with headers/TLS; per-agent capability filtering and heartbeat interval negotiation remain incomplete. |
 | `AcceptsConnectionSettingsRequest` | ⛔ | ⛔ | [Builder][builder] deliberately withholds the bit because [Handler][handler] does not process requests; no automatic credential issuance. |
-| `OffersPackages` | ✅ | 🟡 | [Builder][builder] resolves package offers, but no public assignment path populates the agent's package list; see [Known gaps](#known-gaps). |
+| `OffersPackages` | ❌ | ❌ | Withheld until package assignment and persistence are supported; no package offers are emitted. |
 | `AcceptsPackagesStatus` | ✅ | ✅ | [Handler][handler] stores package status through `ReportPackageStatuses`. |
 
 ## Agent capabilities
@@ -55,7 +55,7 @@ through the OpAMP endpoint.
 | `ReportsStatus` | ✅ | [Handler][handler] records description, capabilities and sequence number through `report()`. |
 | `AcceptsRemoteConfig` | ✅ | [Agent model][agent-model] `HasRemoteConfig` gates delivery on this bit. |
 | `ReportsEffectiveConfig` | ✅ | [Handler][handler] and [Converters][converters] retain effective configuration reports. |
-| `AcceptsPackages` | 🟡 | [Agent model][agent-model] `HasPackagesAvailable` gates offers, but there is no public package assignment workflow. |
+| `AcceptsPackages` | ❌ | The server does not send package offers; package assignment is unsupported. |
 | `ReportsPackageStatuses` | ✅ | [Agent model][agent-model] `ReportPackageStatuses` retains the reported package inventory/status. |
 | `ReportsOwnTraces` | 🟡 | [Builder][builder] converts `own_traces` destinations, headers and TLS; offers are not filtered by this bit. |
 | `ReportsOwnMetrics` | 🟡 | [Builder][builder] converts `own_metrics` destinations, headers and TLS; offers are not filtered by this bit. |
@@ -88,7 +88,7 @@ See [Custom messages](#custom-messages).
 | `instance_uid` | ✅ | |
 | `remote_config` | ✅ | Built from the agent's materialized `Spec.RemoteConfig.ConfigMap` with a content hash. |
 | `connection_settings` | 🟡 | Destination offers include TLS and headers; capability filtering and heartbeat interval negotiation are incomplete. |
-| `packages_available` | ✅ | Package type derived from the spec; an unresolvable package is withheld and logged rather than silently dropped (#496). |
+| `packages_available` | ❌ | Intentionally unset until package assignment/persistence and real client installation are supported (#839). |
 | `agent_identification` | ✅ | Sent when the server assigns a new instance UID. |
 | `command` | 🟡 | `Restart` delivery exists, but the builder can include other desired-state fields and does not recheck withdrawn restart support. |
 | `capabilities` | ✅ | |
@@ -147,9 +147,22 @@ See [Custom messages](#custom-messages).
 6. ~~**Non-string attribute values are dropped** in `toMap`.~~ *(Resolved in #504.)* Non-string
    `AnyValue`s are now preserved in their string form for identifying / non-identifying
    attributes and component metadata.
-7. **No way to offer packages to an agent.** `packages_available` is built from the agent's
-   `spec.packagesAvailable`, but nothing sets it: the agent update API ignores the field and
-   the MongoDB store does not persist it. The capability is advertised, the offer is never sent.
+7. **Package installation is unsupported.** `OffersPackages` is withheld and
+   `packages_available` is never emitted, including for internally populated assignments.
+   AgentPackage CRUD stores metadata only; it does not assign, download, or install binaries.
+   The existing agent update API does not apply `spec.packagesAvailable`, and MongoDB does
+   not persist that field. `AcceptsPackagesStatus` remains advertised: inbound package
+   inventory/status reports are accepted, but they do not prove a server-managed upgrade.
+   Enabling offers requires authorized namespace-scoped assignment/removal, durable storage,
+   restart/cross-server delivery tests, and a real download/apply/status round trip.
+   Artifact hosting remains separate (#550).
+
+   Collector extension 0.163.0 (distribution 0.163.1) does not install packages. Supervisor
+   0.163.0 still returns `ErrUnsupported` from its package-state methods despite the
+   `accepts_packages` setting; its completion is tracked in [upstream #47272](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/47272).
+   Commander has no validated end-to-end binary-upgrade client/version. Reference-client
+   tests cover status ingestion only. Do not enable package support based on capability
+   bits or archive-format support alone.
 
 8. **Connection capability negotiation is incomplete.** Group reconciliation assigns a
    connection bundle and the builder converts it without checking each current agent

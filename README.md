@@ -187,8 +187,8 @@ and asserts each round-trip from both ends. Verified agents:
 | [opamp-go](https://github.com/open-telemetry/opamp-go) client (reference agent) | v0.24.0 | WebSocket, HTTP | Registration, capability negotiation, health, remote config → effective config, connection settings offer, restart command, package statuses |
 | OpenTelemetry Collector Contrib, `opamp` extension | 0.115.1 | WebSocket | Registration, description, effective config |
 
-Offering packages (`packages_available`) is advertised but cannot yet be assigned
-to an agent through the API. The full per-field matrix is in the
+Package installation is unsupported: `OffersPackages` is withheld and no
+`packages_available` offers are sent. Package status reports are still accepted. The full per-field matrix is in the
 [OpAMP conformance](docs/content/en/docs/opamp-conformance.md) doc.
 
 ## Architecture

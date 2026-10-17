@@ -65,7 +65,6 @@ func TestE2E_Conformance_ServerCapabilities(t *testing.T) {
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsStatus,
 		protobufs.ServerCapabilities_ServerCapabilities_OffersRemoteConfig,
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsEffectiveConfig,
-		protobufs.ServerCapabilities_ServerCapabilities_OffersPackages,
 		protobufs.ServerCapabilities_ServerCapabilities_AcceptsPackagesStatus,
 		protobufs.ServerCapabilities_ServerCapabilities_OffersConnectionSettings,
 	} {
@@ -74,6 +73,9 @@ func TestE2E_Conformance_ServerCapabilities(t *testing.T) {
 
 	assert.Zero(t, offered&protobufs.ServerCapabilities_ServerCapabilities_AcceptsConnectionSettingsRequest,
 		"connection_settings_request is not processed, so the capability must be withheld")
+
+	assert.Zero(t, offered&protobufs.ServerCapabilities_ServerCapabilities_OffersPackages,
+		"package assignment is unsupported, so the server must not offer packages")
 
 	// The first report carries no description, so the server must ask for full state.
 	assert.NotZero(t,
