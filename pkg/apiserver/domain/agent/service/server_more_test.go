@@ -36,7 +36,7 @@ func newServerServiceForSend(
 		mockConnection,
 		mockAgent,
 		noopAgentCacheInvalidator{},
-		agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
+		agentservice.NewServerToAgentBuilder(nil, slog.Default()),
 	)
 	svc.SetClock(newTestFakeClock(now))
 
@@ -63,7 +63,7 @@ func TestServerService_Run_DelegatesToReceiver(t *testing.T) {
 			new(MockConnectionUsecase),
 			new(MockAgentUsecase),
 			noopAgentCacheInvalidator{},
-			agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
+			agentservice.NewServerToAgentBuilder(nil, slog.Default()),
 		)
 
 		require.NoError(t, svc.Run(ctx))
@@ -87,7 +87,7 @@ func TestServerService_Run_DelegatesToReceiver(t *testing.T) {
 			new(MockConnectionUsecase),
 			new(MockAgentUsecase),
 			noopAgentCacheInvalidator{},
-			agentservice.NewServerToAgentBuilder(nil, nil, slog.Default()),
+			agentservice.NewServerToAgentBuilder(nil, slog.Default()),
 		)
 
 		// Run never surfaces the receiver error to the executor; it logs and returns nil.
