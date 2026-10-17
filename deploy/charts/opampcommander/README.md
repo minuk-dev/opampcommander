@@ -34,8 +34,8 @@ helm test opampcommander --namespace opampcommander
 
 Grafana is disabled by default. Enabling it uses the pinned Grafana community
 subchart and requires Kubernetes >=1.25. It provisions the Commander app and
-preview data source in organization 1. **Live Commander queries and authentication
-are not implemented yet**; data-source health and queries intentionally return errors.
+preview data source in organization 1. **Configure an upstream URL, namespace and access token** before querying.
+The default data source is unconfigured and reports a configuration error.
 
 Build a Grafana image containing the plugin before enabling it:
 
@@ -67,6 +67,36 @@ There is no published Commander Grafana image yet. `make image` builds for the
 local Docker architecture; build/push the image for your cluster's architecture.
 Custom images must retain the bundled plugin at `/opt/opampcommander/plugins` so
 Grafana's data volume cannot hide it. No plugins are downloaded at startup.
+
+Configure the existing data-source entry and inject a token from a Secret:
+
+```yaml
+grafana:
+  envValueFrom:
+    COMMANDER_ACCESS_TOKEN:
+      secretKeyRef:
+        name: commander-grafana-access
+        key: token
+  datasources:
+    opampcommander.yaml:
+      apiVersion: 1
+      datasources:
+        - name: OpAMP Commander
+          uid: opampcommander-preview
+          type: minukdev-opampcommander-datasource
+          access: proxy
+          orgId: 1
+          editable: false
+          jsonData:
+            url: https://commander.example.com
+            namespace: default
+          secureJsonData:
+            token: $COMMANDER_ACCESS_TOKEN
+```
+
+The Secret must exist in the Grafana namespace. Its token needs `agent:LIST` in
+the configured namespace. Restart Grafana after rotating the Secret so provisioning
+reads the replacement token. Automated machine-token renewal remains in #806.
 
 All `grafana.*` values pass through to the [community chart](https://github.com/grafana-community/helm-charts/tree/main/charts/grafana).
 Set `grafana.image.registry`, `repository` and `tag` for your registry. Anonymous
