@@ -117,7 +117,7 @@ func (r *AgentGroupRepository) PutAgentGroup(
 // the current agent store, mirroring the MongoDB aggregation pipeline. Healthy
 // and unhealthy counts only consider connected agents.
 func (r *AgentGroupRepository) applyStatistics(agentGroup *agentmodel.AgentGroup) {
-	agents := r.agentRepo.agentsMatchingSelector(agentGroup.Spec.Selector)
+	agents := r.agentRepo.agentsMatchingSelector(agentGroup.Metadata.Namespace, agentGroup.Spec.Selector)
 
 	//exhaustruct:ignore
 	stats := agentmodel.AgentGroupStatus{}

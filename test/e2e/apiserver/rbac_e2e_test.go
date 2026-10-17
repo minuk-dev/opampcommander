@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -134,6 +135,49 @@ func TestE2E_APIServer_RBAC(t *testing.T) {
 		t.Run("Allowed: list agentgroups in default namespace", func(t *testing.T) {
 			_, err := nonAdminClient.AgentGroupService.ListAgentGroups(t.Context(), "default")
 			assert.NoError(t, err, "default role grants agentgroup:LIST in default namespace")
+		})
+
+		t.Run("AgentGroup members and counts stay in the authorized namespace", func(t *testing.T) {
+			own := base.StartReferenceAgent(apiServer.Port,
+				testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{
+					"service.name": "rbac-isolation", "service.namespace": "default",
+				}))
+			other := base.StartReferenceAgent(apiServer.Port,
+				testutil.WithReferenceAgentIdentifyingAttributes(map[string]string{
+					"service.name": "rbac-isolation", "service.namespace": "other-namespace",
+				}))
+			for _, member := range []struct {
+				namespace string
+				uid       uuid.UUID
+			}{
+				{"default", own.UID}, {"other-namespace", other.UID},
+			} {
+				testutil.EventuallyAgent(t, opampClient, member.namespace, member.uid,
+					func(a *v1.Agent) bool { return a.Metadata.Capabilities != 0 },
+					conformanceTimeout, conformancePoll, "agent registers in its namespace")
+			}
+			_, err := opampClient.AgentGroupService.CreateAgentGroup(t.Context(), "default", &v1.AgentGroup{
+				Metadata: v1.Metadata{Name: "rbac-isolation", Namespace: "default"},
+				Spec: v1.Spec{Selector: v1.AgentSelector{
+					IdentifyingAttributes: map[string]string{"service.name": "rbac-isolation"},
+				}},
+			})
+			require.NoError(t, err)
+			group, err := nonAdminClient.AgentGroupService.GetAgentGroup(t.Context(), "default", "rbac-isolation")
+			require.NoError(t, err)
+			assert.Equal(t, 1, group.Status.NumAgents)
+			members, err := nonAdminClient.AgentGroupService.ListAgentsByAgentGroup(t.Context(), "default", "rbac-isolation", client.WithLimit(1))
+			require.NoError(t, err)
+			require.Len(t, members.Items, 1)
+			assert.Equal(t, own.UID, members.Items[0].Metadata.InstanceUID)
+			assert.Zero(t, members.Metadata.RemainingItemCount)
+			members, err = nonAdminClient.AgentGroupService.ListAgentsByAgentGroup(t.Context(), "default", "rbac-isolation",
+				client.WithFieldSelector("metadata.namespace=other-namespace"))
+			require.NoError(t, err)
+			require.Len(t, members.Items, 1)
+			assert.Equal(t, "default", members.Items[0].Metadata.Namespace)
+			_, err = nonAdminClient.AgentGroupService.ListAgentsByAgentGroup(t.Context(), "other-namespace", "rbac-isolation")
+			assertHTTPForbidden(t, err)
 		})
 
 		t.Run("Allowed: list connections in default namespace", func(t *testing.T) {
