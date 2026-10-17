@@ -1,0 +1,23 @@
+# Run from the repository root with matching Collector/Supervisor binaries there.
+server:
+  endpoint: ws://localhost:8080/api/v1/opamp
+  tls:
+    insecure: true
+capabilities:
+  accepts_remote_config: true
+  accepts_restart_command: true
+  reports_effective_config: true
+  reports_health: true
+  reports_available_components: true
+  reports_heartbeat: true
+agent:
+  executable: ./otelcol-contrib
+  config_files:
+    - ./scripts/collector-supervised.yaml
+    - $REMOTE_CONFIG
+    - $OPAMP_EXTENSION_CONFIG
+    - $OWN_TELEMETRY_CONFIG
+  validate_config: true
+  automatic_config_rollback: true
+storage:
+  directory: ./supervisor-data
