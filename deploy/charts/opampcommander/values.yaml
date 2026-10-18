@@ -433,3 +433,48 @@ tests:
     tag: "8.23.0"
     pullPolicy: IfNotPresent
   resources: {}
+## Optional Grafana app preview. Requires Kubernetes >=1.25 and a custom image
+## built from plugins/grafana/Dockerfile. No Commander credentials are provisioned.
+## Other grafana.* settings pass through to the Grafana community subchart.
+grafana:
+  enabled: false
+  image:
+    registry: docker.io
+    repository: ""
+    tag: ""
+  rbac:
+    create: false
+  automountServiceAccountToken: false
+  initChownData:
+    enabled: false
+  env:
+    GOMEMLIMIT: 256MiB
+  grafana.ini:
+    paths:
+      # Keep baked plugins outside the data volume (including when using a PVC).
+      plugins: /opt/opampcommander/plugins
+    auth.anonymous:
+      enabled: false
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+    plugins:
+      preinstall_disabled: true
+      plugin_admin_enabled: false
+  extraConfigmapMounts:
+    - name: opampcommander-app
+      mountPath: /etc/grafana/provisioning/plugins/opampcommander.yaml
+      subPath: apps.yaml
+      configMap: '{{ include "opampcommander.grafanaProvisioningName" . }}'
+      readOnly: true
+  datasources:
+    opampcommander.yaml:
+      apiVersion: 1
+      datasources:
+        - name: OpAMP Commander (preview)
+          uid: opampcommander-preview
+          type: minukdev-opampcommander-datasource
+          access: proxy
+          orgId: 1
+          editable: false
+          isDefault: false
