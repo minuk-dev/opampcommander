@@ -1,0 +1,2 @@
+# Preserve upstream template whitespace when updating create-plugin.
+.config/** whitespace=-blank-at-eof

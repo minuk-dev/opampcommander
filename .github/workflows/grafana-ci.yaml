@@ -1,0 +1,46 @@
+name: grafana-ci
+
+on:
+  push:
+    branches: [main]
+    paths: ['plugins/grafana/**', '.github/workflows/grafana-ci.yaml']
+  pull_request:
+    paths: ['plugins/grafana/**', '.github/workflows/grafana-ci.yaml']
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        grafana: ['13.2.0', '13.2.3']
+    defaults:
+      run:
+        working-directory: plugins/grafana
+    env:
+      GRAFANA_VERSION: ${{ matrix.grafana }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: plugins/grafana/package-lock.json
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: plugins/grafana/go.mod
+          cache-dependency-path: plugins/grafana/go.sum
+      - run: npm ci
+      - run: make check
+      - run: make build
+      - run: npx playwright install --with-deps chromium
+      - run: docker compose up -d --wait
+      - run: npm run e2e
+      - name: Grafana logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop Grafana
+        if: always()
+        run: docker compose down

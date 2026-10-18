@@ -8,6 +8,17 @@ HELM_CI_VALUES := $(wildcard $(HELM_CHART)/ci/*-values.yaml)
 
 all: prebuilt-doc build
 
+.PHONY: grafana-demo grafana-demo-stop grafana-demo-logs
+grafana-demo:
+	cd plugins/grafana && npm ci
+	$(MAKE) -C plugins/grafana serve
+
+grafana-demo-stop:
+	$(MAKE) -C plugins/grafana stop
+
+grafana-demo-logs:
+	cd plugins/grafana && docker compose logs --tail=100 -f grafana
+
 lint:
 	golangci-lint run
 
