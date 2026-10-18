@@ -187,7 +187,7 @@ and asserts each round-trip from both ends. Verified agents:
 | [opamp-go](https://github.com/open-telemetry/opamp-go) client (reference agent) | v0.25.0 | WebSocket, HTTP | Registration, capability negotiation, health, remote config → effective config, connection settings offer, restart command, package statuses |
 | OpenTelemetry Collector Contrib, `opamp` extension | 0.115.1 (historical baseline) | WebSocket | Registration, description, effective config |
 | Current Collector Contrib, `opamp` extension | 0.163.1 | WebSocket, HTTP | Stable OpAMP UID across changed resource identity, resource namespace, raw/expanded config and endpoint discovery |
-| OpAMP Supervisor managing Collector Contrib | 0.163.0 / 0.163.1 | WebSocket, HTTP | Config hash acknowledgment, runtime rollback, validation failure, retry, persistent reconnect, heartbeat and connection settings |
+| OpAMP Supervisor managing Collector Contrib | 0.163.0 / 0.163.1 | WebSocket, HTTP | Config hash acknowledgment, runtime rollback, validation failure, retry, persistent reconnect, heartbeat and own-metrics settings |
 
 Run `make test-e2e-current-clients` for the current released-client suite. Docker is
 required; clients run sequentially to bound resource usage. The historical fixture
